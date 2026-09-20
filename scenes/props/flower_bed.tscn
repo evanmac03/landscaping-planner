@@ -1,0 +1,73 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Material" path="res://resources/materials/stone.tres" id="1_stone"]
+[ext_resource type="Material" path="res://resources/materials/soil.tres" id="2_soil"]
+[ext_resource type="Material" path="res://resources/materials/flower_pink.tres" id="3_pink"]
+[ext_resource type="Material" path="res://resources/materials/flower_yellow.tres" id="4_yellow"]
+[ext_resource type="Material" path="res://resources/materials/flower_white.tres" id="5_white"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_border"]
+size = Vector3(2.6, 0.22, 1.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_soil"]
+size = Vector3(2.4, 0.26, 1.2)
+
+[sub_resource type="SphereMesh" id="SphereMesh_bloom"]
+radius = 0.17
+height = 0.34
+radial_segments = 12
+rings = 6
+
+[node name="FlowerBed" type="Node3D"]
+
+[node name="Border" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.11, 0)
+mesh = SubResource("BoxMesh_border")
+surface_material_override/0 = ExtResource("1_stone")
+
+[node name="Soil" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, 0)
+mesh = SubResource("BoxMesh_soil")
+surface_material_override/0 = ExtResource("2_soil")
+
+[node name="Blooms" type="Node3D" parent="."]
+
+[node name="Bloom1" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.92, 0.4, -0.32)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("3_pink")
+
+[node name="Bloom2" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 0.44, 0.24)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("4_yellow")
+
+[node name="Bloom3" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.38, -0.28)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("5_white")
+
+[node name="Bloom4" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, 0.42, 0.3)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("3_pink")
+
+[node name="Bloom5" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 0.4, -0.22)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("4_yellow")
+
+[node name="Bloom6" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.04, 0.42, 0.2)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("5_white")
+
+[node name="Bloom7" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.7, 0.42, -0.02)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("3_pink")
+
+[node name="Bloom8" type="MeshInstance3D" parent="Blooms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.44, 0.02)
+mesh = SubResource("SphereMesh_bloom")
+surface_material_override/0 = ExtResource("5_white")

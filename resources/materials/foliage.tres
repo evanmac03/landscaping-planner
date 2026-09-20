@@ -1,0 +1,23 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[sub_resource type="Gradient" id="Gradient_foliage"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.13, 0.25, 0.09, 1, 0.24, 0.41, 0.15, 1, 0.35, 0.55, 0.21, 1)
+
+[sub_resource type="FastNoiseLite" id="Noise_foliage"]
+noise_type = 3
+frequency = 0.09
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="Tex_foliage"]
+width = 128
+height = 128
+seamless = true
+noise = SubResource("Noise_foliage")
+color_ramp = SubResource("Gradient_foliage")
+
+[resource]
+albedo_texture = SubResource("Tex_foliage")
+metallic_specular = 0.2
+roughness = 0.85
+uv1_scale = Vector3(3, 3, 1)

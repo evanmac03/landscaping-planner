@@ -1,0 +1,295 @@
+[gd_scene load_steps=25 format=3]
+
+[ext_resource type="Script" path="res://scripts/yard.gd" id="1_script"]
+[ext_resource type="Material" path="res://resources/materials/lawn.tres" id="2_lawn"]
+[ext_resource type="Material" path="res://resources/materials/soil.tres" id="3_soil"]
+[ext_resource type="Material" path="res://resources/materials/stone.tres" id="4_stone"]
+[ext_resource type="Material" path="res://resources/materials/stucco.tres" id="5_stucco"]
+[ext_resource type="Material" path="res://resources/materials/shingle.tres" id="6_shingle"]
+[ext_resource type="PackedScene" path="res://scenes/props/tree.tscn" id="7_tree"]
+[ext_resource type="PackedScene" path="res://scenes/props/shrub.tscn" id="8_shrub"]
+[ext_resource type="PackedScene" path="res://scenes/props/flower_bed.tscn" id="9_bed"]
+[ext_resource type="Material" path="res://resources/materials/rough_grass.tres" id="10_rough"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_terrain"]
+size = Vector3(600, 0.5, 600)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_terrain"]
+size = Vector3(600, 0.6, 600)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lawn"]
+size = Vector3(28, 0.1, 20)
+
+[sub_resource type="BoxMesh" id="BoxMesh_walls"]
+size = Vector3(11, 3.2, 7)
+
+[sub_resource type="PrismMesh" id="PrismMesh_roof"]
+size = Vector3(7.6, 1.7, 11.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_house"]
+size = Vector3(11, 3.2, 7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_door"]
+size = Vector3(1, 2.1, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_window"]
+size = Vector3(1.4, 1.1, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glass"]
+albedo_color = Color(0.36, 0.46, 0.5, 1)
+metallic = 0.4
+roughness = 0.15
+
+[sub_resource type="BoxMesh" id="BoxMesh_patio"]
+size = Vector3(8, 0.12, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_path"]
+size = Vector3(1.4, 0.12, 2.4)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pad"]
+top_radius = 1.8
+bottom_radius = 1.8
+height = 0.12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bath_stem"]
+top_radius = 0.16
+bottom_radius = 0.26
+height = 0.7
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bath_bowl"]
+top_radius = 0.55
+bottom_radius = 0.38
+height = 0.16
+
+[node name="Yard" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Terrain" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.27, 0)
+mesh = SubResource("BoxMesh_terrain")
+surface_material_override/0 = ExtResource("10_rough")
+
+[node name="TerrainBody" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape3D" parent="TerrainBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.28, 0)
+shape = SubResource("BoxShape3D_terrain")
+
+[node name="Lawn" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03, 0)
+mesh = SubResource("BoxMesh_lawn")
+surface_material_override/0 = ExtResource("2_lawn")
+
+[node name="House" type="Node3D" parent="."]
+
+[node name="Walls" type="MeshInstance3D" parent="House"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -5.8)
+mesh = SubResource("BoxMesh_walls")
+surface_material_override/0 = ExtResource("5_stucco")
+
+[node name="Roof" type="MeshInstance3D" parent="House"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4.05, -5.8)
+mesh = SubResource("PrismMesh_roof")
+surface_material_override/0 = ExtResource("6_shingle")
+
+[node name="Door" type="MeshInstance3D" parent="House"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, -2.24)
+mesh = SubResource("BoxMesh_door")
+surface_material_override/0 = ExtResource("6_shingle")
+
+[node name="WindowLeft" type="MeshInstance3D" parent="House"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.1, 1.9, -2.26)
+mesh = SubResource("BoxMesh_window")
+surface_material_override/0 = SubResource("StandardMaterial3D_glass")
+
+[node name="WindowRight" type="MeshInstance3D" parent="House"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.1, 1.9, -2.26)
+mesh = SubResource("BoxMesh_window")
+surface_material_override/0 = SubResource("StandardMaterial3D_glass")
+
+[node name="Body" type="StaticBody3D" parent="House"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape3D" parent="House/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -5.8)
+shape = SubResource("BoxShape3D_house")
+
+[node name="Paving" type="Node3D" parent="."]
+
+[node name="Patio" type="MeshInstance3D" parent="Paving"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5)
+mesh = SubResource("BoxMesh_patio")
+surface_material_override/0 = ExtResource("4_stone")
+
+[node name="Path" type="MeshInstance3D" parent="Paving"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5.2)
+mesh = SubResource("BoxMesh_path")
+surface_material_override/0 = ExtResource("4_stone")
+
+[node name="Pad" type="MeshInstance3D" parent="Paving"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.6)
+mesh = SubResource("CylinderMesh_pad")
+surface_material_override/0 = ExtResource("4_stone")
+
+[node name="Feature" type="Node3D" parent="."]
+
+[node name="BirdBathStem" type="MeshInstance3D" parent="Feature"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.41, 7.6)
+mesh = SubResource("CylinderMesh_bath_stem")
+surface_material_override/0 = ExtResource("4_stone")
+
+[node name="BirdBathBowl" type="MeshInstance3D" parent="Feature"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.82, 7.6)
+mesh = SubResource("CylinderMesh_bath_bowl")
+surface_material_override/0 = ExtResource("4_stone")
+
+[node name="Plants" type="Node3D" parent="."]
+
+[node name="Tree1" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, 9.5, 0, 7)
+
+[node name="Tree2" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, -9.5, 0, 7)
+
+[node name="Tree3" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 11.5, 0, -7.5)
+
+[node name="Tree4" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, -11.5, 0, -7.5)
+
+[node name="Tree5" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, 5.8, 0, 8)
+
+[node name="Tree6" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, -5.8, 0, 8)
+
+[node name="Tree7" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.05, 0, 0, 0, 1.05, 0, 0, 0, 1.05, 11.6, 0, 0.6)
+
+[node name="Tree8" parent="Plants" instance=ExtResource("7_tree")]
+transform = Transform3D(1.05, 0, 0, 0, 1.05, 0, 0, 0, 1.05, -11.6, 0, 0.6)
+
+[node name="Shrub1" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0, -1.6)
+
+[node name="Shrub2" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, -2.6, 0, -1.6)
+
+[node name="Shrub3" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 4.6, 0, -1.6)
+
+[node name="Shrub4" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.05, 0, 0, 0, 1.05, 0, 0, 0, 1.05, -4.6, 0, -1.6)
+
+[node name="Shrub5" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, 13, 0, -8.5)
+
+[node name="Shrub6" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, 13, 0, -4.5)
+
+[node name="Shrub7" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.05, 0, 0, 0, 1.05, 0, 0, 0, 1.05, 13, 0, 4.5)
+
+[node name="Shrub8" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 13, 0, 8.5)
+
+[node name="Shrub9" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, -13, 0, -8.5)
+
+[node name="Shrub10" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, -13, 0, -4.5)
+
+[node name="Shrub11" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, -13, 0, 4.5)
+
+[node name="Shrub12" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1.05, 0, 0, 0, 1.05, 0, 0, 0, 1.05, -13, 0, 8.5)
+
+[node name="Shrub13" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0, 8.8)
+
+[node name="Shrub14" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, 3.5, 0, 8.8)
+
+[node name="Shrub15" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.85, 0, 0, 0, 0.85, 0, 0, 0, 0.85, 2.4, 0, 7.6)
+
+[node name="Shrub16" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, -2.4, 0, 7.6)
+
+[node name="Shrub17" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 4.8, 0, 4.6)
+
+[node name="Shrub18" parent="Plants" instance=ExtResource("8_shrub")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, -4.8, 0, 4.6)
+
+[node name="Bed1" parent="Plants" instance=ExtResource("9_bed")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.8, 0, -6.4)
+
+[node name="Bed2" parent="Plants" instance=ExtResource("9_bed")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.8, 0, -6.4)
+
+[node name="Bed3" parent="Plants" instance=ExtResource("9_bed")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 3)
+
+[node name="Bed4" parent="Plants" instance=ExtResource("9_bed")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 3)
+
+[node name="Surroundings" type="Node3D" parent="."]
+
+[node name="Far1" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.7, 0, 0, 0, 1.7, 0, 0, 0, 1.7, -34, 0, -19)
+
+[node name="Far2" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -19, 0, -31)
+
+[node name="Far3" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.9, 0, 0, 0, 1.9, 0, 0, 0, 1.9, -1, 0, -37)
+
+[node name="Far4" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 17, 0, -33)
+
+[node name="Far5" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 31, 0, -21)
+
+[node name="Far6" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 39, 0, 1)
+
+[node name="Far7" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 32, 0, 25)
+
+[node name="Far8" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 13, 0, 37)
+
+[node name="Far9" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(2.1, 0, 0, 0, 2.1, 0, 0, 0, 2.1, -7, 0, 35)
+
+[node name="Far10" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.7, 0, 0, 0, 1.7, 0, 0, 0, 1.7, -27, 0, 27)
+
+[node name="Far11" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.9, 0, 0, 0, 1.9, 0, 0, 0, 1.9, -39, 0, 9)
+
+[node name="Far12" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.4, 0, 0, 0, 1.4, 0, 0, 0, 1.4, -29, 0, -5)
+
+[node name="FarDistant1" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, -52, 0, -30)
+
+[node name="FarDistant2" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 20, 0, -55)
+
+[node name="FarDistant3" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 55, 0, 18)
+
+[node name="FarDistant4" parent="Surroundings" instance=ExtResource("7_tree")]
+transform = Transform3D(2.1, 0, 0, 0, 2.1, 0, 0, 0, 2.1, -46, 0, 40)
+
+[node name="Fence" type="Node3D" parent="."]
+
+[node name="FenceCollision" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0

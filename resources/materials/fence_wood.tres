@@ -1,0 +1,23 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[sub_resource type="Gradient" id="Gradient_wood"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.42, 0.35, 0.26, 1, 0.57, 0.48, 0.36, 1, 0.69, 0.6, 0.46, 1)
+
+[sub_resource type="FastNoiseLite" id="Noise_wood"]
+noise_type = 3
+frequency = 0.1
+fractal_octaves = 2
+
+[sub_resource type="NoiseTexture2D" id="Tex_wood"]
+width = 128
+height = 128
+seamless = true
+noise = SubResource("Noise_wood")
+color_ramp = SubResource("Gradient_wood")
+
+[resource]
+albedo_texture = SubResource("Tex_wood")
+metallic_specular = 0.1
+roughness = 0.9
+uv1_scale = Vector3(3, 3, 1)

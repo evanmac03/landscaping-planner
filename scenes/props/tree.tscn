@@ -1,0 +1,53 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Material" path="res://resources/materials/bark.tres" id="1_bark"]
+[ext_resource type="Material" path="res://resources/materials/foliage.tres" id="2_foliage"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_trunk"]
+top_radius = 0.18
+bottom_radius = 0.3
+height = 3.2
+radial_segments = 12
+rings = 2
+
+[sub_resource type="SphereMesh" id="SphereMesh_crown"]
+radius = 1.7
+height = 3.4
+radial_segments = 20
+rings = 10
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]
+height = 3.2
+radius = 0.42
+
+[node name="Tree" type="Node3D"]
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+mesh = SubResource("CylinderMesh_trunk")
+surface_material_override/0 = ExtResource("1_bark")
+
+[node name="Canopy" type="Node3D" parent="."]
+
+[node name="Crown" type="MeshInstance3D" parent="Canopy"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.3, 0)
+mesh = SubResource("SphereMesh_crown")
+surface_material_override/0 = ExtResource("2_foliage")
+
+[node name="CrownSide" type="MeshInstance3D" parent="Canopy"]
+transform = Transform3D(0.62, 0, 0, 0, 0.6, 0, 0, 0, 0.62, 1.15, 3.75, 0.4)
+mesh = SubResource("SphereMesh_crown")
+surface_material_override/0 = ExtResource("2_foliage")
+
+[node name="CrownBack" type="MeshInstance3D" parent="Canopy"]
+transform = Transform3D(0.55, 0, 0, 0, 0.52, 0, 0, 0, 0.55, -1.0, 4.05, -0.6)
+mesh = SubResource("SphereMesh_crown")
+surface_material_override/0 = ExtResource("2_foliage")
+
+[node name="Body" type="StaticBody3D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="TrunkShape" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+shape = SubResource("CylinderShape3D_trunk")

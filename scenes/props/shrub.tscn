@@ -1,0 +1,31 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Material" path="res://resources/materials/foliage.tres" id="1_foliage"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_leaf"]
+radius = 0.6
+height = 1.2
+radial_segments = 16
+rings = 8
+
+[node name="Shrub" type="Node3D"]
+
+[node name="BlobCentre" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.9, 0, 0, 0, 1, 0, 0.54, 0)
+mesh = SubResource("SphereMesh_leaf")
+surface_material_override/0 = ExtResource("1_foliage")
+
+[node name="BlobLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.72, 0, 0, 0, 0.62, 0, 0, 0, 0.72, -0.44, 0.4, 0.16)
+mesh = SubResource("SphereMesh_leaf")
+surface_material_override/0 = ExtResource("1_foliage")
+
+[node name="BlobRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.68, 0, 0, 0, 0.58, 0, 0, 0, 0.68, 0.42, 0.38, -0.2)
+mesh = SubResource("SphereMesh_leaf")
+surface_material_override/0 = ExtResource("1_foliage")
+
+[node name="BlobFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.55, 0, 0, 0, 0.48, 0, 0, 0, 0.55, 0.06, 0.34, 0.46)
+mesh = SubResource("SphereMesh_leaf")
+surface_material_override/0 = ExtResource("1_foliage")

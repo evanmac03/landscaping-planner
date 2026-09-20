@@ -1,0 +1,7 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Ziva editor tooling: installed by the plugin, ~1.5 GB of vendored
+# platform binaries (CEF / zivacode). Not part of this project's source.
+addons/ziva_agent/
