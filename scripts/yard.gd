@@ -10,6 +10,10 @@ extends Node3D
 
 const WOOD_MATERIAL = preload("res://resources/materials/fence_wood.tres")
 
+## Group marking the planted props the planner lets you select and move. The plan
+## view and the 3D view both read it, so they always agree on what is editable.
+const PLACEABLE_GROUP := "placeable"
+
 ## The fenced property boundary, in world XZ.
 @export var bounds: Rect2 = Rect2(-14.0, -10.0, 28.0, 20.0)
 ## Distance between fence posts, in metres.
@@ -29,11 +33,28 @@ const WOOD_MATERIAL = preload("res://resources/materials/fence_wood.tres")
 func _ready() -> void:
 	_build_fence()
 	_build_barrier()
+	_mark_placeables()
 
 
 ## Centre of the fenced property, in world XZ.
 func centre() -> Vector2:
 	return bounds.get_center()
+
+
+## The fenced property boundary, in world XZ. The plan view draws its outline.
+func get_bounds() -> Rect2:
+	return bounds
+
+
+## Tags every planted prop as a design object the planner can select and move.
+## Anything added under `Plants` in the editor joins in automatically, so a new
+## prop becomes editable in both views without touching any code.
+func _mark_placeables() -> void:
+	var plants: Node = get_node_or_null("Plants")
+	if plants == null:
+		return
+	for plant in plants.get_children():
+		plant.add_to_group(PLACEABLE_GROUP)
 
 
 func _build_fence() -> void:

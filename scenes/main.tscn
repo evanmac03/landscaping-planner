@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/yard.tscn" id="1_yard"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scripts/view_controller.gd" id="3_controller"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
+[ext_resource type="Script" path="res://scripts/plan_canvas.gd" id="5_plan_canvas"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.29, 0.47, 0.78, 1)
@@ -23,6 +24,16 @@ ambient_light_source = 3
 ambient_light_energy = 0.55
 tonemap_mode = 2
 tonemap_white = 2.0
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring"]
+inner_radius = 0.88
+outer_radius = 1.0
+rings = 32
+ring_segments = 10
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring"]
+shading_mode = 0
+albedo_color = Color(1, 0.56, 0.12, 1)
 
 [node name="Main" type="Node3D"]
 
@@ -49,11 +60,26 @@ far = 150.0
 [node name="Player" parent="." instance=ExtResource("2_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 6)
 
-[node name="ViewController" type="Node" parent="." node_paths=PackedStringArray("flight_camera", "player", "yard")]
+[node name="PlanLayer" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="PlanCanvas" type="Node2D" parent="PlanLayer"]
+script = ExtResource("5_plan_canvas")
+
+[node name="SelectionRing" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("TorusMesh_ring")
+surface_material_override/0 = SubResource("StandardMaterial3D_ring")
+
+[node name="ViewController" type="Node" parent="." node_paths=PackedStringArray("flight_camera", "player", "yard", "plan_layer", "plan_canvas", "selection_ring")]
 script = ExtResource("3_controller")
 flight_camera = NodePath("../FlightCamera")
 player = NodePath("../Player")
 yard = NodePath("../Yard")
+plan_layer = NodePath("../PlanLayer")
+plan_canvas = NodePath("../PlanLayer/PlanCanvas")
+selection_ring = NodePath("../SelectionRing")
 floor_y = 0.02
 
 [node name="Hud" parent="." instance=ExtResource("4_hud") node_paths=PackedStringArray("view_controller")]

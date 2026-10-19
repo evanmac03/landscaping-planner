@@ -82,8 +82,16 @@ text = "Go to ground view  (Tab)"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
-tooltip_text = "Frame the whole design in the plan view"
+tooltip_text = "Frame the whole design in the overhead view"
 text = "Fit"
+
+[node name="GroundButton" type="Button" parent="Root/TopBar/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 0)
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Drop to eye level and walk the design"
+text = "Ground view  (G)"
 
 [node name="Hints" type="PanelContainer" parent="Root"]
 layout_mode = 1

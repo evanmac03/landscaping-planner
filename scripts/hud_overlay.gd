@@ -2,10 +2,10 @@ class_name HudOverlay
 extends Control
 ## Drawing layer for the planner's on-screen drafting aids.
 ##
-## In the plan view it draws the two things that make a top-down render read as a
-## landscape plan: a metre scale bar and a north arrow. In the ground view it
-## draws a crosshair. Both are suppressed during the camera flight, when neither
-## view is really active.
+## In either overhead view it draws the two things that make a top-down look read
+## as a landscape plan: a metre scale bar and a north arrow. In the ground view it
+## draws a crosshair instead. Both are suppressed during a camera flight, when
+## neither view is really active.
 
 ## Lengths a scale bar is allowed to show, in metres.
 const NICE_METRES: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
@@ -13,7 +13,7 @@ const NICE_METRES: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
 ## is chosen, so the bar stays about the same size on screen at every zoom.
 const BAR_MAX_PIXELS: float = 220.0
 
-var mode: ViewController.ViewMode = ViewController.ViewMode.PLAN
+var mode: ViewController.ViewMode = ViewController.ViewMode.OVERHEAD_3D
 var pixels_per_metre: float = 20.0
 var transitioning: bool = false
 
@@ -33,23 +33,23 @@ func set_transitioning(value: bool) -> void:
 	queue_redraw()
 
 
-## Update the plan zoom. Cheap to call every frame; redraws only on change.
+## Update the overhead zoom. Cheap to call every frame; redraws only on change.
 func set_pixels_per_metre(value: float) -> void:
 	if is_equal_approx(pixels_per_metre, value):
 		return
 	pixels_per_metre = value
-	if mode == ViewController.ViewMode.PLAN:
+	if mode != ViewController.ViewMode.GROUND:
 		queue_redraw()
 
 
 func _draw() -> void:
 	if transitioning:
 		return
-	if mode == ViewController.ViewMode.PLAN:
+	if mode == ViewController.ViewMode.GROUND:
+		_draw_crosshair()
+	else:
 		_draw_scale_bar()
 		_draw_north_arrow()
-	else:
-		_draw_crosshair()
 
 
 func _draw_scale_bar() -> void:
