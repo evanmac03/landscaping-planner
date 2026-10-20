@@ -759,6 +759,7 @@ func _select_draft_tool(event: InputEvent) -> bool:
 		["draft_circle", DraftToolScript.Kind.CIRCLE],
 		["draft_arc", DraftToolScript.Kind.ARC],
 		["draft_measure", DraftToolScript.Kind.MEASURE],
+		["draft_dimension", DraftToolScript.Kind.DIMENSION],
 	]
 	for entry in tools:
 		if event.is_action_pressed(entry[0]):

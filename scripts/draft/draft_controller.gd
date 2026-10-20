@@ -33,6 +33,11 @@ var tool
 var canvas: Node2D = null
 var overlay: Node = null
 
+## Which layer ordinary geometry is drawn on. Held apart from the tool's own
+## layer because annotating is not drawing: a dimension always goes on the
+## dimension layer, and that choice must not leave the next line stranded there.
+var drawing_layer: StringName = LayerSetScript.NEW_HARDSCAPE
+
 ## The sheet the drawing plots to: a property of the drawing rather than of a
 ## tool, so it lives here beside the document.
 var sheet: String = "A3"
@@ -62,7 +67,7 @@ func _ready() -> void:
 	document = DocumentScript.new()
 	snap = SnapScript.new()
 	tool = ToolScript.new()
-	tool.begin(ToolScript.Kind.LINE, LayerSetScript.NEW_HARDSCAPE)
+	tool.begin(ToolScript.Kind.LINE, drawing_layer)
 	pen_table = PenStyleScript.default_table()
 	snap.bind(document.entities())
 	document.changed.connect(_on_document_changed)
@@ -83,18 +88,35 @@ func _ready() -> void:
 func set_tool(kind: ToolScript.Kind) -> void:
 	# Keep whatever is on the drawing surface: switching tools mid-shape throws
 	# away half a shape, which is never what was meant.
-	tool.begin(kind, tool.layer)
+	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
 	_last_snap = {}
 	last_message = ""
 	_refresh_canvas()
 
 
+## Which layer a tool draws on.
+##
+## A dimension is an annotation rather than a site feature, so it goes on the
+## dimension layer whatever was being drawn. Burying measurements among the
+## hardscape is the exact mistake that layer exists to prevent, and it would
+## plot them at the hardscape's weight as well as counting them in its row of
+## the key.
+func _layer_for(kind: ToolScript.Kind) -> StringName:
+	if kind == ToolScript.Kind.DIMENSION:
+		return LayerSetScript.DIMENSION
+	return drawing_layer
+
+
 func set_layer(layer_name: StringName) -> void:
 	if not document.layers.has(layer_name):
 		return
-	tool.layer = layer_name
-	last_message = "drawing on %s" % String(layer_name)
+	drawing_layer = layer_name
+	# Reported from the tool rather than from the argument, so the line says what
+	# will actually happen: selecting a layer while annotating cannot move the
+	# dimension off the dimension layer.
+	tool.layer = _layer_for(tool.kind)
+	last_message = "drawing on %s" % String(tool.layer)
 	_refresh_canvas()
 
 

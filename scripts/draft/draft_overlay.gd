@@ -82,7 +82,7 @@ func set_ghost(entity, layer) -> void:
 	if _ghost == null:
 		return
 	var quads: Array = []
-	if entity != null:
+	if entity != null and not DraftRenderScript.is_annotation(entity):
 		var colour: Color = DraftRenderScript.screen_colour(layer)
 		# Half transparent, so a ghost is unmistakably not yet committed.
 		colour.a = 0.5

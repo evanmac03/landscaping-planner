@@ -4,6 +4,9 @@ extends Node
 
 const Tool := preload("res://scripts/draft/draft_tool.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
+const Dimension := preload("res://scripts/draft/dimension.gd")
+const Ctrl := preload("res://scripts/draft/draft_controller.gd")
+const LayerSet := preload("res://scripts/draft/layer_set.gd")
 
 
 func _tool(kind: Tool.Kind, layer: StringName = &"310-PAVING"):
@@ -304,8 +307,119 @@ func test_every_tool_has_a_label_and_a_point_count() -> void:
 	var kinds: Array = [
 		Tool.Kind.SELECT, Tool.Kind.LINE, Tool.Kind.POLYLINE,
 		Tool.Kind.RECTANGLE, Tool.Kind.CIRCLE, Tool.Kind.ARC, Tool.Kind.MEASURE,
+		Tool.Kind.DIMENSION,
 	]
 	for kind: Tool.Kind in kinds:
 		assert(Tool.label_for(kind) != "?")
 		var tool = _tool(kind)
 		assert(tool.needed_points() >= 0)
+
+
+# --- dimension ----------------------------------------------------------------------
+
+
+## The dimension line is whichever stroke in a layout is longest. Extension lines
+## are only a gap plus an overshoot long, so this cannot mistake one of those for
+## the line that carries the measurement.
+func _dimension_line(layout: Dictionary) -> PackedVector2Array:
+	var longest := PackedVector2Array()
+	for stroke: PackedVector2Array in layout["lines"]:
+		if stroke.size() < 2:
+			continue
+		if longest.is_empty() \
+				or stroke[0].distance_to(stroke[1]) > longest[0].distance_to(longest[1]):
+			longest = stroke
+	return longest
+
+
+## A dimension is two points to measure and somewhere to put the line that
+## measures them, so it takes three picks and commits on the third.
+func test_a_dimension_is_measured_between_two_points_and_placed_by_a_third() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION, LayerSet.DIMENSION)
+	assert(Tool.label_for(Tool.Kind.DIMENSION) == "Dimension")
+	assert(tool.needed_points() == 3)
+	assert(not tool.is_measure())
+	assert(not (tool.click(Vector2(0, 0))["committed"]))
+	assert(not (tool.click(Vector2(6, 0))["committed"]))
+	assert(tool.point_count() == 2)
+	var third: Dictionary = tool.click(Vector2(3, 2))
+	assert(third["committed"])
+	var dimension = third["entity"]
+	assert(dimension.kind == Entity.Kind.DIMENSION)
+	assert(dimension.point(0).is_equal_approx(Vector2(0, 0)))
+	assert(dimension.point(1).is_equal_approx(Vector2(6, 0)))
+	assert(int(dimension.params[5]) == Entity.DimensionKind.ALIGNED)
+	assert(not tool.is_active())
+
+
+## The tool and the layout have to agree about which side of the measured points
+## the offset puts the line, or the dimension jumps across the wall the moment the
+## third pick is committed.
+func test_the_dimension_line_lands_on_the_side_it_was_placed() -> void:
+	for placed: Vector2 in [Vector2(3, 2), Vector2(3, -2), Vector2(-5, 1.5)]:
+		var tool = _tool(Tool.Kind.DIMENSION)
+		tool.click(Vector2(0, 0))
+		tool.click(Vector2(6, 0))
+		var dimension = tool.click(placed)["entity"]
+		var line := _dimension_line(Dimension.layout(dimension, 100.0))
+		assert(line.size() == 2)
+		var middle := (line[0] + line[1]) * 0.5
+		# As far out as the pick, measured perpendicular to what is being
+		# dimensioned, and on the pick's own side of it.
+		assert(is_equal_approx(middle.x, 3.0))
+		assert(is_equal_approx(absf(middle.y), absf(placed.y)))
+		assert(signf(middle.y) == signf(placed.y))
+
+
+## Two identical picks measure nothing, so the dimension is refused and the bad
+## pick handed back - the same contract every shape tool has.
+func test_a_dimension_refuses_two_identical_points() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION)
+	tool.click(Vector2(2, 2))
+	var refused: Dictionary = tool.click(Vector2(2, 2))
+	assert(not refused["committed"])
+	assert(refused["rejected"])
+	assert(tool.point_count() == 1)
+	assert(tool.last_reason().contains("distinct"))
+	# Still usable: name a real second point and a place for the line.
+	assert(tool.click(Vector2(7, 2))["progress"] == 2)
+	assert(tool.click(Vector2(4, 1))["committed"])
+
+
+## Before the second pick there is nothing to measure, so the ghost is the plain
+## rubber band; after it, the ghost is the dimension the cursor is placing.
+func test_the_dimension_preview_follows_the_cursor_as_the_line_placement() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION)
+	assert(tool.preview(Vector2(1, 1)) == null)
+	tool.click(Vector2(0, 0))
+	var rubber = tool.preview(Vector2(6, 0))
+	assert(rubber.kind == Entity.Kind.LINE)
+	tool.click(Vector2(6, 0))
+	var ghost = tool.preview(Vector2(3, 2))
+	assert(ghost.kind == Entity.Kind.DIMENSION)
+	assert(is_equal_approx(float(ghost.params[4]), -2.0))
+	# A preview is not a commit: the placement is still the user's to make.
+	assert(tool.point_count() == 2)
+
+
+func test_the_dimension_tool_guides_its_three_picks() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION)
+	assert(tool.status().contains("measure from"))
+	tool.click(Vector2(0, 0))
+	assert(tool.status().contains("measure to"))
+	tool.click(Vector2(4, 0))
+	assert(tool.status().contains("dimension line"))
+
+
+## An annotation is not a site feature, so the dimension tool draws on the
+## dimension layer whatever is selected. Having made that choice it must not leave
+## the next line stranded there either - which is why the selected layer is kept
+## apart from the layer the active tool is drawing on.
+func test_a_dimension_draws_on_the_dimension_layer_not_the_selected_one() -> void:
+	var controller = Ctrl.new()
+	assert(controller._layer_for(Tool.Kind.DIMENSION) == LayerSet.DIMENSION)
+	assert(controller._layer_for(Tool.Kind.LINE) == LayerSet.NEW_HARDSCAPE)
+	controller.drawing_layer = LayerSet.NEW_PLANTING
+	assert(controller._layer_for(Tool.Kind.LINE) == LayerSet.NEW_PLANTING)
+	assert(controller._layer_for(Tool.Kind.DIMENSION) == LayerSet.DIMENSION)
+	controller.free()

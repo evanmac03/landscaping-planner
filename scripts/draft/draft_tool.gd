@@ -13,7 +13,10 @@ extends RefCounted
 const Geom := preload("res://scripts/draft/geom2d.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 
-enum Kind { SELECT, LINE, POLYLINE, RECTANGLE, CIRCLE, ARC, MEASURE }
+## The drawing tools. Dimension is appended after the shape tools rather than
+## slotted in beside measure, because an enum's values are its numbers and
+## renumbering a shipped one is a way to break a file that still reads correctly.
+enum Kind { SELECT, LINE, POLYLINE, RECTANGLE, CIRCLE, ARC, MEASURE, DIMENSION }
 
 ## Smallest shape that is still a shape. Two points closer than this describe
 ## nothing, and committing a 0.000 mm line is a drafting mistake, not geometry.
@@ -56,7 +59,9 @@ func last_reason() -> String:
 func needed_points() -> int:
 	if kind == Kind.LINE or kind == Kind.RECTANGLE or kind == Kind.CIRCLE or kind == Kind.MEASURE:
 		return 2
-	if kind == Kind.ARC:
+	# An arc is a centre, a start and a sweep; a dimension is two points to
+	# measure and somewhere to put the line that measures them.
+	if kind == Kind.ARC or kind == Kind.DIMENSION:
 		return 3
 	return 0
 
@@ -97,6 +102,19 @@ func click(point: Vector2) -> Dictionary:
 		return _result(false, null, null, _points.size())
 
 	_points.append(point)
+
+	# A dimension's measured pair is checked as soon as it is complete rather
+	# than when the shape is. Two identical points measure nothing, and the
+	# drawer wants to hear that on the bad pick, not one pick later - otherwise
+	# the tool sits there refusing every placement with no way forward but
+	# backing the point out.
+	if kind == Kind.DIMENSION and _points.size() == 2:
+		var pair := _dimension_between(_points[0], _points[1], _points[1])
+		if not pair.get("ok", false):
+			_points.remove_at(_points.size() - 1)
+			_last_reason = String(pair["reason"])
+			return _result(false, null, null, _points.size())
+
 	var needed := needed_points()
 	if _points.size() < needed:
 		return _result(false, null, null, _points.size())
@@ -174,9 +192,41 @@ func _build() -> Dictionary:
 	if kind == Kind.ARC:
 		var arc := _arc_from(_points[0], _points[1], _points[2])
 		return arc
+	if kind == Kind.DIMENSION:
+		return _dimension_between(_points[0], _points[1], _points[2])
 	if kind == Kind.MEASURE:
 		return {"ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1])}
 	return {"ok": false, "reason": "the %s tool takes no points" % kind}
+
+
+## Two points to measure and somewhere to put the measuring line.
+##
+## The dimension is *aligned*: it measures the true distance between the picks and
+## its line runs parallel to them. That is the reading a plan almost always wants
+## - "how long is this edge of the patio" - and it is the one that cannot surprise
+## the user, because an axis-locked reading of two diagonal picks measures
+## something other than the distance between them, on a rule the drawer cannot
+## see. Linear and radial dimensioning are separate commands, not a guess this
+## one makes.
+##
+## The stored offset is the *signed perpendicular distance* from the first
+## measured point out to where the line was placed, which is what the model holds
+## and what a second person opening the drawing needs in order to find the same
+## line again.
+func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictionary:
+	if from.distance_to(to) <= MIN_SIZE:
+		return {"ok": false, "reason": "a dimension needs two distinct points"}
+	var along := (to - from).normalized()
+	# The same side vector the dimension layout uses, so the line this returns
+	# lands exactly where the tool's own preview showed it.
+	var sideways := Vector2(along.y, -along.x)
+	return {
+		"ok": true,
+		"entity": EntityScript.make_dimension(
+			from, to, (placed - from).dot(sideways), EntityScript.DimensionKind.ALIGNED
+		),
+		"measure": null,
+	}
 
 
 ## Centre, a point on the radius, and where the sweep ends.
@@ -243,6 +293,15 @@ func preview(cursor: Vector2):
 			return EntityScript.make_circle(_points[0], span)
 		var preview_arc := _arc_from(_points[0], _points[1], cursor)
 		return preview_arc["entity"] if preview_arc.get("ok", false) else null
+	if kind == Kind.DIMENSION:
+		if count == 1:
+			# With one point down there is nothing to measure yet, so the ghost
+			# is the plain rubber band the line tool shows. The alternative - a
+			# dimension with no measurement in it - would be a drawing of a
+			# number that is not there.
+			return EntityScript.make_line(_points[0], cursor)
+		var preview_dimension := _dimension_between(_points[0], _points[1], cursor)
+		return preview_dimension["entity"] if preview_dimension.get("ok", false) else null
 	return null
 
 
@@ -274,6 +333,12 @@ func status() -> String:
 		return "Specify the start point" if _points.size() == 1 else "Specify the end point"
 	if kind == Kind.MEASURE:
 		return "Pick the first point" if _points.is_empty() else "Pick the second point"
+	if kind == Kind.DIMENSION:
+		if _points.is_empty():
+			return "Specify the first point to measure from"
+		if _points.size() == 1:
+			return "Specify the point to measure to"
+		return "Where the dimension line goes"
 	return ""
 
 
@@ -292,4 +357,6 @@ static func label_for(tool_kind: Kind) -> String:
 		return "Arc"
 	if tool_kind == Kind.MEASURE:
 		return "Measure"
+	if tool_kind == Kind.DIMENSION:
+		return "Dimension"
 	return "?"
