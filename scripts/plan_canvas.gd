@@ -55,6 +55,9 @@ const SNAP_TEXT := Color(0.09, 0.1, 0.11, 0.9)
 ## Drop-shadow offset for symbols, in metres. Gives the flat drawing a little
 ## depth so a prop reads as an object rather than a stain.
 const SHADOW_OFFSET := Vector2(-0.3, 0.36)
+## The plant size `SHADOW_OFFSET` is authored for - the base shrub. A smaller symbol takes a
+## proportionally smaller offset, so its shadow stays under it.
+const SHADOW_REFERENCE := 1.5
 
 ## Grid spacings to choose from, smallest first, so the grid stays legible at
 ## every zoom level.
@@ -222,8 +225,15 @@ func _draw() -> void:
 
 ## Opaque paper, so the hidden 3D render behind is fully covered even while the
 ## view cross-fades.
+##
+## The rectangle is the two *corners* of the viewport in local metres. A `Rect2` built from two points
+## would take the second as a *size*, which covers the top-left quarter of the screen and nothing
+## else - a defect that hides in the app because the yard's own lawn covers the paper, and shows up
+## the moment a plan is drawn with no ground under it.
 func _draw_paper() -> void:
-	draw_rect(Rect2(_screen_to_local(Vector2.ZERO), _screen_to_local(_viewport_size)), PAPER, true)
+	var near_corner: Vector2 = _screen_to_local(Vector2.ZERO)
+	var far_corner: Vector2 = _screen_to_local(_viewport_size)
+	draw_rect(Rect2(near_corner, far_corner - near_corner), PAPER, true)
 
 
 func _draw_grid() -> void:
@@ -317,9 +327,16 @@ func _draw_symbol(centre: Vector2, size: Vector2, symbol: StringName) -> void:
 	# The shadow first, under everything: the fills again a little off their own centre, so a plant
 	# reads as an object rather than a stain. An unknown prop is still drawn and still draggable,
 	# just flagged as undescribed, so adding a new prop type never makes it vanish from the plan.
+	#
+	# The offset shrinks with the plant. It is authored for the 1.5 m shrub it grew up on, and at that
+	# size it is a shadow; under a 30 cm groundcover the same 0.3 m puts the shadow in the next bed
+	# along, where it reads as a second plant. `SHADOW_REFERENCE` is the size it is written for.
+	var step: Vector2 = SHADOW_OFFSET * clampf(
+		minf(size.x, size.y) / SHADOW_REFERENCE, 0.0, 1.0
+	)
 	for part: Dictionary in parts:
 		if StringName(part["ink"]) == PlantSymbols.INK_FILL:
-			_fill_part(part, centre + SHADOW_OFFSET, half, SHADOW)
+			_fill_part(part, centre + step, half, SHADOW)
 	for part: Dictionary in parts:
 		match StringName(part["ink"]):
 			PlantSymbols.INK_FILL:
