@@ -132,6 +132,11 @@ named separately** rather than dropped - a plant on the plan that the list hides
 planting list must never do. The shipped yard shows this: its 30 hand-placed props come out as
 "30 x no species recorded", which is exactly what they are.
 
+The list reaches the **sheet**: the plotting exporter draws it as a third table against the
+right edge, the drafting controller takes the rows from whoever knows the yard, and the
+palette's plot button and the Plot entry in the menu both go through one door, so a plan
+cannot be plotted carrying two different lists.
+
 ## 6. The browser
 
 `scripts/plant_browser.gd` is a `Control` built in code, like the palette and the menu bar, because
@@ -398,17 +403,12 @@ window states ground for an area the plan already encloses, so a wet corner, a f
 of shade that no entity outlines cannot be described yet. `ZoneMap.add_zone` takes an arbitrary
 outline and the rules it obeys are built and tested, so what is missing is a plan tool that picks one.
 
-* **A planting schedule on a sheet.** `schedule()` and `schedule_text()` exist and are tested; nothing
-  plots them yet. Sheet furniture has a cross-reference table and a key, and a planting plan wants a
-  third.
 * **Editing a species in the library.** The browser reads; a catalogue is edited in a spreadsheet or
   added to by an import. That is the design, and an editor pane is a decision to revisit rather than
   an omission to fill.
 * **Photographs.** `thumbnail` is read and drawn when present; nothing generates or files them.
 * **Naming the shipped yard's plants.** Its 30 props have no species, and guessing which one is which
   would be inventing data. It is a five-minute job in the editor for whoever knows the garden.
-* **Sun and water from the drawing's own site.** A species knows what it needs; nothing yet checks it
-  against the bed it is put in.
 
 ## 9. The tests, and what they hold down
 
@@ -441,3 +441,6 @@ outline and the rules it obeys are built and tested, so what is missing is a pla
   replaced, and an entry already in the list is left alone (`test_plant_expansion.gd`)
 * a species that states soil or drainage states a value the vocabulary knows and keeps it through a
   file, and one that states neither is still valid (`test_plant_suitability.gd`)
+* the list reaches the plotted sheet: a species is one row with its count beside it, and the
+  plants the catalogue cannot name are one row that says so rather than being dropped
+  (`test_sheet_export.gd`)
