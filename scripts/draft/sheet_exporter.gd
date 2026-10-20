@@ -56,6 +56,17 @@ const SCALE_BAR_HEIGHT_MM := 2.0
 ## Captions are grey so the authored values read as the content of the block.
 const CAPTION_COLOUR := Color(0.35, 0.35, 0.35)
 
+## The layer key, in paper millimetres. It takes a column down the left edge of
+## the sheet; the width is for the longest layer name in the preset set plus its
+## pen sample and the count.
+const LEGEND_WIDTH_MM := 62.0
+const LEGEND_ROW_MM := 5.0
+const LEGEND_HEADER_MM := 8.0
+const LEGEND_PAD_MM := 2.0
+const LEGEND_SAMPLE_MM := 11.0
+const LEGEND_TITLE_MM := 3.5
+const LEGEND_TEXT_GAP_MM := 2.0
+
 
 # --- layout -------------------------------------------------------------------------
 
@@ -67,23 +78,37 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	var margin_mm: float = float(options.get("margin_mm", PlotScaleScript.DEFAULT_MARGIN_MM))
 	var imperial: bool = bool(options.get("imperial", false))
 	var show_border: bool = bool(options.get("show_border", true))
+	var legend: bool = bool(options.get("legend", false))
 	var effective_margin := margin_mm + (BORDER_INSET_MM if show_border else 0.0)
 
 	var sheet_mm: Vector2 = PlotScaleScript.sheet_size_mm(sheet_name)
 	var sheet_pt := sheet_mm * POINTS_PER_MM
 	var inset_pt := Vector2(effective_margin, effective_margin) * POINTS_PER_MM
 	var drawing_area := Rect2(inset_pt, sheet_pt - inset_pt * 2.0)
-	# The title block sits in the bottom-right corner, so the drawing is centred
-	# in what is left above it rather than in the whole sheet: a drawing centred
-	# over a block is a drawing with a block on top of it.
-	var content := _content_area(drawing_area) if show_border else drawing_area
+	# The key takes a column and the title block a strip, so the drawing is
+	# centred in what is left rather than in the whole sheet: a drawing centred
+	# under a title block is a drawing with a title block on top of it.
+	var reserved := _reserved_mm(show_border, legend)
+	var content := _content_area(drawing_area, reserved) if show_border else drawing_area
 
 	var extent: Rect2 = _plot_extent(document)
-	var scale: float = float(options.get("scale", 0.0))
+	# A viewport is a window onto the model at a locked scale, which is how a real
+	# sheet is laid out: the drawing is not poured into whatever space is left, it
+	# is framed, and the frame can be moved, resized and turned. With none given,
+	# the sheet works one out and everything below is unchanged.
+	var viewport: Dictionary = options.get("viewport", {})
+	var rotation := deg_to_rad(float(viewport.get("rotation_degrees", 0.0)))
+	var frame := content if viewport.is_empty() else _viewport_frame(viewport, content)
+
+	# A viewport's own scale is a lock: it is the reason for setting one, so it
+	# outranks a scale passed alongside it and is never re-suggested.
+	var scale: float = float(viewport.get("scale", options.get("scale", 0.0)))
 	if scale <= 0.0:
+		# The scale is chosen for what the drawing will take on the paper, which a
+		# turned viewport makes bigger: turning a drawing costs it a scale step or a
+		# sheet size, and pretending otherwise would leave it hanging off the border.
 		scale = PlotScaleScript.suggest(
-			extent.size, sheet_name, effective_margin, imperial,
-			Vector2(0.0, _reserved_mm(show_border))
+			_footprint(extent.size, rotation), sheet_name, effective_margin, imperial, reserved
 		)["scale"]
 	scale = maxf(scale, 0.0001)
 
@@ -91,14 +116,31 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	# exactly 72/25.4 points, so a metre is 28.3465 points and a 10 m wall is
 	# 283.465 points - which is 100 mm. This is the whole of the scale law.
 	var pt_per_metre := 1000.0 / scale * POINTS_PER_MM
-	var drawing_size := extent.size * pt_per_metre
+	# Turned or not, it is the footprint on the paper that has to fit, and the box
+	# around a rotated rectangle is larger than the rectangle.
+	var footprint := _footprint(extent.size * pt_per_metre, rotation)
 
-	# A caller can override the scale, and then the drawing may not fit the area
-	# the block leaves. It is then placed against the top of that area rather than
-	# centred, so what it overruns is the clear space at the top of the sheet and
-	# never the title block across the bottom.
-	var origin := content.position + (content.size - drawing_size) * 0.5
-	origin.y = content.position.y if drawing_size.y > content.size.y else origin.y
+	# The drawing is centred in its frame. One that does not fit is set against the
+	# edge furthest from the furniture instead: pushing the overflow towards a
+	# corner nobody reads would be worse than not placing it at all. A drawing that
+	# overruns the border wants re-scaling, which is what the overflow flag is for;
+	# one that overruns its own title block is simply unreadable.
+	var origin := frame.get_center()
+	if footprint.x > frame.size.x:
+		origin.x = frame.position.x + footprint.x * 0.5
+	if footprint.y > frame.size.y:
+		origin.y = frame.end.y - footprint.y * 0.5
+
+	# The key's frame, flush into the top-left corner of the border and only as
+	# tall as the rows it has to carry.
+	var legend_rect := Rect2()
+	if legend:
+		var rows := legend_rows(document, options.get("pen_table", null))
+		if not rows.is_empty():
+			legend_rect = Rect2(
+				drawing_area.position,
+				Vector2(LEGEND_WIDTH_MM, _legend_height_mm(rows.size())) * POINTS_PER_MM
+			)
 
 	return {
 		"sheet": sheet_name,
@@ -112,9 +154,21 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		"scale": scale,
 		"pt_per_metre": pt_per_metre,
 		"origin_pt": origin,
-		"drawing_pt": drawing_size,
+		"drawing_pt": footprint,
+		"viewport_pt": frame,
+		"rotation": rotation,
+		"model_centre": extent.get_center(),
+		"overflow": footprint.x > frame.size.x + 0.01 or footprint.y > frame.size.y + 0.01,
+		"legend": legend,
+		"legend_pt": legend_rect,
 		"empty": document.count() == 0,
 	}
+
+
+## How tall the key is for a given number of rows: its title, its rows, and a
+## little air under the last of them.
+static func _legend_height_mm(rows: int) -> float:
+	return LEGEND_HEADER_MM + LEGEND_ROW_MM * float(maxi(rows, 0)) + LEGEND_PAD_MM
 
 
 ## The extent of what will actually be plotted.
@@ -133,39 +187,87 @@ static func _plot_extent(document) -> Rect2:
 	for entity in document.plotting_entities():
 		if entity.kind != EntityScript.Kind.DIMENSION:
 			continue
-		for stroke: PackedVector2Array in DimensionScript.layout(entity, 1.0, null)["lines"]:
+		for stroke: PackedVector2Array in DimensionScript.layout(
+			entity, 1.0, null, DimensionScript.style_for(entity, document)
+		)["lines"]:
 			for point in stroke:
 				extent = extent.expand(point)
 	return extent
 
 
-## The strip across the bottom of the sheet, in paper millimetres, that the title
-## block claims. The scale is chosen against what is left, so a drawing cannot be
-## fitted to a sheet and then placed under the block.
-static func _reserved_mm(show_border: bool) -> float:
+## The part of the sheet, in paper millimetres, that the furniture claims: a
+## column down the left edge for the layer key and a strip across the bottom for
+## the title block.
+##
+## The choice of scale is made against what is left, not against the whole page.
+## A sheet that picked a scale for the full printable area and then laid its
+## furniture over the drawing would be inconsistent with itself, and the
+## inconsistency would only show up on paper.
+static func _reserved_mm(show_border: bool, legend: bool) -> Vector2:
 	if not show_border:
-		return 0.0
-	return TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM
-
-
-## The area left for the drawing once the title block has taken a strip across
-## the bottom of the sheet. The strip is full width even though the block only
-## occupies one end of it, because a drawing is placed by its centre and a
-## centre that ignores the block puts the drawing under it.
-static func _content_area(area: Rect2) -> Rect2:
-	var reserved := _reserved_mm(true) * POINTS_PER_MM
-	return Rect2(area.position, Vector2(area.size.x, maxf(area.size.y - reserved, area.size.y * 0.25)))
-
-
-## Model XZ to paper points, centred on the sheet, north up.
-static func model_to_paper(point: Vector2, plan: Dictionary) -> Vector2:
-	var extent: Rect2 = plan["extent"]
-	var per_metre: float = plan["pt_per_metre"]
-	var origin: Vector2 = plan["origin_pt"]
+		return Vector2.ZERO
 	return Vector2(
-		origin.x + (point.x - extent.position.x) * per_metre,
-		origin.y + (extent.end.y - point.y) * per_metre
+		LEGEND_WIDTH_MM if legend else 0.0,
+		TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM
 	)
+
+
+## The area left for the drawing once the furniture has taken its column and its
+## strip. Both are reserved as full-length bands even though the legend is only
+## as tall as its rows and the block only reaches part way across, because a
+## drawing is placed by its centre and a centre that ignored them would put the
+## drawing under them.
+static func _content_area(area: Rect2, reserved: Vector2) -> Rect2:
+	var claimed := reserved * POINTS_PER_MM
+	return Rect2(
+		area.position + Vector2(claimed.x, 0.0),
+		Vector2(
+			maxf(area.size.x - claimed.x, area.size.x * 0.25),
+			maxf(area.size.y - claimed.y, area.size.y * 0.25)
+		)
+	)
+
+
+## Model XZ to paper points: placed at the drawing's centre on the sheet and
+## turned for its viewport, north up until something says otherwise.
+##
+## The model's y runs south and the paper's runs north, so the flip is part of the
+## transform rather than a correction sprinkled through the emitters. Getting it
+## backwards produces a mirrored plan that still looks plausible, which is why it
+## is one function with a test rather than arithmetic in five places.
+static func model_to_paper(point: Vector2, plan: Dictionary) -> Vector2:
+	var per_metre: float = plan["pt_per_metre"]
+	var centre: Vector2 = plan["model_centre"]
+	var offset := (point - centre) * per_metre
+	offset.y = -offset.y
+	return Vector2(plan["origin_pt"]) + offset.rotated(plan["rotation"])
+
+
+## Which way north points on the paper. North is up until a viewport is turned,
+## and then the north point has to turn with it or it lies about the drawing.
+static func north_direction(plan: Dictionary) -> Vector2:
+	return Vector2(0.0, 1.0).rotated(plan["rotation"])
+
+
+## The rectangle a drawing covers on the paper once turned. A rotated rectangle's
+## axis-aligned box is larger than the rectangle, and it is the box that has to
+## fit the sheet.
+static func _footprint(size: Vector2, rotation: float) -> Vector2:
+	var across := absf(cos(rotation))
+	var down := absf(sin(rotation))
+	return Vector2(
+		across * size.x + down * size.y,
+		down * size.x + across * size.y
+	)
+
+
+## The frame a caller's viewport describes, in paper points. Anything left out
+## falls back to the area the furniture left, so a viewport may be given as little
+## as a scale, or a rotation, or a whole window.
+static func _viewport_frame(viewport: Dictionary, content: Rect2) -> Rect2:
+	var origin_mm := Vector2(viewport.get("origin_mm", content.position / POINTS_PER_MM))
+	var size_mm := Vector2(viewport.get("size_mm", content.size / POINTS_PER_MM))
+	return Rect2(origin_mm * POINTS_PER_MM, size_mm * POINTS_PER_MM)
 
 
 # --- emission -----------------------------------------------------------------------
@@ -187,10 +289,112 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 	for entity in document.plotting_entities():
 		_emit_entity(writer, document, entity, pen_table, plan)
 
-	# The block goes on last, so nothing a user drew can end up under it.
+	# The furniture goes on last, so nothing a user drew can end up under it.
 	if bool(plan["show_border"]):
+		_emit_legend(writer, document, pen_table, plan, options)
 		_emit_title_block(writer, plan, options)
 	return writer.build()
+
+
+# --- the layer key ------------------------------------------------------------------
+
+
+## One row per layer that actually puts something on this sheet, in the layer
+## set's own order, so the key reads from the survey down to the annotations.
+##
+## Keyed by layer rather than by plant species because the document knows its
+## layers and does not know its species: a key that claimed to tell a maple from
+## an oak would be guessing. The count is of the entities that plot, so a layer
+## switched off is absent from the key rather than listed with nothing against it.
+static func legend_rows(document, pen_table) -> Array[Dictionary]:
+	var counts: Dictionary = {}
+	for entity in document.plotting_entities():
+		counts[entity.layer] = int(counts.get(entity.layer, 0)) + 1
+	var rows: Array[Dictionary] = []
+	for layer in document.layers.layers():
+		var count := int(counts.get(layer.name, 0))
+		if count <= 0:
+			continue
+		rows.append({
+			"name": String(layer.name),
+			"count": count,
+			"style": layer_pen(layer, pen_table),
+		})
+	return rows
+
+
+## The pen a layer plots with. This is what the key's sample line is drawn in, so
+## the key explains the drawing rather than merely naming it.
+static func layer_pen(layer, pen_table) -> LineStyleScript:
+	var fallback: LineStyleScript = layer.style()
+	if pen_table == null:
+		return fallback
+	return pen_table.resolve_for(layer.screen_colour, fallback)
+
+
+static func _emit_legend(
+	writer,
+	document,
+	pen_table,
+	plan: Dictionary,
+	options: Dictionary
+) -> void:
+	var rect: Rect2 = plan["legend_pt"]
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var rows := legend_rows(document, pen_table)
+	if rows.is_empty():
+		return
+
+	writer.save_state()
+	writer.set_line_width_points(BORDER_WEIGHT_MM * POINTS_PER_MM)
+	writer.set_stroke_colour(Color.BLACK)
+	writer.set_dash([])
+	writer.rectangle(rect)
+	writer.stroke()
+
+	var pad := LEGEND_PAD_MM * POINTS_PER_MM
+	writer.set_fill_colour(Color.BLACK)
+	writer.draw_text(
+		rect.position + Vector2(pad, pad + LEGEND_TITLE_MM * POINTS_PER_MM),
+		String(options.get("legend_title", "KEY")), LEGEND_TITLE_MM * POINTS_PER_MM
+	)
+	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
+	var header := rect.position.y + LEGEND_HEADER_MM * POINTS_PER_MM
+	_rule(writer, Vector2(rect.position.x, header), Vector2(rect.end.x, header))
+
+	var size := CAPTION_TEXT_MM * POINTS_PER_MM
+	var row := LEGEND_ROW_MM * POINTS_PER_MM
+	var baseline := header + row - pad * 0.5
+	for entry: Dictionary in rows:
+		var style: LineStyleScript = entry["style"]
+		writer.set_line_width_points(style.width_points())
+		writer.set_stroke_colour(style.plot_colour)
+		writer.set_dash(_dash_points(style))
+		# The sample is drawn in the layer's own pen, weight and linetype: the
+		# whole point of a key is that its line looks like the drawing's.
+		var sample_y := baseline - row * 0.35
+		writer.move_to(Vector2(rect.position.x + pad, sample_y))
+		writer.line_to(
+			Vector2(rect.position.x + pad + LEGEND_SAMPLE_MM * POINTS_PER_MM, sample_y)
+		)
+		writer.stroke()
+		writer.set_dash([])
+
+		writer.set_fill_colour(Color.BLACK)
+		writer.draw_text(
+			Vector2(
+				rect.position.x + pad + (LEGEND_SAMPLE_MM + LEGEND_TEXT_GAP_MM) * POINTS_PER_MM,
+				baseline
+			),
+			String(entry["name"]), size
+		)
+		var count := "%d" % int(entry["count"])
+		writer.draw_text(
+			Vector2(rect.end.x - pad - writer.text_width(count, size), baseline), count, size
+		)
+		baseline += row
+	writer.restore_state()
 
 
 static func _emit_border(writer, plan: Dictionary) -> void:
@@ -267,7 +471,8 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 	)
 	_emit_north_arrow(
 		writer,
-		Rect2(Vector2(north_x, numbering), Vector2(block.end.x - north_x, block.end.y - numbering))
+		Rect2(Vector2(north_x, numbering), Vector2(block.end.x - north_x, block.end.y - numbering)),
+		north_direction(plan)
 	)
 	writer.restore_state()
 
@@ -337,14 +542,15 @@ static func _emit_scale_bar(writer, plan: Dictionary, strip: Rect2) -> void:
 	)
 
 
-## The north point. North is up on the sheet by construction - the exporter flips
-## the model's southward y as it writes - so the arrow is a fixed glyph rather
-## than something derived from the drawing.
-static func _emit_north_arrow(writer, cell: Rect2) -> void:
+## The north point, turned to match the viewport. North is up on a sheet laid out
+## north up - the exporter flips the model's southward y as it writes - but a
+## turned viewport turns north with it, and an arrow still pointing up the page
+## would be a lie about the drawing.
+static func _emit_north_arrow(writer, cell: Rect2, north: Vector2) -> void:
 	var centre := cell.get_center()
 	var reach := minf(cell.size.x, cell.size.y) * 0.30
-	var tip := centre + Vector2(0.0, reach)
-	var half := reach * 0.36
+	var tip := centre + north * reach
+	var flare := Vector2(-north.y, north.x) * (reach * 0.36)
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	writer.set_stroke_colour(Color.BLACK)
 	writer.set_fill_colour(Color.BLACK)
@@ -353,13 +559,16 @@ static func _emit_north_arrow(writer, cell: Rect2) -> void:
 	# triangle, which would read as a road sign.
 	_rule(writer, centre, tip)
 	writer.move_to(tip)
-	writer.line_to(tip + Vector2(-half, -reach * 1.3))
-	writer.line_to(tip + Vector2(half, -reach * 1.3))
+	writer.line_to(tip - north * (reach * 1.3) + flare)
+	writer.line_to(tip - north * (reach * 1.3) - flare)
 	writer.close_path()
 	writer.fill()
+	# The letter stays upright whatever the arrow does: a turning letter is a
+	# letter nobody reads.
 	var size := CAPTION_TEXT_MM * POINTS_PER_MM
 	writer.draw_text(
-		tip + Vector2(-writer.text_width("N", size) * 0.5, POINTS_PER_MM), "N", size
+		tip + north * POINTS_PER_MM - Vector2(writer.text_width("N", size) * 0.5, size * 0.5),
+		"N", size
 	)
 
 
@@ -436,7 +645,10 @@ static func _dash_points(style: LineStyleScript) -> Array[float]:
 ## lines, their arrowheads and their measurement are derived in one place and
 ## arrive here the same way they arrive on screen.
 static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Dictionary) -> void:
-	var parts: Dictionary = RenderScript.layout(entity, layer, plan["scale"], document.units)
+	var parts: Dictionary = RenderScript.layout(
+		entity, layer, plan["scale"], document.units,
+		DimensionScript.style_for(entity, document)
+	)
 
 	for stroke: PackedVector2Array in parts["lines"]:
 		if stroke.size() < 2:
@@ -446,17 +658,27 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 			writer.line_to(model_to_paper(stroke[index], plan))
 		writer.stroke()
 
-	# An arrowhead is a solid, so it is filled rather than stroked, in the same
-	# colour and at the same weight as the line it terminates.
-	for arrow: Dictionary in parts["arrows"]:
-		var triangle := DimensionScript.arrow_triangle(
-			arrow["tip"], arrow["direction"], arrow["size"]
-		)
-		writer.move_to(model_to_paper(triangle[0], plan))
-		writer.line_to(model_to_paper(triangle[1], plan))
-		writer.line_to(model_to_paper(triangle[2], plan))
-		writer.close_path()
-		writer.fill()
+	# A mark is a solid, so it is filled rather than stroked, in the same colour
+	# and at the same weight as the line it terminates. A dot is emitted as real
+	# curves: it is the one shape where a polygon would show even at a millimetre
+	# across, and a printed dot has to be round.
+	for mark: Dictionary in parts["marks"]:
+		if mark["kind"] == &"arrow":
+			var triangle := DimensionScript.arrow_triangle(
+				mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
+			)
+			writer.move_to(model_to_paper(triangle[0], plan))
+			writer.line_to(model_to_paper(triangle[1], plan))
+			writer.line_to(model_to_paper(triangle[2], plan))
+			writer.close_path()
+			writer.fill()
+		elif mark["kind"] == &"dot":
+			var centre := model_to_paper(Vector2(mark["at"]), plan)
+			_emit_circle_path_pt(
+				writer, centre,
+				float(mark["size"]) * 0.5 * float(plan["pt_per_metre"])
+			)
+			writer.fill()
 
 	for label: Dictionary in parts["labels"]:
 		var text := String(label["text"])
@@ -465,11 +687,14 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 		# The layout states a text height in model metres, and pt_per_metre turns
 		# any model length into paper points: the same law the geometry follows, so
 		# a note is the authored size on paper at whatever scale is in force.
+		# The label carries a model-space angle. On the paper the vertical flip
+		# turns it the other way and the viewport's rotation is added on top, so
+		# the two cancel and compose rather than needing a third convention.
 		writer.draw_text_rotated(
 			model_to_paper(label["position"], plan),
 			text,
 			float(label["height"]) * float(plan["pt_per_metre"]),
-			float(label["angle"])
+			float(plan["rotation"]) - float(label["angle"])
 		)
 
 
@@ -515,3 +740,37 @@ static func _emit_arc(
 
 static func _bezier_control(radius: float, sweep: float) -> float:
 	return radius * 4.0 / 3.0 * tan(sweep * 0.25)
+
+
+## A full circle in paper points, as four cubic Beziers, left as a path for the
+## caller to fill or stroke. Used for the round mark a dimension style may put at
+## its ends.
+static func _emit_circle_path_pt(writer, centre: Vector2, radius: float) -> void:
+	if radius <= 0.0:
+		return
+	var control := _bezier_control(radius, PI * 0.5)
+	var right := Vector2(radius, 0.0)
+	var up := Vector2(0.0, radius)
+	writer.move_to(centre + right)
+	_circle_quarter(writer, centre, right, up, control)
+	_circle_quarter(writer, centre, up, -right, control)
+	_circle_quarter(writer, centre, -right, -up, control)
+	_circle_quarter(writer, centre, -up, right, control)
+	writer.close_path()
+
+
+## One quarter of that circle, from one radius vector to the next going
+## anticlockwise. Each control point sits off its own radius along the tangent, so
+## the same control length serves all four quarters.
+static func _circle_quarter(
+	writer,
+	centre: Vector2,
+	from_vector: Vector2,
+	to_vector: Vector2,
+	control: float
+) -> void:
+	writer.curve_to(
+		centre + from_vector + Vector2(-from_vector.y, from_vector.x).normalized() * control,
+		centre + to_vector + Vector2(to_vector.y, -to_vector.x).normalized() * control,
+		centre + to_vector
+	)

@@ -78,9 +78,9 @@ static func width_pixels(style: LineStyleScript, plot_scale: float, pixels_per_m
 	return style.width_pixels(plot_scale, pixels_per_metre)
 
 
-## Everything a view needs to draw one entity: the lines to stroke, the
-## arrowheads to fill, the labels to place, and the style to do it in a single
-## colour and weight.
+## Everything a view needs to draw one entity: the lines to stroke, the marks to
+## fill, the labels to place, and the style to do it in a single colour and
+## weight.
 ##
 ## This is the one entry point the plan, the sheet and the 3D overlay share, so a
 ## dimension reaches the paper by the same route it reaches the screen. `strokes`
@@ -90,10 +90,11 @@ static func layout(
 	entity: EntityScript,
 	layer: LayerScript,
 	plot_scale: float,
-	units = null
+	units = null,
+	dimension_style = null
 ) -> Dictionary:
 	var lines: Array[PackedVector2Array] = []
-	var arrows: Array[Dictionary] = []
+	var marks: Array[Dictionary] = []
 	var labels: Array[Dictionary] = []
 
 	match entity.kind:
@@ -101,11 +102,13 @@ static func layout(
 			# Copied element by element rather than assigned across: a Dictionary
 			# value loses its static array type, so the assignment would be
 			# rejected and the caller's typing contract would be broken.
-			var parts: Dictionary = DimensionScript.layout(entity, plot_scale, units)
+			var parts: Dictionary = DimensionScript.layout(
+				entity, plot_scale, units, dimension_style
+			)
 			for part: PackedVector2Array in parts["lines"]:
 				lines.append(part)
-			for part: Dictionary in parts["arrows"]:
-				arrows.append(part)
+			for part: Dictionary in parts["marks"]:
+				marks.append(part)
 			for part: Dictionary in parts["labels"]:
 				labels.append(part)
 		EntityScript.Kind.TEXT:
@@ -120,7 +123,7 @@ static func layout(
 
 	return {
 		"lines": lines,
-		"arrows": arrows,
+		"marks": marks,
 		"labels": labels,
 		"style": style_for(entity, layer),
 	}

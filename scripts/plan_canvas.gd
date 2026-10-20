@@ -366,7 +366,9 @@ func _draw_document() -> void:
 func _draw_entity(entity, layer, alpha: float) -> void:
 	var colour: Color = DraftRenderScript.screen_colour(layer)
 	colour.a *= alpha
-	var parts: Dictionary = DraftRenderScript.layout(entity, layer, display_scale, _units())
+	var parts: Dictionary = DraftRenderScript.layout(
+		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+	)
 	var style = parts["style"]
 	# Godot's draw widths are in the canvas item's own units, which here are
 	# metres, so a pixel width has to be divided back down by the zoom or the
@@ -376,15 +378,18 @@ func _draw_entity(entity, layer, alpha: float) -> void:
 		if stroke.size() < 2:
 			continue
 		draw_polyline(stroke, colour, width, true)
-	# Arrowheads are filled solids, not strokes, so they are polygons of their
-	# own rather than the ends of the dimension line.
-	for arrow: Dictionary in parts["arrows"]:
-		draw_colored_polygon(
-			DraftDimensionScript.arrow_triangle(
-				arrow["tip"], arrow["direction"], arrow["size"]
-			),
-			colour
-		)
+	# Marks are filled solids rather than strokes, so they are drawn as shapes of
+	# their own: an arrowhead a triangle, a dot a small disc.
+	for mark: Dictionary in parts["marks"]:
+		if mark["kind"] == &"arrow":
+			draw_colored_polygon(
+				DraftDimensionScript.arrow_triangle(
+					mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
+				),
+				colour
+			)
+		elif mark["kind"] == &"dot":
+			draw_circle(Vector2(mark["at"]), float(mark["size"]) * 0.5, colour)
 	_draw_labels(parts["labels"], colour)
 
 

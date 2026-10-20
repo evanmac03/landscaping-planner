@@ -15,6 +15,7 @@ const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 const UndoScript := preload("res://scripts/draft/undo_stack.gd")
+const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 
 signal changed()
 signal entity_added(id: int)
@@ -23,6 +24,10 @@ signal entity_removed(id: int)
 var layers: LayerSetScript
 var units: UnitsScript
 var undo: UndoScript
+## The drawing's standard for how a dimension is drawn. A single dimension may
+## override it, and the same rule covers the plan and the plotted sheet, so a
+## practice's standard only has to be set once.
+var dimension_style: DimensionStyleScript
 
 var _entities: Dictionary = {}
 ## Insertion order, which is the tie-break inside a layer's plotting band.
@@ -38,6 +43,7 @@ func _init() -> void:
 	layers = LayerSetScript.default_set()
 	units = UnitsScript.new()
 	undo = UndoScript.new()
+	dimension_style = DimensionStyleScript.architectural()
 
 
 # --- entities -----------------------------------------------------------------------
@@ -217,6 +223,7 @@ func snapshot() -> Dictionary:
 		"entities": saved,
 		"layers": layers.copy(),
 		"units": units_snapshot(),
+		"dimension_style": dimension_style.to_dict(),
 	}
 
 
@@ -245,6 +252,11 @@ func restore(state: Dictionary) -> void:
 	units.display_precision = int(units_state.get("display_precision", 3))
 	units.inch_denominator = int(units_state.get("inch_denominator", 16))
 	units.use_us_survey_foot = bool(units_state.get("use_us_survey_foot", false))
+	var style_state = state.get("dimension_style", null)
+	# A file written before dimensions had styles carries none, and falls back to
+	# the shipped standard rather than to something empty.
+	if style_state is Dictionary:
+		dimension_style = DimensionStyleScript.from_dict(style_state)
 	changed.emit()
 
 
@@ -282,8 +294,9 @@ func to_dict() -> Dictionary:
 	for id in _order:
 		order.append(id)
 	return {
-		"version": 1,
+		"version": 2,
 		"units": units_snapshot(),
+		"dimension_style": dimension_style.to_dict(),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

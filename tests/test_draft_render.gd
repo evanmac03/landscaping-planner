@@ -17,7 +17,7 @@ func test_the_layout_of_a_plain_entity_is_its_linework() -> void:
 	var entity = Entity.make_line(Vector2(0, 0), Vector2(10, 0))
 	var parts := Render.layout(entity, _layer(), 100.0)
 	assert(parts["lines"].size() == 1)
-	assert(parts["arrows"].is_empty())
+	assert(parts["marks"].is_empty())
 	assert(parts["labels"].is_empty())
 	# The lines are the same ones strokes would have given, not a second opinion.
 	assert(parts["lines"][0] == Render.strokes(entity, _layer(), 100.0)[0])
@@ -27,7 +27,7 @@ func test_the_layout_of_a_dimension_is_its_extension_and_arrowheads() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
 	var parts := Render.layout(entity, _layer(), 100.0)
 	assert(parts["lines"].size() == 3)
-	assert(parts["arrows"].size() == 2)
+	assert(parts["marks"].size() == 2)
 	assert(parts["labels"].size() == 1)
 
 
@@ -37,7 +37,7 @@ func test_the_layout_of_a_text_entity_is_a_label_with_a_height() -> void:
 	var entity = Entity.make_text(Vector2(3, 4), "Patio (new)")
 	var parts := Render.layout(entity, _layer(), 100.0)
 	assert(parts["lines"].is_empty())
-	assert(parts["arrows"].is_empty())
+	assert(parts["marks"].is_empty())
 	assert(parts["labels"].size() == 1)
 	assert(parts["labels"][0]["text"] == "Patio (new)")
 	assert(Vector2(parts["labels"][0]["position"]).is_equal_approx(Vector2(3, 4)))

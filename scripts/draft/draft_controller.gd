@@ -17,6 +17,7 @@ const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
 const PenStyleScript := preload("res://scripts/draft/plot_style_table.gd")
+const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 
 @export var plan_canvas_path: NodePath = ^"../PlanLayer/PlanCanvas"
 ## The 3D linework overlay, when the scene has one. Optional: drawing works
@@ -37,6 +38,14 @@ var overlay: Node = null
 var sheet: String = "A3"
 var plot_scale: float = 100.0
 var pen_table = null
+## What goes in the title block, and whether the layer key is drawn with it. The
+## sheet is a deliverable, so its wording is a property of the drawing too.
+var project_name: String = "Backyard Design"
+var drawing_title: String = "Landscaping Plan"
+var show_legend: bool = true
+## Which shipped dimension standard the drawing is using, so a key can step to the
+## next one.
+var dimension_style_name: StringName = &"architectural"
 ## Where the last plot was written, so the result can be reported.
 var plot_path: String = ""
 
@@ -207,6 +216,47 @@ func _commit(pick: Dictionary) -> void:
 		]
 
 
+# --- the drawing's standards --------------------------------------------------------
+
+
+## The shipped dimension standards, in the order a key or a button steps through
+## them.
+const DIMENSION_STYLES: Array[StringName] = [&"architectural", &"engineering", &"minimal"]
+
+
+## Set the document's dimension standard by name, so a caller or a panel can
+## switch between the shipped ones without knowing their shape. Returns false, and
+## says so in the status line, for a name that is not one of them.
+func set_dimension_style(preset: StringName) -> bool:
+	match preset:
+		&"architectural":
+			document.dimension_style = DimensionStyleScript.architectural()
+		&"engineering":
+			document.dimension_style = DimensionStyleScript.engineering()
+		&"minimal":
+			document.dimension_style = DimensionStyleScript.minimal()
+		_:
+			last_message = "no dimension style called %s" % preset
+			_refresh_canvas()
+			return false
+	dimension_style_name = preset
+	last_message = document.dimension_style.describe()
+	# The plan and the overlay both listen to the document, so telling them once
+	# is enough.
+	document.changed.emit()
+	_refresh_canvas()
+	return true
+
+
+## Step to the next shipped dimension standard, which is what a key or a button
+## does.
+func cycle_dimension_style() -> StringName:
+	var index := DIMENSION_STYLES.find(dimension_style_name)
+	var next: StringName = DIMENSION_STYLES[(index + 1) % DIMENSION_STYLES.size()]
+	set_dimension_style(next)
+	return next
+
+
 # --- plotting -----------------------------------------------------------------------
 
 
@@ -222,7 +272,9 @@ func plot() -> String:
 		"sheet": sheet,
 		"scale": plot_scale,
 		"pen_table": pen_table,
-		"title": String(ProjectSettings.get_setting("application/config/name", "")),
+		"project": project_name,
+		"drawing": drawing_title,
+		"legend": show_legend,
 	}
 	var bytes: PackedByteArray = SheetExporterScript.export_pdf(document, options)
 	# A timestamped name, so plotting twice does not silently replace the first

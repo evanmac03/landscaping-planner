@@ -3,6 +3,7 @@ extends Node
 ## paper-versus-model conversion that keeps it legible at any plot scale.
 
 const Dimension := preload("res://scripts/draft/dimension.gd")
+const DimensionStyle := preload("res://scripts/draft/dimension_style.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LineStyle := preload("res://scripts/draft/line_style.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
@@ -20,7 +21,7 @@ func test_a_horizontal_dimension_measures_along_x() -> void:
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 	# Two extension lines and the dimension line itself.
 	assert(layout["lines"].size() == 3)
-	assert(layout["arrows"].size() == 2)
+	assert(layout["marks"].size() == 2)
 	assert(layout["labels"].size() == 1)
 	assert(_label(layout)["text"] == "10.000 m")
 
@@ -82,7 +83,7 @@ func test_a_degenerate_dimension_draws_nothing() -> void:
 	var entity = Entity.make_dimension(Vector2(2, 2), Vector2(2, 2), 1.0)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 	assert(layout["lines"].is_empty())
-	assert(layout["arrows"].is_empty())
+	assert(layout["marks"].is_empty())
 	assert(layout["labels"].is_empty())
 
 
@@ -93,9 +94,9 @@ func test_a_radius_dimension_is_a_leader_with_the_value() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(5, 0), 0.0, Entity.DimensionKind.RADIUS)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 	assert(layout["lines"].size() == 1)
-	assert(layout["arrows"].size() == 1)
-	assert(layout["arrows"][0]["tip"].is_equal_approx(Vector2(5, 0)))
-	assert(layout["arrows"][0]["direction"].is_equal_approx(Vector2(1, 0)))
+	assert(layout["marks"].size() == 1)
+	assert(layout["marks"][0]["tip"].is_equal_approx(Vector2(5, 0)))
+	assert(layout["marks"][0]["direction"].is_equal_approx(Vector2(1, 0)))
 	assert(_label(layout)["text"] == "R5.000 m")
 
 
@@ -108,8 +109,8 @@ func test_dimension_sizes_are_paper_properties() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
 	var fine: Dictionary = Dimension.layout(entity, 100.0)
 	var coarse: Dictionary = Dimension.layout(entity, 50.0)
-	assert(is_equal_approx(fine["arrows"][0]["size"], 0.25))
-	assert(is_equal_approx(coarse["arrows"][0]["size"], 0.125))
+	assert(is_equal_approx(fine["marks"][0]["size"], 0.25))
+	assert(is_equal_approx(coarse["marks"][0]["size"], 0.125))
 	assert(is_equal_approx(
 		_label(fine)["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0
 	))
@@ -139,7 +140,7 @@ func test_an_arrowhead_is_a_triangle_pointing_outward() -> void:
 	var triangle := Dimension.arrow_triangle(Vector2(0, 0), Vector2(1, 0), 1.0)
 	assert(triangle.size() == 3)
 	assert(triangle[0].is_equal_approx(Vector2(0, 0)))
-	var half_width: float = Dimension.ARROW_HALF_WIDTH_RATIO
+	var half_width: float = DimensionStyle.DEFAULT_WIDTH_RATIO
 	assert(absf(triangle[1].length() - sqrt(1.0 + half_width * half_width)) < 0.001)
 	assert(absf(triangle[1].x - (-1.0)) < 0.001)
 

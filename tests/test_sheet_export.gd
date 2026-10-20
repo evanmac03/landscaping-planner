@@ -191,10 +191,14 @@ func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
 	document.add(Entity.make_rectangle(Vector2(60, 55), Vector2(120, 110)), LayerSet.NEW_HARDSCAPE)
 	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
 	var content: Rect2 = plan["content_pt"]
-	assert(plan["drawing_pt"].y > content.size.y)
-	# Placed from the top, so it grows downwards into the drawing area only.
-	assert(absf(Vector2(plan["origin_pt"]).y - content.position.y) < 0.01)
-	assert(_title_block(plan).position.y >= content.end.y)
+	var drawn: Vector2 = plan["drawing_pt"]
+	assert(drawn.y > content.size.y)
+	# Set against the bottom of the area, so what it overruns is clear paper above
+	# and never the title block below. The placement is the drawing's centre, so its
+	# bottom edge is half a height below it.
+	var centre: Vector2 = plan["origin_pt"]
+	assert(absf(centre.y + drawn.y * 0.5 - content.end.y) < 0.01)
+	assert(_title_block(plan).position.y > centre.y + drawn.y * 0.5)
 
 
 func test_a_borderless_plot_has_no_title_block() -> void:
@@ -305,9 +309,9 @@ func test_a_dimension_plots_arrowheads_where_the_layout_puts_them() -> void:
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 
 	# Both ends of the dimension line, then the three corners of each arrowhead.
-	for end: Dictionary in layout["arrows"]:
+	for end: Dictionary in layout["marks"]:
 		var triangle := Dimension.arrow_triangle(
-			end["tip"], end["direction"], end["size"]
+			end["tip"], end["direction"], end["size"], end["width_ratio"]
 		)
 		for corner in triangle:
 			assert(_has_point(points, Exporter.model_to_paper(corner, plan)))
@@ -353,6 +357,262 @@ func test_the_plot_extent_includes_a_dimensions_set_out_line() -> void:
 	# overshoots taken at 1:1, where an extension line runs 1.5 mm past its line.
 	assert(absf(laid_out.position.y - (measured.position.y - 3.0)) < 0.01)
 	assert(is_equal_approx(laid_out.size.x, measured.size.x))
+
+
+# --- the layer key ------------------------------------------------------------------
+
+
+## Keyed by layer and in the layer set's own order, so the key reads the way the
+## layers are named rather than in whatever order the entities went in.
+func test_the_key_lists_the_layers_that_plot() -> void:
+	var rows := Exporter.legend_rows(_document(), null)
+	var names: Array = []
+	var counts: Array = []
+	for row in rows:
+		names.append(String(row["name"]))
+		counts.append(int(row["count"]))
+	assert(names == ["300-NEW-HARD", "401-NEW-PLANT", "710-TEXT"])
+	assert(counts == [1, 1, 1])
+
+
+func test_a_layer_with_nothing_on_it_is_absent_from_the_key() -> void:
+	var document = Document.new()
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.LIGHTING)
+	var rows := Exporter.legend_rows(document, null)
+	assert(rows.size() == 1)
+	assert(String(rows[0]["name"]) == "501-LIGHTING")
+
+
+## A layer switched off for plotting is absent from the key rather than listed
+## with nothing against it: the key describes the sheet, not the layers.
+func test_a_layer_switched_off_plots_and_leaves_the_key() -> void:
+	var document = Document.new()
+	document.layers.get_layer(LayerSet.NEW_HARDSCAPE).plots = false
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
+	assert(Exporter.legend_rows(document, null).is_empty())
+
+
+func test_the_key_counts_each_layer() -> void:
+	var document = Document.new()
+	for index in 3:
+		document.add(
+			Entity.make_circle(Vector2(index * 3, 0), 1.0), LayerSet.NEW_PLANTING
+		)
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(1, 1)), LayerSet.NEW_HARDSCAPE)
+	var rows := Exporter.legend_rows(document, null)
+	assert(rows.size() == 2)
+	assert(int(rows[0]["count"]) == 1)
+	assert(int(rows[1]["count"]) == 3)
+
+
+## The sample is drawn in the layer's plotted pen - its plotted colour, weight and
+## linetype - because a key whose line does not look like the drawing's is a key
+## that explains nothing.
+func test_the_key_draws_its_sample_in_the_layer_pen() -> void:
+	var document = Document.new()
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
+	var table = PenStyle.default_table()
+	var options := {"sheet": "A3", "legend": true, "pen_table": table}
+	var plan := Exporter.plan_sheet(document, options)
+	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
+
+	var rect: Rect2 = plan["legend_pt"]
+	var row := Exporter.LEGEND_ROW_MM * Exporter.POINTS_PER_MM
+	var sample_y := (
+		rect.position.y + Exporter.LEGEND_HEADER_MM * Exporter.POINTS_PER_MM
+		+ row - Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM * 0.5
+	) - row * 0.35
+	assert(text.contains("%s %s m" % [
+		String.num(rect.position.x + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM, 4),
+		String.num(sample_y, 4),
+	]))
+
+	var style = Exporter.layer_pen(document.layers.get_layer(LayerSet.NEW_HARDSCAPE), table)
+	assert(text.contains("%s %s %s RG" % [
+		String.num(style.plot_colour.r, 4), String.num(style.plot_colour.g, 4),
+		String.num(style.plot_colour.b, 4),
+	]))
+	assert(text.contains("(KEY) Tj"))
+	assert(text.contains("(300-NEW-HARD) Tj"))
+	assert(text.contains("(1) Tj"))
+
+
+func test_without_a_key_the_sheet_has_none() -> void:
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	assert(not text.contains("(KEY) Tj"))
+	assert(not text.contains("(300-NEW-HARD) Tj"))
+
+
+func test_the_key_can_be_retitled() -> void:
+	var text := Exporter.export_pdf(
+		_document(), {"sheet": "A3", "legend": true, "legend_title": "LEGEND"}
+	).get_string_from_utf8()
+	assert(text.contains("(LEGEND) Tj"))
+
+
+## The key sits in the corner of the border and grows downwards only, so it can
+## never reach the title block however many layers the drawing uses.
+func test_the_key_stays_in_its_corner() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "legend": true})
+	var area: Rect2 = plan["printable_pt"]
+	var rect: Rect2 = plan["legend_pt"]
+	assert(rect.position == area.position)
+	assert(rect.end.x < area.end.x)
+	assert(rect.end.y < _title_block(plan).position.y)
+
+
+## The key claims a column, so the drawing is centred in what is left and the
+## scale is chosen against that: the width gives way, the height does not.
+func test_the_key_narrows_the_area_the_scale_is_chosen_for() -> void:
+	var document = _document()
+	var without := Exporter.plan_sheet(document, {"sheet": "A3"})
+	var with_key := Exporter.plan_sheet(document, {"sheet": "A3", "legend": true})
+	var bare: Rect2 = without["content_pt"]
+	var claimed: Rect2 = with_key["content_pt"]
+	assert(claimed.size.x < bare.size.x)
+	assert(is_equal_approx(claimed.size.y, bare.size.y))
+	var drawn: Vector2 = with_key["drawing_pt"]
+	assert(drawn.x <= claimed.size.x + 0.01)
+	assert(drawn.y <= claimed.size.y + 0.01)
+
+
+# --- the viewport -------------------------------------------------------------------
+
+
+## A drawing 10 m wide and 2 m deep, which is the shape that makes a turned
+## viewport's footprint visibly different from its sides.
+func _wide_document():
+	var document = Document.new()
+	document.add(Entity.make_rectangle(Vector2(5, 1), Vector2(10, 2)), LayerSet.NEW_HARDSCAPE)
+	return document
+
+
+func _wide_options(extra: Dictionary = {}) -> Dictionary:
+	var options := {"sheet": "A3", "scale": 100.0}
+	for key in extra:
+		options[key] = extra[key]
+	return options
+
+
+## A viewport's own scale is a lock, which is the only reason for setting one.
+func test_a_viewport_locks_the_scale() -> void:
+	var locked := Exporter.plan_sheet(
+		_wide_document(), {"viewport": {"scale": 200.0}}
+	)
+	assert(is_equal_approx(locked["scale"], 200.0))
+	var suggested := Exporter.plan_sheet(_wide_document(), {})
+	assert(not is_equal_approx(suggested["scale"], 200.0))
+
+
+func test_a_viewport_frames_the_drawing_where_it_says() -> void:
+	var frame := Rect2(
+		Vector2(100.0, 200.0) * Exporter.POINTS_PER_MM,
+		Vector2(120.0, 80.0) * Exporter.POINTS_PER_MM
+	)
+	var plan := Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"origin_mm": Vector2(100.0, 200.0), "size_mm": Vector2(120.0, 80.0)},
+	}))
+	var claimed: Rect2 = plan["viewport_pt"]
+	assert(claimed.position.is_equal_approx(frame.position))
+	assert(claimed.size.is_equal_approx(frame.size))
+	# And the drawing is centred in its frame.
+	assert(Vector2(plan["origin_pt"]).distance_to(frame.get_center()) < 0.01)
+
+
+## A rotated rectangle covers more of the sheet than its sides suggest, and it is
+## that box which has to fit.
+func test_a_turned_drawing_takes_more_of_the_sheet() -> void:
+	var straight := Exporter.plan_sheet(_wide_document(), _wide_options())
+	var turned := Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"rotation_degrees": 90.0},
+	}))
+	assert(turned["drawing_pt"].x < straight["drawing_pt"].x)
+	assert(turned["drawing_pt"].y > straight["drawing_pt"].y)
+
+
+## Turning is a rotation of the sheet, not a re-scaling of it: a known length
+## still measures what it measured. This is the scale law's own conformance test
+## run through a turned viewport.
+func test_a_known_length_still_measures_the_same_when_turned() -> void:
+	var document = Document.new()
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
+	var plan := Exporter.plan_sheet(document, _wide_options({
+		"viewport": {"rotation_degrees": 90.0},
+	}))
+	var from := Exporter.model_to_paper(Vector2(0, 0), plan)
+	var to := Exporter.model_to_paper(Vector2(10, 0), plan)
+	assert(absf(from.distance_to(to) - 100.0 * Exporter.POINTS_PER_MM) < 0.001)
+	# East now runs up the page.
+	assert(absf(to.x - from.x) < 0.001)
+	assert(to.y > from.y)
+
+
+## An arrow still pointing up the page on a turned drawing would be a lie about
+## it, so north turns with the viewport.
+func test_north_turns_with_the_viewport() -> void:
+	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), {})) \
+		.is_equal_approx(Vector2(0, 1)))
+	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"rotation_degrees": 90.0},
+	}))).is_equal_approx(Vector2(-1, 0)))
+	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"rotation_degrees": 180.0},
+	}))).is_equal_approx(Vector2(0, -1)))
+
+
+## The scale is chosen for what the drawing will take on the paper, which a turned
+## viewport makes bigger. Turning a drawing costs it a scale step rather than
+## leaving the sheet to hand off the border with an overflow flag nobody asked for.
+func test_a_turned_viewport_is_given_a_scale_that_accounts_for_the_turn() -> void:
+	var document = Document.new()
+	document.add(
+		Entity.make_rectangle(Vector2(22.5, 22.5), Vector2(45, 45)), LayerSet.NEW_HARDSCAPE
+	)
+	var straight := Exporter.plan_sheet(document, {"sheet": "A3"})
+	var turned := Exporter.plan_sheet(
+		document, {"sheet": "A3", "viewport": {"rotation_degrees": 45.0}}
+	)
+	# A square turned 45 degrees needs half again as much room, which is a step on
+	# the scale ladder.
+	assert(straight["scale"] < turned["scale"])
+	var content: Rect2 = turned["content_pt"]
+	var drawn: Vector2 = turned["drawing_pt"]
+	assert(drawn.x <= content.size.x + 0.01)
+	assert(drawn.y <= content.size.y + 0.01)
+	assert(not turned["overflow"])
+
+
+## A drawing too big for its viewport is reported rather than silently cropped or
+## silently re-scaled: the caller asked for that scale and that frame.
+func test_a_drawing_that_does_not_fit_its_viewport_says_so() -> void:
+	var tight := Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"origin_mm": Vector2(50, 50), "size_mm": Vector2(60, 40)},
+	}))
+	assert(tight["overflow"])
+	var roomy := Exporter.plan_sheet(_wide_document(), _wide_options({
+		"viewport": {"origin_mm": Vector2(50, 50), "size_mm": Vector2(400, 300)},
+	}))
+	assert(not roomy["overflow"])
+	assert(not Exporter.plan_sheet(_wide_document(), _wide_options())["overflow"])
+
+
+## Turning the viewport turns the labels with the drawing, so a dimension still
+## reads along the line it measures rather than across it.
+func test_a_dimension_reads_along_its_line_when_the_viewport_is_turned() -> void:
+	var document = Document.new()
+	document.add(
+		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION
+	)
+	var options := _wide_options({"viewport": {"rotation_degrees": 90.0}})
+	var plan := Exporter.plan_sheet(document, options)
+	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
+	# The dimension runs up the page, so its text carries a rotation.
+	assert(text.contains(" Tm "))
+	assert(text.contains("(%s) Tj" % document.units.format_length(10.0)))
+	# And the measurement still measures.
+	var from := Exporter.model_to_paper(Vector2(0, 0), plan)
+	var to := Exporter.model_to_paper(Vector2(10, 0), plan)
+	assert(absf(from.distance_to(to) - 100.0 * Exporter.POINTS_PER_MM) < 0.001)
 
 
 # --- a file that opens --------------------------------------------------------------

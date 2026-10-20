@@ -633,6 +633,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_draft.plot()
 			get_viewport().set_input_as_handled()
 			return
+		# Nor is the standard a dimension is drawn to: it belongs to the drawing,
+		# not to the shape being picked.
+		if event.is_action_pressed("draft_dimension_style"):
+			_draft.cycle_dimension_style()
+			get_viewport().set_input_as_handled()
+			return
 		if _draft.drawing and _handle_drafting(event):
 			return
 
