@@ -34,6 +34,10 @@ static func strokes(entity: EntityScript, layer: LayerScript, plot_scale: float)
 	if outline.size() < 2:
 		return []
 	var style := style_for(entity, layer)
+	# pattern_at_scale answers in model metres, the same units as the outline, so
+	# the two go into the dash walker together with no conversion. Getting this
+	# wrong in either direction is quiet: a thousand times too long looks like a
+	# solid line, and a thousand times too short looks like a solid line too.
 	var pattern := style.pattern_at_scale(plot_scale)
 	if pattern.is_empty():
 		var single: Array[PackedVector2Array] = []

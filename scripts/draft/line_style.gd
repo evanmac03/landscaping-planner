@@ -69,8 +69,13 @@ static func model_width_m(weight_mm: float, scale: float) -> float:
 	return weight_mm * scale / 1000.0
 
 
-## Dash pattern converted to model units at a plot scale of 1:S.
-static func pattern_model_mm(pattern_mm: Array[float], scale: float) -> Array[float]:
+## Dash pattern converted from paper millimetres to model metres at a plot scale
+## of 1:S.
+##
+## The result is in metres, matching the polylines it gets walked along. It was
+## named pattern_model_mm until that read as millimetres and a caller converted
+## a second time, turning a 6 mm dash into 0.6 mm of model.
+static func pattern_model_m(pattern_mm: Array[float], scale: float) -> Array[float]:
 	var out: Array[float] = []
 	for length: float in pattern_mm:
 		out.append(length * scale / 1000.0)
@@ -94,9 +99,9 @@ func width_points() -> float:
 	return plot_weight_mm * POINTS_PER_MM
 
 
-## The dash pattern for this style at a plot scale of 1:S, in model units.
+## The dash pattern for this style at a plot scale of 1:S, in model metres.
 func pattern_at_scale(scale: float) -> Array[float]:
-	return pattern_model_mm(pattern_for(linetype), scale)
+	return pattern_model_m(pattern_for(linetype), scale)
 
 
 ## Instantiate this script by path.

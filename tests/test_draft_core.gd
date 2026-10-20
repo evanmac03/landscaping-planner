@@ -430,7 +430,7 @@ func test_weight_in_points_for_vector_output() -> void:
 func test_linetype_patterns_convert_by_the_same_law() -> void:
 	assert(Style.pattern_for(&"dashed") == [6.0, 2.0])
 	assert(Style.pattern_for(&"continuous").is_empty())
-	var model := Style.pattern_model_mm(Style.pattern_for(&"dashed"), 100.0)
+	var model := Style.pattern_model_m(Style.pattern_for(&"dashed"), 100.0)
 	assert(is_equal_approx(model[0], 0.6))
 	assert(is_equal_approx(model[1], 0.2))
 	assert(Style.has_linetype(&"centre"))
