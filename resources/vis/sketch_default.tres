@@ -1,0 +1,23 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/vis/sketch_style.gd" id="1_sketch_style"]
+
+[resource]
+script = ExtResource("1_sketch_style")
+wobble_mm = 0.28
+segment_mm = 1.2
+paper = Color(0.945, 0.937, 0.906, 1)
+bleed_mm = 1.8
+edge_darkening = 0.3
+grain = 0.16
+hatch = 0.22
+ink_under_width = 1.8
+ink_over_width = 1.0
+ink_under_alpha = 0.28
+ink_over_alpha = 0.92
+ink_lighten = 0.45
+ink_softness = 0.45
+texels_per_mm = 6.0
+grain_mm = 3.0
+hatch_mm = 1.6
+supersample = 2

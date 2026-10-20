@@ -377,77 +377,97 @@ composited.
 // makes this shader order-independent, and therefore testable.
 shader_type canvas_item;
 
-/** The paper. Slightly warm, slightly green, never pure white. */
-uniform vec4 paper_colour : source_color = vec4(0.945, 0.937, 0.906, 1.0);
-/** The wash layer. Its alpha is coverage, its colour is pigment. */
-uniform sampler2D texture_wash : source_color, repeat_disable, filter_linear;
-/** The ink layer. Its alpha is ink coverage. */
-uniform sampler2D texture_ink : source_color, repeat_disable, filter_linear;
-/** A tiling paper fibre. */
-uniform sampler2D texture_grain : hint_default_white, repeat_enable, filter_linear_mipmap;
-/** A tiling cross-hatch, revealed in the wash's mid-tones. */
-uniform sampler2D texture_hatch : hint_default_white, repeat_enable, filter_linear_mipmap;
-/** The paper's size in millimetres. Sets the scale of grain and hatch. */
+/** The sheet, in millimetres. The conversion for every length below. */
 uniform vec2 paper_mm = vec2(420.0, 297.0);
-/** How many times the grain texture repeats across one paper millimetre. */
-uniform float texels_per_mm = 4.0;
-/** How much paper the wash lets through. */
-uniform float wash_opacity : hint_range(0.0, 1.0) = 0.72;
-/** How far the wash bleeds past its own edge, in pixels. */
-uniform float bleed_pixels : hint_range(0.0, 12.0) = 2.5;
+/** Millimetres per repeat of the paper fibre. A *repeat*, not a count: the count is
+ *  whatever fits on the sheet, which is what makes this resolution-independent. */
+uniform float grain_mm = 3.0;
+/** Millimetres per repeat of the cross-hatch. */
+uniform float hatch_mm = 1.6;
 /** Grain strength. */
 uniform float grain : hint_range(0.0, 1.0) = 0.16;
 /** Hatch strength in the wash's mid-tones. */
 uniform float hatch : hint_range(0.0, 1.0) = 0.22;
+/** How far the wash bleeds past its own edge, in paper millimetres. */
+uniform float bleed_mm : hint_range(0.0, 12.0) = 1.8;
 /** How much darker the wash is at its own edge, which is what a wet edge does. */
 uniform float edge_darkening : hint_range(0.0, 1.0) = 0.30;
-/** Ink edge softness, in pixels. The one antialiasing the compositor has. */
-uniform float ink_softness : hint_range(0.0, 4.0) = 1.1;
+/** Ink edge softness, as a share of full coverage. The one antialiasing the
+ *  compositor has: it turns a threshold into a ramp. Dimensionless on purpose - a ramp
+ *  in coverage is not a distance on the paper. */
+uniform float ink_softness : hint_range(0.0, 1.0) = 0.45;
 
 void fragment() {
-	// --- the wash, its bleed and its wet edge -----------------------------
-	vec2 step_px = TEXTURE_PIXEL_SIZE * bleed_pixels;
-	float w_c = texture(texture_wash, UV).a;
-	float w_n = texture(texture_wash, UV + vec2(0.0, -step_px.y)).a;
-	float w_s = texture(texture_wash, UV + vec2(0.0, step_px.y)).a;
-	float w_w = texture(texture_wash, UV + vec2(-step_px.x, 0.0)).a;
-	float w_e = texture(texture_wash, UV + vec2(step_px.x, 0.0)).a;
-	// Bleeding outward is the *maximum* of the neighbours, not the average: a
-	// wet edge spreads, so coverage should grow wherever a neighbour has it.
-	float covered = max(w_c, max(max(w_n, w_s), max(w_w, w_e)));
-	vec4 wash = texture(texture_wash, UV);
-	// The wet edge is coverage minus its own blur, which is dark exactly at the
-	// boundary and zero in the middle and outside.
-	float blurred = (w_c + w_n + w_s + w_w + w_e) * 0.2;
-	float edge = clamp(w_c - blurred, 0.0, 1.0);
+    // --- the wash, its bleed and its wet edge -----------------------------
+    // The bleed is a paper length converted to the sheet's own UV: a millimetre is
+    // the same fraction of the sheet whatever the sheet is drawn at.
+    vec2 bleed_uv = vec2(bleed_mm) / paper_mm;
+    float w_c = texture(texture_wash, UV).a;
+    float w_n = texture(texture_wash, UV - vec2(0.0, bleed_uv.y)).a;
+    float w_s = texture(texture_wash, UV + vec2(0.0, bleed_uv.y)).a;
+    float w_w = texture(texture_wash, UV - vec2(bleed_uv.x, 0.0)).a;
+    float w_e = texture(texture_wash, UV + vec2(bleed_uv.x, 0.0)).a;
+    // Bleeding outward is the *maximum* of the neighbours, not the average: a
+    // wet edge spreads, so coverage should grow wherever a neighbour has it.
+    float covered = max(w_c, max(max(w_n, w_s), max(w_w, w_e)));
+    vec4 wash = texture(texture_wash, UV);
+    // The wet edge is coverage minus its own blur, which is dark exactly at the
+    // boundary and zero in the middle and outside.
+    float blurred = (w_c + w_n + w_s + w_w + w_e) * 0.2;
+    float edge = clamp(w_c - blurred, 0.0, 1.0);
 
-	// --- grain and hatch are sampled in paper millimetres ------------------
-	// This is why the shader is told the paper size instead of the pixel size: a
-	// still rendered at twice the resolution must have the same grain size as
-	// the one on screen (REQ-V3.7).
-	vec2 paper_uv = UV * (paper_mm * texels_per_mm);
-	float fibre = texture(texture_grain, paper_uv).r;
-	vec3 paper = paper_colour.rgb * mix(vec3(1.0), vec3(fibre), grain);
+    // --- grain and hatch are sampled in paper millimetres ------------------
+    // This is why the shader is told the paper size instead of the pixel size: a
+    // still rendered at twice the resolution has the same grain size as the one on
+    // screen, just more of it resolved (REQ-V3.7).
+    vec2 paper_uv = UV * (paper_mm / grain_mm);
+    vec2 hatch_uv = UV * (paper_mm / hatch_mm);
+    float fibre = texture(texture_grain, paper_uv).r;
+    vec3 paper = paper_colour.rgb * mix(vec3(1.0), vec3(fibre), grain);
 
-	// --- hatch follows the wash's mid-tones --------------------------------
-	float mid = smoothstep(0.15, 0.55, wash.a) * (1.0 - smoothstep(0.65, 1.0, wash.a));
-	float hatch_mask = mix(1.0, texture(texture_hatch, paper_uv * 1.7).r, mid * hatch);
+    // --- hatch follows the wash's mid-tones --------------------------------
+    float mid = smoothstep(0.15, 0.55, wash.a) * (1.0 - smoothstep(0.65, 1.0, wash.a));
+    float hatch_mask = mix(1.0, texture(texture_hatch, hatch_uv).r, mid * hatch);
 
-	// --- compose -----------------------------------------------------------
-	vec3 pigment = wash.rgb * hatch_mask * mix(vec3(1.0), vec3(0.72), edge * edge_darkening);
-	vec3 colour = mix(paper, pigment, wash.a * wash_opacity * covered);
+    // --- compose -----------------------------------------------------------
+    // The pigment's strength is the layer's own alpha, which the wash table set: the
+    // table is the one place that knows what medium it is describing, so there is no
+    // second global opacity on top of it.
+    vec3 pigment = wash.rgb * hatch_mask * mix(vec3(1.0), vec3(0.72), edge * edge_darkening);
+    vec3 colour = mix(paper, pigment, wash.a * covered);
 
-	// The ink goes over all of it. Its coverage is fetched once; the ramp is
-	// applied to the alpha so a fractional-covered edge texel reads as a soft
-	// line rather than a hard one.
-	float ink = texture(texture_ink, UV).a;
-	ink = smoothstep(0.5 - ink_softness * 0.5, 0.5 + ink_softness * 0.5, ink) * ink;
-	vec3 ink_colour = texture(texture_ink, UV).rgb;
-	colour = mix(colour, ink_colour, ink);
+    // The ink goes over all of it.
+    float ink = texture(texture_ink, UV).a;
+    ink = smoothstep(0.5 - ink_softness * 0.5, 0.5 + ink_softness * 0.5, ink) * ink;
+    vec3 ink_colour = texture(texture_ink, UV).rgb;
+    colour = mix(colour, ink_colour, ink);
 
-	COLOR = vec4(colour, 1.0);
+    COLOR = vec4(colour, 1.0);
 }
 ```
+
+**Two corrections to this shader's first draft, both forced by building it.** They are
+the two ways a paper texture quietly stops working:
+
+1. **It took pixel counts.** The first draft converted its lengths with
+   `texels_per_mm`, and bled in pixels (`bleed_pixels`). With `paper_uv = UV *
+   (paper_mm * texels_per_mm)` the grain's repeat is fixed in *texels*, so a 2× bake
+   came out with grain half the size — the exact failure REQ-V3.7 names, on the page
+   that names it. Every length is now millimetres and the sheet converts them; the
+   shader has no uniform a resolution could arrive through, and a test asserts the
+   uniform set is what it says (§14, AC-V6).
+2. **The repeat and the texture's size are a pair.** A grain repeat of 0.25 mm put the
+   whole 64-texel fibre texture inside one and a half texels of the sheet, where the
+   mip filter averaged it into a flat colour: the sheet came out *perfectly smooth*
+   with the grain set to 0.16, and nothing failed. The shipped repeat is 3 mm, the
+   texture is 64 texels, and `SketchCompositor.minification_for()` with a test holds
+   the two together. The measurement that caught it was crude and worth repeating:
+   sample a row of the finished sheet and count how many adjacent pixels are identical.
+   Grain means that count is near zero.
+
+Also corrected: `wash_opacity` is gone. The wash table's per-layer `opacity` is the
+pigment's strength, and a second global opacity on top of it was two controls for one
+thing — with the per-layer one being the one that knows what medium it is describing.
 
 REQ-V3.7 Grain, hatch and bleed shall be expressed in paper millimetres, and
 converted using the paper size, so that a still rendered at 2× or 4× has the same
@@ -2505,14 +2525,27 @@ extends Resource
 @export_range(0.0, 1.0) var grain: float = 0.16
 ## Hatch strength in the wash's mid-tones.
 @export_range(0.0, 1.0) var hatch: float = 0.22
-## How much paper the wash lets through.
-@export_range(0.0, 1.0) var wash_opacity: float = 0.72
 ## How far a wash bleeds past its edge, in paper millimetres.
 @export var bleed_mm: float = 1.8
 ## How dark a wash goes at its own edge.
 @export_range(0.0, 1.0) var edge_darkening: float = 0.30
-## Supersample factor for a still rendered with this look.
-@export_range(1, 4) var supersample: int = 2
+## The ink pass: a light broad stroke under a dark narrow one.
+@export var ink_under_width: float = 1.8
+@export var ink_over_width: float = 1.0
+@export_range(0.0, 1.0) var ink_under_alpha: float = 0.28
+@export_range(0.0, 1.0) var ink_over_alpha: float = 0.92
+@export_range(0.0, 1.0) var ink_lighten: float = 0.45
+## Ink edge softness, as a share of full coverage rather than a length.
+@export_range(0.0, 1.0) var ink_softness: float = 0.45
+## Texels per paper millimetre. The one field about pixels, and it says so.
+@export_range(1.0, 24.0) var texels_per_mm: float = 6.0
+## Millimetres per repeat of the paper fibre, and of the cross-hatch. Paired with the
+## texture sizes: a repeat that puts a whole texture inside two texels of the sheet is
+## a grain setting that does nothing.
+@export var grain_mm: float = 3.0
+@export var hatch_mm: float = 1.6
+## Supersample factor for a still rendered with this look. This is the antialiasing.
+@export_range(1, 3) var supersample: int = 2
 ```
 
 REQ-V13.1 Every table in §13 shall be keyed by a name the rest of the project
@@ -2596,7 +2629,7 @@ the file exists, has tests, and is reachable from the running game.
 | Phase | Status | What exists |
 |---|---|---|
 | **1. Wash** | **built** | `wash_table.gd`, `wash_painter.gd`, `cad_solid.gd` (outline only), `sketch_baker.gd`, `painted_plan.gd`, the painted sheet in the HUD, `R` to open it, *Save a still*. `tests/test_vis_wash.gd`, 25 tests. |
-| **2. Sketch** | not built | The wobble is specified in §3.2 and the compositor in §3.5; the wash draws its three mottle passes unwobbled, and the ink layer does not exist. So the painted plan is colour without linework. |
+| **2. Sketch** | **built** | `sketch_stroke.gd` (the wobble), `sketch_style.gd` + `resources/vis/sketch_default.tres` (the look), `ink_painter.gd` (the two-pass ink), `sketch_compositor.gd` + `resources/shaders/sketch_paper.gdshader` (paper, grain, hatch, bleed, wet edge, ink), supersampling in the painted path. So the painted plan is colour *and* linework. `tests/test_vis_sketch.gd`, 18 tests. |
 | **3. Hardscape** | not built | `cad_solid.gd` has `outline_of`; the slab, the ribbon and the texture sets do not exist. |
 | **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. `tests/test_vis_presentation.gd`. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
 | **5. Planting at scale** | not built | `planting_instancer.gd` does not exist; the yard's props are ordinary nodes. |
@@ -2608,6 +2641,26 @@ the file exists, has tests, and is reachable from the running game.
 table's layer names, and where a prop's wash colour comes from. Neither was visible
 until the table was written against the project's own layers, which is the argument for
 building a phase rather than only specifying it.
+
+**Three more, from building the sketch pass**, all recorded in §3.5 and §13. Two of them
+were the same mistake in different clothes — a length written in pixels — and the third
+was a setting that did nothing:
+
+1. **The compositor's shader took pixel counts** (`texels_per_mm`, `bleed_pixels`),
+   which is exactly the failure REQ-V3.7 exists to prevent, on the page that states the
+   requirement: a 2× bake would have come out with grain half the size.
+2. **The grain repeat was a quarter of a millimetre**, which put the whole fibre texture
+   inside one and a half texels of the sheet, where the mip filter averaged it into flat
+   colour. The sheet was rendered, filed, and perfectly smooth, with no error. Every
+   length in the shader is now paper millimetres and the texture sizes are paired with
+   the repeats by a test.
+3. **`wash_opacity` was a second opacity over the wash table's own.** The per-layer
+   `opacity` is the one that knows what medium it is describing; the global one was
+   deleted rather than reconciled, because two controls for one value is one control and
+   one bug — and the bug is the setting that does nothing when a designer turns it.
+
+The lesson the three share: a visual feature must be *looked at*, at its real size, and
+not only unit-tested. All three passed their tests.
 
 ---
 

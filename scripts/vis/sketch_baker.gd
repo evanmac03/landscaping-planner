@@ -51,6 +51,13 @@ static func paper_transform(bounds: Rect2, plot_scale: float, paper: Vector2) ->
 ## A dictionary rather than a typed pair because the layers are a list whose length
 ## the caller decides: today two, tomorrow a third for a shadow pass.
 ##
+## **The textures belong to their viewports.** They are valid exactly until `release()`
+## is called, because a layer is a render target rather than a copy of one. That is what
+## makes a black sheet possible: the first version of this freed the viewports on the way
+## out, so the compositor sampled freed render targets and the entire sheet came out
+## black at every uniform the look asked for. Releasing is the caller's job because the
+## caller is what knows when compositing is finished.
+##
 ## Asynchronous. The bake has to have finished before its texture can be read, and
 ## the only honest way to know that is to wait for the frame (REQ-V3.5). Two frames,
 ## not one: the first draws, the second redraws once the viewport's own buffers and
@@ -85,8 +92,17 @@ func bake(painters: Array[Node2D], bounds: Rect2, plot_scale: float) -> Dictiona
 	var textures: Array[Texture2D] = []
 	for viewport: SubViewport in viewports:
 		textures.append(viewport.get_texture())
-		viewport.queue_free()
-	return {"textures": textures, "pixel_size": size, "mm": paper_mm}
+	return {
+		"textures": textures, "viewports": viewports,
+		"pixel_size": size, "mm": paper_mm,
+	}
+
+
+## Let go of a bake's render targets. Call this once nothing is going to sample them.
+static func release(baked: Dictionary) -> void:
+	for viewport: SubViewport in baked.get("viewports", []):
+		if is_instance_valid(viewport):
+			viewport.queue_free()
 
 
 ## One layer's viewport. Transparent where nothing is drawn, because paper is the

@@ -108,6 +108,50 @@ static func wash_colour_for(node: Node3D) -> Color:
 	return spec_for(node.scene_file_path).get("wash", Color.TRANSPARENT)
 
 
+## Points around a round footprint. Enough that the edge has something to wander along
+## once it is wobbled, without the canopy reading as a polygon.
+const FOOTPRINT_POINTS := 28
+
+
+## A prop's footprint as a closed ring in model metres, in the shape the working plan
+## draws it: a disc for a tree or a shrub, a rectangle for a bed.
+##
+## Shared by the painted plan's two layers, which is the point of it: the wash fills this
+## ring and the ink draws round it, so they cannot disagree about what shape the plant
+## is. Found by looking at a painted plan - the first version washed every prop as a disc
+## and put round colour under the oblong symbol a flower bed is drawn as.
+##
+## The result is not closed (no repeated first point), like every other ring in this
+## project: the closing edge is implied.
+static func footprint_ring(node: Node3D) -> PackedVector2Array:
+	var size: Vector2 = footprint_size(node)
+	var centre := Vector2(node.global_position.x, node.global_position.z)
+	if size.x <= 0.0 or size.y <= 0.0:
+		return PackedVector2Array()
+	var symbol: int = int(spec_for(node.scene_file_path)["symbol"])
+	if symbol == Symbol.TREE or symbol == Symbol.SHRUB:
+		return _disc_ring(centre, size.x * 0.5)
+	return _rectangle_ring(centre, size)
+
+
+static func _disc_ring(centre: Vector2, radius: float) -> PackedVector2Array:
+	var ring := PackedVector2Array()
+	for step in FOOTPRINT_POINTS:
+		var angle: float = TAU * float(step) / float(FOOTPRINT_POINTS)
+		ring.append(centre + Vector2(cos(angle), sin(angle)) * radius)
+	return ring
+
+
+static func _rectangle_ring(centre: Vector2, size: Vector2) -> PackedVector2Array:
+	var half := size * 0.5
+	return PackedVector2Array([
+		centre + Vector2(-half.x, -half.y),
+		centre + Vector2(half.x, -half.y),
+		centre + Vector2(half.x, half.y),
+		centre + Vector2(-half.x, half.y),
+	])
+
+
 ## Plan colour for a material, by resource path. The 3D materials are
 ## noise-textured, which leaves their albedo white and useless here, so the plan
 ## keeps its own flat palette. Anything without an entry gets the neutral grey.

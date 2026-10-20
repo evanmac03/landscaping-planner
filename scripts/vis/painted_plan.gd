@@ -18,7 +18,10 @@ signal painted(image: Image, report: Dictionary)
 signal paint_failed(reason: String)
 
 const WashPainterScript := preload("res://scripts/vis/wash_painter.gd")
+const InkPainterScript := preload("res://scripts/vis/ink_painter.gd")
 const SketchBakerScript := preload("res://scripts/vis/sketch_baker.gd")
+const SketchCompositorScript := preload("res://scripts/vis/sketch_compositor.gd")
+const SketchStyleScript := preload("res://scripts/vis/sketch_style.gd")
 const StillExporterScript := preload("res://scripts/vis/still_exporter.gd")
 const SidecarScript := preload("res://scripts/vis/still_sidecar.gd")
 const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
@@ -33,9 +36,9 @@ const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
 @export var plot_scale: float = 100.0
 ## The sheet: A3 landscape unless somebody wants another.
 @export var paper_mm: Vector2 = SketchBakerScript.PAPER_A3
-## The bake's resolution. High enough that the paper texture has something to work
-## with, low enough that a bake is a fraction of a second.
-@export var texels_per_mm: float = SketchBakerScript.TEXELS_PER_MM
+## The look: how much wobble, how much grain, how wet. A resource rather than constants
+## so two looks can coexist without either being a code change (REQ-V13.2).
+@export var style: SketchStyleScript
 ## Air left around the drawing, as a share of its own size. A plan that ends exactly
 ## at the fence line looks cropped rather than framed.
 @export var margin: float = 0.12
@@ -134,36 +137,76 @@ func render() -> Image:
 	var bounds := paint_bounds()
 	_busy = true
 	var doc = document()
-	var painter := WashPainterScript.new(doc, plot_scale, props())
+	var look := _look()
+	var plants := props()
+	# Supersampling is the antialiasing: there is no 2D MSAA on this renderer, so the
+	# bake is made above its output size and downsampled at the end (§10.2). The look's
+	# texel density is the *output* density, so the grain on the paper does not change
+	# when the supersample factor does.
+	var bake_density: float = look.texels_per_mm * float(maxi(look.supersample, 1))
+	var wash := WashPainterScript.new(doc, plot_scale, plants)
+	var ink := InkPainterScript.new(doc, plot_scale, look, bake_density, plants)
 	# Made per render rather than kept: it carries this render's paper size, and a
 	# bake's settings that outlive the bake are settings somebody will change and
 	# then wonder why nothing happened.
 	var baker := SketchBakerScript.new()
 	baker.name = "SketchBaker"
 	baker.paper_mm = paper_mm
-	baker.texels_per_mm = texels_per_mm
+	baker.texels_per_mm = bake_density
 	add_child(baker)
-	var baked: Dictionary = await baker.bake([painter], bounds, plot_scale)
+	var baked: Dictionary = await baker.bake([wash, ink], bounds, plot_scale)
 	var textures: Array = baked.get("textures", [])
-	if textures.is_empty():
+	if textures.size() < 2:
 		_busy = false
+		SketchBakerScript.release(baked)
 		baker.queue_free()
-		paint_failed.emit("the bake came back empty.")
+		paint_failed.emit("the bake came back without both layers.")
 		return null
-	var layer: Image = (textures[0] as Texture2D).get_image()
+	var wash_layer: Texture2D = textures[0]
+	var ink_layer: Texture2D = textures[1]
+
+	var compositor := SketchCompositorScript.new()
+	compositor.name = "SketchCompositor"
+	add_child(compositor)
+	var composited: Image = await compositor.composite(
+		wash_layer, ink_layer, baked["pixel_size"], look, paper_mm
+	)
+	compositor.queue_free()
+	# The layers go once the composite has them: they are render targets, and holding
+	# them past their use is memory spent on a picture that already exists.
+	SketchBakerScript.release(baked)
 	baker.queue_free()
 	_busy = false
-	if layer == null or layer.is_empty():
-		paint_failed.emit("the bake could not be read.")
+	if composited == null or composited.is_empty():
+		paint_failed.emit("the composite could not be read.")
 		return null
+	# A sheet that is one flat colour is a failed composite, not a plan. The black
+	# rectangle this caught is the one that had already reached a proposal file: worth
+	# the check, because nothing else in the path objects.
+	if StillExporterScript.looks_blank(composited):
+		paint_failed.emit("the painted plan came back blank.")
+		return null
+	var image: Image = composited
 
-	# Paper under the pigment, in one pass, by the same function the still path uses:
-	# a transparent layer read into an image viewer shows as black, and a proposal
-	# that opens as a black rectangle has failed at the last step (REQ-V10.4).
-	var image: Image = StillExporterScript.flatten_over(layer, paper_colour())
+	# Down to the size the look asked for, by hand, so the filter is known rather than
+	# whichever one the driver picks for a scaled blit.
+	var scale_factor: int = maxi(look.supersample, 1)
+	if scale_factor > 1:
+		image.resize(
+			maxi(1, int(float(image.get_width()) / float(scale_factor))),
+			maxi(1, int(float(image.get_height()) / float(scale_factor))),
+			Image.INTERPOLATE_LANCZOS
+		)
 	_report = _make_report(image, bounds)
 	painted.emit(image, _report)
 	return image
+
+
+## The look, or a default one when the scene has not been given one. A resource that is
+## missing gives the shipped look rather than an unpainted plan: this is the one setting
+## whose absence would silently change what the drawing looks like.
+func _look() -> SketchStyleScript:
+	return style if style != null else SketchStyleScript.new()
 
 
 ## Write a painted plan into the proposals folder, with the record that says how it
@@ -213,6 +256,7 @@ func _make_report(image: Image, bounds: Rect2) -> Dictionary:
 		"regions": regions,
 		"washes": by_layer,
 		"props": props().size(),
+		"look": _look().describe(),
 	}
 
 
@@ -225,8 +269,8 @@ func _record_for_file(image: Image) -> Dictionary:
 		"rendered": Time.get_datetime_string_from_system(false, true),
 		"output_px": [image.get_width(), image.get_height()],
 		"paper_mm": [paper_mm.x, paper_mm.y],
-		"texels_per_mm": texels_per_mm,
 		"plot_scale": plot_scale,
+		"look": _look().describe(),
 		"document": {"entities": _entity_count()},
 		"props": props().size(),
 		"godot": Engine.get_version_info()["string"],

@@ -114,39 +114,11 @@ func canopies() -> Array[Dictionary]:
 ## A plant's footprint as a closed ring in model metres, in the shape the working
 ## plan draws it.
 ##
-## A circle is right for a trunk and a canopy and wrong for a bed: the working view
-## draws a bed as a rectangle 2.6 m by 1.4 m, and a wash that came out round would
-## put a disc under an oblong symbol. So the shape follows the same table as the
-## colour, which is the one entry that describes the prop in the plan.
+## The shape lives in `PlanStyle` because the ink pass draws round the *same* ring: a
+## wash and an outline that disagreed about what shape a bed is would show up as a rim
+## of colour outside the line.
 func _canopy_region(node: Node3D) -> PackedVector2Array:
-	var size: Vector2 = PlanStyleScript.footprint_size(node)
-	var centre := Vector2(node.global_position.x, node.global_position.z)
-	if size.x <= 0.0 or size.y <= 0.0:
-		return PackedVector2Array()
-	var symbol: int = int(PlanStyleScript.spec_for(node.scene_file_path)["symbol"])
-	if symbol in [PlanStyleScript.Symbol.TREE, PlanStyleScript.Symbol.SHRUB]:
-		return _disc(centre, size.x * 0.5)
-	return _rectangle(centre, size)
-
-
-## A ring around a disc.
-func _disc(centre: Vector2, radius: float) -> PackedVector2Array:
-	var ring_points := PackedVector2Array()
-	for step in CANOPY_POINTS:
-		var angle: float = TAU * float(step) / float(CANOPY_POINTS)
-		ring_points.append(centre + Vector2(cos(angle), sin(angle)) * radius)
-	return ring_points
-
-
-## A ring around a rectangle, as its four corners.
-func _rectangle(centre: Vector2, size: Vector2) -> PackedVector2Array:
-	var half := size * 0.5
-	return PackedVector2Array([
-		centre + Vector2(-half.x, -half.y),
-		centre + Vector2(half.x, -half.y),
-		centre + Vector2(half.x, half.y),
-		centre + Vector2(-half.x, half.y),
-	])
+	return PlanStyleScript.footprint_ring(node)
 
 
 ## A wash's bleed in model metres, by the same law the line weights use.
