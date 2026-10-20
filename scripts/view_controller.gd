@@ -686,6 +686,13 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- drafting -------------------------------------------------------------------------
 
 
+## Whether the drawing tools are armed, which the HUD asks for in order to show the
+## drafting keys. The keys themselves are the HUD's business: this answers one
+## question and nothing else.
+func is_drafting() -> bool:
+	return _draft != null and _draft.drawing
+
+
 ## While a tool is armed it owns the left button. Right-drag still pans and the
 ## wheel still zooms, so you can keep drawing while moving around the plan, and
 ## the design objects underneath are left alone: a click goes to the drawing.
@@ -702,15 +709,17 @@ func _handle_drafting(event: InputEvent) -> bool:
 		_draft.undo()
 		get_viewport().set_input_as_handled()
 		return true
+	if event.is_action_pressed("draft_close"):
+		_draft.finish_closed()
+		get_viewport().set_input_as_handled()
+		return true
 	# Backspace peels the shape back one point at a time, and falls back to
 	# undoing the last committed entity once there is nothing left to peel.
-	if event is InputEventKey:
-		var key: InputEventKey = event
-		if key.pressed and key.keycode == KEY_BACKSPACE:
-			if not _draft.undo_point():
-				_draft.undo()
-			get_viewport().set_input_as_handled()
-			return true
+	if event.is_action_pressed("draft_undo_point"):
+		if not _draft.undo_point():
+			_draft.undo()
+		get_viewport().set_input_as_handled()
+		return true
 	if _select_draft_tool(event):
 		return true
 

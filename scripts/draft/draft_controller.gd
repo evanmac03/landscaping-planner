@@ -136,7 +136,12 @@ func status() -> String:
 	if not drawing:
 		# Plotting works whether or not a tool is armed, so its result - and the
 		# key that triggers it - belong on screen outside drawing mode too.
-		var idle := "P plots a sheet at 1:%d on %s" % [int(plot_scale), sheet]
+		# The key that arms the tools is advertised here because this is where every
+		# other key the drawing needs is advertised, and it is the one key a user
+		# cannot discover by accident. The rest of the legend appears once armed.
+		var idle := "P plots a sheet at 1:%d on %s   D: drawing tools" % [
+			int(plot_scale), sheet
+		]
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
 	var text := "%s  ·  %s  ·  %s" % [
 		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
