@@ -97,6 +97,7 @@ const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
+const SiteReportScript := preload("res://scripts/site_report.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -186,6 +187,8 @@ var _menu_state: String = ""
 ## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
 ## one place that decides whether it is up is the panel's own `visible`.
 var _keys_panel: Control = null
+## The site-stats page, built by `_build_site_report_panel` and shown from the Site menu.
+var _site_report_panel: Control = null
 ## Whether the line of control hints is wanted at the bottom of the screen. Held here rather than
 ## read from the node, because a presentation takes the hints away and has to give them back the
 ## way the person left them.
@@ -273,6 +276,7 @@ func _ready() -> void:
 	_build_file_dialogs()
 	_build_plant_library()
 	_build_ground_window()
+	_build_site_report_panel()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -1436,6 +1440,8 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
 	items.append(_separator())
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
+	items.append(_separator())
+	items.append(_command(&"site.report", "Site statistics", &"", &"_menu_site_report"))
 	return items
 
 
@@ -2248,6 +2254,80 @@ func close_keys() -> void:
 		_keys_panel.visible = false
 
 
+# --- the site report ------------------------------------------------------------------
+
+
+## The site-stats page: what the drawing covers, measured by layer.
+##
+## Built in code for the same reason the keys panel is: it is a view of the drawing, and a
+## scene copy of it would be a fourth thing to keep in step. The body is refilled every time
+## the page is opened, because the drawing it reports on changes under it.
+func _build_site_report_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "SiteReportPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Page"
+	panel.custom_minimum_size = Vector2(620.0, 0.0)
+	if top_bar != null:
+		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	panel.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Site statistics"
+	column.add_child(heading)
+
+	var body := Label.new()
+	body.name = "ReportText"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(body)
+
+	var close_button := Button.new()
+	close_button.name = "CloseReport"
+	close_button.text = "Close"
+	close_button.pressed.connect(close_site_report)
+	column.add_child(close_button)
+
+	wrapper.add_child(panel)
+	_site_report_panel = wrapper
+	root.add_child(wrapper)
+
+
+func is_site_report_open() -> bool:
+	return _site_report_panel != null and _site_report_panel.visible
+
+
+## What the page says. Read fresh each time, so it reports the drawing as it is now.
+func site_report_text() -> String:
+	if _draft == null:
+		return "there is no drawing open"
+	var report = SiteReportScript.of_plan(_draft.document, _planting_rows())
+	return report.text()
+
+
+func open_site_report() -> void:
+	if _site_report_panel == null:
+		return
+	var body := _site_report_panel.get_node_or_null(^"Page/Column/ReportText")
+	if body is Label:
+		(body as Label).text = site_report_text()
+	_site_report_panel.visible = true
+
+
+func close_site_report() -> void:
+	if _site_report_panel != null:
+		_site_report_panel.visible = false
+
+
 ## Show the line of hints or not, remembering that a presentation takes them away as well.
 func _apply_hints_visibility() -> void:
 	if hints != null:
@@ -2590,6 +2670,12 @@ func _on_ground_changed() -> void:
 
 func _on_ground_check_requested() -> void:
 	_menu_check_planting({})
+
+
+## Show the coverage report. It is a reading of the drawing, so it is opened rather than
+## written to a log: a report nobody can see is not a report.
+func _menu_site_report(_entry: Dictionary) -> void:
+	open_site_report()
 
 
 ## Point the browser at the catalogue, reading it only if it has never been read.

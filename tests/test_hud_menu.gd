@@ -324,6 +324,16 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 # --- the ground the plants are judged against ----------------------------------------------
 
 
+## The coverage report is reached from the Site menu, and it names the method that shows it.
+func test_the_site_menu_offers_the_site_report() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("Site"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("site.report"), "the Site menu can report what the drawing covers")
+	var entry: Dictionary = _entry(&"site.report")
+	assert(String(entry["method"]) == "_menu_site_report")
+
+
 func test_the_site_menu_opens_the_ground_window_and_reports_on_it() -> void:
 	# The ring around a plant being placed is the answer; the Site menu is the way to the question.
 	# The site's conditions and the conditions of every area of the plan live in one window, because a
