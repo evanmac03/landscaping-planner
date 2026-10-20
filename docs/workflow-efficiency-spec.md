@@ -87,7 +87,7 @@ Layers exist, but a group is an object with its own id, a member list, and a tra
 selection, render, bounds and snap path has to decide what a group means to it. Recommend not building
 it until a real drawing demands it; a layer rename plus selection does most of the work.
 
-## 3. Revision tracking - PARTLY
+## 3. Revision tracking - BUILT, apart from the audit journal
 
 **Built:** undo and redo, as whole-document snapshots - `scripts/draft/undo_stack.gd`
 (`DraftUndoStack`, `DEFAULT_LIMIT := 200`). The file argues its own case: inverse commands are the
@@ -98,39 +98,50 @@ this size and removes that whole class of failure. One push per *gesture*, never
 and that new edits clear the redo branch.
 
 **Built:** file persistence - `scripts/draft/drawing_store.gd`, atomic (temp file then rename), one
-JSON file per drawing, a version field, and legacy reads (`to_dict()` writes version 4 while
+JSON file per drawing, a version field, and legacy reads (`to_dict()` writes version 6 while
 `restore()` still reads the old flat site fields). A failed open never touches the open drawing.
 
-**Missing - what "revision tracking" usually means and does not mean here:**
+**Built:** the named revisions, and the difference between two of them.
 
-* **Named revisions.** Undo is a stack you walk, not a history you keep. A revision is a record:
-  a message, an author, a time, and the document state or a delta from the previous revision. The
-  cost is a store, not an algorithm - the snapshots already exist.
-* **A diff between two revisions.** This is feasible *because entities carry stable ids*
-  (`document.add()` assigns one, `document.replace()` keeps it), which is exactly the property a diff
-  needs and exactly what is missing from a naive "compare the JSON" approach. The shape:
-
-      static func diff(before: Dictionary, after: Dictionary) -> Dictionary:
-          var old: Dictionary = {}   # id -> entity record
-          for record in before.get("entities", []):
-              old[int(record["id"])] = record
-          var added: Array = []
-          var changed: Array = []
-          var removed: Array[int] = []
-          for record in after.get("entities", []):
-              var id: int = int(record["id"])
-              if not old.has(id):
-                  added.append(id)
-              elif old[id] != record:
-                  changed.append(id)
-              old.erase(id)
-          for id in old:
-              removed.append(id)
-          return {"added": added, "changed": changed, "removed": removed}
-
-  Note what it does *not* do: report what changed *inside* an entity. For a design tool that is right -
-  "this bed got wider" is a human description, and the diff's job is to point at the bed. Numbers
-  return from JSON as floats, so ids are coerced with `int()` on the way in.
+* **A revision is a record, not a stack.** `scripts/draft/revision_log.gd` (`DraftRevisionLog`):
+  `capture(state, message, author)` keeps `{message, author, when, snapshot}`, where the snapshot is
+  the drawing's own `to_dict()` - whole, as `undo_stack.gd` argues for, because a capture happens on
+  a person's command rather than on every keystroke. `LIMIT := 50` keeps the last fifty and counts
+  what it let go, so a history can say it is not the whole story. `record_at(index)` is what a list
+  shows - message, author, when, and how many shapes the drawing had - and `snapshot(index)` hands
+  out a copy, so a restore cannot alter the revision it came from.
+* **Where a history lives.** `user://revisions/<name>.json`, one per drawing, written atomically by
+  `drawing_store.write_revisions` through the same temp-file-and-rename the drawing itself goes
+  through. Deliberately **not** in `user://drawings`: the file dialogs open on that folder, so
+  anything kept there is offered to a person as a drawing and can be saved over - the same reason
+  the recent list is kept outside it. Keyed by the drawing's *name*, which means Save As starts a
+  fresh history: the revisions belong to the design that was sent, and the copy somebody keeps
+  working on is a new document.
+* **The diff, as built.** `DraftRevisionLog.compare(before, after)` is the sketch above with two
+  corrections it turned out to need. The first: the document stores its entities as a **Dictionary
+  keyed by id** (`{"3": {...}}`), not as an array of records that each carry an `"id"` field, so the
+  loop walks the dictionary's keys and coerces them with `int()`. The second, and the one that
+  would have bitten: a snapshot held in memory carries integer keys and integer lengths, and the
+  same snapshot read back from a file carries strings and floats - compared directly, a revision
+  reports *itself* as changed. Both sides are therefore compared after a JSON round trip, and
+  `tests/test_revision_log.gd` holds that down on purpose.
+* **What it does not do** is unchanged: it points at the shapes that changed and does not say what
+  changed *inside* one. "This bed got wider" is a human sentence about geometry, and a diff's job
+  is to point at the bed so somebody can look at it. `describe_diff()` reads as
+  `1 added, 1 changed, 1 removed  (added: #7; changed: #3; removed: #9)`.
+* **Putting one back** is `DraftController.restore_revision(index)`, and it is a change like any
+  other: the state it replaces goes onto the undo stack first, so a designer who puts back the
+  wrong revision can get back the drawing they had a moment before. It leaves the drawing's file
+  where it is and marks the drawing dirty, because what is on screen is an earlier revision of it.
+* **The way in** is Edit > Revisions..., which opens `scripts/revision_window.gd`. The window owns
+  no drawing: it lists the rows it is handed, says what the selected revision changed, takes the
+  message for the next one, and announces `revision_recorded` / `restore_requested` for the HUD to
+  answer with the controller - the hatch panel's arrangement, which is what lets the whole window be
+  tested with no drawing and no screen.
+* **A revision recorded before the drawing has ever been saved** is kept in memory and goes to the
+  file at the first save, with the window saying where it is rather than refusing: the designer has
+  done their part, and the file name is a separate errand.
+**Still missing:** the audit journal, and it belongs to the business specification:
 * **The append-only journal** exists in the business specification
   (`docs/business-operations-spec.md` section 11.1, section 2.12, phase 10 - specified, not built) as
   `journals/events-<month>.jsonl`: who did what, when, to which record. That is the right home for it.
@@ -333,12 +344,16 @@ takeoff's first job is to generalise that to every layer.
    `takeoff.gd`, `estimate_line.gd` and `estimate.gd` with 47 tests, and verified against the shipped
    scene: a patio drawn into the live document priced to a $3,687.27 proposal, and the 30 unidentified
    plants in the shipped yard refused rather than priced.
-2. **Multi-entity selection.** The prerequisite for auto-align, for dragging a plant that is already
-   planted, and for group. Small, and it unlocks three separate items on this list.
+2. ~~**Multi-entity selection.**~~ **Done.** Built as `scripts/draft/draft_select.gd`: window and
+   crossing bands in the two modes the plan asks for, swept over the drawing's own geometry, armed
+   from the Edit menu. What is still missing is *dragging* what is selected - the band says which
+   shapes, and moving them is a separate step.
 3. **Auto-simplify.** A pure function over a frozen entity list, with the rule that it refuses when it
-   would move an endpoint shared with another entity.
-4. **Named revisions and the document diff.** Cheap, because entity ids already exist and `to_dict()`
-   already round-trips - and it is the honest half of "revision tracking" that undo is not.
+   would move an endpoint shared with another entity. **Still not built.**
+4. ~~**Named revisions and the document diff.**~~ **Done.** Built as `scripts/draft/revision_log.gd`,
+   `scripts/revision_window.gd` and the store's own `write_revisions`; see section 3, which is now
+   built down to the audit journal.
+
 5. **Presence.** One synchronizer, no merge problem, and it is what a team asks for first.
 6. Then the rest of the business chain in specification order (4 pipeline, 5 jobs and crews, 6 job
    costing, 7 billing, 8 ledger adapters, 9 analytics, 10 store and sync, 11 the editor plugin).

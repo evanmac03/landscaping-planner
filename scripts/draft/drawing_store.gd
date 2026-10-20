@@ -216,14 +216,17 @@ static func revisions_path(drawing_path: String) -> String:
 	return REVISIONS_DIR.path_join(sanitise(display_name(drawing_path)) + EXTENSION)
 
 
-## Write a drawing's history, through a temporary file and a rename like the drawing itself: a log
-## that fails halfway would lose the revisions it was supposed to keep, which is the one thing a
-## history must not do.
-static func write_revisions(log: DraftRevisionLog, drawing_path: String) -> Dictionary:
+## Write a drawing's history, through a temporary file and a rename like the drawing itself: a history
+## that fails halfway would lose the revisions it was supposed to keep, which is the one thing it must
+## not do.
+##
+## The parameter is not called `log`: that is a built-in function, and one of the names this project
+## treats as taken.
+static func write_revisions(history: DraftRevisionLog, drawing_path: String) -> Dictionary:
 	var path: String = revisions_path(drawing_path)
 	if path.is_empty():
 		return _refused("this drawing has no file name yet, so it has no history to keep")
-	if log == null:
+	if history == null:
 		return _refused("there are no revisions to write")
 	if DirAccess.open(REVISIONS_DIR) == null and DirAccess.make_dir_recursive_absolute(REVISIONS_DIR) != OK:
 		return _refused("cannot open the revisions folder")
@@ -231,7 +234,7 @@ static func write_revisions(log: DraftRevisionLog, drawing_path: String) -> Dict
 	var file := FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
 		return _refused("cannot write %s" % temp.get_file())
-	file.store_string(JSON.stringify(log.to_dict(), "  "))
+	file.store_string(JSON.stringify(history.to_dict(), "  "))
 	file.close()
 	var error := DirAccess.rename_absolute(temp, path)
 	if error != OK:

@@ -464,7 +464,7 @@ comes to, both halves.
 * the map survives a JSON round trip as levels and not as 2.0
 * the drawing states a building and a hard surface and nothing else, and reading it twice does not
   double the zones
-* the ground travels in a version 5 file, a version 4 file gets "nothing stated", and stating the
+* the ground travels in a version 5 or later file, a version 4 file gets "nothing stated", and stating the
   ground is one undo step
 
 `tests/test_plant_suitability.gd` (18) holds the verdicts - the tomato in shade, the hosta in shade,

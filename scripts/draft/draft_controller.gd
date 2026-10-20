@@ -1465,7 +1465,8 @@ func _bind_document(opened) -> void:
 	# The history goes with the drawing it belonged to: an undo that reached across a file
 	# boundary would resurrect a drawing the file no longer holds.
 	document.undo.clear()
-	snap.bind(document.entities())
+	if snap != null:
+		snap.bind(document.entities())
 	if canvas != null:
 		canvas.bind_document(document)
 	if overlay != null:

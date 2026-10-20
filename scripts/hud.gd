@@ -230,6 +230,7 @@ const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
+const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
@@ -259,6 +260,9 @@ var _ground_window: GroundWindow = null
 ## The sheet setup: what this drawing goes out on, and the set of sheets it goes out as. A window
 ## because it is the one surface here that takes typed text - a drawing number, a title, a revision.
 var _sheet_window: SheetWindow = null
+## The history: what was recorded against this drawing and what each revision changed. A window for the
+## same reason the sheet setup is one - a revision needs a message, and a message is typed text.
+var _revision_window: RevisionWindow = null
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -299,6 +303,7 @@ func _ready() -> void:
 	_build_survey_panel()
 	_build_hatch_panel()
 	_build_sheet_window()
+	_build_revision_window()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -1344,6 +1349,13 @@ static func edit_items() -> Array[Dictionary]:
 		&"edit.select_crossing", "Crossing selection", &"", &"_menu_select_mode",
 		&"select_mode", SelectScript.MODE_CROSSING
 	))
+	# The history goes at the foot of Edit, under the selection bands and away from the commands: it is
+	# not an edit, it is what the drawing was when it was sent, and a person looks for it when they are
+	# thinking about the job rather than about the shape under the cursor. It takes no key, as the bands
+	# take none: a history is opened to be read, and a stray keypress on the drawing must not open a
+	# window that takes the keyboard.
+	items.append(_separator())
+	items.append(_command(&"edit.revisions", "Revisions...", &"", &"_menu_revisions"))
 	return items
 
 
@@ -1954,6 +1966,9 @@ func _run_pending(next: StringName) -> void:
 		&"new":
 			if _draft != null:
 				_draft.new_drawing()
+			# A new drawing has a new history - its own, empty one - so a window already showing the old
+			# drawing's revisions is showing something that is no longer true.
+			_refresh_revision_window()
 		&"open":
 			if _pending_path.is_empty():
 				open_drawing_dialog()
@@ -1962,6 +1977,7 @@ func _run_pending(next: StringName) -> void:
 				_pending_path = ""
 				if _draft != null:
 					_draft.open_drawing(path)
+				_refresh_revision_window()
 		&"quit":
 			get_tree().quit()
 
@@ -1991,6 +2007,9 @@ func _on_open_chosen(path: String) -> void:
 	_pending_path = ""
 	if _draft != null:
 		_draft.open_drawing(path)
+	# The history came with the drawing, so a window already showing the last drawing's revisions is
+	# showing something that is no longer true.
+	_refresh_revision_window()
 	release_keyboard_focus(self)
 
 
@@ -3103,6 +3122,86 @@ func _on_sheet_plot_set() -> void:
 
 func _menu_sheet_setup(_entry: Dictionary) -> void:
 	open_sheet_window()
+
+
+# --- the history of the drawing -------------------------------------------------------
+
+
+func _build_revision_window() -> void:
+	if _revision_window != null:
+		return
+	_revision_window = RevisionWindowScript.new()
+	_revision_window.name = "RevisionWindow"
+	add_child(_revision_window)
+	_revision_window.revision_recorded.connect(_on_revision_recorded)
+	_revision_window.restore_requested.connect(_on_revision_restore)
+	_revision_window.closed.connect(close_revision_window)
+	_revision_window.hide()
+
+
+## Open it on the drawing's own history. A revision can be recorded before a drawing has ever been
+## saved - the controller keeps it in memory until it is - so the window opens for an unsaved drawing
+## too, and its own status line says where the history is.
+func open_revision_window() -> void:
+	if _revision_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_refresh_revision_window()
+	_revision_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_revision_window() -> void:
+	if _revision_window != null:
+		_revision_window.hide()
+		_revision_window.say("")
+
+
+func is_revision_window_open() -> bool:
+	return _revision_window != null and _revision_window.visible
+
+
+## What the window says about the history: how many revisions are kept, and what the last act did.
+func revision_status_text() -> String:
+	if _revision_window == null:
+		return ""
+	return _revision_window.status_text()
+
+
+func _refresh_revision_window() -> void:
+	if _revision_window == null or _draft == null:
+		return
+	_revision_window.set_identity(StoreScript.display_name(_draft.drawing_path), _draft.revisions.dropped)
+	_revision_window.set_revisions(_draft.revision_rows())
+
+
+## A revision recorded. The window has already emptied its message box; what comes back is where it went,
+## which is the one thing the person cannot see from here.
+func _on_revision_recorded(message: String) -> void:
+	if _draft == null:
+		return
+	_draft.capture_revision(message, DraftRevisionLog.system_author())
+	_refresh_revision_window()
+	_revision_window.select(_draft.revisions.count() - 1)
+	_revision_window.say(_draft.last_message)
+
+
+## A revision put back. The drawing on screen changes, so everything that draws it is told: the canvas is
+## refreshed by the controller, and the menu bar's own lines about the drawing may now be stale.
+func _on_revision_restore(index: int) -> void:
+	if _draft == null:
+		return
+	var restored: bool = _draft.restore_revision(index)
+	_refresh_revision_window()
+	_refresh_menus()
+	_revision_window.say(_draft.last_message)
+	if not restored:
+		_revision_window.say(_draft.last_message)
+
+
+func _menu_revisions(_entry: Dictionary) -> void:
+	open_revision_window()
 
 
 func is_ground_window_open() -> bool:

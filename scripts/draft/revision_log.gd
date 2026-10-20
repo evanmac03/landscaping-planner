@@ -52,6 +52,20 @@ static func make() -> DraftRevisionLog:
 	return DraftRevisionLog.new()
 
 
+## Who is at the keyboard, as far as the machine knows. There is no account in this app and no signed-in
+## user, so the operating system's own answer is the only honest one - and it is worth having at all
+## because a history that cannot say *who* is a list of timestamps.
+##
+## Empty when the environment says nothing, which the log treats as an anonymous revision rather than
+## inventing a name.
+static func system_author() -> String:
+	for name: String in ["USERNAME", "USER", "LOGNAME"]:
+		var who := OS.get_environment(name).strip_edges()
+		if not who.is_empty():
+			return who
+	return ""
+
+
 # --- keeping a revision ---------------------------------------------------------------
 
 
@@ -79,10 +93,13 @@ func capture(state: Dictionary, message: String, author: String = "") -> Diction
 
 ## One snapshot as the file format would hold it: numbers as floats and keys as strings, which is what
 ## makes two snapshots comparable whichever way they arrived.
-static func _plain(snapshot: Dictionary) -> Dictionary:
-	var text := JSON.stringify(snapshot)
+##
+## The parameter is not called `snapshot`: this class has a method of that name, and a local that shadows
+## one is a warning in this project rather than a style note.
+static func _plain(state: Dictionary) -> Dictionary:
+	var text := JSON.stringify(state)
 	var parsed: Variant = JSON.parse_string(text)
-	return parsed if parsed is Dictionary else snapshot
+	return parsed if parsed is Dictionary else state
 
 
 # --- reading the log ------------------------------------------------------------------
@@ -260,13 +277,16 @@ func to_dict() -> Dictionary:
 	return {"version": 1, "dropped": dropped, "records": rows}
 
 
-## Read a log back. Anything it cannot understand is dropped rather than refused: a log is worth
+## Read a history back. Anything it cannot understand is dropped rather than refused: a history is worth
 ## having, and a damaged record is not a reason to lose the nine around it.
+##
+## The local is not called `log`: that is a built-in function, and one of the names this project treats as
+## taken.
 static func from_dict(data: Variant) -> DraftRevisionLog:
-	var log := DraftRevisionLog.new()
+	var history := DraftRevisionLog.new()
 	if not (data is Dictionary) or not (data.get("records") is Array):
-		return log
-	log.dropped = int((data as Dictionary).get("dropped", 0))
+		return history
+	history.dropped = int((data as Dictionary).get("dropped", 0))
 	for entry: Variant in data["records"]:
 		if not (entry is Dictionary):
 			continue
@@ -277,10 +297,10 @@ static func from_dict(data: Variant) -> DraftRevisionLog:
 		if not entry_record.has("snapshot") or not (entry_record["snapshot"] is Dictionary):
 			continue
 		var state: Variant = entry_record["snapshot"]
-		log._records.append({
+		history._records.append({
 			"message": String(entry_record.get("message", NO_MESSAGE)),
 			"author": String(entry_record.get("author", "")),
 			"when": String(entry_record.get("when", "")),
 			"snapshot": state,
 		})
-	return log
+	return history
