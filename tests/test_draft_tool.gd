@@ -307,7 +307,7 @@ func test_every_tool_has_a_label_and_a_point_count() -> void:
 	var kinds: Array = [
 		Tool.Kind.SELECT, Tool.Kind.LINE, Tool.Kind.POLYLINE,
 		Tool.Kind.RECTANGLE, Tool.Kind.CIRCLE, Tool.Kind.ARC, Tool.Kind.MEASURE,
-		Tool.Kind.DIMENSION,
+		Tool.Kind.DIMENSION, Tool.Kind.DIMENSION_LINEAR, Tool.Kind.DIMENSION_RADIUS,
 	]
 	for kind: Tool.Kind in kinds:
 		assert(Tool.label_for(kind) != "?")
@@ -332,11 +332,16 @@ func _dimension_line(layout: Dictionary) -> PackedVector2Array:
 	return longest
 
 
+## What a dimension says, read through the shared layout at 1:100.
+func _dimension_text(entity) -> String:
+	return String(Dimension.layout(entity, 100.0)["labels"][0]["text"])
+
+
 ## A dimension is two points to measure and somewhere to put the line that
 ## measures them, so it takes three picks and commits on the third.
 func test_a_dimension_is_measured_between_two_points_and_placed_by_a_third() -> void:
 	var tool = _tool(Tool.Kind.DIMENSION, LayerSet.DIMENSION)
-	assert(Tool.label_for(Tool.Kind.DIMENSION) == "Dimension")
+	assert(Tool.label_for(Tool.Kind.DIMENSION) == "Aligned dimension")
 	assert(tool.needed_points() == 3)
 	assert(not tool.is_measure())
 	assert(not (tool.click(Vector2(0, 0))["committed"]))
@@ -422,4 +427,133 @@ func test_a_dimension_draws_on_the_dimension_layer_not_the_selected_one() -> voi
 	controller.drawing_layer = LayerSet.NEW_PLANTING
 	assert(controller._layer_for(Tool.Kind.LINE) == LayerSet.NEW_PLANTING)
 	assert(controller._layer_for(Tool.Kind.DIMENSION) == LayerSet.DIMENSION)
+	controller.free()
+
+
+# --- linear dimension ---------------------------------------------------------------
+
+
+## A linear dimension measures the extent along whichever axis the picks lie
+## mostly along, not the diagonal between them. That is the reading for an overall
+## width, and it is a different number on purpose.
+func test_a_linear_dimension_measures_the_extent_along_the_dominant_axis() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_LINEAR, LayerSet.DIMENSION)
+	assert(Tool.label_for(Tool.Kind.DIMENSION_LINEAR) == "Linear dimension")
+	assert(tool.needed_points() == 3)
+	tool.click(Vector2(0, 0))
+	assert(tool.click(Vector2(10, 3))["progress"] == 2)
+	var dimension = tool.click(Vector2(4, 5))["entity"]
+	assert(int(dimension.params[5]) == Entity.DimensionKind.LINEAR)
+	# Ten metres across, not the 10.44 m between the two picks.
+	assert(_dimension_text(dimension) == "10.00 m")
+	# And the line is set out on the perpendicular axis, where it was placed.
+	var line := _dimension_line(Dimension.layout(dimension, 100.0))
+	assert(is_equal_approx(line[0].x, 0.0))
+	assert(is_equal_approx(line[1].x, 10.0))
+	assert(is_equal_approx(line[0].y, 5.0))
+	assert(is_equal_approx(line[1].y, 5.0))
+
+
+## Which axis it measures follows from the picks, so a mostly-vertical pair is
+## measured up the page and its line is set out to the side.
+func test_a_linear_dimension_follows_the_axis_the_picks_lie_along() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_LINEAR)
+	tool.click(Vector2(0, 0))
+	tool.click(Vector2(2, 6))
+	var dimension = tool.click(Vector2(-3, 1))["entity"]
+	assert(_dimension_text(dimension) == "6.00 m")
+	var line := _dimension_line(Dimension.layout(dimension, 100.0))
+	assert(is_equal_approx(line[0].x, -3.0))
+	assert(is_equal_approx(line[1].x, -3.0))
+	assert(is_equal_approx(line[0].y, 0.0))
+	assert(is_equal_approx(line[1].y, 6.0))
+
+
+func test_the_linear_dimension_guides_its_three_picks() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_LINEAR)
+	assert(tool.status().contains("measure from"))
+	tool.click(Vector2(0, 0))
+	assert(tool.status().contains("measure to"))
+	tool.click(Vector2(4, 0))
+	assert(tool.status().contains("dimension line"))
+
+
+func test_the_linear_ghost_follows_the_cursor_as_the_line_placement() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_LINEAR)
+	tool.click(Vector2(0, 0))
+	assert(tool.preview(Vector2(8, 0)).kind == Entity.Kind.LINE)
+	tool.click(Vector2(8, 0))
+	var ghost = tool.preview(Vector2(4, 2))
+	assert(int(ghost.params[5]) == Entity.DimensionKind.LINEAR)
+	assert(is_equal_approx(float(ghost.params[4]), 2.0))
+	assert(tool.point_count() == 2)
+
+
+# --- radial dimension ---------------------------------------------------------------
+
+
+## A radius is a centre and a point on the circle, so it takes two picks and no
+## placement: which way the leader runs is the same act as naming the radius.
+func test_a_radial_dimension_takes_a_centre_and_a_point_on_the_circle() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_RADIUS, LayerSet.DIMENSION)
+	assert(Tool.label_for(Tool.Kind.DIMENSION_RADIUS) == "Radial dimension")
+	assert(tool.needed_points() == 2)
+	assert(tool.status().contains("centre"))
+	assert(not tool.click(Vector2(4, 4))["committed"])
+	assert(tool.status().contains("circle"))
+	var second: Dictionary = tool.click(Vector2(4, 6.5))
+	assert(second["committed"])
+	var dimension = second["entity"]
+	assert(int(dimension.params[5]) == Entity.DimensionKind.RADIUS)
+	assert(_dimension_text(dimension) == "R2.50 m")
+	# The leader runs from the centre out to the edge it was picked on.
+	var layout: Dictionary = Dimension.layout(dimension, 100.0)
+	assert(layout["lines"].size() == 1)
+	var leader: PackedVector2Array = layout["lines"][0]
+	assert(leader[0].is_equal_approx(Vector2(4, 4)))
+	assert(leader[1].is_equal_approx(Vector2(4, 6.5)))
+
+
+## A centre with the edge picked on top of it is a circle of no size, so the pick
+## is refused and handed back like any other degenerate shape.
+func test_a_radial_dimension_refuses_a_circle_of_no_size() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_RADIUS)
+	tool.click(Vector2(1, 1))
+	var refused: Dictionary = tool.click(Vector2(1, 1))
+	assert(not refused["committed"])
+	assert(refused["rejected"])
+	assert(tool.point_count() == 1)
+	assert(tool.click(Vector2(1, 3))["committed"])
+
+
+## A radius takes no placement, so its ghost can show the measurement itself from
+## the first pick onwards rather than a bare rubber band.
+func test_the_radial_ghost_shows_the_radius_before_it_is_committed() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_RADIUS)
+	assert(tool.preview(Vector2(1, 1)) == null)
+	tool.click(Vector2(0, 0))
+	var ghost = tool.preview(Vector2(3, 4))
+	assert(ghost.kind == Entity.Kind.DIMENSION)
+	assert(int(ghost.params[5]) == Entity.DimensionKind.RADIUS)
+	assert(_dimension_text(ghost) == "R5.00 m")
+	# Shown, not committed.
+	assert(tool.point_count() == 1)
+
+
+## All three dimension commands are annotations rather than site features, so all
+## three draw on the dimension layer whatever was selected.
+func test_every_dimension_command_is_an_annotation() -> void:
+	var dimensions: Array = [
+		Tool.Kind.DIMENSION, Tool.Kind.DIMENSION_LINEAR, Tool.Kind.DIMENSION_RADIUS,
+	]
+	for kind: Tool.Kind in dimensions:
+		assert(Tool.is_dimension(kind))
+		assert(not _tool(kind).is_measure())
+	assert(not Tool.is_dimension(Tool.Kind.LINE))
+	assert(not Tool.is_dimension(Tool.Kind.MEASURE))
+	var controller = Ctrl.new()
+	controller.drawing_layer = LayerSet.NEW_PLANTING
+	for kind: Tool.Kind in dimensions:
+		assert(controller._layer_for(kind) == LayerSet.DIMENSION)
+	assert(controller._layer_for(Tool.Kind.ARC) == LayerSet.NEW_PLANTING)
 	controller.free()

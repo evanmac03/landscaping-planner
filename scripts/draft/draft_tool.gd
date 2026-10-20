@@ -16,7 +16,18 @@ const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 ## The drawing tools. Dimension is appended after the shape tools rather than
 ## slotted in beside measure, because an enum's values are its numbers and
 ## renumbering a shipped one is a way to break a file that still reads correctly.
-enum Kind { SELECT, LINE, POLYLINE, RECTANGLE, CIRCLE, ARC, MEASURE, DIMENSION }
+enum Kind {
+	SELECT,
+	LINE,
+	POLYLINE,
+	RECTANGLE,
+	CIRCLE,
+	ARC,
+	MEASURE,
+	DIMENSION,
+	DIMENSION_LINEAR,
+	DIMENSION_RADIUS,
+}
 
 ## Smallest shape that is still a shape. Two points closer than this describe
 ## nothing, and committing a 0.000 mm line is a drafting mistake, not geometry.
@@ -59,15 +70,28 @@ func last_reason() -> String:
 func needed_points() -> int:
 	if kind == Kind.LINE or kind == Kind.RECTANGLE or kind == Kind.CIRCLE or kind == Kind.MEASURE:
 		return 2
-	# An arc is a centre, a start and a sweep; a dimension is two points to
-	# measure and somewhere to put the line that measures them.
-	if kind == Kind.ARC or kind == Kind.DIMENSION:
+	if kind == Kind.DIMENSION_RADIUS:
+		# A centre and a point on the circle: the radius is the distance, and the
+		# direction of the second pick is where the leader goes.
+		return 2
+	# An arc is a centre, a start and a sweep; a linear or aligned dimension is
+	# two points to measure and somewhere to put the line that measures them.
+	if kind == Kind.ARC or kind == Kind.DIMENSION or kind == Kind.DIMENSION_LINEAR:
 		return 3
 	return 0
 
 
 func is_measure() -> bool:
 	return kind == Kind.MEASURE
+
+
+## Whether a tool draws an annotation rather than a site feature. The caller uses
+## this to put it on the dimension layer and to keep it out of the 3D ground view,
+## so the three dimension commands cannot drift apart on that.
+static func is_dimension(tool_kind: Kind) -> bool:
+	return tool_kind == Kind.DIMENSION \
+		or tool_kind == Kind.DIMENSION_LINEAR \
+		or tool_kind == Kind.DIMENSION_RADIUS
 
 
 ## Drop the last picked point. Backspace, in a drawing tool.
@@ -107,12 +131,13 @@ func click(point: Vector2) -> Dictionary:
 	# than when the shape is. Two identical points measure nothing, and the
 	# drawer wants to hear that on the bad pick, not one pick later - otherwise
 	# the tool sits there refusing every placement with no way forward but
-	# backing the point out.
-	if kind == Kind.DIMENSION and _points.size() == 2:
-		var pair := _dimension_between(_points[0], _points[1], _points[1])
-		if not pair.get("ok", false):
+	# backing the point out. It applies to all three commands, since a length of
+	# zero and a radius of zero are the same mistake.
+	if is_dimension(kind) and _points.size() == 2:
+		var reason := _measured_pair_reason(_points[0], _points[1])
+		if reason != "":
 			_points.remove_at(_points.size() - 1)
-			_last_reason = String(pair["reason"])
+			_last_reason = reason
 			return _result(false, null, null, _points.size())
 
 	var needed := needed_points()
@@ -194,9 +219,22 @@ func _build() -> Dictionary:
 		return arc
 	if kind == Kind.DIMENSION:
 		return _dimension_between(_points[0], _points[1], _points[2])
+	if kind == Kind.DIMENSION_LINEAR:
+		return _linear_dimension_between(_points[0], _points[1], _points[2])
+	if kind == Kind.DIMENSION_RADIUS:
+		return _radius_dimension(_points[0], _points[1])
 	if kind == Kind.MEASURE:
 		return {"ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1])}
 	return {"ok": false, "reason": "the %s tool takes no points" % kind}
+
+
+## Why a pair of picks cannot be dimensioned, or "" when it can. All three
+## dimension commands need two points that are actually two points, so they share
+## one rule rather than each phrasing the same refusal differently.
+static func _measured_pair_reason(from: Vector2, to: Vector2) -> String:
+	if from.distance_to(to) <= MIN_SIZE:
+		return "a dimension needs two distinct points"
+	return ""
 
 
 ## Two points to measure and somewhere to put the measuring line.
@@ -206,16 +244,16 @@ func _build() -> Dictionary:
 ## - "how long is this edge of the patio" - and it is the one that cannot surprise
 ## the user, because an axis-locked reading of two diagonal picks measures
 ## something other than the distance between them, on a rule the drawer cannot
-## see. Linear and radial dimensioning are separate commands, not a guess this
-## one makes.
+## see. The linear command below is that reading, asked for by name.
 ##
 ## The stored offset is the *signed perpendicular distance* from the first
 ## measured point out to where the line was placed, which is what the model holds
 ## and what a second person opening the drawing needs in order to find the same
 ## line again.
 func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictionary:
-	if from.distance_to(to) <= MIN_SIZE:
-		return {"ok": false, "reason": "a dimension needs two distinct points"}
+	var reason := _measured_pair_reason(from, to)
+	if reason != "":
+		return {"ok": false, "reason": reason}
 	var along := (to - from).normalized()
 	# The same side vector the dimension layout uses, so the line this returns
 	# lands exactly where the tool's own preview showed it.
@@ -224,6 +262,51 @@ func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictiona
 		"ok": true,
 		"entity": EntityScript.make_dimension(
 			from, to, (placed - from).dot(sideways), EntityScript.DimensionKind.ALIGNED
+		),
+		"measure": null,
+	}
+
+
+## An axis-locked dimension: it measures the extent along whichever axis the two
+## picks lie mostly along, and sets its line out on the other one. That is the
+## reading for an overall width or a boundary run, where the true diagonal
+## distance between two corners is not the number anybody wants.
+##
+## The axis follows from the picks rather than from the placement, because the
+## model stores one offset and derives the axis from the measured pair. A
+## dimension whose axis followed the mouse would be a dimension the file could not
+## remember, and reopening the drawing would move it.
+func _linear_dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictionary:
+	var reason := _measured_pair_reason(from, to)
+	if reason != "":
+		return {"ok": false, "reason": reason}
+	var delta := to - from
+	var horizontal := absf(delta.x) >= absf(delta.y)
+	# The offset is a signed distance along the perpendicular axis, which is what
+	# the layout adds to the measured point to find the line: a y offset for a
+	# horizontal dimension, an x offset for a vertical one.
+	var offset := (placed - from).y if horizontal else (placed - from).x
+	return {
+		"ok": true,
+		"entity": EntityScript.make_dimension(
+			from, to, offset, EntityScript.DimensionKind.LINEAR
+		),
+		"measure": null,
+	}
+
+
+## A radius: a leader from the centre out to the edge with the value beside it.
+## Two picks and no placement, because which way the leader runs is the same act
+## as naming the radius - and the second pick lands on the circle itself, where
+## the centre and quadrant snaps are waiting for it.
+func _radius_dimension(centre: Vector2, edge: Vector2) -> Dictionary:
+	var reason := _measured_pair_reason(centre, edge)
+	if reason != "":
+		return {"ok": false, "reason": reason}
+	return {
+		"ok": true,
+		"entity": EntityScript.make_dimension(
+			centre, edge, 0.0, EntityScript.DimensionKind.RADIUS
 		),
 		"measure": null,
 	}
@@ -293,15 +376,24 @@ func preview(cursor: Vector2):
 			return EntityScript.make_circle(_points[0], span)
 		var preview_arc := _arc_from(_points[0], _points[1], cursor)
 		return preview_arc["entity"] if preview_arc.get("ok", false) else null
-	if kind == Kind.DIMENSION:
+	if kind == Kind.DIMENSION or kind == Kind.DIMENSION_LINEAR:
 		if count == 1:
 			# With one point down there is nothing to measure yet, so the ghost
 			# is the plain rubber band the line tool shows. The alternative - a
 			# dimension with no measurement in it - would be a drawing of a
 			# number that is not there.
 			return EntityScript.make_line(_points[0], cursor)
-		var preview_dimension := _dimension_between(_points[0], _points[1], cursor)
-		return preview_dimension["entity"] if preview_dimension.get("ok", false) else null
+		var placed: Dictionary = _dimension_between(_points[0], _points[1], cursor)
+		if kind == Kind.DIMENSION_LINEAR:
+			placed = _linear_dimension_between(_points[0], _points[1], cursor)
+		return placed["entity"] if placed.get("ok", false) else null
+	if kind == Kind.DIMENSION_RADIUS:
+		if count == 0:
+			return null
+		# A radius takes no placement, so from the first pick onwards the ghost
+		# can show the measurement it is about to make, value and all.
+		var ghost: Dictionary = _radius_dimension(_points[0], cursor)
+		return ghost["entity"] if ghost.get("ok", false) else null
 	return null
 
 
@@ -333,12 +425,15 @@ func status() -> String:
 		return "Specify the start point" if _points.size() == 1 else "Specify the end point"
 	if kind == Kind.MEASURE:
 		return "Pick the first point" if _points.is_empty() else "Pick the second point"
-	if kind == Kind.DIMENSION:
+	if kind == Kind.DIMENSION or kind == Kind.DIMENSION_LINEAR:
 		if _points.is_empty():
 			return "Specify the first point to measure from"
 		if _points.size() == 1:
 			return "Specify the point to measure to"
 		return "Where the dimension line goes"
+	if kind == Kind.DIMENSION_RADIUS:
+		return "Specify the centre" if _points.is_empty() \
+			else "Specify a point on the circle"
 	return ""
 
 
@@ -358,5 +453,9 @@ static func label_for(tool_kind: Kind) -> String:
 	if tool_kind == Kind.MEASURE:
 		return "Measure"
 	if tool_kind == Kind.DIMENSION:
-		return "Dimension"
+		return "Aligned dimension"
+	if tool_kind == Kind.DIMENSION_LINEAR:
+		return "Linear dimension"
+	if tool_kind == Kind.DIMENSION_RADIUS:
+		return "Radial dimension"
 	return "?"

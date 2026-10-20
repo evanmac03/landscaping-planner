@@ -760,6 +760,8 @@ func _select_draft_tool(event: InputEvent) -> bool:
 		["draft_arc", DraftToolScript.Kind.ARC],
 		["draft_measure", DraftToolScript.Kind.MEASURE],
 		["draft_dimension", DraftToolScript.Kind.DIMENSION],
+		["draft_dimension_linear", DraftToolScript.Kind.DIMENSION_LINEAR],
+		["draft_dimension_radius", DraftToolScript.Kind.DIMENSION_RADIUS],
 	]
 	for entry in tools:
 		if event.is_action_pressed(entry[0]):

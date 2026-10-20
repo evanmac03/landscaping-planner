@@ -103,7 +103,7 @@ func set_tool(kind: ToolScript.Kind) -> void:
 ## plot them at the hardscape's weight as well as counting them in its row of
 ## the key.
 func _layer_for(kind: ToolScript.Kind) -> StringName:
-	if kind == ToolScript.Kind.DIMENSION:
+	if ToolScript.is_dimension(kind):
 		return LayerSetScript.DIMENSION
 	return drawing_layer
 
