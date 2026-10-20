@@ -70,6 +70,7 @@ const PALETTE_CELL_WIDTH := 86.0
 ## written here, so the picker cannot offer a tier or a size that does not exist.
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
+const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -83,6 +84,9 @@ const STILL_SIZES: Array = [
 ## The presentation director. Absent in a scene that has no presentation, in which
 ## case the panel is not built at all rather than built full of dead buttons.
 @export var presentation: DirectorScript
+## The painted plan. Absent in a scene that cannot paint one, in which case the key
+## does nothing rather than reporting a failure for a feature that is not there.
+@export var painted_plan: PaintedPlanScript
 
 @onready var mode_label: Label = %ModeLabel
 @onready var toggle_button: Button = %ToggleButton
@@ -96,6 +100,10 @@ const STILL_SIZES: Array = [
 @onready var palette_column: VBoxContainer = %PaletteColumn
 @onready var presentation_panel: PanelContainer = %Presentation
 @onready var presentation_column: VBoxContainer = %PresentationColumn
+@onready var painted_sheet: Control = %PaintedSheet
+@onready var painted_picture: TextureRect = %Sheet
+@onready var painted_caption: Label = %Caption
+@onready var painted_actions: HBoxContainer = %PaintedActions
 ## The working furniture, found by path rather than by name: these two are old
 ## enough that giving them unique names would be a scene change for no reason.
 @onready var top_bar: PanelContainer = get_node_or_null(^"Root/TopBar")
@@ -128,6 +136,14 @@ var _presentation_state: String = ""
 ## decides which of its own furniture belongs in a presentation.
 var _presenting: bool = false
 
+## The painted plan on screen, held rather than rendered again when it is saved:
+## looking at the picture and filing it are two decisions, and the second one should
+## file the picture that was looked at.
+var _painted_image: Image = null
+## The button that files it, kept so it can be switched off while there is nothing
+## to file.
+var _painted_save: Button = null
+
 
 func _ready() -> void:
 	if view_controller == null:
@@ -142,6 +158,12 @@ func _ready() -> void:
 	draft_hints_label.text = drafting_hints()
 	_build_palette()
 	_build_presentation_panel()
+	_build_painted_actions()
+	# The painted plan reports by signal, so the panel is a caption rather than a
+	# function that blocks the frame the key was pressed in.
+	if painted_plan != null:
+		painted_plan.painted.connect(_on_painted)
+		painted_plan.paint_failed.connect(_on_paint_failed)
 	_on_view_mode_changed(view_controller.mode)
 	# Last, so it covers the buttons the palette and the presentation panel just
 	# built as well as the ones in the scene: a button that holds the keyboard takes
@@ -168,6 +190,10 @@ func _process(_delta: float) -> void:
 	if palette.get_child_count() > 0:
 		palette.visible = overhead and not _presenting
 		_refresh_palette()
+	# A presentation is a view of the garden rather than of the drawing, so the
+	# painted sheet goes away with the rest of the drawing's furniture.
+	if _presenting and painted_sheet.visible:
+		close_painted()
 	_refresh_presentation()
 
 
@@ -357,6 +383,9 @@ func _build_palette() -> void:
 	plot_row.name = "SheetRow"
 	palette_column.add_child(plot_row)
 	_command_button(plot_row, &"draft_plot", "Plot a sheet", _draft.plot)
+	# Next to plotting, because it is the other way the drawing leaves the application:
+	# the sheet is the drawing, the painted plan is the drawing coloured.
+	_command_button(plot_row, &"vis_painted", "Painted plan", open_painted)
 
 	var style_row := HBoxContainer.new()
 	style_row.name = "StyleRow"
@@ -725,3 +754,130 @@ func _on_still_failed(reason: String) -> void:
 	visible = true
 	if _still_status != null:
 		_still_status.text = "no still: %s" % reason
+
+
+# --- the painted plan -----------------------------------------------------------------
+
+
+## The two buttons under a painted plan: file it, or put it away.
+##
+## Built in code for the same reason the palette's buttons are: they are two
+## decisions about one picture, and a scene file holding them would be a second place
+## to change when there is only ever one.
+func _build_painted_actions() -> void:
+	if painted_actions == null:
+		return
+	_painted_save = Button.new()
+	_painted_save.name = "SavePaintedStill"
+	_painted_save.text = "Save a still"
+	_painted_save.tooltip_text = "Write this picture into the proposals folder, with its record"
+	_painted_save.disabled = true
+	_painted_save.pressed.connect(_on_save_painted)
+	painted_actions.add_child(_painted_save)
+	var close_button := Button.new()
+	close_button.name = "ClosePaintedSheet"
+	close_button.text = "Close"
+	close_button.pressed.connect(close_painted)
+	painted_actions.add_child(close_button)
+
+
+## Show the painted plan, painting it first if there is nothing to show.
+##
+## Painting again on every key press rather than caching: a designer presses this
+## after changing the drawing, and a cached picture would be a picture of the plan as
+## it used to be.
+func open_painted() -> void:
+	if painted_plan == null or painted_sheet == null:
+		return
+	if painted_sheet.visible:
+		close_painted()
+		return
+	# A presentation is a view of the garden rather than of the drawing, so the
+	# drawing does not open over it.
+	if _presenting:
+		return
+	_painted_image = null
+	if _painted_save != null:
+		_painted_save.disabled = true
+	painted_picture.texture = null
+	var reason: String = painted_plan.refusal()
+	if reason != "":
+		# The answer to "show me the painted plan" is a sentence when there is no
+		# plan to paint, and the sheet is where the answer is read.
+		painted_caption.text = reason
+		painted_sheet.visible = true
+		return
+	painted_caption.text = "painting..."
+	painted_sheet.visible = true
+	# Not awaited: the render waits for real frames, and the result arrives by
+	# signal. The status line is this label, which is already saying so.
+	painted_plan.render()
+
+
+func close_painted() -> void:
+	if painted_sheet != null:
+		painted_sheet.visible = false
+
+
+func _on_painted(image: Image, report: Dictionary) -> void:
+	_painted_image = image
+	if painted_picture != null:
+		painted_picture.texture = ImageTexture.create_from_image(image)
+	if painted_caption != null:
+		painted_caption.text = painted_caption_text(report)
+	if _painted_save != null:
+		_painted_save.disabled = false
+
+
+func _on_paint_failed(reason: String) -> void:
+	_painted_image = null
+	if painted_picture != null:
+		painted_picture.texture = null
+	if painted_caption != null:
+		painted_caption.text = reason
+	if _painted_save != null:
+		_painted_save.disabled = true
+
+
+func _on_save_painted() -> void:
+	if painted_plan == null or _painted_image == null:
+		return
+	# The button is switched off while there is nothing to file, so an empty save here
+	# is a state that cannot be reached - but the file is written by a function that
+	# can fail, and a failure has somewhere to be read.
+	var path: String = painted_plan.save(_painted_image)
+	if path != "" and painted_caption != null:
+		painted_caption.text = "wrote %s" % path.get_file()
+
+
+## What a painted plan says about itself: the sheet, the scale, the pixels, and how
+## much of the drawing reached the paper. Static so a test can hold the promise that
+## the caption names the scale the drawing was painted at.
+static func painted_caption_text(report: Dictionary) -> String:
+	var pixels: Array = report.get("pixels", [0, 0])
+	var mm: Array = report.get("mm", [0.0, 0.0])
+	return "Painted plan   %.0f x %.0f mm at 1:%s   %d x %d px   %d washed areas, %d planted" % [
+		float(mm[0]), float(mm[1]), String.num(float(report.get("plot_scale", 100.0)), 4),
+		int(pixels[0]), int(pixels[1]),
+		int(report.get("regions", 0)), int(report.get("props", 0)),
+	]
+
+
+## The painted plan's key, and the way out of it.
+##
+## Handled here rather than in the view controller because the sheet is the HUD's own
+## surface: the key that opens it, the escape that closes it, and the picture it shows
+## are one feature in one place.
+func _unhandled_input(event: InputEvent) -> void:
+	if painted_plan == null:
+		return
+	if event.is_action_pressed(&"vis_painted"):
+		open_painted()
+		get_viewport().set_input_as_handled()
+		return
+	# Escape closes the sheet before anything else gets a turn: while it is up, the
+	# drawing behind it is not what the person is looking at. Cancelling a shape still
+	# works when the sheet is not up, which is the only time it means anything.
+	if painted_sheet.visible and event.is_action_pressed(&"draft_cancel"):
+		close_painted()
+		get_viewport().set_input_as_handled()

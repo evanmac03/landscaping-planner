@@ -34,14 +34,36 @@ const COLOURS := {
 }
 
 ## Props, keyed by scene path, with the plan footprint each occupies in metres
-## before the instance's own scale is applied.
+## before the instance's own scale is applied, and the colour it washes in when the
+## plan is painted (§4.4).
+##
+## The wash belongs in this table rather than in a second one keyed by species,
+## because this is already the entry that decides what a prop looks like in the
+## plan: the symbol it draws as, the ground it covers, and now the pigment under it.
+## One entry, so a prop cannot be a tree in the working view and a shrub in the
+## painted one.
 const SYMBOLS := {
-	"res://scenes/props/tree.tscn": {"symbol": Symbol.TREE, "size": Vector2(3.7, 3.7)},
-	"res://scenes/props/shrub.tscn": {"symbol": Symbol.SHRUB, "size": Vector2(1.5, 1.5)},
-	"res://scenes/props/flower_bed.tscn": {"symbol": Symbol.BED, "size": Vector2(2.6, 1.4)},
+	"res://scenes/props/tree.tscn": {
+		"symbol": Symbol.TREE, "size": Vector2(3.7, 3.7), "wash": FOLIAGE_WASH,
+	},
+	"res://scenes/props/shrub.tscn": {
+		"symbol": Symbol.SHRUB, "size": Vector2(1.5, 1.5), "wash": FOLIAGE_WASH,
+	},
+	"res://scenes/props/flower_bed.tscn": {
+		"symbol": Symbol.BED, "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH,
+	},
 }
 
-## Used for any prop missing from SYMBOLS, so nothing becomes invisible.
+## The foliage green and the bloom pink, spelled out as constants so the tests can
+## hold them against `COLOURS` and fail if the palette moves under the wash.
+const FOLIAGE_WASH := Color(0.42, 0.62, 0.329)
+const BLOOM_WASH := Color(0.89, 0.42, 0.6)
+
+## Used for any prop missing from SYMBOLS, so nothing becomes invisible. It has no
+## wash entry on purpose: a prop this table does not describe is left out of the
+## painted plan's colour rather than washed in a guessed one, and it keeps its
+## linework, so what is missing reads as a plant with no foliage wash rather than as
+## a plant with the wrong one.
 const PLACEHOLDER := {"symbol": Symbol.GENERIC, "size": Vector2(1.2, 1.2)}
 const UNKNOWN_COLOUR := Color(0.55, 0.55, 0.58)
 
@@ -52,16 +74,38 @@ static func spec_for(scene_path: String) -> Dictionary:
 	return SYMBOLS.get(scene_path, PLACEHOLDER)
 
 
-## On-plan radius of a placed prop, in metres, including the instance's own
-## scale. Used both to hit-test a click and to size the selection ring.
-static func footprint_radius(node: Node3D) -> float:
+## On-plan size of a placed prop, in metres, including the instance's own scale.
+## The footprint's *shape* comes from the size pair: a square footprint is drawn as a
+## disc and an oblong one as a rectangle, so a bed does not come out round.
+static func footprint_size(node: Node3D) -> Vector2:
 	var size: Vector2 = spec_for(node.scene_file_path)["size"]
 	# A prop in the yard reports the scale it inherits from its parents. Outside
 	# the tree there is no global transform to ask for, so fall back to its own.
 	var basis: Basis = node.transform.basis
 	if node.is_inside_tree():
 		basis = node.global_transform.basis
-	return maxf(size.x, size.y) * 0.5 * basis.get_scale().x
+	return size * basis.get_scale().x
+
+
+## On-plan radius of a placed prop, in metres, including the instance's own
+## scale. Used both to hit-test a click and to size the selection ring.
+##
+## The half of the *longest* side, because this is a radius for grabbing and ringing
+## something: a circle that reaches the far side of a bed is the one a click inside
+## the bed should find.
+static func footprint_radius(node: Node3D) -> float:
+	var size: Vector2 = footprint_size(node)
+	return maxf(size.x, size.y) * 0.5
+
+
+## The colour a prop washes in when the plan is painted, or `Color.TRANSPARENT`
+## when this table does not describe it.
+##
+## Transparent rather than a neutral grey: a wash is the one layer where a wrong
+## colour is worse than no colour, because a grey canopy looks like a deliberate
+## choice and a missing one looks like something to finish (REQ-V4.4).
+static func wash_colour_for(node: Node3D) -> Color:
+	return spec_for(node.scene_file_path).get("wash", Color.TRANSPARENT)
 
 
 ## Plan colour for a material, by resource path. The 3D materials are

@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/yard.tscn" id="1_yard"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/draft/draft_overlay.gd" id="7_overlay"]
 [ext_resource type="Script" path="res://scripts/vis/presentation_director.gd" id="8_presentation"]
 [ext_resource type="Script" path="res://scripts/vis/orbit_camera.gd" id="9_orbit"]
+[ext_resource type="Script" path="res://scripts/vis/painted_plan.gd" id="10_painted"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.29, 0.47, 0.78, 1)
@@ -92,9 +93,15 @@ script = ExtResource("6_draft")
 [node name="DraftOverlay" type="Node3D" parent="."]
 script = ExtResource("7_overlay")
 
-[node name="Hud" parent="." instance=ExtResource("4_hud") node_paths=PackedStringArray("view_controller", "presentation")]
+[node name="Hud" parent="." instance=ExtResource("4_hud") node_paths=PackedStringArray("view_controller", "presentation", "painted_plan")]
 view_controller = NodePath("../ViewController")
 presentation = NodePath("../Presentation")
+painted_plan = NodePath("../PaintedPlan")
+
+[node name="PaintedPlan" type="Node" parent="." node_paths=PackedStringArray("view_controller", "yard")]
+script = ExtResource("10_painted")
+view_controller = NodePath("../ViewController")
+yard = NodePath("../Yard")
 
 [node name="Presentation" type="Node3D" parent="." node_paths=PackedStringArray("sun", "world_environment", "orbit", "yard", "view_controller", "plan_layer", "draft_overlay")]
 script = ExtResource("8_presentation")

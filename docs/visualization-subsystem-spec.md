@@ -500,39 +500,74 @@ extends RefCounted
 const PLANTING_PROPS := "planting_props"
 
 const WASHES := {
-    LayerSet.PLANTING_BED: {
-        "colour": Color(0.42, 0.62, 0.33), "opacity": 0.62,
-        "bleed_mm": 1.8, "mottle": 0.35, "wet_edge": 0.34,
-    },
     LayerSet.NEW_HARDSCAPE: {
-        "colour": Color(0.78, 0.76, 0.72), "opacity": 0.34,
-        "bleed_mm": 0.6, "mottle": 0.10, "wet_edge": 0.10,
+        "colour": Color(0.804, 0.792, 0.753), "material": STONE,
+        "opacity": 0.34, "bleed_mm": 0.6, "mottle": 0.10, "wet_edge": 0.10,
     },
-    LayerSet.WATER: {
-        "colour": Color(0.36, 0.55, 0.66), "opacity": 0.70,
-        "bleed_mm": 2.6, "mottle": 0.22, "wet_edge": 0.42,
+    LayerSet.NEW_STRUCTURE: {
+        "colour": Color(0.616, 0.502, 0.361), "material": FENCE_WOOD,
+        "opacity": 0.40, "bleed_mm": 0.8, "mottle": 0.14, "wet_edge": 0.16,
     },
-    LayerSet.MULCH: {
-        "colour": Color(0.52, 0.36, 0.24), "opacity": 0.55,
-        "bleed_mm": 1.2, "mottle": 0.45, "wet_edge": 0.22,
+    LayerSet.NEW_BED: {
+        "colour": Color(0.706, 0.596, 0.451), "material": SOIL,
+        "opacity": 0.50, "bleed_mm": 1.2, "mottle": 0.45, "wet_edge": 0.22,
     },
-    LayerSet.GROUNDCOVER: {
-        "colour": Color(0.71, 0.80, 0.48), "opacity": 0.42,
-        "bleed_mm": 1.0, "mottle": 0.30, "wet_edge": 0.16,
+    LayerSet.NEW_PLANTING: {
+        "colour": Color(0.42, 0.62, 0.329), "material": FOLIAGE,
+        "opacity": 0.50, "bleed_mm": 2.0, "mottle": 0.38, "wet_edge": 0.30,
     },
-    # A canopy bleeds further and mottles more than a bed: a mass of foliage is
-    # uneven by nature, which is exactly what makes a planting plan read as
-    # foliage over soil.
+    LayerSet.NEW_TURF: {
+        "colour": Color(0.655, 0.784, 0.451), "material": LAWN,
+        "opacity": 0.42, "bleed_mm": 1.0, "mottle": 0.30, "wet_edge": 0.16,
+    },
+    LayerSet.EXISTING_HARDSCAPE: {
+        "colour": Color(0.804, 0.792, 0.753), "material": STONE,
+        "opacity": 0.20, "bleed_mm": 0.5, "mottle": 0.08, "wet_edge": 0.06,
+    },
+    LayerSet.EXISTING_STRUCTURE: {
+        "colour": Color(0.929, 0.918, 0.878), "material": STUCCO,
+        "opacity": 0.22, "bleed_mm": 0.4, "mottle": 0.05, "wet_edge": 0.05,
+    },
+    LayerSet.EXISTING_PLANTING: {
+        "colour": Color(0.871, 0.863, 0.792), "material": ROUGH_GRASS,
+        "opacity": 0.35, "bleed_mm": 1.6, "mottle": 0.35, "wet_edge": 0.24,
+    },
     PLANTING_PROPS: {
-        "colour": Color(0.40, 0.60, 0.32), "opacity": 0.58,
-        "bleed_mm": 2.2, "mottle": 0.42, "wet_edge": 0.38,
+        "colour": Color(0.42, 0.62, 0.329), "material": FOLIAGE,
+        "opacity": 0.58, "bleed_mm": 2.2, "mottle": 0.42, "wet_edge": 0.38,
     },
 }
 
 
-## The wash for a layer, or {} when that layer does not wash.
-static func wash_for(layer_name: String) -> Dictionary:
-    return WASHES.get(layer_name, {})
+## The wash for a layer, or {} when that layer does not wash. Takes a name in either
+## form: a layer name arrives as a StringName from the document and as a String from a
+## literal.
+static func wash_for(layer_name) -> Dictionary:
+    return WASHES.get(StringName(layer_name), {})
+```
+
+**Three corrections to this table's first draft, all found by building it.** They are
+recorded because each one is a trap that the specification itself set:
+
+1. **The keys were invented layer names.** The first draft washed
+   `LayerSet.PLANTING_BED`, `WATER`, `MULCH` and `GROUNDCOVER`, none of which this
+   project has — which violates REQ-V13.1 on the specification's own page. The keys are
+   now the real ones: `300-NEW-HARD`, `301-NEW-STRUCT`, `400-NEW-BED`, `401-NEW-PLANT`,
+   `402-NEW-TURF` and the existing layers.
+2. **There is no water or mulch layer**, so REQ-V4.6's "water and mulch differ from
+   planting" has nowhere to land as written. Mulch *patterns* live on `600-HATCH` — a
+   pattern layer, which must not wash (REQ-V4.2) — so the bed layer carries the soil
+   medium's behaviour instead. A water feature layer is the open question (§16), not a
+   wash entry nobody can select.
+3. **Each entry names the material its pigment comes from**, and a test asserts
+   `colour == PlanStyle.COLOURS[material]`. That is REQ-V4.1 made mechanical rather
+   than remembered: the working view's flat colour and the painted wash cannot drift,
+   because a palette change the wash table does not follow fails the test.
+
+**A layer that deliberately does not wash says why**, in `WashTable.NO_WASH`: a contour
+is a line, irrigation is below ground, an annotation is an annotation, a tracing aid
+does not plot. A reader asking why their irrigation layer has no colour gets the answer
+from the code rather than from a missing entry that looks like an oversight.
 ```
 
 REQ-V4.1 The wash table shall be keyed by layer name, and a washable layer shall
@@ -584,11 +619,12 @@ extends Node2D
 ## property of the *region* - three offset passes of one polygon - and not of the
 ## pixels. The compositor then adds paper, grain, the wet edge and the ink on top
 ## (§3.5).
-
-const WashTableScript := preload("res://scripts/vis/wash_table.gd")
-const SketchStrokeScript := preload("res://scripts/vis/sketch_stroke.gd")
-const RenderScript := preload("res://scripts/draft/draft_render.gd")
-const CadSolidScript := preload("res://scripts/vis/cad_solid.gd")
+##
+## The painter works in **model metres**, like every other view in this project, and
+## the paper millimetres it is authored in (bleed, mottle) are converted by the same
+## law the line weights use. Its transform is set by the baker, which owns the one
+## framing both layers share (§3.4) - a painter that positioned itself would be a
+## second opinion about where the drawing sits on the paper.
 
 ## The three passes, as a share of the pigment and an offset in bleed units.
 const PASSES := [
@@ -599,47 +635,90 @@ const PASSES := [
 
 var _document = null
 var _plot_scale: float = 100.0
+var _props: Array[Node3D] = []
 
 
-func _init(document, plot_scale: float) -> void:
+func _init(document, plot_scale: float, props: Array[Node3D] = []) -> void:
     _document = document
     _plot_scale = plot_scale
-
-
-func _ready() -> void:
-    # The bake is measured in paper millimetres, so the painter works in
-    # millimetres and one canvas unit is one millimetre. Model metres enter in
-    # exactly one place: this transform.
-    var metres_per_mm: float = _plot_scale * 0.001
-    scale = Vector2.ONE * (1.0 / metres_per_mm)
-    queue_redraw()
+    _props = props
 
 
 func _draw() -> void:
-    # The document's own draw order, so the wash follows the layer bands the
-    # rest of the project already uses rather than an order invented here.
-    for entry in _document.draw_order():
-        var entity = entry["entity"]
-        var layer = entry["layer"]
-        var wash: Dictionary = WashTableScript.wash_for(String(layer.name))
-        if wash.is_empty() or not layer.plots:
-            continue
-        var region: PackedVector2Array = CadSolidScript.outline_of(
-            entity, layer, _plot_scale
-        )
-        if region.size() >= 3:
-            _paint_region(region, wash, int(entity.id))
-    # Planting last, and on top of the beds it stands in - REQ-V4.3.
-    for node in _document.planted_props():
-        _paint_plant(node)
+    for region: Dictionary in regions():
+        _paint_region(region["region"], region["wash"])
+
+
+## Every region that washes, in the order it is painted: the drawing's own draw
+## order first, then a canopy for every planted prop, so foliage stands over the
+## beds it grows in rather than under them (REQ-V4.3).
+##
+## Separate from `_draw()` because this is the part with a promise in it. "A bed
+## washes and a dimension does not" is a list, and a list can be asserted; what
+## `draw_colored_polygon` did with it cannot be (REQ-V14.2).
+func regions() -> Array[Dictionary]:
+    var out: Array[Dictionary] = []
+    if _document != null:
+        for entity in _document.plotting_entities():
+            var layer = _document.layers.get_layer(entity.layer)
+            if layer == null:
+                continue
+            var wash: Dictionary = WashTable.wash_for(layer.name)
+            if wash.is_empty():
+                continue
+            var region: PackedVector2Array = CadSolid.outline_of(entity)
+            if region.size() < CadSolid.MIN_RING_POINTS:
+                continue
+            out.append({
+                "region": region, "wash": wash,
+                "seed": int(entity.id), "what": String(layer.name),
+            })
+    for entry: Dictionary in canopies():
+        out.append(entry)
+    return out
+
+
+## A plant's footprint as a closed ring in model metres, in the shape the working
+## plan draws it: a disc for a tree or a shrub, a rectangle for a bed.
+##
+## Found by looking at a painted plan rather than by reasoning about it. A circle is
+## right for a trunk and a canopy and wrong for a bed 2.6 m by 1.4 m: the first
+## version washed every prop as a disc and put round colour under oblong symbols. The
+## shape therefore comes from the same table as the colour - the one entry that
+## describes the prop in the plan.
+func _canopy_region(node: Node3D) -> PackedVector2Array:
+    var size: Vector2 = PlanStyle.footprint_size(node)
+    var centre := Vector2(node.global_position.x, node.global_position.z)
+    if size.x <= 0.0 or size.y <= 0.0:
+        return PackedVector2Array()
+    var symbol: int = int(PlanStyle.spec_for(node.scene_file_path)["symbol"])
+    if symbol in [PlanStyle.Symbol.TREE, PlanStyle.Symbol.SHRUB]:
+        return _disc(centre, size.x * 0.5)
+    return _rectangle(centre, size)
+
+
+## A plant's canopy, washed in its species colour. One entry per prop that has a
+## colour; a prop the style table does not describe gets none, and keeps its ink, so
+## what is missing reads as a plant with no foliage wash rather than as a plant with
+## the wrong one.
+func canopies() -> Array[Dictionary]:
+    ...
+    var colour: Color = PlanStyle.wash_colour_for(node)
+    if colour.a <= 0.0:
+        continue
+    var wash: Dictionary = WashTable.wash_for(WashTable.PLANTING_PROPS)
+    wash["colour"] = colour
+    ...
 
 
 ## One region, painted as three offset passes.
-func _paint_region(region: PackedVector2Array, wash: Dictionary, seed_value: int) -> void:
+##
+## Every length the wash is authored in is a paper length, so it is converted here
+## and nowhere else: `model_width_m` is the same law the line weights use, which is
+## what stops the wash and the ink disagreeing about how big a millimetre is.
+func _paint_region(region: PackedVector2Array, wash: Dictionary) -> void:
     var colour: Color = wash["colour"]
-    # Bleed and mottle are authored in millimetres and the painter is already in
-    # millimetres, so they are used as they stand.
-    var bleed: float = float(wash["bleed_mm"])
+    var bleed: float = LineStyle.model_width_m(float(wash["bleed_mm"]), _plot_scale)
     var mottle: float = float(wash["mottle"])
     var opacity: float = float(wash["opacity"])
     for pass_index in PASSES.size():
@@ -648,31 +727,17 @@ func _paint_region(region: PackedVector2Array, wash: Dictionary, seed_value: int
         var shifted := PackedVector2Array()
         for point in region:
             shifted.append(point + offset)
-        # Each pass wobbles with its own seed, so the three edges do not coincide
-        # and the region reads as wet rather than as three stacked shapes.
-        var wobbled := SketchStrokeScript.wobble(
-            shifted, seed_value * 17 + pass_index * 5, _plot_scale
-        )
-        draw_colored_polygon(wobbled, Color(colour, opacity * float(pass_data["alpha"])))
-
-
-## A plant's canopy, washed in its species colour.
-func _paint_plant(node: Node3D) -> void:
-    # Through the table like every other wash, so there is one place a wash colour
-    # can be changed and one place it can be missing.
-    var wash: Dictionary = WashTableScript.wash_for(WashTableScript.PLANTING_PROPS)
-    if wash.is_empty():
-        return
-    var radius: float = PlanStyle.footprint_radius(node)
-    var centre := Vector2(node.global_position.x, node.global_position.z)
-    var region := PackedVector2Array()
-    # 28 points is enough that the wobble has something to work with without the
-    # canopy turning into a polygon with visible corners.
-    for step in 28:
-        var angle: float = TAU * float(step) / 28.0
-        region.append(centre + Vector2(cos(angle), sin(angle)) * radius)
-    _paint_region(region, wash, hash(node.name))
+        # Each pass carries its own share of the pigment. The wobble (REQ-V4.5)
+        # arrives with the ink pass in phase 2, from the region's own seed.
+        draw_colored_polygon(shifted, Color(colour, opacity * float(pass_data["alpha"])))
 ```
+
+**`PlanStyle` was the second correction.** A prop's wash colour was first specified as
+coming from "the species", and the obvious reading of that was the first
+`MeshInstance3D` under the prop — which is a tree's *trunk*, so trees washed in bark
+brown. The colour now comes from the prop's own `SYMBOLS` entry, which already describes
+the symbol and the size: one entry that says how a prop looks in the plan, whether the
+plan is flat or painted.
 
 REQ-V4.5 A wash region shall be wobbled with a seed derived from the entity's id,
 so the wash edge and the ink drawn over it wander together rather than apart.
@@ -2521,6 +2586,28 @@ REQ-V15.1 A phase shall be shippable on its own: no phase shall leave the projec
 with a half-built feature that a user can reach.
 
 REQ-V15.2 Every phase shall add its tests in the same commit as its code.
+
+### 15.1 What is built, and what is still only here
+
+A specification that reads as though everything in it exists is worse than no
+specification, so the status of each phase is recorded with the phase. "Built" means
+the file exists, has tests, and is reachable from the running game.
+
+| Phase | Status | What exists |
+|---|---|---|
+| **1. Wash** | **built** | `wash_table.gd`, `wash_painter.gd`, `cad_solid.gd` (outline only), `sketch_baker.gd`, `painted_plan.gd`, the painted sheet in the HUD, `R` to open it, *Save a still*. `tests/test_vis_wash.gd`, 25 tests. |
+| **2. Sketch** | not built | The wobble is specified in §3.2 and the compositor in §3.5; the wash draws its three mottle passes unwobbled, and the ink layer does not exist. So the painted plan is colour without linework. |
+| **3. Hardscape** | not built | `cad_solid.gd` has `outline_of`; the slab, the ribbon and the texture sets do not exist. |
+| **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. `tests/test_vis_presentation.gd`. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
+| **5. Planting at scale** | not built | `planting_instancer.gd` does not exist; the yard's props are ordinary nodes. |
+| **6. Still** | partly built | `still_exporter.gd` and `still_sidecar.gd` exist and write real PNGs with records, from the presentation camera and from the painted plan. The batch, the A3-at-300-dpi preset and §10.5's video are not built. |
+| **7. Walk-through** | not built | `walk_route.gd` does not exist. |
+| **8. Plugin** | not built | `addons/vis_tools` does not exist. |
+
+**Two design corrections the build forced**, both recorded in §4.2 and §4.4: the wash
+table's layer names, and where a prop's wash colour comes from. Neither was visible
+until the table was written against the project's own layers, which is the argument for
+building a phase rather than only specifying it.
 
 ---
 
