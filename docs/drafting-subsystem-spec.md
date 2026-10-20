@@ -869,6 +869,13 @@ out of the focus chain left it unable to focus the field it opens on - the engin
 control can't grab focus* and the file name could not be typed. Verified live: a name typed into the
 Save dialog's field reached the file on disk.
 
+The other `Window` in the feature is the unsaved-changes question, and it was verified live the same
+way: it opens with **Discard** focused - which is the button the old sweep would have taken out of
+the focus chain - and both answers do what they say under the mouse. Discard emptied the drawing
+(the status line reported `new drawing`); Keep editing left the geometry on the plan and the File
+menu still reported `untitled drawing - unsaved changes` with Save enabled. No engine error was
+logged for either dialog.
+
 **REQ 8.8** The recent list is not kept in the drawings folder. The folder is where a Save dialog
 opens, so anything in it can be browsed to and saved over, and the recent list is the one file here
 that only this app may write. It lives at `user://recent-drawings.json`; a list left in the drawings
