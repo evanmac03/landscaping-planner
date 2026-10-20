@@ -153,7 +153,6 @@ func _result(committed: bool, entity, measure, progress: int) -> Dictionary:
 
 
 func _build() -> Dictionary:
-	var count := _points.size()
 	if kind == Kind.LINE:
 		if _points[0].distance_to(_points[1]) <= MIN_SIZE:
 			return {"ok": false, "reason": "a line needs two distinct points"}

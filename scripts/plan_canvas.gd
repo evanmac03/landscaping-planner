@@ -363,7 +363,10 @@ func _draw_entity(entity, layer, alpha: float) -> void:
 		_draw_entity_text(entity, colour)
 		return
 	var style = DraftRenderScript.style_for(entity, layer)
-	var width: float = style.width_pixels(display_scale, pixels_per_metre)
+	# Godot's draw widths are in the canvas item's own units, which here are
+	# metres, so a pixel width has to be divided back down by the zoom or the
+	# stroke comes out `pixels_per_metre` times too thick.
+	var width: float = style.width_pixels(display_scale, pixels_per_metre) / pixels_per_metre
 	for stroke: PackedVector2Array in DraftRenderScript.strokes(entity, layer, display_scale):
 		if stroke.size() < 2:
 			continue
@@ -378,7 +381,7 @@ func _draw_entity_text(entity, colour: Color) -> void:
 	if label == "":
 		return
 	var screen: Vector2 = position + DraftRenderScript.label_position(entity) * pixels_per_metre
-	_draw_screen_text(screen, label, 13.0, colour)
+	_draw_screen_text(screen, label, 13, colour)
 
 
 func _draw_snap_marker() -> void:
@@ -394,12 +397,12 @@ func _draw_snap_marker() -> void:
 	if label == "":
 		return
 	var screen: Vector2 = position + point * pixels_per_metre
-	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12.0, SNAP_TEXT)
+	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12, SNAP_TEXT)
 
 
-func _draw_screen_text(screen: Vector2, text: String, size: float, colour: Color) -> void:
+func _draw_screen_text(screen: Vector2, text: String, size: int, colour: Color) -> void:
 	const DARK := Color(0.98, 0.98, 0.96, 0.9)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_begin_screen_space()
 	# A light halo behind the glyphs, because a snap label can land on top of
 	# dark planting and become unreadable exactly when it matters most.
 	draw_string(
@@ -410,7 +413,30 @@ func _draw_screen_text(screen: Vector2, text: String, size: float, colour: Color
 		ThemeDB.fallback_font, screen, text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour
 	)
-	draw_set_transform(position, 0.0, Vector2(pixels_per_metre, pixels_per_metre))
+	_end_screen_space()
+
+
+## Text and overlays are drawn in screen pixels, not metres.
+##
+## Godot's draw_set_transform *adds* to the canvas item's own transform rather
+## than replacing it, so zeroing it is not enough: the node's own position and
+## zoom still apply on top and send the result off the screen. The only way to
+## reach true screen space is to cancel that transform out with its inverse.
+func _begin_screen_space() -> void:
+	draw_set_transform_matrix(_node_transform().affine_inverse())
+
+
+func _end_screen_space() -> void:
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## This node's own transform, which is exactly pan plus zoom and no rotation.
+func _node_transform() -> Transform2D:
+	return Transform2D(
+		Vector2(pixels_per_metre, 0.0),
+		Vector2(0.0, pixels_per_metre),
+		position
+	)
 
 
 ## The drafting status, on the drawing surface rather than in the HUD: what the
@@ -418,15 +444,15 @@ func _draw_screen_text(screen: Vector2, text: String, size: float, colour: Color
 func _draw_status() -> void:
 	if status_text == "":
 		return
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform_matrix(_node_transform().affine_inverse())
 	var size: Vector2 = ThemeDB.fallback_font.get_string_size(
-		status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13.0
+		status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13
 	)
-	var origin := Vector2(14.0, 16.0)
+	var origin := Vector2(14.0, 74.0)
 	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)),
 		Color(0.99, 0.98, 0.95, 0.9), true)
 	draw_string(
 		ThemeDB.fallback_font, origin + Vector2(0.0, 13.0), status_text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 13.0, Color(0.12, 0.13, 0.15, 0.95)
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.12, 0.13, 0.15, 0.95)
 	)
-	draw_set_transform(position, 0.0, Vector2(pixels_per_metre, pixels_per_metre))
+	draw_set_transform_matrix(Transform2D.IDENTITY)

@@ -218,12 +218,12 @@ func resolve(
 	}
 
 
-func _result(point: Vector2, source: Dictionary, snapped: bool, candidate_count: int) -> Dictionary:
+func _result(point: Vector2, source: Dictionary, is_snapped: bool, candidate_count: int) -> Dictionary:
 	var mode: Mode = source.get("mode", Mode.NONE)
 	return {
 		"point": point,
 		"mode": mode,
-		"snapped": snapped,
+		"snapped": is_snapped,
 		"label": LABELS.get(mode, ""),
 		"glyph": GLYPHS.get(mode, ""),
 		"entity": int(source.get("entity", 0)),
