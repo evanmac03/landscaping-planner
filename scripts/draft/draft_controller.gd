@@ -21,6 +21,8 @@ const PenStyleScript := preload("res://scripts/draft/plot_style_table.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
+const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
+const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 
 ## The editing commands: what can be done to geometry that is already on the
 ## drawing. Held apart from the drawing tools because a tool answers "make me a new
@@ -714,10 +716,60 @@ func plot(schedule: Array = []) -> String:
 	return plot_path
 
 
-# --- plumbing -----------------------------------------------------------------------
+## Put an imported survey on the drawing.
+##
+## The property outline lands on the property layer as one closed shape, and the
+## whole import is one undo step: importing is one act, and a designer who read the
+## wrong lot wants one Ctrl+Z to take it back off rather than a walk back through it
+## line by line.
+##
+## The survey engine's own report decides. A failing check refuses the import -
+## a parcel that crosses itself is a tracing error, and putting it on the drawing
+## would make the plan the place the mistake is discovered, months later. A warning
+## does not refuse: a loose closure is a fact about the survey rather than a reason
+## to keep it off the plan, and it is reported instead.
+func import_survey(parsed: Dictionary) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to import it into"}
+	if not bool(parsed.get("ok", false)):
+		last_message = String(parsed.get("reason", "the survey could not be read"))
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	if not SurveyFileScript.is_sound(parsed):
+		last_message = "the survey did not pass its own checks"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	var outline: PackedVector2Array = parsed.get("outline", PackedVector2Array())
+	if outline.size() < 3:
+		last_message = "the survey has no outline to put on the drawing"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	document.begin_gesture()
+	var entity := EntityScript.make_polyline(outline, true)
+	if entity == null:
+		last_message = "the survey outline could not be drawn"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	document.add(entity, LayerSetScript.SURVEY_PROPERTY)
+	snap.bind(document.entities())
+	dirty = true
+	last_message = "imported %s" % SurveyFileScript.describe(parsed)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "id": entity.id, "message": last_message}
+
+
+## Put a sentence on the drawing's own status line, for a caller that never reached the
+## controller. An import that failed to be read still has to be answered for, and the status line
+## is where every other answer about the drawing appears.
+func note(message: String) -> void:
+	last_message = message
+	_refresh_canvas()
 
 
 # --- the drawing on disk --------------------------------------------------------------
+
+
+## Start an empty drawing.
 
 
 ## Start an empty drawing.

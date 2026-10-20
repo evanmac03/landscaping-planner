@@ -98,6 +98,7 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
+const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -189,6 +190,13 @@ var _menu_state: String = ""
 var _keys_panel: Control = null
 ## The site-stats page, built by `_build_site_report_panel` and shown from the Site menu.
 var _site_report_panel: Control = null
+## The survey import page, built by `_build_survey_panel`. A survey is read and *shown* before it
+## is put on the drawing, so the page holds the survey that is waiting for an answer.
+var _survey_panel: Control = null
+var _pending_survey: Dictionary = {}
+## The survey file chooser. A survey is a file somebody else sent, so it is read wherever it
+## lives rather than out of the app's own folder.
+var _survey_dialog: FileDialog = null
 ## Whether the line of control hints is wanted at the bottom of the screen. Held here rather than
 ## read from the node, because a presentation takes the hints away and has to give them back the
 ## way the person left them.
@@ -277,6 +285,7 @@ func _ready() -> void:
 	_build_plant_library()
 	_build_ground_window()
 	_build_site_report_panel()
+	_build_survey_panel()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -1245,6 +1254,7 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.new", "New drawing", &"file_new", &"_menu_new_drawing", NEEDS_DRAFT))
 	items.append(_command(&"file.open", "Open drawing...", &"file_open", &"_menu_open_drawing", NEEDS_DRAFT))
 	items.append(_submenu(&"file.recent", "Open recent", []))
+	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -1838,6 +1848,17 @@ func _build_file_dialogs() -> void:
 	_save_dialog.file_selected.connect(_on_save_as_chosen)
 	add_child(_save_dialog)
 
+	# A survey is a file somebody else sent, so this one reads the whole filesystem rather than
+	# the app's own folder, and it takes the plain tables a surveyor actually sends.
+	_survey_dialog = FileDialog.new()
+	_survey_dialog.name = "ImportSurvey"
+	_survey_dialog.title = "Import a survey"
+	_survey_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_survey_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_survey_dialog.filters = PackedStringArray(["*.txt, *.csv, *.tsv, *.met ; Survey files"])
+	_survey_dialog.file_selected.connect(_on_survey_chosen)
+	add_child(_survey_dialog)
+
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
 	_discard_dialog.title = "Unsaved changes"
@@ -2328,6 +2349,140 @@ func close_site_report() -> void:
 		_site_report_panel.visible = false
 
 
+# --- importing a survey ---------------------------------------------------------------
+
+
+## Built in code like the site-stats page, and for the same reason: it is a view of a file, and a
+## scene copy of it would be a second place the wording lives. It is a `Control` rather than a
+## `Window` because it opens *over* the drawing it is about, and because a page that does not take
+## the keyboard cannot swallow the drawing's own keys.
+func _build_survey_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "SurveyPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Page"
+	panel.custom_minimum_size = Vector2(640.0, 0.0)
+	if top_bar != null:
+		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	panel.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Import a survey"
+	column.add_child(heading)
+
+	var body := Label.new()
+	body.name = "SurveyText"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(body)
+
+	var buttons := HBoxContainer.new()
+	buttons.name = "Buttons"
+	var import_button := Button.new()
+	import_button.name = "ImportSurvey"
+	import_button.text = "Put it on the drawing"
+	import_button.pressed.connect(confirm_survey_import)
+	buttons.add_child(import_button)
+	var close_button := Button.new()
+	close_button.name = "CloseSurvey"
+	close_button.text = "Cancel"
+	close_button.pressed.connect(close_survey_panel)
+	buttons.add_child(close_button)
+	column.add_child(buttons)
+
+	wrapper.add_child(panel)
+	_survey_panel = wrapper
+	root.add_child(wrapper)
+
+
+func is_survey_panel_open() -> bool:
+	return _survey_panel != null and _survey_panel.visible
+
+
+## What the page says: what was read, then every check the survey engine made, then the survey's
+## own notes. A person accepts an import by reading this and nothing else.
+func survey_report_text() -> String:
+	if _pending_survey.is_empty():
+		return "no survey has been read"
+	var lines: Array[String] = []
+	lines.append(SurveyFileScript.describe(_pending_survey))
+	if not String(_pending_survey.get("source", "")).is_empty():
+		lines.append(String(_pending_survey["source"]))
+	lines.append("")
+	for line: String in SurveyFileScript.report_lines(_pending_survey):
+		lines.append(line)
+	return "\n".join(PackedStringArray(lines))
+
+
+## Whether the survey on the page may be put on the drawing. A survey that fails a check is
+## shown, not hidden: refusing silently would leave somebody looking at a file they cannot read
+## and a drawing that will not take it.
+func survey_import_enabled() -> bool:
+	return SurveyFileScript.is_sound(_pending_survey)
+
+
+func open_survey_panel(parsed: Dictionary) -> void:
+	if _survey_panel == null:
+		return
+	_pending_survey = parsed
+	var body := _survey_panel.get_node_or_null(^"Page/Column/SurveyText")
+	if body is Label:
+		(body as Label).text = survey_report_text()
+	var answer := _survey_panel.get_node_or_null(^"Page/Column/Buttons/ImportSurvey")
+	if answer is Button:
+		(answer as Button).disabled = not survey_import_enabled()
+	_survey_panel.visible = true
+
+
+func close_survey_panel() -> void:
+	if _survey_panel != null:
+		_survey_panel.visible = false
+	_pending_survey = {}
+
+
+## Put the survey that was read on the drawing. The page stays up until the drawing has taken it,
+## so a refused import is answered by the same page that asked.
+func confirm_survey_import() -> void:
+	if _draft == null or _pending_survey.is_empty():
+		return
+	var taken: Dictionary = _draft.import_survey(_pending_survey)
+	if bool(taken.get("ok", false)):
+		close_survey_panel()
+
+
+## The survey file chooser. It starts in the app's own surveys folder when there is one - the
+## place a survey that was dropped in for this drawing lives - and anywhere on the disk otherwise,
+## because a survey is a file somebody else sent.
+func open_survey_dialog() -> void:
+	if _survey_dialog == null:
+		return
+	var home := "user://surveys"
+	if DirAccess.dir_exists_absolute(home):
+		_survey_dialog.current_dir = ProjectSettings.globalize_path(home)
+	_survey_dialog.popup_centered_ratio(0.7)
+
+
+## A survey file was chosen: read it, then show what was read. Nothing reaches the drawing until
+## the report has been shown and accepted (docs/drafting-subsystem-spec.md REQ 6.2.1).
+func _on_survey_chosen(path: String) -> void:
+	release_keyboard_focus(self)
+	var parsed := SurveyFileScript.of_file(path)
+	if not bool(parsed.get("ok", false)):
+		if _draft != null:
+			_draft.note(String(parsed.get("reason", "the survey could not be read")))
+		return
+	open_survey_panel(parsed)
+
+
 ## Show the line of hints or not, remembering that a presentation takes them away as well.
 func _apply_hints_visibility() -> void:
 	if hints != null:
@@ -2676,6 +2831,12 @@ func _on_ground_check_requested() -> void:
 ## written to a log: a report nobody can see is not a report.
 func _menu_site_report(_entry: Dictionary) -> void:
 	open_site_report()
+
+
+## Read a surveyor's file and show what was read. The file is not put on the drawing here: a
+## survey is accepted by a person who has seen its checks, not by whoever pressed a menu entry.
+func _menu_import_survey(_entry: Dictionary) -> void:
+	open_survey_dialog()
 
 
 ## Point the browser at the catalogue, reading it only if it has never been read.

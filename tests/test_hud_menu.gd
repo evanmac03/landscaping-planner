@@ -324,6 +324,18 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 # --- the ground the plants are judged against ----------------------------------------------
 
 
+## A survey is a file, so it is reached from the File menu, and the entry names the method that
+## reads the file and shows what was read.
+func test_the_file_menu_offers_importing_a_survey() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("File"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("file.survey"), "the File menu can import a survey")
+	var entry: Dictionary = _entry(&"file.survey")
+	assert(String(entry["method"]) == "_menu_import_survey")
+	assert(entry["needs"] == HudScript.NEEDS_DRAFT, "and it needs a drawing to import into")
+
+
 ## The coverage report is reached from the Site menu, and it names the method that shows it.
 func test_the_site_menu_offers_the_site_report() -> void:
 	var ids: Array[String] = []

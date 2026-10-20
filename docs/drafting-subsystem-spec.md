@@ -580,6 +580,50 @@ conservatively: it must be *verifiable*, and it must refuse to guess.
 returning either a raster underlay plus a suggested transform, or exact model
 geometry plus a georeference. Adapters MUST be independently testable.
 
+#### 6.1a The metes-and-bounds adapter (built)
+
+**Built and tested**: `scripts/draft/survey_file.gd`, 25 tests in
+`tests/test_survey_file.gd`. It reads the two *exact* sources in the table
+above - a traverse of bearings and distances, and a coordinate point list -
+and hands them to the survey engine, which does the closure and area checks.
+There is no fit and no transform here: metes and bounds are exact by
+definition, so the adapter's whole job is reading them and their units
+correctly.
+
+The format is a table rather than a language:
+
+| Line | Meaning |
+|---|---|
+| `# ...` | a comment |
+| `key: value` | a header: `units`, `kind`, `area`, `name`, `note` |
+| `N 45 30 15 E, 120.50` | a leg: a quadrantal bearing and a distance |
+| `N45-30-15E 120.50 ft` | the same, written in one breath, with its own unit |
+| `0, 0` | a point, as east and north |
+
+**REQ 6.1a.1** Fields MAY be separated by a tab, comma, semicolon or bar.
+A line with no separator at all MUST be read as a bearing followed by its
+distance, including a bearing written with its own spaces inside it
+(`N 45 30 15 E 100.00`).
+
+**REQ 6.1a.2** Every distance MUST be in a unit somebody stated: a file header
+(`units: ft`), the line's own third field (`..., 50.00, m`), or the caller's
+options. A file that does not say MUST be refused, naming the line, because the
+difference between metres and feet is a plan that is wrong by a factor of three.
+
+**REQ 6.1a.3** Which kind of row a line is MUST be decided before it is read,
+because a bare number is both a legal azimuth and a legal easting. A quadrantal
+bearing is a leg; two bare numbers are a point; and a file whose azimuths are
+bare numbers MUST say `kind: metes`. Guessing the other way would put a lot's
+coordinates through a traverse and place a parcel of nothing at the origin.
+
+**REQ 6.1a.4** A survey MUST NOT reach the drawing until its validation report
+has been shown and accepted (REQ 6.2.1). A failing check refuses the import and
+names the check; a warning does not refuse it, because a loose closure is a fact
+about the survey rather than a reason to keep it off the plan. An accepted survey
+lands on `010-SURVEY-PROP` as one closed outline, as **one undo step**.
+
+**Not built:** the raster (PNG/JPG/TIFF/PDF) and DXF adapters of the table above.
+
 ### 6.2 Import pipeline
 
 ```
