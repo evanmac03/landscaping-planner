@@ -17,6 +17,9 @@ const IGNORED := ["Fence", "FenceCollision", "Surroundings"]
 ## The yard subtree whose children are the movable design objects.
 const PLANTS := "Plants"
 
+const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
+const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
+
 const PAPER := Color(0.945, 0.937, 0.906)
 const GRID := Color(0.16, 0.18, 0.14, 0.075)
 const FENCE_LINE := Color(0.45, 0.36, 0.26, 0.9)
@@ -30,6 +33,9 @@ const SHADOW := Color(0.33, 0.31, 0.26, 0.17)
 const HOVER := Color(0.13, 0.4, 0.62, 0.8)
 const GRAB := Color(0.94, 0.55, 0.1, 0.95)
 const GENERIC := Color(0.55, 0.28, 0.55)
+## The snap indicator: a small box on the point the cursor has snapped to.
+const SNAP := Color(0.98, 0.72, 0.12)
+const SNAP_TEXT := Color(0.09, 0.1, 0.11, 0.9)
 
 ## Drop-shadow offset for symbols, in metres. Gives the flat drawing a little
 ## depth so a prop reads as an object rather than a stain.
@@ -56,6 +62,19 @@ var _placeables: Array[Node3D] = []
 var _specs: Dictionary = {}
 var _fence: Rect2 = Rect2()
 var _has_fence: bool = false
+
+## The drafting document, if one is bound. Its linework draws on top of the yard,
+## which is the right way round: the design sits over what was already there.
+var document = null
+## The plot scale the on-screen linework imitates. Weights are authored in paper
+## millimetres, so they only become pixels once a sheet scale is chosen.
+var display_scale: float = 100.0
+## The shape being drawn, ghosted: {"entity": …, "layer": …}.
+var ghost: Dictionary = {}
+## Where the cursor snapped to, from the drafting controller.
+var snap: Dictionary = {}
+## What the drafting tools are waiting for, drawn on the plan itself.
+var status_text: String = ""
 
 
 func _process(_delta: float) -> void:
@@ -174,9 +193,11 @@ func _draw() -> void:
 	_draw_fence()
 	for node: Node3D in _placeables:
 		_draw_placeable(node)
+	_draw_document()
 	var marked: Node3D = grabbed if grabbed != null else hovered
 	if marked != null:
 		_draw_selection(marked, grabbed != null)
+	_draw_status()
 
 
 ## Opaque paper, so the hidden 3D render behind is fully covered even while the
@@ -311,3 +332,101 @@ func _blob(centre: Vector2, radius: float) -> PackedVector2Array:
 
 func _screen_to_local(screen: Vector2) -> Vector2:
 	return (screen - position) / pixels_per_metre
+
+
+# --- the drafted document ---------------------------------------------------------
+
+
+## Point the canvas at a drafting document. From here on its linework is part of
+## the plan, and it is the same document the 3D overlay and the sheet exporter
+## read, so all three show one design.
+func bind_document(doc) -> void:
+	document = doc
+	queue_redraw()
+
+
+func _draw_document() -> void:
+	if document == null:
+		return
+	for entity in document.visible_entities():
+		_draw_entity(entity, document.layers.get_layer(entity.layer), 1.0)
+	if ghost.get("entity", null) != null:
+		_draw_entity(ghost["entity"], ghost.get("layer", null), 0.45)
+	_draw_snap_marker()
+
+
+## One entity, in its layer's colour and at its layer's weight.
+func _draw_entity(entity, layer, alpha: float) -> void:
+	var colour: Color = DraftRenderScript.screen_colour(layer)
+	colour.a *= alpha
+	if entity.kind == DraftEntityScript.Kind.TEXT:
+		_draw_entity_text(entity, colour)
+		return
+	var style = DraftRenderScript.style_for(entity, layer)
+	var width: float = style.width_pixels(display_scale, pixels_per_metre)
+	for stroke: PackedVector2Array in DraftRenderScript.strokes(entity, layer, display_scale):
+		if stroke.size() < 2:
+			continue
+		draw_polyline(stroke, colour, width, true)
+
+
+## Text is drawn in screen space and the node transform is then restored. The
+## canvas works in metres, so a font size expressed in its own units would be a
+## fraction of a pixel and the fallback font would rasterise nothing at all.
+func _draw_entity_text(entity, colour: Color) -> void:
+	var label: String = DraftRenderScript.label_of(entity)
+	if label == "":
+		return
+	var screen: Vector2 = position + DraftRenderScript.label_position(entity) * pixels_per_metre
+	_draw_screen_text(screen, label, 13.0, colour)
+
+
+func _draw_snap_marker() -> void:
+	if not snap.get("snapped", false):
+		return
+	var point: Vector2 = snap["point"]
+	var half: float = 6.0 / pixels_per_metre
+	draw_rect(
+		Rect2(point - Vector2(half, half), Vector2(half, half) * 2.0),
+		SNAP, false, 1.6 / pixels_per_metre
+	)
+	var label: String = String(snap.get("label", ""))
+	if label == "":
+		return
+	var screen: Vector2 = position + point * pixels_per_metre
+	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12.0, SNAP_TEXT)
+
+
+func _draw_screen_text(screen: Vector2, text: String, size: float, colour: Color) -> void:
+	const DARK := Color(0.98, 0.98, 0.96, 0.9)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# A light halo behind the glyphs, because a snap label can land on top of
+	# dark planting and become unreadable exactly when it matters most.
+	draw_string(
+		ThemeDB.fallback_font, screen + Vector2(1.0, 1.0), text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, size, DARK
+	)
+	draw_string(
+		ThemeDB.fallback_font, screen, text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour
+	)
+	draw_set_transform(position, 0.0, Vector2(pixels_per_metre, pixels_per_metre))
+
+
+## The drafting status, on the drawing surface rather than in the HUD: what the
+## next pick will do is a property of the drawing, and the eye is already there.
+func _draw_status() -> void:
+	if status_text == "":
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var size: Vector2 = ThemeDB.fallback_font.get_string_size(
+		status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13.0
+	)
+	var origin := Vector2(14.0, 16.0)
+	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)),
+		Color(0.99, 0.98, 0.95, 0.9), true)
+	draw_string(
+		ThemeDB.fallback_font, origin + Vector2(0.0, 13.0), status_text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 13.0, Color(0.12, 0.13, 0.15, 0.95)
+	)
+	draw_set_transform(position, 0.0, Vector2(pixels_per_metre, pixels_per_metre))

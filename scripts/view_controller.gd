@@ -34,6 +34,8 @@ enum ViewMode {
 ## Guards the "run this next" slot; an enum value or NO_PENDING.
 const NO_PENDING := -1
 
+const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
+
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
 signal transition_finished(to_ground: bool)
@@ -121,6 +123,11 @@ var _drag_cursor: Vector2 = Vector2.ZERO
 var _hovered: Node3D = null
 var _hand_cursor: bool = false
 
+## The drafting controller, when the scene has one. Input is routed from here
+## because this node already owns the overhead mouse handling and knows which
+## view you are looking at.
+var _draft = null
+
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
 
@@ -136,6 +143,7 @@ func _ready() -> void:
 		plan_canvas.modulate.a = 0.0
 	if plan_layer != null:
 		plan_layer.visible = false
+	_draft = get_node_or_null(^"../DraftController")
 	_set_viewport_3d(true)
 	# The plan's scale is derived from the viewport height, so it has to be
 	# re-applied when the window changes size or the two overhead views drift
@@ -589,7 +597,10 @@ func _process(delta: float) -> void:
 		plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 		_apply_overhead_view()
 
-	_update_hover()
+	# While a tool is armed the hovered-object ring would be a lie: the click is
+	# going to the drawing, not to whatever plant is underneath it.
+	if _draft == null or not _draft.drawing:
+		_update_hover()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -605,6 +616,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
+
+	if _draft != null:
+		if event.is_action_pressed("draft_mode"):
+			_draft.toggle_drawing()
+			if _draft.drawing and plan_canvas != null:
+				plan_canvas.hovered = null
+			get_viewport().set_input_as_handled()
+			return
+		if _draft.drawing and _handle_drafting(event):
+			return
 
 	if event.is_action_pressed("fit_view"):
 		fit_plan_to_yard()
@@ -645,3 +666,88 @@ func _unhandled_input(event: InputEvent) -> void:
 			))
 			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 			_apply_overhead_view()
+
+
+# --- drafting -------------------------------------------------------------------------
+
+
+## While a tool is armed it owns the left button. Right-drag still pans and the
+## wheel still zooms, so you can keep drawing while moving around the plan, and
+## the design objects underneath are left alone: a click goes to the drawing.
+func _handle_drafting(event: InputEvent) -> bool:
+	if event.is_action_pressed("draft_cancel"):
+		_draft.cancel()
+		get_viewport().set_input_as_handled()
+		return true
+	if event.is_action_pressed("draft_finish"):
+		_draft.finish()
+		get_viewport().set_input_as_handled()
+		return true
+	if event.is_action_pressed("draft_undo"):
+		_draft.undo()
+		get_viewport().set_input_as_handled()
+		return true
+	# Backspace peels the shape back one point at a time, and falls back to
+	# undoing the last committed entity once there is nothing left to peel.
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if key.pressed and key.keycode == KEY_BACKSPACE:
+			if not _draft.undo_point():
+				_draft.undo()
+			get_viewport().set_input_as_handled()
+			return true
+	if _select_draft_tool(event):
+		return true
+
+	if event is InputEventMouseButton:
+		var button: InputEventMouseButton = event
+		if button.button_index == MOUSE_BUTTON_LEFT:
+			if button.pressed:
+				_draft.click(button.position)
+			get_viewport().set_input_as_handled()
+			return true
+		if button.button_index == MOUSE_BUTTON_RIGHT:
+			_panning = button.pressed
+			get_viewport().set_input_as_handled()
+			return true
+		if button.button_index == MOUSE_BUTTON_WHEEL_UP:
+			if button.pressed:
+				zoom_by(1.0 / zoom_step, button.position)
+			get_viewport().set_input_as_handled()
+			return true
+		if button.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if button.pressed:
+				zoom_by(zoom_step, button.position)
+			get_viewport().set_input_as_handled()
+			return true
+	elif event is InputEventMouseMotion:
+		var motion: InputEventMouseMotion = event
+		if _panning:
+			plan_focus -= motion.relative * (plan_size / maxf(
+				get_viewport().get_visible_rect().size.y, 1.0
+			))
+			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
+			_apply_overhead_view()
+		_draft.hover(motion.position)
+		get_viewport().set_input_as_handled()
+		return true
+	return false
+
+
+## Number keys pick the tool, which is how every CAD tool palette has worked
+## since forever: the hand never leaves the left of the keyboard.
+func _select_draft_tool(event: InputEvent) -> bool:
+	var tools: Array = [
+		["draft_line", DraftToolScript.Kind.LINE],
+		["draft_polyline", DraftToolScript.Kind.POLYLINE],
+		["draft_rect", DraftToolScript.Kind.RECTANGLE],
+		["draft_circle", DraftToolScript.Kind.CIRCLE],
+		["draft_arc", DraftToolScript.Kind.ARC],
+		["draft_measure", DraftToolScript.Kind.MEASURE],
+	]
+	for entry in tools:
+		if event.is_action_pressed(entry[0]):
+			_draft.set_tool(entry[1])
+			get_viewport().set_input_as_handled()
+			return true
+	return false
