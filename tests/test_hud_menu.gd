@@ -324,6 +324,41 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 # --- the ground the plants are judged against ----------------------------------------------
 
 
+## The two selection bands are chosen from the Edit menu, and choosing one names the method that
+## arms it with that mode.
+func test_the_edit_menu_offers_both_selection_bands() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("Edit"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("edit.select_window"), "the Edit menu offers a window band")
+	assert(ids.has("edit.select_crossing"), "and a crossing band")
+	var window: Dictionary = _entry(&"edit.select_window")
+	assert(String(window["method"]) == "_menu_select_mode")
+	assert(StringName(window["state"]) == &"select_mode", "they are a set, checked against the mode")
+	assert(StringName(window["value"]) == &"window")
+	assert(StringName(_entry(&"edit.select_crossing")["value"]) == &"crossing")
+
+
+## A selection mode is shown as chosen only while the band is actually in hand: a menu claiming a
+## mode that is not on would be describing a tool nobody has.
+func test_a_selection_mode_is_shown_as_chosen_only_while_the_band_is_out() -> void:
+	var out: Dictionary = {
+		"drawing": true, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing",
+	}
+	assert(HudScript.is_checked(&"select_mode", &"crossing", out), "the mode the band is in")
+	assert(not HudScript.is_checked(&"select_mode", &"window", out), "and not the other one")
+	var away: Dictionary = {
+		"drawing": false, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing",
+	}
+	assert(not HudScript.is_checked(&"select_mode", &"crossing", away),
+		"a mode is not on while the tools are put away")
+	var other: Dictionary = {
+		"drawing": true, "tool": int(ToolScript.Kind.LINE), "select_mode": &"crossing",
+	}
+	assert(not HudScript.is_checked(&"select_mode", &"crossing", other),
+		"nor while another tool is out")
+
+
 ## Labelling the planting is reached from the Plant menu, and it names the method that writes it.
 func test_the_plant_menu_offers_labelling_the_planting() -> void:
 	var ids: Array[String] = []

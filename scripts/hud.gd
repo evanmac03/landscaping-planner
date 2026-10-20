@@ -4,6 +4,7 @@ extends CanvasLayer
 ## the drawing palette, and the drafting aids on the overlay layer.
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
+const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 
 const EDIT_HINTS := "Left-drag: move a plant     "
@@ -1313,6 +1314,19 @@ static func edit_items() -> Array[Dictionary]:
 			"edit.tool." + String(pair[0]), edit_tool_label(pair), pair[0],
 			&"_menu_arm_edit", &"edit", pair[2]
 		))
+	# Selecting is not editing: it is how a person says *which* shapes before saying
+	# what to do with them, and the two modes are the whole of it. They get no key
+	# because the select tool has none - it is the one tool with no palette button,
+	# since a band needs no settling in the hand.
+	items.append(_separator())
+	items.append(_radio(
+		&"edit.select_window", "Window selection", &"", &"_menu_select_mode",
+		&"select_mode", SelectScript.MODE_WINDOW
+	))
+	items.append(_radio(
+		&"edit.select_crossing", "Crossing selection", &"", &"_menu_select_mode",
+		&"select_mode", SelectScript.MODE_CROSSING
+	))
 	return items
 
 
@@ -1563,6 +1577,13 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return bool(world.get("drawing", false)) and int(world.get("edit", -1)) == int(value)
 		&"dimension_style":
 			return StringName(world.get("dimension_style", &"")) == StringName(value)
+		&"select_mode":
+			# The mode is only the mode while the select tool is actually out, for the same reason
+			# a drawing tool is only shown as chosen while the tools are out: a menu claiming a
+			# band is in hand when nothing is would be describing a mode that is not on.
+			return bool(world.get("drawing", false)) \
+				and int(world.get("tool", -1)) == int(DraftToolScript.Kind.SELECT) \
+				and StringName(world.get("select_mode", &"")) == StringName(value)
 		&"sheet":
 			return String(world.get("sheet", "")) == String(value)
 		&"scale":
@@ -1588,6 +1609,7 @@ func menu_world() -> Dictionary:
 		"drawing": _draft != null and _draft.drawing,
 		"tool": int(_draft.current_tool()) if _draft != null else -1,
 		"edit": int(_draft.current_edit()) if _draft != null else -1,
+		"select_mode": StringName(_draft.selection_mode()) if _draft != null else &"",
 		"dimension_style": StringName(_draft.dimension_style_name) if _draft != null else &"",
 		"sheet": String(_draft.sheet) if _draft != null else "",
 		"plot_scale": float(_draft.plot_scale) if _draft != null else 0.0,
@@ -2123,6 +2145,19 @@ func arm_edit_command(kind: int) -> void:
 
 func _menu_arm_edit(entry: Dictionary) -> void:
 	arm_edit_command(int(entry["value"]))
+
+
+## Choose which way round the selection band catches things, and put it in hand.
+##
+## Choosing a mode is choosing the tool: a mode with no band out is a preference
+## nobody can see, and the plant in hand has to be dropped first or a click would
+## mean two things at once.
+func _menu_select_mode(entry: Dictionary) -> void:
+	if _draft == null:
+		return
+	if view_controller != null and view_controller.is_planting():
+		view_controller.stop_planting()
+	_draft.arm_select(StringName(entry["value"]))
 
 
 func _menu_show_mode(entry: Dictionary) -> void:

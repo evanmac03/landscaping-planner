@@ -21,6 +21,15 @@ const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
 const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
 
+## The shapes a selection band caught, by id, handed over by the drafting controller.
+var _selected: Array[int] = []
+## How a selected shape is traced: the plan's own highlight, at least this many
+## pixels wide whatever the layer's weight is, so a hairline still shows its pick.
+const SELECTION_COLOUR := Color(1.0, 0.62, 0.15)
+const SELECTION_MIN_PIXELS := 3.0
+## The box drawn round a selected label, in pixels: a label has no linework to trace.
+const SELECTION_LABEL_BOX := 14.0
+
 ## The smallest an annotation is allowed to draw on screen, in pixels. Annotation
 ## text is sized from its authored paper height, which is correct but vanishes at
 ## a working zoom, so it holds this floor and stays readable.
@@ -396,9 +405,52 @@ func _draw_document() -> void:
 		return
 	for entity in document.visible_entities():
 		_draw_entity(entity, document.layers.get_layer(entity.layer), 1.0)
+	# What a selection band caught, drawn over the top rather than instead: the shape
+	# is still the shape, and a highlight that replaced its own colour would make a
+	# copy look like a different pen.
+	for entity in document.visible_entities():
+		if _selected.has(int(entity.id)):
+			_draw_marked(entity, document.layers.get_layer(entity.layer))
 	if ghost.get("entity", null) != null:
 		_draw_entity(ghost["entity"], ghost.get("layer", null), 0.45)
 	_draw_snap_marker()
+
+
+## Point the canvas at the shapes a selection band caught.
+func set_selection(ids: Array) -> void:
+	var out: Array[int] = []
+	for id in ids:
+		out.append(int(id))
+	if out == _selected:
+		return
+	_selected = out
+	queue_redraw()
+
+
+func selected_ids() -> Array[int]:
+	return _selected.duplicate()
+
+
+## A selected shape, traced over itself in the highlight colour and a little wider,
+## so a thin line on a busy plan still says it has been picked.
+func _draw_marked(entity, layer) -> void:
+	var colour: Color = SELECTION_COLOUR
+	var parts: Dictionary = DraftRenderScript.layout(
+		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+	)
+	var style = parts["style"]
+	var width: float = style.width_pixels(display_scale, pixels_per_metre) / pixels_per_metre
+	width = maxf(width, SELECTION_MIN_PIXELS / pixels_per_metre)
+	for stroke: PackedVector2Array in parts["lines"]:
+		if stroke.size() < 2:
+			continue
+		draw_polyline(stroke, colour, width, true)
+	# A shape with no linework at all - a label - is marked by a box at its anchor, so
+	# a selection of labels is not a selection of nothing.
+	if parts["lines"].is_empty() and entity.kind == DraftEntityScript.Kind.TEXT:
+		var at: Vector2 = entity.point(0)
+		var size := SELECTION_LABEL_BOX / pixels_per_metre
+		draw_rect(Rect2(at - Vector2(size, size) * 0.5, Vector2(size, size)), colour, false, width)
 
 
 ## One entity, in its layer's colour and at its layer's weight, drawn from the

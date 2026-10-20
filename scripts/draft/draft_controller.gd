@@ -24,6 +24,7 @@ const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
+const SelectScript := preload("res://scripts/draft/draft_select.gd")
 
 ## The editing commands: what can be done to geometry that is already on the
 ## drawing. Held apart from the drawing tools because a tool answers "make me a new
@@ -125,6 +126,16 @@ var fillet_radius: float = DEFAULT_FILLET_RADIUS
 var _edit_picked: Array = []
 var _edit_points: Array[Vector2] = []
 
+## Whether a selection band catches only what is wholly inside it (window) or
+## anything it touches (crossing).
+var select_mode: StringName = SelectScript.MODE_WINDOW
+## The corners of the band being dragged out. Held here rather than in the drawing
+## tool because a selection is measured against the *document* rather than being a
+## shape in it: the tool that owns it, `Tool.Kind.SELECT`, takes no points at all.
+var _select_points: Array[Vector2] = []
+## The ids of the shapes a band last caught, in document order.
+var _selected: Array[int] = []
+
 var _last_snap: Dictionary = {}
 
 signal changed()
@@ -156,6 +167,10 @@ func set_tool(kind: ToolScript.Kind) -> void:
 	# Keep whatever is on the drawing surface: switching tools mid-shape throws
 	# away half a shape, which is never what was meant.
 	clear_edit()
+	# A selection belongs to the tool that made it, so putting the select tool away
+	# puts the selection away too: a highlight on the screen that no command can act
+	# on is a lie about what is in hand.
+	clear_selection()
 	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
 	_last_snap = {}
@@ -203,6 +218,7 @@ func set_drawing(on: bool) -> void:
 	if not drawing:
 		clear_edit()
 		cancel()
+		clear_selection()
 	last_message = "drawing on" if drawing else ""
 	_refresh_canvas()
 
@@ -306,6 +322,8 @@ func status() -> String:
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
 	if is_editing():
 		return _edit_status()
+	if tool.kind == ToolScript.Kind.SELECT:
+		return _select_status()
 	var text := "%s  ·  %s  ·  %s" % [
 		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
 	]
@@ -366,6 +384,8 @@ func click(screen: Vector2) -> Dictionary:
 		return {}
 	if is_editing():
 		return _edit_click(screen)
+	if tool.kind == ToolScript.Kind.SELECT:
+		return _select_click(screen)
 	# Snap first, so the point that is committed is the one the marker showed.
 	hover(screen)
 	var pick: Dictionary = tool.click(cursor_point)
@@ -403,6 +423,9 @@ func cancel() -> void:
 	# picked to offset - without putting the command itself away.
 	_edit_picked = []
 	_edit_points = []
+	# Escape also drops a half-made selection band, for the same reason: it is half
+	# of a gesture nobody has finished.
+	_select_points = []
 	snap.clear_lock()
 	_last_snap = {}
 	_refresh_canvas()
@@ -435,6 +458,146 @@ func _commit(pick: Dictionary) -> void:
 			document.units.format_length(measure["distance"]),
 			document.units.format_length(measure["delta"].length()),
 		]
+
+
+# --- selecting what is already drawn --------------------------------------------------
+
+
+## Take a selection mode, arming the select tool with it.
+##
+## A mode is not a command that does something and ends; it is a standing
+## preference, like the drawing layer, so choosing one leaves the band in hand and
+## a designer can sweep twice in a row without re-choosing.
+func set_select_mode(mode: StringName) -> bool:
+	if not SelectScript.is_mode(mode):
+		return false
+	select_mode = mode
+	return true
+
+
+func selection_mode() -> StringName:
+	return select_mode
+
+
+## Take the select tool in a mode, which is what choosing a mode means: the mode is
+## not worth setting if the band is not in hand, and the band is not in hand if a
+## trim is still waiting for a pick.
+func arm_select(mode: StringName) -> bool:
+	if not set_select_mode(mode):
+		return false
+	clear_edit()
+	arm(ToolScript.Kind.SELECT)
+	return true
+
+
+func selection_mode_name() -> String:
+	return SelectScript.mode_name(select_mode)
+
+
+## The ids a band last caught. A copy, so a caller cannot edit the selection behind
+## the controller's back.
+func selection() -> Array[int]:
+	return _selected.duplicate()
+
+
+func selected_count() -> int:
+	return _selected.size()
+
+
+func is_selected(id: int) -> bool:
+	return _selected.has(id)
+
+
+## The selected shapes themselves, skipping any that have since been taken off the
+## drawing - a selection outlives the geometry it named.
+func selected_entities() -> Array[EntityScript]:
+	var out: Array[EntityScript] = []
+	if document == null:
+		return out
+	for id: int in _selected:
+		var entity: EntityScript = document.get_entity(id)
+		if entity != null:
+			out.append(entity)
+	return out
+
+
+func selection_bounds() -> Rect2:
+	var chosen := selected_entities()
+	if chosen.is_empty():
+		return Rect2()
+	var rect := Rect2(chosen[0].point(0), Vector2.ZERO)
+	for entity: EntityScript in chosen:
+		for point: Vector2 in entity.outline(SelectScript.TOLERANCE):
+			rect = rect.expand(point)
+	return rect
+
+
+func clear_selection() -> void:
+	_select_points = []
+	_selected = []
+	_refresh_canvas()
+
+
+## Take everything on a visible layer. The nearest thing to "select all" that means
+## anything on a drawing with hidden layers: what is hidden is not on the sheet.
+func select_all() -> int:
+	_selected = []
+	if document != null:
+		for entity: EntityScript in document.visible_entities():
+			_selected.append(int(entity.id))
+	_select_points = []
+	last_message = SelectScript.describe(_selected.size(), select_mode)
+	_refresh_canvas()
+	return _selected.size()
+
+
+## A click while the select tool is out. The first pick anchors the band, the
+## second completes it - the same two-pick gesture the rectangle tool uses, so there
+## is nothing new to learn and no new key to bind.
+func _select_click(screen: Vector2) -> Dictionary:
+	if canvas == null:
+		return {}
+	select_at(canvas.screen_to_world(screen))
+	_refresh_canvas()
+	return {}
+
+
+## The same, in model coordinates: the canvas-free entry point, so the whole rule is
+## testable without a scale to read.
+func select_at(world: Vector2) -> Dictionary:
+	if _select_points.is_empty():
+		_select_points.append(world)
+		last_message = ""
+		return {"ok": false, "progress": 1, "reason": ""}
+	var first: Vector2 = _select_points[0]
+	var reason := SelectScript.band_reason(first, world)
+	if reason != "":
+		# The bad corner is given back, so the band stays where the person thinks it
+		# is and the next click can still finish it - the same courtesy the drawing
+		# tools extend to a degenerate pick.
+		last_message = reason
+		return {"ok": false, "progress": 1, "reason": reason}
+	var caught: Dictionary = SelectScript.pick_between(
+		document.visible_entities() if document != null else [], first, world, select_mode
+	)
+	_selected = []
+	for id in caught["ids"]:
+		_selected.append(int(id))
+	_select_points = []
+	last_message = SelectScript.describe(_selected.size(), select_mode)
+	return {"ok": true, "progress": 0, "ids": selection(), "reason": ""}
+
+
+## What the select tool says while it is out: which way round the band catches
+## things, what the next pick is for, and what is selected.
+func _select_status() -> String:
+	var hint := "pick the first corner" if _select_points.is_empty() else "pick the opposite corner"
+	var text := "%s selection  ·  %s" % [SelectScript.mode_name(select_mode), hint]
+	if not _selected.is_empty():
+		text += "  ·  %d selected" % _selected.size()
+	if last_message != "":
+		text += "  ·  " + last_message
+	return text
 
 
 # --- the editing commands -------------------------------------------------------------
@@ -913,5 +1076,9 @@ func _refresh_canvas() -> void:
 		if preview != null else {}
 	if overlay != null:
 		overlay.set_ghost(preview, document.layers.get_layer(tool.layer))
+	# The selection is the canvas's to draw and the controller's to decide, so it is
+	# handed over as ids: a highlight that outlived the geometry it named would be a
+	# highlight of nothing.
+	canvas.set_selection(_selected)
 	canvas.status_text = status()
 	canvas.queue_redraw()

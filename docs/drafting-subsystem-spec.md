@@ -164,6 +164,38 @@ and a key carries the names, is provided for but not yet authored.)
 was being drawn, at a **paper** height (2.5 mm) rather than a model one, and a
 run of labels is **one undo step** - a plan is labelled in one act.
 
+### 2.1c Selecting what is already drawn, as built
+
+**Built and tested**: `scripts/draft/draft_select.gd` (the band rule) plus
+`DraftController.arm_select` / `select_at` and the canvas highlight, 17 + 16 tests in
+`tests/test_draft_select.gd` and `tests/test_draft_select_tools.gd`. Reached from the Edit
+menu, which offers the two modes as radios.
+
+The `SELECT` tool sat in the tool list and did nothing: it takes no points, so there was no
+gesture to give it. Selection is not a drawing tool and it is not a modify command - it is
+how a person says *which* shapes before saying what to do with them - so it owns no palette
+button and no key, and it is armed by choosing one of its two modes from the Edit menu.
+
+**REQ 2.1c.1** Two modes and no more: a **window** catches only shapes wholly inside the
+band; a **crossing** catches anything the band touches. A shape that merely crosses an edge
+is caught by a crossing and not by a window; a shape lying on the band's own edge is inside
+it.
+
+**REQ 2.1c.2** The band is the same two-pick gesture as the rectangle - first corner, then
+the opposite corner - so there is no new key to learn. A corner that lands on the first, a
+band with no area, MUST be refused in words with the first corner kept, so the band stays
+where the person thinks it is.
+
+**REQ 2.1c.3** A selection MUST outlive a half-made band and an Escape (which drops only the
+unfinished corner), and MUST be dropped when the tool changes or the tools are put away: a
+highlight on the screen that no command can act on is a lie about what is in hand. Hidden
+layers are not selected - what is hidden is not on the sheet.
+
+**REQ 2.1c.4** Selection is neutral about annotations, unlike an editing command: a dimension
+or a note may be selected, because selecting is not editing. A shape the band named may since
+have been taken off the drawing, so a selection MUST skip ids that no longer exist rather
+than fail.
+
 ### 2.2 Coordinate entry grammar
 
 **REQ 2.2.1** Every point input MUST accept typed coordinates as an alternative
