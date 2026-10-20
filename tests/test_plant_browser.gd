@@ -42,13 +42,6 @@ func _tick_box(container: Node, words: String) -> CheckBox:
 	return null
 
 
-## Whether two colours are the same picture colour. The swatch is stored as eight bits a channel, so
-## a colour that was never quantised does not compare equal to the one that comes back.
-func _nearly(first: Color, second: Color) -> bool:
-	return absf(first.r - second.r) < 0.01 and absf(first.g - second.g) < 0.01 \
-		and absf(first.b - second.b) < 0.01
-
-
 # --- the shipped list ---------------------------------------------------------------------
 
 
@@ -281,15 +274,16 @@ func test_a_collection_narrows_the_grid_without_replacing_the_other_filters() ->
 # --- the pictures -------------------------------------------------------------------------
 
 
-func test_a_species_with_no_photograph_is_drawn_as_the_symbol_the_plan_uses() -> void:
+func test_every_species_in_the_grid_has_a_picture_and_they_share_what_they_should() -> void:
+	# The browser asks `PlantIcons` for the picture, which is what stops the grid and the palette's
+	# plants section from showing a plant two different ways. A species with no photograph is not a
+	# species with no picture: it is drawn as the symbol the plan would draw it as.
 	var catalogue: PlantCatalogue = _catalogue()
 	var browser: PlantBrowser = _browser(catalogue)
 	var tree: Texture2D = browser.icon_for(MAPLE)
 	assert(tree != null, "a tree with no thumbnail still has a picture")
-	assert(tree.get_width() == BrowserScript.ICON_PIXELS, "at the swatch size")
+	assert(tree == PlantIcons.texture_for(catalogue.get_species(MAPLE)), "and it is the shared swatch")
 
-	# Every species has one, and the swatch is the same for two species drawn as the same prop in
-	# the same category: the cache is per form, which is what makes four thousand of them cheap.
 	var seen: Dictionary = {}
 	for plant: PlantSpecies in catalogue.all():
 		var picture: Texture2D = browser.icon_for(plant.id)
@@ -300,58 +294,15 @@ func test_a_species_with_no_photograph_is_drawn_as_the_symbol_the_plan_uses() ->
 		else:
 			seen[key] = picture
 	assert(seen.size() < catalogue.count(), "fewer pictures than species: %d" % seen.size())
-
-	# A tree and a bed are not the same shape, which is the whole reason the swatch is drawn from
-	# the plan's own table rather than being one generic marker for everything.
-	assert(browser.icon_for(MAPLE) != browser.icon_for(&"rudbeckia-fulgida-goldsturm"),
+	# A tree and a bed are not the same shape, which is the whole reason the picture is drawn from the
+	# plan's own table rather than being one generic marker for everything.
+	assert(browser.icon_for(MAPLE) != browser.icon_for(RUDBECKIA),
 		"a tree and a bed are different symbols")
 	# The tint is the species' bloom colour, so two trees are still told apart in the grid.
-	assert(BrowserScript.icon_tint(catalogue.get_species(MAPLE)) != Color.WHITE,
-		"a flowering tree is tinted")
-	assert(BrowserScript.icon_tint(catalogue.get_species(&"buxus-sempervirens")) == Color.WHITE,
+	assert(PlantIcons.tint(catalogue.get_species(MAPLE)) != Color.WHITE, "a flowering tree is tinted")
+	assert(PlantIcons.tint(catalogue.get_species(&"buxus-sempervirens")) == Color.WHITE,
 		"a foliage plant is not")
 	browser.free()
-
-
-func test_the_swatch_is_the_pigment_the_painted_plan_would_use() -> void:
-	# The swatch reads `PlanStyle`, so it cannot show a plant as one colour and paint it another.
-	var catalogue: PlantCatalogue = _catalogue()
-	var browser: PlantBrowser = _browser(catalogue)
-	var maple: Image = browser._paint_symbol(catalogue.get_species(MAPLE))
-	var middle: Color = maple.get_pixel(int(BrowserScript.ICON_HALF), int(BrowserScript.ICON_HALF))
-	assert(middle.a > 0.5, "the middle of the swatch is drawn")
-	var pigment: Color = PlanStyleScript.spec_for(catalogue.get_species(MAPLE).form)["wash"]
-	# `_nearly`, because the swatch is stored eight bits a channel and the colour it was drawn from
-	# was never quantised.
-	assert(_nearly(middle, pigment.darkened(0.45)) or _nearly(middle, pigment),
-		"and it is the plan's own pigment, or its edge: %s" % str(middle))
-	# Something was drawn, and not everything was: a swatch that is blank and a swatch that is one
-	# flat fill are both failures that a single sampled pixel would miss.
-	var drawn: int = _opaque_pixels(maple)
-	assert(drawn > 0, "the swatch is not blank")
-	assert(drawn < BrowserScript.ICON_PIXELS * BrowserScript.ICON_PIXELS, "and not a solid square")
-
-	# A bed is an oblong and a canopy is a disc, which is a difference you can find in the picture:
-	# directly above the centre a bed's short side has already ended and a tree's canopy has not.
-	var bed: Image = browser._paint_symbol(catalogue.get_species(RUDBECKIA))
-	assert(bed.get_pixel(BrowserScript.ICON_PIXELS / 2, 12).a < 0.5,
-		"a bed is drawn as an oblong, so it is empty above its own centre")
-	assert(maple.get_pixel(BrowserScript.ICON_PIXELS / 2, 12).a >= 0.5,
-		"a tree is drawn as a canopy, so it is not")
-	assert(bed.get_pixel(BrowserScript.ICON_PIXELS / 2, BrowserScript.ICON_PIXELS / 2).a >= 0.5,
-		"and the bed is filled where a bed is")
-	browser.free()
-
-
-## How many pixels of a swatch have anything in them. Every byte, because a picture can be wrong in
-## a way that one sampled pixel cannot see.
-func _opaque_pixels(image: Image) -> int:
-	var count: int = 0
-	for y in image.get_height():
-		for x in image.get_width():
-			if image.get_pixel(x, y).a > 0.0:
-				count += 1
-	return count
 
 
 # --- placing ------------------------------------------------------------------------------

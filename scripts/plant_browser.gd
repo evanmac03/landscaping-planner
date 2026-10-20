@@ -45,14 +45,6 @@ signal note(text: String)
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
 
-## The pixel size the generated symbol swatches are drawn at. Small enough to make four thousand of
-## them cheap, big enough that the shape of a symbol is legible.
-const ICON_PIXELS := 64
-const ICON_HALF := 32.0
-
-## The option value that means "no filter". Not a category, a zone or a month, so it cannot collide
-## with a real choice - and not zero either, because zero *is* a real category and a real water need.
-## It is what the `set_..._filter` doors take to put a filter back to showing everything.
 const ANY := -1
 
 # --- the controls, made by `build()` -----------------------------------------------------
@@ -93,7 +85,6 @@ var _results: Array[PlantSpecies] = []
 var _chips: Dictionary = {}
 ## Tag name -> how many species carry it, so a chip says how much it will leave.
 var _chip_counts: Dictionary = {}
-var _icon_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -358,7 +349,8 @@ func _build_footer() -> void:
 func bind(new_catalogue: PlantCatalogue) -> void:
 	build()
 	catalogue = new_catalogue
-	_icon_cache.clear()
+	# The pictures are not cleared here: they belong to `PlantIcons`, keyed by the form a species is
+	# drawn as, and a second catalogue drawn as the same three props wants the same three pictures.
 	_rebuild_chips()
 	_rebuild_collection_choices()
 	refresh()
@@ -559,7 +551,7 @@ func _rebuild_grid() -> void:
 		# every tree in the catalogue is one picture; a species' own bloom colour is a tint on that
 		# picture rather than a fourth copy of it, which is the difference between thirty textures
 		# and one per species.
-		_grid.set_item_icon_modulate(cell, icon_tint(plant))
+		_grid.set_item_icon_modulate(cell, PlantIcons.tint(plant))
 		if plant.id == _selected_id:
 			_grid.select(cell, true)
 
@@ -854,97 +846,17 @@ func focus_search() -> void:
 # --- the pictures -------------------------------------------------------------------------
 
 
-## The picture for a species: its own thumbnail when the catalogue has one, and otherwise a swatch
-## drawn as the symbol the working plan would put on the paper for it.
+## The picture for a species: its own thumbnail when the catalogue has one, and otherwise the swatch
+## the plan's own table draws for the prop it is planted as.
 ##
-## The second half is the point. A catalogue of four thousand species will not carry four thousand
-## photographs, and a grid of empty boxes is a grid nobody can look through - so a species with no
-## picture is drawn as its *symbol*: the shape and the pigment `PlanStyle` gives that prop. Which
-## form it is drawn as, and which pigment that form washes in, both come from the same table the plan
-## reads, so the browser cannot show a plant as one shape and put a different one on the plan.
-##
-## The cache is keyed by **form and category**, not by species: sixteen species drawn as three props
-## make three pictures, and four thousand make thirty. What makes one species of tree look different
-## from another in the grid is `icon_tint`, not another texture.
+## Both are `PlantIcons`' business rather than this file's, because the palette's plants section shows
+## the same picture, and two copies of a pixel loop are two chances for the browser and the palette to
+## disagree about what a plant looks like. What tells two trees apart in the grid is
+## `PlantIcons.tint`, applied per cell - not another texture.
 func icon_for(species_id: StringName) -> Texture2D:
 	build()
-	if catalogue == null:
-		return null
-	var species: PlantSpecies = catalogue.get_species(species_id)
-	if species == null:
-		return null
-	var thumbnail: Texture2D = catalogue.thumbnail_for(species_id)
-	if thumbnail != null:
-		return thumbnail
-	return _symbol_icon(species)
+	return PlantIcons.textured(catalogue, species_id)
 
 
-func _symbol_icon(species: PlantSpecies) -> Texture2D:
-	var cache_key: String = "%s|%d" % [species.form, species.category]
-	if _icon_cache.has(cache_key):
-		return _icon_cache[cache_key] as Texture2D
-	var texture: Texture2D = ImageTexture.create_from_image(_paint_symbol(species))
-	_icon_cache[cache_key] = texture
-	return texture
-
-
-## The colour a species' swatch is tinted with: its bloom colour when it has one, and white when it
-## is grown for its foliage. Held towards white so the pigment underneath still reads as foliage -
-## a tint that swallows the symbol is worse than no tint at all.
-static func icon_tint(species: PlantSpecies) -> Color:
-	if species == null or species.bloom_months == 0:
-		return Color.WHITE
-	return Color.WHITE.lerp(species.bloom_colour, 0.4)
-
-
-## One symbol swatch, pixel by pixel.
-##
-## Drawn rather than loaded, so it needs no image files to exist, it works for a species added to the
-## catalogue five seconds ago, and a whole catalogue costs one 64x64 buffer per prop it is drawn as.
-func _paint_symbol(species: PlantSpecies) -> Image:
-	# `create_empty` rather than a bare `Image.new()` plus `resize`: a new Image has no data at all,
-	# and resizing a buffer that was never created is an engine error per pixel, not a blank picture.
-	var image: Image = Image.create_empty(ICON_PIXELS, ICON_PIXELS, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0, 0, 0, 0))
-	var spec: Dictionary = PlanStyleScript.spec_for(species.form)
-	var symbol: int = int(spec["symbol"])
-	var pigment: Color = spec.get("wash", PlanStyleScript.FOLIAGE_WASH)
-	var edge: Color = pigment.darkened(0.45)
-	var radius: float = 26.0
-
-	for y in ICON_PIXELS:
-		for x in ICON_PIXELS:
-			var dx: float = float(x) + 0.5 - ICON_HALF
-			var dy: float = float(y) + 0.5 - ICON_HALF
-			var reach: float = sqrt(dx * dx + dy * dy)
-			match symbol:
-				PlanStyleScript.Symbol.TREE:
-					# The trunk dot first, because it is the smallest radius: a branch ordered by
-					# size from the centre outwards is the only order in which all of them are
-					# reachable, and the other way round leaves the trunk undrawn.
-					if reach <= radius * 0.18:
-						image.set_pixel(x, y, edge)
-					elif reach <= radius - 1.5:
-						image.set_pixel(x, y, pigment)
-					elif reach <= radius:
-						image.set_pixel(x, y, edge)
-				PlanStyleScript.Symbol.SHRUB:
-					# The same seven-lobed wobble the plan's own `_blob` uses, at this size: a shrub
-					# symbol is foliage rather than a disc, and the swatch should read as one.
-					var lobe: float = radius * (1.0 + 0.13 * sin(7.0 * atan2(dy, dx)))
-					if reach <= lobe - 1.5:
-						image.set_pixel(x, y, pigment)
-					elif reach <= lobe:
-						image.set_pixel(x, y, edge)
-				PlanStyleScript.Symbol.BED:
-					if absf(dx) <= 22.0 and absf(dy) <= 14.0:
-						image.set_pixel(x, y, pigment)
-					# The stone edge the plan draws round a bed, as a border rather than a fill.
-					if absf(dx) <= 22.0 and absf(dy) <= 14.0 and (absf(dx) > 19.0 or absf(dy) > 11.0):
-						image.set_pixel(x, y, edge)
-				_:
-					if absf(dx) <= 17.0 and absf(dy) <= 17.0:
-						image.set_pixel(x, y, pigment)
-						if absf(absf(dx) - absf(dy)) <= 1.4:
-							image.set_pixel(x, y, edge)
-	return image
+## Whether two species are drawn as the same picture. The browser keeps no cache of its own: the
+## picture belongs to `PlantIcons`, keyed by the form and category a species is drawn as.

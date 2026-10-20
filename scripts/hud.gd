@@ -187,6 +187,7 @@ var _recent_filled: String = ""
 ## nursery mails you as a spreadsheet, not four thousand `.tres` files (spec §2.3).
 const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
+const PlantPanelScript := preload("res://scripts/plant_panel.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -202,6 +203,10 @@ var _plant_import_dialog: FileDialog = null
 var _plant_export_dialog: FileDialog = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
+## The plants section of the palette, thrown in under the drawing tools. The library is where a
+## catalogue of four thousand is searched; this is where the one plant you already know you want is
+## reached, one click, without a window, a menu or a key in the way.
+var _plant_panel: PlantPanel = null
 
 
 func _ready() -> void:
@@ -216,6 +221,7 @@ func _ready() -> void:
 	fit_button.pressed.connect(view_controller.fit_plan_to_yard)
 	draft_hints_label.text = drafting_hints()
 	_build_palette()
+	_build_plant_panel()
 	_build_presentation_panel()
 	_build_painted_actions()
 	_build_menu_bar()
@@ -253,6 +259,7 @@ func _process(_delta: float) -> void:
 	if palette.get_child_count() > 0:
 		palette.visible = overhead and not _presenting
 		_refresh_palette()
+		_refresh_plant_panel()
 	# A presentation is a view of the garden rather than of the drawing, so the
 	# painted sheet goes away with the rest of the drawing's furniture.
 	if _presenting and painted_sheet.visible:
@@ -2098,6 +2105,58 @@ func _build_plant_library() -> void:
 	# the moment the program started would be a program that opens with somebody else's plant list
 	# over the drawing.
 	_plant_window.hide()
+
+
+## The plants section of the palette: the catalogue as a list under the drawing tools.
+##
+## The library answers "which plant is right for this spot" - four thousand species, filters, a search
+## box, a detail pane. It is a window, and it has to be, because it has a text field in it and a text
+## field is the one thing this HUD may not own outside a modal window. This answers the other
+## question, which is "put that one down again", and it answers it where the designer is already
+## looking. Between them a bed is a dozen clicks rather than a dozen trips through a window.
+func _build_plant_panel() -> void:
+	if palette_column == null or _plant_panel != null:
+		return
+	var panel: PlantPanel = PlantPanelScript.new()
+	panel.name = "Plants"
+	# Built before it is added, and built by hand: the panel's `_ready` would build it with a default
+	# label, and the key this project writes into every label comes from the input map.
+	panel.build("Library...  (%s)" % _key_label(&"plant_library"))
+	panel.bind(plant_list())
+	panel.plant_chosen.connect(_on_plant_panel_chosen)
+	panel.library_requested.connect(open_plant_browser)
+	panel.stop_requested.connect(_on_plant_panel_stop)
+	palette_column.add_child(panel)
+	_plant_panel = panel
+
+
+## Choosing from the palette arms the plant and changes nothing else: the library closes on a choice
+## because the choice was made to get back to the plan, and here there is nothing to close.
+func _on_plant_panel_chosen(species_id: StringName) -> void:
+	_arm_planting(species_id)
+
+
+func _on_plant_panel_stop() -> void:
+	if view_controller != null:
+		view_controller.stop_planting()
+
+
+## Match the plants section to the controller. Bound to whatever the list is now, because an import
+## replaces the catalogue itself and a panel still listing the plants from this morning would look
+## like an import that failed. The expensive part - the rows - is only rebuilt when the catalogue or
+## the tag changes; a plant count is a label.
+func _refresh_plant_panel() -> void:
+	if _plant_panel == null:
+		return
+	var catalogue: PlantCatalogue = plant_list()
+	if _plant_panel.catalogue != catalogue:
+		_plant_panel.bind(catalogue)
+	var in_hand: StringName = &""
+	var standing: int = 0
+	if view_controller != null:
+		in_hand = view_controller.planting_species
+		standing = view_controller.planted_count()
+	_plant_panel.refresh(in_hand, standing)
 
 
 ## The plant list, read once and kept.

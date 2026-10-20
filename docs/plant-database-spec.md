@@ -132,6 +132,56 @@ than ignored.
 Two rows of controls, not one: eight drop-downs in a line do not fit a readable width, and a filter
 squeezed into sixty pixels is one nobody can read the state of.
 
+## 6a. The same catalogue in the palette
+
+`PlantPanel` (`scripts/plant_panel.gd`) is the other half of the browser, and the reason for it is
+reach. The library answers *which* plant: it is a window with a search box and four thousand species
+behind it, and it is the right answer to a question you have to think about. It is the wrong answer to
+"put that one down again", which is what most of a planting day is - a bed is a dozen of the same
+shrub.
+
+So the same catalogue is also a section of the left palette, under the drawing tools:
+
+    Plants                  Library...  (L)
+    Tag  [ Any tag          v ]
+    +-------------------------------+
+    | Autumn fern                   |  ItemList, ICON_MODE_LEFT, 26 px swatches
+    | Black-eyed Susan              |  by common name, one tag drop-down
+    | Christmas rose                |  capped at MAX_LISTED (40)
+    | ...                           |
+    +-------------------------------+
+    17 species.                        Status
+    [      Place      ]  [ Stop ]      Actions
+
+It is a plain `VBoxContainer` and not a `Window`, and that one difference decides everything else
+about it: **nothing in it may hold the keyboard**. The list is `FOCUS_NONE`, the tag drop-down is
+`FOCUS_NONE`, every button is `FOCUS_NONE`, and `allow_search` is off - incremental search is letter
+keys, and letter keys belong to the drawing. `list_is_keyboard_free()` is the panel's own statement of
+that rule, and a test asserts it, because this panel holds more kinds of control than anything else in
+`Root`.
+
+Which is also why there is no search box here, and why the ways in are deliberately few: **one tag
+drop-down**, not the browser's eight. A palette is a quick picker; a second row of filters would be a
+handler at the end of the design day rather than a shortcut in the middle of one.
+
+`MAX_LISTED` is 40 and the status line says so - "Showing the first 40 of 120. Open the library to
+search." A panel that quietly showed forty of somebody's four thousand plants would be a worse answer
+than one that admits it is not the browser.
+
+The pictures come from `PlantIcons` (`scripts/plant_icons.gd`), shared with the browser, so the two
+cannot show one plant two ways: the form decides the shape, the species' bloom colour decides the
+tint, and the cache is keyed "form|category" rather than by species - seventeen species drawn as three
+props are three pictures, and four thousand are thirty.
+
+Choosing here **does not close anything and does not stop the plant**. The library closes on a choice
+because the choice was made to get back to the plan; the panel is already beside the plan. It arms the
+plant and stays, so a bed is a run of clicks. The plant in hand is shown as the chosen row and the
+status line names it - "Planting Common boxwood. 31 standing. Escape puts it away." - so the panel
+always says what the next click would put down.
+
+The panel owns no design state: it has no yard and no plan, it emits `plant_chosen`, and the HUD does
+the planting. That is what keeps a palette section out of the file layer, the document and the view.
+
 ## 7. Where it is reached from
 
 The **Plant** menu, between Draft and Present: the line describing the list, the library, place the
@@ -142,6 +192,11 @@ The library is a `Window`, not a panel in `Root`. That is the whole reason it ca
 `Root` is built focus-free so nothing in this HUD can take the drawing keys, and the one exception
 this project allows is a window (spec REQ 8.7). Inside it the controls own the keyboard; outside it
 nothing has changed. It is hidden until it is asked for.
+
+The palette section is the second way in, and the one that asks you to remember nothing:
+`scripts/plant_panel.gd` sits under the drawing tools whenever the working furniture is up, with the
+same `L`-keyed button on it that opens the library. The library is for searching, the panel is for
+reaching, and both roads arm the same plant in the same controller.
 
 Choosing a plant arms it and closes the library, so the very next click is on the plan. It stays armed
 afterwards: a bed is a dozen clicks, not a dozen trips back. Escape puts it away. Planting and the
@@ -180,3 +235,10 @@ drawing tools never both own the left button - arming a plant puts the tools awa
   prop in the same category share one picture
 * the swatch is the pigment the painted plan would use, and a bed is drawn as an oblong rather than a
   disc (found by reading every pixel, not by sampling one)
+* the two pictures of a plant are one picture: the grid and the palette share `PlantIcons`, and
+  clearing the cache really clears it (`test_plant_icons.gd`)
+* nothing in the palette panel takes the keyboard, the list does not search, and a panel with no
+  catalogue says so rather than failing (`test_plant_panel.gd`)
+* a catalogue bigger than the panel lists is capped, and says how much of itself it is not showing
+* a plant that is not on the list cannot be chosen, and choosing it does not silently pick another
+* a tag the catalogue no longer carries falls back to every plant rather than to an empty panel
