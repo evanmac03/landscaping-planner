@@ -206,6 +206,17 @@ func toggle_ground() -> void:
 	_go(ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND)
 
 
+## Go to a named view.
+##
+## The toggle above is what one key needs; a menu lists the places you can be, and asking for the
+## place you are already in is not a request to leave it. Without the guard, choosing the current
+## view from a menu would start a flight to where it already is, which reads as a flicker and a
+## wasted second.
+func show_mode(target: ViewMode) -> void:
+	if target != mode:
+		_go(target)
+
+
 ## Move to a view, queueing the request if a transition is already under way.
 func _go(target: ViewMode) -> void:
 	if _transitioning or _fading:

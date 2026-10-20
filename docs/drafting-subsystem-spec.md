@@ -822,6 +822,7 @@ geometry and the record together.
 | Print / plot | sheet selection, plot style table, output format, exact-scale confirmation, warning about fit-to-page |
 | Import wizard | source → units → scale method → alignment points → **validation report** → layer mapping → commit |
 | Status bar | active snap and its target, active layer, current drawn scale, display-lineweights toggle, units |
+| Menu bar | File: plot a sheet, render a proposal still, sheet size, plot scale, quit. Edit: undo, redo, drop the last point, cancel the shape, dimension standard. View: the three views, fit, painted plan, control hints. Draft: the nine tools and the shape commands. Present: the client presentation, quality, framing, still size, save the site. Help: the key reference. Every entry that stands for a key prints that key, and a menu whose subject is absent from the scene is not offered at all. |
 
 **REQ 8.1** The status bar MUST show the active snap mode and the snapped
 coordinate numerically, so a user can draft precisely without a permanent
@@ -830,6 +831,21 @@ coordinate readout.
 **REQ 8.2** The import wizard MUST present the validation report as a table of
 pass/warn/fail with the measured value and the tolerance, and MUST NOT allow
 commit past a `fail` without an explicit override.
+
+**REQ 8.3** The menu bar MUST be built from the same tables the legend and the
+palette are built from, so that a drawing tool cannot be in one of them and
+missing from another. Every entry that stands for a key MUST name the key the
+input map really binds, and every entry MUST name a method the HUD really has.
+Both are checked by tests, because a menu entry that does nothing is
+indistinguishable, until it is chosen, from one that does.
+
+**REQ 8.4** The menu bar MUST NOT bind menu accelerators. An accelerator is a
+second binding: it fires *as well as* the input action, so a key advertised in a
+menu would run its command twice. The keys go into the entry labels instead, where
+they are read and not obeyed. The bar MUST be focus-free, and choosing an entry
+MUST release the keyboard again, so that the drawing keys still work after the
+menu has been used - a menu that quietly takes Tab and Enter away from the tools
+is worse than no menu.
 
 ---
 

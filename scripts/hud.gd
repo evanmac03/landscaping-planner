@@ -72,6 +72,7 @@ const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
+const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -109,6 +110,10 @@ const STILL_SIZES: Array = [
 ## enough that giving them unique names would be a scene change for no reason.
 @onready var top_bar: PanelContainer = get_node_or_null(^"Root/TopBar")
 @onready var hints: PanelContainer = get_node_or_null(^"Root/Hints")
+## The menu bar. In the scene, because where it sits among the top bar's controls is a layout
+## decision; its menus are built in code from `menu_plan()`, because what is in them is derived
+## from the tables that already describe those commands.
+@onready var menu_bar: MenuBar = %MenuBar
 
 ## The drafting controller, when the scene has one. Held because the palette drives
 ## it and the legend reports on it.
@@ -147,6 +152,20 @@ var _painted_image: Image = null
 ## to file.
 var _painted_save: Button = null
 
+## The menu bar's entries, per popup, in the order they were added. A PopupMenu item's id is its
+## index, so this is the way back from a press to the entry that describes it.
+var _menu_items: Dictionary = {}
+## What the menu was last drawn to match, so a check every frame does not restate state that has
+## not moved.
+var _menu_state: String = ""
+## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
+## one place that decides whether it is up is the panel's own `visible`.
+var _keys_panel: Control = null
+## Whether the line of control hints is wanted at the bottom of the screen. Held here rather than
+## read from the node, because a presentation takes the hints away and has to give them back the
+## way the person left them.
+var _show_hints: bool = true
+
 
 func _ready() -> void:
 	if view_controller == null:
@@ -162,6 +181,8 @@ func _ready() -> void:
 	_build_palette()
 	_build_presentation_panel()
 	_build_painted_actions()
+	_build_menu_bar()
+	_build_keys_panel()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -198,6 +219,7 @@ func _process(_delta: float) -> void:
 	if _presenting and painted_sheet.visible:
 		close_painted()
 	_refresh_presentation()
+	_refresh_menus()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -713,10 +735,15 @@ func _refresh_presentation() -> void:
 ## what is working furniture is decided here, by the code that made it.
 func set_presenting(on: bool) -> void:
 	_presenting = on
+	if on:
+		# The key reference is working furniture: a client is being shown the garden, not the
+		# shortcut list.
+		close_keys()
 	if top_bar != null:
 		top_bar.visible = not on
-	if hints != null:
-		hints.visible = not on
+	# The hints come back the way they were left, which is why their visibility is decided in one
+	# place from a flag rather than set directly here and in the menu.
+	_apply_hints_visibility()
 	# The scale bar and the north point are sheet furniture, and a client is being
 	# shown the garden rather than the drawing.
 	if overlay != null:
@@ -933,6 +960,12 @@ static func painted_caption_text(report: Dictionary) -> String:
 ## surface: the key that opens it, the escape that closes it, and the picture it shows
 ## are one feature in one place.
 func _unhandled_input(event: InputEvent) -> void:
+	# The key reference is answered for first, because it is the one thing here that can be up in
+	# a scene that has no painted plan at all.
+	if is_keys_open() and event.is_action_pressed(&"draft_cancel"):
+		close_keys()
+		get_viewport().set_input_as_handled()
+		return
 	if painted_plan == null:
 		return
 	if event.is_action_pressed(&"vis_painted"):
@@ -945,3 +978,687 @@ func _unhandled_input(event: InputEvent) -> void:
 	if painted_sheet.visible and event.is_action_pressed(&"draft_cancel"):
 		close_painted()
 		get_viewport().set_input_as_handled()
+
+
+# --- the menu bar ---------------------------------------------------------------------
+#
+# A menu across the top of the window: the things a program of this kind always offers, plus the
+# two things this one is actually made of - the drawing tools and the client presentation.
+#
+# Every entry does something, and the ones that stand for a key say which key. The keys come from
+# the input map rather than from a table here, so a rebinding moves the menu with the legend.
+
+
+## What an entry needs from the scene before it means anything. `NEEDS_NOTHING` is the common
+## case: the command works in any scene this HUD is in.
+const NEEDS_NOTHING := &""
+const NEEDS_DRAFT := &"draft"
+const NEEDS_PRESENTATION := &"presentation"
+const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION]
+
+
+## One entry that runs a command.
+static func _command(
+	id: String, label: String, action: StringName, method: StringName,
+	needs: StringName = NEEDS_NOTHING
+) -> Dictionary:
+	return {
+		"kind": &"command", "id": id, "label": label, "action": action,
+		"method": method, "needs": needs,
+	}
+
+
+## One entry of a set: choosing it chooses that value, and exactly one of the set is shown as on.
+## `state` names what it is checked against, and `value` is the value it stands for.
+static func _radio(
+	id: String, label: String, action: StringName, method: StringName,
+	state: StringName, value: Variant, needs: StringName = NEEDS_NOTHING
+) -> Dictionary:
+	return {
+		"kind": &"radio", "id": id, "label": label, "action": action, "method": method,
+		"state": state, "value": value, "needs": needs,
+	}
+
+
+## One entry that is on or off, and means the state it names. It carries a null value so that
+## every checkable entry has the same shape, and a reader of the plan does not have to know which
+## kind it is before asking what it stands for.
+static func _check(
+	id: String, label: String, action: StringName, method: StringName, state: StringName
+) -> Dictionary:
+	return {
+		"kind": &"check", "id": id, "label": label, "action": action, "method": method,
+		"state": state, "value": null, "needs": NEEDS_NOTHING,
+	}
+
+
+## A menu inside a menu, for the sets that would otherwise be ten entries long.
+static func _submenu(id: String, label: String, items: Array[Dictionary]) -> Dictionary:
+	return {"kind": &"submenu", "id": id, "label": label, "items": items, "action": &"", "needs": NEEDS_NOTHING}
+
+
+static func _separator() -> Dictionary:
+	return {"kind": &"separator", "id": "", "action": &"", "needs": NEEDS_NOTHING}
+
+
+## The whole bar, menu by menu.
+static func menu_plan() -> Array[Dictionary]:
+	var menus: Array[Dictionary] = []
+	menus.append({"title": "File", "items": file_items()})
+	menus.append({"title": "Edit", "items": edit_items()})
+	menus.append({"title": "View", "items": view_items()})
+	menus.append({"title": "Draft", "items": draft_items()})
+	menus.append({"title": "Present", "items": present_items()})
+	menus.append({"title": "Help", "items": help_items()})
+	return menus
+
+
+## Everything the drawing can be sent to: the sheet it is plotted on, the picture of it at the
+## chosen size, and how the sheet itself is set up.
+static func file_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_command(&"file.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot", NEEDS_DRAFT))
+	items.append(_command(&"file.still", "Render a proposal still", &"", &"_menu_render_still", NEEDS_PRESENTATION))
+	items.append(_separator())
+	items.append(_submenu(&"file.sheet", "Sheet size", sheet_items()))
+	items.append(_submenu(&"file.scale", "Plot scale", scale_items()))
+	items.append(_separator())
+	items.append(_command(&"file.quit", "Quit", &"", &"_menu_quit"))
+	return items
+
+
+## Every sheet the plotter knows, from the table that measures them.
+static func sheet_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	# Not `name`: this is a CanvasLayer, and `name` is the node's own.
+	for sheet_name in PlotScaleScript.sheet_names():
+		items.append(_radio(
+			"file.sheet." + String(sheet_name), String(sheet_name), &"", &"_menu_set_sheet",
+			&"sheet", sheet_name, NEEDS_DRAFT
+		))
+	return items
+
+
+## Every scale on the metric ladder. Ten entries, which is why they are behind a submenu: a menu
+## that is a list of numbers reads as a table rather than as commands.
+static func scale_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	# Not `scale`: this is a CanvasLayer, and `scale` is a property of it.
+	for ratio: float in PlotScaleScript.METRIC_LADDER:
+		items.append(_radio(
+			"file.scale.%d" % int(ratio), PlotScaleScript.metric_label(ratio), &"",
+			&"_menu_set_scale", &"scale", ratio, NEEDS_DRAFT
+		))
+	return items
+
+
+## What can be done to the drawing: its history, the shape in hand, and how it is measured.
+static func edit_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_command(&"edit.undo", "Undo", &"draft_undo", &"_menu_undo"))
+	items.append(_command(&"edit.redo", "Redo", &"draft_redo", &"_menu_redo"))
+	items.append(_separator())
+	items.append(_command(&"edit.drop_point", "Drop the last point", &"draft_undo_point", &"_menu_drop_point"))
+	items.append(_command(&"edit.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
+	items.append(_separator())
+	items.append(_submenu(&"edit.dimension_style", "Dimension standard", dimension_style_items()))
+	return items
+
+
+## The dimension standards the controller offers, from its own table.
+static func dimension_style_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for style: StringName in DraftControllerScript.DIMENSION_STYLES:
+		var words := String(style)
+		items.append(_radio(
+			"edit.dimension_style." + words, words.substr(0, 1).to_upper() + words.substr(1),
+			&"draft_dimension_style", &"_menu_set_dimension_style", &"dimension_style", style
+		))
+	return items
+
+
+## Where you can be and what you can look at.
+##
+## The three views are a set rather than a toggle: the key swaps two of them because that is what
+## one key can do, and a menu lists all three because that is what a menu is for.
+static func view_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_radio(
+		&"view.plan", "2D plan", &"toggle_view", &"_menu_show_mode",
+		&"mode", ViewController.ViewMode.PLAN_2D
+	))
+	items.append(_radio(
+		&"view.overhead", "3D overhead", &"toggle_view", &"_menu_show_mode",
+		&"mode", ViewController.ViewMode.OVERHEAD_3D
+	))
+	items.append(_radio(
+		&"view.ground", "Ground view", &"toggle_ground", &"_menu_show_mode",
+		&"mode", ViewController.ViewMode.GROUND
+	))
+	items.append(_separator())
+	items.append(_command(&"view.fit", "Fit the design to the screen", &"fit_view", &"_menu_fit"))
+	items.append(_separator())
+	items.append(_command(&"view.painted", "Painted plan", &"vis_painted", &"_menu_painted"))
+	items.append(_check(&"view.hints", "Control hints", &"", &"_menu_toggle_hints", &"hints"))
+	return items
+
+
+## The drawing tools, and what is done with the shape in hand.
+##
+## The tools come from `DRAFTING_TOOLS` - the same table the legend and the palette are built
+## from - so a tool cannot be in the legend and missing from the menu, or in the menu and
+## pointing at a different tool from the one the key arms.
+static func draft_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_check(&"draft.armed", "Drawing tools", &"draft_mode", &"_menu_toggle_drawing", &"drawing"))
+	items.append(_separator())
+	for pair: Array in DRAFTING_TOOLS:
+		items.append(_radio(
+			"draft.tool." + String(pair[0]), tool_label(pair), pair[0], &"_menu_arm_tool",
+			&"tool", pair[2]
+		))
+	items.append(_separator())
+	items.append(_command(&"draft.finish", "Finish the shape", &"draft_finish", &"_menu_finish"))
+	items.append(_command(&"draft.close", "Close the shape", &"draft_close", &"_menu_close_shape"))
+	items.append(_command(&"draft.drop_point", "Drop the last point", &"draft_undo_point", &"_menu_drop_point"))
+	items.append(_command(&"draft.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
+	items.append(_separator())
+	items.append(_command(&"draft.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot"))
+	items.append(_command(
+		&"draft.style", "Next dimension standard", &"draft_dimension_style", &"_menu_cycle_dimension_style"
+	))
+	return items
+
+
+## A tool as one line of a menu: the word the palette uses, on one line rather than two, because a
+## menu row has the key beside the name rather than under it.
+static func tool_label(pair: Array) -> String:
+	var words := String(pair[1])
+	return words.substr(0, 1).to_upper() + words.substr(1)
+
+
+## The client presentation: what it is rendered at, how the garden is framed, and the sun.
+static func present_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_check(&"present.running", "Client presentation", &"", &"_menu_toggle_presentation", &"presenting"))
+	items.append(_separator())
+	items.append(_submenu(&"present.quality", "Quality", tier_items()))
+	items.append(_command(&"present.frame", "Frame the garden", &"", &"_menu_frame_yard"))
+	items.append(_separator())
+	items.append(_submenu(&"present.still_size", "Still size", still_size_items()))
+	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
+	items.append(_separator())
+	items.append(_command(&"present.save_site", "Save the site to the drawing", &"", &"_menu_save_site"))
+	return items
+
+
+## The rendering budgets, from the table that acts on them.
+static func tier_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for tier: int in TierScript.CHOICES:
+		items.append(_radio(
+			"present.quality.%d" % tier, TierScript.name_of(tier), &"", &"_menu_set_tier",
+			&"tier", tier
+		))
+	return items
+
+
+## The sizes a proposal still can be, from the table the render button is built from.
+static func still_size_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for index in STILL_SIZES.size():
+		items.append(_radio(
+			"present.still_size.%d" % index, String(STILL_SIZES[index][0]), &"",
+			&"_menu_set_still_size", &"still_size", index
+		))
+	return items
+
+
+## The reference: every key in one place, which is the one thing a menu can offer that the
+## on-screen hints cannot, because they are three lines in three corners.
+static func help_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_check(&"help.keys", "Drawing keys", &"", &"_menu_keys", &"keys_panel"))
+	return items
+
+
+## Every entry in the bar, flattened, each with the menu it sits under. What a test reads.
+static func menu_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for menu: Dictionary in menu_plan():
+		_collect_entries(String(menu["title"]), menu["items"], out)
+	return out
+
+
+static func _collect_entries(path: String, items: Array, out: Array[Dictionary]) -> void:
+	for item: Dictionary in items:
+		var entry: Dictionary = item
+		entry["menu"] = path
+		out.append(entry)
+		if StringName(entry.get("kind", &"")) == &"submenu":
+			_collect_entries(path + " > " + String(entry["label"]), entry["items"], out)
+
+
+## The entries of one menu, for a test that wants to talk about the Draft menu.
+static func items_for(title: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for menu: Dictionary in menu_plan():
+		if String(menu["title"]) == title:
+			var items: Array[Dictionary] = menu["items"]
+			out = items
+	return out
+
+
+## What an entry says: its label, and the key that does the same thing when there is one.
+##
+## The key is written into the text rather than set as the item's accelerator. An accelerator is a
+## second binding, and it fires *as well as* the input action: pressing P would plot the sheet
+## twice, which is the kind of bug a menu makes easy and a legend cannot.
+static func menu_label(entry: Dictionary) -> String:
+	var label := String(entry.get("label", ""))
+	var key := _key_label(StringName(entry.get("action", &"")))
+	return label if key == "" else "%s    %s" % [label, key]
+
+
+## Whether a checkable entry is on, decided from a snapshot of everything the bar reports on.
+##
+## Static and pure so the rule can be read and tested without a scene: which of these is on is the
+## half of a menu that is easy to get wrong and impossible to see.
+static func is_checked(state: StringName, value: Variant, world: Dictionary) -> bool:
+	match state:
+		&"mode":
+			return int(world.get("mode", -1)) == int(value)
+		&"drawing":
+			return bool(world.get("drawing", false))
+		&"tool":
+			# A tool is shown as chosen only while the tools are out, which is the same rule the
+			# palette follows: a menu highlighting a tool while the tools are put away would be
+			# describing a mode that is not on.
+			return bool(world.get("drawing", false)) and int(world.get("tool", -1)) == int(value)
+		&"dimension_style":
+			return StringName(world.get("dimension_style", &"")) == StringName(value)
+		&"sheet":
+			return String(world.get("sheet", "")) == String(value)
+		&"scale":
+			return is_equal_approx(float(world.get("plot_scale", 0.0)), float(value))
+		&"presenting":
+			return bool(world.get("presenting", false))
+		&"tier":
+			return int(world.get("tier", -1)) == int(value)
+		&"still_size":
+			return int(world.get("still_size", -1)) == int(value)
+		&"keys_panel":
+			return bool(world.get("keys_panel", false))
+		&"hints":
+			return bool(world.get("hints", true))
+	return false
+
+
+## Everything the bar reports on, as one snapshot. The checks are drawn from this rather than from
+## the controls, so the menu describes the state rather than a button that happens to agree with it.
+func menu_world() -> Dictionary:
+	var world: Dictionary = {
+		"mode": int(view_controller.mode) if view_controller != null else -1,
+		"drawing": _draft != null and _draft.drawing,
+		"tool": int(_draft.current_tool()) if _draft != null else -1,
+		"dimension_style": StringName(_draft.dimension_style_name) if _draft != null else &"",
+		"sheet": String(_draft.sheet) if _draft != null else "",
+		"plot_scale": float(_draft.plot_scale) if _draft != null else 0.0,
+		"presenting": presentation != null and presentation.is_active(),
+		"tier": int(presentation.tier) if presentation != null else -1,
+		"still_size": int(_still_size_option.selected) if _still_size_option != null else -1,
+		"keys_panel": is_keys_open(),
+		"hints": _show_hints,
+	}
+	return world
+
+
+## Build the menus from the plan.
+##
+## In code rather than in the scene for the same reason the palette is: the entries are derived
+## from tables that already exist, and a scene file holding forty copies of them would be forty
+## places to keep in step.
+func _build_menu_bar() -> void:
+	if menu_bar == null:
+		return
+	# A menu bar holds the keyboard like any other Control, and the keys belong to the drawing.
+	menu_bar.focus_mode = Control.FOCUS_NONE
+	for menu: Dictionary in menu_plan():
+		var popup := PopupMenu.new()
+		popup.name = String(menu["title"])
+		popup.title = String(menu["title"])
+		menu_bar.add_child(popup)
+		_build_menu(popup, menu["items"])
+	_hide_unavailable_menus()
+	_refresh_menus()
+
+
+## One menu's items, including any submenus, filling `_menu_items` as it goes: an item's id is its
+## index, so the index of the entry in this array is the id the popup will report.
+func _build_menu(popup: PopupMenu, items: Array) -> void:
+	var entries: Array[Dictionary] = []
+	for raw: Dictionary in items:
+		var entry: Dictionary = raw
+		var kind: StringName = entry.get("kind", &"command")
+		if kind == &"separator":
+			popup.add_separator()
+		elif kind == &"submenu":
+			var child := PopupMenu.new()
+			child.name = String(entry["id"]).replace(".", "_") + "Menu"
+			child.title = String(entry["label"])
+			popup.add_child(child)
+			_build_menu(child, entry["items"])
+			popup.add_submenu_item(String(entry["label"]), child.name)
+		else:
+			var label := menu_label(entry)
+			var wanted: bool = _menu_needs_met(StringName(entry.get("needs", NEEDS_NOTHING)))
+			if kind == &"radio":
+				popup.add_radio_check_item(label)
+			elif kind == &"check":
+				popup.add_check_item(label)
+			else:
+				popup.add_item(label)
+			if not wanted:
+				# Visible but switched off, so the menu still says what the program does in a
+				# scene that cannot do it.
+				popup.set_item_disabled(entries.size(), true)
+		entries.append(entry)
+	_menu_items[popup] = entries
+	popup.id_pressed.connect(_on_menu_item_pressed.bind(popup))
+
+
+## Whether what an entry needs is in this scene.
+func _menu_needs_met(needs: StringName) -> bool:
+	match needs:
+		NEEDS_DRAFT:
+			return _draft != null
+		NEEDS_PRESENTATION:
+			return presentation != null
+	return true
+
+
+## A menu whose whole subject is absent is not shown at all: a list of ten drawing tools in a
+## scene with no drawing is not a menu, and every entry in it would be dead. The same rule the
+## palette and the presentation panel are built by.
+func _hide_unavailable_menus() -> void:
+	if menu_bar == null:
+		return
+	for index in menu_bar.get_menu_count():
+		var title: String = menu_bar.get_menu_title(index)
+		if title == "Draft":
+			menu_bar.set_menu_hidden(index, _draft == null)
+		elif title == "Present":
+			menu_bar.set_menu_hidden(index, presentation == null)
+
+
+## Match the checks to the state, from the snapshot.
+##
+## Driven by a signature rather than by signals, like the palette and the presentation panel: the
+## state a menu shows is changed from a key, a click, a menu entry and a script, and a signature
+## cannot miss one of them the way a forgotten connection would.
+func _refresh_menus() -> void:
+	if menu_bar == null or _menu_items.is_empty():
+		return
+	var world: Dictionary = menu_world()
+	var state: String = str(world)
+	if state == _menu_state:
+		return
+	_menu_state = state
+	for popup: PopupMenu in _menu_items.keys():
+		var entries: Array = _menu_items[popup]
+		for index in entries.size():
+			var entry: Dictionary = entries[index]
+			var kind: StringName = entry.get("kind", &"command")
+			if kind == &"radio" or kind == &"check":
+				popup.set_item_checked(
+					index,
+					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world)
+				)
+
+
+## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
+## here to fall out of step with the first.
+func _on_menu_item_pressed(id: int, popup: PopupMenu) -> void:
+	var entries: Array = _menu_items.get(popup, [])
+	if id < 0 or id >= entries.size():
+		return
+	var entry: Dictionary = entries[id]
+	var method := StringName(entry.get("method", &""))
+	if method == &"" or not has_method(String(method)):
+		return
+	call(String(method), entry)
+	# A menu is a Control, and choosing from one can leave it holding the keyboard that the
+	# drawing keys belong to. This is the same release the HUD does at startup.
+	release_keyboard_focus(self)
+
+
+# --- what each entry does -------------------------------------------------------------
+
+
+func _menu_plot(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.plot()
+
+
+func _menu_quit(_entry: Dictionary) -> void:
+	get_tree().quit()
+
+
+func _menu_set_sheet(entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.sheet = String(entry["value"])
+
+
+func _menu_set_scale(entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.plot_scale = float(entry["value"])
+
+
+func _menu_undo(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.undo()
+
+
+func _menu_redo(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.redo()
+
+
+func _menu_drop_point(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.undo_point()
+
+
+func _menu_cancel_shape(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.cancel()
+
+
+func _menu_finish(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.finish()
+
+
+func _menu_close_shape(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.finish_closed()
+
+
+func _menu_set_dimension_style(entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.set_dimension_style(StringName(entry["value"]))
+
+
+func _menu_cycle_dimension_style(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.cycle_dimension_style()
+
+
+func _menu_toggle_drawing(_entry: Dictionary) -> void:
+	if _draft != null:
+		_draft.set_drawing(not _draft.drawing)
+
+
+func _menu_arm_tool(entry: Dictionary) -> void:
+	if _draft != null:
+		@warning_ignore("int_as_enum_without_cast")
+		_draft.arm(int(entry["value"]))
+
+
+func _menu_show_mode(entry: Dictionary) -> void:
+	if view_controller != null:
+		@warning_ignore("int_as_enum_without_cast")
+		view_controller.show_mode(int(entry["value"]))
+
+
+func _menu_fit(_entry: Dictionary) -> void:
+	if view_controller != null:
+		view_controller.fit_plan_to_yard()
+
+
+func _menu_painted(_entry: Dictionary) -> void:
+	open_painted()
+
+
+func _menu_toggle_hints(_entry: Dictionary) -> void:
+	_show_hints = not _show_hints
+	_apply_hints_visibility()
+
+
+func _menu_toggle_presentation(_entry: Dictionary) -> void:
+	if presentation == null:
+		return
+	if presentation.is_active():
+		presentation.end()
+		return
+	presentation.begin(presentation.tier)
+
+
+func _menu_set_tier(entry: Dictionary) -> void:
+	if presentation != null:
+		presentation.set_tier(int(entry["value"]))
+
+
+func _menu_frame_yard(_entry: Dictionary) -> void:
+	if presentation != null:
+		presentation.frame_yard()
+
+
+func _menu_set_still_size(entry: Dictionary) -> void:
+	if _still_size_option != null:
+		_still_size_option.selected = int(entry["value"])
+
+
+func _menu_render_still(_entry: Dictionary) -> void:
+	_on_render_still()
+
+
+func _menu_save_site(_entry: Dictionary) -> void:
+	if presentation != null:
+		presentation.save_site()
+
+
+func _menu_keys(_entry: Dictionary) -> void:
+	if is_keys_open():
+		close_keys()
+	else:
+		open_keys()
+
+
+# --- the key reference ----------------------------------------------------------------
+
+
+## The keys, in one place.
+##
+## Every line is a string that already exists - the hint lines the HUD shows, and the drafting
+## legend built from the tool tables - so this panel cannot disagree with the corner of the screen
+## it is quoting. It is built in code for that reason: it is a view of three tables, not a fourth
+## copy of them.
+func _build_keys_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "KeysPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The wrapper is only a placement; the panel inside it takes the clicks, so the drawing
+	# underneath is not blocked by an invisible full-screen control.
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Page"
+	panel.custom_minimum_size = Vector2(700.0, 0.0)
+	if top_bar != null:
+		# The same furniture as every other box on the screen, borrowed rather than copied: one
+		# panel style, so a change to it changes all of them.
+		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	panel.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Keys"
+	column.add_child(heading)
+
+	var body := Label.new()
+	body.name = "KeysText"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.text = keys_text()
+	column.add_child(body)
+
+	var footer := Label.new()
+	footer.name = "Footer"
+	footer.add_theme_font_size_override("font_size", 12)
+	footer.text = keys_footer()
+	column.add_child(footer)
+
+	var close_button := Button.new()
+	close_button.name = "CloseKeys"
+	close_button.text = "Close"
+	close_button.pressed.connect(close_keys)
+	column.add_child(close_button)
+
+	wrapper.add_child(panel)
+	_keys_panel = wrapper
+	root.add_child(wrapper)
+
+
+## The pages of the reference, from the strings the HUD already shows.
+func keys_text() -> String:
+	var rows: Array[String] = []
+	rows.append("Top-down and overhead")
+	rows.append("    " + _hints_for(ViewController.ViewMode.PLAN_2D))
+	rows.append("Ground view")
+	rows.append("    " + HINTS_GROUND)
+	rows.append("Drawing")
+	rows.append_array(drafting_rows())
+	return "\n".join(PackedStringArray(rows))
+
+
+## What the reference says about the program itself.
+func keys_footer() -> String:
+	return "landscaping planner    Godot %s    sheets are written to user://sheets, stills to user://proposals" % String(
+		Engine.get_version_info()["string"]
+	)
+
+
+func is_keys_open() -> bool:
+	return _keys_panel != null and _keys_panel.visible
+
+
+func open_keys() -> void:
+	if _keys_panel != null:
+		_keys_panel.visible = true
+
+
+func close_keys() -> void:
+	if _keys_panel != null:
+		_keys_panel.visible = false
+
+
+## Show the line of hints or not, remembering that a presentation takes them away as well.
+func _apply_hints_visibility() -> void:
+	if hints != null:
+		hints.visible = _show_hints and not _presenting

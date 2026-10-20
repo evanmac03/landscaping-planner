@@ -53,6 +53,15 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 layout_mode = 2
 theme_override_constants/separation = 14
 
+[node name="MenuBar" type="MenuBar" parent="Root/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+flat = true
+prefer_global_menu = false
+switch_on_hover = true
+
 [node name="AppLabel" type="Label" parent="Root/TopBar/Row"]
 layout_mode = 2
 size_flags_vertical = 4

@@ -1,0 +1,249 @@
+extends Node
+## The menu bar: its entries, the keys they advertise, and the methods they name.
+##
+## A menu is one of the few places a program can promise something without doing it - an entry
+## that does nothing, or that names a key which is no longer bound. These are the tests that
+## stand between the bar and that, and they read the bar the way it is built: as data.
+
+const HudScript := preload("res://scripts/hud.gd")
+const ToolScript := preload("res://scripts/draft/draft_tool.gd")
+const TierScript := preload("res://scripts/vis/presentation_tier.gd")
+const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
+const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
+
+const KINDS: Array[StringName] = [&"command", &"radio", &"check", &"submenu", &"separator"]
+
+
+## The entry with an id, or a failure that names it: an entry that has been renamed should break
+## the test that was about it rather than quietly testing nothing.
+func _entry(id: StringName) -> Dictionary:
+	for entry: Dictionary in HudScript.menu_entries():
+		if StringName(entry.get("id", &"")) == id:
+			return entry
+	assert(false, "no menu entry with id %s" % String(id))
+	return {}
+
+
+func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
+	var titles: Array[String] = []
+	for menu: Dictionary in HudScript.menu_plan():
+		titles.append(String(menu["title"]))
+		var items: Array = menu["items"]
+		assert(items.size() > 0, "the %s menu has entries" % String(menu["title"]))
+		for entry: Dictionary in items:
+			assert(
+				KINDS.has(StringName(entry.get("kind", &""))),
+				"%s entry has a kind the builder knows" % String(menu["title"])
+			)
+	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Present", "Help"]
+	assert(titles == expected)
+
+
+func test_every_entry_names_a_method_that_exists() -> void:
+	# An entry that names nothing, or names a method that has been renamed away, is a menu item
+	# that looks like it works.
+	var hud := HudScript.new()
+	for entry: Dictionary in HudScript.menu_entries():
+		if StringName(entry.get("kind", &"")) == &"separator":
+			continue
+		if StringName(entry.get("kind", &"")) == &"submenu":
+			continue
+		var method := String(entry.get("method", ""))
+		assert(method != "", "%s names a method" % String(entry["id"]))
+		assert(hud.has_method(method), "%s names a method that exists: %s" % [String(entry["id"]), method])
+	hud.free()
+
+
+func test_the_draft_menu_holds_every_tool_the_legend_holds() -> void:
+	# The tools come from the table the legend and the palette are built from, so the menu cannot
+	# offer a different set of tools from the one the keys arm.
+	var in_menu: Array[StringName] = []
+	for entry: Dictionary in HudScript.items_for("Draft"):
+		var id := String(entry.get("id", ""))
+		if id.begins_with("draft.tool."):
+			in_menu.append(StringName(entry.get("action", &"")))
+	var expected: Array[StringName] = []
+	for pair: Array in HudScript.DRAFTING_TOOLS:
+		expected.append(StringName(pair[0]))
+	assert(in_menu == expected, "the Draft menu offers the tools, in the legend's order")
+	for pair: Array in HudScript.DRAFTING_TOOLS:
+		var entry: Dictionary = _entry(StringName("draft.tool." + String(pair[0])))
+		assert(int(entry["value"]) == int(pair[2]), "%s arms the tool the key arms" % String(pair[0]))
+
+
+func test_every_command_the_legend_lists_is_in_the_bar() -> void:
+	# Not every one of them is in the Draft menu: undo and redo are in Edit, which is where a
+	# program of this kind keeps them, and copying them into both menus would be one command with
+	# two owners. What has to hold is that the legend names nothing the bar cannot reach.
+	var actions: Array[StringName] = []
+	for entry: Dictionary in HudScript.menu_entries():
+		actions.append(StringName(entry.get("action", &"")))
+	for pair: Array in HudScript.DRAFTING_COMMANDS:
+		assert(
+			actions.has(StringName(pair[0])),
+			"the bar has %s, which the legend lists" % String(pair[1])
+		)
+	# And the four that are about the shape in hand are in the menu about drawing.
+	var draft: Array[StringName] = []
+	for entry: Dictionary in HudScript.items_for("Draft"):
+		draft.append(StringName(entry.get("action", &"")))
+	for action: StringName in [
+		&"draft_finish", &"draft_close", &"draft_undo_point", &"draft_cancel", &"draft_plot",
+	]:
+		assert(draft.has(action), "the Draft menu has %s" % String(action))
+
+
+func test_every_key_a_menu_advertises_is_bound_and_shown() -> void:
+	for entry: Dictionary in HudScript.menu_entries():
+		var action := StringName(entry.get("action", &""))
+		if action == &"":
+			continue
+		assert(InputMap.has_action(action), "%s names a bound action: %s" % [String(entry["id"]), action])
+		var key := HudScript._key_label(action)
+		assert(key != "", "%s names an action with a key: %s" % [String(entry["id"]), action])
+		assert(
+			HudScript.menu_label(entry).contains(key),
+			"%s shows the key it names: %s" % [String(entry["id"]), key]
+		)
+
+
+func test_no_two_entries_share_an_id() -> void:
+	# The dispatcher finds an entry by the menu it is in and its position, so ids are for reading
+	# and for tests; two entries with one id would make a test about the wrong one pass.
+	var seen: Array[String] = []
+	for entry: Dictionary in HudScript.menu_entries():
+		if StringName(entry.get("kind", &"")) == &"separator":
+			continue
+		var id := String(entry["id"])
+		assert(not seen.has(id), "an id appears once: %s" % id)
+		seen.append(id)
+
+
+func test_every_entry_that_needs_something_names_something_known() -> void:
+	# What an entry needs from the scene decides whether it is offered live; a need nobody answers
+	# for would leave an entry switched off forever, with no reason.
+	for entry: Dictionary in HudScript.menu_entries():
+		assert(HudScript.KNOWN_NEEDS.has(StringName(entry.get("needs", &""))),
+			"%s needs something known" % String(entry["id"]))
+	assert(_entry(&"file.plot")["needs"] == HudScript.NEEDS_DRAFT)
+	assert(_entry(&"file.still")["needs"] == HudScript.NEEDS_PRESENTATION)
+	assert(_entry(&"file.quit")["needs"] == HudScript.NEEDS_NOTHING)
+
+
+func test_the_view_the_menu_shows_as_chosen_is_the_view_you_are_in() -> void:
+	var plan: Dictionary = _entry(&"view.plan")
+	var ground: Dictionary = _entry(&"view.ground")
+	var overhead: Dictionary = _entry(&"view.overhead")
+	var in_plan: Dictionary = {"mode": int(ViewController.ViewMode.PLAN_2D)}
+	var in_ground: Dictionary = {"mode": int(ViewController.ViewMode.GROUND)}
+	var in_overhead: Dictionary = {"mode": int(ViewController.ViewMode.OVERHEAD_3D)}
+	assert(HudScript.is_checked(&"mode", plan["value"], in_plan))
+	assert(not HudScript.is_checked(&"mode", plan["value"], in_ground))
+	assert(HudScript.is_checked(&"mode", ground["value"], in_ground))
+	assert(not HudScript.is_checked(&"mode", ground["value"], in_overhead))
+	assert(HudScript.is_checked(&"mode", overhead["value"], in_overhead))
+	# The three entries are the three views there are, so a fourth added to the enum would show
+	# up here as a menu that cannot reach it.
+	var offered: Array[int] = [int(plan["value"]), int(overhead["value"]), int(ground["value"])]
+	offered.sort()
+	var all_views: Array[int] = [
+		int(ViewController.ViewMode.PLAN_2D),
+		int(ViewController.ViewMode.OVERHEAD_3D),
+		int(ViewController.ViewMode.GROUND),
+	]
+	all_views.sort()
+	assert(offered == all_views)
+
+
+func test_a_tool_is_shown_as_chosen_only_while_the_tools_are_out() -> void:
+	var line: Dictionary = _entry(&"draft.tool.draft_line")
+	assert(HudScript.is_checked(&"tool", line["value"], {"drawing": true, "tool": int(ToolScript.Kind.LINE)}))
+	assert(not HudScript.is_checked(&"tool", line["value"], {"drawing": true, "tool": int(ToolScript.Kind.CIRCLE)}))
+	assert(not HudScript.is_checked(&"tool", line["value"], {"drawing": false, "tool": int(ToolScript.Kind.LINE)}))
+	assert(HudScript.is_checked(&"drawing", null, {"drawing": true}))
+	assert(not HudScript.is_checked(&"drawing", null, {"drawing": false}))
+
+
+func test_the_sheet_and_the_scale_shown_are_the_ones_the_plotter_will_use() -> void:
+	var first_sheet := String(PlotScaleScript.sheet_names()[0])
+	var sheet: Dictionary = _entry(StringName("file.sheet." + first_sheet))
+	assert(HudScript.is_checked(&"sheet", sheet["value"], {"sheet": first_sheet}))
+	assert(not HudScript.is_checked(&"sheet", sheet["value"], {"sheet": first_sheet + "-not"}))
+	var hundred: Dictionary = _entry(&"file.scale.100")
+	assert(HudScript.is_checked(&"scale", hundred["value"], {"plot_scale": 100.0}))
+	assert(not HudScript.is_checked(&"scale", hundred["value"], {"plot_scale": 50.0}))
+	# One entry for every sheet and every scale the plotter knows, which is where the set comes
+	# from in the first place.
+	var sheets: Array[String] = []
+	for name in PlotScaleScript.sheet_names():
+		sheets.append(String(name))
+	for name in sheets:
+		assert(not _entry(StringName("file.sheet." + name)).is_empty())
+	var scales := 0
+	for entry: Dictionary in HudScript.items_for("File"):
+		if String(entry.get("id", "")).begins_with("file.scale."):
+			scales += 1
+	assert(scales == 0, "the scales are behind their submenu, not in the File menu")
+
+
+func test_a_dimension_standard_is_shown_when_it_is_the_one_in_force() -> void:
+	var entry: Dictionary = _entry(&"edit.dimension_style.architectural")
+	assert(HudScript.is_checked(&"dimension_style", entry["value"], {"dimension_style": &"architectural"}))
+	assert(not HudScript.is_checked(&"dimension_style", entry["value"], {"dimension_style": &"engineering"}))
+	var styles := 0
+	for style: StringName in ControllerScript.DIMENSION_STYLES:
+		styles += 1
+		assert(not _entry(StringName("edit.dimension_style." + String(style))).is_empty())
+	assert(styles >= 2)
+
+
+func test_the_presentation_entries_report_the_presentation() -> void:
+	var running: Dictionary = _entry(&"present.running")
+	assert(HudScript.is_checked(&"presenting", running["value"], {"presenting": true}))
+	assert(not HudScript.is_checked(&"presenting", running["value"], {"presenting": false}))
+	var still: Dictionary = _entry(StringName("present.quality.%d" % TierScript.STILL))
+	assert(HudScript.is_checked(&"tier", still["value"], {"tier": TierScript.STILL}))
+	assert(not HudScript.is_checked(&"tier", still["value"], {"tier": TierScript.WORKING}))
+	# One entry for every budget the tier table offers.
+	var offered: Array[int] = []
+	for entry: Dictionary in HudScript.tier_items():
+		offered.append(int(entry["value"]))
+	assert(offered == TierScript.CHOICES)
+	# And one for every still size the render button offers.
+	var sizes := 0
+	for entry: Dictionary in HudScript.still_size_items():
+		assert(String(entry["label"]) == String(HudScript.STILL_SIZES[sizes][0]))
+		sizes += 1
+	assert(sizes == HudScript.STILL_SIZES.size())
+	assert(HudScript.is_checked(&"still_size", 2, {"still_size": 2}))
+	assert(not HudScript.is_checked(&"still_size", 2, {"still_size": 0}))
+
+
+func test_the_help_entry_reports_whether_the_keys_are_up() -> void:
+	var keys: Dictionary = _entry(&"help.keys")
+	assert(HudScript.is_checked(&"keys_panel", keys["value"], {"keys_panel": true}))
+	assert(not HudScript.is_checked(&"keys_panel", keys["value"], {"keys_panel": false}))
+	var hints: Dictionary = _entry(&"view.hints")
+	assert(HudScript.is_checked(&"hints", hints["value"], {"hints": true}))
+	assert(not HudScript.is_checked(&"hints", hints["value"], {"hints": false}))
+
+
+func test_an_unknown_state_is_never_shown_as_on() -> void:
+	# A checkable entry whose state nothing answers for would be a tick that never appears: it is
+	# better to make that obvious here than to find it in the running program.
+	assert(not HudScript.is_checked(&"invented", 1, {"invented": 1}))
+	assert(not HudScript.is_checked(&"", null, {}))
+
+
+func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
+	# The page is built from the hint lines and the drafting legend rather than written again, so
+	# it cannot disagree with the corner of the screen it is quoting.
+	var hud := HudScript.new()
+	var text := hud.keys_text()
+	assert(text.contains(HudScript.HINTS_GROUND))
+	assert(text.contains(HudScript._hints_for(ViewController.ViewMode.PLAN_2D)))
+	for row: String in HudScript.drafting_rows():
+		assert(text.contains(row), "the reference has the legend row: %s" % row)
+	assert(text.contains("Keys") or text.contains("Drawing"))
+	assert(hud.keys_footer().contains(Engine.get_version_info()["string"]))
+	hud.free()
