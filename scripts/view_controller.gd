@@ -40,6 +40,8 @@ const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd"
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
 signal transition_finished(to_ground: bool)
+## Planting was armed or put away, so a menu can say which plant a click will put down.
+signal planting_changed(species_id: StringName)
 
 @export var flight_camera: Camera3D
 @export var player: PlanPlayer
@@ -128,6 +130,12 @@ var _hand_cursor: bool = false
 ## because this node already owns the overhead mouse handling and knows which
 ## view you are looking at.
 var _draft = null
+
+## The catalogue a planted species is looked up in, and the species a click on the plan will put
+## down. Held here because this node is the one that already knows where a screen point is on the
+## ground; the browser knows what a plant *is* and hands it over rather than reaching in.
+var plant_catalogue: PlantCatalogue = null
+var planting_species: StringName = &""
 
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
@@ -635,6 +643,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
 
+	# Planting owns the left button while it is armed, and it comes before the drawing tools because
+	# arming a plant puts the tools away: a click that put a shrub down *and* started a polyline
+	# would be one click doing two things.
+	if is_planting():
+		if event.is_action_pressed("draft_cancel"):
+			stop_planting()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventMouseButton:
+			var planting_click: InputEventMouseButton = event
+			if planting_click.pressed and planting_click.button_index == MOUSE_BUTTON_LEFT:
+				plant_at(planting_click.position)
+				get_viewport().set_input_as_handled()
+				return
+
 	if _draft != null:
 		if event.is_action_pressed("draft_mode"):
 			_draft.toggle_drawing()
@@ -695,6 +718,83 @@ func _unhandled_input(event: InputEvent) -> void:
 			))
 			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 			_apply_overhead_view()
+
+
+# --- planting -------------------------------------------------------------------------
+
+
+## Whether a click on the plan will put a plant down.
+func is_planting() -> bool:
+	return not planting_species.is_empty()
+
+
+## Arm a species, so the next click on the plan plants one of it.
+##
+## Each placed plant is an ordinary design object the moment it lands - in the yard's planting
+## subtree and in the `placeable` group - so this node does not need to know anything else about it:
+## picking, dragging, the plan symbol and the 3D model all keep working without a second code path.
+func arm_planting(catalogue: PlantCatalogue, species_id: StringName) -> bool:
+	if catalogue == null or not catalogue.has(species_id):
+		return false
+	plant_catalogue = catalogue
+	planting_species = species_id
+	# A click cannot be two things, so arming a plant puts the drawing tools away.
+	if _draft != null and _draft.drawing:
+		_draft.set_drawing(false)
+	_say_planting()
+	planting_changed.emit(planting_species)
+	return true
+
+
+func stop_planting() -> void:
+	if planting_species.is_empty():
+		return
+	planting_species = &""
+	if plan_canvas != null:
+		plan_canvas.status_text = ""
+	planting_changed.emit(planting_species)
+
+
+## Put one down where the cursor is, and leave the species armed so the next click puts down
+## another: a bed is a dozen of the same plant, and re-arming after every one would be a dozen trips
+## to the library.
+func plant_at(screen: Vector2) -> Dictionary:
+	if not is_planting():
+		return {"ok": false, "reason": "nothing is being planted", "node": null, "scale": 1.0}
+	var world: Vector2 = ViewMath.clamp_to_rect(_screen_to_world(screen), edit_bounds)
+	var result: Dictionary = PlantPlacement.place(
+		plant_catalogue, planting_species, yard, Vector3(world.x, floor_y, world.y)
+	)
+	if not bool(result["ok"]):
+		if plan_canvas != null:
+			plan_canvas.status_text = String(result["reason"])
+		return result
+	# The plan is a projection of the yard, so it is told to read it again; and the picker caches
+	# the objects it can select, so that cache is dropped. Miss either and the new plant is a plant
+	# you can see and not touch, or touch and not see.
+	_placeable_cache_ready = false
+	if plan_canvas != null:
+		plan_canvas.rebind(yard)
+	_say_planting()
+	return result
+
+
+## How many plants are standing in the yard, for a menu that reports on the planting.
+func planted_count() -> int:
+	return PlantPlacement.planted(yard).size()
+
+
+func _say_planting() -> void:
+	if plan_canvas == null or plant_catalogue == null:
+		return
+	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
+	if species == null:
+		plan_canvas.status_text = ""
+		return
+	plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [
+		species.common_name if not species.common_name.is_empty() else species.display_name(),
+		planted_count(),
+	]
 
 
 # --- drafting -------------------------------------------------------------------------

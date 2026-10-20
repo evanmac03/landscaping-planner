@@ -37,7 +37,7 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 				KINDS.has(StringName(entry.get("kind", &""))),
 				"%s entry has a kind the builder knows" % String(menu["title"])
 			)
-	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Present", "Help"]
+	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Plant", "Present", "Help"]
 	assert(titles == expected)
 
 

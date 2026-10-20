@@ -182,6 +182,27 @@ var _pending_path: String = ""
 var _recent_popup: PopupMenu = null
 var _recent_filled: String = ""
 
+## The plant list: JSON under `user://plants`, seeded on the first run from the list the project
+## ships with, for the same reason the cost book is JSON - a catalogue is four thousand entries a
+## nursery mails you as a spreadsheet, not four thousand `.tres` files (spec §2.3).
+const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
+const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
+
+## The plant list once it has been read, held because it is a file: a menu that read four thousand
+## species in order to write one line on itself would be a menu nobody could use.
+var _plants: PlantCatalogue = null
+## The library: the window, the browser inside it, and the two dialogs a plant list arrives and
+## leaves by. The window is a `Window` rather than a panel in `Root` on purpose - it is the one
+## boundary at which something in this HUD is allowed to hold the keyboard, which is what makes the
+## search box typeable without taking W A S D away from the design.
+var _plant_window: Window = null
+var _plant_browser: PlantBrowser = null
+var _plant_import_dialog: FileDialog = null
+var _plant_export_dialog: FileDialog = null
+## The species the last choice armed, so "place it again" has something to place.
+var _plant_chosen: StringName = &""
+
 
 func _ready() -> void:
 	if view_controller == null:
@@ -200,6 +221,7 @@ func _ready() -> void:
 	_build_menu_bar()
 	_build_keys_panel()
 	_build_file_dialogs()
+	_build_plant_library()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1014,6 +1036,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			_menu_save_drawing({})
 			get_viewport().set_input_as_handled()
 			return
+		# The plant library, on the same footing: a plant browser is reached for constantly while
+		# planting a bed, and a menu is a slow way to get to something you use every minute.
+		if event.is_action_pressed(&"plant_library"):
+			if _plant_window != null and _plant_window.visible:
+				close_plant_browser()
+			else:
+				open_plant_browser()
+			get_viewport().set_input_as_handled()
+			return
 	if painted_plan == null:
 		return
 	if event.is_action_pressed(&"vis_painted"):
@@ -1105,6 +1136,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Edit", "items": edit_items()})
 	menus.append({"title": "View", "items": view_items()})
 	menus.append({"title": "Draft", "items": draft_items()})
+	menus.append({"title": "Plant", "items": plant_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
 	return menus
@@ -1285,6 +1317,24 @@ static func still_size_items() -> Array[Dictionary]:
 	return items
 
 
+## The plant list, and the one thing a plant list is for.
+##
+## Every entry here reaches the catalogue rather than the scene, so this is the same menu in a scene
+## with no yard: a plant list is data, and where a plant goes is the plan's business. None of them
+## advertises a key, because none of them is done often enough to deserve one.
+static func plant_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"plant.info", "no plant list"))
+	items.append(_separator())
+	items.append(_command(&"plant.library", "Plant library...", &"plant_library", &"_menu_plant_library"))
+	items.append(_command(&"plant.place", "Place the chosen plant", &"", &"_menu_plant_place"))
+	items.append(_command(&"plant.stop", "Stop planting", &"", &"_menu_stop_planting"))
+	items.append(_separator())
+	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
+	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
+	return items
+
+
 ## The reference: every key in one place, which is the one thing a menu can offer that the
 ## on-screen hints cannot, because they are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
@@ -1387,6 +1437,12 @@ func menu_world() -> Dictionary:
 		"drawing_path": String(_draft.drawing_path) if _draft != null else "",
 		"drawing_state": _draft.drawing_state_text() if _draft != null else "",
 		"recent": ", ".join(PackedStringArray(_draft.recent_drawings())) if _draft != null else "",
+		# The plant list is in the signature only once it has been read - this snapshot is taken on
+		# every state change, and it must not be the thing that reads four thousand species. What a
+		# click would plant and how many are planted are cheap, and they are what moves.
+		"plants": _plants.describe() if _plants != null else "",
+		"planting": String(view_controller.planting_species) if view_controller != null else "",
+		"planted": view_controller.planted_count() if view_controller != null else 0,
 	}
 	return world
 
@@ -1505,6 +1561,7 @@ func _refresh_menus() -> void:
 			if available != &"" and kind != &"info":
 				popup.set_item_disabled(index, not is_enabled(available, world))
 	_refresh_file_menu()
+	_refresh_plant_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -1986,3 +2043,234 @@ func close_keys() -> void:
 func _apply_hints_visibility() -> void:
 	if hints != null:
 		hints.visible = _show_hints and not _presenting
+
+
+# --- the plant list -----------------------------------------------------------------------
+
+
+## The library: a window, the browser in it, and the two dialogs a plant list arrives and leaves by.
+##
+## A `Window` rather than a panel in `Root`, and that is the whole reason it can have a search box:
+## `Root` is built focus-free so that nothing in this HUD can take the drawing keys away, and the one
+## exception this project allows is a modal window (spec REQ 8.7). Inside this window the controls
+## own the keyboard; outside it, nothing has changed.
+func _build_plant_library() -> void:
+	_plant_window = Window.new()
+	_plant_window.name = "PlantLibrary"
+	_plant_window.title = "Plant library"
+	_plant_window.exclusive = false
+	_plant_window.min_size = Vector2i(760, 460)
+	_plant_window.close_requested.connect(close_plant_browser)
+	add_child(_plant_window)
+
+	_plant_browser = PlantBrowserScript.new()
+	_plant_browser.name = "Browser"
+	_plant_browser.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_plant_browser.plant_chosen.connect(_on_plant_chosen)
+	_plant_browser.import_requested.connect(_on_plant_import_requested)
+	_plant_browser.export_requested.connect(_on_plant_export_requested)
+	_plant_window.add_child(_plant_browser)
+
+	# Imported from wherever the file is - a nursery's list arrives as a download, not as something
+	# already filed in this program's folder - and exported into `user://plants`, where the list the
+	# program reads lives.
+	_plant_import_dialog = FileDialog.new()
+	_plant_import_dialog.name = "ImportPlantList"
+	_plant_import_dialog.title = "Import a plant list"
+	_plant_import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_plant_import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_plant_import_dialog.filters = PackedStringArray(["*.json ; Plant lists"])
+	_plant_import_dialog.file_selected.connect(_on_plant_import_chosen)
+	add_child(_plant_import_dialog)
+
+	_plant_export_dialog = FileDialog.new()
+	_plant_export_dialog.name = "ExportPlantList"
+	_plant_export_dialog.title = "Export the plant list"
+	_plant_export_dialog.access = FileDialog.ACCESS_USERDATA
+	_plant_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_plant_export_dialog.current_dir = PlantCatalogueScript.DEFAULT_PATH.get_base_dir()
+	_plant_export_dialog.current_file = "plant-list.json"
+	_plant_export_dialog.filters = PackedStringArray(["*.json ; Plant lists"])
+	_plant_export_dialog.file_selected.connect(_on_plant_export_chosen)
+	add_child(_plant_export_dialog)
+
+	# Not shown until it is asked for. A window is shown by showing it, and a library that appeared
+	# the moment the program started would be a program that opens with somebody else's plant list
+	# over the drawing.
+	_plant_window.hide()
+
+
+## The plant list, read once and kept.
+##
+## The first run has no catalogue of its own, so the list the project ships with is the list - read
+## from `res://` and held in memory until something changes it, at which point it is written to
+## `user://`. A shipped list stays a shipped list, and a catalogue somebody has edited is theirs.
+func plant_list() -> PlantCatalogue:
+	if _plants != null:
+		return _plants
+	var read: Dictionary = PlantCatalogueScript.load_from(PlantCatalogueScript.DEFAULT_PATH)
+	if bool(read["ok"]):
+		_plants = read["catalogue"]
+	else:
+		var seeded: Dictionary = PlantCatalogueScript.load_from(STARTER_PLANT_LIST)
+		_plants = seeded["catalogue"] if bool(seeded["ok"]) else PlantCatalogueScript.make()
+	# A person's own collections live in their own file and are read on top of the catalogue, which
+	# is what keeps them out of the way of an import that replaces the catalogue wholesale.
+	_plants.load_collections()
+	return _plants
+
+
+## What the Plant menu says on itself: what the list is, and what a click would put down.
+func plant_state_text() -> String:
+	var catalogue: PlantCatalogue = plant_list()
+	if view_controller != null and view_controller.is_planting():
+		var species: PlantSpecies = catalogue.get_species(view_controller.planting_species)
+		if species != null:
+			return "planting %s" % species.display_name()
+	var planted: int = view_controller.planted_count() if view_controller != null else 0
+	var words: String = "%d species, %d planted" % [catalogue.count(), planted]
+	var problems: Array[String] = catalogue.problems()
+	if not problems.is_empty():
+		words += "  -  %d entries need attention" % problems.size()
+	return words
+
+
+func open_plant_browser() -> void:
+	if _plant_window == null:
+		return
+	_refresh_plant_browser()
+	_plant_window.popup_centered(Vector2i(1080, 680))
+	if _plant_browser != null:
+		_plant_browser.focus_search()
+
+
+func close_plant_browser() -> void:
+	if _plant_window != null:
+		_plant_window.hide()
+
+
+## Point the browser at the catalogue, reading it only if it has never been read.
+##
+## `refresh` rather than `bind` once it is bound, because `bind` rebuilds the tag chips: what is
+## ticked is a person's filter, and reopening the library must not throw it away.
+func _refresh_plant_browser() -> void:
+	if _plant_browser == null:
+		return
+	if _plant_browser.catalogue == null:
+		_plant_browser.bind(plant_list())
+	else:
+		_plant_browser.refresh()
+
+
+func _menu_plant_library(_entry: Dictionary) -> void:
+	open_plant_browser()
+
+
+## Put the last chosen plant back in hand. With nothing chosen yet, the library is what is wanted,
+## which is a better answer than a command that does nothing.
+func _menu_plant_place(_entry: Dictionary) -> void:
+	if _plant_chosen.is_empty():
+		open_plant_browser()
+		return
+	_arm_planting(_plant_chosen)
+
+
+func _menu_stop_planting(_entry: Dictionary) -> void:
+	if view_controller != null:
+		view_controller.stop_planting()
+
+
+func _menu_plant_import(_entry: Dictionary) -> void:
+	if _plant_import_dialog != null:
+		_plant_import_dialog.popup_centered_ratio(0.7)
+
+
+func _menu_plant_export(_entry: Dictionary) -> void:
+	if _plant_export_dialog != null:
+		_plant_export_dialog.current_dir = PlantCatalogueScript.DEFAULT_PATH.get_base_dir()
+		_plant_export_dialog.popup_centered_ratio(0.7)
+
+
+## The browser's two buttons reach the same commands the menu does, through these: a menu entry
+## takes the entry that was pressed and a button has no such thing to pass, so the two doors are
+## kept and the work stays in one place.
+func _on_plant_import_requested() -> void:
+	_menu_plant_import({})
+
+
+func _on_plant_export_requested() -> void:
+	_menu_plant_export({})
+
+
+## Choosing a plant arms it and closes the library: the very next click is on the plan, which is
+## where the plant was going. It stays armed afterwards, so a bed is a dozen clicks rather than a
+## dozen trips back here.
+func _on_plant_chosen(species_id: StringName) -> void:
+	if not _arm_planting(species_id):
+		return
+	close_plant_browser()
+
+
+func _arm_planting(species_id: StringName) -> bool:
+	if view_controller == null or not view_controller.arm_planting(plant_list(), species_id):
+		return false
+	_plant_chosen = species_id
+	# Planting happens on the plan, and a click in the ground view is not a click on the plan.
+	if view_controller.mode == ViewController.ViewMode.GROUND:
+		view_controller.show_mode(ViewController.ViewMode.PLAN_2D)
+	return true
+
+
+func _on_plant_import_chosen(path: String) -> void:
+	var catalogue: PlantCatalogue = plant_list()
+	var report: Dictionary = catalogue.import_json(path, false)
+	if not bool(report["ok"]):
+		_plant_say(String(report["reason"]))
+		return
+	# The catalogue a person has just added to is the catalogue from now on, so it is written: an
+	# import that lived only in memory would be gone the next time the program opened.
+	var written: Dictionary = catalogue.save_to()
+	if not bool(written["ok"]):
+		_plant_say(String(written["reason"]))
+		return
+	var refused: Array = report["refused"]
+	var words: String = "imported %d new, %d replaced" % [int(report["added"]), int(report["replaced"])]
+	if not refused.is_empty():
+		words += ", %d refused" % refused.size()
+	_refresh_plant_browser()
+	open_plant_browser()
+	_plant_say(words)
+	release_keyboard_focus(self)
+
+
+func _on_plant_export_chosen(path: String) -> void:
+	var target: String = path if path.ends_with(".json") else path + ".json"
+	var written: Dictionary = plant_list().export_json(target)
+	if not bool(written["ok"]):
+		_plant_say(String(written["reason"]))
+		return
+	# The species only: a collection is one person's list of plants, and a list sent to a nursery is
+	# the plants themselves.
+	open_plant_browser()
+	_plant_say("wrote %d species to %s" % [int(written["count"]), target])
+	release_keyboard_focus(self)
+
+
+func _plant_say(text: String) -> void:
+	if _plant_browser != null:
+		_plant_browser.set_status(text)
+
+
+## The two live parts of the Plant menu: the line describing the list, and the one entry that only
+## means something while a plant is in hand.
+func _refresh_plant_menu() -> void:
+	var named := _find_item(&"plant.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), plant_state_text())
+	var stop := _find_item(&"plant.stop")
+	if not stop.is_empty():
+		var stop_popup: PopupMenu = stop[0]
+		stop_popup.set_item_disabled(
+			int(stop[1]), view_controller == null or not view_controller.is_planting()
+		)
