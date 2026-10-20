@@ -140,6 +140,22 @@ func draw_text(at: Vector2, text: String, size_points: float) -> void:
 	])
 
 
+## Text run along a baseline at an angle, in radians, which is what a dimension
+## set against a sloping line needs. The text matrix carries the rotation, so the
+## position is still the baseline origin rather than a bounding box corner.
+func draw_text_rotated(at: Vector2, text: String, size_points: float, angle: float) -> void:
+	if text.is_empty():
+		return
+	if absf(sin(angle)) < 1e-9 and cos(angle) > 0.0:
+		draw_text(at, text, size_points)
+		return
+	_add("BT /F1 %s Tf %s %s %s %s %s %s Tm (%s) Tj ET" % [
+		_n(maxf(size_points, 0.1)),
+		_n(cos(angle)), _n(sin(angle)), _n(-sin(angle)), _n(cos(angle)),
+		_n(at.x), _n(at.y), _escape(text),
+	])
+
+
 ## The text every glyph is required to fit, in points, so a caller can centre or
 ## right-align without guessing. Helvetica's average is close enough for a label
 ## and the exact metrics need the font program, which is not embedded.

@@ -96,6 +96,11 @@ func clear_ghost() -> void:
 
 func _collect_entities(entities: Array, quads: Array) -> void:
 	for entity in entities:
+		# Dimensions and notes annotate the sheet, not the garden. They are drawn
+		# in the flat plan and plotted on the sheet, but nothing stands on the
+		# ground for them.
+		if DraftRenderScript.is_annotation(entity):
+			continue
 		var layer = document.layers.get_layer(entity.layer)
 		_collect_stroke(
 			quads,

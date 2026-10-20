@@ -19,6 +19,12 @@ const PLANTS := "Plants"
 
 const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
+const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
+
+## The smallest an annotation is allowed to draw on screen, in pixels. Annotation
+## text is sized from its authored paper height, which is correct but vanishes at
+## a working zoom, so it holds this floor and stays readable.
+const MIN_TEXT_PIXELS := 8.0
 
 const PAPER := Color(0.945, 0.937, 0.906)
 const GRID := Color(0.16, 0.18, 0.14, 0.075)
@@ -355,33 +361,53 @@ func _draw_document() -> void:
 	_draw_snap_marker()
 
 
-## One entity, in its layer's colour and at its layer's weight.
+## One entity, in its layer's colour and at its layer's weight, drawn from the
+## shared layout so a dimension arrives here exactly as it will on the sheet.
 func _draw_entity(entity, layer, alpha: float) -> void:
 	var colour: Color = DraftRenderScript.screen_colour(layer)
 	colour.a *= alpha
-	if entity.kind == DraftEntityScript.Kind.TEXT:
-		_draw_entity_text(entity, colour)
-		return
-	var style = DraftRenderScript.style_for(entity, layer)
+	var parts: Dictionary = DraftRenderScript.layout(entity, layer, display_scale, _units())
+	var style = parts["style"]
 	# Godot's draw widths are in the canvas item's own units, which here are
 	# metres, so a pixel width has to be divided back down by the zoom or the
 	# stroke comes out `pixels_per_metre` times too thick.
 	var width: float = style.width_pixels(display_scale, pixels_per_metre) / pixels_per_metre
-	for stroke: PackedVector2Array in DraftRenderScript.strokes(entity, layer, display_scale):
+	for stroke: PackedVector2Array in parts["lines"]:
 		if stroke.size() < 2:
 			continue
 		draw_polyline(stroke, colour, width, true)
+	# Arrowheads are filled solids, not strokes, so they are polygons of their
+	# own rather than the ends of the dimension line.
+	for arrow: Dictionary in parts["arrows"]:
+		draw_colored_polygon(
+			DraftDimensionScript.arrow_triangle(
+				arrow["tip"], arrow["direction"], arrow["size"]
+			),
+			colour
+		)
+	_draw_labels(parts["labels"], colour)
 
 
-## Text is drawn in screen space and the node transform is then restored. The
-## canvas works in metres, so a font size expressed in its own units would be a
-## fraction of a pixel and the fallback font would rasterise nothing at all.
-func _draw_entity_text(entity, colour: Color) -> void:
-	var label: String = DraftRenderScript.label_of(entity)
-	if label == "":
-		return
-	var screen: Vector2 = position + DraftRenderScript.label_position(entity) * pixels_per_metre
-	_draw_screen_text(screen, label, 13, colour)
+## Dimension values and notes, which sit alongside the linework rather than on it.
+##
+## Text is drawn in screen space because the canvas works in metres, where a font
+## size would be a fraction of a pixel and the fallback font would rasterise
+## nothing at all. The size still comes from the authored paper height, so the
+## plan and the sheet agree about how big a note is.
+func _draw_labels(labels: Array, colour: Color) -> void:
+	for label: Dictionary in labels:
+		var text: String = String(label["text"])
+		if text == "":
+			continue
+		var screen: Vector2 = position + Vector2(label["position"]) * pixels_per_metre
+		var size: float = maxf(MIN_TEXT_PIXELS, float(label["height"]) * pixels_per_metre)
+		_draw_screen_text(screen, text, int(size), colour)
+
+
+## The document's units, so a dimension reads in the same system the plan was
+## drawn in. Absent a document, a measurement falls back to plain metres.
+func _units():
+	return document.units if document != null else null
 
 
 func _draw_snap_marker() -> void:

@@ -88,9 +88,15 @@ static func coverage_m(sheet_name: String, scale: float, margin_mm: float = DEFA
 
 ## The smallest ratio at which a design of this extent fits the sheet.
 static func required_scale(extent_m: Vector2, sheet_name: String, margin_mm: float = DEFAULT_MARGIN_MM) -> float:
-	var printable := printable_size_mm(sheet_name, margin_mm)
-	var width_need := absf(extent_m.x) * 1000.0 / printable.x
-	var height_need := absf(extent_m.y) * 1000.0 / printable.y
+	return required_scale_for(extent_m, printable_size_mm(sheet_name, margin_mm))
+
+
+## The smallest ratio at which an extent fits an area given in millimetres. A
+## sheet needs this when something else already has a claim on part of it, such
+## as the strip a title block takes across the bottom.
+static func required_scale_for(extent_m: Vector2, area_mm: Vector2) -> float:
+	var width_need := absf(extent_m.x) * 1000.0 / maxf(area_mm.x, 1.0)
+	var height_need := absf(extent_m.y) * 1000.0 / maxf(area_mm.y, 1.0)
 	return maxf(maxf(width_need, height_need), 1.0)
 
 
@@ -98,9 +104,14 @@ static func suggest(
 	extent_m: Vector2,
 	sheet_name: String,
 	margin_mm: float = DEFAULT_MARGIN_MM,
-	imperial: bool = false
+	imperial: bool = false,
+	reserved_mm: Vector2 = Vector2.ZERO
 ) -> Dictionary:
-	var need := required_scale(extent_m, sheet_name, margin_mm)
+	# A reservation is taken off the printable area rather than added to the
+	# margin, because a title block claims a strip across the bottom and leaves the
+	# full width alone. Charging it to the margin would cost the sheet width it
+	# does not need to give up.
+	var need := required_scale_for(extent_m, printable_size_mm(sheet_name, margin_mm) - reserved_mm)
 	var chosen := 0.0
 	var label := ""
 	if imperial:

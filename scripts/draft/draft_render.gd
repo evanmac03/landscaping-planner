@@ -11,9 +11,20 @@ const Geom := preload("res://scripts/draft/geom2d.gd")
 const LineStyleScript := preload("res://scripts/draft/line_style.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const LayerScript := preload("res://scripts/draft/draft_layer.gd")
+const DimensionScript := preload("res://scripts/draft/dimension.gd")
 
 ## Ink, for an entity whose layer cannot be resolved.
 const INK := Color(0.13, 0.14, 0.16)
+
+## Entities that annotate the sheet rather than describe the ground. They are
+## drawn in the plan and plotted, but they have no business standing in the
+## garden, so the 3D overlay passes over them.
+const ANNOTATIONS: Array[int] = [EntityScript.Kind.DIMENSION, EntityScript.Kind.TEXT]
+
+
+## Is this entity an annotation rather than a site feature?
+static func is_annotation(entity: EntityScript) -> bool:
+	return ANNOTATIONS.has(int(entity.kind))
 
 
 ## The style an entity draws with: its own override, else its layer's.
@@ -65,6 +76,66 @@ static func plot_colour(layer: LayerScript) -> Color:
 ## style itself so nothing disappears.
 static func width_pixels(style: LineStyleScript, plot_scale: float, pixels_per_metre: float) -> float:
 	return style.width_pixels(plot_scale, pixels_per_metre)
+
+
+## Everything a view needs to draw one entity: the lines to stroke, the
+## arrowheads to fill, the labels to place, and the style to do it in a single
+## colour and weight.
+##
+## This is the one entry point the plan, the sheet and the 3D overlay share, so a
+## dimension reaches the paper by the same route it reaches the screen. `strokes`
+## is the linework-only view of the same entity and stays because the 3D overlay
+## has no way to draw filled triangles or text.
+static func layout(
+	entity: EntityScript,
+	layer: LayerScript,
+	plot_scale: float,
+	units = null
+) -> Dictionary:
+	var lines: Array[PackedVector2Array] = []
+	var arrows: Array[Dictionary] = []
+	var labels: Array[Dictionary] = []
+
+	match entity.kind:
+		EntityScript.Kind.DIMENSION:
+			# Copied element by element rather than assigned across: a Dictionary
+			# value loses its static array type, so the assignment would be
+			# rejected and the caller's typing contract would be broken.
+			var parts: Dictionary = DimensionScript.layout(entity, plot_scale, units)
+			for part: PackedVector2Array in parts["lines"]:
+				lines.append(part)
+			for part: Dictionary in parts["arrows"]:
+				arrows.append(part)
+			for part: Dictionary in parts["labels"]:
+				labels.append(part)
+		EntityScript.Kind.TEXT:
+			labels.append({
+				"text": label_of(entity),
+				"position": label_position(entity),
+				"angle": text_rotation(entity),
+				"height": text_model_height(entity, plot_scale),
+			})
+		_:
+			lines = strokes(entity, layer, plot_scale)
+
+	return {
+		"lines": lines,
+		"arrows": arrows,
+		"labels": labels,
+		"style": style_for(entity, layer),
+	}
+
+
+## A text entity's height as model metres. The height is authored in paper
+## millimetres, like a line weight, so it prints the same size at any scale.
+static func text_model_height(entity: EntityScript, plot_scale: float) -> float:
+	var paper_mm := float(entity.meta.get("height", LineStyleScript.DEFAULT_TEXT_HEIGHT))
+	return LineStyleScript.model_width_m(paper_mm, plot_scale)
+
+
+## A text entity's rotation, in radians.
+static func text_rotation(entity: EntityScript) -> float:
+	return entity.params[2] if entity.params.size() > 2 else 0.0
 
 
 ## The text of a text entity, or an empty string.

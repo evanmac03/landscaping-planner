@@ -120,6 +120,18 @@ static func make_regular_polygon(centre: Vector2, circumradius: float, sides: in
 	return entity
 
 
+static func make_dimension(
+	from: Vector2,
+	to: Vector2,
+	offset: float = 1.0,
+	dimension_kind: DimensionKind = DimensionKind.LINEAR
+) -> DraftEntity:
+	var entity := _new()
+	entity.kind = Kind.DIMENSION
+	entity.params = PackedFloat64Array([from.x, from.y, to.x, to.y, offset, float(dimension_kind)])
+	return entity
+
+
 static func make_text(at: Vector2, text: String, rotation: float = 0.0) -> DraftEntity:
 	var entity := _new()
 	entity.kind = Kind.TEXT

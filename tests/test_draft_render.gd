@@ -8,6 +8,59 @@ const LineStyle := preload("res://scripts/draft/line_style.gd")
 const LayerScript := preload("res://scripts/draft/draft_layer.gd")
 
 
+# --- the shared layout ------------------------------------------------------------------
+
+
+## The plan, the sheet and the 3D overlay all draw through the layout, so what it
+## reports for an entity is what every view shows.
+func test_the_layout_of_a_plain_entity_is_its_linework() -> void:
+	var entity = Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var parts := Render.layout(entity, _layer(), 100.0)
+	assert(parts["lines"].size() == 1)
+	assert(parts["arrows"].is_empty())
+	assert(parts["labels"].is_empty())
+	# The lines are the same ones strokes would have given, not a second opinion.
+	assert(parts["lines"][0] == Render.strokes(entity, _layer(), 100.0)[0])
+
+
+func test_the_layout_of_a_dimension_is_its_extension_and_arrowheads() -> void:
+	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
+	var parts := Render.layout(entity, _layer(), 100.0)
+	assert(parts["lines"].size() == 3)
+	assert(parts["arrows"].size() == 2)
+	assert(parts["labels"].size() == 1)
+
+
+## A text entity has a position but no outline, so it reaches a view as a label
+## alone. Its height is authored in paper millimetres and converted like a weight.
+func test_the_layout_of_a_text_entity_is_a_label_with_a_height() -> void:
+	var entity = Entity.make_text(Vector2(3, 4), "Patio (new)")
+	var parts := Render.layout(entity, _layer(), 100.0)
+	assert(parts["lines"].is_empty())
+	assert(parts["arrows"].is_empty())
+	assert(parts["labels"].size() == 1)
+	assert(parts["labels"][0]["text"] == "Patio (new)")
+	assert(Vector2(parts["labels"][0]["position"]).is_equal_approx(Vector2(3, 4)))
+	assert(is_equal_approx(
+		parts["labels"][0]["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0
+	))
+	# A height set on the entity wins, so a note can be authored to its own size.
+	entity.meta["height"] = 5.0
+	assert(is_equal_approx(
+		Render.layout(entity, _layer(), 100.0)["labels"][0]["height"], 0.5
+	))
+
+
+## A dimension measures the drawing and a note annotates it: neither is a thing
+## standing in the garden, so the 3D overlay leaves both out.
+func test_annotations_are_flagged_for_the_ground_view() -> void:
+	assert(Render.is_annotation(Entity.make_dimension(Vector2(0, 0), Vector2(10, 0))))
+	assert(Render.is_annotation(Entity.make_text(Vector2(0, 0), "note")))
+	assert(not Render.is_annotation(Entity.make_line(Vector2(0, 0), Vector2(1, 1))))
+	assert(not Render.is_annotation(Entity.make_circle(Vector2(0, 0), 2.0)))
+	assert(not Render.is_annotation(Entity.make_rectangle(Vector2(0, 0), Vector2(2, 2))))
+
+
 func _layer(linetype: StringName = &"continuous"):
 	var layer = LayerScript.new()
 	layer.linetype = linetype

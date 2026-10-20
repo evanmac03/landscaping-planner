@@ -14,6 +14,9 @@ const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const PenStyle := preload("res://scripts/draft/plot_style_table.gd")
 const LineStyle := preload("res://scripts/draft/line_style.gd")
+const Dimension := preload("res://scripts/draft/dimension.gd")
+const PlotScale := preload("res://scripts/draft/plot_scale.gd")
+const Render := preload("res://scripts/draft/draft_render.gd")
 
 
 func _document():
@@ -89,7 +92,267 @@ func test_a_typical_yard_is_suggested_at_one_to_one_hundred() -> void:
 	var plan := Exporter.plan_sheet(document, {"sheet": "A3"})
 	assert(is_equal_approx(plan["scale"], 100.0))
 	var text := Exporter.export_pdf(document, {"sheet": "A3"}).get_string_from_utf8()
-	assert(text.contains("SCALE 1:100"))
+	# The scale is a field in the title block now, not a banner across the sheet.
+	assert(text.contains("(SCALE) Tj"))
+	assert(text.contains("(1:100) Tj"))
+
+
+# --- the sheet furniture -------------------------------------------------------------
+
+
+## Every rectangle in the file, so a test can look for the block and the bar
+## without depending on where in the stream they were written.
+func _rectangles(text: String) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for line in text.split("\n"):
+		var parts := line.strip_edges().split(" ", false)
+		if parts.size() == 5 and parts[4] == "re":
+			out.append(Rect2(
+				Vector2(float(parts[0]), float(parts[1])),
+				Vector2(float(parts[2]), float(parts[3]))
+			))
+	return out
+
+
+func _has_point(points: Array[Vector2], target: Vector2) -> bool:
+	for point in points:
+		if point.distance_to(target) < 0.01:
+			return true
+	return false
+
+
+func _title_block(plan: Dictionary) -> Rect2:
+	var area: Rect2 = plan["printable_pt"]
+	var size := Vector2(
+		Exporter.TITLE_BLOCK_WIDTH_MM, Exporter.TITLE_BLOCK_HEIGHT_MM
+	) * Exporter.POINTS_PER_MM
+	return Rect2(area.end - size, size)
+
+
+func test_the_title_block_lands_in_the_corner_of_the_border() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var block := _title_block(plan)
+	var area: Rect2 = plan["printable_pt"]
+	# Flush into the corner, so it reads as part of the border rather than as
+	# something floating inside the drawing.
+	assert(block.end.x == area.end.x)
+	assert(block.end.y == area.end.y)
+	var found := false
+	for rect in _rectangles(text):
+		if rect.position.distance_to(block.position) < 0.01 \
+				and rect.size.distance_to(block.size) < 0.01:
+			found = true
+	assert(found)
+
+
+func test_every_title_block_field_reaches_the_sheet() -> void:
+	var options := {
+		"sheet": "A3",
+		"project": "Riverbend",
+		"drawing": "Planting Plan",
+		"date": "2026-05-04",
+		"revision": "C",
+	}
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	for caption in ["PROJECT", "DRAWING", "SCALE", "SHEET", "DATE", "REV"]:
+		assert(text.contains("(%s) Tj" % caption))
+	# The values the caller set, and the scale the sheet was actually laid out at
+	# rather than a scale this test assumed.
+	for value in ["Riverbend", "Planting Plan", "2026-05-04", "C"]:
+		assert(text.contains("(%s) Tj" % value))
+	var plan := Exporter.plan_sheet(_document(), options)
+	assert(text.contains("(%s) Tj" % PlotScale.metric_label(plan["scale"])))
+
+
+## The block is a field of the sheet, not an entity, so it must not appear when
+## nobody asked for a border.
+## The strip the block claims is charged to the choice of scale, not only to the
+## placement. A sheet that picked a scale for the whole printable area and then
+## centred the drawing under the title block would be inconsistent with itself.
+func test_the_choice_of_scale_respects_the_title_block() -> void:
+	var document = Document.new()
+	document.add(Entity.make_rectangle(Vector2(30, 30), Vector2(60, 60)), LayerSet.NEW_HARDSCAPE)
+	var bare := Exporter.plan_sheet(document, {"sheet": "A3", "show_border": false})
+	var bordered := Exporter.plan_sheet(document, {"sheet": "A3"})
+	assert(bordered["scale"] > bare["scale"])
+	# Whatever scale comes out, the drawing fits the area the block leaves.
+	var content: Rect2 = bordered["content_pt"]
+	var drawn: Vector2 = bordered["drawing_pt"]
+	assert(drawn.x <= content.size.x + 0.01)
+	assert(drawn.y <= content.size.y + 0.01)
+
+
+## A caller can override the scale. If the drawing then does not fit, it is set
+## against the top of the content area so what it overruns is clear paper rather
+## than the title block.
+func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
+	var document = Document.new()
+	document.add(Entity.make_rectangle(Vector2(60, 55), Vector2(120, 110)), LayerSet.NEW_HARDSCAPE)
+	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
+	var content: Rect2 = plan["content_pt"]
+	assert(plan["drawing_pt"].y > content.size.y)
+	# Placed from the top, so it grows downwards into the drawing area only.
+	assert(absf(Vector2(plan["origin_pt"]).y - content.position.y) < 0.01)
+	assert(_title_block(plan).position.y >= content.end.y)
+
+
+func test_a_borderless_plot_has_no_title_block() -> void:
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "show_border": false}) \
+		.get_string_from_utf8()
+	assert(not text.contains("(PROJECT) Tj"))
+	assert(not text.contains("(SCALE) Tj"))
+
+
+## The drawing is centred in what is left above the block, so the two cannot
+## collide however large the design is.
+func test_the_drawing_is_centred_clear_of_the_title_block() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var area: Rect2 = plan["printable_pt"]
+	var content: Rect2 = plan["content_pt"]
+	assert(content.size.y < area.size.y)
+	assert(content.position.y == area.position.y)
+
+	var extent: Rect2 = plan["extent"]
+	var centre := (
+		Exporter.model_to_paper(extent.position, plan)
+		+ Exporter.model_to_paper(extent.end, plan)
+	) * 0.5
+	assert(centre.distance_to(content.get_center()) < 0.01)
+	assert(_title_block(plan).position.y > content.end.y)
+
+
+func test_the_north_point_carries_its_letter() -> void:
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	assert(text.contains("(N) Tj"))
+
+
+## The scale bar is the honest part of the furniture: a length of paper that can
+## be checked against a ruler. It is drawn at the length the scale law gives for a
+## round number of metres.
+func test_the_scale_bar_is_drawn_at_its_true_length() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var strip := (
+		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
+	) * Exporter.POINTS_PER_MM
+	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, false)
+	var bar := float(choice["metres"]) * float(plan["pt_per_metre"])
+	var step := bar / float(Exporter.SCALE_BAR_DIVISIONS)
+
+	var found := false
+	for rect in _rectangles(text):
+		if absf(rect.size.x - bar) < 0.01:
+			found = true
+	assert(found)
+	# Every division labelled, and the far end carrying the unit.
+	assert(text.contains("(%s) Tj" % Exporter.scale_bar_label(0.0, step)))
+	assert(text.contains("(%s m) Tj" % Exporter.scale_bar_label(float(choice["label_value"]), step)))
+
+
+## Rounding a half-metre division to whole metres would put "0 1 1 2" under a
+## two-metre bar, which is not a scale anything can be read off.
+func test_a_scale_bar_division_is_labelled_to_its_own_precision() -> void:
+	assert(Exporter.scale_bar_label(0.0, 0.5) == "0.0")
+	assert(Exporter.scale_bar_label(1.5, 0.5) == "1.5")
+	assert(Exporter.scale_bar_label(2.0, 0.5) == "2.0")
+	assert(Exporter.scale_bar_label(5.0, 5.0) == "5")
+	assert(Exporter.scale_bar_label(0.0, 5.0) == "0")
+
+
+func test_the_scale_bar_switches_to_feet() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "imperial": true})
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "imperial": true}) \
+		.get_string_from_utf8()
+	var strip := (
+		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
+	) * Exporter.POINTS_PER_MM
+	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, true)
+	var step := float(choice["metres"]) * float(plan["pt_per_metre"]) \
+		/ float(Exporter.SCALE_BAR_DIVISIONS)
+	assert(text.contains("(%s ft) Tj" % Exporter.scale_bar_label(float(choice["label_value"]), step)))
+
+
+# --- dimensions on the sheet --------------------------------------------------------
+
+
+func _dimension_document():
+	var document = Document.new()
+	document.add(
+		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION
+	)
+	return document
+
+
+func test_a_dimension_plots_its_measurement() -> void:
+	var document = _dimension_document()
+	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
+		.get_string_from_utf8()
+	# Written in the document's own units, so the sheet and the plan agree about
+	# the measurement rather than each formatting it their own way.
+	assert(text.contains("(%s) Tj" % document.units.format_length(10.0)))
+
+
+## The arrowheads have to land where the shared layout says, or the sheet and the
+## plan would disagree about the same dimension.
+func test_a_dimension_plots_arrowheads_where_the_layout_puts_them() -> void:
+	var document = _dimension_document()
+	var entity = document.entities()[0]
+	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
+	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
+		.get_string_from_utf8()
+	var points := _moved_points(text)
+	var layout: Dictionary = Dimension.layout(entity, 100.0)
+
+	# Both ends of the dimension line, then the three corners of each arrowhead.
+	for end: Dictionary in layout["arrows"]:
+		var triangle := Dimension.arrow_triangle(
+			end["tip"], end["direction"], end["size"]
+		)
+		for corner in triangle:
+			assert(_has_point(points, Exporter.model_to_paper(corner, plan)))
+	# And the extension lines, which start off the measured point, not on it.
+	var first: PackedVector2Array = layout["lines"][0]
+	assert(_has_point(points, Exporter.model_to_paper(first[0], plan)))
+	assert(not _has_point(points, Exporter.model_to_paper(Vector2(0, 0), plan)))
+
+
+## A dimension up the sheet has its value along the line, which needs a rotated
+## text matrix rather than a plain offset.
+func test_a_vertical_dimension_rotates_its_text() -> void:
+	var document = Document.new()
+	document.add(
+		Entity.make_dimension(Vector2(0, 0), Vector2(0, 6), 2.0), LayerSet.DIMENSION
+	)
+	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
+		.get_string_from_utf8()
+	assert(text.contains("(%s) Tj" % document.units.format_length(6.0)))
+	assert(text.contains(" Tm "))
+
+
+func test_a_horizontal_dimension_needs_no_rotation() -> void:
+	var text := Exporter.export_pdf(_dimension_document(), {"sheet": "A3", "scale": 100.0}) \
+		.get_string_from_utf8()
+	assert(not text.contains(" Tm "))
+
+
+## A dimension is set out from the points it measures, so it draws outside the box
+## those points define. The sheet has to be laid out around what is drawn, or a
+## dimension runs off the border or under the title block - a defect that only
+## shows up once it is on paper.
+func test_the_plot_extent_includes_a_dimensions_set_out_line() -> void:
+	var document = Document.new()
+	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
+	var measured: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["extent"]
+	document.add(
+		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), -3.0), LayerSet.DIMENSION
+	)
+	var laid_out: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["extent"]
+	# The dimension line sits three metres north of the wall it measures. The
+	# tolerance is loose because the extent is measured with the paper-sized
+	# overshoots taken at 1:1, where an extension line runs 1.5 mm past its line.
+	assert(absf(laid_out.position.y - (measured.position.y - 3.0)) < 0.01)
+	assert(is_equal_approx(laid_out.size.x, measured.size.x))
 
 
 # --- a file that opens --------------------------------------------------------------
@@ -142,7 +405,10 @@ func test_an_empty_document_still_plots_a_sheet() -> void:
 	var text := bytes.get_string_from_utf8()
 	assert(text.begins_with("%PDF-1.4\n"))
 	assert(text.ends_with("%%EOF\n"))
-	assert(text.contains("SCALE "))
+	# An empty drawing still gets its block: the sheet has to be identifiable even
+	# when there is nothing on it yet.
+	assert(text.contains("(PROJECT) Tj"))
+	assert(text.contains("(SCALE) Tj"))
 
 
 func test_the_border_stays_inside_the_printable_area() -> void:
