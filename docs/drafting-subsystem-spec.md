@@ -108,6 +108,37 @@ preview MUST reflect current snap resolution.
 degenerate result, self-intersecting offset) MUST leave the document untouched
 and report why.
 
+### 2.1a The editing commands, as built
+
+The four modify commands in the table above are shipped, with the gestures the
+implementation settled on. Each is a command of its own rather than a drawing
+tool, because a modify command picks whole entities and is measured against the
+rest of the sheet; each is reached from the palette's fifth row, the Edit menu,
+and a key (`O` offset, `T` trim, `X` extend, `I` fillet, `E` erase).
+
+| Command | Gesture | Commits on | Measured against |
+|---|---|---|---|
+| Offset | pick a shape, then the side and distance | the side click | one shape |
+| Trim | pick the piece to cut away | the pick | every other editable shape |
+| Extend | pick the end to grow | the pick | every other editable shape |
+| Fillet | pick two lines | the 2nd pick | the two lines |
+| Erase | pick a shape | the pick | one shape |
+
+**REQ 2.1a.1** An editing command MUST NOT pick or measure against an annotation
+(a dimension, a note, a callout): the drawing does not edit itself.
+
+**REQ 2.1a.2** A trim or an extend MUST cut against every other editable shape on
+the visible layers, and MUST refuse in words when nothing crosses or lies beyond.
+
+**REQ 2.1a.3** An offset MUST keep the shape it came from and add the new one; a
+closed ring that pinches in two MUST produce two rings, and an inward offset that
+closes away MUST produce nothing and say so.
+
+**REQ 2.1a.4** A fillet MUST refuse parallel lines and a radius that is not a
+radius, and MUST trim both lines to their tangent points. An ambiguity - a pick on
+the corner itself - MUST be refused rather than guessed.
+
+
 ### 2.2 Coordinate entry grammar
 
 **REQ 2.2.1** Every point input MUST accept typed coordinates as an alternative
