@@ -351,7 +351,7 @@ line. Pricing an area at a rate per hour is not a typo a program should accept.
 | `labour_hours` | `int` | optional total for reporting, in thousandths |
 
 A kit is a *recipe*, so it is priced per unit of output: a 45 m² patio is `45 × kit`, and the kit's
-own lines scale. Kits may contain kits, which requires cycle detection (§5.3).
+own lines scale. Kits may contain kits, which requires cycle detection (§5.3). A line's `item_id` therefore names an **item or another kit**, and which of the two it is is the book's business: a patio kit that needs a compacted-base kit says so, and the expansion resolves it.
 
 ### 4.6 Cost book
 
@@ -364,6 +364,7 @@ own lines scale. Kits may contain kits, which requires cycle detection (§5.3).
 | `kits` | `Dictionary` | id → CostKit |
 | `tax_codes` | `Dictionary` | id → TaxCode |
 | `source` | `String` | where it came from (a supplier import, a hand edit, a file) |
+| `rejected` | `Array[String]` | entries a load carried but could not use, with the reason - not persisted, and reported by `problems()` |
 
 ### 4.7 Lead and its stage events (phase 4)
 
@@ -1035,7 +1036,7 @@ before anything depends on it.
 | # | phase | contents | state |
 |---|---|---|---|
 | 0 | **Money, tax, units** | `money.gd`, `tax.gd`, `work_unit.gd`; integer minor units, currencies, rounding, parsing; tax codes with compounding; the unit table with dimensions | **built** - 28 tests |
-| 1 | **Cost book** | `cost_item.gd`, `cost_kit.gd`, `cost_book.gd`; items, kits with cycle detection, JSON persistence, versioning, refusals | specified |
+| 1 | **Cost book** | `cost_item.gd`, `cost_kit.gd`, `cost_book.gd`; items, kits with cycle detection, JSON persistence, versioning, refusals | **built** - 16 tests |
 | 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | specified |
 | 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | specified |
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`; stages as events, funnel and conversion metrics, the board | specified |
