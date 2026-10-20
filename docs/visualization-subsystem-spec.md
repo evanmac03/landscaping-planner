@@ -1249,84 +1249,115 @@ shall live in one table. No presentation setting shall be read from anywhere els
 
 ### 7.3 Sun study
 
-A client asks what the patio looks like at four in the afternoon in June. The sun is
-one node; the answer is a function of the date, the time and the site's latitude.
+A client asks what the patio looks like at four in the afternoon in June. The sun is one
+node, and the answer needs more than a latitude: a longitude, the zone offset in force at the
+site, and a sun that will stand up to being checked against the client's own kitchen window.
+
+**Answered (spec §16.6): astronomical.** The position comes from Meeus's *Astronomical
+Algorithms* as the NOAA solar calculator uses it - the mean longitude and anomaly, the
+equation of the centre, the apparent longitude with aberration and nutation, the obliquity of
+the ecliptic, the declination, and the equation of time - with Saemundsson's expression for
+atmospheric refraction. That is good to about a hundredth of a degree in any year a garden is
+designed for, which is a centimetre of shadow direction for every metre of shadow. **So the
+astronomy is no longer the limiting error in a study; the drawing is** - a survey point a
+metre out or a roof height guessed by eye moves a shadow further than the sun ever will, and
+REQ-V7.14 is there to stop this subsystem claiming otherwise.
+
+Two consequences are visible to a user, and they are the reasons to have done it:
+
+- **A noon that is the clock's noon.** The equation of time is worth up to sixteen minutes,
+  and a site's longitude and zone offset up to an hour between them. The panel's hour is the
+  clock at the site (REQ-V7.11), so "four in the afternoon" means what the client's watch
+  says, and the shadow is cast for that moment rather than for one sixteen minutes away.
+- **A sunrise and a sunset.** The same machinery gives them, on the site's own clock, and a
+  day that has no sunrise at all says so rather than being given one (REQ-V7.13).
 
 ```gdscript
 class_name SunStudy
 extends RefCounted
-## Where the sun is, from a date, a time and a latitude.
-##
-## Deliberately approximate. A garden is designed at 10 a.m. or 4 p.m. or "when the
-## client gets home", not at an azimuth to three decimal places. What matters is
-## that the same input always gives the same sun, so two renders of one moment can
-## be compared - and that the answer is honest about being below the horizon.
 
-## Solar declination in degrees by day of year: a cosine approximation, good to
-## about a degree, which is well inside the accuracy of the question being asked.
-static func declination(day_of_year: int) -> float:
-    return -23.44 * cos(TAU * (float(day_of_year) + 10.0) / 365.0)
+## The year the study is computed for. Fixed, so that a study repeats and a test is not a
+## race with the calendar: the sun moves by less than a hundredth of a degree a year, and
+## the day-of-year numbering only tells leap years apart after 28 February.
+const EPOCH_YEAR := 2025
 
-
-## Sun altitude and azimuth in degrees from latitude and solar time. The azimuth is
-## measured clockwise from north, matching the plan's north-up convention
-## (drafting-subsystem-spec §1.2).
-static func position(latitude: float, day_of_year: int, hour: float) -> Dictionary:
-    var declination_rad: float = deg_to_rad(declination(day_of_year))
-    var latitude_rad: float = deg_to_rad(latitude)
-    # Hour angle: fifteen degrees an hour, zero at solar noon.
-    var hour_angle: float = deg_to_rad((hour - 12.0) * 15.0)
-    var sin_altitude: float = (
-        sin(latitude_rad) * sin(declination_rad)
-        + cos(latitude_rad) * cos(declination_rad) * cos(hour_angle)
-    )
-    var altitude: float = rad_to_deg(asin(clampf(sin_altitude, -1.0, 1.0)))
-    var azimuth: float = rad_to_deg(atan2(
-        sin(hour_angle),
-        cos(hour_angle) * sin(latitude_rad) - tan(declination_rad) * cos(latitude_rad)
-    )) + 180.0
-    return {
-        "altitude_deg": altitude,
-        "azimuth_deg": fposmod(azimuth, 360.0),
-        # Reported, not clamped: whether a night scene, a twilight scene or an
-        # error is wanted is the caller's decision (REQ-V7.5).
-        "is_up": altitude > 0.0,
-    }
+## The sun's angular radius, and the refraction at the horizon at the pressure and
+## temperature the expression assumes. Together they are why sunrise is the moment the
+## upper limb appears rather than the moment the centre's altitude passes zero.
+const SEMIDIAMETER_DEG := 0.2666
+const REFRACTION_AT_HORIZON_DEG := 0.5667
+const SUNRISE_ALTITUDE_DEG := -(SEMIDIAMETER_DEG + REFRACTION_AT_HORIZON_DEG)
 
 
-## Aim a DirectionalLight3D at the sun's position. Returns false and leaves the
-## light alone when the sun is down.
-static func apply(light: DirectionalLight3D, latitude: float,
-        day_of_year: int, hour: float) -> bool:
-    var sun: Dictionary = position(latitude, day_of_year, hour)
-    if not bool(sun["is_up"]):
-        return false
-    var altitude: float = deg_to_rad(float(sun["altitude_deg"]))
-    var azimuth: float = deg_to_rad(float(sun["azimuth_deg"]))
-    # Model space puts north on -Z (drafting-subsystem-spec §1.2), so the bearing
-    # turns from -Z toward +X and the altitude raises the light along +Y.
-    var direction := Vector3(
-        sin(azimuth) * cos(altitude),
-        sin(altitude),
-        -cos(azimuth) * cos(altitude)
-    )
-    # A light looks down its own -Z, so it sits opposite the direction to the sun
-    # and faces the origin.
-    light.position = direction * SunStudy.DISTANCE_M
-    light.look_at(Vector3.ZERO, Vector3.UP)
-    return true
+# --- the calendar ---
+static func julian_day(year: int, month: int, day: int, hour_utc: float = 0.0) -> float
+static func month_day_from_day_of_year(day_of_year: int, year: int = EPOCH_YEAR) -> Vector2i
+static func day_of_year_from_month_day(month: int, day: int, year: int = EPOCH_YEAR) -> int
 
+# --- the astronomy ---
+static func mean_obliquity(jd: float) -> float                # the tilt, without the wobble
+static func obliquity(jd: float) -> float                     # the tilt, with the nutation
+static func declination_at(jd: float) -> float
+static func declination(day_of_year: int) -> float
+static func equation_of_time(jd: float) -> float              # minutes: sundial - clock
+static func equation_of_time_on(day_of_year: int) -> float
+static func refraction(true_altitude_deg: float) -> float     # degrees; 0.57 at the horizon
 
-## Where the sun sits from. Far enough that a shadow map covers the yard, near
-## enough that the light is conceptually a direction rather than a lamp.
-const DISTANCE_M := 40.0
+# --- a site, and a moment ---
+static func site(latitude: float, longitude: float, utc_offset_hours: float) -> Dictionary
+static func moment(day_of_year: int, clock_hour: float, year: int = EPOCH_YEAR) -> Dictionary
+static func solar_time(site: Dictionary, moment: Dictionary) -> float
+static func clock_time(site: Dictionary, moment: Dictionary, solar: float) -> float
+static func clock_text(hours: float) -> String                # "05:25"
+
+# --- the sun, as seen ---
+static func position(latitude: float, day_of_year: int, solar_hour: float) -> Dictionary
+static func position_for(site: Dictionary, moment: Dictionary) -> Dictionary
+static func daylight(latitude: float, day_of_year: int) -> Dictionary
+static func daylight_for(site: Dictionary, moment: Dictionary) -> Dictionary
+static func apply_for(light: DirectionalLight3D, site: Dictionary, moment: Dictionary) -> bool
+static func describe_for(site: Dictionary, moment: Dictionary) -> String
 ```
 
-REQ-V7.4 Sun azimuth shall use the same north-up convention as the plan and the
-sheet, so a shadow in the 3D view falls the same way the north arrow promises.
+The third argument of `position` is a **solar** hour and the second key of a moment is a clock
+hour, and the two are up to sixteen minutes apart: that difference is the point of the site,
+and the parameter names say which is which, because the same number meaning two things in two
+functions is a trap.
 
-REQ-V7.5 A sun below the horizon shall be reported, not clamped. Whether that
-becomes a night scene, a twilight scene or an error is the caller's decision.
+`position_for` returns everything a still's record needs to stand on its own - the altitude,
+the azimuth, the declination and the equation of time that produced them, the solar hour, and
+the site and the moment they came from (see the record in §10.4).
+
+REQ-V7.4 Sun azimuth shall use the same north-up convention as the plan and the sheet, so a
+shadow in the 3D view falls the same way the north arrow promises.
+
+REQ-V7.5 A sun below the horizon shall be reported, not clamped. Whether that becomes a night
+scene, a twilight scene or an error is the caller's decision. A sun shall count as up while
+its upper limb is above the horizon - half a degree before its centre is - because that is
+when it can be seen, and it is also when it begins to cast.
+
+REQ-V7.10 The sun's position shall be computed astronomically, by the routine Meeus gives and
+the NOAA calculator uses, with the equation of time and atmospheric refraction in it. The
+harmonic approximations are not to be used: a study is worth what it can be checked against,
+and the published zeros of the equation of time are the check.
+
+REQ-V7.11 A site shall be a latitude, a longitude and a zone offset, stored together with the
+drawing, because a sun study is a question about a place and any two of the three is not an
+answer to it. The presentation's hour shall be the **clock** time at the site, which the
+study converts to solar time with the longitude, the offset and the equation of time. Daylight
+saving shall be part of the offset the site carries and shall not be inferred from a rule,
+since every rule is right in one country and wrong in the next.
+
+REQ-V7.12 Refraction shall be reported beside the sun's geometric altitude rather than folded
+into it: a shadow is cast by where the light really is, and the horizon is brightened by where
+the eye thinks it is. The light a shadow is cast by shall use the geometric altitude.
+
+REQ-V7.13 A study shall report its sunrise and sunset on the site's own clock, and a day with
+no sunrise or no sunset shall be reported as polar rather than given a time it does not have.
+
+REQ-V7.14 A study's accuracy shall not be claimed beyond its inputs. The astronomy shall be
+good to a hundredth of a degree, which leaves the *drawing* in charge of the error, and the
+documentation shall say so rather than implying that a stiller number makes a truer shadow.
 
 ### 7.4 Planting at scale: instancing, with per-instance variation
 
@@ -1930,6 +1961,30 @@ One more, about the derived maps rather than the solids: a *sampled* check for "
 normal map flat" reports a map with one seam as flat. Every byte is read instead — the
 lesson the still exporter's blank-render guard learned, learned twice.
 
+**Two more, from the sun study**, which was built after these and is the one part of this
+subsystem whose answer can be checked against the world and not only against a render:
+
+8. **The declination was a cosine and the hour was the sun's own.** §7.3 opened with
+   `-23.44 * cos(TAU * (day_of_year + 10.0) / 365.0)`, "good to about a degree", and took its
+   hour as a *solar* time. Both were defensible, and both are gone. The cosine is exact at the
+   solstices and out by up to half a degree around the equinoxes, and a solar hour is a time
+   the client's watch does not keep — so the shadow was cast for a moment up to sixteen
+   minutes from the one the study was asked about. The specification's own reason for the
+   approximation, "well inside the accuracy of the question being asked", is what turned out
+   to be false: the question a client asks ("will it be in the shade by four?") is one they can
+   answer from their own window, which makes the accuracy of the answer the point rather than a
+   nicety. Meeus's routine costs about the same to write and is good to a hundredth of a
+   degree, the equation of time is worth sixteen minutes and refraction half a degree, and each
+   of the three is larger than the error it displaces.
+9. **A latitude is not a site, and an hour without one is not a moment.** §7.3's
+   `position(latitude, day_of_year, hour)` cannot be asked in a clock time at all. The same
+   number means a sun up to an hour away from the one described, depending on where the site
+   sits in its zone, so the study now has two doors — `position()` for a solar hour with no
+   place, `position_for()` for a clock at a place — and the parameter names carry which is
+   which. A test asserts that the two agree to three arcseconds once the difference is paid,
+   which is what makes the site machinery the same trigonometry rather than a second copy of
+   it, and another rebuilds a recorded sun from the keys it recorded.
+
 ---
 
 ## 9. Presentation camera controls
@@ -2322,8 +2377,12 @@ writes a `.json` beside it:
   "output_px": [3840, 2160],
   "supersample": 2,
   "tier": "Still (proposal)",
-  "sun": {"latitude": 44.6, "day_of_year": 172, "hour": 16.0,
-          "azimuth_deg": 250.1, "altitude_deg": 41.3},
+  "sun": {"latitude_deg": 45.0, "longitude_deg": -75.0, "utc_offset_hours": -5.0,
+          "day_of_year": 172, "clock_hour": 16.0, "year": 2025,
+          "solar_hour": 15.97, "declination_deg": 23.44,
+          "equation_of_time_minutes": -1.96,
+          "azimuth_deg": 266.55, "altitude_deg": 37.6,
+          "apparent_altitude_deg": 37.63, "is_up": true},
   "plot_scale": 100,
   "camera": {"eye": [4.2, 1.6, 9.1], "look": [0.0, 0.0, 0.0], "fov": 32.0},
   "document": {"entities": 17, "units": "metric"},
@@ -2564,7 +2623,7 @@ project's tests is a promise.
 | `scripts/vis/derived_builder.gd` | Debounced rebuild (§8.7) |
 | `scripts/vis/presentation_tier.gd` | The budget table (§7.2) |
 | `scripts/vis/presentation_director.gd` | Enter and leave presentation (§7.1) |
-| `scripts/vis/sun_study.gd` | Sun from date and latitude (§7.3) |
+| `scripts/vis/sun_study.gd` | The sun, astronomically, for a site and a clock (§7.3) |
 | `scripts/vis/planting_instancer.gd` | MultiMesh planting (§7.4) |
 | `scripts/vis/orbit_camera.gd` | The orbit rig (§9.1) |
 | `scripts/vis/walk_route.gd` | Walk-through stops (§9.2) |
@@ -2671,16 +2730,26 @@ coexist without either of them being a code change.
 | AC-V23 | A plant's 3D instance colour and its 2D wash colour come from the same `PlanStyle` entry. | test |
 | AC-V24 | A texture-set name with no set raises and returns null rather than a default material. | test |
 | AC-V25 | The plugin loads, adds exactly one dock, and removes it leaving nothing behind. | manual, in the editor |
+| AC-V26 | The sun's declination is zero to within a hundredth of a degree at the published instant of an equinox, and equals the obliquity of the ecliptic at the solstice. | test |
+| AC-V27 | The equation of time is within half a minute of zero on 15 April, 13 June, 1 September and 25 December, and reaches its published extremes in early November and mid-February. | test |
+| AC-V28 | A site's clock time becomes a solar time through the longitude, the zone offset and the equation of time; the two paths through the study agree to three arcseconds once that difference is paid. | test |
+| AC-V29 | A site is a latitude, a longitude and a zone offset together: saved with the drawing, restored from an older file that carries only a latitude, carried through an undo, and returned by `DraftDocument.site()` in the shape the study takes. | test |
+| AC-V30 | A moment whose sun never rises reports a polar day or night rather than a time, and refraction is reported beside the geometric altitude rather than in it. | test |
 
-REQ-V14.1 AC-V1 to AC-V24 shall be automated tests in `tests/test_vis_*.gd`,
+REQ-V14.1 AC-V1 to AC-V30 shall be automated tests in `tests/test_vis_*.gd`,
 following this project's existing test convention, and shall run in the existing
-suite. Only AC-V25, which needs a running editor, is manual.
+suite, except AC-V25, which needs a running editor and is manual. The numbers a
+sun study is held to are published ones - Meeus's worked example, the dates the
+equation of time is zero, the almanac's sunrise - because a test that agreed only
+with this project would pass for a study that was consistently wrong.
 
 REQ-V14.2 No acceptance criterion shall be satisfied by a visual claim. Every
 criterion above is a number, a count, a size or a refusal.
 
-REQ-V14.3 The subsystem shall not regress the existing suite. All 327 tests shall
-still pass with the presentation nodes added to `main.tscn`.
+REQ-V14.3 The subsystem shall not regress the existing suite: every test that
+passed before a change to this subsystem shall still pass after it, including with
+the presentation nodes added to `main.tscn`. A count written into a specification is
+a number that goes stale in silence, which is the one thing this section is against.
 
 ---
 
@@ -2716,7 +2785,7 @@ the file exists, has tests, and is reachable from the running game.
 | **1. Wash** | **built** | `wash_table.gd`, `wash_painter.gd`, `cad_solid.gd` (outline only), `sketch_baker.gd`, `painted_plan.gd`, the painted sheet in the HUD, `R` to open it, *Save a still*. `tests/test_vis_wash.gd`, 25 tests. |
 | **2. Sketch** | **built** | `sketch_stroke.gd` (the wobble), `sketch_style.gd` + `resources/vis/sketch_default.tres` (the look), `ink_painter.gd` (the two-pass ink), `sketch_compositor.gd` + `resources/shaders/sketch_paper.gdshader` (paper, grain, hatch, bleed, wet edge, ink), supersampling in the painted path. So the painted plan is colour *and* linework. `tests/test_vis_sketch.gd`, 18 tests. |
 | **3. Hardscape** | **built** | `solid_table.gd` (keyed by the real layers), `cad_solid.gd`'s `slab()` and `ribbon()` with the winding decided and tested, `hardscape_material.gd` + `texture_set_builder.gd` and five generated texture sets in `resources/textures/hardscape/`, `derived_builder.gd` as a node in `main.tscn`. Draw a rectangle on 300-NEW-HARD and a paving slab stands up in the 3D view. `tests/test_vis_solid.gd`, 38 tests. §8.8 records the seven corrections building it forced. |
-| **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. `tests/test_vis_presentation.gd`. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
+| **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. The sun study is **astronomical** since §16.6 was answered: Meeus's routine with the equation of time and refraction in it, a site of three fields on the drawing, and a clock hour that means the client's own clock, exposed as five labelled fields on the panel with a button that saves the site back to the plan. `tests/test_vis_presentation.gd` and `tests/test_vis_sun.gd`, 35 tests between them. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
 | **5. Planting at scale** | **not needed at this scale** | `planting_instancer.gd` does not exist and should not: §16's answer is *dozens of plants per plan*, and forty plants want ordinary nodes. Recorded as a decision rather than as a gap — REQ-V7.6's threshold is the whole argument, and a plan that grows to hundreds is the event that reopens it. |
 | **6. Still** | partly built | `still_exporter.gd` and `still_sidecar.gd` exist and write real PNGs with records, from the presentation camera and from the painted plan. The batch, the A3-at-300-dpi preset and §10.5's video are not built. |
 | **7. Walk-through** | not built | `walk_route.gd` does not exist. |
@@ -2779,17 +2848,32 @@ changed the plan:
    below records it as *not needed* rather than as *not built*, which is a different thing
    and a better one: REQ-V7.6's own threshold is the reason — instancing is justified by
    count, not by fashion.
-6. **Sun-study accuracy:** still open, and the only question left. Approximate is what is
-   built; astronomical (the equation of time, refraction) matters only if a shadow is used
-   as evidence rather than as a picture.
-7. **Which latitude and time zone?** — **~45°N, eastern Canada / northern US.** A latitude
-   is now a property of the *drawing* (`DraftDocument.site_latitude`, default 45°N), because
-   it is a fact about the site in the way the units are a fact about the practice: it is
-   saved with the document, it survives an undo, and the presenter reads it. The sun form on
-   the presentation panel follows the presenter, so the number the panel shows and the
-   number it applies are the site's. The time zone is not modelled: the sun study takes a
-   *solar* time, which is what a shadow study wants, and a clock time is a property of where
-   in a time zone the site sits.
+6. **Sun-study accuracy:** — **Astronomical.** The equation of time, the aberration and
+   nutation in longitude, the obliquity of the ecliptic and atmospheric refraction are all in
+   it, so the sun stands where Meeus and the NOAA calculator put it: a hundredth of a degree,
+   which is a centimetre of shadow direction for every metre of shadow. The reason is that a
+   shadow is evidence. A client who says "it will be in the shade by four" is asking a
+   question whose answer they can check against their own kitchen window, and a cosine
+   approximation read off a solar hour is not an answer to that. It also settles what the hour
+   *means*: the panel's hour is the clock at the site, not the sun's own time, so the shift
+   the equation of time causes - up to sixteen minutes, twice a year, in opposite directions -
+   is paid rather than ignored. Built in `scripts/vis/sun_study.gd` and checked against
+   published values rather than against itself: the four dates the equation of time is zero,
+   the sun on the equator at the instant of the March equinox, the tilt at the solstice, and
+   the almanac's sunrise in Ottawa - 05:14 and 20:54 Eastern Daylight Time on 21 June, which
+   needs the calendar, the longitude, the zone offset, the equation of time, the refraction,
+   the tilt and the trigonometry to be right all at once.
+7. **Which latitude and time zone?** — **~45°N, eastern Canada / northern US**, and the site is
+   now three fields rather than one. A latitude, a longitude and a zone offset are stored
+   together on the *drawing* (`DraftDocument.site()`, defaulting to 45°N 75°W on standard
+   time), because they are facts about the site in the way the units are a fact about the
+   practice: saved with the document, carried through an undo, read by the presenter, and
+   offered back to the drawing by a button on the presentation panel - a site the panel can
+   edit and the drawing cannot keep would be a study of somewhere else. **The zone offset is
+   the one in force at the site, daylight saving included**, because a rule for it would be
+   right in Ontario and wrong in Portugal; the panel says so and leaves the hour to the
+   designer who lives there. So the clock is the client's clock: 16:00 in Ontario in June is a
+   sun 38° up and bearing 267°, rising at 04:13 standard time and setting at 19:50.
 8. **Do stills go into the repository, or into `user://`?** — **`user://`**, as §10.2 says.
    The sample sheets are generated on demand by `tools/sample_sheets.gd`, and the rasterised
    previews of them are gitignored: a committed picture of output goes stale the moment the

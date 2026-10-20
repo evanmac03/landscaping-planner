@@ -313,7 +313,9 @@ func test_a_still_name_carries_the_day_it_was_taken() -> void:
 func test_a_record_carries_everything_it_promises() -> void:
 	var record: Dictionary = SidecarScript.record(
 		"3D presentation", Vector2i(3840, 2160), 2, "Still (proposal)",
-		SunStudyScript.position(44.6, 172, 16.0), {"eye": Vector3.ZERO}, 100.0, 17
+		SunStudyScript.position_for(
+			SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)
+		), {"eye": Vector3.ZERO}, 100.0, 17
 	)
 	for key in SidecarScript.KEYS:
 		assert(record.has(key), key)
@@ -328,7 +330,9 @@ func test_a_record_carries_everything_it_promises() -> void:
 func test_a_record_round_trips_through_a_file() -> void:
 	var record: Dictionary = SidecarScript.record(
 		"3D presentation", Vector2i(1920, 1080), 2, "Still (proposal)",
-		SunStudyScript.position(44.6, 172, 16.0), {"eye": Vector3(1, 2, 3)}, 100.0, 4
+		SunStudyScript.position_for(
+			SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)
+		), {"eye": Vector3(1, 2, 3)}, 100.0, 4
 	)
 	var png_path := "user://proposals/test-round-trip.png"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://proposals"))
@@ -441,8 +445,22 @@ func test_the_sun_settings_the_panel_reads_are_the_ones_that_get_applied() -> vo
 	add_child(light)
 	director.sun = light
 	director.latitude = 51.5
+	director.longitude = 0.0
+	director.utc_offset_hours = 0.0
 	director.day_of_year = 100
 	director.hour = 9.0
-	assert(director.apply_sun(51.5, 100, 9.0))
-	assert(director.sun_settings() == SunStudyScript.position(51.5, 100, 9.0))
+	assert(director.apply_sun(SunStudyScript.site(51.5, 0.0, 0.0), SunStudyScript.moment(100, 9.0)))
+	# What the panel reads back is the sun that was aimed: a site on the prime meridian at
+	# 09:00 on the clock, which the presenter turns into the sun's own time before it casts
+	# anything.
+	var settings: Dictionary = director.sun_settings()
+	assert(settings == SunStudyScript.position_for(
+		SunStudyScript.site(51.5, 0.0, 0.0), SunStudyScript.moment(100, 9.0)
+	))
+	var altitude: float = deg_to_rad(float(settings["altitude_deg"]))
+	var azimuth: float = deg_to_rad(float(settings["azimuth_deg"]))
+	var expected := Vector3(
+		sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude)
+	) * SunStudyScript.DISTANCE_M
+	assert(light.position.distance_to(expected) < 0.001)
 	director.queue_free()

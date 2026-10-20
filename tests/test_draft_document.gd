@@ -31,27 +31,62 @@ func test_add_assigns_an_id_and_a_layer() -> void:
 	assert(document.get_entity(second).layer == LayerSet.NEW_BED)
 
 
-## A site's latitude is a fact about the drawing, so it is saved with it: a designer who
-## works at one latitude should not have to tell every presentation about it again.
-func test_a_site_latitude_is_a_property_of_the_drawing() -> void:
+## A site is a fact about the drawing, so it is saved with it: a designer who works in one
+## place should not have to tell every presentation about it again (visualization spec §16).
+func test_a_site_is_a_property_of_the_drawing() -> void:
 	var document = Document.new()
 	assert(is_equal_approx(document.site_latitude, Document.DEFAULT_SITE_LATITUDE))
-	document.site_latitude = 51.5
+	assert(is_equal_approx(document.site_longitude, Document.DEFAULT_SITE_LONGITUDE))
+	assert(is_equal_approx(document.site_utc_offset_hours, Document.DEFAULT_SITE_UTC_OFFSET_HOURS))
+	# The three defaults agree with each other, which is what makes a study run on a new
+	# drawing merely wrong about the site rather than nonsense about the sky: a longitude
+	# more than half a zone away from its own meridian would put solar noon near 1 o'clock.
+	assert(
+		absf(document.site_longitude - 15.0 * document.site_utc_offset_hours) < 7.5,
+		"the default site's longitude should be near its own zone's meridian"
+	)
+	document.set_site(51.5, -0.12, 0.0)
 	var restored = Document.from_dict(document.to_dict())
 	assert(is_equal_approx(restored.site_latitude, 51.5))
-	# A file written before the site had a latitude gets the default rather than zero:
-	# zero is the equator, which is a site, and never the one that was meant.
+	assert(is_equal_approx(restored.site_longitude, -0.12))
+	assert(is_equal_approx(restored.site_utc_offset_hours, 0.0))
+	# A file written before the site was a place has the latitude and nothing else: the
+	# latitude is kept and the rest is defaulted. A file with no site at all gets the
+	# defaults rather than zeroes, because zero latitude is the equator and zero longitude
+	# is Greenwich, which are two sites, and both of them wrong.
 	var older: Dictionary = document.to_dict()
-	older.erase("site_latitude")
-	assert(is_equal_approx(Document.from_dict(older).site_latitude, Document.DEFAULT_SITE_LATITUDE))
+	older.erase("site")
+	older["site_latitude"] = 51.5
+	var legacy = Document.from_dict(older)
+	assert(is_equal_approx(legacy.site_latitude, 51.5))
+	assert(is_equal_approx(legacy.site_longitude, Document.DEFAULT_SITE_LONGITUDE))
+	var oldest: Dictionary = document.to_dict()
+	oldest.erase("site")
+	assert(is_equal_approx(Document.from_dict(oldest).site_latitude, Document.DEFAULT_SITE_LATITUDE))
 	# And an undo step does not move the site to another country.
-	restored.site_latitude = 45.0
-	restored.begin_gesture()
+	restored.set_site(45.0, -75.0, -5.0)
 	restored.add(_sample_line())
 	var snapshot: Dictionary = restored.snapshot()
-	restored.site_latitude = 12.0
+	restored.set_site(12.0, 0.0, 8.0)
 	restored.restore(snapshot)
 	assert(is_equal_approx(restored.site_latitude, 45.0))
+	assert(is_equal_approx(restored.site_longitude, -75.0))
+
+
+## Moving the site is a change to the drawing like any other: one act, one undo step, and it
+## says whether there was anything to do.
+func test_moving_the_site_is_one_undoable_step() -> void:
+	var document = Document.new()
+	var moves: Array = []
+	document.changed.connect(func() -> void: moves.append(1))
+	assert(document.set_site(43.7, -79.4, -5.0))
+	assert(moves.size() == 1)
+	# The same site again is not a change, and does not pretend to be one.
+	assert(not document.set_site(43.7, -79.4, -5.0))
+	assert(moves.size() == 1)
+	assert(document.undo_last())
+	assert(is_equal_approx(document.site_latitude, Document.DEFAULT_SITE_LATITUDE))
+	assert(is_equal_approx(document.site_longitude, Document.DEFAULT_SITE_LONGITUDE))
 
 
 func test_an_unknown_layer_falls_back() -> void:

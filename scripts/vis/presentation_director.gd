@@ -53,10 +53,17 @@ const TRUCK_PIXELS_PER_METRE := 60.0
 
 @export_group("Sun study")
 ## Degrees north. The one number that makes a shadow study mean anything.
-@export var latitude: float = 44.6
+@export var latitude: float = 45.0
+## Degrees east, so negative in the Americas. With the zone offset, this is what lets a
+## study be asked in the client's own clock time rather than in solar time.
+@export var longitude: float = -75.0
+## Hours from UTC in force at the site, daylight saving included rather than inferred: a
+## rule for it would be right in one country and wrong in the next.
+@export var utc_offset_hours: float = -5.0
 ## Day of the year, 1-366.
 @export var day_of_year: int = 172
-## Solar time in hours, 0-24. Noon is 12.0.
+## Clock time at the site, 0-24. Noon is 12.0 — the clock's noon, not the sun's, which is
+## up to sixteen minutes away from it.
 @export var hour: float = 16.0
 
 var tier: int = Tier.WORKING
@@ -75,29 +82,70 @@ func _ready() -> void:
 	_exporter = StillExporterScript.new()
 	_exporter.name = "StillExporter"
 	add_child(_exporter)
-	# The site's latitude comes off the drawing, so the shadows in a presentation agree
-	# with the survey rather than with whatever this node happened to be set to. The
-	# exported value stays as the fallback for a scene with no drawing behind it.
-	var site: float = _site_latitude()
-	if not is_zero_approx(site):
-		latitude = site
+	# The site comes off the drawing, so the shadows in a presentation agree with the
+	# survey rather than with whatever this node happened to be set to. The exported
+	# values stay as the fallback for a scene with no drawing behind it.
+	var site: Dictionary = _site_from_drawing()
+	if not site.is_empty():
+		latitude = float(site["latitude"])
+		longitude = float(site["longitude"])
+		utc_offset_hours = float(site["utc_offset_hours"])
 
 
-## The latitude the drawing says the site is at, or 0 when there is no drawing to ask.
+## The site the drawing says this garden is at, or an empty dictionary when there is no
+## drawing to ask.
 ##
 ## Reached the same way `DerivedBuilder` reaches the document: through the view controller,
-## which owns the drafting controller. A `0.0` answer means "no opinion" rather than "the
-## equator", which is why it is a sentinel here and not a default.
-func _site_latitude() -> float:
+## which owns the drafting controller. Empty rather than zeroes, because a latitude of 0.0
+## is the equator: a sentinel that is also a legitimate answer cannot say "no opinion".
+func _site_from_drawing() -> Dictionary:
 	if view_controller == null or not view_controller.has_method("draft_controller"):
-		return 0.0
+		return {}
 	var controller: Node = view_controller.draft_controller()
 	if controller == null:
-		return 0.0
+		return {}
 	var drawing = controller.document
-	if drawing == null:
-		return 0.0
-	return float(drawing.site_latitude)
+	if drawing == null or not drawing.has_method("site"):
+		return {}
+	return drawing.site()
+
+
+## The site this presentation is showing: its own fields, which is what the panel edits.
+func current_site() -> Dictionary:
+	return SunStudyScript.site(latitude, longitude, utc_offset_hours)
+
+
+## The moment this presentation is showing, as a clock time at the site.
+func current_moment() -> Dictionary:
+	return SunStudyScript.moment(day_of_year, hour)
+
+
+## Write the site back to the drawing, so the panel's answer is the drawing's answer and not
+## only this presentation's. Returns false when there is no drawing, or when it already
+## says the same thing.
+func save_site() -> bool:
+	if view_controller == null or not view_controller.has_method("draft_controller"):
+		note.emit("There is no drawing to save the site into.")
+		return false
+	var controller: Node = view_controller.draft_controller()
+	var drawing = controller.document if controller != null else null
+	if drawing == null or not drawing.has_method("set_site"):
+		note.emit("There is no drawing to save the site into.")
+		return false
+	if not bool(drawing.set_site(latitude, longitude, utc_offset_hours)):
+		note.emit("The drawing already says %s." % site_text())
+		return false
+	note.emit("The drawing now reads %s." % site_text())
+	return true
+
+
+## The site in words, for a status line: "45.0°N 75.0°W, UTC-5".
+func site_text() -> String:
+	return "%.1f°%s %.1f°%s, UTC%+.1f" % [
+		absf(latitude), "N" if latitude >= 0.0 else "S",
+		absf(longitude), "E" if longitude >= 0.0 else "W",
+		utc_offset_hours,
+	]
 
 
 func is_active() -> bool:
@@ -193,18 +241,24 @@ func set_tier(new_tier: int) -> void:
 	_apply_tier()
 
 
-## Aim the sun. Returns false when it is below the horizon, which is reported
-## rather than clamped - a garden at night is a decision, not an accident.
-func apply_sun(new_latitude: float, new_day: int, new_hour: float) -> bool:
-	latitude = new_latitude
-	day_of_year = new_day
-	hour = new_hour
+## Aim the sun for a site at a clock time. Returns false when it is below the horizon, which
+## is reported rather than clamped - a garden at night is a decision, not an accident.
+##
+## The site and the moment arrive together because a sun study is a place and a time, and
+## one of them alone is half an answer. The fields keep whatever is applied, so the panel,
+## the next still and the record all describe the same sun.
+func apply_sun(site_dict: Dictionary, moment_dict: Dictionary) -> bool:
+	latitude = float(site_dict.get("latitude", latitude))
+	longitude = float(site_dict.get("longitude", longitude))
+	utc_offset_hours = float(site_dict.get("utc_offset_hours", utc_offset_hours))
+	day_of_year = int(moment_dict.get("day_of_year", day_of_year))
+	hour = float(moment_dict.get("clock_hour", hour))
 	if sun == null:
 		return false
-	if not SunStudyScript.apply(sun, latitude, day_of_year, hour):
-		note.emit("The sun is below the horizon at %.1f h." % hour)
+	if not SunStudyScript.apply_for(sun, current_site(), current_moment()):
+		note.emit("The sun is below the horizon at %s." % SunStudyScript.clock_text(hour))
 		return false
-	note.emit(SunStudyScript.describe(latitude, day_of_year, hour))
+	note.emit(SunStudyScript.describe_for(current_site(), current_moment()))
 	return true
 
 
@@ -240,7 +294,7 @@ func render_still(output_size: Vector2i) -> void:
 		output_size,
 		StillExporterScript.SUPERSAMPLE,
 		Tier.name_of(tier),
-		SunStudyScript.position(latitude, day_of_year, hour),
+		SunStudyScript.position_for(current_site(), current_moment()),
 		orbit.state() if orbit != null else {},
 		plot_scale,
 		_entity_count()
@@ -259,7 +313,7 @@ func render_still(output_size: Vector2i) -> void:
 
 ## The sun's current position, for a status line or a saved view.
 func sun_settings() -> Dictionary:
-	return SunStudyScript.position(latitude, day_of_year, hour)
+	return SunStudyScript.position_for(current_site(), current_moment())
 
 
 func _apply_tier() -> void:

@@ -71,6 +71,7 @@ const PALETTE_CELL_WIDTH := 86.0
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
+const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -128,6 +129,8 @@ var _tier_option: OptionButton = null
 var _sun_hour: SpinBox = null
 var _sun_day: SpinBox = null
 var _sun_latitude: SpinBox = null
+var _sun_longitude: SpinBox = null
+var _sun_utc_offset: SpinBox = null
 var _still_size_option: OptionButton = null
 var _still_status: Label = null
 ## What the presentation panel was last drawn to match.
@@ -540,20 +543,32 @@ func _build_presentation_panel() -> void:
 	var sun_caption := Label.new()
 	sun_caption.text = "Sun"
 	presentation_column.add_child(sun_caption)
-	var sun_row := HBoxContainer.new()
-	sun_row.name = "SunRow"
+	# The site and the moment, one field to a row. Labelled rather than suffix-only, because
+	# two of these five numbers are degrees, two are hours and the latitude and the longitude
+	# would otherwise be told apart by position alone.
+	var sun_grid := GridContainer.new()
+	sun_grid.name = "SunGrid"
+	sun_grid.columns = 2
 	# A tenth of a degree of latitude, so the site's own latitude survives being put in
-	# the box: at half a degree the panel would silently move the garden 5 km north.
+	# the box: at half a degree the panel would silently move the garden 5 km north. Half a
+	# degree of longitude is two minutes of solar time, which is fine for a longitude.
 	_sun_hour = _spin("SunHour", 0.0, 24.0, 0.5, " h", 16.0,
-		"Solar time. Noon is 12.")
+		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.")
 	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0,
 		"Day of the year. 172 is the solstice.")
-	_sun_latitude = _spin("SunLatitude", -90.0, 90.0, 0.1, "°", 44.6,
-		"Degrees north. The number that makes a shadow study mean anything.")
-	sun_row.add_child(_sun_hour)
-	sun_row.add_child(_sun_day)
-	sun_row.add_child(_sun_latitude)
-	presentation_column.add_child(sun_row)
+	_sun_latitude = _spin("SunLatitude", -90.0, 90.0, 0.1, "°", 45.0,
+		"Degrees north, so negative is south. The number that makes a shadow study mean anything.")
+	_sun_longitude = _spin("SunLongitude", -180.0, 180.0, 0.5, "°", -75.0,
+		"Degrees east, so negative is west. Four minutes of solar time to a degree: this is what makes a clock time the site's sky rather than the sky at Greenwich.")
+	# A quarter hour, because the world's zones are not all whole hours apart.
+	_sun_utc_offset = _spin("SunUtcOffset", -12.0, 14.0, 0.25, " h", -5.0,
+		"Hours from UTC in force at the site. Daylight saving belongs here rather than in a rule, since a rule is right in one country and wrong in the next: in summer this is an hour ahead of standard time, which is why every sunrise reads an hour later.")
+	_add_sun_field(sun_grid, "Hour", _sun_hour)
+	_add_sun_field(sun_grid, "Day", _sun_day)
+	_add_sun_field(sun_grid, "Latitude", _sun_latitude)
+	_add_sun_field(sun_grid, "Longitude", _sun_longitude)
+	_add_sun_field(sun_grid, "UTC offset", _sun_utc_offset)
+	presentation_column.add_child(sun_grid)
 
 	var sun_buttons := HBoxContainer.new()
 	sun_buttons.name = "SunButtons"
@@ -571,6 +586,16 @@ func _build_presentation_panel() -> void:
 	frame_button.pressed.connect(_on_frame_yard)
 	sun_buttons.add_child(frame_button)
 	presentation_column.add_child(sun_buttons)
+
+	# The site is a fact about the drawing, so the panel offers to make it one. Without
+	# this the five fields would be a study of somewhere else that is thrown away the
+	# moment the drawing is reloaded.
+	var save_site_button := Button.new()
+	save_site_button.name = "SaveSite"
+	save_site_button.text = "Save the site to the drawing"
+	save_site_button.tooltip_text = "Keep this latitude, longitude and offset with the plan"
+	save_site_button.pressed.connect(_on_save_site)
+	presentation_column.add_child(save_site_button)
 
 	presentation_column.add_child(HSeparator.new())
 
@@ -637,6 +662,17 @@ func _spin(
 	return box
 
 
+## One labelled field of the sun grid. The label is the control that keeps five numbers
+## legible: a suffix carries units but not meaning, and two of these boxes hold degrees.
+func _add_sun_field(grid: GridContainer, text: String, box: SpinBox) -> void:
+	var label := Label.new()
+	label.name = text.replace(" ", "") + "Label"
+	label.text = text
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(label)
+	grid.add_child(box)
+
+
 ## Match the panel to the director, when something other than this panel changed it.
 ##
 ## Driven by a signature rather than by a signal, like the palette: the director is
@@ -646,13 +682,14 @@ func _refresh_presentation() -> void:
 	if _present_toggle == null or presentation == null:
 		return
 	# The sun's settings are part of the state this panel describes, and not only the
-	# tier. The site's latitude reaches the presenter from the drawing when the presenter
-	# is ready — later than this panel — so a signature that ignored the sun would leave
-	# the form showing a default the scene does not use, and *Apply* would then push that
-	# default back over the site's own latitude.
-	var state := "%s|%d|%.2f|%d|%.2f" % [
+	# tier. The site reaches the presenter from the drawing when the presenter is ready —
+	# later than this panel — so a signature that ignored the sun would leave the form
+	# showing a default the scene does not use, and *Apply* would then push that default
+	# back over the site's own latitude, longitude and offset.
+	var state := "%s|%d|%.2f|%.2f|%.2f|%d|%.2f" % [
 		str(presentation.is_active()), presentation.tier,
-		presentation.latitude, presentation.day_of_year, presentation.hour,
+		presentation.latitude, presentation.longitude, presentation.utc_offset_hours,
+		presentation.day_of_year, presentation.hour,
 	]
 	if state == _presentation_state:
 		return
@@ -660,6 +697,8 @@ func _refresh_presentation() -> void:
 	_sun_hour.value = presentation.hour
 	_sun_day.value = float(presentation.day_of_year)
 	_sun_latitude.value = presentation.latitude
+	_sun_longitude.value = presentation.longitude
+	_sun_utc_offset.value = presentation.utc_offset_hours
 	# By the silent setters: setting a button the ordinary way fires the handler, which
 	# would then call `begin()` on a presentation that is already running.
 	_present_toggle.set_pressed_no_signal(presentation.is_active())
@@ -721,9 +760,23 @@ func _on_tier_selected(index: int) -> void:
 func _on_apply_sun() -> void:
 	if presentation == null:
 		return
+	# The site and the moment, together: the presenter turns the clock time into the
+	# site's own sky, which is where the longitude and the offset earn their place.
 	presentation.apply_sun(
-		float(_sun_latitude.value), int(_sun_day.value), float(_sun_hour.value)
+		SunStudyScript.site(
+			float(_sun_latitude.value),
+			float(_sun_longitude.value),
+			float(_sun_utc_offset.value)
+		),
+		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value))
 	)
+
+
+## Keep the site with the drawing rather than only in this presentation. A drawing fact, so
+## it is undoable like any other, and the presenter says what happened either way.
+func _on_save_site() -> void:
+	if presentation != null:
+		presentation.save_site()
 
 
 func _on_frame_yard() -> void:

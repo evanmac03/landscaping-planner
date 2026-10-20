@@ -40,7 +40,24 @@ var dimension_style: DimensionStyleScript
 ## (visualization spec §16).
 const DEFAULT_SITE_LATITUDE := 45.0
 
+## The default longitude and zone offset, chosen to *agree* with the default latitude rather
+## than to be neutral: 45°N 75°W on standard time is roughly Ottawa, so the defaults are a
+## place somebody could stand rather than a coordinate in the Atlantic, and a sun study run
+## on a new drawing is wrong only by its placeholder-ness and not by being nonsense.
+const DEFAULT_SITE_LONGITUDE := -75.0
+
+## Hours from UTC in force at the site. Daylight saving is folded into this number rather
+## than inferred from a rule, because every rule is wrong somewhere: what a site's clock
+## reads is a fact about the site, and the person who lives there knows it.
+const DEFAULT_SITE_UTC_OFFSET_HOURS := -5.0
+
+## Where the garden is. A latitude, a longitude and a zone offset travel together, because a
+## sun study is a question about a place and any two of the three is not an answer to it
+## (visualization spec §16). The same keys as `SunStudy.site()`, so this dictionary can be
+## handed straight to the sun study - which a test does.
 var site_latitude: float = DEFAULT_SITE_LATITUDE
+var site_longitude: float = DEFAULT_SITE_LONGITUDE
+var site_utc_offset_hours: float = DEFAULT_SITE_UTC_OFFSET_HOURS
 
 var _entities: Dictionary = {}
 ## Insertion order, which is the tie-break inside a layer's plotting band.
@@ -197,6 +214,39 @@ func clear() -> void:
 	changed.emit()
 
 
+# --- the site -----------------------------------------------------------------------
+
+
+## Where the garden is, in the shape the sun study takes.
+func site() -> Dictionary:
+	return {
+		"latitude": site_latitude,
+		"longitude": site_longitude,
+		"utc_offset_hours": site_utc_offset_hours,
+	}
+
+
+## Move the site. One act and one undo step, the same promise a gesture makes: a site moved
+## by a panel button is a change to the drawing like any other, and it reaches the screen
+## through the ordinary `changed`.
+##
+## Returns false when the site is already there, so a caller can tell "saved" from "nothing
+## to save" without comparing floats itself.
+func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: float) -> bool:
+	if (
+		is_equal_approx(new_latitude, site_latitude)
+		and is_equal_approx(new_longitude, site_longitude)
+		and is_equal_approx(new_utc_offset_hours, site_utc_offset_hours)
+	):
+		return false
+	begin_gesture()
+	site_latitude = new_latitude
+	site_longitude = new_longitude
+	site_utc_offset_hours = new_utc_offset_hours
+	changed.emit()
+	return true
+
+
 # --- undo ---------------------------------------------------------------------------
 
 
@@ -236,7 +286,7 @@ func snapshot() -> Dictionary:
 		"entities": saved,
 		"layers": layers.copy(),
 		"units": units_snapshot(),
-		"site_latitude": site_latitude,
+		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 	}
 
@@ -266,9 +316,14 @@ func restore(state: Dictionary) -> void:
 	units.display_precision = int(units_state.get("display_precision", 3))
 	units.inch_denominator = int(units_state.get("inch_denominator", 16))
 	units.use_us_survey_foot = bool(units_state.get("use_us_survey_foot", false))
-	# A latitude is a recent arrival, so a file written before it existed gets the default
-	# rather than zero: zero is the equator, which is a site, and a wrong one.
-	site_latitude = float(state.get("site_latitude", DEFAULT_SITE_LATITUDE))
+	# The site is a recent arrival, so a file written before it existed gets the defaults
+	# rather than zeroes: zero latitude is the equator and zero longitude is Greenwich,
+	# which are two sites, and both of them wrong. A version 3 file has the latitude but
+	# not the rest, which is why the flat key is still read.
+	var site_state: Dictionary = state.get("site", {})
+	site_latitude = float(site_state.get("latitude", state.get("site_latitude", DEFAULT_SITE_LATITUDE)))
+	site_longitude = float(site_state.get("longitude", DEFAULT_SITE_LONGITUDE))
+	site_utc_offset_hours = float(site_state.get("utc_offset_hours", DEFAULT_SITE_UTC_OFFSET_HOURS))
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -311,9 +366,9 @@ func to_dict() -> Dictionary:
 	for id in _order:
 		order.append(id)
 	return {
-		"version": 3,
+		"version": 4,
 		"units": units_snapshot(),
-		"site_latitude": site_latitude,
+		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 		"layers": layer_list,
 		"order": order,
