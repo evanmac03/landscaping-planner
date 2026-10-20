@@ -16,6 +16,7 @@ const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
+const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const PenStyleScript := preload("res://scripts/draft/plot_style_table.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 
@@ -53,6 +54,13 @@ var show_legend: bool = true
 var dimension_style_name: StringName = &"architectural"
 ## Where the last plot was written, so the result can be reported.
 var plot_path: String = ""
+## Where this drawing lives on disk, or "" when it has never been saved. Held here rather than
+## in the HUD because it is a property of the drawing and not of the furniture: a drawing that
+## has a file knows where its next Save goes.
+var drawing_path: String = ""
+## Whether the drawing has changed since it was last written or read. What decides whether Save
+## has anything to do, and whether New or Open would throw work away.
+var dirty: bool = false
 
 var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
@@ -372,9 +380,92 @@ func plot() -> String:
 # --- plumbing -----------------------------------------------------------------------
 
 
+# --- the drawing on disk --------------------------------------------------------------
+
+
+## Start an empty drawing.
+##
+## The layers, the units, the site and the dimension standard stay: they are the drawing's
+## *setup* rather than its contents, and a new drawing in a named project is still drawn to
+## that project's standards. The undo history goes, because the history of the drawing that
+## was on the screen is not the history of this one.
+func new_drawing() -> void:
+	document.clear()
+	document.undo.clear()
+	drawing_path = ""
+	dirty = false
+	last_message = "new drawing"
+	_refresh_canvas()
+
+
+## Write the drawing to disk. With no path, it goes back where it came from.
+##
+## A drawing that has never been saved has no name, and this refuses rather than inventing one:
+## a file called "untitled-3.json" is a file nobody will find again, which is what Save As is
+## for. Returns `{"ok", "reason", "path"}`, and says what happened in `last_message` either way.
+func save_drawing(path: String = "") -> Dictionary:
+	var target := path if not path.is_empty() else drawing_path
+	var written: Dictionary = StoreScript.write(document, target)
+	if bool(written["ok"]):
+		drawing_path = String(written["path"])
+		dirty = false
+		StoreScript.remember(drawing_path)
+		last_message = "saved %s" % StoreScript.display_name(drawing_path)
+	else:
+		last_message = String(written["reason"])
+	_refresh_canvas()
+	return written
+
+
+## Open a drawing over the one in hand.
+##
+## A file that cannot be read leaves the drawing in hand alone: a failed Open must not be a way
+## to lose what you had. The whole chain is re-bound, because the snaps, the canvas and the
+## overlay each hold the document they were given.
+func open_drawing(path: String) -> bool:
+	var read: Dictionary = StoreScript.read(path)
+	if not bool(read["ok"]):
+		last_message = String(read["reason"])
+		_refresh_canvas()
+		return false
+	var opened := DocumentScript.from_dict(read["data"])
+	document.changed.disconnect(_on_document_changed)
+	document = opened
+	document.changed.connect(_on_document_changed)
+	# The history goes with the drawing it belonged to: an undo that reached across a file
+	# boundary would resurrect a drawing the file no longer holds.
+	document.undo.clear()
+	snap.bind(document.entities())
+	if canvas != null:
+		canvas.bind_document(document)
+	if overlay != null:
+		overlay.bind_document(document)
+	drawing_path = path
+	dirty = false
+	StoreScript.remember(path)
+	last_message = "opened %s" % StoreScript.display_name(path)
+	_refresh_canvas()
+	return true
+
+
+## The drawings opened recently, newest first, as paths.
+func recent_drawings() -> Array[String]:
+	return StoreScript.read_recent()
+
+
+## What the drawing is, for a menu line or a window title: its file name, and whether what is on
+## the screen is what the file holds.
+func drawing_state_text() -> String:
+	var name := StoreScript.display_name(drawing_path)
+	if name.is_empty():
+		name = "untitled drawing"
+	return "%s - unsaved changes" % name if dirty else name
+
+
 func _on_document_changed() -> void:
 	# The index has to follow the drawing or snapping goes stale after an edit.
 	snap.bind(document.entities())
+	dirty = true
 	_refresh_canvas()
 	changed.emit()
 

@@ -822,7 +822,7 @@ geometry and the record together.
 | Print / plot | sheet selection, plot style table, output format, exact-scale confirmation, warning about fit-to-page |
 | Import wizard | source → units → scale method → alignment points → **validation report** → layer mapping → commit |
 | Status bar | active snap and its target, active layer, current drawn scale, display-lineweights toggle, units |
-| Menu bar | File: plot a sheet, render a proposal still, sheet size, plot scale, quit. Edit: undo, redo, drop the last point, cancel the shape, dimension standard. View: the three views, fit, painted plan, control hints. Draft: the nine tools and the shape commands. Present: the client presentation, quality, framing, still size, save the site. Help: the key reference. Every entry that stands for a key prints that key, and a menu whose subject is absent from the scene is not offered at all. |
+| Menu bar | File: the drawing's own name and whether it is saved, new, open, open recent, save, save as, plot a sheet, render a proposal still, sheet size, plot scale, quit. Edit: undo, redo, drop the last point, cancel the shape, dimension standard. View: the three views, fit, painted plan, control hints. Draft: the nine tools and the shape commands. Present: the client presentation, quality, framing, still size, save the site. Help: the key reference. Every entry that stands for a key prints that key, and a menu whose subject is absent from the scene is not offered at all. |
 
 **REQ 8.1** The status bar MUST show the active snap mode and the snapped
 coordinate numerically, so a user can draft precisely without a permanent
@@ -846,6 +846,20 @@ they are read and not obeyed. The bar MUST be focus-free, and choosing an entry
 MUST release the keyboard again, so that the drawing keys still work after the
 menu has been used - a menu that quietly takes Tab and Enter away from the tools
 is worse than no menu.
+
+**REQ 8.5** A drawing MUST be saved through a temporary file and a rename, so that
+a save which fails cannot leave a file shorter than the drawing it was supposed to
+hold. A file that cannot be read MUST be refused with a sentence saying what is
+wrong and MUST leave the drawing in hand untouched: a failed Open must not be a
+way to lose work.
+
+**REQ 8.6** A drawing MUST be written as JSON under `user://drawings`, with a name
+made safe for every platform. The menu MUST remember the drawings opened recently,
+newest first, each of them once, MUST cap the list, and MUST NOT offer a drawing
+that is no longer on disk - an entry for a file that is not there is a command that
+cannot work. New, Open and Quit MUST ask before discarding changes that have not
+been saved, and the question MUST NOT be the only way to save: the way to save is
+the menu that asked.
 
 ---
 

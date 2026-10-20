@@ -135,15 +135,16 @@ func _physics_process(delta: float) -> void:
 	elif velocity.y < 0.0:
 		velocity.y = 0.0
 
-	# get_vector gives x = right - left and y = back - forward; the body's local
-	# +Z is backwards, so basis.z * y walks forward for a negative y.
-	var stick: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	# The stick gives x = right - left and y = back - forward; the body's local
+	# +Z is backwards, so basis.z * y walks forward for a negative y. Read through
+	# MoveInput, so a command on Ctrl does not also take a step.
+	var stick: Vector2 = MoveInput.stick()
 	var direction: Vector3 = transform.basis.x * stick.x + transform.basis.z * stick.y
 	direction.y = 0.0
 	if direction.length_squared() > 0.0:
 		direction = direction.normalized()
 
-	var speed: float = run_speed if Input.is_action_pressed("sprint") else walk_speed
+	var speed: float = run_speed if MoveInput.sprinting() else walk_speed
 	var target: Vector3 = direction * speed
 	var weight: float = 1.0 - exp(-acceleration * delta)
 	velocity.x = lerpf(velocity.x, target.x, weight)

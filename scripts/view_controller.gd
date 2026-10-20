@@ -606,9 +606,10 @@ func _process(delta: float) -> void:
 	# WASD pans: forward moves the view up the screen, which is world -Z. Not
 	# while a tool is armed: D is arm-drawing and also move-right, and the tool
 	# keys are on the number row, so the keyboard belongs to the drawing.
+	# Read through MoveInput, so a command on Ctrl does not also pan.
 	var stick: Vector2 = Vector2.ZERO
 	if _draft == null or not _draft.drawing:
-		stick = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		stick = MoveInput.stick()
 	if stick.length_squared() > 0.0:
 		plan_focus += stick * (plan_size * pan_rate * delta)
 		plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)

@@ -11,7 +11,9 @@ const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 
-const KINDS: Array[StringName] = [&"command", &"radio", &"check", &"submenu", &"separator"]
+const KINDS: Array[StringName] = [
+	&"command", &"radio", &"check", &"submenu", &"separator", &"info",
+]
 
 
 ## The entry with an id, or a failure that names it: an entry that has been renamed should break
@@ -44,9 +46,9 @@ func test_every_entry_names_a_method_that_exists() -> void:
 	# that looks like it works.
 	var hud := HudScript.new()
 	for entry: Dictionary in HudScript.menu_entries():
-		if StringName(entry.get("kind", &"")) == &"separator":
-			continue
-		if StringName(entry.get("kind", &"")) == &"submenu":
+		# A separator and an "info" line are the only entries that are not meant to do anything:
+		# they are punctuation.
+		if StringName(entry.get("kind", &"")) in [&"separator", &"submenu", &"info"]:
 			continue
 		var method := String(entry.get("method", ""))
 		assert(method != "", "%s names a method" % String(entry["id"]))
@@ -226,6 +228,54 @@ func test_the_help_entry_reports_whether_the_keys_are_up() -> void:
 	var hints: Dictionary = _entry(&"view.hints")
 	assert(HudScript.is_checked(&"hints", hints["value"], {"hints": true}))
 	assert(not HudScript.is_checked(&"hints", hints["value"], {"hints": false}))
+
+
+func test_the_file_menu_offers_what_a_file_menu_offers() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("File"):
+		ids.append(String(entry.get("id", "")))
+	for wanted: String in [
+		"file.new", "file.open", "file.recent", "file.save", "file.save_as",
+		"file.plot", "file.still", "file.sheet", "file.scale", "file.quit",
+	]:
+		assert(ids.has(wanted), "the File menu offers %s" % wanted)
+	# In the order a person looks for them: what is open, then the drawing itself, then what
+	# leaves the program, then the sheet, then leaving.
+	assert(ids.find("file.info") < ids.find("file.new"), "the drawing is named at the top")
+	assert(ids.find("file.open") < ids.find("file.save"), "open before save")
+	assert(ids.find("file.save_as") < ids.find("file.plot"), "saving before plotting")
+	assert(ids.find("file.still") < ids.find("file.sheet"), "output before setup")
+	assert(ids.find("file.sheet") < ids.find("file.quit"), "and quitting last")
+	assert(_entry(&"file.new")["method"] == &"_menu_new_drawing")
+	assert(_entry(&"file.open")["method"] == &"_menu_open_drawing")
+	assert(_entry(&"file.save")["method"] == &"_menu_save_drawing")
+	assert(_entry(&"file.save_as")["method"] == &"_menu_save_drawing_as")
+	# Each of them needs the drawing to exist, and says so.
+	assert(_entry(&"file.save")["needs"] == HudScript.NEEDS_DRAFT)
+
+
+func test_save_is_only_available_when_there_is_something_to_save() -> void:
+	# A greyed-out Save is how a menu answers "have I saved this?" without a word, and it is the
+	# only entry in the bar that comes and goes with the state rather than with the scene.
+	assert(_entry(&"file.save")["enabled_when"] == &"dirty")
+	assert(HudScript.is_enabled(&"dirty", {"dirty": true}))
+	assert(not HudScript.is_enabled(&"dirty", {"dirty": false}))
+	assert(HudScript.is_enabled(&"", {}), "an entry that names no condition is available")
+	assert(_entry(&"file.new").get("enabled_when", &"") == &"")
+
+
+func test_the_recent_menu_is_empty_until_the_menu_fills_it() -> void:
+	# The one part of the bar whose entries are not fixed: it is filled at build time from what the
+	# store remembers, which is nothing until a drawing has been saved. Its static emptiness is the
+	# point - a stale list in the plan would be a list that never changes.
+	var recent: Dictionary = _entry(&"file.recent")
+	assert(recent["kind"] == &"submenu")
+	assert((recent["items"] as Array).is_empty())
+	var dynamic := 0
+	for entry: Dictionary in HudScript.menu_entries():
+		if String(entry.get("id", "")).begins_with("file.recent."):
+			dynamic += 1
+	assert(dynamic == 0, "the recent entries are made, not declared")
 
 
 func test_an_unknown_state_is_never_shown_as_on() -> void:

@@ -73,6 +73,7 @@ const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
+const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -166,6 +167,21 @@ var _keys_panel: Control = null
 ## way the person left them.
 var _show_hints: bool = true
 
+## The file dialogs, and the question asked before work is thrown away.
+var _open_dialog: FileDialog = null
+var _save_dialog: FileDialog = null
+var _discard_dialog: ConfirmationDialog = null
+## What to do once the unsaved-changes question has been answered. Held as an id rather than as a
+## Callable so that a dialog left open while something else happens cannot run a stale action out
+## of a captured closure.
+var _pending_action: StringName = &""
+## The file an action is about, when it is about one: opening a drawing from the recent list.
+var _pending_path: String = ""
+## The submenu of recently opened drawings, and what it was last filled with: it is the one part
+## of the bar whose *entries* change rather than only their ticks.
+var _recent_popup: PopupMenu = null
+var _recent_filled: String = ""
+
 
 func _ready() -> void:
 	if view_controller == null:
@@ -183,6 +199,7 @@ func _ready() -> void:
 	_build_painted_actions()
 	_build_menu_bar()
 	_build_keys_panel()
+	_build_file_dialogs()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -966,6 +983,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		close_keys()
 		get_viewport().set_input_as_handled()
 		return
+	# The file commands, while none of our dialogs is up: a dialog has its own keys, and a second
+	# Ctrl+S behind an open Save dialog would open another one.
+	if not _file_dialog_open():
+		if event.is_action_pressed(&"file_new"):
+			_menu_new_drawing({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"file_open"):
+			_menu_open_drawing({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"file_save"):
+			_menu_save_drawing({})
+			get_viewport().set_input_as_handled()
+			return
 	if painted_plan == null:
 		return
 	if event.is_action_pressed(&"vis_painted"):
@@ -1000,11 +1032,11 @@ const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESEN
 ## One entry that runs a command.
 static func _command(
 	id: String, label: String, action: StringName, method: StringName,
-	needs: StringName = NEEDS_NOTHING
+	needs: StringName = NEEDS_NOTHING, enabled_when: StringName = &""
 ) -> Dictionary:
 	return {
 		"kind": &"command", "id": id, "label": label, "action": action,
-		"method": method, "needs": needs,
+		"method": method, "needs": needs, "enabled_when": enabled_when, "value": null,
 	}
 
 
@@ -1041,6 +1073,15 @@ static func _separator() -> Dictionary:
 	return {"kind": &"separator", "id": "", "action": &"", "needs": NEEDS_NOTHING}
 
 
+## A line that says something rather than doing something: shown switched off, because a menu
+## entry that looks pressable and is not is the thing this whole file is trying not to build.
+static func _info(id: String, label: String) -> Dictionary:
+	return {
+		"kind": &"info", "id": id, "label": label, "action": &"", "needs": NEEDS_NOTHING,
+		"value": null,
+	}
+
+
 ## The whole bar, menu by menu.
 static func menu_plan() -> Array[Dictionary]:
 	var menus: Array[Dictionary] = []
@@ -1057,6 +1098,20 @@ static func menu_plan() -> Array[Dictionary]:
 ## chosen size, and how the sheet itself is set up.
 static func file_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
+	# The drawing is named at the top of the menu, where a person looks to find out what is open.
+	# A menu is also the last place something silent should live, so whether the screen and the
+	# file agree is stated rather than implied by a greyed-out Save.
+	items.append(_info(&"file.info", "no drawing"))
+	items.append(_separator())
+	items.append(_command(&"file.new", "New drawing", &"file_new", &"_menu_new_drawing", NEEDS_DRAFT))
+	items.append(_command(&"file.open", "Open drawing...", &"file_open", &"_menu_open_drawing", NEEDS_DRAFT))
+	items.append(_submenu(&"file.recent", "Open recent", []))
+	items.append(_separator())
+	items.append(_command(
+		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
+	))
+	items.append(_command(&"file.save_as", "Save as...", &"", &"_menu_save_drawing_as", NEEDS_DRAFT))
+	items.append(_separator())
 	items.append(_command(&"file.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot", NEEDS_DRAFT))
 	items.append(_command(&"file.still", "Render a proposal still", &"", &"_menu_render_still", NEEDS_PRESENTATION))
 	items.append(_separator())
@@ -1309,6 +1364,13 @@ func menu_world() -> Dictionary:
 		"still_size": int(_still_size_option.selected) if _still_size_option != null else -1,
 		"keys_panel": is_keys_open(),
 		"hints": _show_hints,
+		# What the File menu reports on: which drawing is open, whether it has been saved, and
+		# what was open before. The recent list is in here so that the signature notices when it
+		# changes - the one thing about the bar that is entries rather than ticks.
+		"dirty": _draft != null and _draft.dirty,
+		"drawing_path": String(_draft.drawing_path) if _draft != null else "",
+		"drawing_state": _draft.drawing_state_text() if _draft != null else "",
+		"recent": ", ".join(PackedStringArray(_draft.recent_drawings())) if _draft != null else "",
 	}
 	return world
 
@@ -1349,6 +1411,10 @@ func _build_menu(popup: PopupMenu, items: Array) -> void:
 			popup.add_child(child)
 			_build_menu(child, entry["items"])
 			popup.add_submenu_item(String(entry["label"]), child.name)
+			# The recent drawings are the one set whose *entries* grow and shrink, so the menu
+			# that holds them is kept rather than found again every time it changes.
+			if String(entry["id"]) == "file.recent":
+				_recent_popup = child
 		else:
 			var label := menu_label(entry)
 			var wanted: bool = _menu_needs_met(StringName(entry.get("needs", NEEDS_NOTHING)))
@@ -1358,6 +1424,9 @@ func _build_menu(popup: PopupMenu, items: Array) -> void:
 				popup.add_check_item(label)
 			else:
 				popup.add_item(label)
+			if kind == &"info":
+				# A line that says something: never pressable, and never a method.
+				popup.set_item_disabled(entries.size(), true)
 			if not wanted:
 				# Visible but switched off, so the menu still says what the program does in a
 				# scene that cannot do it.
@@ -1414,6 +1483,12 @@ func _refresh_menus() -> void:
 					index,
 					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world)
 				)
+			# An entry that only means something in some states says which, and is shown switched
+			# off rather than doing nothing when the state is not on: Save with nothing to save.
+			var available := StringName(entry.get("enabled_when", &""))
+			if available != &"" and kind != &"info":
+				popup.set_item_disabled(index, not is_enabled(available, world))
+	_refresh_file_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -1441,7 +1516,237 @@ func _menu_plot(_entry: Dictionary) -> void:
 
 
 func _menu_quit(_entry: Dictionary) -> void:
-	get_tree().quit()
+	# Quitting with unsaved work asks first. The drawing lives in memory until it is written, so
+	# this is the last moment at which anybody could be warned.
+	_guard_unsaved(&"quit")
+
+
+# --- the drawing on disk --------------------------------------------------------------
+
+
+## Whether an entry is available in this state, for the entries that come and go with the state
+## rather than with the scene. Save is the only one: there is nothing to save until something has
+## changed.
+static func is_enabled(state: StringName, world: Dictionary) -> bool:
+	match state:
+		&"dirty":
+			return bool(world.get("dirty", false))
+	return true
+
+
+## The file dialogs: where a drawing comes from and where it goes.
+##
+## Built in code, like the rest of this file's furniture, and pointed at the drawings folder
+## rather than at the filesystem at large: a drawing lives in `user://drawings`, and a dialog that
+## opens anywhere invites somebody to file their drawing where the recent list cannot follow.
+func _build_file_dialogs() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+
+	_open_dialog = FileDialog.new()
+	_open_dialog.name = "OpenDrawing"
+	_open_dialog.title = "Open a drawing"
+	_open_dialog.access = FileDialog.ACCESS_USERDATA
+	_open_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_open_dialog.current_dir = StoreScript.DIR
+	_open_dialog.filters = PackedStringArray(["*.json ; Drawings"])
+	_open_dialog.file_selected.connect(_on_open_chosen)
+	root.add_child(_open_dialog)
+
+	_save_dialog = FileDialog.new()
+	_save_dialog.name = "SaveDrawing"
+	_save_dialog.title = "Save the drawing"
+	_save_dialog.access = FileDialog.ACCESS_USERDATA
+	_save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_save_dialog.current_dir = StoreScript.DIR
+	_save_dialog.filters = PackedStringArray(["*.json ; Drawings"])
+	_save_dialog.file_selected.connect(_on_save_as_chosen)
+	root.add_child(_save_dialog)
+
+	_discard_dialog = ConfirmationDialog.new()
+	_discard_dialog.name = "DiscardChanges"
+	_discard_dialog.title = "Unsaved changes"
+	# Two buttons, and neither of them is "save": the way to save is one click away in the menu
+	# that raised this, and a dialog that can write files is a dialog that can write the wrong
+	# one. What it asks is only whether the changes may be let go.
+	_discard_dialog.ok_button_text = "Discard"
+	_discard_dialog.cancel_button_text = "Keep editing"
+	_discard_dialog.confirmed.connect(_on_discard_confirmed)
+	_discard_dialog.canceled.connect(_on_discard_cancelled)
+	root.add_child(_discard_dialog)
+
+
+func _file_dialog_open() -> bool:
+	return (_open_dialog != null and _open_dialog.visible) \
+		or (_save_dialog != null and _save_dialog.visible) \
+		or (_discard_dialog != null and _discard_dialog.visible)
+
+
+## Ask before throwing work away, then do what was asked for.
+##
+## The action is held as an id rather than as a Callable: a question can sit open while the scene
+## moves on, and a captured closure would then run against a world that is no longer there.
+func _guard_unsaved(next: StringName) -> void:
+	if _draft == null or not _draft.dirty or _discard_dialog == null:
+		_run_pending(next)
+		return
+	_pending_action = next
+	_discard_dialog.dialog_text = "%s\n\nDiscard the changes?" % _draft.drawing_state_text()
+	_discard_dialog.popup_centered()
+
+
+func _on_discard_confirmed() -> void:
+	var next := _pending_action
+	_pending_action = &""
+	_run_pending(next)
+
+
+func _on_discard_cancelled() -> void:
+	# Closing the question decides nothing, so the action is dropped rather than left armed for
+	# whatever the next click happens to be.
+	_pending_action = &""
+	_pending_path = ""
+
+
+func _run_pending(next: StringName) -> void:
+	match next:
+		&"new":
+			if _draft != null:
+				_draft.new_drawing()
+		&"open":
+			if _pending_path.is_empty():
+				open_drawing_dialog()
+			else:
+				var path: String = _pending_path
+				_pending_path = ""
+				if _draft != null:
+					_draft.open_drawing(path)
+		&"quit":
+			get_tree().quit()
+
+
+func open_drawing_dialog() -> void:
+	if _open_dialog == null:
+		return
+	_open_dialog.current_dir = StoreScript.DIR
+	_open_dialog.popup_centered_ratio(0.7)
+
+
+## The Save As dialog, offered a name. The project's own name to begin with, because a drawing of
+## a garden is much more often called what the garden is called than it is called "untitled".
+func save_drawing_dialog() -> void:
+	if _save_dialog == null or _draft == null:
+		return
+	_save_dialog.current_dir = StoreScript.DIR
+	var name := StoreScript.display_name(_draft.drawing_path)
+	if name.is_empty():
+		name = StoreScript.sanitise(_draft.project_name)
+	_save_dialog.current_file = name + StoreScript.EXTENSION
+	_save_dialog.popup_centered_ratio(0.7)
+
+
+func _on_open_chosen(path: String) -> void:
+	_pending_path = ""
+	if _draft != null:
+		_draft.open_drawing(path)
+	release_keyboard_focus(self)
+
+
+func _on_save_as_chosen(path: String) -> void:
+	if _draft == null:
+		return
+	# A name typed without the extension is given one rather than trusted: a drawing the Open
+	# dialog cannot see is a drawing that cannot be opened again.
+	var target := path if path.ends_with(StoreScript.EXTENSION) else path + StoreScript.EXTENSION
+	_draft.save_drawing(target)
+	release_keyboard_focus(self)
+
+
+func _menu_new_drawing(_entry: Dictionary) -> void:
+	_guard_unsaved(&"new")
+
+
+func _menu_open_drawing(_entry: Dictionary) -> void:
+	_pending_path = ""
+	_guard_unsaved(&"open")
+
+
+func _menu_open_recent(entry: Dictionary) -> void:
+	_pending_path = str(entry.get("value", ""))
+	_guard_unsaved(&"open")
+
+
+func _menu_save_drawing(_entry: Dictionary) -> void:
+	if _draft == null:
+		return
+	# A drawing with no name yet is what Save As is for, and Save standing in for it is what a
+	# person expects: the alternative is being told the drawing has no name on the one command
+	# that exists to give it one.
+	if _draft.drawing_path.is_empty():
+		save_drawing_dialog()
+		return
+	_draft.save_drawing()
+
+
+func _menu_save_drawing_as(_entry: Dictionary) -> void:
+	save_drawing_dialog()
+
+
+## The two parts of the File menu that are live: the line naming the drawing, and the list of what
+## was opened recently. Everything else in the bar is a fixed set of entries whose ticks move.
+func _refresh_file_menu() -> void:
+	if _draft == null:
+		return
+	var named := _find_item(&"file.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _draft.drawing_state_text())
+	var recent := ", ".join(PackedStringArray(_draft.recent_drawings()))
+	if recent != _recent_filled:
+		_recent_filled = recent
+		_fill_recent_menu()
+
+
+## One item of the bar, by id, as `[popup, index, entry]`, or nothing when it is not there.
+func _find_item(id: StringName) -> Array:
+	for popup: PopupMenu in _menu_items.keys():
+		var entries: Array = _menu_items[popup]
+		for index in entries.size():
+			if StringName(entries[index].get("id", &"")) == id:
+				return [popup, index, entries[index]]
+	return []
+
+
+## Refill the list of recently opened drawings.
+##
+## The one part of the bar whose *entries* are not fixed: a recent list built once at startup
+## would never show a drawing that has just been saved, and one that was never pruned would offer
+## files that are no longer there. The drawings themselves come from the store, which drops a
+## remembered drawing the moment it stops existing.
+func _fill_recent_menu() -> void:
+	if _recent_popup == null or _draft == null:
+		return
+	_recent_popup.clear()
+	var entries: Array[Dictionary] = []
+	var paths: Array[String] = _draft.recent_drawings()
+	if paths.is_empty():
+		_recent_popup.add_item("nothing yet")
+		_recent_popup.set_item_disabled(0, true)
+		entries.append({
+			"kind": &"info", "id": &"file.recent.none", "label": "nothing yet",
+			"action": &"", "needs": NEEDS_NOTHING, "value": null,
+		})
+	else:
+		for path in paths:
+			var name := StoreScript.display_name(path)
+			_recent_popup.add_item(name)
+			entries.append({
+				"kind": &"command", "id": StringName("file.recent." + name), "label": name,
+				"action": &"", "method": &"_menu_open_recent", "needs": NEEDS_DRAFT,
+				"value": path,
+			})
+	_menu_items[_recent_popup] = entries
 
 
 func _menu_set_sheet(entry: Dictionary) -> void:
