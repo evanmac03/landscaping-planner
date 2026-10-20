@@ -751,7 +751,9 @@ names the check; a warning does not refuse it, because a loose closure is a fact
 about the survey rather than a reason to keep it off the plan. An accepted survey
 lands on `010-SURVEY-PROP` as one closed outline, as **one undo step**.
 
-**Not built:** the raster (PNG/JPG/TIFF/PDF) and DXF adapters of the table above.
+**Built:** the DXF adapter of the table above - `scripts/draft/dxf_file.gd`; its
+as-built notes are at the foot of 6.7. **Not built:** the raster (PNG/JPG/TIFF/PDF)
+adapter, and the semi-automatic tracing in 6.8 that goes with it.
 
 ### 6.2 Import pipeline
 
@@ -944,6 +946,44 @@ editable mapping table with a sensible default (`PROPERTY`/`BOUNDARY` →
 **REQ 6.7.5** Vector imports bypass scale estimation entirely — the geometry is
 already at scale — but STILL require registration (rotation and position) and
 georeferencing, and MUST run the validation checks in 6.5.
+
+**Built:** the ASCII DXF adapter - `scripts/draft/dxf_file.gd` (`DxfFile`), with
+`import_dxf` on the controller and File > Import a DXF underlay... in the HUD.
+
+* Supports `LINE`, `LWPOLYLINE` including its bulges, `POLYLINE` with its `VERTEX`
+  records, `CIRCLE`, `ARC` and `TEXT`, plus `$INSUNITS` and the layer table. Blocks and
+  every other entity type are **counted and named** in the report rather than drawn or
+  dropped silently, because "it looked like it all came in" is not something a person
+  can check.
+* Y is reflected into `Vector2(x, -y)` (REQ 6.7.3) in **one place**, and what the
+  reflection does to handedness is handled with it: an arc is kept as a start and a
+  sweep, so a DXF run counterclockwise from 50 to 51 becomes a model arc starting at -50
+  and sweeping negative, and a polyline bulge changes sign. Folding the angles into a
+  points array - the first draft - is right for an arc that starts at 0 and wrong for
+  every other one. `tests/test_dxf_file.gd` is the mirrored fixture AC-14 asks for.
+* Units come from `$INSUNITS`, from `options["units"]` when the file says 0 or
+  nothing, and from nobody - which **refuses** the file with the sentence that asks.
+  The HUD's page puts the answer in a drop-down, which is REQ 6.7.2's "the user MUST be
+  asked", and a file that states its own units ignores the drop-down rather than obeying
+  it: answering for such a file would let somebody halve a drawing by accident.
+* Registration is `offset` (model metres) and `rotation` (degrees about the origin),
+  applied after the reflection. No fit and no scale estimation, per REQ 6.7.5: the
+  geometry is already at scale and what it needs is a place.
+* **The default destination is `950-UNDERLAY`, not the mapping table.** A surveyor's file
+  is usually wanted as something to trace over, and `950-UNDERLAY` does not plot (AC-8),
+  so the geometry cannot reach the client's sheet by accident - which is 6.7.4's stated
+  worry, met a fortiori. The mapping table is the *kept* mode, `options["underlay"] =
+  false`: `PROPERTY`/`BOUNDARY`-ish to 010, `EASEMENT`/`SETBACK` to 020, contours,
+  structures, hardscape and planting each to their own layer, and anything unrecognised
+  to 010 **with a warning**, never to a plotting layer by accident.
+* An import is **one undo step** whatever the file holds, and a file that reads but
+  carries nothing drawable is refused with a different sentence from a file that could
+  not be read at all.
+
+**Deviations from 6.7, recorded deliberately.** `INSERT`/blocks are counted and not
+followed (6.7.1 makes them optional); a bulge inside a `LWPOLYLINE` is kept as a bulge,
+but a `SPLINE` is not approximated; and the underlay mode is an addition to the
+specification rather than a part of it, which is why it is the default here.
 
 ### 6.8 Tracing stance
 
@@ -1148,6 +1188,7 @@ Each is testable and each maps to a requirement above.
 | AC-23 | The Save dialog's browser lists no file that is not a drawing. |
 | AC-24 | A drawing with two sheets plots two PDFs, each carrying its own drawing number, title and scale, and the drawing is left on the sheet it was on. |
 | AC-25 | A drawing saved and reopened comes back with its sheet set, its current sheet, and the paper the drawing is set up at. |
+| AC-26 | A DXF with no stated units and no answer given is refused, and a DXF read as an underlay leaves no geometry on a layer that plots. |
 
 ---
 

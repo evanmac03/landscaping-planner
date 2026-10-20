@@ -22,6 +22,7 @@ const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
+const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
@@ -189,7 +190,7 @@ func _ready() -> void:
 	tool = ToolScript.new()
 	tool.begin(ToolScript.Kind.LINE, drawing_layer)
 	pen_table = PenStyleScript.default_table()
-	snap.bind(document.entities())
+	_rebind_snap()
 	document.changed.connect(_on_document_changed)
 	var node := get_node_or_null(plan_canvas_path)
 	if node is Node2D:
@@ -759,7 +760,7 @@ func fill_region(rings: Array, options: Dictionary) -> Dictionary:
 			EntityScript.make_line(stroke[0], stroke[stroke.size() - 1]), LayerSetScript.HATCH
 		)
 		added += 1
-	snap.bind(document.entities())
+	_rebind_snap()
 	dirty = true
 	last_message = "filled the region: %s" % HatchFillScript.describe(worked)
 	_refresh_canvas()
@@ -1314,11 +1315,92 @@ func import_survey(parsed: Dictionary) -> Dictionary:
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message}
 	document.add(entity, LayerSetScript.SURVEY_PROPERTY)
-	snap.bind(document.entities())
+	_rebind_snap()
 	dirty = true
 	last_message = "imported %s" % SurveyFileScript.describe(parsed)
 	_refresh_canvas()
 	return {"ok": true, "reason": "", "id": entity.id, "message": last_message}
+
+
+## Put a surveyor's DXF on the drawing: as an underlay to trace over, or - when the file is being
+## kept rather than traced over - on the layers its own layer names map to. Which one happened is the
+## plan's own decision, made when it was read (`DxfFile`, REQ 6.7.4).
+##
+## One undo step whatever the file holds. A plan traced over a surveyor's drawing is one act, and
+## somebody who reads the wrong file wants one Ctrl+Z rather than three hundred.
+##
+## Text keeps the surveyor's own size: a DXF height is a *model* length and this drawing states text
+## sizes on paper, so the two are reconciled by the plot scale - exactly as the drawing's own
+## dimensions are (a text size is a paper property, not a model one).
+func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+	if document == null:
+		last_message = "there is no drawing to import it into"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	if not DxfFileScript.is_usable(plan):
+		# A refused plan says why it was refused; a plan that read but holds nothing this can draw
+		# has to say that instead, because "the file could not be read" would be false.
+		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
+			else "the file has nothing in it that this can draw")
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	document.begin_gesture()
+	var added := 0
+	var refused := 0
+	for shape: Dictionary in (plan["shapes"] as Array):
+		var entity := _entity_from_dxf(shape)
+		if entity == null:
+			refused += 1
+			continue
+		document.add(entity, shape["layer"])
+		added += 1
+	_rebind_snap()
+	dirty = true
+	last_message = "placed %d shape%s%s on the %s" % [
+		added, "" if added == 1 else "s",
+		"" if refused == 0 else " and left out %d" % refused,
+		"underlay" if bool(plan["underlay"]) else "layers it maps to",
+	]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "added": added, "refused": refused, "message": last_message}
+
+
+## One DXF shape as a drawing entity, or null when it cannot be one - a shape with too few points, a
+## circle of no radius, a text with nothing written in it. Refusing here rather than placing a
+## degenerate entity is what keeps a bad record from becoming a shape nobody can select or delete.
+func _entity_from_dxf(shape: Dictionary) -> DraftEntity:
+	var points: PackedVector2Array = shape["points"]
+	var kind := String(shape["kind"])
+	if kind == "LINE":
+		if points.size() < 2:
+			return null
+		return EntityScript.make_line(points[0], points[1])
+	if kind == "CIRCLE":
+		if points.size() < 2 or points[1].x <= 0.0:
+			return null
+		return EntityScript.make_circle(points[0], points[1].x)
+	if kind == "ARC":
+		if points.size() < 2 or points[1].x <= 0.0:
+			return null
+		var sweep: Vector2 = shape["arc"]
+		return EntityScript.make_arc(points[0], points[1].x, sweep.x, sweep.y)
+	if kind == "TEXT":
+		if points.is_empty() or String(shape["words"]).is_empty():
+			return null
+		var label := EntityScript.make_text(points[0], String(shape["words"]))
+		var height := float(shape.get("height", 0.0))
+		if height > 0.0 and plot_scale > 0.0:
+			label.meta["height"] = height * 1000.0 / plot_scale
+		return label
+	if kind == "LWPOLYLINE" or kind == "POLYLINE":
+		if points.size() < 2:
+			return null
+		var line := EntityScript.make_polyline(points, bool(shape["closed"]))
+		var bulges: PackedFloat64Array = shape["bulges"]
+		if bulges.size() == points.size():
+			line.bulges = bulges
+		return line
+	return null
 
 
 ## Write the planting's own labels onto the drawing.
@@ -1465,8 +1547,7 @@ func _bind_document(opened) -> void:
 	# The history goes with the drawing it belonged to: an undo that reached across a file
 	# boundary would resurrect a drawing the file no longer holds.
 	document.undo.clear()
-	if snap != null:
-		snap.bind(document.entities())
+	_rebind_snap()
 	if canvas != null:
 		canvas.bind_document(document)
 	if overlay != null:
@@ -1551,11 +1632,21 @@ func drawing_state_text() -> String:
 
 func _on_document_changed() -> void:
 	# The index has to follow the drawing or snapping goes stale after an edit.
-	snap.bind(document.entities())
+	_rebind_snap()
 	dirty = true
 	_refresh_canvas()
 	changed.emit()
 
+
+## Tell the snap engine what the drawing holds, if there is one.
+##
+## A controller can be built without a snap engine - a test, or a headless run that only measures -
+## and everything else in this file tolerates that. One door, so the tolerance is not remembered at
+## six call sites and forgotten at the seventh: `restore_revision` and `import_dxf` both crashed on
+## exactly that before they called this.
+func _rebind_snap() -> void:
+	if snap != null:
+		snap.bind(document.entities())
 
 func _refresh_canvas() -> void:
 	if canvas == null:

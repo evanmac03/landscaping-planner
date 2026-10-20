@@ -231,6 +231,13 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
+const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+
+## The units a person may tell a DXF it is in, when the file does not say. The empty one means "as the
+## file says"; the rest are the names the reader knows, kept short because this is a drop-down.
+const DXF_UNIT_CHOICES: Array[String] = [
+	"", "metres", "feet", "inches", "millimetres", "centimetres", "yards", "US survey feet",
+]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
@@ -263,6 +270,14 @@ var _sheet_window: SheetWindow = null
 ## The history: what was recorded against this drawing and what each revision changed. A window for the
 ## same reason the sheet setup is one - a revision needs a message, and a message is typed text.
 var _revision_window: RevisionWindow = null
+## The DXF import: the chooser, the file's own text (kept, so answering "what units is it in" can read
+## it again), and the page that says what was read before the drawing takes it.
+var _dxf_dialog: FileDialog = null
+var _dxf_panel: Control = null
+var _dxf_text: String = ""
+var _dxf_name: String = ""
+var _dxf_units: String = ""
+var _pending_dxf: Dictionary = {}
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -304,6 +319,7 @@ func _ready() -> void:
 	_build_hatch_panel()
 	_build_sheet_window()
 	_build_revision_window()
+	_build_dxf_panel()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -1275,6 +1291,7 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.open", "Open drawing...", &"file_open", &"_menu_open_drawing", NEEDS_DRAFT))
 	items.append(_submenu(&"file.recent", "Open recent", []))
 	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
+	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -1916,6 +1933,17 @@ func _build_file_dialogs() -> void:
 	_survey_dialog.file_selected.connect(_on_survey_chosen)
 	add_child(_survey_dialog)
 
+	# A DXF is the other half of "somebody else drew this": a surveyor's or an architect's CAD file,
+	# which reads the whole filesystem for the same reason the survey one does.
+	_dxf_dialog = FileDialog.new()
+	_dxf_dialog.name = "ImportDxf"
+	_dxf_dialog.title = "Import a DXF underlay"
+	_dxf_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_dxf_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_dxf_dialog.filters = PackedStringArray(["*.dxf ; DXF drawings"])
+	_dxf_dialog.file_selected.connect(_on_dxf_chosen)
+	add_child(_dxf_dialog)
+
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
 	_discard_dialog.title = "Unsaved changes"
@@ -2545,6 +2573,211 @@ func confirm_survey_import() -> void:
 ## The survey file chooser. It starts in the app's own surveys folder when there is one - the
 ## place a survey that was dropped in for this drawing lives - and anywhere on the disk otherwise,
 ## because a survey is a file somebody else sent.
+# --- the DXF underlay -----------------------------------------------------------------
+
+
+## The page a DXF is read onto: what is in the file, where each of its layers' geometry will land,
+## and - when the file does not say - the question this reader refuses to guess at.
+func _build_dxf_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "DxfPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Page"
+	panel.custom_minimum_size = Vector2(680.0, 0.0)
+	if top_bar != null:
+		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	panel.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Import a DXF"
+	column.add_child(heading)
+
+	var body := Label.new()
+	body.name = "DxfText"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(body)
+
+	# The one question a DXF cannot be read without. A file that states its units never needs this,
+	# so the row stays disabled and says why rather than hiding - a control that is there and cannot be
+	# used is a control that explains itself.
+	var units_row := HBoxContainer.new()
+	units_row.name = "UnitsRow"
+	var units_caption := Label.new()
+	units_caption.text = "Units"
+	units_row.add_child(units_caption)
+	var units_choice := OptionButton.new()
+	units_choice.name = "DxfUnits"
+	# Not `name`: this is a CanvasLayer, and `name` is the node's own property.
+	for unit_name: String in DXF_UNIT_CHOICES:
+		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
+		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
+	units_choice.item_selected.connect(func(index: int) -> void:
+		choose_dxf_units(String(units_choice.get_item_metadata(index)))
+	)
+	units_row.add_child(units_choice)
+	column.add_child(units_row)
+
+	var buttons := HBoxContainer.new()
+	buttons.name = "Buttons"
+	var import_button := Button.new()
+	import_button.name = "ImportDxf"
+	import_button.text = "Put it on the drawing"
+	import_button.pressed.connect(confirm_dxf_import)
+	buttons.add_child(import_button)
+	var close_button := Button.new()
+	close_button.name = "CloseDxf"
+	close_button.text = "Cancel"
+	close_button.pressed.connect(close_dxf_panel)
+	buttons.add_child(close_button)
+	column.add_child(buttons)
+
+	wrapper.add_child(panel)
+	_dxf_panel = wrapper
+	root.add_child(wrapper)
+
+
+func is_dxf_panel_open() -> bool:
+	return _dxf_panel != null and _dxf_panel.visible
+
+
+## What the page says: what is in the file, where its layers' geometry will go, and what the reader
+## noticed. A person accepts an import by reading this and nothing else.
+func dxf_report_text() -> String:
+	var lines: Array[String] = []
+	if not _dxf_name.is_empty():
+		lines.append(_dxf_name)
+	if _pending_dxf.is_empty():
+		lines.append("no DXF has been read")
+		return "\n".join(PackedStringArray(lines))
+	for line: String in DxfFileScript.report_lines(_pending_dxf):
+		lines.append(line)
+	return "\n".join(PackedStringArray(lines))
+
+
+## Whether what was read may go on the drawing. A refused file is *shown* rather than hidden, because
+## the usual reason is the one question it can still answer.
+func dxf_import_enabled() -> bool:
+	return _draft != null and _draft.document != null and DxfFileScript.is_usable(_pending_dxf)
+
+
+## Read the file in hand again, with the units a person chose. Called on open and whenever the choice
+## changes: the answer is part of reading the file, not a second step after it.
+func _read_pending_dxf() -> Dictionary:
+	var options := {"underlay": true}
+	if not _dxf_units.is_empty():
+		options["units"] = _dxf_units
+	var plan := DxfFileScript.read_text(_dxf_text, options)
+	if bool(plan["ok"]):
+		plan["source"] = _dxf_name
+	return plan
+
+
+func open_dxf_panel() -> void:
+	_pending_dxf = _read_pending_dxf()
+	if _dxf_panel == null:
+		return
+	var body := _dxf_panel.get_node_or_null(^"Page/Column/DxfText")
+	if body is Label:
+		(body as Label).text = dxf_report_text()
+	# The units row is live only while the file's own answer is missing, which is the only time an
+	# answer from a person is what the file needs.
+	var choice := _dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits")
+	if choice is OptionButton:
+		var option := choice as OptionButton
+		var needed := int(_pending_dxf.get("insunits", 0)) == 0
+		option.disabled = not needed
+		option.tooltip_text = ("this file does not say what its units are" if needed
+			else "the file states its own units")
+	var answer := _dxf_panel.get_node_or_null(^"Page/Column/Buttons/ImportDxf")
+	if answer is Button:
+		(answer as Button).disabled = not dxf_import_enabled()
+	_dxf_panel.visible = true
+
+
+func close_dxf_panel() -> void:
+	if _dxf_panel != null:
+		_dxf_panel.visible = false
+	_pending_dxf = {}
+	_dxf_text = ""
+	_dxf_name = ""
+	_dxf_units = ""
+
+
+## What the units drop-down does: answer the question, then read the file again with the answer.
+##
+## The drop-down is also told what was chosen, so the page cannot read the file with one answer while
+## showing another - which is what it did the first time it was looked at. `select()` does not emit
+## `item_selected`, so this cannot come back round.
+func choose_dxf_units(units: String) -> void:
+	_dxf_units = units
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	if choice is OptionButton:
+		var option := choice as OptionButton
+		for index in option.item_count:
+			if String(option.get_item_metadata(index)) == units:
+				option.select(index)
+				break
+	open_dxf_panel()
+
+
+## What the units drop-down is currently showing, for a run that wants to see that it agrees with what
+## the file was read as.
+func dxf_units_text() -> String:
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	if choice is OptionButton:
+		var option := choice as OptionButton
+		if option.item_count > 0:
+			return option.get_item_text(maxi(option.selected, 0))
+	return ""
+
+
+## Put what was read on the drawing. The page stays up until the drawing has taken it, so a refused
+## import is answered by the same page that asked.
+func confirm_dxf_import() -> void:
+	if _draft == null or _pending_dxf.is_empty():
+		return
+	var taken: Dictionary = _draft.import_dxf(_pending_dxf)
+	if bool(taken.get("ok", false)):
+		close_dxf_panel()
+
+
+## The DXF chooser. Anywhere on the disk, because a surveyor's file is a file somebody else sent.
+func open_dxf_dialog() -> void:
+	if _dxf_dialog != null:
+		_dxf_dialog.popup_centered_ratio(0.7)
+
+
+## A DXF was chosen: read it, then show what was read. The file is kept as text rather than read once,
+## because a file that does not say its units has to be read again with the answer.
+func _on_dxf_chosen(path: String) -> void:
+	release_keyboard_focus(self)
+	_dxf_units = ""
+	_dxf_name = path.get_file()
+	_dxf_text = ""
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file != null:
+		_dxf_text = file.get_as_text()
+		file.close()
+	if _dxf_text.is_empty():
+		open_dxf_panel()
+		return
+	open_dxf_panel()
+
+
+func _menu_import_dxf(_entry: Dictionary) -> void:
+	open_dxf_dialog()
+
+
 func open_survey_dialog() -> void:
 	if _survey_dialog == null:
 		return
