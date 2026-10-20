@@ -99,6 +99,7 @@ const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
+const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 
 ## The sizes a still can be asked for. Not every size for every job: these are the
 ## four a proposal actually wants, and each is a name a person recognises.
@@ -1487,6 +1488,8 @@ static func plant_items() -> Array[Dictionary]:
 	items.append(_command(&"plant.place", "Place the chosen plant", &"", &"_menu_plant_place"))
 	items.append(_command(&"plant.stop", "Stop planting", &"", &"_menu_stop_planting"))
 	items.append(_separator())
+	items.append(_command(&"plant.label", "Label the planting", &"", &"_menu_label_plants"))
+	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
 	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
 	return items
@@ -2868,6 +2871,35 @@ func _menu_plant_place(_entry: Dictionary) -> void:
 func _menu_stop_planting(_entry: Dictionary) -> void:
 	if view_controller != null:
 		view_controller.stop_planting()
+
+
+## Write what is planted onto the drawing as labels: one per species, standing at the
+## middle of its group.
+##
+## The positions come from the plants themselves rather than from a list somebody keeps
+## in step, so a label cannot describe a group that has moved. The name printed is the
+## one the library shows, because a plan and a nursery list that call a plant different
+## things are two documents about two gardens.
+func _menu_label_plants(_entry: Dictionary) -> void:
+	if _draft == null or view_controller == null:
+		return
+	var catalogue = plant_list()
+	var plants: Array = []
+	for node: Node3D in PlantPlacementScript.planted(view_controller.yard):
+		var species_id := PlantPlacementScript.species_of(node)
+		var species = null if catalogue == null else catalogue.get_species(species_id)
+		var printed := "" if species == null else species.display_name()
+		plants.append({
+			"species": species_id,
+			"name": printed,
+			"position": Vector2(node.global_position.x, node.global_position.z),
+		})
+	var wanted := PlantLabelsScript.labels_for(plants)
+	var reason := String(wanted.get("reason", ""))
+	if not reason.is_empty():
+		_draft.note(reason)
+		return
+	_draft.label_planting(wanted["labels"])
 
 
 # --- what the ground is like, and what that means for the planting -----------------------

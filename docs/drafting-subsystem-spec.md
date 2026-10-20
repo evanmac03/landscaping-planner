@@ -139,6 +139,31 @@ radius, and MUST trim both lines to their tangent points. An ambiguity - a pick 
 the corner itself - MUST be refused rather than guessed.
 
 
+### 2.1b The planting labels, as built
+
+**Built and tested**: `scripts/plant_labels.gd` (the words and the places) and
+`DraftController.label_planting` (writing them), 16 tests in
+`tests/test_plant_labels.gd`. Reached from the Plant menu.
+
+A planting plan says what is standing in it, and until now the drawing could
+not: the text layer existed and nothing ever wrote to it.
+
+**REQ 2.1b.1** A label MUST be *derived* from the plants rather than typed. One
+label per species, standing at the mean of its group, saying the name and how
+many there are - `Acer rubrum (3)`. Move a plant and the middle moves with it;
+plant another and the count changes; a label cannot describe a group that has
+gone.
+
+**REQ 2.1b.2** A plant the catalogue cannot name MUST be labelled as standing
+under no name, rather than passed over, and the count of them MUST be reported.
+A plan that quietly omits the one plant nobody can name is the mistake a
+planting plan must not make. (A keyed plan, where the label is the count alone
+and a key carries the names, is provided for but not yet authored.)
+
+**REQ 2.1b.3** A label is an annotation: it lands on `710-TEXT` whatever layer
+was being drawn, at a **paper** height (2.5 mm) rather than a model one, and a
+run of labels is **one undo step** - a plan is labelled in one act.
+
 ### 2.2 Coordinate entry grammar
 
 **REQ 2.2.1** Every point input MUST accept typed coordinates as an alternative

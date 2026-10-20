@@ -324,6 +324,16 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 # --- the ground the plants are judged against ----------------------------------------------
 
 
+## Labelling the planting is reached from the Plant menu, and it names the method that writes it.
+func test_the_plant_menu_offers_labelling_the_planting() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("Plant"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("plant.label"), "the Plant menu can label what is planted")
+	var entry: Dictionary = _entry(&"plant.label")
+	assert(String(entry["method"]) == "_menu_label_plants")
+
+
 ## A survey is a file, so it is reached from the File menu, and the entry names the method that
 ## reads the file and shows what was read.
 func test_the_file_menu_offers_importing_a_survey() -> void:

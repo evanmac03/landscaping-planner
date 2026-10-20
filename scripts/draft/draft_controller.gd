@@ -23,6 +23,7 @@ const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
+const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 
 ## The editing commands: what can be done to geometry that is already on the
 ## drawing. Held apart from the drawing tools because a tool answers "make me a new
@@ -756,6 +757,45 @@ func import_survey(parsed: Dictionary) -> Dictionary:
 	last_message = "imported %s" % SurveyFileScript.describe(parsed)
 	_refresh_canvas()
 	return {"ok": true, "reason": "", "id": entity.id, "message": last_message}
+
+
+## Write the planting's own labels onto the drawing.
+##
+## A label is an annotation, so it lands on the text layer whatever was being drawn,
+## for the same reason a dimension lands on the dimension layer: a planting label
+## buried among the bed outlines would plot at the beds' weight and count in their
+## row of the key.
+##
+## The whole run of labels is one undo step, because a plan is labelled in one act -
+## and a designer who labels a planting twice wants one Ctrl+Z, not one per plant.
+## A label with nothing to say, or with nowhere to stand, is passed over.
+func label_planting(labels: Array) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to label"}
+	var wanted: Array = []
+	for entry in labels:
+		var label: Dictionary = entry
+		var text := String(label.get("text", "")).strip_edges()
+		if text.is_empty():
+			continue
+		if not (label.get("at") is Vector2):
+			continue
+		wanted.append({"at": label["at"], "text": text})
+	if wanted.is_empty():
+		last_message = "there is nothing to label"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	document.begin_gesture()
+	for label: Dictionary in wanted:
+		var entity := EntityScript.make_text(label["at"], String(label["text"]))
+		if entity == null:
+			continue
+		entity.meta["height"] = PlantLabelsScript.LABEL_HEIGHT_MM
+		document.add(entity, LayerSetScript.TEXT)
+	dirty = true
+	last_message = "labelled %s" % PlantLabelsScript.summary(labels)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "count": wanted.size(), "message": last_message}
 
 
 ## Put a sentence on the drawing's own status line, for a caller that never reached the
