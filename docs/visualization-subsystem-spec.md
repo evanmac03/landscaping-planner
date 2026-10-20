@@ -1995,14 +1995,25 @@ const SUPERSAMPLE := 2
 const OUT_DIR := "user://proposals"
 
 
-## Render `scene_root` at `output_size` and save it as a PNG. Returns the absolute
+## Render `render_nodes` at `output_size` and save it as a PNG. Returns the absolute
 ## path, or "" if the image could not be written.
+##
+## The nodes are moved *into* the render viewport for the duration of the shot, and
+## put back at the same position among their siblings afterwards.
+##
+## For a 3D still that node is the **camera**, not the scene. A `SubViewport` shares
+## its parent's `World3D`, so a camera inside the viewport renders the same garden,
+## and the garden never moves. Moving the whole scene was the first attempt and it
+## does not work: **the engine refuses to reparent the scene root out of the tree it
+## is the root of** ("Can't add child 'Main' to 'StillRender', already has a parent
+## 'root'"), the viewport stays empty, and the still is written anyway - see the
+## blankness guard below.
 ##
 ## `flatten` composites over paper, which matters because a layer render arrives
 ## with a transparent background and many image viewers show transparent PNGs as
 ## black (REQ-V10.4).
 func render_still(
-    scene_root: Node,
+    render_nodes: Array[Node],
     output_size: Vector2i,
     file_name: String,
     paper: Color = Color(0.945, 0.937, 0.906),
@@ -2020,13 +2031,36 @@ func render_still(
     viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
     viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     add_child(viewport)
-    viewport.add_child(scene_root)
+    # `reparent()`, not `add_child()`: `add_child()` does not move a node that already
+    # has a parent, it errors and leaves it where it was, so the viewport renders
+    # nothing. Global transform kept - a camera must stay pointed at the garden.
+    for node in render_nodes:
+        node.reparent(viewport, true)
 
     # The frame has to be *finished* before its texture can be read: reading in the
     # same frame returns an empty image. This is the classic "my screenshot is
-    # blank" bug, and the reason this is an await rather than a call.
+    # blank" bug, and the reason this is an await rather than a call. **Two** frames,
+    # not one: the first draws, and the second redraws once the shadow atlas, the
+    # viewport size and any recompiled light have settled. One frame catches the
+    # previous state.
+    await RenderingServer.frame_post_draw
     await RenderingServer.frame_post_draw
     var image: Image = viewport.get_texture().get_image()
+
+    # Put everything back before anything that can fail, so a failed shot never
+    # leaves the game inside a viewport.
+    for node in render_nodes:
+        ...
+
+    # `is_empty()` is not enough. A viewport nothing was drawn into is not *empty*:
+    # it comes back at exactly the right size, one flat colour, and the record and
+    # the file both look perfectly correct. The first still written by this project
+    # was a 1920x1080 grey rectangle that passed every check but this one
+    # (REQ-V10.7).
+    if image == null or image.is_empty() or _looks_blank(image):
+        push_error("StillExporter: the render came back blank; nothing was drawn into it.")
+        viewport.queue_free()
+        return ""
 
     # Downsample by hand, so the filter is known rather than whichever one the
     # driver happens to pick for a scaled blit.
@@ -2082,6 +2116,28 @@ painted 2D path shall always use that.
 REQ-V10.5 The still path shall wait for a settled frame after entering the still
 tier and before capturing. A capture taken on the first frame after a quality change
 catches the previous tier's shadow atlas.
+
+REQ-V10.6 The render viewport shall hold the **camera**, not the scene, and shall move
+it with `Node.reparent()` rather than `add_child()`. A `SubViewport` shares its parent's
+`World3D`, so a camera inside it renders the same world. Two API traps make the naive
+version fail silently:
+
+- **`add_child()` does not reparent.** A node that already has a parent is refused
+  ("Can't add child 'Camera' to 'StillRender', already has a parent 'Boom'") and stays
+  where it was, so the viewport renders nothing. `reparent(new_parent, true)` is the
+  call; the global transform must be kept, or the camera ends up looking somewhere else.
+- **The scene root cannot be moved at all** ("Can't add child 'Main' to 'StillRender',
+  already has a parent 'root'"), which is why the camera is the thing that moves.
+
+Everything the exporter moves shall be put back at the same position among its siblings,
+and put back *before* anything that can fail, so a failed shot never leaves the game
+inside a viewport.
+
+REQ-V10.7 A render that comes back one flat colour shall be refused and named as
+blank, and nothing shall be written. `Image.is_empty()` does not catch it: a viewport
+nothing was drawn into is not empty, it is the requested size and a single colour, so
+the file, its size and its sidecar all look correct. The first still this project
+wrote was a 1920×1080 grey rectangle that passed every check but this one.
 
 ### 10.4 The sidecar
 

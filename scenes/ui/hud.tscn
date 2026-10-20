@@ -157,3 +157,22 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5
+
+[node name="Presentation" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -324.0
+offset_top = 54.0
+offset_right = -12.0
+offset_bottom = 54.0
+grow_horizontal = 0
+grow_vertical = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="PresentationColumn" type="VBoxContainer" parent="Root/Presentation"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 5

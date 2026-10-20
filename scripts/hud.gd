@@ -65,7 +65,24 @@ const DRAFTING_ROW_GAP := "    "
 const PALETTE_COLUMNS := 3
 const PALETTE_CELL_WIDTH := 86.0
 
+## The client presentation: the budgets it can be shown at, and the sizes a proposal
+## still is rendered at. Both are read from the tables that act on them rather than
+## written here, so the picker cannot offer a tier or a size that does not exist.
+const TierScript := preload("res://scripts/vis/presentation_tier.gd")
+const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
+
+## The sizes a still can be asked for. Not every size for every job: these are the
+## four a proposal actually wants, and each is a name a person recognises.
+const STILL_SIZES: Array = [
+	["Web 1920 x 1080", Vector2i(1920, 1080)],
+	["QHD 2560 x 1440", Vector2i(2560, 1440)],
+	["4K 3840 x 2160", Vector2i(3840, 2160)],
+]
+
 @export var view_controller: ViewController
+## The presentation director. Absent in a scene that has no presentation, in which
+## case the panel is not built at all rather than built full of dead buttons.
+@export var presentation: DirectorScript
 
 @onready var mode_label: Label = %ModeLabel
 @onready var toggle_button: Button = %ToggleButton
@@ -77,6 +94,12 @@ const PALETTE_CELL_WIDTH := 86.0
 @onready var draft_hints_label: Label = %DraftHintsLabel
 @onready var palette: PanelContainer = %Palette
 @onready var palette_column: VBoxContainer = %PaletteColumn
+@onready var presentation_panel: PanelContainer = %Presentation
+@onready var presentation_column: VBoxContainer = %PresentationColumn
+## The working furniture, found by path rather than by name: these two are old
+## enough that giving them unique names would be a scene change for no reason.
+@onready var top_bar: PanelContainer = get_node_or_null(^"Root/TopBar")
+@onready var hints: PanelContainer = get_node_or_null(^"Root/Hints")
 
 ## The drafting controller, when the scene has one. Held because the palette drives
 ## it and the legend reports on it.
@@ -91,6 +114,20 @@ var _style_button: Button = null
 ## restate state that has not moved.
 var _palette_state: String = ""
 
+## The controls built by _build_presentation_panel, kept so the refresh can set them.
+var _present_toggle: CheckButton = null
+var _tier_option: OptionButton = null
+var _sun_hour: SpinBox = null
+var _sun_day: SpinBox = null
+var _sun_latitude: SpinBox = null
+var _still_size_option: OptionButton = null
+var _still_status: Label = null
+## What the presentation panel was last drawn to match.
+var _presentation_state: String = ""
+## Whether a client presentation is running. Held here because the HUD is what
+## decides which of its own furniture belongs in a presentation.
+var _presenting: bool = false
+
 
 func _ready() -> void:
 	if view_controller == null:
@@ -104,9 +141,11 @@ func _ready() -> void:
 	fit_button.pressed.connect(view_controller.fit_plan_to_yard)
 	draft_hints_label.text = drafting_hints()
 	_build_palette()
+	_build_presentation_panel()
 	_on_view_mode_changed(view_controller.mode)
-	# Last, so it covers the buttons the palette just built as well as the ones in
-	# the scene: a button that holds the keyboard takes the drawing keys with it.
+	# Last, so it covers the buttons the palette and the presentation panel just
+	# built as well as the ones in the scene: a button that holds the keyboard takes
+	# the drawing keys with it.
 	release_keyboard_focus(self)
 
 
@@ -123,10 +162,13 @@ func _process(_delta: float) -> void:
 	# The legend and the palette both go away on the ground, where the tools do
 	# nothing at all.
 	var overhead: bool = view_controller.mode != ViewController.ViewMode.GROUND
-	draft_hints.visible = overhead and view_controller.is_drafting()
+	# A presentation is not a working view, so none of the working furniture is in
+	# it: the panel that ends the presentation is the one thing that stays.
+	draft_hints.visible = overhead and view_controller.is_drafting() and not _presenting
 	if palette.get_child_count() > 0:
-		palette.visible = overhead
+		palette.visible = overhead and not _presenting
 		_refresh_palette()
+	_refresh_presentation()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -414,3 +456,272 @@ static func palette_label(pair: Array) -> String:
 static func release_keyboard_focus(root: Node) -> void:
 	for found: Node in root.find_children("*", "Button", true, false):
 		(found as Button).focus_mode = Control.FOCUS_NONE
+
+
+# --- the client presentation ----------------------------------------------------------
+
+
+## The presentation panel: start a client presentation, choose what it is rendered at,
+## aim the sun, and render a proposal still.
+##
+## Built in code rather than in the scene, for the same reason the palette's buttons
+## are: every control here is derived from a table (`PresentationTier.LOOKS` and
+## `STILL_SIZES`), so a scene file would be a second copy of those tables to keep in
+## step with the first.
+##
+## A scene with no director gets no panel at all, rather than a panel full of dead
+## buttons: this is the one GUI in the project that may legitimately not exist.
+func _build_presentation_panel() -> void:
+	if presentation == null or presentation_column == null:
+		if presentation_panel != null:
+			presentation_panel.visible = false
+		return
+
+	var heading := Label.new()
+	heading.text = "Presentation"
+	presentation_column.add_child(heading)
+
+	_present_toggle = CheckButton.new()
+	_present_toggle.name = "PresentationToggle"
+	_present_toggle.text = "Client presentation"
+	_present_toggle.tooltip_text = (
+		"Walk a client through the garden: right-drag to orbit, wheel to dolly, "
+		+ "middle-drag to pan. The working tools are put away."
+	)
+	_present_toggle.toggled.connect(_on_presentation_toggled)
+	presentation_column.add_child(_present_toggle)
+
+	var tier_row := HBoxContainer.new()
+	tier_row.name = "TierRow"
+	var tier_caption := Label.new()
+	tier_caption.text = "Quality"
+	tier_row.add_child(tier_caption)
+	_tier_option = OptionButton.new()
+	_tier_option.name = "TierOption"
+	_tier_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tier_option.tooltip_text = "What the renderer is allowed to spend"
+	for tier in TierScript.CHOICES:
+		_tier_option.add_item(TierScript.name_of(tier))
+	_tier_option.item_selected.connect(_on_tier_selected)
+	tier_row.add_child(_tier_option)
+	presentation_column.add_child(tier_row)
+
+	presentation_column.add_child(HSeparator.new())
+
+	var sun_caption := Label.new()
+	sun_caption.text = "Sun"
+	presentation_column.add_child(sun_caption)
+	var sun_row := HBoxContainer.new()
+	sun_row.name = "SunRow"
+	# A tenth of a degree of latitude, so the site's own latitude survives being put in
+	# the box: at half a degree the panel would silently move the garden 5 km north.
+	_sun_hour = _spin("SunHour", 0.0, 24.0, 0.5, " h", 16.0,
+		"Solar time. Noon is 12.")
+	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0,
+		"Day of the year. 172 is the solstice.")
+	_sun_latitude = _spin("SunLatitude", -90.0, 90.0, 0.1, "°", 44.6,
+		"Degrees north. The number that makes a shadow study mean anything.")
+	sun_row.add_child(_sun_hour)
+	sun_row.add_child(_sun_day)
+	sun_row.add_child(_sun_latitude)
+	presentation_column.add_child(sun_row)
+
+	var sun_buttons := HBoxContainer.new()
+	sun_buttons.name = "SunButtons"
+	var apply_button := Button.new()
+	apply_button.name = "ApplySun"
+	apply_button.text = "Apply the sun"
+	apply_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	apply_button.pressed.connect(_on_apply_sun)
+	sun_buttons.add_child(apply_button)
+	var frame_button := Button.new()
+	frame_button.name = "FrameYard"
+	frame_button.text = "Frame the garden"
+	frame_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame_button.tooltip_text = "Pull the camera back until the whole garden fits"
+	frame_button.pressed.connect(_on_frame_yard)
+	sun_buttons.add_child(frame_button)
+	presentation_column.add_child(sun_buttons)
+
+	presentation_column.add_child(HSeparator.new())
+
+	var still_row := HBoxContainer.new()
+	still_row.name = "StillRow"
+	var still_caption := Label.new()
+	still_caption.text = "Still"
+	still_row.add_child(still_caption)
+	_still_size_option = OptionButton.new()
+	_still_size_option.name = "StillSize"
+	_still_size_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_still_size_option.tooltip_text = "The size of the image a proposal gets"
+	for choice: Array in STILL_SIZES:
+		_still_size_option.add_item(String(choice[0]))
+	still_row.add_child(_still_size_option)
+	var render_button := Button.new()
+	render_button.name = "RenderStill"
+	render_button.text = "Render"
+	render_button.tooltip_text = "Render the current view at that size and write it out"
+	render_button.pressed.connect(_on_render_still)
+	still_row.add_child(render_button)
+	presentation_column.add_child(still_row)
+
+	_still_status = Label.new()
+	_still_status.name = "StillStatus"
+	_still_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_still_status.custom_minimum_size = Vector2(280.0, 0.0)
+	presentation_column.add_child(_still_status)
+
+	# The director reports what it did; the HUD is what takes its own furniture out of
+	# the picture, because the furniture is the HUD's.
+	presentation.presentation_changed.connect(_on_presentation_changed)
+	presentation.note.connect(_on_presentation_note)
+	presentation.still_beginning.connect(_on_still_beginning)
+	presentation.still_written.connect(_on_still_written)
+	presentation.still_failed.connect(_on_still_failed)
+
+	# Start from what the scene actually holds, so the form describes the garden
+	# rather than a default.
+	_sun_hour.value = presentation.hour
+	_sun_day.value = float(presentation.day_of_year)
+	_sun_latitude.value = presentation.latitude
+	_refresh_presentation()
+
+
+## One labelled spin box for the sun row. Returns the box; the caller puts it in the row,
+## because a helper that both made a control and parented it would have two owners for
+## one child.
+func _spin(
+	node_name: String, low: float, high: float, step: float,
+	suffix: String, initial: float, tip: String
+) -> SpinBox:
+	var box := SpinBox.new()
+	box.name = node_name
+	box.min_value = low
+	box.max_value = high
+	box.step = step
+	box.value = initial
+	box.suffix = suffix
+	box.tooltip_text = tip
+	# A spin box is typed into, so it is the one control in the HUD that has to be able
+	# to hold the keyboard; `release_keyboard_focus` only touches buttons.
+	box.custom_minimum_size = Vector2(64.0, 0.0)
+	return box
+
+
+## Match the panel to the director, when something other than this panel changed it.
+##
+## Driven by a signature rather than by a signal, like the palette: the director is
+## changed from a key, a click and a script, and a signature cannot miss one of them
+## the way a forgotten connection would.
+func _refresh_presentation() -> void:
+	if _present_toggle == null or presentation == null:
+		return
+	var state := "%s|%d" % [str(presentation.is_active()), presentation.tier]
+	if state == _presentation_state:
+		return
+	_presentation_state = state
+	# By the silent setters: setting a button the ordinary way fires the handler, which
+	# would then call `begin()` on a presentation that is already running.
+	_present_toggle.set_pressed_no_signal(presentation.is_active())
+	var selected: int = TierScript.CHOICES.find(presentation.tier)
+	if selected >= 0:
+		_tier_option.selected = selected
+
+
+## Put the working furniture away for a presentation, or bring it back.
+##
+## This is the HUD's own business: the director says when a presentation begins, and
+## what is working furniture is decided here, by the code that made it.
+func set_presenting(on: bool) -> void:
+	_presenting = on
+	if top_bar != null:
+		top_bar.visible = not on
+	if hints != null:
+		hints.visible = not on
+	# The scale bar and the north point are sheet furniture, and a client is being
+	# shown the garden rather than the drawing.
+	if overlay != null:
+		overlay.visible = not on
+	# The palette and the key legend read `_presenting` every frame, so they put
+	# themselves away rather than being set here: one place per control decides whether
+	# it is visible.
+
+
+func _on_presentation_toggled(pressed: bool) -> void:
+	if presentation == null:
+		return
+	if not pressed:
+		presentation.end()
+		return
+	# It could not start: put the switch back rather than leave it claiming something is
+	# running that is not.
+	if not presentation.begin(presentation.tier):
+		_present_toggle.set_pressed_no_signal(false)
+
+
+func _on_presentation_changed(active: bool) -> void:
+	set_presenting(active)
+	if active:
+		_still_status.text = "presentation running"
+	else:
+		_still_status.text = ""
+
+
+func _on_presentation_note(text: String) -> void:
+	if _still_status != null:
+		_still_status.text = text
+
+
+func _on_tier_selected(index: int) -> void:
+	if presentation == null or index < 0 or index >= TierScript.CHOICES.size():
+		return
+	presentation.set_tier(TierScript.CHOICES[index])
+
+
+func _on_apply_sun() -> void:
+	if presentation == null:
+		return
+	presentation.apply_sun(
+		float(_sun_latitude.value), int(_sun_day.value), float(_sun_hour.value)
+	)
+
+
+func _on_frame_yard() -> void:
+	if presentation != null:
+		presentation.frame_yard()
+
+
+func _on_render_still() -> void:
+	if presentation == null:
+		return
+	var size: Vector2i = selected_still_size()
+	_still_status.text = "rendering %d x %d..." % [size.x, size.y]
+	# Not awaited. The render waits for real frames and answers by signal, so this
+	# panel stays a status line instead of blocking the frame it was pressed in.
+	presentation.render_still(size)
+
+
+## The size the still picker is on, as a pixel pair.
+func selected_still_size() -> Vector2i:
+	var index: int = _still_size_option.selected if _still_size_option != null else 0
+	if index < 0 or index >= STILL_SIZES.size():
+		index = 0
+	return STILL_SIZES[index][1]
+
+
+func _on_still_beginning() -> void:
+	# The whole HUD, not just the working parts: a proposal image is of the garden, and
+	# the panel holding the Render button would be in the corner of it.
+	visible = false
+
+
+func _on_still_written(path: String) -> void:
+	visible = true
+	if _still_status != null:
+		_still_status.text = "wrote %s" % path.get_file()
+
+
+func _on_still_failed(reason: String) -> void:
+	visible = true
+	if _still_status != null:
+		_still_status.text = "no still: %s" % reason
