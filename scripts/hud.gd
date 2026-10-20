@@ -192,6 +192,8 @@ const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
+const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
+const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -208,6 +210,9 @@ var _plant_export_dialog: FileDialog = null
 ## The ground: one window, because the site's conditions and the conditions of every area of the plan
 ## are one subject, and a menu cannot hold an area.
 var _ground_window: GroundWindow = null
+## The takeoff and the estimate: one window, because the three tables it holds - what the plan
+## measures, what that prices at, and the price list it came from - are one job.
+var _estimate_window: EstimateWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -236,6 +241,7 @@ func _ready() -> void:
 	_build_file_dialogs()
 	_build_plant_library()
 	_build_ground_window()
+	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1153,6 +1159,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Draft", "items": draft_items()})
 	menus.append({"title": "Site", "items": site_items()})
 	menus.append({"title": "Plant", "items": plant_items()})
+	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
 	return menus
@@ -1355,6 +1362,25 @@ static func site_items() -> Array[Dictionary]:
 	return items
 
 
+## The takeoff and the estimate: what the plan measures, and what that costs.
+##
+## The four business engines were built and tested before anything could reach them, so this menu is
+## the reach. The line at the top says where the job stands, and the entries are the two things that
+## are true whenever a drawing is open: measure it, and check the arithmetic. Everything else about a
+## proposal - the prices, the tax, who it goes to - is in the window, because a proposal is a document
+## and a menu is a list of commands.
+static func estimate_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"estimate.info", "nothing has been taken off the plan yet"))
+	items.append(_separator())
+	items.append(_command(
+		&"estimate.window", "Takeoff and estimate...", &"", &"_menu_estimate_window", NEEDS_DRAFT
+	))
+	items.append(_command(&"estimate.take_off", "Take off the plan", &"", &"_menu_take_off", NEEDS_DRAFT))
+	items.append(_command(&"estimate.check", "Check the numbers", &"", &"_menu_check_numbers", NEEDS_DRAFT))
+	return items
+
+
 ## The plant list, and the one thing a plant list is for.
 ##
 ## Every entry here reaches the catalogue rather than the scene, so this is the same menu in a scene
@@ -1486,6 +1512,9 @@ func menu_world() -> Dictionary:
 		# now rather than a radio state per attribute: the ground is edited in its own window, and the
 		# menu reports what came of it.
 		"ground": _ground_text(),
+		# Where the money stands. Cheap: it reads the estimate's own count and total and nothing else,
+		# so the signature can hold it without this snapshot becoming the thing that prices a plan.
+		"estimate": _estimate_text(),
 	}
 	return world
 
@@ -1596,6 +1625,9 @@ func _hide_unavailable_menus() -> void:
 		elif title == "Site":
 			# The ground lives on the drawing, so a scene with no drawing has no ground to state.
 			menu_bar.set_menu_hidden(index, _ground_map() == null)
+		elif title == "Estimate":
+			# A takeoff measures a drawing, so a scene with none has nothing to take off.
+			menu_bar.set_menu_hidden(index, _draft == null or _draft.document == null)
 		elif title == "Present":
 			menu_bar.set_menu_hidden(index, presentation == null)
 
@@ -1631,6 +1663,7 @@ func _refresh_menus() -> void:
 	_refresh_file_menu()
 	_refresh_plant_menu()
 	_refresh_site_menu()
+	_refresh_estimate_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -2270,6 +2303,77 @@ func close_plant_browser() -> void:
 		_plant_window.hide()
 
 
+## The takeoff and the estimate: the window, and what the menu says about it.
+##
+## The window owns the desk (the drawing, the cost book, the takeoff and the estimate), and this file
+## owns the window. The menu reads the desk for its one line and never prices anything itself: the
+## numbers on it come from the estimate, which is the only thing that has any arithmetic.
+func _build_estimate_window() -> void:
+	if _estimate_window != null:
+		return
+	_estimate_window = EstimateWindowScript.new()
+	_estimate_window.name = "EstimateWindow"
+	add_child(_estimate_window)
+	_estimate_window.estimate_changed.connect(_on_estimate_changed)
+	_estimate_window.hide()
+
+
+## Open it, pointed at the drawing that is open now and at the planting standing in the yard.
+##
+## The plants are handed in as a list rather than left to the drawing, because a plant placed in the
+## 3D view is a prop and a circle drawn on the planting layer is how that prop is drawn: with a list,
+## the takeoff counts the props and leaves the symbols out, and a garden is never billed twice.
+func open_estimate_window() -> void:
+	if _estimate_window == null or _draft == null or _draft.document == null:
+		return
+	_estimate_window.bind(_draft.document, _planting_rows())
+	_estimate_window.popup_centered()
+	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
+	# the drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+func is_estimate_window_open() -> bool:
+	return _estimate_window != null and _estimate_window.visible
+
+
+## The yard's planting list, in the rows the takeoff counts from, or empty in a scene with no yard.
+func _planting_rows() -> Array:
+	if view_controller == null or view_controller.yard == null:
+		return []
+	return PlantPlacementScript.schedule(plant_list(), view_controller.yard)
+
+
+## What the Estimate menu says on itself: where the job stands, in the estimate's own words.
+func _estimate_text() -> String:
+	if _estimate_window == null or _estimate_window.desk == null:
+		return "the estimator is not here"
+	return _estimate_window.desk.describe()
+
+
+## The estimate moved: taking off a plan prices it, so a saturated menu line is now stale.
+func _on_estimate_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_estimate_window(_entry: Dictionary) -> void:
+	open_estimate_window()
+
+
+## Take off the plan from the menu, and open the window it happens in: a result somebody cannot see
+## is a result they will run again.
+func _menu_take_off(_entry: Dictionary) -> void:
+	open_estimate_window()
+	if _estimate_window != null:
+		_estimate_window.take_off()
+
+
+func _menu_check_numbers(_entry: Dictionary) -> void:
+	open_estimate_window()
+	if _estimate_window != null:
+		_estimate_window.check_numbers()
+
+
 ## The ground: the site's conditions and one statement per area of the plan.
 ##
 ## A `Window` like the library, and for the same reason - it has dropdowns in it, and `Root` is built
@@ -2484,6 +2588,14 @@ func _refresh_site_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _ground_text())
+
+
+## The live part of the Estimate menu: the line saying what has been measured and what it comes to.
+func _refresh_estimate_menu() -> void:
+	var named := _find_item(&"estimate.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _estimate_text())
 
 
 ## The two live parts of the Plant menu: the line describing the list, and the one entry that only

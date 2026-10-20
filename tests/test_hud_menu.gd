@@ -6,6 +6,7 @@ extends Node
 ## stand between the bar and that, and they read the bar the way it is built: as data.
 
 const HudScript := preload("res://scripts/hud.gd")
+const DeskScript := preload("res://scripts/biz/estimate_desk.gd")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
@@ -40,7 +41,9 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 				KINDS.has(StringName(entry.get("kind", &""))),
 				"%s entry has a kind the builder knows" % String(menu["title"])
 			)
-	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Site", "Plant", "Present", "Help"]
+	var expected: Array[String] = [
+		"File", "Edit", "View", "Draft", "Site", "Plant", "Estimate", "Present", "Help",
+	]
 	assert(titles == expected)
 
 
@@ -367,3 +370,20 @@ func test_stating_the_ground_changes_the_drawing_and_leaves_the_old_map_alone() 
 	# And each is one undo step, because it went through the document.
 	assert(document.undo_last(), "the ground changes are undoable")
 	assert(document.environment.base.has("moisture"), "which put the moisture back")
+
+
+func test_the_estimate_menu_opens_the_estimate_window_and_reports_on_it() -> void:
+	var hud := HudScript.new()
+	assert(hud._estimate_window == null, "no window until there is a HUD to hold one")
+	# The menu's own line, before anything has been taken off a plan: it is the desk's answer and not
+	# a sentence the menu keeps to itself, so a menu and a window cannot disagree.
+	var desk := DeskScript.new()
+	assert(desk.describe().contains("no drawing"), desk.describe())
+	assert(HudScript.estimate_items().size() >= 4, "the menu has the entries it promises")
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.estimate_items():
+		ids.append(String(entry["id"]))
+	assert(ids.has("estimate.window"), str(ids))
+	assert(ids.has("estimate.take_off"), str(ids))
+	assert(ids.has("estimate.check"), str(ids))
+	hud.free()

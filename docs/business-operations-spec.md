@@ -1066,6 +1066,70 @@ shall still pass after it.
 
 ---
 
+## 14a. The way in
+
+Phases 0-3 were built, tested and reachable by nothing: four engines with no door. The door is two
+files, and neither of them holds any arithmetic.
+
+**`scripts/biz/estimate_desk.gd`** (`EstimateDesk`) is the join. It holds the drawing, the cost book,
+the takeoff and the estimate, runs the two hand-offs the engines already define - `Takeoff.of_plan`
+and `Takeoff.estimate` - and answers the questions a panel asks in words. Every figure it shows comes
+from `Estimate.summary` or a line's own `line_text()`, so the desk and the proposal cannot disagree:
+a desk that recomputed a total would be a second place for the rounding rule to live.
+
+It is **not** a fifth engine and it is not a mode. The business specification's §14 describes a
+business *mode* with twelve panels; what is built is the four engines that mode would have shown, so
+what is built is what the door opens onto. Phases 4-11 remain specified and unbuilt, and the desk
+does not pretend otherwise: it prices a drawing and it writes a proposal, and it knows nothing about
+leads, jobs, invoices or a ledger.
+
+Three decisions inside it are worth naming:
+
+* **One fault, one sentence.** The takeoff and the estimate both notice the same unpriced line, and
+  the takeoff's version is the fuller one ("30 plants have no species recorded, so there is nothing to
+  price them with" against "no species recorded has no cost item"). Where the takeoff has already
+  explained a line, the estimate's shorter refusal is dropped rather than printed beside it. A panel
+  that says the same thing twice reads as two problems.
+* **The office's own book wins, and a book that will not load is refused rather than fallen back
+  from.** `load_book` looks at the path it was given, then `CostBook.DEFAULT_PATH`, then the starter
+  file. A file that is there and will not load is the answer - it is what somebody meant to use - and
+  being quietly priced from the starter list instead is the worst kind of quiet wrong.
+* **A raise re-prices.** The estimate's tax code is the *default* an estimate hands to each line at
+  the moment it is added, so changing it edits nothing that exists; the desk re-runs the takeoff
+  instead. That is also why the code is chosen before taking off, and why the window says so.
+
+**`scripts/estimate_window.gd`** (`EstimateWindow`) is the panel: a `Window`, like the plant library
+and the ground window, because it has dropdowns and a field to type a customer's name into, and `Root`
+is built focus-free so that nothing in this HUD can take the drawing keys.
+
+It is **three tabs** rather than one long column: what the plan measures, what that prices at, and the
+price list it was priced from are three tables of different shapes, and stacking them is a window
+thirteen hundred pixels tall on a nine hundred pixel screen - whose bottom third could not be read.
+The three things true of all of them (take off, check, write) sit above, and the one thing that ends
+the job (who it goes to, and sending it) sits below.
+
+Two rules it keeps:
+
+* **A line nothing can price is shown where it would have been.** The refusals are printed in the
+  proposal's own list, switched off, so a proposal that is missing a patio looks different from a
+  drawing that has no patio.
+* **A button that cannot do anything says why.** "Send it" is dead until something is priced and dead
+  again once it has gone, and its tooltip says which of the two it is - the rule the plant panel's
+  Place button already follows.
+
+Reached from the **Estimate** menu, between Plant and Present, which is hidden when there is no
+drawing (a takeoff measures a drawing, so a scene without one has nothing to take off). The menu's own
+line is the desk's `describe()`, refreshed from the same snapshot the ticks are: the menu reports, the
+window is the work.
+
+REQ-B25 A phase's figures shall be shown by an engine that computed them, and a panel shall not
+recompute a figure the engine already owns.
+
+REQ-B26 A line the module can measure and cannot price shall appear in the estimate **as the refusal**,
+not omitted, and not priced at zero.
+
+---
+
 ## 15. What building it will change
 
 The entries below were found **before** the code that would have depended on them was
@@ -1167,7 +1231,30 @@ tests that build a book inline - which they do, and should - but a takeoff has n
 their first run. It follows the plant module's precedent, and like that list it is a starting point to
 be replaced rather than a price list to be trusted.
 
-Left empty on purpose. The visualization specification's equivalent section (§8.8) accumulated ten
+**15.13 `"1 entities"` was the kind of line that can only survive a log file.** `TakeoffLine.describe()`
+built `"%d entities"` for any count, so every single-entity line - which is most of a small plan - read
+"1 entities" in the takeoff list. The string had been in the repository since phase 3 and no test
+minded, because a test asserts facts and this is prose. The first person to read it was a designer
+looking at the new panel. **Text that only ever went to a log file is text nobody has read, and the
+first time a panel shows it is the first time it is being written.**
+
+**15.14 A printed line that does not multiply.** `EstimateLine.line_text()` printed the measured
+quantity and the extension, and the extension includes waste: the starter book's paving carries 5% for
+the cuts, so a line read `95.921 m²  Interlock paving, installed @ $85.00 = $8,560.95`. A reader who
+multiplied got $8,153.29 and no way from the page to learn why - the difference was §5.1's waste,
+which the line *had* been computing correctly since phase 2 and had never *said*. It now reads
+`95.921 m² +5.0% waste  ... = $8,560.95`: the quantity stays the quantity the drawing measured, and
+the waste is named rather than folded into it, because a figure that quietly grew between the plan and
+the proposal is the thing nobody can check. Found by reading the window's own output against a
+calculator rather than by running the tests - which passed, then and now, because the arithmetic was
+never wrong.
+
+**15.15 A refusal told twice is a panel that reports two problems.** See §14a: `Takeoff.problems` and
+`Estimate`'s refusals both name an unpriced line, in different words. Nothing was wrong with either;
+the fault was in the join that printed both. **A join's job includes deciding whose sentence to
+keep.**
+
+The visualization specification's equivalent section (§8.8) accumulated ten
 corrections, every one of them found by building rather than by reading, and two of them found by
 looking at a render. This section is where the same thing happens here: the changes are recorded as
 they are found, with the reason, and not written after the fact to look inevitable.

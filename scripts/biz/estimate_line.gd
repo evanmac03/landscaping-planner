@@ -227,8 +227,18 @@ func lineage() -> Dictionary:
 ## How the line reads on a proposal: "48.00 m²  Paving, interlock @ $42.00 = $2,016.00".
 func line_text() -> String:
 	var quantity: String = "%.3f" % (float(quantity_milli) / 1000.0)
-	return "%s %s  %s @ %s = %s" % [
-		quantity, WorkUnitScript.name_of(unit), description,
+	# A line that orders waste says so on itself, **after** the unit so that the measured quantity and
+	# its unit still read as one phrase. Without it the printed line does not multiply: a reader takes
+	# the quantity times the rate, gets less than the extension beside it, and has no way from the page
+	# to learn that the difference is the material ordered to cover the cuts. The quantity printed stays
+	# the quantity the drawing **measured** - the takeoff's own number - and the waste is named rather
+	# than folded into it, because a figure that quietly grew between the plan and the proposal is the
+	# kind of thing nobody can check.
+	var waste: String = ""
+	if is_material() and waste_ppm > 0:
+		waste = " +%.1f%% waste" % (float(waste_ppm) / 10000.0)
+	return "%s %s%s  %s @ %s = %s" % [
+		quantity, WorkUnitScript.name_of(unit), waste, description,
 		unit_price.format_with_currency(), extension().format_with_currency(),
 	]
 

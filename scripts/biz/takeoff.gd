@@ -148,7 +148,14 @@ class TakeoffLine extends RefCounted:
 		return "%.3f %s" % [float(quantity_milli) / float(SCALE), WorkUnitScript.name_of(unit)]
 
 	func describe() -> String:
-		var where: String = "by hand" if by_hand() else "%d entities" % entity_ids.size()
+		# "1 entities" is the kind of thing a line that only ever went to a log file can get away
+		# with; these lines are read by a person in the estimate panel, so they are written for one.
+		var count: int = entity_ids.size()
+		var where: String = "by hand"
+		if count == 1:
+			where = "1 entity"
+		elif count > 1:
+			where = "%d entities" % count
 		return "%s  %s  (%s, %s)" % [quantity_text(), description, String(layer), where]
 
 	func copy() -> TakeoffLine:
@@ -291,8 +298,12 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 		]
 		line.item_id = suggest_item(line, book)
 		if line.item_id.is_empty():
+			# Said as a sentence a person reads, and it names the **unit** rather than only the
+			# layer, because the reason a layer with a price on it can still be unpriceable is that
+			# the book prices the right work by the wrong dimension - an edging rate where the line
+			# is an area. This text is read in the estimate panel, not only in a log.
 			takeoff.problems.append(
-				"%s has nothing in the book priced by %s" % [
+				"%s has no price: nothing in the cost book is priced by %s" % [
 					line.description, WorkUnitScript.name_of(line.unit)
 				]
 			)
