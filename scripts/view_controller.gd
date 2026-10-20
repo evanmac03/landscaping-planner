@@ -35,6 +35,7 @@ enum ViewMode {
 const NO_PENDING := -1
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
+const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
@@ -693,6 +694,17 @@ func is_drafting() -> bool:
 	return _draft != null and _draft.drawing
 
 
+## The drafting controller, for a palette to drive.
+##
+## Handed out whole rather than through a forward per button. It already answers
+## every question a palette asks and performs every action a button takes, so
+## forwarding each one would be a second copy of its interface, free to fall behind
+## the first - which is exactly how a palette ends up with a button that no longer
+## does what it says.
+func draft_controller() -> DraftControllerScript:
+	return _draft
+
+
 ## While a tool is armed it owns the left button. Right-drag still pans and the
 ## wheel still zooms, so you can keep drawing while moving around the plan, and
 ## the design objects underneath are left alone: a click goes to the drawing.
@@ -707,6 +719,10 @@ func _handle_drafting(event: InputEvent) -> bool:
 		return true
 	if event.is_action_pressed("draft_undo"):
 		_draft.undo()
+		get_viewport().set_input_as_handled()
+		return true
+	if event.is_action_pressed("draft_redo"):
+		_draft.redo()
 		get_viewport().set_input_as_handled()
 		return true
 	if event.is_action_pressed("draft_close"):

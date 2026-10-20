@@ -11,6 +11,19 @@ extends Node
 const Hud := preload("res://scripts/hud.gd")
 const Tool := preload("res://scripts/draft/draft_tool.gd")
 const Ctrl := preload("res://scripts/draft/draft_controller.gd")
+const Document := preload("res://scripts/draft/draft_document.gd")
+const SnapScript := preload("res://scripts/draft/snap_engine.gd")
+const LayerSet := preload("res://scripts/draft/layer_set.gd")
+
+
+## A drafting controller with its parts but no scene tree. The canvas and the
+## overlay are absent, which _refresh_canvas already tolerates.
+func _controller():
+	var controller = Ctrl.new()
+	controller.document = Document.new()
+	controller.snap = SnapScript.new()
+	controller.tool = Tool.new()
+	return controller
 
 
 ## What the polyline is telling the drawer to press.
@@ -39,6 +52,7 @@ func test_the_keys_are_the_ones_the_legend_promises() -> void:
 	assert(Hud._key_label(&"draft_undo_point") == "Backspace")
 	assert(Hud._key_label(&"draft_cancel") == "Esc")
 	assert(Hud._key_label(&"draft_undo") == "Ctrl+Z")
+	assert(Hud._key_label(&"draft_redo") == "Ctrl+Y")
 	assert(Hud._key_label(&"draft_plot") == "P")
 	assert(Hud._key_label(&"draft_dimension_style") == "K")
 	assert(Hud._key_label(&"draft_mode") == "D")
@@ -147,3 +161,86 @@ func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
 	# No blank lines: every row has something on it.
 	for row: String in rows:
 		assert(row.strip_edges() != "")
+
+
+# --- the palette ----------------------------------------------------------------------
+
+
+## Every drawing tool has a button, and no button names a tool that does not exist.
+## This is the check that stops a new tool arriving with no way to pick it - which is
+## precisely how the tools were reachable before there was a palette.
+func test_the_palette_offers_a_button_for_every_drawing_tool() -> void:
+	var offered: Array[int] = []
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		offered.append(int(pair[2]))
+	var expected: Array[int] = []
+	for kind: Tool.Kind in Tool.Kind.values():
+		# Selecting is not a drawing tool: it is what you do with no tool in hand.
+		if kind != Tool.Kind.SELECT:
+			expected.append(int(kind))
+	offered.sort()
+	expected.sort()
+	assert(offered == expected, "palette offers %s, the tools are %s" % [offered, expected])
+
+
+## A button says the tool on one line and the key that does the same thing on the
+## next, so the palette teaches the shortcut while it is being used.
+func test_a_palette_button_is_labelled_with_its_tool_and_its_key() -> void:
+	var labels: Array[String] = []
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		labels.append(Hud.palette_label(pair))
+	assert(labels[0] == "Line\n1")
+	assert(labels[2] == "Rectangle\n3")
+	assert(labels[5] == "Measure\n6")
+	assert(labels[6] == "Aligned dim\n7")
+	assert(labels[8] == "Radial dim\n9")
+	for label: String in labels:
+		assert(label.contains("\n"), "%s carries no key" % label)
+
+
+## Choosing a tool from the palette is one press, not two: it puts the tool in your
+## hand and starts drawing with it.
+func test_choosing_a_tool_from_the_palette_arms_it() -> void:
+	var controller = _controller()
+	assert(not controller.drawing)
+	controller.arm(Tool.Kind.CIRCLE)
+	assert(controller.drawing)
+	assert(controller.current_tool() == Tool.Kind.CIRCLE)
+	assert(controller.current_layer() == LayerSet.NEW_HARDSCAPE)
+	# An annotation still goes on the annotation layer, however it was chosen.
+	controller.arm(Tool.Kind.DIMENSION_RADIUS)
+	assert(controller.current_layer() == LayerSet.DIMENSION)
+	controller.free()
+
+
+## Arming is explicit rather than only a toggle, so a button that says what it does
+## and a key that toggles can both be truthful about the same state.
+func test_setting_the_armed_state_is_not_a_toggle() -> void:
+	var controller = _controller()
+	controller.set_drawing(true)
+	assert(controller.drawing)
+	# Asking for the state it is already in is not a request to leave it.
+	controller.set_drawing(true)
+	assert(controller.drawing)
+	controller.set_drawing(false)
+	assert(not controller.drawing)
+	# And the key still toggles.
+	controller.toggle_drawing()
+	assert(controller.drawing)
+	controller.free()
+
+
+## The layer list comes from the document rather than from the preset table, and
+## carries the purpose as well as the name: "300-NEW-HARD" is a code, "New paving,
+## walls, steps" is a choice somebody can make.
+func test_the_palette_lists_every_layer_with_a_purpose() -> void:
+	var controller = _controller()
+	var choices := controller.layer_choices()
+	assert(choices.size() == controller.document.layers.size())
+	for choice: Dictionary in choices:
+		assert(controller.document.layers.has(choice["name"]), "unknown layer in the list")
+		assert(String(choice["purpose"]) != "", "%s has no purpose" % choice["name"])
+	# In draw order, which is the order the numeric prefixes put them in.
+	assert(choices[0]["name"] == LayerSet.SURVEY_PROPERTY)
+	assert(choices[choices.size() - 1]["name"] == LayerSet.GUIDES)
+	controller.free()

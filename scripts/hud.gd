@@ -1,31 +1,36 @@
 class_name PlannerHud
 extends CanvasLayer
 ## The planner's heads-up display: which view you are in, what the controls do,
-## and the drafting aids on the overlay layer.
+## the drawing palette, and the drafting aids on the overlay layer.
+
+const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
+const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 
 const EDIT_HINTS := "Left-drag: move a plant     "
 const HINTS_2D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     Tab: 3D view     G: ground"
 const HINTS_3D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     Tab: 2D plan     G: ground"
 const HINTS_GROUND := "W A S D: walk     Shift: run     Mouse: look     Arrows: look     Esc: free cursor     G: back to overhead"
 
-## The drawing tools, in the order the number keys select them, with the wording
-## the legend introduces each by.
+## The drawing tools, in the order the number keys select them: the action that
+## selects one, the wording it is introduced by, and the tool it puts in your hand.
 ##
-## The list is here rather than in the input map because "1" is a key and "line"
-## is a word, and nothing can derive one from the other. The *key* is read from
-## the input map, which is the half that can be derived - and a legend naming a
-## key that is not bound sends the reader to a key that does nothing, so that half
-## is the half worth deriving.
+## One table serves both the key legend and the palette, so a tool cannot appear in
+## one and be missing from the other, and neither can describe a different tool from
+## the one the key selects.
+##
+## The *key* is read from the input map rather than written here, which is the half
+## that can be derived - and a legend naming a key that is not bound sends the reader
+## to a key that does nothing, so that half is the half worth deriving.
 const DRAFTING_TOOLS: Array = [
-	[&"draft_line", "line"],
-	[&"draft_polyline", "polyline"],
-	[&"draft_rect", "rectangle"],
-	[&"draft_circle", "circle"],
-	[&"draft_arc", "arc"],
-	[&"draft_measure", "measure"],
-	[&"draft_dimension", "aligned dim"],
-	[&"draft_dimension_linear", "linear dim"],
-	[&"draft_dimension_radius", "radial dim"],
+	[&"draft_line", "line", DraftToolScript.Kind.LINE],
+	[&"draft_polyline", "polyline", DraftToolScript.Kind.POLYLINE],
+	[&"draft_rect", "rectangle", DraftToolScript.Kind.RECTANGLE],
+	[&"draft_circle", "circle", DraftToolScript.Kind.CIRCLE],
+	[&"draft_arc", "arc", DraftToolScript.Kind.ARC],
+	[&"draft_measure", "measure", DraftToolScript.Kind.MEASURE],
+	[&"draft_dimension", "aligned dim", DraftToolScript.Kind.DIMENSION],
+	[&"draft_dimension_linear", "linear dim", DraftToolScript.Kind.DIMENSION_LINEAR],
+	[&"draft_dimension_radius", "radial dim", DraftToolScript.Kind.DIMENSION_RADIUS],
 ]
 
 ## The keys that are not a tool, in the order a hand meets them: what to do when
@@ -36,6 +41,7 @@ const DRAFTING_COMMANDS: Array = [
 	[&"draft_undo_point", "drop a point"],
 	[&"draft_cancel", "cancel"],
 	[&"draft_undo", "undo"],
+	[&"draft_redo", "redo"],
 	[&"draft_plot", "plot"],
 	[&"draft_dimension_style", "dimension standard"],
 ]
@@ -48,6 +54,12 @@ const DRAFTING_TOOLS_PER_ROW := 5
 const DRAFTING_COMMANDS_PER_ROW := 4
 const DRAFTING_ROW_GAP := "    "
 
+## The palette: three tools across, which is what makes it a palette rather than a
+## list of nine, and a cell wide enough for the longest tool name on one line with
+## its key underneath.
+const PALETTE_COLUMNS := 3
+const PALETTE_CELL_WIDTH := 86.0
+
 @export var view_controller: ViewController
 
 @onready var mode_label: Label = %ModeLabel
@@ -58,6 +70,21 @@ const DRAFTING_ROW_GAP := "    "
 @onready var overlay: HudOverlay = %Overlay
 @onready var draft_hints: PanelContainer = %DraftHints
 @onready var draft_hints_label: Label = %DraftHintsLabel
+@onready var palette: PanelContainer = %Palette
+@onready var palette_column: VBoxContainer = %PaletteColumn
+
+## The drafting controller, when the scene has one. Held because the palette drives
+## it and the legend reports on it.
+var _draft: DraftControllerScript = null
+## The controls built by _build_palette, kept so the refresh can set them.
+var _arm_button: CheckButton = null
+var _tool_buttons: Array[Button] = []
+var _layer_option: OptionButton = null
+var _layer_names: Array[StringName] = []
+var _style_button: Button = null
+## What the palette was last drawn to match, so a check every frame does not
+## restate state that has not moved.
+var _palette_state: String = ""
 
 
 func _ready() -> void:
@@ -71,6 +98,7 @@ func _ready() -> void:
 	ground_button.pressed.connect(view_controller.toggle_ground)
 	fit_button.pressed.connect(view_controller.fit_plan_to_yard)
 	draft_hints_label.text = drafting_hints()
+	_build_palette()
 	_on_view_mode_changed(view_controller.mode)
 
 
@@ -84,9 +112,13 @@ func _process(_delta: float) -> void:
 	)
 	# Arming the tools happens on a key press inside the view controller, which has
 	# no signal for it, and it is one bool: reading it is cheaper than routing it.
-	# The legend goes away on the ground, where the tools do nothing.
-	draft_hints.visible = view_controller.is_drafting() \
-		and view_controller.mode != ViewController.ViewMode.GROUND
+	# The legend and the palette both go away on the ground, where the tools do
+	# nothing at all.
+	var overhead: bool = view_controller.mode != ViewController.ViewMode.GROUND
+	draft_hints.visible = overhead and view_controller.is_drafting()
+	if palette.get_child_count() > 0:
+		palette.visible = overhead
+		_refresh_palette()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -180,3 +212,171 @@ static func _key_label(action: StringName) -> String:
 		var shortened: String = SHORT_KEY_NAMES.get(rendered, rendered)
 		return ("Ctrl+" + shortened) if key.ctrl_pressed else shortened
 	return ""
+
+
+# --- the drawing palette --------------------------------------------------------------
+
+
+## Build the palette's controls in code rather than in the scene.
+##
+## They are nine near-identical buttons and a handful of rows, every one of them
+## derived from the tables the legend already uses, so a scene file would be a third
+## copy of that list to keep in step. Built here, the palette is described once and
+## its buttons exist because the tools do.
+func _build_palette() -> void:
+	_draft = view_controller.draft_controller()
+	if _draft == null or palette_column == null:
+		return
+
+	_arm_button = CheckButton.new()
+	_arm_button.name = "ArmButton"
+	_arm_button.text = "Drawing (%s)" % _key_label(&"draft_mode")
+	_arm_button.tooltip_text = "Arm the drawing tools, and put them away again"
+	_arm_button.toggled.connect(_on_arm_toggled)
+	palette_column.add_child(_arm_button)
+
+	var grid := GridContainer.new()
+	grid.name = "Tools"
+	grid.columns = PALETTE_COLUMNS
+	palette_column.add_child(grid)
+	for pair: Array in DRAFTING_TOOLS:
+		var kind: int = pair[2]
+		var button := Button.new()
+		# Named after the action it stands for, so the node tree says what each
+		# button does rather than "Button17".
+		button.name = String(pair[0])
+		button.text = palette_label(pair)
+		button.tooltip_text = "Draw a %s" % String(pair[1])
+		button.toggle_mode = true
+		button.custom_minimum_size = Vector2(PALETTE_CELL_WIDTH, 0.0)
+		button.pressed.connect(_on_tool_pressed.bind(kind))
+		grid.add_child(button)
+		_tool_buttons.append(button)
+
+	palette_column.add_child(HSeparator.new())
+
+	var layer_row := HBoxContainer.new()
+	layer_row.name = "LayerRow"
+	var layer_caption := Label.new()
+	layer_caption.text = "Layer"
+	layer_row.add_child(layer_caption)
+	_layer_option = OptionButton.new()
+	_layer_option.name = "LayerOption"
+	_layer_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_layer_option.tooltip_text = "The layer the next shape is drawn on"
+	for choice: Dictionary in _draft.layer_choices():
+		_layer_names.append(choice["name"])
+		_layer_option.add_item(String(choice["name"]))
+		_layer_option.set_item_tooltip(
+			_layer_option.item_count - 1, String(choice["purpose"])
+		)
+	_layer_option.item_selected.connect(_on_layer_selected)
+	layer_row.add_child(_layer_option)
+	palette_column.add_child(layer_row)
+
+	# What to do with the shape in hand, then what to do with the drawing.
+	var shape_row := HBoxContainer.new()
+	shape_row.name = "ShapeRow"
+	palette_column.add_child(shape_row)
+	_command_button(shape_row, &"draft_finish", "Finish", _draft.finish)
+	_command_button(shape_row, &"draft_close", "Close", _draft.finish_closed)
+	_command_button(shape_row, &"draft_cancel", "Cancel", _draft.cancel)
+
+	var edit_row := HBoxContainer.new()
+	edit_row.name = "EditRow"
+	palette_column.add_child(edit_row)
+	_command_button(edit_row, &"draft_undo", "Undo", _draft.undo)
+	_command_button(edit_row, &"draft_redo", "Redo", _draft.redo)
+	_command_button(edit_row, &"draft_undo_point", "Drop", _draft.undo_point)
+
+	var plot_row := HBoxContainer.new()
+	plot_row.name = "SheetRow"
+	palette_column.add_child(plot_row)
+	_command_button(plot_row, &"draft_plot", "Plot a sheet", _draft.plot)
+
+	var style_row := HBoxContainer.new()
+	style_row.name = "StyleRow"
+	palette_column.add_child(style_row)
+	_style_button = _command_button(
+		style_row, &"draft_dimension_style", "Standard", _draft.cycle_dimension_style
+	)
+
+	_refresh_palette()
+
+
+## A palette button for one of the drafting commands. The key goes in the tooltip
+## rather than on the button: the nine tools are worth learning by number, and the
+## row of small buttons would be a wall of brackets if every one carried its key.
+func _command_button(
+	row: HBoxContainer, action: StringName, wording: String, handler: Callable
+) -> Button:
+	var button := Button.new()
+	button.name = String(action)
+	button.text = wording
+	var key := _key_label(action)
+	if key != "":
+		button.tooltip_text = "%s (%s)" % [wording, key]
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.pressed.connect(handler)
+	row.add_child(button)
+	return button
+
+
+## Match the palette to the controller.
+##
+## Driven by state rather than by signals because the controller is changed from
+## several places - a key, a click, a palette button - and a signature cannot miss
+## one the way a forgotten connection would.
+func _refresh_palette() -> void:
+	if _draft == null or _arm_button == null:
+		return
+	var state := "%s|%d|%s|%s" % [
+		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
+		String(_draft.dimension_style_name),
+	]
+	if state == _palette_state:
+		return
+	_palette_state = state
+	# By the silent setter, because setting a button the ordinary way fires the
+	# handler: the palette would then be driving the controller it is reporting on.
+	_arm_button.set_pressed_no_signal(_draft.drawing)
+	var armed: bool = _draft.drawing
+	var kind: int = int(_draft.current_tool())
+	for index in _tool_buttons.size():
+		var button: Button = _tool_buttons[index]
+		# Only a tool actually in your hand is shown as chosen. A palette
+		# highlighting a tool while the tools are put away would be describing a
+		# mode that is not on.
+		button.button_pressed = armed and int(DRAFTING_TOOLS[index][2]) == kind
+	var selected := _layer_names.find(_draft.current_layer())
+	if selected >= 0:
+		_layer_option.selected = selected
+	_style_button.text = "Standard: %s" % String(_draft.dimension_style_name)
+	_style_button.tooltip_text = "%s (%s)" % [
+		_draft.document.dimension_style.describe(), _key_label(&"draft_dimension_style"),
+	]
+
+
+func _on_arm_toggled(pressed: bool) -> void:
+	if _draft != null:
+		_draft.set_drawing(pressed)
+
+
+func _on_tool_pressed(kind: int) -> void:
+	if _draft != null:
+		_draft.arm(kind)
+
+
+func _on_layer_selected(index: int) -> void:
+	if _draft == null or index < 0 or index >= _layer_names.size():
+		return
+	_draft.set_layer(_layer_names[index])
+
+
+## What one tool button says: the tool on the first line, the key that does the same
+## thing on the second, so the palette teaches the shortcut while it is being used.
+static func palette_label(pair: Array) -> String:
+	var words := String(pair[1])
+	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
+	var key := _key_label(pair[0])
+	return capitalised if key == "" else "%s\n%s" % [capitalised, key]

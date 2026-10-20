@@ -121,11 +121,53 @@ func set_layer(layer_name: StringName) -> void:
 
 
 func toggle_drawing() -> void:
-	drawing = not drawing
+	set_drawing(not drawing)
+
+
+## Arm the tools, or put them away.
+##
+## Explicit rather than only a toggle, so that a button which says what it does and
+## a key which toggles can both be truthful about the same state.
+func set_drawing(on: bool) -> void:
+	if drawing == on:
+		return
+	drawing = on
 	if not drawing:
 		cancel()
 	last_message = "drawing on" if drawing else ""
 	_refresh_canvas()
+
+
+## Pick a tool and start drawing with it, which is what one press of a palette
+## button should do: choosing a tool and arming the tools separately is two presses
+## for one intention.
+func arm(kind: ToolScript.Kind) -> void:
+	set_tool(kind)
+	set_drawing(true)
+
+
+# --- what a palette needs to know -----------------------------------------------------
+
+
+func current_tool() -> ToolScript.Kind:
+	return tool.kind
+
+
+func current_layer() -> StringName:
+	return tool.layer
+
+
+## Every layer the document offers, in draw order, as name-and-purpose pairs.
+##
+## Both halves are needed: "300-NEW-HARD" is a code, "New paving, walls, steps" is
+## a choice somebody can make. The list comes from the document rather than from the
+## preset table, so a document that has added or removed a layer is described as it
+## actually is.
+func layer_choices() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for layer in document.layers.layers():
+		out.append({"name": layer.name, "purpose": layer.purpose})
+	return out
 
 
 func entity_count() -> int:
