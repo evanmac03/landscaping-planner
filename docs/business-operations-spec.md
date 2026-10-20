@@ -398,6 +398,7 @@ March's leads became proposals" cannot be answered by a field that only holds th
 | `tax_code` | `StringName` | per line, so a mixed invoice is one invoice |
 | `takeoff` | `Dictionary` | `{entities, measure, value}` or empty - the drawing lineage (§2.4) |
 | `book_version` | `int` | the cost book version these prices came from |
+| `kind` | `int` | material / labour / equipment / subcontract / fee / other - on the line, because waste applies to material lines only (§5.1) and a book may be edited |
 
 ### 4.9 Estimate
 
@@ -498,6 +499,16 @@ total            = price_before_tax + tax
 deposit          = round(total × deposit_ppm / 1000000)
 gross_margin_pct = (price_before_tax − direct_cost) / price_before_tax × 100
 ```
+
+**Tax is per line, so the markup is apportioned before it is taxed.** §4.8 puts a tax code on every
+line and §2.11 says a mixed invoice is one invoice, so the arithmetic above cannot literally be one
+`Tax.gross(price_before_tax, code)` when two lines carry two codes. Each line's extension plus its share
+of the markup is the base its own code is charged on, lines sharing a code are charged once on their
+sum, and with one code throughout that comes out **identical** to the single computation above, to the
+cent (asserted for four shipped codes). The markup is apportioned in proportion to what each line is
+worth, each share rounded by the module's one rule with the few cents left over handed to the largest
+line, so the shares add up to the markup exactly - a markup a cent short is a total that does not foot.
+See §15.6.
 
 **The printed lines must foot to the printed subtotal.** So each line is rounded (not carried at
 full precision) and the subtotal is the sum of those rounded lines. Computers that carry full
@@ -1037,8 +1048,8 @@ before anything depends on it.
 |---|---|---|---|
 | 0 | **Money, tax, units** | `money.gd`, `tax.gd`, `work_unit.gd`; integer minor units, currencies, rounding, parsing; tax codes with compounding; the unit table with dimensions | **built** - 28 tests |
 | 1 | **Cost book** | `cost_item.gd`, `cost_kit.gd`, `cost_book.gd`; items, kits with cycle detection, JSON persistence, versioning, refusals | **built** - 16 tests |
-| 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | specified |
-| 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | specified |
+| 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | **built** - 29 tests |
+| 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | **built** - 18 tests |
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`; stages as events, funnel and conversion metrics, the board | specified |
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`; scheduling, routing, offline time | specified |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`; committed vs actual, variance, WIP | specified |
@@ -1089,6 +1100,72 @@ figure that was plausible and wrong. The test that caught it was written from th
 than from the implementation, which is the only kind of test that can catch a meaning. The flag now
 marks the component that compounds on its predecessors, marking the other one is a test, and the
 two spellings are asserted to produce different tax so the meaning cannot drift back.
+
+**15.4 An item's tax code swallowed the estimate's.** `CostItem.tax_code` defaulted to `NONE`, meaning
+"this item is zero-rated", and every estimate line copied it - so an estimate whose own code was HST
+came out with every line carrying `NONE`, charged nothing, and said so nowhere. A $4,284.00 patio went
+out untaxed because the *starter book* had a default rather than an opinion. Empty now means "this item
+states no code" and the estimate's own code fills the line in; `NONE` still means a real zero charge,
+which is the same distinction the tax table already draws for a customer. A single default in a data
+file became a business decision about a jurisdiction, which no data file is entitled to make.
+
+**15.5 The measure is a dimension, not a unit.** §2.4's lineage is `{entities, measure, value}` and
+`measure` is *what was measured* - "area", "length", "count". The first implementation checked
+`WorkUnit.has(measure)`, which asks whether the measurement is a **unit**, so the check was skipped for
+every real lineage and REQ-B9 would have passed its own test while doing nothing: a length drawn on a
+paving layer and priced per square metre would have gone onto a proposal. The check is against
+`WorkUnit.dimension(unit)`. The test that asserted the refusal carried a real lineage, which is why the
+hole was found before a customer found it.
+
+**15.6 Tax per line and one tax on the total are not the same arithmetic.** §5.2 states the roll-up
+as a single `Tax.gross(price_before_tax, code)`; §4.8 puts a tax code on every line and §2.11
+requires a mixed invoice to be one invoice. Both cannot hold literally, and charging each line's own
+extension and then the markup at the default code would reproduce neither (it differs from the stated
+formula by a cent whenever the rounding lands differently). The markup is apportioned by largest
+remainder and each code charged once on its own base, which is **identical to §5.2 in the ordinary
+single-code case** and is asserted so - so the refinement is pinned to the arithmetic the specification
+states rather than to a new one.
+
+**15.7 A takeoff key has to name what was measured, not only where.** `TakeoffLine.source` was
+`layer:<name>`, and one layer legitimately produces two lines - a paved patio as an **area** and its
+edging as a **length**. The second line overwrote the first in the diff's index, so a re-takeoff of an
+unchanged plan reported a change in the edging as a change in the paving: a whole line of money
+attributed to the wrong phase. The key is `layer:<name>|<measure>` now. **A key that is not unique is a
+key that is silently a different feature.**
+
+**15.8 `CostItem.make`'s last parameter was named `code` and was the currency.** The starter book was
+generated through it, passed `"HARDSCAPE"` as the cost code, and every item came out *priced in*
+HARDSCAPE - refused by `CostBook.problems` as a currency mismatch, which is what caught it. The
+parameter is `currency` now, and `cost_code` is deliberately left for the caller: which phase a thing
+costs to is a business decision, not a default. The same file has a `cost_code` field twelve lines
+above, which is why the name was read the way it was.
+
+**15.9 `Array[StringName].sort()` sorts by pointer, so a sorted list was not sorted.** `item_ids()`
+"returned the ids in order" and did nothing of the kind: a StringName orders by its pointer, so a
+"choose a cost item" list offered precast slabs above the interlock for no reason a person could see,
+and the order could differ between runs. It sorts on the string form now, naturally, so item 2 precedes
+item 10. (This project had already recorded the same fact once, when a plant catalogue's ids came back
+in pointer order - which is exactly why it was recognised here.)
+
+**15.10 A frozen price has to be a copy.** `Money`'s fields are writable, so a line that stored the cost
+item's own `Money` would hold an **alias**: repricing the book would silently move the frozen price on
+an estimate that had already been sent, which is the one thing §2.2 exists to prevent. It was found
+while writing `EstimateLine.make`, not by a failing test, and `Money.copy()` exists because of it. **A
+value type with a mutable field is a reference type wearing a disguise.**
+
+**15.11 The specification's waste arithmetic truncates.** §5.1 writes the waste inflation as an
+integer division, which truncates toward zero; the implementation rounds half away from zero, because
+that is the one rounding rule this module has and a credit should reverse the quantity its charge
+inflated as well as the money. The difference is at most a thousandth of a unit. Recorded because the
+snippet in §5.1 is still there, and a reader implementing from it would get a different, and
+slightly asymmetric, answer.
+
+**15.12 A cost book had to be shipped for a takeoff to be testable.** `res://data/biz/costbook.json`:
+21 items, 3 kits, illustrative prices, and a `source` field that says so in words. The alternative was
+tests that build a book inline - which they do, and should - but a takeoff has nothing to measure
+*against* without a price list, and a person opening this project should be able to price a drawing on
+their first run. It follows the plant module's precedent, and like that list it is a starting point to
+be replaced rather than a price list to be trusted.
 
 Left empty on purpose. The visualization specification's equivalent section (§8.8) accumulated ten
 corrections, every one of them found by building rather than by reading, and two of them found by

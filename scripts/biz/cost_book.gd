@@ -89,12 +89,22 @@ func erase_item(id: StringName) -> bool:
 	return items.erase(id)
 
 
+## Every item id, **by name**.
+##
+## `Array[StringName].sort()` does not do this: a StringName sorts by its pointer, so the order is
+## stable within a run and meaningless to a person - a "choose a cost item" list came out with the
+## precast slabs above the interlock for no reason anybody could see. The comparison is therefore on
+## the string form, naturally, so item 2 comes before item 10.
 func item_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for key: Variant in items.keys():
 		out.append(StringName(key))
-	out.sort()
+	out.sort_custom(_by_name)
 	return out
+
+
+static func _by_name(first: StringName, second: StringName) -> bool:
+	return String(first).naturalnocasecmp_to(String(second)) < 0
 
 
 # --- kits -------------------------------------------------------------------------------
@@ -130,7 +140,7 @@ func kit_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	for key: Variant in kits.keys():
 		out.append(StringName(key))
-	out.sort()
+	out.sort_custom(_by_name)
 	return out
 
 
@@ -267,7 +277,7 @@ func problems() -> Array[String]:
 			out.append("cost item %s is priced in %s, and the book is in %s" % [
 				id, item.rate.currency, currency
 			])
-		if not has_tax_code(item.tax_code):
+		if not item.tax_code.is_empty() and not has_tax_code(item.tax_code):
 			out.append("cost item %s names tax code %s, which is not a code" % [id, item.tax_code])
 	for id: StringName in kit_ids():
 		var kit: CostKit = self.kit(id)

@@ -1,0 +1,393 @@
+{
+  "currency": "CAD",
+  "effective_from": "2026-01-01",
+  "items": {
+    "bed-edge-steel": {
+      "cost_code": "BEDS",
+      "id": "bed-edge-steel",
+      "kind": 0,
+      "name": "Steel bed edging",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 2600,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "LIN_M",
+      "waste_ppm": 0
+    },
+    "bed-mulch": {
+      "cost_code": "BEDS",
+      "id": "bed-mulch",
+      "kind": 0,
+      "name": "Bark mulch",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 5800,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "CU_M",
+      "waste_ppm": 80000
+    },
+    "bed-soil-amend": {
+      "cost_code": "BEDS",
+      "id": "bed-soil-amend",
+      "kind": 0,
+      "name": "Soil amendment and grading",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 2200,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 100000
+    },
+    "equip-mini-excavator": {
+      "cost_code": "EQUIPMENT",
+      "id": "equip-mini-excavator",
+      "kind": 2,
+      "name": "Mini excavator, with operator",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 48000,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "DAY",
+      "waste_ppm": 0
+    },
+    "fee-permit": {
+      "cost_code": "FEES",
+      "id": "fee-permit",
+      "kind": 4,
+      "name": "Permit and inspection",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 25000,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "hard-edging": {
+      "cost_code": "HARDSCAPE",
+      "id": "hard-edging",
+      "kind": 0,
+      "name": "Concrete curb edging",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 3500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "LIN_M",
+      "waste_ppm": 0
+    },
+    "hard-paving-base": {
+      "cost_code": "HARDSCAPE",
+      "id": "hard-paving-base",
+      "kind": 0,
+      "name": "Granular base, compacted",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 6200,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "CU_M",
+      "waste_ppm": 100000
+    },
+    "hard-paving-interlock": {
+      "cost_code": "HARDSCAPE",
+      "id": "hard-paving-interlock",
+      "kind": 0,
+      "name": "Interlock paving, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 8500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 50000
+    },
+    "hard-paving-slab": {
+      "cost_code": "HARDSCAPE",
+      "id": "hard-paving-slab",
+      "kind": 0,
+      "name": "Precast slab paving, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 11500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 0
+    },
+    "irr-head-spray": {
+      "cost_code": "IRRIGATION",
+      "id": "irr-head-spray",
+      "kind": 0,
+      "name": "Spray head, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 2100,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "irr-zone-valve": {
+      "cost_code": "IRRIGATION",
+      "id": "irr-zone-valve",
+      "kind": 0,
+      "name": "Zone valve and wiring",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 12500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "lab-landscape-hour": {
+      "cost_code": "LABOUR",
+      "id": "lab-landscape-hour",
+      "kind": 1,
+      "name": "Landscape labour",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 5200,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "HOUR",
+      "waste_ppm": 0
+    },
+    "light-path-fixture": {
+      "cost_code": "LIGHTING",
+      "id": "light-path-fixture",
+      "kind": 0,
+      "name": "Path light fixture, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 9500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "plant-grass-2g": {
+      "cost_code": "PLANTING",
+      "id": "plant-grass-2g",
+      "kind": 0,
+      "name": "Ornamental grass, 2 gallon, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 2400,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "plant-perennial-1g": {
+      "cost_code": "PLANTING",
+      "id": "plant-perennial-1g",
+      "kind": 0,
+      "name": "Perennial, 1 gallon, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 1850,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "plant-shrub-2g": {
+      "cost_code": "PLANTING",
+      "id": "plant-shrub-2g",
+      "kind": 0,
+      "name": "Shrub, 2 gallon, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 4200,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "plant-tree-50mm": {
+      "cost_code": "PLANTING",
+      "id": "plant-tree-50mm",
+      "kind": 0,
+      "name": "Deciduous tree, 50 mm caliper, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 34500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "struct-deck-composite": {
+      "cost_code": "STRUCTURE",
+      "id": "struct-deck-composite",
+      "kind": 0,
+      "name": "Composite deck, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 21000,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 80000
+    },
+    "struct-pergola-post": {
+      "cost_code": "STRUCTURE",
+      "id": "struct-pergola-post",
+      "kind": 0,
+      "name": "Cedar pergola post, set",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 14500,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "EACH",
+      "waste_ppm": 0
+    },
+    "turf-seed": {
+      "cost_code": "TURF",
+      "id": "turf-seed",
+      "kind": 0,
+      "name": "Seed and straw, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 850,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 0
+    },
+    "turf-sod": {
+      "cost_code": "TURF",
+      "id": "turf-sod",
+      "kind": 0,
+      "name": "Sod, installed",
+      "note": "starter price: illustrative, replace it with your own",
+      "rate": {
+        "cents": 1650,
+        "currency": "CAD"
+      },
+      "supplier": "",
+      "tax_code": "",
+      "unit": "SQ_M",
+      "waste_ppm": 50000
+    }
+  },
+  "kits": {
+    "kit-bed-install": {
+      "id": "kit-bed-install",
+      "labour_hours_milli": 0,
+      "lines": [
+        {
+          "item_id": "bed-mulch",
+          "note": "50 mm of mulch",
+          "quantity_milli": 50
+        },
+        {
+          "item_id": "bed-soil-amend",
+          "note": "amend and grade the bed",
+          "quantity_milli": 1000
+        },
+        {
+          "item_id": "lab-landscape-hour",
+          "note": "planting labour",
+          "quantity_milli": 150
+        }
+      ],
+      "name": "Planting bed, per m2",
+      "output_unit": "SQ_M",
+      "yield_milli": 1000
+    },
+    "kit-paving-interlock": {
+      "id": "kit-paving-interlock",
+      "labour_hours_milli": 0,
+      "lines": [
+        {
+          "item_id": "hard-paving-base",
+          "note": "",
+          "quantity_milli": 200
+        },
+        {
+          "item_id": "hard-paving-interlock",
+          "note": "",
+          "quantity_milli": 1000
+        },
+        {
+          "item_id": "lab-landscape-hour",
+          "note": "screeding and laying",
+          "quantity_milli": 250
+        }
+      ],
+      "name": "Interlock paving, per m2",
+      "output_unit": "SQ_M",
+      "yield_milli": 1000
+    },
+    "kit-sod-lawn": {
+      "id": "kit-sod-lawn",
+      "labour_hours_milli": 0,
+      "lines": [
+        {
+          "item_id": "turf-sod",
+          "note": "",
+          "quantity_milli": 1000
+        },
+        {
+          "item_id": "lab-landscape-hour",
+          "note": "laying",
+          "quantity_milli": 50
+        }
+      ],
+      "name": "Sod lawn, per m2",
+      "output_unit": "SQ_M",
+      "yield_milli": 1000
+    }
+  },
+  "source": "starter list - illustrative prices, replace with your own",
+  "tax_codes": {},
+  "version": 1
+}

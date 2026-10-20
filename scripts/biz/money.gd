@@ -223,6 +223,13 @@ func equals(other: Money) -> bool:
 	return other != null and cents == other.cents and currency == other.currency
 
 
+## An independent copy, and the reason it is needed: `cents` and `currency` are writable, so an
+## estimate line that stored the cost item's own rate would be a line whose "frozen" price moved the
+## next time somebody repriced the book. A frozen price has to be a copy rather than an alias.
+func copy() -> Money:
+	return of(cents, currency)
+
+
 func to_dict() -> Dictionary:
 	return {"cents": cents, "currency": String(currency)}
 

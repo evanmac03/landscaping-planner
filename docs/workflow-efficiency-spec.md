@@ -234,8 +234,8 @@ The chain, what each link is made of, and where it stands:
 
 | stage | the shared model | state |
 | design | `DraftDocument`, plus `PlantCatalogue` for the planting | built |
-| takeoff | measures the design: lengths, areas, counts, hours | **missing - the keystone** |
-| estimate | takeoff lines x `CostBook` rates, one rounding per line | phase 2, specified |
+| takeoff | measures the design: lengths, areas, counts, hours | **built** - `takeoff.gd`, 18 tests |
+| estimate | takeoff lines x rates, money per line, tax per code | **built** - `estimate_line.gd`, `estimate.gd`, 29 tests |
 | pipeline | prospect, quoted, approved, scheduled | phase 4, specified |
 | jobs and crews | the estimate becomes a job, with crews and dates | phase 5, specified |
 | job costing | actuals against the estimate | phase 6, specified |
@@ -249,14 +249,22 @@ one rounding per line), `Tax` (rates as integer parts per million - a basis poin
 `CostItem` / `CostKit` / `CostBook` (kits expand and scale, a cycle is refused *naming the chain*).
 
 **The takeoff is the piece that makes the design module and the business module one program rather
-than two**, and it is the smallest of the missing links, because it is measurement plus bookkeeping
-over APIs that already exist. Proposed file, not yet created: `scripts/biz/takeoff.gd`.
+than two**, and it was the smallest of the missing links, because it is measurement plus bookkeeping
+over APIs that already exist. **It is built**: `scripts/biz/takeoff.gd` measures a `DraftDocument`
+and a planting schedule, suggests a priced item per layer, prices a line by exact conversion, and
+diffs one takeoff against another; `scripts/biz/estimate.gd` rolls the lines up and freezes them.
+The example below is therefore the shape it was built to, and it was written before the file was - with
+three differences the build found, all recorded in the business specification's section 15: the
+measurement's `measure` is a **dimension** and not a unit; a layer can produce **two** lines (an area
+and a length), so the key a diff hangs on must name the measure as well as the layer; and a plant with
+no species is refused rather than priced at whatever rate was nearest.
 
 ```gdscript
-class_name TakeoffLine
-extends RefCounted
+# TakeoffLine is an inner `class` of Takeoff in the real file: GDScript allows one `class_name`
+# per file, so an example that wrote two would not run.
+class TakeoffLine extends RefCounted
 
-var source: StringName = &""        # "entity:41", or "plant:acer-rubrum-autumn-blaze"
+var source: StringName = &""        # "layer:401-NEW-PLANT|count", or "plant:acer-rubrum-autumn-blaze"
 var description: String = ""
 var unit: StringName = &"m2"        # a WorkUnit name, so the dimension travels with the number
 var quantity: float = 0.0
@@ -312,9 +320,10 @@ takeoff's first job is to generalise that to every layer.
 
 ## 8. What I would build next, in this order
 
-1. **The takeoff and the estimate (business phases 2 and 3, together).** The highest-value missing
-   piece and one of the smallest: measurement plus bookkeeping over APIs that exist, and the thing
-   that turns four built modules into one program.
+1. ~~**The takeoff and the estimate (business phases 2 and 3, together).**~~ **Done.** Built as
+   `takeoff.gd`, `estimate_line.gd` and `estimate.gd` with 47 tests, and verified against the shipped
+   scene: a patio drawn into the live document priced to a $3,687.27 proposal, and the 30 unidentified
+   plants in the shipped yard refused rather than priced.
 2. **Multi-entity selection.** The prerequisite for auto-align, for dragging a plant that is already
    planted, and for group. Small, and it unlocks three separate items on this list.
 3. **Auto-simplify.** A pure function over a frozen entity list, with the rule that it refuses when it

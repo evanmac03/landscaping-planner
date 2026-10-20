@@ -44,7 +44,16 @@ var rate: Money = null
 var waste_ppm: int = 0
 ## The phase this item normally costs to, so an expanded kit still costs to the right place.
 var cost_code: StringName = &""
-var tax_code: StringName = &"NONE"
+## The tax code a line made from this item gets, and **empty by default**: an item that says nothing
+## about tax leaves an estimate line with an empty code, which the estimate then fills in from its own
+## default (§4.9: "the usual tax, overridable per line").
+##
+## This is `""` rather than `"NONE"` on purpose. `NONE` is a real code that charges nothing, so an item
+## defaulting to it meant every line in an estimate came out zero-rated whatever jurisdiction the
+## business was in - the estimate's own HST was never applied, and a proposal for a $4,284 patio went
+## out untaxed without anything saying so. Empty means "this item has no opinion"; `NONE` means "this
+## item is zero-rated", and an item that is genuinely zero-rated says so.
+var tax_code: StringName = &""
 ## Who it is bought from, for grouping a purchase order.
 var supplier: StringName = &""
 var note: String = ""
@@ -58,19 +67,25 @@ func _init(item_id: StringName = &"", item_name: String = "", item_unit: StringN
 
 
 ## The ordinary way to make one: everything that has no sensible default, in one line.
+##
+## `currency` is the last parameter and is the **money's** currency, not the item's cost code. The two
+## are easy to confuse - this parameter was called `code` until a takeoff passed a cost code into it and
+## every item in a starter book came out priced in "HARDSCAPE" - and `cost_code` is deliberately left
+## for the caller to set, because which phase a thing costs to is a business decision and not something
+## this function can guess.
 static func make(
 	item_id: StringName,
 	item_name: String,
 	item_unit: StringName,
 	rate_cents: int,
 	item_kind: int = MATERIAL,
-	code: StringName = &"CAD"
+	currency: StringName = &"CAD"
 ) -> CostItem:
 	var item: CostItem = (load("res://scripts/biz/cost_item.gd") as GDScript).new(
 		item_id, item_name, item_unit
 	)
 	item.kind = item_kind
-	item.rate = MoneyScript.of(rate_cents, code)
+	item.rate = MoneyScript.of(rate_cents, currency)
 	return item
 
 
@@ -147,7 +162,7 @@ static func from_dict(data: Dictionary) -> CostItem:
 		item.rate = MoneyScript.invalid()
 	item.waste_ppm = int(data.get("waste_ppm", 0))
 	item.cost_code = StringName(data.get("cost_code", ""))
-	item.tax_code = StringName(data.get("tax_code", "NONE"))
+	item.tax_code = StringName(data.get("tax_code", ""))
 	item.supplier = StringName(data.get("supplier", ""))
 	item.note = String(data.get("note", ""))
 	return item
