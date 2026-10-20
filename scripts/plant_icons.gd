@@ -8,16 +8,21 @@ extends RefCounted
 ## the prop a species is drawn as, in the pigment `PlanStyle` washes that prop in - so the palette,
 ## the browser and the drawing itself cannot disagree about what a plant looks like.
 ##
-## The cache is keyed by **form and category**, not by species: seventeen species drawn as three props
-## make three pictures, and four thousand make thirty. It is static because both callers want the same
-## handful of textures and a texture made twice is a buffer paid for twice.
+## The cache is keyed by **symbol, form and category**, not by species: seventeen species drawn as
+## three props and nine symbols make a handful of pictures, and four thousand make a few dozen. It is
+## static because both callers want the same handful of textures and a texture made twice is a buffer
+## paid for twice.
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
+const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
 
 ## How big a generated swatch is. Small enough that a whole catalogue is cheap, big enough that the
 ## shape of a symbol is legible. Callers ask `ItemList` to scale it to the size they want.
 const PIXELS := 64
 const HALF := 32.0
+## How far the symbol sits from the centre of the swatch, per axis at most. Held in from the edge so
+## an outline is not clipped by the edge of the picture.
+const EXTENT := HALF * 0.8125
 
 static var CACHE := {}
 
@@ -49,10 +54,18 @@ static func textured(catalogue: PlantCatalogue, species_id: StringName) -> Textu
 	return texture_for(species)
 
 
+## The symbol a species is drawn as. The same answer the plan reaches, through the same call, so the
+## grid cannot show a plant as one shape while the drawing shows it as another.
+static func symbol_of(species: PlantSpecies) -> StringName:
+	if species == null:
+		return PlantSymbolsScript.MARKER
+	return PlantSymbolsScript.of(species, PlanStyleScript.spec_for(species.form)["symbol"])
+
+
 static func texture_for(species: PlantSpecies) -> Texture2D:
 	if species == null:
 		return null
-	var cache_key: String = "%s|%d" % [species.form, species.category]
+	var cache_key: String = "%s|%s|%d" % [String(symbol_of(species)), species.form, species.category]
 	if CACHE.has(cache_key):
 		return CACHE[cache_key] as Texture2D
 	var texture: Texture2D = ImageTexture.create_from_image(swatch(species))
@@ -67,51 +80,114 @@ static func clear_cache() -> void:
 ## One symbol swatch, pixel by pixel.
 ##
 ## Drawn rather than loaded, so it needs no image files to exist, it works for a species added to the
-## catalogue five seconds ago, and a whole catalogue costs one 64x64 buffer per prop it is drawn as.
+## catalogue five seconds ago, and a whole catalogue costs one 64x64 buffer per symbol it is drawn as.
+##
+## Nothing here knows a shape: the figure comes from `PlantSymbols`, the same one the plan draws, and
+## this is only the rasteriser for it - fill, outline and mark, sampled a pixel at a time. That is
+## what keeps the grid and the drawing from disagreeing about what a plant looks like.
 static func swatch(species: PlantSpecies) -> Image:
 	# `create_empty` rather than a bare `Image.new()` plus `resize`: a new Image has no data at all,
 	# and resizing a buffer that was never created is an engine error per pixel, not a blank picture.
 	var image: Image = Image.create_empty(PIXELS, PIXELS, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
 	var spec: Dictionary = PlanStyleScript.spec_for(species.form)
-	var symbol: int = int(spec["symbol"])
+	var symbol: StringName = symbol_of(species)
 	var pigment: Color = spec.get("wash", PlanStyleScript.FOLIAGE_WASH)
+	# The outline and the marks are the pigment brought down, so a swatch is one plant's colour rather
+	# than three: a bloom drawn in a fixed pink would be a flower on a foliage plant.
 	var edge: Color = pigment.darkened(0.45)
-	var radius: float = HALF * 0.8125
+	# Half the symbol's drawn extent in pixels, per axis: a round symbol is drawn round whatever the
+	# prop's own footprint says, and an oblong one keeps the prop's proportions.
+	var shaped: Vector2 = PlantSymbolsScript.shape_for(symbol, spec["size"])
+	var half: Vector2 = shaped * (EXTENT / maxf(shaped.x, shaped.y))
+	if half.x <= 0.0 or half.y <= 0.0:
+		return image
+	var parts: Array[Dictionary] = PlantSymbolsScript.figure(symbol)
 
 	for y in PIXELS:
 		for x in PIXELS:
-			var dx: float = float(x) + 0.5 - HALF
-			var dy: float = float(y) + 0.5 - HALF
-			var reach: float = sqrt(dx * dx + dy * dy)
-			match symbol:
-				PlanStyleScript.Symbol.TREE:
-					# The trunk dot first, because it is the smallest radius: a branch ordered by
-					# size from the centre outwards is the only order in which all of them are
-					# reachable, and the other way round leaves the trunk undrawn.
-					if reach <= radius * 0.18:
-						image.set_pixel(x, y, edge)
-					elif reach <= radius - 1.5:
-						image.set_pixel(x, y, pigment)
-					elif reach <= radius:
-						image.set_pixel(x, y, edge)
-				PlanStyleScript.Symbol.SHRUB:
-					# The same seven-lobed wobble the plan's own `_blob` uses, at this size: a shrub
-					# symbol is foliage rather than a disc, and the swatch should read as one.
-					var lobe: float = radius * (1.0 + 0.13 * sin(7.0 * atan2(dy, dx)))
-					if reach <= lobe - 1.5:
-						image.set_pixel(x, y, pigment)
-					elif reach <= lobe:
-						image.set_pixel(x, y, edge)
-				PlanStyleScript.Symbol.BED:
-					if absf(dx) <= 22.0 and absf(dy) <= 14.0:
-						image.set_pixel(x, y, pigment)
-					# The stone edge the plan draws round a bed, as a border rather than a fill.
-					if absf(dx) <= 22.0 and absf(dy) <= 14.0 and (absf(dx) > 19.0 or absf(dy) > 11.0):
-						image.set_pixel(x, y, edge)
-				_:
-					if absf(dx) <= 17.0 and absf(dy) <= 17.0:
-						image.set_pixel(x, y, pigment)
-						if absf(absf(dx) - absf(dy)) <= 1.4:
-							image.set_pixel(x, y, edge)
+			var point := Vector2(
+				(float(x) + 0.5 - HALF) / half.x, (float(y) + 0.5 - HALF) / half.y
+			)
+			var colour: Color = Color(0, 0, 0, 0)
+			for part: Dictionary in parts:
+				if _inks(part, PlantSymbolsScript.INK_FILL) and _inside(part, point):
+					colour = pigment
+			for part: Dictionary in parts:
+				if _inks(part, PlantSymbolsScript.INK_EDGE) and _stroked(part, point):
+					colour = edge
+			for part: Dictionary in parts:
+				if _inks(part, PlantSymbolsScript.INK_MARK) and _inside(part, point):
+					colour = edge
+			if colour.a > 0.0:
+				image.set_pixel(x, y, colour)
 	return image
+
+
+static func _inks(part: Dictionary, ink: StringName) -> bool:
+	return StringName(part["ink"]) == ink
+
+
+## Whether a normalised point is inside a part that has an inside: a disc, a rectangle, or a polygon.
+static func _inside(part: Dictionary, point: Vector2) -> bool:
+	var centre: Vector2 = part["c"] if part.has("c") else Vector2.ZERO
+	match StringName(part["kind"]):
+		&"disc":
+			return point.distance_to(centre) <= float(part["r"])
+		&"rect":
+			var rect_half: Vector2 = part["half"]
+			return absf(point.x - centre.x) <= rect_half.x and absf(point.y - centre.y) <= rect_half.y
+		_:
+			return _in_polygon(point, part["points"])
+
+
+## Whether a normalised point is on a part that is a line: a ring, a rectangle outline, or a path.
+static func _stroked(part: Dictionary, point: Vector2) -> bool:
+	var centre: Vector2 = part["c"] if part.has("c") else Vector2.ZERO
+	var width: float = float(part["w"]) * 0.5
+	match StringName(part["kind"]):
+		&"disc":
+			return absf(point.distance_to(centre) - float(part["r"])) <= width
+		&"rect":
+			var rect_half: Vector2 = part["half"]
+			var outer: bool = absf(point.x - centre.x) <= rect_half.x + width \
+				and absf(point.y - centre.y) <= rect_half.y + width
+			var inner: bool = absf(point.x - centre.x) <= maxf(rect_half.x - width, 0.0) \
+				and absf(point.y - centre.y) <= maxf(rect_half.y - width, 0.0)
+			return outer and not inner
+		_:
+			var points: PackedVector2Array = part["points"]
+			var last: int = points.size() - 1
+			for index in points.size():
+				var next: int = 0 if index == last and bool(part["closed"]) else index + 1
+				if next >= points.size():
+					break
+				if _to_segment(point, points[index], points[next]) <= width:
+					return true
+			return false
+
+
+## The distance from a point to a line segment, which is what being on a stroke means.
+static func _to_segment(point: Vector2, first: Vector2, second: Vector2) -> float:
+	var span: Vector2 = second - first
+	var length_squared: float = span.length_squared()
+	if length_squared <= 0.0:
+		return point.distance_to(first)
+	var along: float = clampf((point - first).dot(span) / length_squared, 0.0, 1.0)
+	return point.distance_to(first + span * along)
+
+
+## The even-odd test, which is what the plan's own fills use: a point inside an inner ring - the hole
+## a stipple leaves - is outside the part.
+static func _in_polygon(point: Vector2, ring: PackedVector2Array) -> bool:
+	var inside: bool = false
+	var count: int = ring.size()
+	var previous: int = count - 1
+	for index in count:
+		var here: Vector2 = ring[index]
+		var before: Vector2 = ring[previous]
+		if (here.y > point.y) != (before.y > point.y) \
+			and point.x < (before.x - here.x) * (point.y - here.y) / (before.y - here.y) + here.x:
+			inside = not inside
+		previous = index
+	return inside

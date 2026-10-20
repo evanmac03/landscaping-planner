@@ -15,14 +15,16 @@ extends RefCounted
 ## `PlanStyle`, because "how big is this prop scene" is a plan-style question and not a plant one.
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
+const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 
 ## The subtree of the yard whose children are the planted objects. The same name `PlanCanvas` reads.
 const PLANTS := "Plants"
 
-## Node metadata: which species a planted node is, and the height the catalogue gave it. Stored on
-## the node rather than in a side table, so moving or copying a plant node in the editor carries its
-## species with it and nothing can fall out of step with what is on screen.
+## Node metadata: which species a planted node is, the height the catalogue gave it, and the symbol
+## the plan draws it as. Stored on the node rather than in a side table, so moving or copying a plant
+## node in the editor carries its species with it and nothing can fall out of step with what is on
+## screen.
 const SPECIES_META := &"species"
 const HEIGHT_META := &"height_cm"
 const SPREAD_META := &"spread_cm"
@@ -77,7 +79,8 @@ static func place(
 	if node.scene_file_path.is_empty():
 		node.scene_file_path = path
 	var instanced_path: String = node.scene_file_path
-	var base_size: float = float((PlanStyleScript.spec_for(instanced_path)["size"] as Vector2).x)
+	var form_spec: Dictionary = PlanStyleScript.spec_for(instanced_path)
+	var base_size: float = float((form_spec["size"] as Vector2).x)
 	var planting_scale: float = species.planting_scale(base_size)
 
 	# Out of the tree while it is being set up: an instance is not a design object until it is in
@@ -88,6 +91,11 @@ static func place(
 	node.set_meta(SPECIES_META, String(species_id))
 	node.set_meta(HEIGHT_META, species.height_cm)
 	node.set_meta(SPREAD_META, species.spread_cm)
+	# The symbol the plan draws it as, worked out here because this is the one place the species and
+	# the node are both in hand: the plan reads a *node*, not a catalogue, so a plant must carry its
+	# own symbol the way it carries its species. A spruce is a conifer rather than the maple's canopy,
+	# and the plan can tell without knowing what a spruce is.
+	node.set_meta(PlantSymbolsScript.SYMBOL_META, PlantSymbolsScript.of(species, form_spec["symbol"]))
 	# The group `ViewController` and the plan view both read to decide what is selectable, so a
 	# planted species is draggable the moment it lands and needs no second registration.
 	node.add_to_group(Yard.PLACEABLE_GROUP)

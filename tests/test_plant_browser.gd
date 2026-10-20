@@ -9,10 +9,13 @@ const BrowserScript := preload("res://scripts/plant_browser.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
+const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 
 const MAPLE := &"acer-rubrum-autumn-blaze"
+## A tree of the same form and category as the maple, and drawn as a different symbol.
+const SPRUCE := &"picea-glauca-densata"
 const LILAC := &"syringa-vulgaris"
 const CHRISTMAS_ROSE := &"helleborus-niger"
 const RUDBECKIA := &"rudbeckia-fulgida-goldsturm"
@@ -230,13 +233,21 @@ func test_the_detail_pane_says_what_a_nursery_label_says() -> void:
 func test_the_drawn_as_line_names_the_symbol_the_plan_uses() -> void:
 	var browser: PlantBrowser = _browser()
 	browser.select(MAPLE)
-	assert(browser.detail_text().contains("tree.tscn (a tree symbol)"),
-		"a tree says it is drawn as the tree prop")
+	assert(browser.detail_text().contains("tree.tscn (a broadleaf canopy)"),
+		"a maple says it is drawn as the tree prop, and in what shape")
 	browser.select(&"rudbeckia-fulgida-goldsturm")
 	assert(browser.detail_text().contains("flower_bed.tscn (a planted bed)"),
 		"a perennial drawn as a bed says so")
+	# And the shape named is the plan's own vocabulary, plant by plant: a symbol added to the
+	# drawing without a word for it would be a line that says nothing.
+	var words: Array = PlantSymbolsScript.WORDS.values()
 	for plant: PlantSpecies in browser.catalogue.all():
-		assert(not browser._drawn_as(plant).is_empty(), "%s says what it is drawn as" % plant.id)
+		var line: String = browser._drawn_as(plant)
+		var named: bool = false
+		for word: Variant in words:
+			if line.contains(String(word)):
+				named = true
+		assert(named, "%s says which symbol it is drawn as: %s" % [plant.id, line])
 	browser.free()
 
 
@@ -311,16 +322,24 @@ func test_every_species_in_the_grid_has_a_picture_and_they_share_what_they_shoul
 	for plant: PlantSpecies in catalogue.all():
 		var picture: Texture2D = browser.icon_for(plant.id)
 		assert(picture != null, "%s has a picture" % plant.id)
-		var key: String = "%s|%d" % [plant.form, plant.category]
+		# Keyed by symbol as well as form and category: two trees in one category are no longer
+		# necessarily one picture, which is the whole point of a symbol - a spruce and a maple are the
+		# same prop, and must not be the same green disc.
+		var key: String = "%s|%s|%d" % [
+			String(PlantIcons.symbol_of(plant)), plant.form, plant.category
+		]
 		if seen.has(key):
-			assert(seen[key] == picture, "%s shares the swatch of its form" % plant.id)
+			assert(seen[key] == picture, "%s shares the swatch of its symbol and form" % plant.id)
 		else:
 			seen[key] = picture
 	assert(seen.size() < catalogue.count(), "fewer pictures than species: %d" % seen.size())
 	# A tree and a bed are not the same shape, which is the whole reason the picture is drawn from the
-	# plan's own table rather than being one generic marker for everything.
+	# plan's own table rather than being one generic marker for everything - and neither are the two
+	# trees a conifer and a canopy.
 	assert(browser.icon_for(MAPLE) != browser.icon_for(RUDBECKIA),
 		"a tree and a bed are different symbols")
+	assert(browser.icon_for(SPRUCE) != browser.icon_for(MAPLE),
+		"and a conifer is not a canopy")
 	# The tint is the species' bloom colour, so two trees are still told apart in the grid.
 	assert(PlantIcons.tint(catalogue.get_species(MAPLE)) != Color.WHITE, "a flowering tree is tinted")
 	assert(PlantIcons.tint(catalogue.get_species(&"buxus-sempervirens")) == Color.WHITE,

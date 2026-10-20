@@ -44,6 +44,7 @@ signal export_requested()
 signal note(text: String)
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
+const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
 
 const ANY := -1
 
@@ -790,21 +791,17 @@ func detail_text() -> String:
 	return "\n".join(lines)
 
 
-## Which scene a species is planted as, said the way a person asks it: its own model, or the prop
-## whose symbol stands in for it.
+## Which scene a species is planted as and which symbol the plan draws it as, said the way a person
+## asks it: its own model, or the prop whose shape stands in for it. The symbol is named from the
+## plan's own vocabulary rather than from the prop's name, because a spruce and a maple are the same
+## prop and no longer the same picture.
 func _drawn_as(species: PlantSpecies) -> String:
 	if not species.model_scene.is_empty():
 		return species.model_scene.get_file()
-	var spec: Dictionary = PlanStyleScript.spec_for(species.form)
-	var symbol: int = int(spec["symbol"])
-	match symbol:
-		PlanStyleScript.Symbol.TREE:
-			return "%s (a tree symbol)" % species.form.get_file()
-		PlanStyleScript.Symbol.SHRUB:
-			return "%s (a shrub symbol)" % species.form.get_file()
-		PlanStyleScript.Symbol.BED:
-			return "%s (a planted bed)" % species.form.get_file()
-	return "%s (a generic marker)" % species.form.get_file()
+	var symbol: StringName = PlantSymbolsScript.of(
+		species, PlanStyleScript.spec_for(species.form)["symbol"]
+	)
+	return "%s (%s)" % [species.form.get_file(), PlantSymbolsScript.words(symbol)]
 
 
 func summary_text() -> String:

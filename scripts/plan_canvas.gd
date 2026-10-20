@@ -74,7 +74,6 @@ var grabbed: Node3D = null
 var _viewport_size: Vector2 = Vector2(1600.0, 900.0)
 var _context: Array[Dictionary] = []
 var _placeables: Array[Node3D] = []
-var _specs: Dictionary = {}
 var _fence: Rect2 = Rect2()
 var _has_fence: bool = false
 
@@ -112,7 +111,6 @@ func _process(_delta: float) -> void:
 func rebind(yard: Node3D) -> void:
 	_context.clear()
 	_placeables.clear()
-	_specs.clear()
 	_has_fence = false
 	if yard != null:
 		_collect(yard)
@@ -168,7 +166,6 @@ func _collect(node: Node) -> void:
 			for plant in child.get_children():
 				if plant is Node3D:
 					_placeables.append(plant)
-					_specs[plant] = PlanStyle.spec_for((plant as Node3D).scene_file_path)
 			continue
 		if child is MeshInstance3D:
 			_add_mesh(child)
@@ -268,66 +265,110 @@ func _draw_fence() -> void:
 
 
 func _draw_placeable(node: Node3D) -> void:
-	var spec: Dictionary = _specs.get(node, PlanStyle.PLACEHOLDER)
-	var centre := Vector2(node.global_position.x, node.global_position.z)
-	var instance_scale: float = node.global_transform.basis.get_scale().x
-	var size: Vector2 = spec["size"] * instance_scale
-	match int(spec["symbol"]):
-		PlanStyle.Symbol.TREE:
-			_draw_tree(centre, size)
-		PlanStyle.Symbol.SHRUB:
-			_draw_shrub(centre, size)
-		PlanStyle.Symbol.BED:
-			_draw_bed(centre, size)
-		_:
-			_draw_generic(centre, size)
-
-
-func _draw_tree(centre: Vector2, size: Vector2) -> void:
-	var radius: float = size.x * 0.5
-	draw_circle(centre + SHADOW_OFFSET, radius, SHADOW)
-	draw_circle(centre, radius, CANOPY)
-	draw_arc(centre, radius, 0.0, TAU, 48, CANOPY_LINE, 1.4 / pixels_per_metre)
-	# Trunk dot, so the symbol reads as a tree seen from directly above.
-	draw_circle(centre, minf(radius * 0.18, 0.34), TRUNK)
-
-
-func _draw_shrub(centre: Vector2, size: Vector2) -> void:
-	var radius: float = size.x * 0.5
-	var outline: PackedVector2Array = _blob(centre, radius)
-	draw_circle(centre + SHADOW_OFFSET, radius * 0.94, SHADOW)
-	draw_colored_polygon(outline, CANOPY)
-	draw_polyline(outline, CANOPY_LINE, 1.3 / pixels_per_metre, true)
-
-
-func _draw_bed(centre: Vector2, size: Vector2) -> void:
-	var rect := Rect2(centre - size * 0.5, size)
-	draw_rect(rect, BED_SOIL, true)
-	draw_rect(rect, BED_EDGE, false, 3.0 / pixels_per_metre)
-	draw_rect(rect.grow(-0.16), BED_EDGE, false, 1.0 / pixels_per_metre)
-	# A row of blooms, so a bed reads as planting rather than a plain box.
-	var spacing: float = size.x / 4.0
-	for index in 4:
-		var bloom := centre + Vector2(
-			-size.x * 0.5 + spacing * (float(index) + 0.5),
-			(size.y * 0.5 - 0.3) * (1.0 if index % 2 == 0 else -1.0) * 0.55
-		)
-		draw_circle(bloom, minf(size.y * 0.2, 0.22), BED_BLOOM)
-
-
-func _draw_generic(centre: Vector2, size: Vector2) -> void:
-	# An unknown prop is still drawn and still draggable, just flagged as
-	# undescribed, so adding a new prop type never makes it vanish from the plan.
-	var rect := Rect2(centre - size * 0.5, size)
-	draw_rect(rect, GENERIC, true)
-	draw_rect(rect, GENERIC.darkened(0.4), false, 1.4 / pixels_per_metre)
-	draw_line(rect.position, rect.end, GENERIC.darkened(0.4), 1.2 / pixels_per_metre)
-	draw_line(
-		Vector2(rect.position.x, rect.end.y),
-		Vector2(rect.end.x, rect.position.y),
-		GENERIC.darkened(0.4),
-		1.2 / pixels_per_metre
+	_draw_symbol(
+		Vector2(node.global_position.x, node.global_position.z),
+		PlanStyle.footprint_size(node),
+		PlanStyle.symbol_of(node)
 	)
+
+
+# --- plant symbols -------------------------------------------------------------------
+
+
+## Every symbol is drawn from one figure (see `PlantSymbols`), which is what keeps the plan and the
+## swatch in a plant list from disagreeing about what a plant looks like. The inks are the plan's own:
+## foliage symbol, its outline, and the marks - a trunk, a bloom, a tuft.
+##
+## The stroke weight a figure states is *relative*, not a length: the plan draws with a pen of a
+## constant screen weight whatever the plant's size, the way every other stroke on this plan does,
+## and `PEN_REFERENCE` is the outline weight of a canopy that the others are read against.
+const PEN_PIXELS := 1.6
+const PEN_REFERENCE := 0.07
+
+const SYMBOL_INKS := {
+	&"canopy": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
+	&"conifer": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
+	&"shrub": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
+	&"grass": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
+	&"groundcover": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
+	&"vine": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
+	&"fern": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
+	&"bed": {"fill": BED_SOIL, "edge": BED_EDGE, "mark": BED_BLOOM},
+}
+
+## The marker's inks, and the answer for a symbol nobody has: the colour a prop the tables do not
+## describe is drawn in, brought down for its own line. Built once at run time rather than written out
+## as a constant, because a constant cannot be made by calling `darkened`.
+static var _fallback_inks: Dictionary = {}
+
+
+static func fallback_inks() -> Dictionary:
+	if _fallback_inks.is_empty():
+		_fallback_inks = {"fill": GENERIC, "edge": GENERIC.darkened(0.4), "mark": GENERIC.darkened(0.4)}
+	return _fallback_inks
+
+
+func _draw_symbol(centre: Vector2, size: Vector2, symbol: StringName) -> void:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var half: Vector2 = size * 0.5
+	var parts: Array[Dictionary] = PlantSymbols.figure(symbol)
+	var inks: Dictionary = SYMBOL_INKS.get(symbol, fallback_inks())
+	# The shadow first, under everything: the fills again a little off their own centre, so a plant
+	# reads as an object rather than a stain. An unknown prop is still drawn and still draggable,
+	# just flagged as undescribed, so adding a new prop type never makes it vanish from the plan.
+	for part: Dictionary in parts:
+		if StringName(part["ink"]) == PlantSymbols.INK_FILL:
+			_fill_part(part, centre + SHADOW_OFFSET, half, SHADOW)
+	for part: Dictionary in parts:
+		match StringName(part["ink"]):
+			PlantSymbols.INK_FILL:
+				_fill_part(part, centre, half, inks["fill"])
+			PlantSymbols.INK_EDGE:
+				_edge_part(part, centre, half, inks["edge"])
+			_:
+				_fill_part(part, centre, half, inks["mark"])
+
+
+func _fill_part(part: Dictionary, centre: Vector2, half: Vector2, colour: Color) -> void:
+	match StringName(part["kind"]):
+		&"disc":
+			draw_circle(_placed(part["c"], centre, half), float(part["r"]) * half.x, colour)
+		&"rect":
+			draw_rect(_box(part["half"], centre, half), colour, true)
+		_:
+			draw_colored_polygon(_placed_all(part["points"], centre, half), colour)
+
+
+func _edge_part(part: Dictionary, centre: Vector2, half: Vector2, colour: Color) -> void:
+	var width: float = maxf(PEN_PIXELS * float(part["w"]) / PEN_REFERENCE, 0.8) / pixels_per_metre
+	match StringName(part["kind"]):
+		&"disc":
+			draw_arc(_placed(part["c"], centre, half), float(part["r"]) * half.x, 0.0, TAU, 48, colour, width)
+		&"rect":
+			draw_rect(_box(part["half"], centre, half), colour, false, width)
+		_:
+			draw_polyline(
+				_placed_all(part["points"], centre, half), colour, width, bool(part["closed"])
+			)
+
+
+## One normalised point, as a position on the plan.
+func _placed(point: Vector2, centre: Vector2, half: Vector2) -> Vector2:
+	return centre + Vector2(point.x * half.x, point.y * half.y)
+
+
+func _placed_all(points: PackedVector2Array, centre: Vector2, half: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for point: Vector2 in points:
+		out.append(_placed(point, centre, half))
+	return out
+
+
+## A normalised rectangle as a plan box.
+func _box(part_half: Vector2, centre: Vector2, half: Vector2) -> Rect2:
+	var extent := Vector2(part_half.x * half.x, part_half.y * half.y)
+	return Rect2(centre - extent, extent * 2.0)
 
 
 func _draw_selection(node: Node3D, active: bool) -> void:

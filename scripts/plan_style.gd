@@ -8,12 +8,7 @@ extends RefCounted
 ## wrong thing, and a prop the tables do not know about is still drawn and still
 ## draggable, just generically.
 
-enum Symbol {
-	TREE,    ## Canopy circle with a trunk dot at the centre.
-	SHRUB,   ## Soft scalloped blob.
-	BED,     ## Planted bed with a stone edge and a row of blooms.
-	GENERIC, ## Fallback marker for a prop these tables do not describe.
-}
+const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
 
 ## Flat drafting colours, keyed by material resource path. The 3D materials are
 ## noise-textured, which leaves their albedo_color white and useless here, so
@@ -42,15 +37,22 @@ const COLOURS := {
 ## plan: the symbol it draws as, the ground it covers, and now the pigment under it.
 ## One entry, so a prop cannot be a tree in the working view and a shrub in the
 ## painted one.
+##
+## The symbol here is the one a **prop** draws as, which is what a plant with no
+## catalogue entry behind it gets. A species the catalogue knows is drawn as its own
+## symbol instead (`PlantSymbols.of`), because one tree model stands in for every
+## tree and a spruce must not come out as the maple's canopy. The names are bare
+## symbols rather than `PlantSymbols` constants on purpose: this table is read
+## before that script is built, and a test holds the two together.
 const SYMBOLS := {
 	"res://scenes/props/tree.tscn": {
-		"symbol": Symbol.TREE, "size": Vector2(3.7, 3.7), "wash": FOLIAGE_WASH,
+		"symbol": &"canopy", "size": Vector2(3.7, 3.7), "wash": FOLIAGE_WASH,
 	},
 	"res://scenes/props/shrub.tscn": {
-		"symbol": Symbol.SHRUB, "size": Vector2(1.5, 1.5), "wash": FOLIAGE_WASH,
+		"symbol": &"shrub", "size": Vector2(1.5, 1.5), "wash": FOLIAGE_WASH,
 	},
 	"res://scenes/props/flower_bed.tscn": {
-		"symbol": Symbol.BED, "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH,
+		"symbol": &"bed", "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH,
 	},
 }
 
@@ -64,7 +66,7 @@ const BLOOM_WASH := Color(0.89, 0.42, 0.6)
 ## painted plan's colour rather than washed in a guessed one, and it keeps its
 ## linework, so what is missing reads as a plant with no foliage wash rather than as
 ## a plant with the wrong one.
-const PLACEHOLDER := {"symbol": Symbol.GENERIC, "size": Vector2(1.2, 1.2)}
+const PLACEHOLDER := {"symbol": &"marker", "size": Vector2(1.2, 1.2)}
 const UNKNOWN_COLOUR := Color(0.55, 0.55, 0.58)
 
 
@@ -74,9 +76,23 @@ static func spec_for(scene_path: String) -> Dictionary:
 	return SYMBOLS.get(scene_path, PLACEHOLDER)
 
 
+## The symbol a placed prop is drawn as: the symbol a species wrote on the node when it was planted,
+## and otherwise whatever its prop draws as. A plant the catalogue never saw - one dropped in by hand
+## in the editor - is drawn as its prop, which is what every plant was drawn as before symbols.
+static func symbol_of(node: Node3D) -> StringName:
+	var spec: Dictionary = spec_for(node.scene_file_path)
+	var symbol: StringName = spec["symbol"]
+	if node.has_meta(PlantSymbolsScript.SYMBOL_META):
+		symbol = StringName(node.get_meta(PlantSymbolsScript.SYMBOL_META))
+	if not PlantSymbolsScript.is_symbol(symbol):
+		return PlantSymbolsScript.MARKER
+	return symbol
+
+
 ## On-plan size of a placed prop, in metres, including the instance's own scale.
-## The footprint's *shape* comes from the size pair: a square footprint is drawn as a
-## disc and an oblong one as a rectangle, so a bed does not come out round.
+## The footprint's *shape* comes from the symbol: a round symbol is drawn as a disc
+## and an oblong one as a rectangle, so a bed does not come out round and a grass
+## planted as a flower bed does not come out oblong.
 static func footprint_size(node: Node3D) -> Vector2:
 	var size: Vector2 = spec_for(node.scene_file_path)["size"]
 	# A prop in the yard reports the scale it inherits from its parents. Outside
@@ -84,7 +100,7 @@ static func footprint_size(node: Node3D) -> Vector2:
 	var basis: Basis = node.transform.basis
 	if node.is_inside_tree():
 		basis = node.global_transform.basis
-	return size * basis.get_scale().x
+	return PlantSymbolsScript.shape_for(symbol_of(node), size * basis.get_scale().x)
 
 
 ## On-plan radius of a placed prop, in metres, including the instance's own
@@ -114,7 +130,7 @@ const FOOTPRINT_POINTS := 28
 
 
 ## A prop's footprint as a closed ring in model metres, in the shape the working plan
-## draws it: a disc for a tree or a shrub, a rectangle for a bed.
+## draws it: a disc for a round symbol, a rectangle for an oblong one such as a bed.
 ##
 ## Shared by the painted plan's two layers, which is the point of it: the wash fills this
 ## ring and the ink draws round it, so they cannot disagree about what shape the plant
@@ -128,9 +144,8 @@ static func footprint_ring(node: Node3D) -> PackedVector2Array:
 	var centre := Vector2(node.global_position.x, node.global_position.z)
 	if size.x <= 0.0 or size.y <= 0.0:
 		return PackedVector2Array()
-	var symbol: int = int(spec_for(node.scene_file_path)["symbol"])
-	if symbol == Symbol.TREE or symbol == Symbol.SHRUB:
-		return _disc_ring(centre, size.x * 0.5)
+	if PlantSymbolsScript.is_round(symbol_of(node)):
+		return _disc_ring(centre, maxf(size.x, size.y) * 0.5)
 	return _rectangle_ring(centre, size)
 
 

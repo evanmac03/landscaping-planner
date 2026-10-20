@@ -84,7 +84,7 @@ guessed, so a plant with no soil stated cannot be marked wrong for the soil it i
 | `water` | 0..2 | low, medium, high - a scale, not a set |
 | `bloom_months` | 12 bits | bit `month - 1`. **Circular**: a Christmas rose is one run, December to February |
 | `bloom_colour` | `#rrggbb` | with the `#`: a bare hex run is not the parse it looks like |
-| `form` | scene path | the prop it is drawn as - its 2D symbol *and* its 3D model |
+| `form` | scene path | the prop it is drawn as: its 3D model, and the symbol a species the catalogue cannot describe is drawn as |
 | `model_scene` | scene path | its own model when it has one; empty means `form` stands in |
 | `thumbnail` | image path | for the grid; empty means the symbol swatch is drawn instead |
 | `tags` | list of strings | what a designer browses by |
@@ -107,9 +107,51 @@ the *path*, which the table that already decides how a prop is drawn reads: `Pla
 
 A species with no photograph is drawn as a **swatch of the symbol the plan would draw it as**, in the
 pigment `PlanStyle` washes that prop in. Four thousand species will not carry four thousand
-photographs, and a grid of empty boxes is one nobody can look through. Swatches are cached by form
-and category - thirty pictures, not four thousand - and what tells two trees apart in the grid is a
-*tint* from the species' bloom colour, not another texture.
+photographs, and a grid of empty boxes is one nobody can look through.
+
+## 4a. The symbol a species is drawn as
+
+A **form** is one prop for four thousand trees. That is right for the model and was wrong for
+the drawing: with the symbol read straight off the prop, a spruce and a maple came out as the
+same green disc. So the symbol comes from the catalogue's own description of the plant
+(`PlantSymbols.described_for`) and the vocabulary is nine shapes - `canopy`, `conifer`,
+`shrub`, `grass`, `groundcover`, `vine`, `fern`, `bed`, `marker` - held in `PlantSymbols.NAMES`:
+
+| the plant is | it is drawn as |
+|---|---|
+| a tree, a shrub | `conifer` when its genus is a conifer, else `canopy` / `shrub` |
+| an ornamental grass | `grass` |
+| a groundcover | `groundcover` |
+| a vine | `vine` |
+| a fern | `fern` |
+| a perennial, annual, bulb or herb | whatever its `form` draws as - the planted `bed` |
+| a species with no entry, or a prop nobody knows | its `form`'s symbol, and `marker` |
+
+Whether a plant is a conifer is asked of its **botanical name** (`PlantSpecies.is_conifer()`),
+not of the `evergreen` tag: a boxwood is evergreen without being a conifer, and drawing one as a
+spruce would be a lie a designer reads at a glance.
+
+Each symbol is one **figure** in `PlantSymbols`: a short list of parts in a normalised square -
+fills, outlines and marks (a trunk, a bloom, a tuft) - and *both* the working plan and the swatch
+walk the same list. That is what stops the grid and the drawing from disagreeing about what a
+plant looks like, and it is why the symbol's own shape decides whether a plant is drawn round:
+a round symbol is drawn square whatever its prop's footprint says (`is_round`, `shape_for`), so
+a grass whose species stands in as a flower bed does not come out as an oblong blade of grass.
+
+The footprint a symbol is drawn in comes from the prop, as it always did, with one correction:
+a round symbol takes the *longest* side, which is what keeps a conifer round and a bed oblong.
+
+A planted node carries its symbol as node metadata (`PlantSymbols.SYMBOL_META`), written by
+`PlantPlacement.place` at the moment it is planted, beside its species, its height and its
+spread - because the plan reads a *node* and not a catalogue, so a plant copied in the editor
+must not lose the shape it is drawn as. Everything that asks what shape a plant is - the plan's
+symbol, the selection ring, the wash and the painted plan's ink - reads it through
+`PlanStyle.symbol_of`, so all of them agree.
+
+Swatches are cached by **symbol, form and category** - a few dozen pictures, not four thousand -
+and what tells two plants apart in the grid is a *tint* from the species' bloom colour, not
+another texture. `PlantIcons.symbol_of` and `PlantSymbols.of` are the one call: a grid that
+showed a plant as one shape while the plan drew another would be worse than no picture at all.
 
 ## 5. Planting: what the catalogue does to the plan
 
@@ -468,8 +510,21 @@ drawing encloses (§7a.8), and stated for ground the drawing does not enclose by
 * a planted plant is one object in both views: in the `placeable` group *and* in the `Plants` subtree
 * the planting list counts what is standing and names what it cannot
 * the browser will not describe a plant its grid is not showing
-* a species with no photograph is drawn as the symbol the plan uses, and two species drawn as the same
-  prop in the same category share one picture
+* a species with no photograph is drawn as the symbol the plan uses, and every plant states a
+  symbol out of the vocabulary the plan can draw (`test_plant_symbols.gd`)
+* a spruce and a maple - the same prop, the same category - are two pictures rather than one
+  disc, and a conifer's crown differs from a canopy's where a needle ends
+* a conifer is a conifer because its genus is one: a boxwood is evergreen and is not, so the
+  question is asked of the botanical name rather than of a tag
+* the plan and the picture in the grid reach the same symbol through the same call, plant by
+  plant, so the grid cannot show a shape the drawing does not use
+* a round symbol is drawn round whatever its prop's footprint says, and an oblong one keeps the
+  prop's proportions (`shape_for`)
+* a symbol is drawn from a figure whose every part the two renderers know, and a figure is built
+  once rather than per frame
+* the plan's own table names only symbols this module knows, and every symbol has inks
+* a planted node carries its symbol, so the plan draws a conifer without knowing what a spruce
+  is
 * the swatch is the pigment the painted plan would use, and a bed is drawn as an oblong rather than a
   disc (found by reading every pixel, not by sampling one)
 * the two pictures of a plant are one picture: the grid and the palette share `PlantIcons`, and

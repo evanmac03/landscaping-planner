@@ -19,8 +19,11 @@ extends RefCounted
 ##   January" has to find it.
 ##
 ## What a species is *drawn* as is a property of the entry (`form`, `model_scene`, `thumbnail`), not
-## of a name: there is one tree model and four thousand trees. See `planting_scale()` for how a
-## species' own spread becomes the size of the thing placed on the plan.
+## of a name: there is one tree model and four thousand trees. The **symbol** the plan draws for it is
+## derived from what the plant *is* - its category, and whether it is a conifer - by `PlantSymbols`,
+## because a form is one prop for four thousand trees and a spruce and a maple must not come out as
+## the same green disc. See `planting_scale()` for how a species' own spread becomes the size of the
+## thing placed on the plan.
 
 const CATEGORY_NAMES := {
 	0: "Tree",
@@ -44,6 +47,15 @@ const VINE := 6
 const FERN := 7
 const BULB := 8
 const HERB := 9
+
+## The genera that are conifers. A botanical fact about a plant, asked of the botanical name rather
+## than of a tag: the tag a nursery writes is "evergreen", and a boxwood is evergreen without being a
+## conifer. `PlantSymbols` is the one caller - which shape a plant is drawn as is its business, and
+## whether a plant is a conifer is this one's.
+const CONIFER_GENERA := [
+	"Abies", "Cedrus", "Chamaecyparis", "Cryptomeria", "Cupressus", "Juniperus", "Larix",
+	"Metasequoia", "Picea", "Pinus", "Pseudotsuga", "Taxodium", "Taxus", "Thuja", "Tsuga",
+]
 
 ## Sun tolerance, as bits. A plant that takes both is `FULL_SUN | PART_SHADE`.
 const FULL_SUN := 1
@@ -292,6 +304,21 @@ func drainage_text() -> String:
 
 func category_name() -> String:
 	return String(CATEGORY_NAMES.get(category, "?"))
+
+
+# --- what it is drawn as -----------------------------------------------------------------
+
+
+## The genus: the first word of the botanical name, or "" when the entry has no botanical name.
+func genus() -> String:
+	var parts: PackedStringArray = botanical_name.strip_edges().split(" ", false)
+	return parts[0] if parts.size() > 0 else ""
+
+
+## Whether this is a conifer, which is a question about the botanical name rather than about a tag:
+## `"evergreen"` would catch a boxwood, and a boxwood is a broadleaf.
+func is_conifer() -> bool:
+	return CONIFER_GENERA.has(genus())
 
 
 ## "Acer rubrum 'Autumn Blaze' - Red maple". The cultivar is quoted, because that is what makes a
