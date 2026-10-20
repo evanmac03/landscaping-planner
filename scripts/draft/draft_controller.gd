@@ -17,6 +17,9 @@ const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 
 @export var plan_canvas_path: NodePath = ^"../PlanLayer/PlanCanvas"
+## The 3D linework overlay, when the scene has one. Optional: drawing works
+## without it, the linework is simply not visible in the 3D views.
+@export var overlay_path: NodePath = ^"../DraftOverlay"
 
 ## True while the tools own the left mouse button.
 var drawing: bool = false
@@ -25,6 +28,7 @@ var document
 var snap
 var tool
 var canvas: Node2D = null
+var overlay: Node = null
 
 var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
@@ -46,6 +50,10 @@ func _ready() -> void:
 	if node is Node2D:
 		canvas = node
 		canvas.bind_document(document)
+	var overlay_node := get_node_or_null(overlay_path)
+	if overlay_node != null:
+		overlay = overlay_node
+		overlay.bind_document(document)
 	_refresh_canvas()
 
 
@@ -206,5 +214,7 @@ func _refresh_canvas() -> void:
 	var preview = tool.preview(cursor_point)
 	canvas.ghost = {"entity": preview, "layer": document.layers.get_layer(tool.layer)} \
 		if preview != null else {}
+	if overlay != null:
+		overlay.set_ghost(preview, document.layers.get_layer(tool.layer))
 	canvas.status_text = status()
 	canvas.queue_redraw()
