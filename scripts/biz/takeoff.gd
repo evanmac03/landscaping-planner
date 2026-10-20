@@ -390,7 +390,7 @@ static func of_plan(
 		if line.layer == &"401-NEW-PLANT" and line.measure == WorkUnitScript.COUNT:
 			takeoff.notes.append(
 				"%d symbols on 401-NEW-PLANT not counted: the plants are in the yard as props already"
-				% (line.quantity_milli / SCALE)
+				% whole_units(line.quantity_milli)
 			)
 			continue
 		kept.append(line)
@@ -428,8 +428,17 @@ static func measure_for(layer_name: StringName) -> StringName:
 
 
 ## The unit a measurement of this dimension should be stated in, in the drawing's own system.
-static func unit_for(dimension: StringName, metric: bool = true) -> StringName:
-	return WorkUnitScript.preferred(dimension, metric)
+static func unit_for(dimension: StringName, in_metric: bool = true) -> StringName:
+	return WorkUnitScript.preferred(dimension, in_metric)
+
+
+## A quantity in thousandths back to whole units.
+##
+## Only ever used where the quantity is exact by construction - a counted line, whose
+## `quantity_milli` is one `SCALE` per entity - so the truncation cannot lose anything.
+static func whole_units(quantity_milli: int) -> int:
+	@warning_ignore("integer_division")
+	return quantity_milli / SCALE
 
 
 ## The item the layer suggests: the one the layer table names, or failing that the first in the book
@@ -708,7 +717,7 @@ static func from_dict(data: Dictionary) -> Takeoff:
 ## (see `LAYER_MEASURES`). An entity on an **area** layer that has no area - a line of wall, a kerb, an
 ## edging run - contributes its **length** instead of nothing, because a wall is real work; the two
 ## never mix in one line, since the line is keyed by layer *and* measure.
-static func _measure(entity: DraftEntity, wanted: StringName, metric: bool) -> Dictionary:
+static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool) -> Dictionary:
 	if entity == null:
 		return {}
 	if wanted == WorkUnitScript.COUNT:
@@ -723,14 +732,14 @@ static func _measure(entity: DraftEntity, wanted: StringName, metric: bool) -> D
 	if wanted == WorkUnitScript.AREA and area > 0.0:
 		return {
 			"measure": WorkUnitScript.AREA,
-			"unit": unit_for(WorkUnitScript.AREA, metric),
+			"unit": unit_for(WorkUnitScript.AREA, in_metric),
 			"quantity_milli": int(round(area * float(SCALE))),
 			"value": area,
 		}
 	if length > 0.0:
 		return {
 			"measure": WorkUnitScript.LINEAR,
-			"unit": unit_for(WorkUnitScript.LINEAR, metric),
+			"unit": unit_for(WorkUnitScript.LINEAR, in_metric),
 			"quantity_milli": int(round(length * float(SCALE))),
 			"value": length,
 		}

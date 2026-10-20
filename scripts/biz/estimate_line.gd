@@ -89,7 +89,7 @@ func _init(line_id: String = "") -> void:
 ## The ordinary way to make one, from a cost item and a quantity.
 static func make(
 	item: CostItem,
-	quantity_milli: int,
+	units_milli: int,
 	line_unit: StringName = &"",
 	price: Money = null,
 	line_id: String = ""
@@ -97,7 +97,7 @@ static func make(
 	var line: EstimateLine = (load("res://scripts/biz/estimate_line.gd") as GDScript).new(line_id)
 	line.cost_item = item.id
 	line.description = item.name
-	line.quantity_milli = quantity_milli
+	line.quantity_milli = units_milli
 	line.unit = item.unit if line_unit.is_empty() else line_unit
 	line.cost_code = item.cost_code
 	line.kind = item.kind
@@ -285,8 +285,8 @@ static func from_dict(data: Dictionary) -> EstimateLine:
 		else MoneyScript.invalid()
 	line.waste_ppm = int(data.get("waste_ppm", 0))
 	line.tax_code = StringName(data.get("tax_code", ""))
-	var lineage: Variant = data.get("takeoff", {})
-	line.takeoff = (lineage as Dictionary).duplicate(true) if lineage is Dictionary else {}
+	var recorded: Variant = data.get("takeoff", {})
+	line.takeoff = (recorded as Dictionary).duplicate(true) if recorded is Dictionary else {}
 	line.book_version = int(data.get("book_version", 1))
 	line.note = String(data.get("note", ""))
 	return line

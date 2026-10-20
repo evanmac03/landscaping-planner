@@ -436,11 +436,11 @@ func _on_write_proposal() -> void:
 
 
 func _on_send() -> void:
-	var name: String = _recipient.text.strip_edges()
-	if name.is_empty():
+	var who: String = _recipient.text.strip_edges()
+	if who.is_empty():
 		_set_status("A proposal needs somebody to go to: put the customer's name in the box, then send it.")
 		return
-	var result: Dictionary = desk.send(name)
+	var result: Dictionary = desk.send(who)
 	if not bool(result["ok"]):
 		_set_status("It was not sent: %s." % String(result["reason"]))
 		refresh()
@@ -448,7 +448,7 @@ func _on_send() -> void:
 	refresh()
 	_set_status(
 		"sent to %s: the prices are held by the hash %s, and an edit now will not change what "
-		% [name, String(result["hash"]).substr(0, 12)]
+		% [who, String(result["hash"]).substr(0, 12)]
 		+ "went out."
 	)
 	estimate_changed.emit()
@@ -536,9 +536,9 @@ func tab_titles() -> Array[String]:
 	return out
 
 
-func select_tab(title: String) -> bool:
+func select_tab(tab_title: String) -> bool:
 	for index in _tabs.get_tab_count():
-		if _tabs.get_tab_title(index) == title:
+		if _tabs.get_tab_title(index) == tab_title:
 			_tabs.current_tab = index
 			return true
 	return false
@@ -574,9 +574,9 @@ func recipient_text() -> String:
 	return _recipient.text if _recipient != null else ""
 
 
-func set_recipient(name: String) -> void:
+func set_recipient(who: String) -> void:
 	if _recipient != null:
-		_recipient.text = name
+		_recipient.text = who
 
 
 func send_it() -> void:

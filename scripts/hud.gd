@@ -467,7 +467,7 @@ func _build_palette() -> void:
 	var plot_row := HBoxContainer.new()
 	plot_row.name = "SheetRow"
 	palette_column.add_child(plot_row)
-	_command_button(plot_row, &"draft_plot", "Plot a sheet", _draft.plot)
+	_command_button(plot_row, &"draft_plot", "Plot a sheet", _plot_sheet)
 	# Next to plotting, because it is the other way the drawing leaves the application:
 	# the sheet is the drawing, the painted plan is the drawing coloured.
 	_command_button(plot_row, &"vis_painted", "Painted plan", open_painted)
@@ -1685,9 +1685,18 @@ func _on_menu_item_pressed(id: int, popup: PopupMenu) -> void:
 # --- what each entry does -------------------------------------------------------------
 
 
-func _menu_plot(_entry: Dictionary) -> void:
+## Plot the sheet, the way the palette button and the menu both mean it: with the yard's planting
+## list on it, because the planting schedule is what a planting plan is plotted for, and a plan
+## whose list has to be typed out again by hand is the job this app exists to remove.
+##
+## One door for both, so the button and the menu cannot plot two different sheets.
+func _plot_sheet() -> void:
 	if _draft != null:
-		_draft.plot()
+		_draft.plot(_planting_rows())
+
+
+func _menu_plot(_entry: Dictionary) -> void:
+	_plot_sheet()
 
 
 func _menu_quit(_entry: Dictionary) -> void:

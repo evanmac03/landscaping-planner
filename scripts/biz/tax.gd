@@ -101,10 +101,10 @@ static func describe(id: StringName) -> String:
 ## The nominal rate in parts per million, for a column header or a report. For a compounding code
 ## this is the sum of the components rather than the effective rate, which is what `gross` computes.
 static func rate_ppm(id: StringName) -> int:
-	var total: int = 0
+	var summed_ppm: int = 0
 	for component: Dictionary in components(id):
-		total += int(component.get("rate_ppm", 0))
-	return total
+		summed_ppm += int(component.get("rate_ppm", 0))
+	return summed_ppm
 
 
 ## Charge tax on an amount.

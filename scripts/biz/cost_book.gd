@@ -62,18 +62,18 @@ static func make(book_version: int, effective: String, code: StringName = &"CAD"
 
 ## Add an item. A duplicate id is refused rather than replaced: changing what a price *is* is a new
 ## version of the book, and a silent replace is how a catalogue loses a price nobody meant to lose.
-func add_item(item: CostItem) -> bool:
-	if item == null or not item.is_valid() or items.has(item.id):
+func add_item(new_item: CostItem) -> bool:
+	if new_item == null or not new_item.is_valid() or items.has(new_item.id):
 		return false
-	items[item.id] = item
+	items[new_item.id] = new_item
 	return true
 
 
 ## Add or replace, for an importer that has already decided this is the item's new price.
-func put_item(item: CostItem) -> bool:
-	if item == null or not item.is_valid():
+func put_item(new_item: CostItem) -> bool:
+	if new_item == null or not new_item.is_valid():
 		return false
-	items[item.id] = item
+	items[new_item.id] = new_item
 	return true
 
 
@@ -110,17 +110,17 @@ static func _by_name(first: StringName, second: StringName) -> bool:
 # --- kits -------------------------------------------------------------------------------
 
 
-func add_kit(kit: CostKit) -> bool:
-	if kit == null or not kit.is_valid() or kits.has(kit.id):
+func add_kit(new_kit: CostKit) -> bool:
+	if new_kit == null or not new_kit.is_valid() or kits.has(new_kit.id):
 		return false
-	kits[kit.id] = kit
+	kits[new_kit.id] = new_kit
 	return true
 
 
-func put_kit(kit: CostKit) -> bool:
-	if kit == null or not kit.is_valid():
+func put_kit(new_kit: CostKit) -> bool:
+	if new_kit == null or not new_kit.is_valid():
 		return false
-	kits[kit.id] = kit
+	kits[new_kit.id] = new_kit
 	return true
 
 
@@ -202,15 +202,15 @@ func _expand_into(
 		return "cost kit %s was asked for a quantity of %d, which is not a quantity" % [
 			kit_id, made_milli
 		]
-	var kit: CostKit = self.kit(kit_id)
-	if kit == null:
+	var recipe: CostKit = self.kit(kit_id)
+	if recipe == null:
 		return "there is no cost kit %s in this book%s" % [kit_id, _named_by_text(named_by)]
 	chain.append(kit_id)
-	for index in kit.lines.size():
-		var line: Dictionary = kit.line_at(index)
+	for index in recipe.lines.size():
+		var line: Dictionary = recipe.line_at(index)
 		var line_id: StringName = line["item_id"]
 		var quantity: int = KitScript.scaled_quantity(
-			int(line["quantity_milli"]), made_milli, kit.yield_milli
+			int(line["quantity_milli"]), made_milli, recipe.yield_milli
 		)
 		if quantity <= 0:
 			# A ratio so small that a recipe line rounds away: not an error, but it must not be
@@ -222,19 +222,19 @@ func _expand_into(
 			if not reason.is_empty():
 				return reason
 			continue
-		var item: CostItem = self.item(line_id)
-		if item == null:
+		var resolved: CostItem = self.item(line_id)
+		if resolved == null:
 			return "cost kit %s names %s, which is not an item or a kit in this book" % [
 				kit_id, line_id
 			]
 		out.append({
-			"item_id": item.id,
+			"item_id": resolved.id,
 			"quantity_milli": quantity,
-			"unit": item.unit,
-			"kind": item.kind,
-			"cost_code": item.cost_code,
-			"tax_code": item.tax_code,
-			"note": String(line["note"]) if not String(line["note"]).is_empty() else item.note,
+			"unit": resolved.unit,
+			"kind": resolved.kind,
+			"cost_code": resolved.cost_code,
+			"tax_code": resolved.tax_code,
+			"note": String(line["note"]) if not String(line["note"]).is_empty() else resolved.note,
 		})
 	chain.pop_back()
 	return ""
@@ -268,20 +268,20 @@ func problems() -> Array[String]:
 	if effective_from.is_empty():
 		out.append("the book has no effective date")
 	for id: StringName in item_ids():
-		var item: CostItem = self.item(id)
-		var problem: String = item.problem()
+		var found_item: CostItem = self.item(id)
+		var problem: String = found_item.problem()
 		if not problem.is_empty():
 			out.append(problem)
 			continue
-		if item.rate.currency != currency:
+		if found_item.rate.currency != currency:
 			out.append("cost item %s is priced in %s, and the book is in %s" % [
-				id, item.rate.currency, currency
+				id, found_item.rate.currency, currency
 			])
-		if not item.tax_code.is_empty() and not has_tax_code(item.tax_code):
-			out.append("cost item %s names tax code %s, which is not a code" % [id, item.tax_code])
+		if not found_item.tax_code.is_empty() and not has_tax_code(found_item.tax_code):
+			out.append("cost item %s names tax code %s, which is not a code" % [id, found_item.tax_code])
 	for id: StringName in kit_ids():
-		var kit: CostKit = self.kit(id)
-		var problem: String = kit.problem()
+		var found_kit: CostKit = self.kit(id)
+		var problem: String = found_kit.problem()
 		if not problem.is_empty():
 			out.append(problem)
 			continue
@@ -330,12 +330,12 @@ func bump_version(effective: String) -> CostBook:
 func to_dict() -> Dictionary:
 	var out_items: Dictionary = {}
 	for key: Variant in items.keys():
-		var item: CostItem = items[key]
-		out_items[String(item.id)] = item.to_dict()
+		var stored_item: CostItem = items[key]
+		out_items[String(stored_item.id)] = stored_item.to_dict()
 	var out_kits: Dictionary = {}
 	for key: Variant in kits.keys():
-		var kit: CostKit = kits[key]
-		out_kits[String(kit.id)] = kit.to_dict()
+		var stored_kit: CostKit = kits[key]
+		out_kits[String(stored_kit.id)] = stored_kit.to_dict()
 	var out_taxes: Dictionary = {}
 	for key: Variant in tax_codes.keys():
 		var entry: Variant = tax_codes[key]
@@ -371,10 +371,10 @@ static func from_dict(data: Dictionary) -> CostBook:
 			if not (entry is Dictionary):
 				book.rejected.append("cost item %s is not an object" % key)
 				continue
-			var item: CostItem = ItemScript.from_dict(entry)
-			if not book.put_item(item):
+			var loaded_item: CostItem = ItemScript.from_dict(entry)
+			if not book.put_item(loaded_item):
 				book.rejected.append("cost item %s was in the book but is not usable: %s" % [
-					key, item.problem()
+					key, loaded_item.problem()
 				])
 	var raw_kits: Variant = data.get("kits", {})
 	if raw_kits is Dictionary:
@@ -383,10 +383,10 @@ static func from_dict(data: Dictionary) -> CostBook:
 			if not (entry is Dictionary):
 				book.rejected.append("cost kit %s is not an object" % key)
 				continue
-			var kit: CostKit = KitScript.from_dict(entry)
-			if not book.add_kit(kit):
+			var loaded_kit: CostKit = KitScript.from_dict(entry)
+			if not book.add_kit(loaded_kit):
 				book.rejected.append("cost kit %s was in the book but is not usable: %s" % [
-					key, kit.problem()
+					key, loaded_kit.problem()
 				])
 	var raw_taxes: Variant = data.get("tax_codes", {})
 	if raw_taxes is Dictionary:

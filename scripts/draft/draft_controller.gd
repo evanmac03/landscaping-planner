@@ -340,7 +340,12 @@ func cycle_dimension_style() -> StringName:
 ## Plot the drawing to a PDF sheet at its exact scale. Returns the absolute path,
 ## or an empty string when there was nothing to plot or the file could not be
 ## written.
-func plot() -> String:
+##
+## `schedule` is the planting list the sheet carries, in the rows `PlantPlacement.schedule()`
+## returns. It is handed in rather than read off here, because the drafting controller has no
+## yard and no catalogue: the planting schedule is the one part of a sheet that comes from the
+## garden rather than from the drawing, and it is passed the way the pen table is.
+func plot(schedule: Array = []) -> String:
 	if document.count() == 0:
 		last_message = "nothing to plot"
 		_refresh_canvas()
@@ -352,6 +357,7 @@ func plot() -> String:
 		"project": project_name,
 		"drawing": drawing_title,
 		"legend": show_legend,
+		"schedule": schedule,
 	}
 	var bytes: PackedByteArray = SheetExporterScript.export_pdf(document, options)
 	# A timestamped name, so plotting twice does not silently replace the first

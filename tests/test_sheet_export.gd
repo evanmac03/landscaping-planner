@@ -128,7 +128,9 @@ func _title_block(plan: Dictionary) -> Rect2:
 	var size := Vector2(
 		Exporter.TITLE_BLOCK_WIDTH_MM, Exporter.TITLE_BLOCK_HEIGHT_MM
 	) * Exporter.POINTS_PER_MM
-	return Rect2(area.end - size, size)
+	# The block lies along the foot of the sheet in its bottom-right corner. Paper y
+	# runs up the page, so the foot is the smaller y.
+	return Rect2(Vector2(area.end.x - size.x, area.position.y), size)
 
 
 func test_the_title_block_lands_in_the_corner_of_the_border() -> void:
@@ -137,15 +139,102 @@ func test_the_title_block_lands_in_the_corner_of_the_border() -> void:
 	var block := _title_block(plan)
 	var area: Rect2 = plan["printable_pt"]
 	# Flush into the corner, so it reads as part of the border rather than as
-	# something floating inside the drawing.
+	# something floating inside the drawing. The corner is the bottom-right one:
+	# the larger x and the smaller y, because paper y runs up the page.
 	assert(block.end.x == area.end.x)
-	assert(block.end.y == area.end.y)
+	assert(block.position.y == area.position.y)
+	assert(block.position.x > area.get_center().x)
+	assert(block.end.y < area.get_center().y)
 	var found := false
 	for rect in _rectangles(text):
 		if rect.position.distance_to(block.position) < 0.01 \
 				and rect.size.distance_to(block.size) < 0.01:
 			found = true
 	assert(found)
+
+
+## Every string the plot draws, with the baseline it was drawn at and the size it
+## was drawn at. A test that only asks whether a caption is somewhere in the file
+## cannot tell a sheet that reads from a sheet that has every word in the wrong
+## place, so the furniture tests below ask where.
+func _drawn_text(text: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for line in text.split("\n"):
+		var drawn := line.strip_edges()
+		if not drawn.begins_with("BT /F1 ") or not drawn.ends_with(") Tj ET"):
+			continue
+		var open_paren := drawn.find("(")
+		if open_paren < 0:
+			continue
+		var head := drawn.substr(0, open_paren).strip_edges().split(" ", false)
+		# BT /F1 <size> Tf <x> <y> Td (
+		if head.size() != 7:
+			continue
+		out.append({
+			"text": drawn.substr(open_paren + 1, drawn.length() - 7 - open_paren - 1),
+			"at": Vector2(float(head[4]), float(head[5])),
+			"size": float(head[2]),
+		})
+	return out
+
+
+## Which band of a table a baseline falls in, or -1 for none of them.
+func _band_of(y: float, bands: Array[Vector2]) -> int:
+	for index in bands.size():
+		if y > bands[index].x - 0.01 and y <= bands[index].y + 0.01:
+			return index
+	return -1
+
+
+## The title block reads top to bottom: the project, the drawing, the numbering, and
+## the foot. Each field's caption and its value belong to the same band and the bands
+## are not shared, which is what catches a field drawn into the wrong row - the
+## mistake that quietly left the drawing's own row empty and put DRAWING in the
+## numbering row beside SCALE.
+func test_the_title_block_reads_one_row_at_a_time() -> void:
+	var options := {"sheet": "A3", "project": "Riverbend", "drawing": "Planting Plan"}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var block := _title_block(plan)
+	var row := Exporter.TITLE_BLOCK_ROW_MM * Exporter.POINTS_PER_MM
+	var foot := block.end.y - row * 3.0
+	var bands: Array[Vector2] = [
+		Vector2(foot + row * 2.0, block.end.y),
+		Vector2(foot + row, foot + row * 2.0),
+		Vector2(foot, foot + row),
+		Vector2(block.position.y, foot),
+	]
+
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	var where := {}
+	for entry: Dictionary in _drawn_text(text):
+		var at: Vector2 = entry["at"]
+		if at.x < block.position.x - 0.01 or at.x > block.end.x + 0.01:
+			continue
+		var band := _band_of(at.y, bands)
+		if band >= 0:
+			where[String(entry["text"])] = band
+
+	assert(where.get("PROJECT", -1) == 0)
+	assert(where.get("Riverbend", -1) == 0)
+	assert(where.get("DRAWING", -1) == 1)
+	assert(where.get("Planting Plan", -1) == 1)
+	for numbered in ["SCALE", "SHEET", "DATE", "REV"]:
+		assert(where.get(numbered, -1) == 2)
+	# The foot carries the scale bar and the north point, and nothing else.
+	assert(where.get("N", -1) == 3)
+	var bars := 0
+	for rect in _rectangles(text):
+		if rect.size.x >= block.size.x - 1.0 or rect.size.x <= 0.0:
+			# The block's own outline spans all four rows, so it is not a row's.
+			continue
+		if rect.position.x < block.position.x - 0.01 or rect.end.x > block.end.x + 0.01:
+			continue
+		if rect.position.y < block.position.y - 0.01 or rect.end.y > block.end.y + 0.01:
+			continue
+		assert(_band_of(rect.position.y, bands) == 3)
+		bars += 1
+	# Two filled divisions and the bar drawn round them.
+	assert(bars == 3)
 
 
 func test_every_title_block_field_reaches_the_sheet() -> void:
@@ -186,7 +275,7 @@ func test_the_choice_of_scale_respects_the_title_block() -> void:
 
 
 ## A caller can override the scale. If the drawing then does not fit, it is set
-## against the top of the content area so what it overruns is clear paper rather
+## against the foot of the content area so what it overruns is clear paper rather
 ## than the title block.
 func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
 	var document = Document.new()
@@ -195,12 +284,13 @@ func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
 	var content: Rect2 = plan["content_pt"]
 	var drawn: Vector2 = plan["drawing_pt"]
 	assert(drawn.y > content.size.y)
-	# Set against the bottom of the area, so what it overruns is clear paper above
+	# Set against the foot of the area, so what it overruns is clear paper above
 	# and never the title block below. The placement is the drawing's centre, so its
-	# bottom edge is half a height below it.
+	# foot is half a height below it - and paper y runs up the page, so "below" is
+	# the smaller y.
 	var centre: Vector2 = plan["origin_pt"]
-	assert(absf(centre.y + drawn.y * 0.5 - content.end.y) < 0.01)
-	assert(_title_block(plan).position.y > centre.y + drawn.y * 0.5)
+	assert(absf(centre.y - drawn.y * 0.5 - content.position.y) < 0.01)
+	assert(_title_block(plan).end.y < centre.y - drawn.y * 0.5)
 
 
 func test_a_borderless_plot_has_no_title_block() -> void:
@@ -217,7 +307,11 @@ func test_the_drawing_is_centred_clear_of_the_title_block() -> void:
 	var area: Rect2 = plan["printable_pt"]
 	var content: Rect2 = plan["content_pt"]
 	assert(content.size.y < area.size.y)
-	assert(content.position.y == area.position.y)
+	# The block's strip comes off the foot of the sheet and leaves the top of the
+	# border where it was: paper y runs up the page, so the content's foot is the
+	# larger y and the strip is charged there.
+	assert(content.position.y > area.position.y)
+	assert(content.end.y == area.end.y)
 
 	var extent: Rect2 = plan["extent"]
 	var centre := (
@@ -225,7 +319,7 @@ func test_the_drawing_is_centred_clear_of_the_title_block() -> void:
 		+ Exporter.model_to_paper(extent.end, plan)
 	) * 0.5
 	assert(centre.distance_to(content.get_center()) < 0.01)
-	assert(_title_block(plan).position.y > content.end.y)
+	assert(_title_block(plan).end.y < content.position.y)
 
 
 func test_the_north_point_carries_its_letter() -> void:
@@ -241,6 +335,7 @@ func test_the_scale_bar_is_drawn_at_its_true_length() -> void:
 	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
 	var strip := (
 		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
+		- Exporter.SCALE_BAR_INSET_MM * 2.0
 	) * Exporter.POINTS_PER_MM
 	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, false)
 	var bar := float(choice["metres"]) * float(plan["pt_per_metre"])
@@ -272,6 +367,7 @@ func test_the_scale_bar_switches_to_feet() -> void:
 		.get_string_from_utf8()
 	var strip := (
 		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
+		- Exporter.SCALE_BAR_INSET_MM * 2.0
 	) * Exporter.POINTS_PER_MM
 	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, true)
 	var step := float(choice["metres"]) * float(plan["pt_per_metre"]) \
@@ -420,10 +516,13 @@ func test_the_key_draws_its_sample_in_the_layer_pen() -> void:
 
 	var rect: Rect2 = plan["legend_pt"]
 	var row := Exporter.LEGEND_ROW_MM * Exporter.POINTS_PER_MM
-	var sample_y := (
-		rect.position.y + Exporter.LEGEND_HEADER_MM * Exporter.POINTS_PER_MM
-		+ row - Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM * 0.5
-	) - row * 0.35
+	# The key is read downwards from its top edge, so the first row's sample sits a
+	# row below the rule under the title.
+	var header := rect.end.y - Exporter.LEGEND_HEADER_MM * Exporter.POINTS_PER_MM
+	var baseline := (
+		header - row + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM * 0.5
+	)
+	var sample_y := baseline + row * 0.35
 	assert(text.contains("%s %s m" % [
 		String.num(rect.position.x + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM, 4),
 		String.num(sample_y, 4),
@@ -452,15 +551,18 @@ func test_the_key_can_be_retitled() -> void:
 	assert(text.contains("(LEGEND) Tj"))
 
 
-## The key sits in the corner of the border and grows downwards only, so it can
-## never reach the title block however many layers the drawing uses.
+## The key sits in the top-left corner of the border and grows downwards only, so
+## it can never reach the title block however many layers the drawing uses.
 func test_the_key_stays_in_its_corner() -> void:
 	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "legend": true})
 	var area: Rect2 = plan["printable_pt"]
 	var rect: Rect2 = plan["legend_pt"]
-	assert(rect.position == area.position)
+	# Paper y runs up the page, so the top-left corner is the smaller x and the
+	# larger y, and "grows downwards" means the key's own foot is its smaller y.
+	assert(rect.position.x == area.position.x)
+	assert(rect.end.y == area.end.y)
 	assert(rect.end.x < area.end.x)
-	assert(rect.end.y < _title_block(plan).position.y)
+	assert(rect.position.y > _title_block(plan).end.y)
 
 
 ## The key claims a column, so the drawing is centred in what is left and the
@@ -926,3 +1028,172 @@ func test_the_title_reaches_the_sheet() -> void:
 		_document(), {"title": "Backyard Design"}
 	).get_string_from_utf8()
 	assert(text.contains("Backyard Design"))
+
+
+# --- the planting schedule ----------------------------------------------------------
+
+
+## The rows `PlantPlacement.schedule()` hands a sheet: two species and, last, the line that counts
+## the standing plants the catalogue cannot name.
+func _schedule() -> Array:
+	return [
+		{
+			"id": &"buxus-sempervirens", "count": 12,
+			"botanical_name": "Buxus sempervirens", "common_name": "Common boxwood",
+			"cultivar": "", "category_name": "Shrub", "spread_cm": 90, "height_cm": 120,
+		},
+		{
+			"id": &"acer-rubrum-autumn-blaze", "count": 3,
+			"botanical_name": "Acer rubrum", "common_name": "Red maple",
+			"cultivar": "Autumn Blaze", "category_name": "Tree", "spread_cm": 900,
+			"height_cm": 1500,
+		},
+		{
+			"id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "",
+			"cultivar": "", "category_name": "", "spread_cm": 0, "height_cm": 0,
+		},
+	]
+
+
+func _many_species(count: int) -> Array:
+	var rows: Array = []
+	for index in count:
+		rows.append({
+			"id": StringName("species-%03d" % index), "count": index + 1,
+			"botanical_name": "Botanica %03d" % index, "common_name": "Common %03d" % index,
+			"cultivar": "",
+		})
+	return rows
+
+
+func test_the_schedule_lists_the_plants_and_how_many_of_each() -> void:
+	var options := {"sheet": "A3", "schedule": _schedule()}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	assert(text.contains("(PLANTING SCHEDULE) Tj"))
+	# The count in a column of its own and the name in the library's own words.
+	assert(text.contains("(12) Tj"))
+	assert(text.contains("(Buxus sempervirens - Common boxwood) Tj"))
+	assert(text.contains("(3) Tj"))
+	assert(text.contains("(Acer rubrum 'Autumn Blaze' - Red maple) Tj"))
+	assert((plan["schedule"] as Array).size() == 3)
+
+
+## The one line a planting schedule must not hide: the standing plants the catalogue cannot name.
+func test_a_plant_the_catalogue_cannot_name_is_named_rather_than_dropped() -> void:
+	var options := {"sheet": "A3", "schedule": _schedule()}
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	assert(text.contains("(no species recorded) Tj"))
+	assert(text.contains("(30) Tj"))
+
+
+func test_without_a_schedule_the_sheet_has_none() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	assert(not text.contains("PLANTING SCHEDULE"))
+	assert((plan["schedule_pt"] as Rect2).size == Vector2.ZERO)
+	assert((plan["schedule"] as Array).is_empty())
+
+
+func test_a_schedule_needs_the_border_it_sits_in() -> void:
+	var options := {"show_border": false, "schedule": _schedule()}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	assert((plan["schedule_pt"] as Rect2).size == Vector2.ZERO)
+	assert(not text.contains("PLANTING SCHEDULE"))
+
+
+## The schedule mirrors the key: against the right edge of the border, hanging from the top edge and
+## growing downwards only, so it can never reach the title block however long the planting list is.
+func test_the_schedule_sits_against_the_right_edge_out_of_the_title_block() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "schedule": _schedule()})
+	var area: Rect2 = plan["printable_pt"]
+	var rect: Rect2 = plan["schedule_pt"]
+	assert(is_equal_approx(rect.end.x, area.end.x))
+	assert(is_equal_approx(rect.end.y, area.end.y))
+	assert(rect.position.x > area.position.x)
+	assert(rect.position.y > _title_block(plan).end.y)
+
+
+## Both columns are reserved as full-length bands, because the drawing is placed by its centre and
+## a centre that ignored them would put the drawing under them.
+func test_the_schedule_and_the_key_claim_a_column_each() -> void:
+	var document = _document()
+	var bare: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["content_pt"]
+	var keyed: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3", "legend": true})["content_pt"]
+	var scheduled: Rect2 = Exporter.plan_sheet(
+		document, {"sheet": "A3", "schedule": _schedule()}
+	)["content_pt"]
+	var both := Exporter.plan_sheet(
+		document, {"sheet": "A3", "legend": true, "schedule": _schedule()}
+	)
+	assert(scheduled.size.x < bare.size.x)
+	assert((both["content_pt"] as Rect2).size.x < keyed.size.x)
+	assert((both["content_pt"] as Rect2).size.x < scheduled.size.x)
+	assert(is_equal_approx((both["content_pt"] as Rect2).size.y, bare.size.y))
+	assert(float(both["drawing_pt"].x) <= (both["content_pt"] as Rect2).size.x + 0.01)
+
+
+## The law of the column: what fits is listed, the lines that are not a species are kept whatever
+## else is cut, and what was left out is counted rather than silently dropped.
+func test_a_schedule_too_long_for_the_sheet_is_cut_and_says_how_much() -> void:
+	var rows := _many_species(200)
+	rows.append({
+		"id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "",
+	})
+	var fitted := Exporter.fit_schedule(rows, 100.0)
+	assert(fitted.size() < rows.size(), "the column cuts the list")
+	# room = floor((100 - 8 - 2) / 4.6) = 19; one line is the unnamed plants and one says what the
+	# cutting left out, so 17 species are listed.
+	assert(fitted.size() == 19, "19 lines fit: %d" % fitted.size())
+	var last: Dictionary = fitted[fitted.size() - 1]
+	assert(String(last["botanical_name"]) == "no species recorded", "the unnamed plants are still there")
+	var notice: Dictionary = fitted[fitted.size() - 2]
+	assert(String(notice["name"]) == "183 species not shown", String(notice.get("name", "")))
+	for row: Dictionary in fitted:
+		assert(
+			not StringName(row.get("id", &"")).is_empty() or String(row.get("name", "")).contains("not shown") \
+				or String(row["botanical_name"]) == "no species recorded",
+			"the lines that are not a species are the only ones without an id"
+		)
+
+
+func test_a_schedule_that_fits_is_left_alone() -> void:
+	var rows := _schedule()
+	assert(Exporter.fit_schedule(rows, 200.0) == rows)
+	assert(
+		Exporter.fit_schedule(rows, 1.0).is_empty(),
+		"a column with no room for a table gets no table"
+	)
+
+
+func test_a_name_too_long_for_the_column_is_shortened_rather_than_run_on() -> void:
+	var rows: Array = [{
+		"id": &"long-name", "count": 1,
+		"botanical_name": "Chamaecyparis lawsoniana 'Columnaris Glauca Variegata Elegantissima'",
+		"common_name": "Lawson cypress under a name no column could carry", "cultivar": "",
+	}]
+	var text := Exporter.export_pdf(
+		_document(), {"sheet": "A3", "schedule": rows}
+	).get_string_from_utf8()
+	assert(text.contains("...) Tj"), "the name ends in dots")
+	assert(
+		not text.contains("no column could carry"),
+		"the whole name is not printed over the border"
+	)
+	assert(text.contains("(1) Tj"), "the count is still there")
+
+
+## The schedule names a plant the way the library does, so the sheet and the browser cannot
+## disagree about what a plant is called.
+func test_a_schedule_row_reads_the_way_the_library_writes_it() -> void:
+	assert(Exporter.schedule_row_text({
+		"botanical_name": "Acer rubrum", "cultivar": "Autumn Blaze", "common_name": "Red maple",
+	}) == "Acer rubrum 'Autumn Blaze' - Red maple")
+	assert(Exporter.schedule_row_text({
+		"botanical_name": "Thymus serpyllum", "cultivar": "", "common_name": "",
+	}) == "Thymus serpyllum")
+	assert(Exporter.schedule_row_text({
+		"botanical_name": "no species recorded", "cultivar": "", "common_name": "",
+	}) == "no species recorded")
+	assert(Exporter.schedule_row_text({"name": "183 species not shown"}) == "183 species not shown")

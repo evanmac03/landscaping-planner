@@ -227,6 +227,33 @@ landscape by default.
 decoration: it is the only way a recipient can detect that a PDF has been printed
 with "fit to page" and is therefore no longer at the stated scale.
 
+**REQ 3.2.4** The furniture MUST sit in its conventional corners. The sheet
+is laid out on **paper axes**, where y runs **up** the page exactly as it does
+in PDF, while the model's y runs south: the two are related by one flip, applied
+in one function rather than sprinkled through the emitters.
+
+| Piece | Corner | Grows |
+|---|---|---|
+| Layer key | top-left, flush to the border | downwards, a row per layer |
+| Planting schedule | top-right, flush to the border | downwards, a row per species |
+| Title block | bottom-right, flush to the border | four rows, read top to bottom |
+
+The title block's four rows are the **project**, the **drawing**, the
+**numbering** that identifies the sheet, and the **foot** carrying the graphic
+scale bar and the north arrow.
+
+**REQ 3.2.5** Every table on a sheet MUST be anchored at its own **top** edge
+and read downwards, and every title-block cell MUST set its caption **above**
+its value. Both are conventions rather than matters of taste: a title under its
+own rows reads from the bottom up, and a value above its caption reads as an
+unlabelled number. A test MUST place each caption and each value in its own row
+of the block, because a sheet can carry every right word and still read as
+broken.
+
+**REQ 3.2.6** The strip the title block claims MUST be charged to the **foot**
+of the sheet, so that a drawing too large for its frame is set against the foot
+of what is left and what it overruns is clear paper rather than the block.
+
 ### 3.3 Exact output
 
 **REQ 3.3.1** True-to-scale output MUST be **vector**, as PDF or SVG. A raster

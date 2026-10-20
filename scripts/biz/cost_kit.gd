@@ -71,10 +71,10 @@ func line_at(index: int) -> Dictionary:
 ##
 ## The rounding rule is `Money.rounded_div`, borrowed rather than restated: a quantity and an amount
 ## that rounded differently would be two rules to keep in step, and this module only has one.
-static func scaled_quantity(line_quantity_milli: int, made_milli: int, yield_milli: int) -> int:
-	if yield_milli <= 0 or made_milli <= 0:
+static func scaled_quantity(line_quantity_milli: int, made_milli: int, per_run_milli: int) -> int:
+	if per_run_milli <= 0 or made_milli <= 0:
 		return 0
-	return MoneyScript.rounded_div(line_quantity_milli * made_milli, yield_milli)
+	return MoneyScript.rounded_div(line_quantity_milli * made_milli, per_run_milli)
 
 
 func problem() -> String:

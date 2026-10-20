@@ -97,41 +97,41 @@ func _refusal() -> String:
 
 ## Add a line. Refuses when the estimate is frozen, when the line is not sound, and **fills in the
 ## estimate's own tax code** for a line that names none, so the common case needs no code on a line.
-func add_line(line: EstimateLine, book: CostBook = null) -> bool:
+func add_line(new_line: EstimateLine, book: CostBook = null) -> bool:
 	var refusal: String = _refusal()
 	if not refusal.is_empty():
 		return false
-	if line == null:
+	if new_line == null:
 		return false
 	# The estimate's own code fills in for a line that names none, **before** the line is checked:
 	# "the usual tax, overridable per line" is the estimate's promise (§4.9), and a line refused for
 	# having no code would make the promise unkeepable.
-	if line.tax_code.is_empty():
-		line.tax_code = tax_code
-	var reason: String = line.problem(exempt())
+	if new_line.tax_code.is_empty():
+		new_line.tax_code = tax_code
+	var reason: String = new_line.problem(exempt())
 	if not reason.is_empty():
 		return false
-	if not _tax_code_known(line.tax_code, book):
+	if not _tax_code_known(new_line.tax_code, book):
 		return false
 	# The book a line is added *from* is the book it was priced from, so the line records it (REQ-B6).
 	# Left alone when no book is passed, because a line can also be added from a figure somebody read
 	# off a supplier's quote, and claiming a version it never came from would be worse than saying
 	# nothing.
 	if book != null:
-		line.book_version = book.version
+		new_line.book_version = book.version
 		book_version = book.version
 		book_source = book.source
-	lines.append(line)
+	lines.append(new_line)
 	return true
 
 
-func put_line(line: EstimateLine, book: CostBook = null) -> bool:
-	var at: int = _index_of(line.id)
+func put_line(new_line: EstimateLine, book: CostBook = null) -> bool:
+	var at: int = _index_of(new_line.id)
 	if at < 0:
 		return false
-	if not add_line(line, book):
+	if not add_line(new_line, book):
 		return false
-	lines[at] = line
+	lines[at] = new_line
 	return true
 
 
@@ -180,10 +180,10 @@ func add_kit(book: CostBook, kit_id: StringName, made_milli: int = KitScript.DEF
 		var item: CostItem = book.item(row["item_id"])
 		if item == null:
 			continue
-		var line: EstimateLine = LineScript.make(item, int(row["quantity_milli"]))
-		if not add_line(line, book):
+		var made_line: EstimateLine = LineScript.make(item, int(row["quantity_milli"]))
+		if not add_line(made_line, book):
 			return {"ok": false, "reason": "line %s was refused" % item.id, "lines": added}
-		added.append(line)
+		added.append(made_line)
 	if added.is_empty():
 		return {"ok": false, "reason": "cost kit %s made nothing" % kit_id, "lines": []}
 	book_version = book.version
@@ -200,16 +200,16 @@ func exempt() -> bool:
 
 func direct_cost() -> Money:
 	var amounts: Array = []
-	for line: EstimateLine in lines:
-		amounts.append(line.cost())
+	for each: EstimateLine in lines:
+		amounts.append(each.cost())
 	return MoneyScript.sum(amounts, currency)
 
 
 ## The sum of the rounded line extensions - the number that prints (§5.2, AC-B6).
 func subtotal() -> Money:
 	var amounts: Array = []
-	for line: EstimateLine in lines:
-		amounts.append(line.extension())
+	for each: EstimateLine in lines:
+		amounts.append(each.extension())
 	return MoneyScript.sum(amounts, currency)
 
 
@@ -373,19 +373,19 @@ func problems(book: CostBook = null) -> Array[String]:
 	var out: Array[String] = []
 	if id.is_empty():
 		out.append("an estimate needs an id")
-	for line: EstimateLine in lines:
-		var reason: String = line.problem(exempt())
+	for each: EstimateLine in lines:
+		var reason: String = each.problem(exempt())
 		if not reason.is_empty():
 			out.append(reason)
 			continue
-		if not _tax_code_known(line.tax_code, book):
+		if not _tax_code_known(each.tax_code, book):
 			out.append("estimate line %s carries tax code \"%s\", which is not a code" % [
-				line.id, String(line.tax_code)
+				each.id, String(each.tax_code)
 			])
 			continue
-		if exempt() and TaxScript.rate_ppm(line.tax_code) != 0:
+		if exempt() and TaxScript.rate_ppm(each.tax_code) != 0:
 			out.append("estimate line %s is taxable (%s) and the customer is exempt" % [
-				line.id, String(line.tax_code)
+				each.id, String(each.tax_code)
 			])
 	if overhead_ppm < -LineScript.MAX_MARKUP_PPM or overhead_ppm > LineScript.MAX_MARKUP_PPM:
 		out.append("overhead of %d ppm is outside +/-500%%" % overhead_ppm)
@@ -409,8 +409,8 @@ func is_sound(book: CostBook = null) -> bool:
 ## force.
 func foots() -> bool:
 	var summed: int = 0
-	for line: EstimateLine in lines:
-		summed += line.extension().cents
+	for each: EstimateLine in lines:
+		summed += each.extension().cents
 	return summed == subtotal().cents
 
 
@@ -427,11 +427,11 @@ func content_signature() -> String:
 	parts.append("profit_ppm:%d" % profit_ppm)
 	parts.append("tax_code:%s" % String(tax_code))
 	parts.append("deposit_ppm:%d" % deposit_ppm)
-	for line: EstimateLine in lines:
+	for each: EstimateLine in lines:
 		parts.append("%s|%s|%s|%d|%s|%d|%s|%d|%d|%d" % [
-			line.id, line.cost_item, line.description, line.quantity_milli, String(line.unit),
-			line.kind, String(line.tax_code), line.unit_cost.cents, line.unit_price.cents,
-			line.waste_ppm,
+			each.id, each.cost_item, each.description, each.quantity_milli, String(each.unit),
+			each.kind, String(each.tax_code), each.unit_cost.cents, each.unit_price.cents,
+			each.waste_ppm,
 		])
 	return "\n".join(parts)
 
@@ -494,8 +494,8 @@ func copy() -> Estimate:
 
 func to_dict() -> Dictionary:
 	var rows: Array = []
-	for line: EstimateLine in lines:
-		rows.append(line.to_dict())
+	for each: EstimateLine in lines:
+		rows.append(each.to_dict())
 	return {
 		"id": id,
 		"number": number,
@@ -558,8 +558,8 @@ func describe(book: CostBook = null) -> String:
 	var client: String = String(customer.get("name", ""))
 	if not client.is_empty():
 		out.append("for %s" % client)
-	for line: EstimateLine in lines:
-		out.append("  %s" % line.line_text())
+	for each: EstimateLine in lines:
+		out.append("  %s" % each.line_text())
 	out.append("  %-40s %s" % ["subtotal", subtotal().format_with_currency()])
 	if overhead_ppm != 0:
 		out.append("  %-40s %s" % [

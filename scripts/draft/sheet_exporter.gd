@@ -14,6 +14,14 @@ extends RefCounted
 ## vertical axis is flipped as it is written. Getting that wrong produces a
 ## mirrored plan that still looks plausible, which is why it is one function with
 ## a test rather than arithmetic sprinkled through the emitter.
+##
+## Paper y runs up the page, the way PDF has it, and that holds for the furniture
+## as much as for the drawing: a box is placed by its own top edge and its rows
+## are drawn downwards from there, and the title block sits along the foot of the
+## sheet, which is its smaller y. The first version of this file laid the
+## furniture out the other way round and still produced a plausible-looking
+## sheet - a title block in the top corner, every caption under its value - which
+## is why the convention is stated here rather than left to be inferred.
 
 const PdfWriterScript := preload("res://scripts/draft/pdf_writer.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
@@ -52,6 +60,9 @@ const TITLE_BLOCK_CLEARANCE_MM := 3.0
 const NORTH_CELL_MM := 22.0
 const SCALE_BAR_DIVISIONS := 4
 const SCALE_BAR_HEIGHT_MM := 2.0
+## The scale bar is inset from the block's own edges, so the filled end of its first
+## division does not read as a thickening of the border.
+const SCALE_BAR_INSET_MM := 1.5
 
 ## Captions are grey so the authored values read as the content of the block.
 const CAPTION_COLOUR := Color(0.35, 0.35, 0.35)
@@ -66,6 +77,18 @@ const LEGEND_PAD_MM := 2.0
 const LEGEND_SAMPLE_MM := 11.0
 const LEGEND_TITLE_MM := 3.5
 const LEGEND_TEXT_GAP_MM := 2.0
+
+## The planting schedule: the third table a planting plan carries, against the right edge where
+## the key is against the left - the two read as one pair of columns around the drawing.
+##
+## Wider than the key because a species goes by two names at once, and a schedule that clipped
+## half of every name would be a schedule nobody could order from.
+const SCHEDULE_WIDTH_MM := 92.0
+const SCHEDULE_ROW_MM := 4.6
+const SCHEDULE_HEADER_MM := 8.0
+const SCHEDULE_PAD_MM := 2.0
+const SCHEDULE_TITLE_MM := 3.5
+const SCHEDULE_TEXT_GAP_MM := 2.0
 
 
 # --- layout -------------------------------------------------------------------------
@@ -88,7 +111,28 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	# The key takes a column and the title block a strip, so the drawing is
 	# centred in what is left rather than in the whole sheet: a drawing centred
 	# under a title block is a drawing with a title block on top of it.
-	var reserved := _reserved_mm(show_border, legend)
+	# The planting schedule is furniture of the key's kind: a table against an edge, only as tall
+	# as its rows. It takes the right edge and the key the left, and only as many of its rows as
+	# the column can hold are drawn - what is left out is counted in its own row, because a
+	# schedule that silently stops at the foot of the page is a schedule somebody orders from.
+	var block_mm: float = (TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM) if show_border else 0.0
+	var schedule: Array = []
+	if show_border:
+		schedule = fit_schedule(
+			options.get("schedule", []), drawing_area.size.y / POINTS_PER_MM - block_mm
+		)
+	var schedule_rect := Rect2()
+	if not schedule.is_empty():
+		var schedule_mm := _schedule_height_mm(schedule.size())
+		schedule_rect = Rect2(
+			Vector2(
+				drawing_area.end.x - SCHEDULE_WIDTH_MM * POINTS_PER_MM,
+				drawing_area.end.y - schedule_mm * POINTS_PER_MM
+			),
+			Vector2(SCHEDULE_WIDTH_MM, schedule_mm) * POINTS_PER_MM
+		)
+
+	var reserved := _reserved_mm(show_border, legend, not schedule.is_empty())
 	var content := _content_area(drawing_area, reserved) if show_border else drawing_area
 
 	var extent: Rect2 = _plot_extent(document)
@@ -125,11 +169,15 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	# corner nobody reads would be worse than not placing it at all. A drawing that
 	# overruns the border wants re-scaling, which is what the overflow flag is for;
 	# one that overruns its own title block is simply unreadable.
+	#
+	# The block lies along the foot of the sheet, so it is the foot the drawing is
+	# set clear of. Paper y runs up the page, so the foot of the frame is its
+	# smaller y and setting the drawing against it pushes the overflow upwards.
 	var origin := frame.get_center()
 	if footprint.x > frame.size.x:
 		origin.x = frame.position.x + footprint.x * 0.5
 	if footprint.y > frame.size.y:
-		origin.y = frame.end.y - footprint.y * 0.5
+		origin.y = frame.position.y + footprint.y * 0.5
 
 	# The key's frame, flush into the top-left corner of the border and only as
 	# tall as the rows it has to carry.
@@ -137,9 +185,13 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	if legend:
 		var rows := legend_rows(document, options.get("pen_table", null))
 		if not rows.is_empty():
+			var legend_mm := _legend_height_mm(rows.size())
 			legend_rect = Rect2(
-				drawing_area.position,
-				Vector2(LEGEND_WIDTH_MM, _legend_height_mm(rows.size())) * POINTS_PER_MM
+				Vector2(
+					drawing_area.position.x,
+					drawing_area.end.y - legend_mm * POINTS_PER_MM
+				),
+				Vector2(LEGEND_WIDTH_MM, legend_mm) * POINTS_PER_MM
 			)
 
 	return {
@@ -161,6 +213,8 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		"overflow": footprint.x > frame.size.x + 0.01 or footprint.y > frame.size.y + 0.01,
 		"legend": legend,
 		"legend_pt": legend_rect,
+		"schedule": schedule,
+		"schedule_pt": schedule_rect,
 		"empty": document.count() == 0,
 	}
 
@@ -169,6 +223,79 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 ## little air under the last of them.
 static func _legend_height_mm(rows: int) -> float:
 	return LEGEND_HEADER_MM + LEGEND_ROW_MM * float(maxi(rows, 0)) + LEGEND_PAD_MM
+
+
+## How tall the planting schedule is for a given number of rows: a title, the rows, and a little
+## air under the last of them, exactly as the key is measured.
+static func _schedule_height_mm(rows: int) -> float:
+	return SCHEDULE_HEADER_MM + SCHEDULE_ROW_MM * float(maxi(rows, 0)) + SCHEDULE_PAD_MM
+
+
+## One row of the planting schedule as it reads on the sheet: the name a nursery sends and the
+## name a designer says, in the order the library writes them - `Acer rubrum 'Autumn Blaze' -
+## Red maple` - so the schedule and the browser cannot name one plant two ways.
+##
+## A row that carries its own `name` is one of the two rows that are not a species: the count of
+## plants the catalogue cannot name, and the count of species the column had no room for.
+static func schedule_row_text(row: Dictionary) -> String:
+	if row.has("name"):
+		return String(row["name"])
+	var words := String(row.get("botanical_name", ""))
+	var cultivar := String(row.get("cultivar", ""))
+	if not cultivar.is_empty():
+		words = "%s '%s'" % [words, cultivar]
+	var common := String(row.get("common_name", ""))
+	if not common.is_empty():
+		words = "%s - %s" % [words, common]
+	return words
+
+
+## A text that fits a column, shortened with a trailing `...` when it does not. A name that ran
+## out of the box would print over the border or under the next table; a name that ends in dots
+## says the sheet is short of room, which is a thing to fix rather than a thing to hide.
+static func clipped_text(writer, text: String, size_points: float, room_points: float) -> String:
+	if room_points <= 0.0:
+		return ""
+	if writer.text_width(text, size_points) <= room_points:
+		return text
+	var clipped := text
+	while not clipped.is_empty() and writer.text_width(clipped + "...", size_points) > room_points:
+		clipped = clipped.substr(0, clipped.length() - 1)
+	return clipped + "..."
+
+
+## The rows of the planting schedule that the sheet has room for.
+##
+## A row with no species on it is not a species: it is the line that says how many standing plants
+## the catalogue cannot name, and it is the one line a planting schedule must not hide. It is kept
+## whatever else is cut, one line is spent on the row that names what the cutting left out, and a
+## sheet with room for neither gets no table rather than a table hanging off the border.
+static func fit_schedule(rows: Array, available_mm: float) -> Array:
+	var room := int(floor(
+		(available_mm - SCHEDULE_HEADER_MM - SCHEDULE_PAD_MM) / SCHEDULE_ROW_MM
+	))
+	if rows.size() <= room:
+		return rows
+	if room < 1:
+		return []
+	var unnamed: Array = []
+	var species: Array = []
+	for row: Dictionary in rows:
+		if StringName(row.get("id", &"")).is_empty():
+			unnamed.append(row)
+		else:
+			species.append(row)
+	# `room - unnamed.size() - 1`: the unnamed lines are kept, one line goes to saying what was
+	# left out, and what remains is how many species can be listed.
+	var listed := maxi(room - unnamed.size() - 1, 0)
+	var kept: Array = []
+	for index in mini(species.size(), listed):
+		kept.append(species[index])
+	var omitted := species.size() - kept.size()
+	if omitted > 0:
+		kept.append({"id": &"", "count": 0, "name": "%d species not shown" % omitted})
+	kept.append_array(unnamed)
+	return kept
 
 
 ## The extent of what will actually be plotted.
@@ -203,24 +330,30 @@ static func _plot_extent(document) -> Rect2:
 ## A sheet that picked a scale for the full printable area and then laid its
 ## furniture over the drawing would be inconsistent with itself, and the
 ## inconsistency would only show up on paper.
-static func _reserved_mm(show_border: bool, legend: bool) -> Vector2:
+static func _reserved_mm(show_border: bool, legend: bool, schedule: bool = false) -> Vector2:
 	if not show_border:
 		return Vector2.ZERO
-	return Vector2(
-		LEGEND_WIDTH_MM if legend else 0.0,
-		TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM
-	)
+	var columns := 0.0
+	if legend:
+		columns += LEGEND_WIDTH_MM
+	if schedule:
+		columns += SCHEDULE_WIDTH_MM
+	return Vector2(columns, TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM)
 
 
-## The area left for the drawing once the furniture has taken its column and its
-## strip. Both are reserved as full-length bands even though the legend is only
-## as tall as its rows and the block only reaches part way across, because a
+## The area left for the drawing once the furniture has taken its columns and its
+## strip. All three are reserved as full-length bands even though the legend is
+## only as tall as its rows and the block only reaches part way across, because a
 ## drawing is placed by its centre and a centre that ignored them would put the
 ## drawing under them.
+##
+## The columns come off the sides and the block's strip off the foot of the sheet,
+## which on paper - where y runs up the page - moves the content's own foot up
+## while its top stays where the border put it.
 static func _content_area(area: Rect2, reserved: Vector2) -> Rect2:
 	var claimed := reserved * POINTS_PER_MM
 	return Rect2(
-		area.position + Vector2(claimed.x, 0.0),
+		area.position + claimed,
 		Vector2(
 			maxf(area.size.x - claimed.x, area.size.x * 0.25),
 			maxf(area.size.y - claimed.y, area.size.y * 0.25)
@@ -292,6 +425,7 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 	# The furniture goes on last, so nothing a user drew can end up under it.
 	if bool(plan["show_border"]):
 		_emit_legend(writer, document, pen_table, plan, options)
+		_emit_schedule(writer, plan, options)
 		_emit_title_block(writer, plan, options)
 	return writer.build()
 
@@ -354,18 +488,21 @@ static func _emit_legend(
 	writer.stroke()
 
 	var pad := LEGEND_PAD_MM * POINTS_PER_MM
+	# The key is anchored at the top of its frame and read downwards: a title under
+	# its own rows is a title nobody reads, and paper y runs up the page.
+	var title_y := rect.end.y - pad - LEGEND_TITLE_MM * POINTS_PER_MM
 	writer.set_fill_colour(Color.BLACK)
 	writer.draw_text(
-		rect.position + Vector2(pad, pad + LEGEND_TITLE_MM * POINTS_PER_MM),
+		Vector2(rect.position.x + pad, title_y),
 		String(options.get("legend_title", "KEY")), LEGEND_TITLE_MM * POINTS_PER_MM
 	)
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
-	var header := rect.position.y + LEGEND_HEADER_MM * POINTS_PER_MM
+	var header := rect.end.y - LEGEND_HEADER_MM * POINTS_PER_MM
 	_rule(writer, Vector2(rect.position.x, header), Vector2(rect.end.x, header))
 
 	var size := CAPTION_TEXT_MM * POINTS_PER_MM
 	var row := LEGEND_ROW_MM * POINTS_PER_MM
-	var baseline := header + row - pad * 0.5
+	var baseline := header - row + pad * 0.5
 	for entry: Dictionary in rows:
 		var style: LineStyleScript = entry["style"]
 		writer.set_line_width_points(style.width_points())
@@ -373,7 +510,7 @@ static func _emit_legend(
 		writer.set_dash(_dash_points(style))
 		# The sample is drawn in the layer's own pen, weight and linetype: the
 		# whole point of a key is that its line looks like the drawing's.
-		var sample_y := baseline - row * 0.35
+		var sample_y := baseline + row * 0.35
 		writer.move_to(Vector2(rect.position.x + pad, sample_y))
 		writer.line_to(
 			Vector2(rect.position.x + pad + LEGEND_SAMPLE_MM * POINTS_PER_MM, sample_y)
@@ -393,7 +530,68 @@ static func _emit_legend(
 		writer.draw_text(
 			Vector2(rect.end.x - pad - writer.text_width(count, size), baseline), count, size
 		)
-		baseline += row
+		baseline -= row
+	writer.restore_state()
+
+
+# --- the planting schedule ----------------------------------------------------------
+
+
+## The planting schedule, drawn against the right edge: the count in a column of its own, then the
+## name. The count is on the right, as it is in the key, so a reader who has learnt one table has
+## learnt the other.
+##
+## The rows are handed in rather than read off the drawing, for the reason the key is keyed by
+## layer: a document knows its layers and does not know its species. `PlantPlacement.schedule()`
+## is where they come from and where the count of unnamed plants comes from too.
+static func _emit_schedule(writer, plan: Dictionary, options: Dictionary) -> void:
+	var rect: Rect2 = plan["schedule_pt"]
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var rows: Array = plan.get("schedule", [])
+	if rows.is_empty():
+		return
+
+	writer.save_state()
+	writer.set_line_width_points(BORDER_WEIGHT_MM * POINTS_PER_MM)
+	writer.set_stroke_colour(Color.BLACK)
+	writer.set_dash([])
+	writer.rectangle(rect)
+	writer.stroke()
+
+	var pad := SCHEDULE_PAD_MM * POINTS_PER_MM
+	# Read from the top down, as the key is.
+	var title_y := rect.end.y - pad - SCHEDULE_TITLE_MM * POINTS_PER_MM
+	writer.set_fill_colour(Color.BLACK)
+	writer.draw_text(
+		Vector2(rect.position.x + pad, title_y),
+		String(options.get("schedule_title", "PLANTING SCHEDULE")),
+		SCHEDULE_TITLE_MM * POINTS_PER_MM
+	)
+	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
+	var header := rect.end.y - SCHEDULE_HEADER_MM * POINTS_PER_MM
+	_rule(writer, Vector2(rect.position.x, header), Vector2(rect.end.x, header))
+
+	var size := CAPTION_TEXT_MM * POINTS_PER_MM
+	var row_height := SCHEDULE_ROW_MM * POINTS_PER_MM
+	var baseline := header - row_height + pad * 0.5
+	for row: Dictionary in rows:
+		var count := int(row.get("count", 0))
+		# A row of nothing is not a row: the two lines that are not a species carry their number
+		# inside their own words rather than in the column of plants.
+		var counted := "" if count <= 0 else "%d" % count
+		var count_room: float = writer.text_width(counted, size)
+		var name_room: float = rect.size.x - pad * 2.0 - count_room
+		if count > 0:
+			name_room -= SCHEDULE_TEXT_GAP_MM * POINTS_PER_MM
+		writer.set_fill_colour(Color.BLACK)
+		writer.draw_text(
+			Vector2(rect.position.x + pad, baseline),
+			clipped_text(writer, schedule_row_text(row), size, name_room), size
+		)
+		if not counted.is_empty():
+			writer.draw_text(Vector2(rect.end.x - pad - count_room, baseline), counted, size)
+		baseline -= row_height
 	writer.restore_state()
 
 
@@ -410,14 +608,15 @@ static func _emit_border(writer, plan: Dictionary) -> void:
 
 ## The title block: what the sheet is, what it shows and how to read it.
 ##
-## Four rows across the bottom-right corner. The first two carry the project and
-## the drawing, the third the numbering that identifies the sheet, and the last
-## the scale bar and the north point. None of it is authorable geometry, so it is
-## drawn at fixed paper sizes and reads identically on every sheet.
+## Four rows across the bottom-right corner, read from the top down. The first two
+## carry the project and the drawing, the third the numbering that identifies the
+## sheet, and the foot the scale bar and the north point. None of it is authorable
+## geometry, so it is drawn at fixed paper sizes and reads identically on every
+## sheet.
 static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> void:
 	var area: Rect2 = plan["printable_pt"]
 	var block := Rect2(
-		area.end - Vector2(TITLE_BLOCK_WIDTH_MM, TITLE_BLOCK_HEIGHT_MM) * POINTS_PER_MM,
+		Vector2(area.end.x - TITLE_BLOCK_WIDTH_MM * POINTS_PER_MM, area.position.y),
 		Vector2(TITLE_BLOCK_WIDTH_MM, TITLE_BLOCK_HEIGHT_MM) * POINTS_PER_MM
 	)
 
@@ -428,26 +627,29 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 	writer.rectangle(block)
 	writer.stroke()
 
-	# Row dividers. The first three rows are one height each; the last takes what
-	# is left, which is deeper because it holds the scale bar.
+	# Row dividers, measured down from the top of the block. The first three rows
+	# are one height each; the foot takes what is left, which is deeper because it
+	# holds the scale bar.
 	var row := TITLE_BLOCK_ROW_MM * POINTS_PER_MM
-	var numbering := block.end.y - (TITLE_BLOCK_HEIGHT_MM - TITLE_BLOCK_ROW_MM * 3.0) * POINTS_PER_MM
+	var numbering := block.end.y - row * 2.0
+	var foot := block.end.y - row * 3.0
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	for index in range(1, 4):
-		var y := block.position.y + row * float(index)
+		var y := block.end.y - row * float(index)
 		_rule(writer, Vector2(block.position.x, y), Vector2(block.end.x, y))
 
-	# The four numbering cells, and the north point's square at the end.
+	# The four numbering cells, and the north point's square at the end. They span
+	# the numbering row, not the whole block.
 	var edges: Array[float] = [0.42, 0.62, 0.82]
 	for fraction: float in edges:
 		var x := block.position.x + block.size.x * fraction
-		_rule(writer, Vector2(x, numbering), Vector2(x, block.end.y))
+		_rule(writer, Vector2(x, foot), Vector2(x, numbering))
 	var north_x := block.end.x - NORTH_CELL_MM * POINTS_PER_MM
-	_rule(writer, Vector2(north_x, numbering), Vector2(north_x, block.end.y))
+	_rule(writer, Vector2(north_x, foot), Vector2(north_x, numbering))
 
-	_field(writer, block.position, "PROJECT", _project_name(options), TITLE_TEXT_MM)
+	_field(writer, Vector2(block.position.x, block.end.y), "PROJECT", _project_name(options), TITLE_TEXT_MM)
 	_field(
-		writer, Vector2(block.position.x, block.position.y + row),
+		writer, Vector2(block.position.x, block.end.y - row),
 		"DRAWING", String(options.get("drawing", "")), TITLE_TEXT_MM
 	)
 
@@ -467,11 +669,20 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 
 	_emit_scale_bar(
 		writer, plan,
-		Rect2(Vector2(block.position.x, numbering), Vector2(north_x - block.position.x, block.end.y - numbering))
+		Rect2(
+			Vector2(
+				block.position.x + SCALE_BAR_INSET_MM * POINTS_PER_MM,
+				block.position.y
+			),
+			Vector2(
+				north_x - block.position.x - SCALE_BAR_INSET_MM * 2.0 * POINTS_PER_MM,
+				foot - block.position.y
+			)
+		)
 	)
 	_emit_north_arrow(
 		writer,
-		Rect2(Vector2(north_x, numbering), Vector2(block.end.x - north_x, block.end.y - numbering)),
+		Rect2(Vector2(north_x, block.position.y), Vector2(block.end.x - north_x, foot - block.position.y)),
 		north_direction(plan)
 	)
 	writer.restore_state()
@@ -487,16 +698,17 @@ static func _rule(writer, from: Vector2, to: Vector2) -> void:
 
 ## A caption above its value. The caption says what the value means, so it is the
 ## smaller and greyer of the two and the value is what the eye lands on.
+##
+## `at` is the top-left corner of the cell and both lines hang below it: paper y
+## runs up the page, so a caption "above" its value is the larger y.
 static func _field(writer, at: Vector2, caption: String, value: String, value_mm: float) -> void:
 	var inset := TITLE_CELL_INSET_MM * POINTS_PER_MM
+	var caption_y := at.y - (TITLE_CELL_INSET_MM + CAPTION_TEXT_MM) * POINTS_PER_MM
 	writer.set_fill_colour(CAPTION_COLOUR)
-	writer.draw_text(
-		at + Vector2(inset, (TITLE_CELL_INSET_MM + CAPTION_TEXT_MM) * POINTS_PER_MM),
-		caption, CAPTION_TEXT_MM * POINTS_PER_MM
-	)
+	writer.draw_text(Vector2(at.x + inset, caption_y), caption, CAPTION_TEXT_MM * POINTS_PER_MM)
 	writer.set_fill_colour(Color.BLACK)
 	writer.draw_text(
-		at + Vector2(inset, (TITLE_CELL_INSET_MM + CAPTION_TEXT_MM + value_mm) * POINTS_PER_MM),
+		Vector2(at.x + inset, caption_y - value_mm * POINTS_PER_MM),
 		value, value_mm * POINTS_PER_MM
 	)
 
@@ -513,7 +725,10 @@ static func _emit_scale_bar(writer, plan: Dictionary, strip: Rect2) -> void:
 	var step := bar / float(SCALE_BAR_DIVISIONS)
 	var height := SCALE_BAR_HEIGHT_MM * POINTS_PER_MM
 	var left := strip.position.x
-	var base := strip.position.y + strip.size.y * 0.62
+	# The bar rides low in its cell with the divisions numbered above it, which is
+	# how a scale bar is read off paper and which keeps the numbers clear of the
+	# heavy border along the foot of the sheet.
+	var base := strip.position.y + strip.size.y * 0.26
 
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	writer.set_dash([])
