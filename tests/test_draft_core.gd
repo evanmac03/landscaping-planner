@@ -356,6 +356,47 @@ func test_bulge_expands_into_an_arc_in_the_outline() -> void:
 	assert(polyline.outline().size() > 3)
 
 
+## A bulged segment has to be an arc that actually *reaches* the vertex the polyline
+## stated. The bulge fixes the sweep - tan(sweep/4) - and the centre then lies on the
+## perpendicular bisector at (chord/2) * cot(sweep/2), whose sign comes from the sweep.
+## Put the centre on the wrong side of the chord and the arc sets off in the wrong
+## direction: sampled with the stated sweep it circles the long way round and stops
+## nowhere near `b`, which is a curve drawn hundreds of metres from the plan.
+func test_a_bulged_segment_arrives_at_its_own_vertex() -> void:
+	for bulge: float in [0.5, -0.5, 2.0, -2.0, 1.0]:
+		var polyline := Entity.make_polyline(PackedVector2Array([
+			Vector2(0, 0), Vector2(10, 0)]), false)
+		polyline.bulges = PackedFloat64Array([bulge, 0.0])
+		var outline: PackedVector2Array = polyline.outline()
+		var last: Vector2 = outline[outline.size() - 1]
+		assert(last.is_equal_approx(Vector2(10, 0)),
+			"a chord of 10 with bulge %f ends on its own second vertex, not at %s" % [bulge, str(last)])
+
+
+## The sagitta - how far the arc stands off its chord at the apex - is half the chord
+## times the bulge, and it is the one number that tells a right-handed arc from a
+## mirrored one. A bulge of 0.5 on a chord of 10 rises 2.5 m; a mirrored centre rises
+## the same 2.5 m on the wrong side.
+func test_a_bulged_segment_rises_by_half_the_chord_times_the_bulge() -> void:
+	for bulge: float in [0.5, -0.5]:
+		var polyline := Entity.make_polyline(PackedVector2Array([
+			Vector2(0, 0), Vector2(10, 0)]), false)
+		polyline.bulges = PackedFloat64Array([bulge, 0.0])
+		var lowest := 0.0
+		var highest := 0.0
+		for point: Vector2 in polyline.outline():
+			lowest = minf(lowest, point.y)
+			highest = maxf(highest, point.y)
+		var sagitta := highest if bulge < 0.0 else -lowest
+		# Within the chord tolerance: the sampled points straddle the apex, so the measured
+		# rise is the ideal 2.5 less at most one sagitta of tessellation.
+		assert(absf(sagitta - 2.5) <= 0.005,
+			"a chord of 10 with bulge %f rises 2.5, not %f" % [bulge, sagitta])
+		# And it stays on its own side: a positive bulge never crosses above the chord.
+		assert((highest <= 0.0001) if bulge > 0.0 else (lowest >= -0.0001),
+			"bulge %f bulges one way only" % bulge)
+
+
 func test_translate_moves_every_kind() -> void:
 	var offset := Vector2(3, 4)
 	var line := Entity.make_line(Vector2(0, 0), Vector2(2, 0))

@@ -293,14 +293,18 @@ static func arc_from_bulge(a: Vector2, b: Vector2, bulge: float) -> Dictionary:
 	if absf(float(bulge)) <= EPS or chord_length <= EPS:
 		return {"ok": false}
 	var sweep := sweep_from_bulge(bulge)
-	var radius := chord_length / (2.0 * sin(absf(sweep) * 0.5))
-	# The centre lies on the perpendicular bisector, on the far side of the
-	# chord from the arc's bulge.
+	var radius := chord_length / (2.0 * absf(sin(sweep * 0.5)))
+	# The centre lies on the perpendicular bisector, at (chord / 2) * cot(sweep / 2)
+	# from the midpoint. The tangent half-angle carries the *sign* of the sweep, so
+	# the same expression puts the centre on the correct side for a minor arc and
+	# crosses to the far side of the chord for a major one — which is where the
+	# centre belongs for a bulge past 1. Dropping that sign points the arc away from
+	# its own endpoint, and the sampled curve then sweeps the long way round the
+	# circle instead of arriving at `b`.
 	var mid := (a + b) * 0.5
 	var normal := Vector2(-float(chord.y), float(chord.x)).normalized()
-	var height := radius * cos(sweep * 0.5)
-	var away := -1.0 if float(bulge) > 0.0 else 1.0
-	var centre := mid + normal * height * away
+	var offset := (chord_length * 0.5) / tan(sweep * 0.5)
+	var centre := mid + normal * offset
 	var start := angle_of(a - centre)
 	return {"ok": true, "centre": centre, "radius": radius, "start": start, "sweep": sweep}
 
