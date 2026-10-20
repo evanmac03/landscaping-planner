@@ -99,6 +99,37 @@ func test_every_drafting_command_is_named_with_its_own_key() -> void:
 		)
 
 
+## The editing commands get their own row of the legend, and each is bound to a key
+## with nothing else on it.
+func test_every_edit_command_is_named_with_its_own_key() -> void:
+	var legend := Hud.drafting_hints()
+	var keys: Array[String] = []
+	for pair: Array in Hud.EDIT_TOOLS:
+		var action: StringName = pair[0]
+		assert(InputMap.has_action(action), "%s is not an action" % action)
+		var key: String = Hud._key_label(action)
+		assert(key != "", "%s is bound to nothing" % action)
+		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s" % key)
+		assert(not keys.has(key), "%s is not shared with another command" % key)
+		keys.append(key)
+	assert(keys == ["O", "T", "X", "I", "E"], "the edit keys are the ones promised")
+
+
+## The edit commands are exactly the controller's own set, so a command cannot
+## arrive with no way to reach it, and a row cannot outlive its command.
+func test_the_legend_row_is_the_controllers_own_edit_set() -> void:
+	var offered: Array[int] = []
+	for pair: Array in Hud.EDIT_TOOLS:
+		offered.append(int(pair[2]))
+	var expected: Array[int] = []
+	for kind: int in Ctrl.EditKind.values():
+		if kind != int(Ctrl.EditKind.NONE):
+			expected.append(kind)
+	offered.sort()
+	expected.sort()
+	assert(offered == expected, "the legend offers %s, the commands are %s" % [offered, expected])
+
+
 ## The legend covers every drafting action the project binds, and no others. A new
 ## tool cannot arrive without a line, and a line cannot outlive its binding.
 func test_the_legend_covers_every_drafting_action_exactly() -> void:
@@ -150,14 +181,16 @@ func test_the_idle_status_advertises_the_key_that_arms_the_tools() -> void:
 # --- shape of the block --------------------------------------------------------------
 
 
-## The legend is drawn in a panel with room for five lines, so it had better be
-## five lines.
+## The legend is drawn in a panel with room for six lines, so it had better be
+## six lines. The sixth is the row of editing commands.
 func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
 	var rows := Hud.drafting_rows()
-	assert(rows.size() == 5)
+	assert(rows.size() == 6)
 	assert(rows[0].contains("leaves the drawing tools"))
 	assert(rows[1].contains("line"))
 	assert(rows[2].contains("measure"))
+	assert(rows[5].contains("offset"), "the last row is the editing commands")
+	assert(rows[5].contains("erase"))
 	# No blank lines: every row has something on it.
 	for row: String in rows:
 		assert(row.strip_edges() != "")

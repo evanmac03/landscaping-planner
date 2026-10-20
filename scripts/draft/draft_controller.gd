@@ -19,6 +19,53 @@ const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const PenStyleScript := preload("res://scripts/draft/plot_style_table.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
+const EditScript := preload("res://scripts/draft/draft_edit.gd")
+const GeomScript := preload("res://scripts/draft/geom2d.gd")
+
+## The editing commands: what can be done to geometry that is already on the
+## drawing. Held apart from the drawing tools because a tool answers "make me a new
+## shape" and an edit answers "change the shape I already have", and because a tool
+## is one gesture while a trim is one gesture measured against everything else on
+## the sheet.
+enum EditKind {
+	NONE,
+	OFFSET,
+	TRIM,
+	EXTEND,
+	FILLET,
+	ERASE,
+}
+
+## The words each edit command is introduced by, so the status line, the menu and
+## the palette cannot call the same command three different things.
+const EDIT_LABELS: Dictionary = {
+	EditKind.OFFSET: "Offset",
+	EditKind.TRIM: "Trim",
+	EditKind.EXTEND: "Extend",
+	EditKind.FILLET: "Fillet",
+	EditKind.ERASE: "Erase",
+}
+
+## How near the cursor has to come to a shape, in screen pixels, before a pick
+## finds it. An aperture rather than exact contact, because picking linework by
+## exact contact is a game of pixel hunting.
+const PICK_PIXELS := 8.0
+
+## A pick aperture in model metres for the case where there is no canvas to read a
+## scale off - only reachable off-scene, in a test.
+const DEFAULT_PICK_METRES := 0.2
+
+## The first fillet a drawing gets, in model metres. A property of the command in
+## hand rather than of any one corner, exactly as it is in a CAD package.
+const DEFAULT_FILLET_RADIUS := 1.0
+
+## Whether a layer holds annotations rather than site features. An edit neither
+## picks an annotation nor measures against one: trimming a line against the
+## dimension that describes it would be a drawing editing itself.
+static func is_annotation_layer(layer_name: StringName) -> bool:
+	return layer_name == LayerSetScript.DIMENSION \
+		or layer_name == LayerSetScript.TEXT \
+		or layer_name == LayerSetScript.CALLOUT
 
 @export var plan_canvas_path: NodePath = ^"../PlanLayer/PlanCanvas"
 ## The 3D linework overlay, when the scene has one. Optional: drawing works
@@ -66,6 +113,15 @@ var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
 var last_message: String = ""
 
+## The editing command in hand, if any. Held apart from the drawing tool because
+## an edit picks whole entities rather than points.
+var edit_kind: EditKind = EditKind.NONE
+## The radius a fillet rounds a corner with, in model metres.
+var fillet_radius: float = DEFAULT_FILLET_RADIUS
+
+var _edit_picked: Array = []
+var _edit_points: Array[Vector2] = []
+
 var _last_snap: Dictionary = {}
 
 signal changed()
@@ -96,6 +152,7 @@ func _ready() -> void:
 func set_tool(kind: ToolScript.Kind) -> void:
 	# Keep whatever is on the drawing surface: switching tools mid-shape throws
 	# away half a shape, which is never what was meant.
+	clear_edit()
 	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
 	_last_snap = {}
@@ -141,6 +198,7 @@ func set_drawing(on: bool) -> void:
 		return
 	drawing = on
 	if not drawing:
+		clear_edit()
 		cancel()
 	last_message = "drawing on" if drawing else ""
 	_refresh_canvas()
@@ -152,6 +210,56 @@ func set_drawing(on: bool) -> void:
 func arm(kind: ToolScript.Kind) -> void:
 	set_tool(kind)
 	set_drawing(true)
+
+
+# --- editing what is already drawn ----------------------------------------------------
+
+
+## Take an editing command. Armed like a tool: it puts the drawing tools away so a
+## click cannot mean two things, and it stays in hand until another command is
+## chosen, so a run of trims is a run of clicks rather than a run of key presses.
+func arm_edit(kind: EditKind) -> void:
+	edit_kind = kind
+	_edit_picked = []
+	_edit_points = []
+	tool.cancel()
+	snap.clear_lock()
+	_last_snap = {}
+	last_message = ""
+	drawing = kind != EditKind.NONE
+	_refresh_canvas()
+
+
+## Put the editing command away without disturbing what is being drawn.
+func clear_edit() -> void:
+	edit_kind = EditKind.NONE
+	_edit_picked = []
+	_edit_points = []
+
+
+func current_edit() -> EditKind:
+	return edit_kind
+
+
+func is_editing() -> bool:
+	return edit_kind != EditKind.NONE
+
+
+## The radius a fillet will round the next corner with, in model metres. Refused
+## rather than clamped for a value that is not a radius.
+func set_fillet_radius(metres: float) -> bool:
+	if metres <= 0.0 or is_nan(metres):
+		last_message = "a fillet radius has to be a positive length"
+		_refresh_canvas()
+		return false
+	fillet_radius = metres
+	_refresh_canvas()
+	return true
+
+
+## The wording one edit command is introduced by.
+static func edit_label(kind: EditKind) -> String:
+	return String(EDIT_LABELS.get(kind, "Edit"))
 
 
 # --- what a palette needs to know -----------------------------------------------------
@@ -193,9 +301,36 @@ func status() -> String:
 			int(plot_scale), sheet
 		]
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
+	if is_editing():
+		return _edit_status()
 	var text := "%s  ·  %s  ·  %s" % [
 		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
 	]
+	if last_message != "":
+		text += "  ·  " + last_message
+	return text
+
+
+## What an editing command says while it is in hand. Its own prompt is the half
+## that changes as picks land, so an edit cannot be left half-made without the line
+## saying which pick it is waiting for.
+func _edit_status() -> String:
+	var hint := ""
+	match edit_kind:
+		EditKind.OFFSET:
+			hint = "pick the shape to offset" if _edit_picked.is_empty() \
+				else "click the side and distance to offset to"
+		EditKind.TRIM:
+			hint = "pick the piece to cut away"
+		EditKind.EXTEND:
+			hint = "pick the end to grow"
+		EditKind.FILLET:
+			hint = "pick the first line" if _edit_picked.is_empty() else "pick the second line"
+		EditKind.ERASE:
+			hint = "pick what to erase"
+	var text := "%s  ·  %s" % [edit_label(edit_kind), hint]
+	if edit_kind == EditKind.FILLET:
+		text += "  ·  radius %s" % document.units.format_length(fillet_radius)
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
@@ -226,6 +361,8 @@ func hover(screen: Vector2) -> Dictionary:
 func click(screen: Vector2) -> Dictionary:
 	if canvas == null:
 		return {}
+	if is_editing():
+		return _edit_click(screen)
 	# Snap first, so the point that is committed is the one the marker showed.
 	hover(screen)
 	var pick: Dictionary = tool.click(cursor_point)
@@ -259,6 +396,10 @@ func undo_point() -> bool:
 
 func cancel() -> void:
 	tool.cancel()
+	# Escape backs out of a half-made edit - the first line of a fillet, the shape
+	# picked to offset - without putting the command itself away.
+	_edit_picked = []
+	_edit_points = []
 	snap.clear_lock()
 	_last_snap = {}
 	_refresh_canvas()
@@ -291,6 +432,196 @@ func _commit(pick: Dictionary) -> void:
 			document.units.format_length(measure["distance"]),
 			document.units.format_length(measure["delta"].length()),
 		]
+
+
+# --- the editing commands -------------------------------------------------------------
+
+
+## A click while an editing command is in hand. The command is a small state
+## machine of its own - some take one pick, some take two - so its picks live here
+## rather than in the drawing tool, which is a machine over points.
+func _edit_click(screen: Vector2) -> Dictionary:
+	edit_at(canvas.screen_to_world(screen))
+	_refresh_canvas()
+	return {}
+
+
+## The same, in model coordinates. Split out so an editing command can be driven
+## without a canvas to read a scale off - which is how it is tested, and how a
+## script or a future command line could reach it.
+func edit_at(world: Vector2) -> void:
+	match edit_kind:
+		EditKind.OFFSET:
+			_edit_offset(world)
+		EditKind.TRIM:
+			_edit_trim(world)
+		EditKind.EXTEND:
+			_edit_extend(world)
+		EditKind.FILLET:
+			_edit_fillet(world)
+		EditKind.ERASE:
+			_edit_erase(world)
+
+
+## Trim: cut the picked piece of a line out against every other editable shape.
+func _edit_trim(world: Vector2) -> void:
+	var target = _pick_world(world)
+	if target == null:
+		last_message = "nothing there to trim"
+		return
+	var result: Dictionary = EditScript.trim(target, world, _others(target))
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	var layer: StringName = target.layer
+	var pieces: Array = result["entities"]
+	document.begin_gesture()
+	document.remove(target.id)
+	for piece in pieces:
+		document.add(piece, layer)
+	var count := pieces.size()
+	last_message = "trimmed to %d line%s" % [count, "" if count == 1 else "s"]
+
+
+## Extend: grow the picked end of a line out to the nearest shape beyond it.
+func _edit_extend(world: Vector2) -> void:
+	var target = _pick_world(world)
+	if target == null:
+		last_message = "nothing there to extend"
+		return
+	var result: Dictionary = EditScript.extend(target, world, _others(target))
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	var layer: StringName = target.layer
+	document.begin_gesture()
+	document.remove(target.id)
+	for piece in result["entities"]:
+		document.add(piece, layer)
+	last_message = "extended"
+
+
+## Erase: take the picked shape off the drawing.
+func _edit_erase(world: Vector2) -> void:
+	var target = _pick_world(world)
+	if target == null:
+		last_message = "nothing there to erase"
+		return
+	document.begin_gesture()
+	document.remove(target.id)
+	last_message = "erased"
+
+
+## Offset: pick a shape, then the side and distance. The offset is a new shape; the
+## one it came from stays, which is what makes offset a drawing aid rather than an
+## edit to one outline.
+func _edit_offset(world: Vector2) -> void:
+	if _edit_picked.is_empty():
+		var target = _pick_world(world)
+		if target == null:
+			last_message = "nothing there to offset"
+			return
+		_edit_picked = [target]
+		last_message = "click the side and distance to offset to"
+		return
+	var source = _edit_picked[0]
+	var distance: float = EditScript.offset_sign(source, world) * _distance_to(source, world)
+	var result: Dictionary = EditScript.offset(source, distance)
+	_edit_picked = []
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	var produced: Array = result["entities"]
+	if produced.is_empty():
+		last_message = "that offset leaves nothing"
+		return
+	document.begin_gesture()
+	for piece in produced:
+		document.add(piece, source.layer)
+	last_message = "offset by %s" % document.units.format_length(absf(distance))
+
+
+## Fillet: pick two lines, round the corner between the halves that were picked.
+func _edit_fillet(world: Vector2) -> void:
+	if _edit_picked.is_empty():
+		var chosen = _pick_world(world)
+		if chosen == null:
+			last_message = "nothing there to round"
+			return
+		_edit_picked = [chosen]
+		_edit_points = [world]
+		last_message = "pick the second line"
+		return
+	var first = _edit_picked[0]
+	var pick_a: Vector2 = _edit_points[0]
+	_edit_picked = []
+	_edit_points = []
+	var second = _pick_world(world)
+	if second == null:
+		last_message = "nothing there to round"
+		return
+	if second.id == first.id:
+		last_message = "pick a second, different line"
+		return
+	var result: Dictionary = EditScript.fillet(first, second, fillet_radius, pick_a, world)
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	var layer: StringName = first.layer
+	document.begin_gesture()
+	document.remove(first.id)
+	document.remove(second.id)
+	for piece in result["lines"]:
+		document.add(piece, layer)
+	document.add(result["arc"], layer)
+	last_message = "rounded the corner at %s" % document.units.format_length(fillet_radius)
+
+
+## The shape under a model point, or null. Only editable, visible geometry is
+## considered, so a pick cannot find an annotation or something switched off.
+func _pick_world(world: Vector2):
+	var aperture := DEFAULT_PICK_METRES
+	if canvas != null:
+		aperture = PICK_PIXELS / maxf(canvas.pixels_per_metre, 1e-9)
+	var best = null
+	var best_distance := aperture
+	for entity in document.visible_entities():
+		if is_annotation_layer(entity.layer):
+			continue
+		var distance := _distance_to(entity, world)
+		if distance <= best_distance:
+			best_distance = distance
+			best = entity
+	return best
+
+
+## Every editable shape other than the one being edited, which is what a trim cuts
+## against and an extend runs into.
+func _others(target) -> Array:
+	var out: Array = []
+	for entity in document.visible_entities():
+		if entity.id == target.id or is_annotation_layer(entity.layer):
+			continue
+		out.append(entity)
+	return out
+
+
+## How far a model point is from an entity's linework. Its outline sampled to
+## segments, so a curve is measured against chords fine enough to be exact.
+func _distance_to(entity, world: Vector2) -> float:
+	var outline: PackedVector2Array = entity.outline()
+	var count := outline.size()
+	if count == 0:
+		return INF
+	if count == 1:
+		return world.distance_to(outline[0])
+	var best := INF
+	var segments := count if entity.is_closed() else count - 1
+	for index in segments:
+		var distance := GeomScript.distance_to_segment(world, outline[index], outline[(index + 1) % count])
+		if distance < best:
+			best = distance
+	return best
 
 
 # --- the drawing's standards --------------------------------------------------------

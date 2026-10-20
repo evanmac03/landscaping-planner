@@ -40,7 +40,7 @@ const SpacingScript := preload("res://scripts/plant_spacing.gd")
 const MAX_LISTED := 250
 
 const ICON_SIZE := 26
-const LIST_HEIGHT := 150
+const LIST_HEIGHT := 110
 
 
 var _header: HBoxContainer = null

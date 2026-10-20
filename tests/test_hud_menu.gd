@@ -79,6 +79,23 @@ func test_the_draft_menu_holds_every_tool_the_legend_holds() -> void:
 		assert(int(entry["value"]) == int(pair[2]), "%s arms the tool the key arms" % String(pair[0]))
 
 
+## The editing commands live in the Edit menu, and it offers exactly the set the
+## controller can run, in the order the legend lists them.
+func test_the_edit_menu_holds_every_editing_command() -> void:
+	var in_menu: Array[StringName] = []
+	for entry: Dictionary in HudScript.items_for("Edit"):
+		var id := String(entry.get("id", ""))
+		if id.begins_with("edit.tool."):
+			in_menu.append(StringName(entry.get("action", &"")))
+	var expected: Array[StringName] = []
+	for pair: Array in HudScript.EDIT_TOOLS:
+		expected.append(StringName(pair[0]))
+	assert(in_menu == expected, "the Edit menu offers the editing commands, in the legend's order")
+	for pair: Array in HudScript.EDIT_TOOLS:
+		var entry: Dictionary = _entry(StringName("edit.tool." + String(pair[0])))
+		assert(int(entry["value"]) == int(pair[2]), "%s runs the command the key runs" % String(pair[0]))
+
+
 func test_every_command_the_legend_lists_is_in_the_bar() -> void:
 	# Not every one of them is in the Draft menu: undo and redo are in Edit, which is where a
 	# program of this kind keeps them, and copying them into both menus would be one command with

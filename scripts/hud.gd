@@ -54,6 +54,24 @@ const DRAFTING_COMMANDS: Array = [
 ## Key names worth shortening so a legend line stays a line.
 const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter"}
 
+## The editing commands: what is done to geometry that already exists.
+##
+## A second table rather than an extension of `DRAFTING_TOOLS`, because the drawing
+## tools are the nine number keys and the edits are their own set of letters - a
+## table that tried to be both would have to lie about one of them.
+const EDIT_TOOLS: Array = [
+	[&"edit_offset", "offset", DraftControllerScript.EditKind.OFFSET,
+		"Draw a new shape a fixed distance out from the one you pick"],
+	[&"edit_trim", "trim", DraftControllerScript.EditKind.TRIM,
+		"Cut the picked piece of a line away at what crosses it"],
+	[&"edit_extend", "extend", DraftControllerScript.EditKind.EXTEND,
+		"Grow the picked end of a line out to the next shape"],
+	[&"edit_fillet", "fillet", DraftControllerScript.EditKind.FILLET,
+		"Round the corner where two lines meet"],
+	[&"edit_erase", "erase", DraftControllerScript.EditKind.ERASE,
+		"Take the picked shape off the drawing"],
+]
+
 ## How many entries share a line before the legend wraps.
 const DRAFTING_TOOLS_PER_ROW := 5
 const DRAFTING_COMMANDS_PER_ROW := 4
@@ -64,6 +82,11 @@ const DRAFTING_ROW_GAP := "    "
 ## its key underneath.
 const PALETTE_COLUMNS := 3
 const PALETTE_CELL_WIDTH := 86.0
+## The editing commands share one row of five: they have one-word names, and the
+## palette has to fit the whole column without pushing the plant list off the foot
+## of the screen.
+const PALETTE_EDIT_COLUMNS := 5
+const PALETTE_EDIT_CELL_WIDTH := 58.0
 
 ## The client presentation: the budgets it can be shown at, and the sizes a proposal
 ## still is rendered at. Both are read from the tables that act on them rather than
@@ -122,6 +145,7 @@ var _draft: DraftControllerScript = null
 ## The controls built by _build_palette, kept so the refresh can set them.
 var _arm_button: CheckButton = null
 var _tool_buttons: Array[Button] = []
+var _edit_buttons: Array[Button] = []
 var _layer_option: OptionButton = null
 var _layer_names: Array[StringName] = []
 var _style_button: Button = null
@@ -340,6 +364,7 @@ static func drafting_rows() -> Array[String]:
 	rows.append("%s leaves the drawing tools" % _key_label(&"draft_mode"))
 	rows.append_array(_wrap(_entries(DRAFTING_TOOLS), DRAFTING_TOOLS_PER_ROW))
 	rows.append_array(_wrap(_entries(DRAFTING_COMMANDS), DRAFTING_COMMANDS_PER_ROW))
+	rows.append_array(_wrap(_entries(EDIT_TOOLS), DRAFTING_TOOLS_PER_ROW))
 	return rows
 
 
@@ -436,6 +461,21 @@ func _build_palette() -> void:
 		grid.add_child(button)
 		_tool_buttons.append(button)
 
+	var edit_grid := GridContainer.new()
+	edit_grid.name = "EditTools"
+	edit_grid.columns = PALETTE_EDIT_COLUMNS
+	palette_column.add_child(edit_grid)
+	for pair: Array in EDIT_TOOLS:
+		var edit_button := Button.new()
+		edit_button.name = String(pair[0])
+		edit_button.text = edit_palette_label(pair)
+		edit_button.tooltip_text = String(pair[3])
+		edit_button.toggle_mode = true
+		edit_button.custom_minimum_size = Vector2(PALETTE_EDIT_CELL_WIDTH, 0.0)
+		edit_button.pressed.connect(_on_edit_pressed.bind(int(pair[2])))
+		edit_grid.add_child(edit_button)
+		_edit_buttons.append(edit_button)
+
 	palette_column.add_child(HSeparator.new())
 
 	var layer_row := HBoxContainer.new()
@@ -516,9 +556,9 @@ func _command_button(
 func _refresh_palette() -> void:
 	if _draft == null or _arm_button == null:
 		return
-	var state := "%s|%d|%s|%s" % [
+	var state := "%s|%d|%s|%s|%d" % [
 		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
-		String(_draft.dimension_style_name),
+		String(_draft.dimension_style_name), int(_draft.current_edit()),
 	]
 	if state == _palette_state:
 		return
@@ -528,12 +568,16 @@ func _refresh_palette() -> void:
 	_arm_button.set_pressed_no_signal(_draft.drawing)
 	var armed: bool = _draft.drawing
 	var kind: int = int(_draft.current_tool())
+	var edit: int = int(_draft.current_edit())
 	for index in _tool_buttons.size():
 		var button: Button = _tool_buttons[index]
 		# Only a tool actually in your hand is shown as chosen. A palette
 		# highlighting a tool while the tools are put away would be describing a
-		# mode that is not on.
-		button.button_pressed = armed and int(DRAFTING_TOOLS[index][2]) == kind
+		# mode that is not on, and an editing command in hand is not a drawing tool.
+		button.button_pressed = armed and edit == 0 and int(DRAFTING_TOOLS[index][2]) == kind
+	for index in _edit_buttons.size():
+		var edit_button: Button = _edit_buttons[index]
+		edit_button.button_pressed = armed and int(EDIT_TOOLS[index][2]) == edit
 	var selected := _layer_names.find(_draft.current_layer())
 	if selected >= 0:
 		_layer_option.selected = selected
@@ -553,6 +597,10 @@ func _on_tool_pressed(kind: int) -> void:
 		_draft.arm(kind)
 
 
+func _on_edit_pressed(kind: int) -> void:
+	arm_edit_command(kind)
+
+
 func _on_layer_selected(index: int) -> void:
 	if _draft == null or index < 0 or index >= _layer_names.size():
 		return
@@ -562,6 +610,14 @@ func _on_layer_selected(index: int) -> void:
 ## What one tool button says: the tool on the first line, the key that does the same
 ## thing on the second, so the palette teaches the shortcut while it is being used.
 static func palette_label(pair: Array) -> String:
+	var words := String(pair[1])
+	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
+	var key := _key_label(pair[0])
+	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+
+
+## The same, for one of the editing commands.
+static func edit_palette_label(pair: Array) -> String:
 	var words := String(pair[1])
 	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
 	var key := _key_label(pair[0])
@@ -1236,7 +1292,20 @@ static func edit_items() -> Array[Dictionary]:
 	items.append(_command(&"edit.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
 	items.append(_separator())
 	items.append(_submenu(&"edit.dimension_style", "Dimension standard", dimension_style_items()))
+	items.append(_separator())
+	for pair: Array in EDIT_TOOLS:
+		items.append(_radio(
+			"edit.tool." + String(pair[0]), edit_tool_label(pair), pair[0],
+			&"_menu_arm_edit", &"edit", pair[2]
+		))
 	return items
+
+
+## What one editing command is called in the menu: the one word the status line and
+## the palette use, capitalised.
+static func edit_tool_label(pair: Array) -> String:
+	var words := String(pair[1])
+	return words.substr(0, 1).to_upper() + words.substr(1)
 
 
 ## The dimension standards the controller offers, from its own table.
@@ -1466,8 +1535,13 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 		&"tool":
 			# A tool is shown as chosen only while the tools are out, which is the same rule the
 			# palette follows: a menu highlighting a tool while the tools are put away would be
-			# describing a mode that is not on.
-			return bool(world.get("drawing", false)) and int(world.get("tool", -1)) == int(value)
+			# describing a mode that is not on. An editing command in hand is not a drawing tool.
+			return bool(world.get("drawing", false)) and int(world.get("edit", 0)) == 0 \
+				and int(world.get("tool", -1)) == int(value)
+		&"edit":
+			# Likewise, an editing command is only shown as in hand while the tools are out and
+			# nothing else is drawing.
+			return bool(world.get("drawing", false)) and int(world.get("edit", -1)) == int(value)
 		&"dimension_style":
 			return StringName(world.get("dimension_style", &"")) == StringName(value)
 		&"sheet":
@@ -1494,6 +1568,7 @@ func menu_world() -> Dictionary:
 		"mode": int(view_controller.mode) if view_controller != null else -1,
 		"drawing": _draft != null and _draft.drawing,
 		"tool": int(_draft.current_tool()) if _draft != null else -1,
+		"edit": int(_draft.current_edit()) if _draft != null else -1,
 		"dimension_style": StringName(_draft.dimension_style_name) if _draft != null else &"",
 		"sheet": String(_draft.sheet) if _draft != null else "",
 		"plot_scale": float(_draft.plot_scale) if _draft != null else 0.0,
@@ -2003,6 +2078,21 @@ func _menu_arm_tool(entry: Dictionary) -> void:
 	if _draft != null:
 		@warning_ignore("int_as_enum_without_cast")
 		_draft.arm(int(entry["value"]))
+
+
+## Take an editing command from the menu or a palette button. It is a mode of the
+## drawing tools, so it puts planting away the same way a keyboard press does.
+func arm_edit_command(kind: int) -> void:
+	if _draft == null:
+		return
+	if view_controller != null and view_controller.is_planting():
+		view_controller.stop_planting()
+	@warning_ignore("int_as_enum_without_cast")
+	_draft.arm_edit(kind)
+
+
+func _menu_arm_edit(entry: Dictionary) -> void:
+	arm_edit_command(int(entry["value"]))
 
 
 func _menu_show_mode(entry: Dictionary) -> void:

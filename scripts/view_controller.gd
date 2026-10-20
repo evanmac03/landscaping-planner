@@ -695,6 +695,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _draft.drawing and _handle_drafting(event):
 			return
 
+	if event.is_action_pressed("edit_offset"):
+		_arm_edit(DraftControllerScript.EditKind.OFFSET)
+		return
+	if event.is_action_pressed("edit_trim"):
+		_arm_edit(DraftControllerScript.EditKind.TRIM)
+		return
+	if event.is_action_pressed("edit_extend"):
+		_arm_edit(DraftControllerScript.EditKind.EXTEND)
+		return
+	if event.is_action_pressed("edit_fillet"):
+		_arm_edit(DraftControllerScript.EditKind.FILLET)
+		return
+	if event.is_action_pressed("edit_erase"):
+		_arm_edit(DraftControllerScript.EditKind.ERASE)
+		return
+
 	if event.is_action_pressed("fit_view"):
 		fit_plan_to_yard()
 		get_viewport().set_input_as_handled()
@@ -904,6 +920,19 @@ func _say_planting(verdict: Dictionary = {}) -> void:
 ## question and nothing else.
 func is_drafting() -> bool:
 	return _draft != null and _draft.drawing
+
+
+## Take an editing command. It is a mode of the drawing tools rather than a tool,
+## so it puts planting away: a click cannot both plant a shrub and trim a line.
+func _arm_edit(kind: int) -> void:
+	if _draft == null:
+		return
+	if is_planting():
+		stop_planting()
+	if plan_canvas != null:
+		plan_canvas.hovered = null
+	_draft.arm_edit(kind)
+	get_viewport().set_input_as_handled()
 
 
 ## The drafting controller, for a palette to drive.
