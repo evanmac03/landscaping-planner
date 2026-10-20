@@ -69,15 +69,17 @@ const NO_LEVEL := -1
 var attrs: Dictionary = {}
 
 
-func _init(stated: Dictionary = {}) -> void:
-	for key: Variant in stated:
-		var name: String = String(key)
-		if is_known_key(name):
-			attrs[name] = stated[key]
+## `given` and not `stated`: "stated" is the name of the function that reads one attribute back, and a
+## parameter that shadows it is an error rather than a convenience.
+func _init(given: Dictionary = {}) -> void:
+	for key: Variant in given:
+		var attribute: String = String(key)
+		if is_known_key(attribute):
+			attrs[attribute] = given[key]
 
 
-static func make(stated: Dictionary = {}) -> TerrainProfile:
-	return (load("res://scripts/terrain_profile.gd") as GDScript).new(stated)
+static func make(given: Dictionary = {}) -> TerrainProfile:
+	return (load("res://scripts/terrain_profile.gd") as GDScript).new(given)
 
 
 ## A profile stating one thing. `TerrainProfile.of("sun", TerrainProfile.FULL_SHADE)`.
@@ -97,6 +99,59 @@ func with(key: String, value: Variant) -> TerrainProfile:
 func forget(key: String) -> TerrainProfile:
 	attrs.erase(key)
 	return self
+
+
+## What "not stated" is for one attribute, and **it is a different value in every set**, because each
+## holds a different kind of value: no light level is 0 (the levels are 1, 2 and 4), no moisture is
+## -1 - **0 is a real moisture level**, low water, so it cannot be the missing one - no soil is the
+## empty name, and no zone is 0, which is the "zone 0 is not a zone" rule `PlantSpecies` already uses.
+##
+## A rule like this belongs beside the values it is about rather than in whichever menu first needed
+## it: every way into the ground - a dialog, a menu, a script, a test - has to agree about what
+## "nothing stated" looks like, and the place they agree in is here.
+static func no_value(key: String) -> Variant:
+	if key == "soil":
+		return &""
+	if key == "sun" or key == "zone":
+		return 0
+	return NO_LEVEL
+
+
+## Whether a value states something, rather than being that attribute's "not stated".
+static func value_stated(key: String, value: Variant) -> bool:
+	if key == "soil":
+		return not StringName(value).is_empty()
+	if key == "sun" or key == "zone":
+		return int(value) > 0
+	return int(value) >= 0
+
+
+## State one attribute, or take the statement back when the value is that attribute's "not stated".
+##
+## The one place that decides between `with` and `forget`, so that choosing "not stated" in a dialog
+## un-states an attribute rather than storing a value that means nothing and would fail validation.
+func with_stated(key: String, value: Variant) -> TerrainProfile:
+	if not is_known_key(key):
+		return self
+	if value_stated(key, value):
+		return with(key, value)
+	return forget(key)
+
+
+## The attribute as a form reads it: the stated value, or that attribute's "not stated".
+func stated(key: String) -> Variant:
+	if not attrs.has(key):
+		return no_value(key)
+	match key:
+		"sun":
+			return sun_level()
+		"moisture":
+			return moisture_level()
+		"soil":
+			return soil_name()
+		"drainage":
+			return drainage_level()
+	return zone()
 
 
 func is_known_key(key: String) -> bool:

@@ -191,6 +191,7 @@ const PlantPanelScript := preload("res://scripts/plant_panel.gd")
 const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
+const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -204,6 +205,9 @@ var _plant_window: Window = null
 var _plant_browser: PlantBrowser = null
 var _plant_import_dialog: FileDialog = null
 var _plant_export_dialog: FileDialog = null
+## The ground: one window, because the site's conditions and the conditions of every area of the plan
+## are one subject, and a menu cannot hold an area.
+var _ground_window: GroundWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -231,6 +235,7 @@ func _ready() -> void:
 	_build_keys_panel()
 	_build_file_dialogs()
 	_build_plant_library()
+	_build_ground_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1343,72 +1348,11 @@ static func site_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	items.append(_info(&"site.ground", "the plan does not say what the ground is like"))
 	items.append(_separator())
-	items.append(_ground_submenu(
-		"site.sun", "The site's light", "sun", TerrainProfileScript.SUN_LEVELS,
-		TerrainProfileScript.SUN_NAMES
-	))
-	items.append(_ground_submenu(
-		"site.moisture", "The site's moisture", "moisture", TerrainProfileScript.MOISTURE_LEVELS,
-		TerrainProfileScript.MOISTURE_NAMES
-	))
-	items.append(_ground_submenu(
-		"site.soil", "The site's soil", "soil", TerrainProfileScript.SOILS.keys(),
-		TerrainProfileScript.SOILS
-	))
-	items.append(_ground_submenu(
-		"site.zone", "The site's hardiness zone", "zone", range(1, 14), _zone_names()
-	))
-	items.append(_separator())
+	items.append(_command(&"site.window", "What the ground is like...", &"", &"_menu_ground_window"))
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
+	items.append(_separator())
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
 	return items
-
-
-## Hardiness zones as labels: "zone 6".
-static func _zone_names() -> Dictionary:
-	var names: Dictionary = {}
-	for zone in range(1, 14):
-		names[zone] = "zone %d" % zone
-	return names
-
-
-## One set of ground conditions as a submenu. `key` is the attribute its entries state.
-static func _ground_submenu(
-	id: String, label: String, key: String, values: Array, names: Dictionary
-) -> Dictionary:
-	var items: Array[Dictionary] = []
-	var state := StringName("ground.%s" % key)
-	items.append(_radio(
-		"%s.none" % id, "not stated", &"", &"_menu_set_ground", state, no_ground_value(key)
-	))
-	for value: Variant in values:
-		items.append(_radio(
-			"%s.%s" % [id, str(value)], String(names.get(value, str(value))), &"",
-			&"_menu_set_ground", state, value
-		))
-	return _submenu(id, label, items)
-
-
-## What "not stated" is, per attribute - and it is a different value in each set, because each set
-## holds a different kind of value: no light level is 0 (the levels are 1, 2 and 4), no moisture is
-## -1 (**0 is a real moisture level**, low water, so it cannot be the missing one), no soil is the
-## empty name, and no zone is 0 - which is the "zone 0 is not a zone" rule `PlantSpecies` already
-## uses for a missing zone.
-static func no_ground_value(key: String) -> Variant:
-	if key == "soil":
-		return &""
-	if key == "sun" or key == "zone":
-		return 0
-	return -1
-
-
-## Whether a menu value states something, rather than being that set's "not stated".
-static func ground_value_stated(key: String, value: Variant) -> bool:
-	if key == "soil":
-		return not StringName(value).is_empty()
-	if key == "sun" or key == "zone":
-		return int(value) > 0
-	return int(value) >= 0
 
 
 ## The plant list, and the one thing a plant list is for.
@@ -1506,18 +1450,6 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return bool(world.get("keys_panel", false))
 		&"hints":
 			return bool(world.get("hints", true))
-		# The ground: four sets of conditions where exactly one value of each is on. Compared as
-		# integers, because a value that has been through a saved file is a float - a light level of
-		# 4.0 is the level 4, and "is this the stated one" must not depend on which side of the file
-		# the number came from.
-		&"ground.sun":
-			return int(world.get("ground.sun", 0)) == int(value)
-		&"ground.moisture":
-			return int(world.get("ground.moisture", -1)) == int(value)
-		&"ground.soil":
-			return StringName(world.get("ground.soil", &"")) == StringName(value)
-		&"ground.zone":
-			return int(world.get("ground.zone", 0)) == int(value)
 	return false
 
 
@@ -1550,12 +1482,10 @@ func menu_world() -> Dictionary:
 		"planting": String(view_controller.planting_species) if view_controller != null else "",
 		"planted": view_controller.planted_count() if view_controller != null else 0,
 		# What the ground is stated to be, which is what every plant verdict is judged against: the
-		# whole point of a ring that changes when a plant is dropped two metres to the left.
+		# whole point of a ring that changes when a plant is dropped two metres to the left. One line
+		# now rather than a radio state per attribute: the ground is edited in its own window, and the
+		# menu reports what came of it.
 		"ground": _ground_text(),
-		"ground.sun": _ground_attr("sun"),
-		"ground.moisture": _ground_attr("moisture"),
-		"ground.soil": _ground_attr("soil"),
-		"ground.zone": _ground_attr("zone"),
 	}
 	return world
 
@@ -1580,21 +1510,6 @@ func _ground_text() -> String:
 	return map.describe()
 
 
-## One ground attribute as the menu reads it: the value somebody stated, or this set's "not stated".
-func _ground_attr(key: String) -> Variant:
-	var map: ZoneMapScript = _ground_map()
-	if map == null or not map.base.has(key):
-		return no_ground_value(key)
-	match key:
-		"sun":
-			return map.base.sun_level()
-		"moisture":
-			return map.base.moisture_level()
-		"soil":
-			return map.base.soil_name()
-		"drainage":
-			return map.base.drainage_level()
-	return map.base.zone()
 
 
 ## Build the menus from the plan.
@@ -2355,6 +2270,56 @@ func close_plant_browser() -> void:
 		_plant_window.hide()
 
 
+## The ground: the site's conditions and one statement per area of the plan.
+##
+## A `Window` like the library, and for the same reason - it has dropdowns in it, and `Root` is built
+## focus-free so that nothing in the HUD can take the drawing keys. Built by hand rather than left to
+## its own `_ready`, so that the window the designer opens is the window this file has already wired
+## to the menu, the drawing and the planting check.
+func _build_ground_window() -> void:
+	if _ground_window != null:
+		return
+	_ground_window = GroundWindowScript.new()
+	_ground_window.name = "GroundWindow"
+	add_child(_ground_window)
+	_ground_window.ground_changed.connect(_on_ground_changed)
+	_ground_window.check_requested.connect(_on_ground_check_requested)
+	_ground_window.hide()
+
+
+## Open it, pointed at the drawing that is open now.
+func open_ground_window() -> void:
+	if _ground_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_ground_window.document = _draft.document
+	_ground_window.refresh()
+	_ground_window.popup_centered()
+	# A window holds the keyboard while it is up, which is exactly what a window is for; the moment
+	# it closes the drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+func close_ground_window() -> void:
+	if _ground_window != null:
+		_ground_window.hide()
+
+
+func is_ground_window_open() -> bool:
+	return _ground_window != null and _ground_window.visible
+
+
+## The ground changed in the window: the Site menu's line about it is now stale, and so is the ring
+## around whatever plant is in hand.
+func _on_ground_changed() -> void:
+	_refresh_menus()
+
+
+func _on_ground_check_requested() -> void:
+	_menu_check_planting({})
+
+
 ## Point the browser at the catalogue, reading it only if it has never been read.
 ##
 ## `refresh` rather than `bind` once it is bound, because `bind` rebuilds the tag chips: what is
@@ -2389,26 +2354,9 @@ func _menu_stop_planting(_entry: Dictionary) -> void:
 # --- what the ground is like, and what that means for the planting -----------------------
 
 
-## State one thing about the site's ground, or take the statement back.
-##
-## The whole map is copied rather than edited in place, because the map being edited *is* the one on
-## the document: `set_environment` compares what it is handed with what is already there to tell
-## "saved" from "already so", and an object that is its own argument would always look unchanged - a
-## menu that ticked and changed nothing.
-func _menu_set_ground(entry: Dictionary) -> void:
-	var map: ZoneMapScript = _ground_map()
-	if map == null:
-		return
-	var document: DraftDocument = _draft.document
-	var key: String = String(entry.get("state", &"ground.sun")).get_slice(".", 1)
-	var value: Variant = entry.get("value", null)
-	var updated: ZoneMapScript = map.copy()
-	if ground_value_stated(key, value):
-		updated.base.with(key, value)
-	else:
-		updated.base.forget(key)
-	document.set_environment(updated)
-	_refresh_menus()
+## Open the ground window: the site's conditions and one statement per area of the plan.
+func _menu_ground_window(_entry: Dictionary) -> void:
+	open_ground_window()
 
 
 ## Ask the drawing what it already knows about the ground: a building is shade, a hard surface is hot

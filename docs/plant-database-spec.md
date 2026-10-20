@@ -300,15 +300,35 @@ library and writes the summary and the worst rows into its status line.
 
 ### 7a.8 Where it is reached from
 
-The **Site** menu, between Draft and Plant: one info line saying what the ground is, four sets of
-radios (the site's light, moisture, soil and hardiness zone, each starting with "not stated" so that a
-statement can be withdrawn), **Read the ground from the drawing**, and **Check the planting**. Sets of
-radios rather than a dialog, because a dialog is a window and a window is the one thing this HUD may
-not open casually.
+The **Site** menu, between Draft and Plant: one info line saying what the ground is, **What the
+ground is like...**, **Read the ground from the drawing**, and **Check the planting**.
 
-The trap the menu is built around: **zero is a real moisture level** (low water), so it cannot be the
-value that means "not stated" - and it *is* that value for light and zone, where 0 is not a level
-anybody can state. `Hud.no_ground_value(key)` is the one place that knows this.
+"What the ground is like..." opens a `Window` (`scripts/ground_window.gd`, "What the ground is like"):
+the site's own light, moisture, soil and hardiness zone as four dropdowns at the top, then **every area
+of the plan the drawing encloses** - each bed, lawn, paving, existing planting and building, with its
+area in square metres - each of which can be stated separately. A window rather than sets of radios in
+the menu because the second half of it is a *list*, and a list of the plan's areas is the one thing a
+menu cannot show.
+
+The site's dropdowns apply as they are chosen. So do an area's, and that is a deliberate change from
+the first cut of this: choosing a condition for an area **states it there and then**, because the
+ground a designer is describing is the ground they are looking at, and a "chosen but not yet stated"
+half-state is a state nobody asked for. **State these conditions** is the same act said out loud, and
+**Take them back** returns the area to the site it sits in - which is also what choosing "not stated"
+for the last stated attribute means: not a statement that says nothing, but no statement at all.
+
+An area is keyed by what it *is* (`ZoneMap.area_key`), so stating an area twice **edits** it instead of
+stacking a second zone on it. This is what makes a hand statement override what the drawing implies: the
+paving in the run below is read as full sun from the drawing and then stated as full shade by hand, and
+there is still one zone for it, saying shade.
+
+The trap the dropdowns are built around: **zero is a real moisture level** (low water), so it cannot be
+the value that means "not stated" - and it *is* that value for light and zone, where 0 is not a level
+anybody can state. `TerrainProfile.no_value(key)` is the one place that knows this, and
+`TerrainProfile.value_stated(key, value)` the one place that reads it back. The window's dropdowns show
+a stated zone's **own** statement (`stated_profile`), never the site's conditions it inherits, or
+opening the window would look like an edit nobody made; the line under the list shows what the area
+comes to, both halves.
 
 ### 7a.9 The tests, and what they hold down
 
@@ -329,18 +349,21 @@ anybody can state. `Hud.no_ground_value(key)` is the one place that knows this.
 the willow dry and damp, the lavender in a bog, the milder mismatch tolerated in both directions, a
 gap in the plan outranking a mismatch, a stated fault outranking a gap, the catalogue not asked what
 it does not say, hardiness only where a zone is claimed, two metres away being a different answer, and
-the audit's counts, its lines and its unnamed plants. `tests/test_hud_menu.gd` holds the menu: the
-four sets, the sentinel that differs per set, and the handler that must copy the map before stating
-something on it.
+the audit's counts, its lines and its unnamed plants. `tests/test_ground_window.gd` (10) holds the
+window: every value it offers is a value the model accepts, an area stores only what was changed,
+choosing a condition states it at once, the last stated attribute taken back is no statement at all,
+stating an area twice edits it rather than stacking zones, reading the drawing keeps what a person
+stated, and a window with no drawing says so instead of failing. `tests/test_hud_menu.gd` holds the
+menu that opens it.
 
 
 ## 8. What is not built
 
-Zones on the ground map can be **read from the drawing** (§7a.4) and stated for the site (§7a.8),
-but nothing in the interface **draws a zone by hand** yet: the model for it (`ZoneMap.add_zone`) and
-the rules it obeys are built and tested, and the tool that picks an outline on the plan to put one
-where the drawing cannot know about it - a wet corner, a frost pocket, a bed on the other side of
-something - is not.
+The ground can be **read from the drawing** (§7a.4) and stated for the site and for any area the
+drawing encloses (§7a.8). What is still not built is a zone whose outline is **drawn by hand**: the
+window states ground for an area the plan already encloses, so a wet corner, a frost pocket or a strip
+of shade that no entity outlines cannot be described yet. `ZoneMap.add_zone` takes an arbitrary
+outline and the rules it obeys are built and tested, so what is missing is a plan tool that picks one.
 
 * **A planting schedule on a sheet.** `schedule()` and `schedule_text()` exist and are tested; nothing
   plots them yet. Sheet furniture has a cross-reference table and a key, and a planting plan wants a

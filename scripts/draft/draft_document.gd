@@ -249,16 +249,25 @@ func set_environment(map: ZoneMapScript) -> bool:
 ## surface is full sun and dry. See `ZoneMap.from_document`.
 ##
 ## The base survives - what somebody has stated about the whole site is not thrown away by asking the
-## drawing what it knows - and zones drawn from the drawing are replaced, so a designer who edits a
-## patio and asks again gets the new patio rather than two of them.
+## drawing what it knows - and the drawing's own zones are replaced, so a designer who edits a patio
+## and asks again gets the new patio rather than two of them.
 ##
-## Answers the number of zones read, which is 0 for a drawing with no structure and no paving on it.
+## **A zone stated by hand survives too**, and it is put *after* the ones read from the drawing, so it
+## goes on answering for its area: a re-read is the software looking at the plan again, and the plan
+## looking again must never overrule what a person said about the ground. See `ZoneMap.HAND_PREFIX`.
+##
+## Answers the number of zones read from the drawing, which is 0 for a drawing with no structure and
+## no paving on it.
 func read_environment_from_drawing() -> int:
 	var derived: ZoneMapScript = ZoneMapScript.from_document(self, environment.base.to_dict())
-	if derived.zones.is_empty() and environment.zones.is_empty():
+	var read: int = derived.zones.size()
+	for zone in environment.zones:
+		if String(zone.source).begins_with(ZoneMapScript.HAND_PREFIX):
+			derived.zones.append(zone)
+	if read == 0 and environment.zones.is_empty():
 		return 0
 	set_environment(derived)
-	return derived.zones.size()
+	return read
 
 
 # --- the site -----------------------------------------------------------------------

@@ -228,3 +228,125 @@ func test_the_ground_travels_in_the_file_and_moves_with_undo() -> void:
 	assert(document.undo_last(), "the change can be undone")
 	assert(document.environment.base.soil_name() == Profile.SAND, "and the soil is back")
 	assert(not document.environment.base.has("moisture"), "and the moisture is unstated again")
+
+
+# --- areas on the plan, and what a person states about them ---------------------------------
+
+
+## A drawing with a bed, a patio and a building on it.
+func _drawing() -> DraftDocument:
+	var document: DraftDocument = Document.new()
+	document.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(6.0, 3.0)), LayerSet.NEW_BED)
+	document.add(Entity.make_rectangle(Vector2(12.0, 0.0), Vector2(4.0, 4.0)), LayerSet.NEW_HARDSCAPE)
+	document.add(Entity.make_rectangle(Vector2(0.0, 12.0), Vector2(8.0, 6.0)), LayerSet.EXISTING_STRUCTURE)
+	return document
+
+
+func test_a_plan_offers_the_areas_a_designer_can_state_conditions_for() -> void:
+	var document: DraftDocument = _drawing()
+	# A line on a bed layer encloses nothing, and a sliver nobody meant to draw is not an area: a list
+	# of two hundred of them would bury the three that matter.
+	document.add(Entity.make_line(Vector2(30.0, 0.0), Vector2(34.0, 0.0)), LayerSet.NEW_BED)
+	document.add(Entity.make_rectangle(Vector2(30.0, 0.0), Vector2(0.4, 0.4)), LayerSet.NEW_TURF)
+	# A dimension is not ground either.
+	document.add(Entity.make_dimension(Vector2(0.0, 0.0), Vector2(2.0, 0.0), 1.0), LayerSet.DIMENSION)
+
+	var areas: Array[Dictionary] = ZoneMapScript.areas_of(document)
+	assert(areas.size() == 3, "three areas enclose ground: %d" % areas.size())
+	var labels: Array[String] = []
+	for row: Dictionary in areas:
+		labels.append(String(row["label"]))
+	assert(labels.has("bed") and labels.has("lawn") == false, "the bed is offered: %s" % str(labels))
+	assert(labels.has("paving") and labels.has("existing building"), str(labels))
+	# In draw order, which is the order the layers plot in and not the order they were drawn in.
+	assert(String(areas[0]["label"]) == "existing building", String(areas[0]["label"]))
+	assert(String(areas[1]["label"]) == "paving", String(areas[1]["label"]))
+	assert(String(areas[2]["label"]) == "bed", String(areas[2]["label"]))
+	assert(is_equal_approx(float(areas[2]["area_m2"]), 18.0), "6 x 3 is 18 m²")
+	assert(String(areas[2]["name"]) == "bed 1", String(areas[2]["name"]))
+	assert(String(areas[2]["key"]) == ZoneMapScript.area_key(LayerSet.NEW_BED, 1))
+	# Nothing is stated about any of it yet, and what answers for each area is named.
+	var described: Array[Dictionary] = ZoneMapScript.describe_areas(areas, ZoneMapScript.make())
+	for row: Dictionary in described:
+		assert(bool(row["stated"]) == false, "nothing is stated by hand")
+		assert((row["stated_profile"] as TerrainProfile).is_empty(), "and nothing is stated about it")
+		assert((row["profile"] as TerrainProfile).is_empty(), "so nothing is known about the ground")
+		# What answers for an unstated area is the site itself, which is an answer of "" - and the
+		# source says so, so a dialog can tell "the site's conditions" apart from "read from the
+		# drawing" without guessing from an empty string.
+		assert(String(_area_row(described, "bed 1")["source"]) == "the site", "and the site answers for it")
+
+
+func _area_row(rows: Array[Dictionary], name: String) -> Dictionary:
+	for row: Dictionary in rows:
+		if String(row["name"]) == name:
+			return row
+	return {}
+
+
+func test_stating_an_area_by_hand_edits_one_zone_rather_than_stacking_two() -> void:
+	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.PART_SHADE})
+	var outline: PackedVector2Array = _square(Vector2(2.0, 2.0), 3.0)
+	var key: String = ZoneMapScript.area_key(LayerSet.NEW_BED, 4)
+	map.state_zone(key, "bed 4", outline, Profile.of("moisture", SpeciesScript.WATER_LOW))
+	assert(map.zone_count() == 1, "one zone")
+	assert(String(map.zones[0].source) == key, "keyed by the area it came from")
+	# Stating it again edits that zone rather than adding a second one that would answer first.
+	map.state_zone(key, "bed 4", outline, Profile.of("moisture", SpeciesScript.WATER_HIGH))
+	assert(map.zone_count() == 1, "still one zone")
+	assert(map.zones[0].profile.moisture_level() == SpeciesScript.WATER_HIGH, "with the newer statement")
+	# And it keeps its place in the order: re-stating a bed must not move it above a bed drawn inside
+	# it, because the order the zones are in is the order they answer in.
+	map.state_zone(
+		ZoneMapScript.area_key(LayerSet.NEW_TURF, 9), "lawn 9", _square(Vector2(2.0, 2.0), 1.0),
+		Profile.of("sun", SpeciesScript.FULL_SUN)
+	)
+	var inside: Dictionary = map.profile_at(Vector2(2.0, 2.0))
+	assert(String(inside["place"]) == "lawn 9", "the later zone answers inside itself")
+	map.state_zone(key, "bed 4", outline, Profile.of("moisture", SpeciesScript.WATER_LOW))
+	assert(String(map.zones[0].name) == "bed 4", "and the bed is still first in the order")
+	assert(String(map.profile_at(Vector2(2.0, 2.0))["place"]) == "lawn 9", "so it still answers last")
+
+
+func test_reading_the_drawing_again_does_not_wipe_what_a_person_stated() -> void:
+	var document: DraftDocument = _drawing()
+	# A bed under the eaves: the drawing cannot know that, and reading the drawing again must not
+	# throw it away.
+	var areas: Array[Dictionary] = ZoneMapScript.areas_of(document)
+	document.environment.state_zone(
+		ZoneMapScript.area_key(LayerSet.NEW_BED, 1), "bed 1",
+		_centre_of(_area_row(ZoneMapScript.describe_areas(areas, document.environment), "bed 1")),
+		Profile.of("moisture", SpeciesScript.WATER_LOW)
+	)
+	assert(document.read_environment_from_drawing() == 2, "the building and the paving are read")
+	assert(document.environment.zone_count() == 3, "and the stated bed is still there")
+	var at_bed: Dictionary = document.environment.profile_at(Vector2(0.0, 0.0))
+	assert(String(at_bed["place"]) == "bed 1", "the bed's statement still answers for it")
+	assert((at_bed["profile"] as TerrainProfile).moisture_level() == SpeciesScript.WATER_LOW)
+	var at_paving: Dictionary = document.environment.profile_at(Vector2(12.0, 0.0))
+	assert(String(at_paving["place"]) == "hard surface", "and the paving was read")
+	# Asking again does not stack a second copy of the stated zone either.
+	document.read_environment_from_drawing()
+	assert(document.environment.zone_count() == 3, "reading twice is not three zones")
+
+
+## The outline an area row carries, which is what a zone is stated with.
+func _centre_of(row: Dictionary) -> PackedVector2Array:
+	return row["outline"] as PackedVector2Array
+
+
+func test_an_area_row_says_what_it_states_and_what_that_comes_to() -> void:
+	# `stated_profile` is what an editor puts in its boxes; `profile` is what it tells the designer the
+	# ground is now. Reading one into the other is how an area comes to store the whole site.
+	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.FULL_SHADE, "soil": Profile.CLAY})
+	var key: String = ZoneMapScript.area_key(LayerSet.NEW_BED, 7)
+	map.state_zone(key, "bed 7", _square(Vector2.ZERO, 2.0), Profile.of("moisture", SpeciesScript.WATER_LOW))
+	var rows: Array[Dictionary] = ZoneMapScript.describe_areas(
+		[{"name": "bed 7", "key": key, "label": "bed", "outline": _square(Vector2.ZERO, 2.0), "area_m2": 4.0}],
+		map
+	)
+	assert(rows.size() == 1)
+	assert(bool(rows[0]["stated"]), "somebody stated it")
+	assert((rows[0]["stated_profile"] as TerrainProfile).stated_keys() == ["moisture"], "only what they stated")
+	assert((rows[0]["profile"] as TerrainProfile).stated_keys() == ["sun", "moisture", "soil"], "and the ground as it is")
+	assert((rows[0]["profile"] as TerrainProfile).sun_level() == SpeciesScript.FULL_SHADE, "which includes the site")

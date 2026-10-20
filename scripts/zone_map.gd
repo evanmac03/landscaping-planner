@@ -62,6 +62,31 @@ const DERIVED := {
 const NOT_DERIVED := "a drawing shows where things are, not how wet the ground is: shade cast by a " \
 	+ "tree, soil, and the fall of the land are not read from it"
 
+## The layers whose areas enclose **ground somebody could plant in**, and what to call each one.
+##
+## `DERIVED` is what the drawing *implies*; this is what a designer may *state by hand*. They are not
+## the same list and must not be: paving implies full sun whether or not anybody wanted it read that
+## way, while the bed beside it implies nothing at all - but the bed is exactly the area a designer
+## wants to say "this one is dry, it is under the eaves" about. So every layer that encloses ground
+## is offered here, and the designer decides which of them mean something.
+##
+## Survey lines, contours, spot levels, symbols, dimensions, text, the sheet furniture, irrigation
+## runs and lighting runs are absent: none of them encloses ground.
+const AREAS := {
+	LayerSetScript.EXISTING_PLANTING: "existing planting",
+	LayerSetScript.NEW_BED: "bed",
+	LayerSetScript.NEW_TURF: "lawn",
+	LayerSetScript.EXISTING_HARDSCAPE: "existing paving",
+	LayerSetScript.NEW_HARDSCAPE: "paving",
+	LayerSetScript.EXISTING_STRUCTURE: "existing building",
+	LayerSetScript.NEW_STRUCTURE: "structure",
+}
+
+## How a zone stated by hand is keyed, so that stating conditions for one area twice edits one zone
+## instead of stacking two. The drawing's own zones are keyed `layer:<layer>#<id>`; a hand zone says
+## `by hand:<layer>#<id>`, which is also how a re-read tells them apart and leaves them alone.
+const HAND_PREFIX := "by hand:"
+
 
 ## One area with its own conditions.
 class Zone extends RefCounted:
@@ -197,6 +222,122 @@ func zone_named(zone_name: String) -> Zone:
 		if zone.name == zone_name:
 			return zone
 	return null
+
+
+## The zone stated for one area of the plan, by the key that identifies it, or null.
+func zone_by_source(source: String) -> Zone:
+	for zone: Zone in zones:
+		if zone.source == source:
+			return zone
+	return null
+
+
+## State the ground for one area of the plan, replacing whatever was stated for that area before.
+##
+## `key` identifies the area (see `area_key`), so stating conditions twice **edits one zone** rather
+## than stacking two on top of each other - and it edits it *in place*, because re-stating a bed must
+## not move it above a bed that was drawn inside it: the order of the zones is the order they were
+## drawn in, and that is the order they answer in.
+func state_zone(
+	key: String, zone_name: String, outline: PackedVector2Array, profile: TerrainProfile
+) -> Zone:
+	var existing: Zone = zone_by_source(key)
+	if existing != null:
+		existing.name = zone_name
+		existing.outline = outline
+		existing.profile = profile if profile != null else TerrainProfile.make()
+		return existing
+	return add_zone(zone_name, outline, profile, key)
+
+
+## The key that identifies one area of the plan for `state_zone`.
+static func area_key(layer: StringName, entity_id: int) -> String:
+	return "%s%s#%d" % [HAND_PREFIX, String(layer), entity_id]
+
+
+## The areas a plan already encloses, which are the ones a designer can state conditions for.
+##
+## Returns one row per area, in draw order: `{entity_id, layer, key, label, name, outline, area_m2,
+## source, profile, stated}`. `stated` is true where somebody has already said what that ground is
+## like, `source` is which zone answers for it (a hand zone, or the zone the drawing itself implies),
+## and `profile` is what it currently is - so a dialog can show each area's conditions instead of
+## making somebody remember them.
+##
+## `min_area` is in square metres. A sliver of an outline nobody meant to draw is not an area, and a
+## list of two hundred of them would bury the four that matter.
+static func areas_of(document: DraftDocument, min_area: float = 0.5) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if document == null:
+		return out
+	for entity: DraftEntity in document.plotting_entities():
+		var label: Variant = AREAS.get(entity.layer)
+		if not (label is String):
+			continue
+		var outline: PackedVector2Array = entity.outline()
+		if outline.size() < 3:
+			continue
+		var size: float = absf(GeomScript.polygon_area(outline))
+		if size < min_area:
+			continue
+		var key: String = area_key(entity.layer, entity.id)
+		out.append({
+			"entity_id": entity.id,
+			"layer": entity.layer,
+			"key": key,
+			"label": String(label),
+			"name": "%s %d" % [String(label), entity.id],
+			"outline": outline,
+			"area_m2": size,
+		})
+	return out
+
+
+## Fill in what answers for each area of a plan, for a dialog that shows a list of them.
+##
+## Kept apart from `areas_of` because it needs the map and `areas_of` does not: the list of areas a
+## drawing encloses is a fact about the drawing, and what the ground is like there is a fact about the
+## map, and a caller may want the first without the second.
+##
+## Each row gains `stated` (was it stated by hand), `source`, `stated_profile` (what the area itself
+## says, which is empty when it says nothing) and `profile` (what actually answers for it, so a dialog
+## can show the effect of the site's own conditions without the designer having to work it out).
+##
+## **`stated_profile` and `profile` are different things and an editor needs both**: the first is what
+## to put in the boxes a person edits, the second is what to tell them the answer currently is. An
+## editor that read the second into the first would store the site's conditions on the area the moment
+## somebody changed one thing, and a zone that restates the whole site is a zone that stops following
+## it.
+static func describe_areas(areas: Array[Dictionary], map: ZoneMap) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row: Dictionary in areas:
+		var described: Dictionary = row.duplicate()
+		var hand: Zone = map.zone_by_source(String(row["key"])) if map != null else null
+		if hand != null:
+			described["stated"] = true
+			described["source"] = "by hand"
+			described["stated_profile"] = hand.profile.copy()
+		else:
+			described["stated"] = false
+			described["stated_profile"] = TerrainProfile.make()
+			var spot: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else {}
+			described["source"] = String(spot.get("source", "")) if not spot.is_empty() else ""
+		var spot_effect: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else {}
+		described["profile"] = (
+			(spot_effect["profile"] as TerrainProfile) if spot_effect.has("profile")
+			else TerrainProfile.make()
+		)
+		out.append(described)
+	return out
+
+
+## The middle of a ring, which is the point an area's conditions are read at.
+static func _centre(outline: PackedVector2Array) -> Vector2:
+	if outline.is_empty():
+		return Vector2.ZERO
+	var total := Vector2.ZERO
+	for point: Vector2 in outline:
+		total += point
+	return total / float(outline.size())
 
 
 ## Remove a zone by name. Answers whether there was one: a map that silently did nothing is worse
