@@ -5,9 +5,12 @@ scenes - a tree, a shrub, a flower bed - placed by hand in `yard.tscn`. What it 
 *species*: a red maple that is hardy in zone 3, spreads 9 m, blooms in March, wants sun and average
 water, and is drawn as a tree. This module is that, and everything that hangs off it.
 
-**Status.** Built: the catalogue, the placement link, the planting list, the browser. 46 tests in
-`test_plants.gd` (20), `test_plant_placement.gd` (11) and `test_plant_browser.gd` (15), plus the
-Plant menu in `test_hud_menu.gd`.
+**Status.** Built: the catalogue, the placement link, the planting list, the browser, the palette
+section, and the ground under a plant with the ring that reads it. The starter list is **130 species**:
+the 17 it began with and the expansion of §2a. 45 tests in `test_plants.gd` (20),
+`test_plant_placement.gd` (11) and `test_plant_browser.gd` (14), plus the Plant menu in
+`test_hud_menu.gd`, the palette in `test_plant_panel.gd` (12) and the expansion in
+`test_plant_expansion.gd` (7).
 
 ## 1. JSON, not one `.tres` per species
 
@@ -27,7 +30,8 @@ included, because a grid asks for the same thumbnail on every redraw.
 | --- | --- | --- |
 | `user://plants/catalogue.json` | the program | the species |
 | `user://plants/collections.json` | the person | their own groups |
-| `res://data/plants/nursery_list.json` | the project | the 17 species shipped with it |
+| `res://data/plants/nursery_list.json` | the project, through `PlantExpansion` | the species shipped with it - 130, and growing |
+| `res://data/plants/nursery_list_more.json` | `tools/plant_expansion.gd` | the additions on their own, as data somebody can read and diff |
 
 Collections are **apart** from the catalogue on purpose. A catalogue ships and an import replaces it
 wholesale; nobody's "front bed" list may be replaced with it.
@@ -38,6 +42,31 @@ stays a shipped list and a catalogue somebody has edited is theirs.
 
 Writes go through a temporary file and a rename, as a drawing and a cost book do: a save that fails
 must not leave a shorter plant list where the real one was.
+
+## 2a. More plants, and the rule that keeps them from being duplicates
+
+Seventeen species is a demonstration, not a nursery's list: a designer drawing a real garden reaches
+the end of it in an afternoon. `tools/plant_expansion.gd` (`PlantExpansion`) adds the rest of the
+trade's workhorses - 113 more, for 130 in all - and it does it through the module's **own importer**
+rather than by editing the file, because that is what makes "do not add what is already there" a
+property of the mechanism rather than a promise about the data:
+
+* `PlantCatalogue.import_json` **skips an id the catalogue already has** and reports it as refused;
+  `PlantCatalogue.add` will not replace an id at all. An id is what an import and a catalogue are
+  matched on, and a silent replace is how one plant quietly becomes another.
+* An entry the model will not accept is refused **with its reason**, so a mistyped zone cannot reach
+  the list.
+* The additions are also written out to `data/plants/nursery_list_more.json`, so they exist as JSON
+  somebody can read and diff rather than only as GDScript in a tool.
+
+Running the tool a second time is the proof of the rule: it reports `added=0, skipped=113` and the
+shipped list is unchanged. The expansion **cannot** edit a plant that was already there.
+
+The data makes the same claims the shipped entries do and no more: zones are USDA ranges, sizes are
+whole centimetres as a label gives them, and `soils` and `drainage` (§7a) are stated **only where the
+plant is particular** - a lavender wants sharp drainage and says so, a spirea does not and stays
+silent. A question the catalogue does not answer is skipped by the suitability check rather than
+guessed, so a plant with no soil stated cannot be marked wrong for the soil it is planted in.
 
 ## 3. One species
 
@@ -145,12 +174,12 @@ So the same catalogue is also a section of the left palette, under the drawing t
     Plants                  Library...  (L)
     Tag  [ Any tag          v ]
     +-------------------------------+
-    | Autumn fern                   |  ItemList, ICON_MODE_LEFT, 26 px swatches
-    | Black-eyed Susan              |  by common name, one tag drop-down
-    | Christmas rose                |  capped at MAX_LISTED (40)
+    | American cranberrybush        |  ItemList, ICON_MODE_LEFT, 26 px swatches
+    | American wisteria             |  by common name, one tag drop-down
+    | Astilbe                       |  capped at MAX_LISTED (250)
     | ...                           |
     +-------------------------------+
-    17 species.                        Status
+    130 species.                       Status
     [      Place      ]  [ Stop ]      Actions
 
 It is a plain `VBoxContainer` and not a `Window`, and that one difference decides everything else
@@ -164,14 +193,18 @@ Which is also why there is no search box here, and why the ways in are deliberat
 drop-down**, not the browser's eight. A palette is a quick picker; a second row of filters would be a
 handler at the end of the design day rather than a shortcut in the middle of one.
 
-`MAX_LISTED` is 40 and the status line says so - "Showing the first 40 of 120. Open the library to
-search." A panel that quietly showed forty of somebody's four thousand plants would be a worse answer
-than one that admits it is not the browser.
+`MAX_LISTED` is 250 and the status line says so when it bites - "Showing the first 250 of 400. Open
+the library to search." The bound is set well clear of the whole shipped catalogue, because a
+palette that could reach only the plants whose names happened to start with A would be a trap rather
+than a quick picker; it is there for the four-thousand-row import, where a list that long in a
+palette is slower than the window it is trying to save you from. A panel that quietly showed forty
+of somebody's four thousand plants would be a worse answer than one that admits it is not the
+browser.
 
 The pictures come from `PlantIcons` (`scripts/plant_icons.gd`), shared with the browser, so the two
 cannot show one plant two ways: the form decides the shape, the species' bloom colour decides the
-tint, and the cache is keyed "form|category" rather than by species - seventeen species drawn as three
-props are three pictures, and four thousand are thirty.
+tint, and the cache is keyed "form|category" rather than by species - a hundred and thirty
+species drawn as three props are still three pictures, and four thousand are thirty.
 
 Choosing here **does not close anything and does not stop the plant**. The library closes on a choice
 because the choice was made to get back to the plan; the panel is already beside the plan. It arms the
@@ -403,3 +436,8 @@ outline and the rules it obeys are built and tested, so what is missing is a pla
 * a catalogue bigger than the panel lists is capped, and says how much of itself it is not showing
 * a plant that is not on the list cannot be chosen, and choosing it does not silently pick another
 * a tag the catalogue no longer carries falls back to every plant rather than to an empty panel
+* a bigger starter list is added through the module's own importer, and running it twice adds nothing
+  the second time: every addition is in the shipped list, an id already there is refused rather than
+  replaced, and an entry already in the list is left alone (`test_plant_expansion.gd`)
+* a species that states soil or drainage states a value the vocabulary knows and keeps it through a
+  file, and one that states neither is still valid (`test_plant_suitability.gd`)

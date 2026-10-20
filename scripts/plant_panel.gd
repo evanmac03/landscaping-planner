@@ -27,7 +27,12 @@ signal stop_requested()
 ## needs the four-thousandth plant wants the library's search box, and a list of four thousand rows
 ## inside a palette would be slower to use than the window it is trying to save you from. The status
 ## line says so when it happens rather than pretending the list is the catalogue.
-const MAX_LISTED := 40
+##
+## The bound is set high enough that the whole shipped starter list - and a designer's own working
+## catalogue - is reachable here without the library: a palette that can only reach the plants whose
+## names happen to start with A is not a quick picker, it is a trap. The list scrolls, and the tag
+## drop-down narrows it, so a long list costs nothing but a scroll.
+const MAX_LISTED := 250
 
 const ICON_SIZE := 26
 const LIST_HEIGHT := 150

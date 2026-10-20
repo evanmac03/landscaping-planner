@@ -81,9 +81,18 @@ func test_the_browser_shows_every_species_and_the_one_box_narrows_it() -> void:
 	assert(browser.row_titles().size() == catalogue.count(), "unfiltered, it shows the lot")
 	assert(browser.status_text() == "%d species" % catalogue.count(), "and says how many")
 
+	# "acer" is three maples now that the list is a nursery's rather than a demonstration: what the
+	# one box promises is that it narrows to the plants whose names carry the word, not that a word
+	# finds one plant.
 	browser.set_query_text("acer")
-	assert(browser.row_titles().size() == 1, "one box, one word: %s" % " | ".join(browser.row_titles()))
-	assert(browser.status_text() == "1 of %d species" % catalogue.count(), "and says how many it found")
+	var found: Array[String] = browser.row_titles()
+	assert(found.size() == 3, "one box, one word: %s" % " | ".join(found))
+	for title: String in found:
+		assert(title.to_lower().contains("maple"), "every row it found is a maple: %s" % title)
+	assert(
+		browser.status_text() == "%d of %d species" % [found.size(), catalogue.count()],
+		"and says how many it found: %s" % browser.status_text()
+	)
 
 	browser.set_query_text("")
 	assert(browser.row_titles().size() == catalogue.count(), "clearing it puts them back")
@@ -152,12 +161,23 @@ func test_the_sort_choices_are_the_orders_a_designer_asks_for() -> void:
 	var browser: PlantBrowser = _browser(catalogue)
 
 	assert(browser.set_sort("height", false), "shortest first is a sort")
-	assert(browser.results()[0].id == &"thymus-serpyllum", "which is the thyme")
+	var shortest: Array[PlantSpecies] = browser.results()
+	# Asked of the order rather than of one plant's name: the smallest plant in a shipped list is a
+	# fact about the list, and the sort either puts the list in order or it does not.
+	assert(shortest[0].height_cm == 10, "which is the shortest plant there is: %d cm" % shortest[0].height_cm)
+	assert(shortest[0].spread_cm > shortest[0].height_cm, "which is a groundcover, not a tree")
+	for index in range(1, shortest.size()):
+		assert(shortest[index - 1].height_cm <= shortest[index].height_cm,
+			"%s is not shorter than %s" % [shortest[index - 1].id, shortest[index].id])
 
 	assert(browser.set_sort("height", true), "and tallest first is the other end of it")
 	var tallest: Array[PlantSpecies] = browser.results()
-	assert(tallest[0].height_cm == 1800, "which is the birch")
-	assert(tallest[0].height_cm > tallest[1].height_cm, "and it is in order")
+	assert(tallest[0].height_cm == 2000, "which is the tallest: %d cm" % tallest[0].height_cm)
+	# Two plants can stand at the same height - a red oak and a sugar maple are both twenty metres -
+	# so the order is asserted across the whole list rather than on the first step of it.
+	for index in range(1, tallest.size()):
+		assert(tallest[index - 1].height_cm >= tallest[index].height_cm,
+			"%s is not taller than %s" % [tallest[index - 1].id, tallest[index].id])
 
 	assert(browser.set_sort("bloom"), "and by when it blooms")
 	var earliest: Array[PlantSpecies] = browser.results()
@@ -181,7 +201,10 @@ func test_a_plant_the_filter_excludes_is_not_described_in_the_detail_pane() -> v
 	browser.set_query_text("lilac")
 	assert(browser.selected_species() == null, "a filter that drops it drops the selection too")
 	assert(browser.detail_text().begins_with("Nothing chosen"), "and the pane says so")
-	assert(browser.row_titles().size() == 1, "the grid is the lilac")
+	var lilacs: Array[String] = browser.row_titles()
+	assert(lilacs.size() == 3, "the grid is the lilacs: %s" % " | ".join(lilacs))
+	for title: String in lilacs:
+		assert(title.to_lower().contains("lilac"), "and nothing else: %s" % title)
 	browser.free()
 
 

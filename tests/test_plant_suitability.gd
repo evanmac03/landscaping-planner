@@ -211,16 +211,30 @@ func test_a_plant_that_takes_one_drainage_is_checked_on_it() -> void:
 
 
 func test_the_species_table_still_accepts_the_catalogue_that_ships() -> void:
-	# The two new fields are additive: every entry in the shipped list is still valid, and says
-	# nothing about soil or drainage.
+	# The two added columns are optional, and the contract they keep with the shipped list is: an
+	# entry that states neither is still valid, an entry that does state one states a value the
+	# vocabulary knows, and whatever it states survives its own file format unchanged.
 	var read: Dictionary = CatalogueScript.load_from("res://data/plants/nursery_list.json")
 	assert(bool(read["ok"]), "the shipped list loads: %s" % String(read["reason"]))
 	var catalogue: PlantCatalogue = read["catalogue"]
+	var soily: int = 0
+	var drained: int = 0
 	for id: StringName in catalogue.ids():
 		var species: PlantSpecies = catalogue.get_species(id)
 		assert(species.is_valid(), "shipped entry %s: %s" % [id, species.problem()])
-		assert(species.soils.is_empty(), "%s states no soil" % id)
-		assert(species.drainage == SpeciesScript.DRAINS_ANY, "%s states no drainage" % id)
+		for soil: StringName in species.soils:
+			assert(Profile.SOILS.has(soil), "%s states a soil the vocabulary does not have: %s" % [id, soil])
+		if not species.soils.is_empty():
+			soily += 1
+		if species.drainage != SpeciesScript.DRAINS_ANY:
+			drained += 1
+		var again: PlantSpecies = SpeciesScript.from_dict(species.to_dict())
+		assert(again.soils == species.soils, "%s keeps its soil through a file" % id)
+		assert(again.drainage == species.drainage, "%s keeps its drainage through a file" % id)
+	# Both columns are actually in use, so the checks above are a check of the data rather than of
+	# an empty set that would pass whatever it was given.
+	assert(soily > 0, "the shipped list says something about soil")
+	assert(drained > 0, "and something about drainage")
 
 
 # --- hardiness ----------------------------------------------------------------------------

@@ -51,16 +51,21 @@ func _many(count: int) -> PlantCatalogue:
 
 
 func test_the_panel_lists_the_catalogue_by_the_name_a_person_uses() -> void:
-	var panel: PlantPanel = _panel()
+	var catalogue: PlantCatalogue = _catalogue()
+	var panel: PlantPanel = _panel(catalogue)
 	var listed: Array[StringName] = panel.listed_ids()
-	assert(listed.size() == 17, "the whole shipped list is listed: %d" % listed.size())
+	# The whole starter list, not a slice of it: a palette that hides most of the catalogue behind a
+	# cap it does not mention is worse than one that makes a person scroll.
+	assert(listed.size() == catalogue.count(),
+		"the whole shipped list is listed: %d of %d" % [listed.size(), catalogue.count()])
 	assert(listed.has(MAPLE), "including the maple")
 	# By the name a person uses rather than the one a nursery sends: the label on a red maple is
 	# "Red maple", and "Acer rubrum" is what they write down afterwards.
 	var first: PlantSpecies = panel.catalogue.get_species(listed[0])
 	assert(first != null, "the first row is a plant")
 	assert(first.common_name.begins_with("A"), "the list is in common-name order: %s" % first.common_name)
-	assert(panel.status_text() == "17 species.", "and the panel says how many: %s" % panel.status_text())
+	assert(panel.status_text() == "%d species." % catalogue.count(),
+		"and the panel says how many: %s" % panel.status_text())
 	panel.free()
 
 
@@ -83,9 +88,10 @@ func test_a_catalogue_with_no_names_still_lists_by_its_botanical_name() -> void:
 func test_a_catalogue_bigger_than_the_list_is_capped_and_says_so() -> void:
 	# A palette is a quick picker, not a browser. The honest thing is to say what is not shown
 	# rather than to quietly leave most of a catalogue out.
-	var panel: PlantPanel = _panel(_many(120))
+	var over: int = PanelScript.MAX_LISTED + 80
+	var panel: PlantPanel = _panel(_many(over))
 	assert(panel.listed_ids().size() == PanelScript.MAX_LISTED, "the list is capped")
-	assert(panel.status_text().contains("Showing the first 40 of 120"),
+	assert(panel.status_text().contains("Showing the first %d of %d" % [PanelScript.MAX_LISTED, over]),
 		"and says how much of the catalogue it is not showing: %s" % panel.status_text())
 	panel.free()
 
@@ -134,8 +140,9 @@ func test_the_plant_in_hand_is_shown_as_chosen_and_says_how_many_stand() -> void
 	# The panel is refreshed every frame by the HUD, and what is in hand has to read off it: a
 	# designer who looks down at the palette must be able to see what a click would plant.
 	var panel: PlantPanel = _panel()
+	var total: int = panel.catalogue.count()
 	panel.refresh(&"", 0)
-	assert(panel.status_text() == "17 species.", "with nothing in hand it is just the list")
+	assert(panel.status_text() == "%d species." % total, "with nothing in hand it is just the list")
 	panel.refresh(MAPLE, 30)
 	assert(panel.selected_id() == MAPLE, "the plant in hand is the chosen row")
 	assert(panel.status_text().begins_with("Planting Red maple"), "and is named")
@@ -145,7 +152,7 @@ func test_the_plant_in_hand_is_shown_as_chosen_and_says_how_many_stand() -> void
 	panel.refresh(MAPLE, 31)
 	assert(panel.listed_ids() == before, "the list is not rebuilt for a count")
 	panel.refresh(&"", 0)
-	assert(panel.status_text() == "17 species.", "and putting it away reads as the plain list again")
+	assert(panel.status_text() == "%d species." % total, "and putting it away reads as the plain list again")
 	panel.free()
 
 
@@ -175,7 +182,7 @@ func test_a_tag_narrows_the_list_and_an_unknown_tag_is_refused() -> void:
 	for species_id: StringName in narrowed:
 		assert(panel.catalogue.get_species(species_id).tags.has("shade tree"),
 			"%s carries the tag" % species_id)
-	assert(panel.status_text() == "%d of 17 species." % narrowed.size(),
+	assert(panel.status_text() == "%d of %d species." % [narrowed.size(), all_count],
 		"and the count says what it is not showing: %s" % panel.status_text())
 
 	assert(not panel.set_tag_filter("nonsense"), "a tag no plant carries is refused")
