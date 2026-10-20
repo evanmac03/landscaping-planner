@@ -836,11 +836,11 @@ const SETS := {
         "orm": "mulch_bark_orm.png",
         "tile_m": 0.8, "roughness": 0.95, "metallic": 0.0,
     },
-    "water_still": {
-        "albedo": "water_still_albedo.png",
-        "normal": "water_still_normal.png",
-        "orm": "water_still_orm.png",
-        "tile_m": 3.0, "roughness": 0.08, "metallic": 0.0,
+    "render_stucco": {
+        "albedo": "render_stucco_albedo.png",
+        "normal": "render_stucco_normal.png",
+        "orm": "render_stucco_orm.png",
+        "tile_m": 1.2, "roughness": 0.92, "metallic": 0.0,
     },
 }
 
@@ -880,6 +880,25 @@ static func _load(file_name: String) -> Texture2D:
         push_error("HardscapeMaterial: missing texture %s" % path)
     return texture
 ```
+
+**Three corrections from building this.** The table above is the shipped one.
+
+1. **The sets are generated, not bought** — which answers §16's fourth question, and the
+   answer changes the shape of the work. Only the **albedo** of a set is drawn; the
+   `normal` and `orm` maps are *derived from it* by `TextureSetBuilder`, so a set cannot
+   have a normal map that disagrees with the picture it normal-maps. The derivation is
+   script in the repository rather than a step somebody ran once: it can be re-run at a
+   different resolution or a different strength, and it tiles, because the albedo does.
+2. **`water_still` is gone.** The specification lists it and this project has no water
+   layer to draw a pond on — `SolidTable.MISSING` records the same finding from the other
+   end. A texture set nothing can use is a setting that does nothing, which is the
+   failure mode this whole specification's "corrections" sections exist to catch.
+   `render_stucco` takes its place, because a building is the one hardscape that already
+   exists in the drawing.
+3. **`uv1_scale = Vector3.ONE / tile` is right and worth spelling out**, because the
+   obvious reading of "tile_m: 1.6" is a scale of 1.6. It is a *tile size*, so the scale
+   goes the other way — and a material built the wrong way round gives paving that is
+   1.6× too coarse, which reads as plausible and is not a set anybody will report.
 
 ### 5.2 World triplanar, because CAD geometry has no UVs
 
@@ -1847,6 +1866,72 @@ comparable by vertex count and bounds, and that comparison shall be a test.
 
 ---
 
+### 8.8 What building this changed
+
+Seven corrections. Six of them were invisible in the code and are visible in a render —
+which is the argument for building a phase rather than only specifying it — and five of
+the six are about **winding**, which is where every face in this section is decided.
+
+**The convention, first, because everything else follows from it.** Godot's front faces
+are **clockwise**, so a triangle's front normal is *minus* the right-hand-rule product of
+its edges: `-(b - a).cross(c - a)`. That one sign is the difference between a patio and a
+hole in the ground. It is written down once, in `CadSolid.front_normal()`, and asserted
+against a *built mesh* rather than reasoned about at each face:
+
+```gdscript
+## The front normal of a triangle, per Godot's clockwise convention.
+static func front_normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
+    return -((b - a).cross(c - a)).normalized()
+```
+
+1. **A quad is six vertices, not four.** The specification's side panel is built with
+   `for corner in 4` and committed as `PRIMITIVE_TRIANGLES`. Four vertices are a *strip*:
+   the renderer is handed a triangle list whose length is not a multiple of three, drops
+   the odd tail, and — this is the part that matters — `create_trimesh_collision()`
+   **refuses the surface outright**, so the solid has no collider and can be walked
+   through. The two triangles of a quad need six corners naming four places: `(A, B, C)`
+   and `(A, C, D)`.
+2. **The underside cannot be made by re-triangulating a reversed ring.** The
+   specification writes `_reversed(piece)` and feeds it back to `triangulate_polygon`,
+   which looks right and is a no-op: the triangulator answers with the *same triangle
+   sequence* whichever order the ring is given in — the indices differ, the points they
+   name do not — so both windings come back facing the same way and the underside comes
+   out pointing up. The bottom face reverses *each triangle's corner order* instead. (The
+   first diagnosis of this was wrong in an instructive way: a reversed ring's index array
+   *does* read as reversed, and comparing index arrays rather than the points they name
+   says the opposite of the truth.)
+3. **The side panels are wound inward.** With the convention above, the four corners in
+   the specification's loop order — `(from,base), (from,top), (to,top), (to,base)` — make
+   every wall of a raised bed face *into* the bed. The outward normal formula in the same
+   paragraph, `Vector3(edge.y, 0.0, -edge.x)`, is correct, so the section disagrees with
+   itself and only a render can say which half is right.
+4. **`Geometry2D.offset_polyline` already returns a closed loop.** §8.4 offsets the line by
+   `+width/2` and by `-width/2` and joins the two, one of them reversed. It does not need
+   to: a single call returns the whole band — four points for a straight segment, the
+   mitered outline for a bent one — and asking for both signs gives two copies of the same
+   loop, whose join crosses itself and is then refused by the triangulator. Ask once.
+5. **A layer cannot have one shape.** §8.6 gives every layer a single `Shape`, which reads
+   as a simplification and is a contradiction: paving is a patio where it is drawn as a
+   rectangle and a kerb where it is drawn as a line, so `NEW_HARDSCAPE` with one shape
+   either extrudes a patio as a 60 cm ribbon or a kerb as a sliver of paving. The table
+   says **how thick**; the **entity** says whether it is a surface or a centreline
+   (`SolidTable.wants_ribbon()`). The requirement it must keep — heights, bases and
+   materials from a layer-keyed table (REQ-V8.6) — it still keeps, because a width is not
+   a height.
+6. **Three of §8.6's five keys name layers that do not exist.** `WALLS`, `WATER` and
+   `PLANTING_BED` are not in this project's preset layer set, so two thirds of the table
+   could never have fired. `SolidTable` is keyed by the real names, and `SolidTable.MISSING`
+   records what became of the others — including §8.5's pond, which has nowhere to be drawn
+   yet.
+7. **`document.draw_order()` does not exist.** §8.7's rebuild walks it. The document's own
+   order is `entities()`, the order the working plan and the plotted sheet draw in.
+
+One more, about the derived maps rather than the solids: a *sampled* check for "is this
+normal map flat" reports a map with one seam as flat. Every byte is read instead — the
+lesson the still exporter's blank-render guard learned, learned twice.
+
+---
+
 ## 9. Presentation camera controls
 
 ### 9.1 The orbit rig
@@ -2630,7 +2715,7 @@ the file exists, has tests, and is reachable from the running game.
 |---|---|---|
 | **1. Wash** | **built** | `wash_table.gd`, `wash_painter.gd`, `cad_solid.gd` (outline only), `sketch_baker.gd`, `painted_plan.gd`, the painted sheet in the HUD, `R` to open it, *Save a still*. `tests/test_vis_wash.gd`, 25 tests. |
 | **2. Sketch** | **built** | `sketch_stroke.gd` (the wobble), `sketch_style.gd` + `resources/vis/sketch_default.tres` (the look), `ink_painter.gd` (the two-pass ink), `sketch_compositor.gd` + `resources/shaders/sketch_paper.gdshader` (paper, grain, hatch, bleed, wet edge, ink), supersampling in the painted path. So the painted plan is colour *and* linework. `tests/test_vis_sketch.gd`, 18 tests. |
-| **3. Hardscape** | not built | `cad_solid.gd` has `outline_of`; the slab, the ribbon and the texture sets do not exist. |
+| **3. Hardscape** | **built** | `solid_table.gd` (keyed by the real layers), `cad_solid.gd`'s `slab()` and `ribbon()` with the winding decided and tested, `hardscape_material.gd` + `texture_set_builder.gd` and five generated texture sets in `resources/textures/hardscape/`, `derived_builder.gd` as a node in `main.tscn`. Draw a rectangle on 300-NEW-HARD and a paving slab stands up in the 3D view. `tests/test_vis_solid.gd`, 38 tests. §8.8 records the seven corrections building it forced. |
 | **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. `tests/test_vis_presentation.gd`. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
 | **5. Planting at scale** | not built | `planting_instancer.gd` does not exist; the yard's props are ordinary nodes. |
 | **6. Still** | partly built | `still_exporter.gd` and `still_sidecar.gd` exist and write real PNGs with records, from the presentation camera and from the painted plan. The batch, the A3-at-300-dpi preset and §10.5's video are not built. |
@@ -2678,9 +2763,11 @@ Answers change the phasing, not the architecture.
 3. **Does the client ever see the software, or only the images?** If only the
    images, the orbit rig and the HUD hiding are unnecessary and the still exporter
    plus a batch tool carry the whole feature.
-4. **Are texture sets being bought, or generated?** Bought means the catalog is a
-   drop-in convention; generated means a texture generator is in scope, which is a
-   phase of its own.
+4. **Are texture sets being bought, or generated?** **Answered by building it: generated.**
+   Only a set's albedo is drawn; its normal and ORM maps are derived from it (§5.1), so a
+   set cannot disagree with itself and can be re-derived at a different resolution. A
+   bought pack is still a drop-in — the table is keyed by name, not by path — but nothing
+   here needs one.
 5. **How many plants per plan, really?** Instancing, and the whole of §7.4, is only
    worth building if a typical plan has hundreds. A plan with forty plants should
    keep its ordinary nodes.
