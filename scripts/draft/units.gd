@@ -115,16 +115,16 @@ static func _try_feet_inches(t: String, us_survey_foot: bool) -> float:
 	var foot := US_SURVEY_FOOT if us_survey_foot else FOOT
 	if t.contains("'"):
 		var index := t.find("'")
-		var feet := _number(t.substr(0, index))
-		if is_nan(feet):
+		var whole_feet := _number(t.substr(0, index))
+		if is_nan(whole_feet):
 			return NAN
 		var rest := t.substr(index + 1).replace("\"", "").strip_edges()
-		var inches := 0.0
+		var part_inches := 0.0
 		if not rest.is_empty():
-			inches = _fraction(rest)
-			if is_nan(inches):
+			part_inches = _fraction(rest)
+			if is_nan(part_inches):
 				return NAN
-		return feet * foot + inches * INCH
+		return whole_feet * foot + part_inches * INCH
 
 	# Two numbers with no unit marker at all: feet and inches.
 	var pattern := RegEx.new()
@@ -203,11 +203,14 @@ func format_feet_inches(metres: float) -> String:
 	if units >= inch_denominator * 12:
 		feet += 1
 		units = 0
+	# Whole inches and a whole fraction: the truncation is the point.
+	@warning_ignore("integer_division")
 	var whole := units / inch_denominator
 	var remainder := units % inch_denominator
 	var text := "%d'-%d\"" % [feet, whole]
 	if remainder != 0:
 		var divisor := _gcd(remainder, inch_denominator)
+		@warning_ignore("integer_division")
 		text = "%d'-%d %d/%d\"" % [feet, whole, remainder / divisor, inch_denominator / divisor]
 	return ("-" if negative else "") + text
 

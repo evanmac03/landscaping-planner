@@ -99,10 +99,10 @@ static func make_arc(centre: Vector2, radius: float, start: float, sweep: float)
 	return entity
 
 
-static func make_polyline(points: PackedVector2Array, close: bool = false) -> DraftEntity:
+static func make_polyline(vertices: PackedVector2Array, close: bool = false) -> DraftEntity:
 	var entity := _new()
 	entity.kind = Kind.POLYGON if close else Kind.POLYLINE
-	entity.params = _flatten(points)
+	entity.params = _flatten(vertices)
 	return entity
 
 
@@ -128,12 +128,12 @@ static func make_text(at: Vector2, text: String, rotation: float = 0.0) -> Draft
 	return entity
 
 
-static func _flatten(points: PackedVector2Array) -> PackedFloat64Array:
+static func _flatten(vertices: PackedVector2Array) -> PackedFloat64Array:
 	var out := PackedFloat64Array()
-	out.append(float(points.size()))
-	for point: Vector2 in points:
-		out.append(point.x)
-		out.append(point.y)
+	out.append(float(vertices.size()))
+	for vertex: Vector2 in vertices:
+		out.append(vertex.x)
+		out.append(vertex.y)
 	return out
 
 
@@ -427,18 +427,19 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> DraftEntity:
 	var entity := _new()
 	entity.id = int(data.get("id", 0))
+	@warning_ignore("int_as_enum_without_cast")
 	entity.kind = int(data.get("kind", Kind.LINE))
 	entity.layer = StringName(data.get("layer", ""))
 	var raw: Array = data.get("params", [])
-	var params := PackedFloat64Array()
+	var values := PackedFloat64Array()
 	for value in raw:
-		params.append(float(value))
-	entity.params = params
+		values.append(float(value))
+	entity.params = values
 	var raw_bulges: Array = data.get("bulges", [])
-	var bulges := PackedFloat64Array()
+	var bulge_values := PackedFloat64Array()
 	for value in raw_bulges:
-		bulges.append(float(value))
-	entity.bulges = bulges
+		bulge_values.append(float(value))
+	entity.bulges = bulge_values
 	var style_dict: Dictionary = data.get("style", {})
 	if not style_dict.is_empty():
 		var line := LineStyleScript.new()

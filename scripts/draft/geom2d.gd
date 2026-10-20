@@ -547,7 +547,7 @@ static func arc_parameter(angle: float, start: float, sweep: float) -> float:
 
 
 ## Bounding box of a stitched vertex list, arc segments included.
-static func polyline_aabb(points: PackedVector2Array, closed: bool = false) -> Rect2:
+static func polyline_aabb(points: PackedVector2Array, _closed: bool = false) -> Rect2:
 	return points_aabb(points)
 
 

@@ -179,7 +179,7 @@ static func _new() -> DraftLayerSet:
 
 ## A fresh document's layer set.
 static func default_set() -> DraftLayerSet:
-	var set := _new()
+	var layer_set := _new()
 	for entry: Dictionary in PRESETS:
 		var layer := DraftLayerScript.new()
 		layer.name = entry["name"]
@@ -189,8 +189,8 @@ static func default_set() -> DraftLayerSet:
 		layer.plot_weight_mm = entry["weight"]
 		layer.linetype = entry["linetype"]
 		layer.plots = entry["plots"]
-		set.add(layer)
-	return set
+		layer_set.add(layer)
+	return layer_set
 
 
 func add(layer: DraftLayerScript) -> void:

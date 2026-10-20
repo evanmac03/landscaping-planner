@@ -238,7 +238,9 @@ func restore(state: Dictionary) -> void:
 		# Copy on restore, so later edits cannot reach into the stored snapshot.
 		layers = saved_layers.copy()
 	var units_state: Dictionary = state.get("units", {})
+	@warning_ignore("int_as_enum_without_cast")
 	units.system = int(units_state.get("system", UnitsScript.System.METRIC))
+	@warning_ignore("int_as_enum_without_cast")
 	units.length_style = int(units_state.get("length_style", UnitsScript.LengthStyle.DECIMAL))
 	units.display_precision = int(units_state.get("display_precision", 3))
 	units.inch_denominator = int(units_state.get("inch_denominator", 16))

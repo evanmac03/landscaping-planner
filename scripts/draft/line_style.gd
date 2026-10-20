@@ -65,8 +65,8 @@ var display_lineweights: bool = true
 
 
 ## Width this weight covers in the model, in metres, at a plot scale of 1:S.
-static func model_width_m(plot_weight_mm: float, scale: float) -> float:
-	return plot_weight_mm * scale / 1000.0
+static func model_width_m(weight_mm: float, scale: float) -> float:
+	return weight_mm * scale / 1000.0
 
 
 ## Dash pattern converted to model units at a plot scale of 1:S.
@@ -125,16 +125,16 @@ func copy() -> LineStyle:
 
 ## A properly typed pattern array for a linetype, so callers do not have to deal
 ## with the untyped arrays held in the const table.
-static func pattern_for(linetype: StringName) -> Array[float]:
-	var raw: Array = PATTERNS.get(linetype, [])
+static func pattern_for(type_name: StringName) -> Array[float]:
+	var raw: Array = PATTERNS.get(type_name, [])
 	var out: Array[float] = []
 	for value in raw:
 		out.append(float(value))
 	return out
 
 
-static func has_linetype(linetype: StringName) -> bool:
-	return PATTERNS.has(linetype)
+static func has_linetype(type_name: StringName) -> bool:
+	return PATTERNS.has(type_name)
 
 
 static func linetype_names() -> Array[StringName]:
