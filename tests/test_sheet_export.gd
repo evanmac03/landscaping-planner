@@ -1197,3 +1197,43 @@ func test_a_schedule_row_reads_the_way_the_library_writes_it() -> void:
 		"botanical_name": "no species recorded", "cultivar": "", "common_name": "",
 	}) == "no species recorded")
 	assert(Exporter.schedule_row_text({"name": "183 species not shown"}) == "183 species not shown")
+
+# --- the paper a sheet of a set is printed on -------------------------------------------
+
+
+## A portrait sheet is the same sheet turned a quarter turn, and the whole file has to agree: the page
+## box, the border and the frame are all derived from one size, so if the box is portrait and the
+## border is not, the drawing hangs off the paper.
+func test_a_portrait_sheet_is_the_same_paper_turned() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "portrait": true})
+	var size: Vector2 = plan["sheet_mm"]
+	assert(size == Vector2(297.0, 420.0), str(size))
+	assert(bool(plan["portrait"]))
+	var border: Rect2 = plan["printable_pt"]
+	assert(border.size.y > border.size.x, "the border is portrait with it")
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "portrait": true}) 		.get_string_from_utf8()
+	# The page box is the first thing a reader looks at: it is written as the four numbers of the
+	# `/MediaBox`, and the third and fourth of them are the width and the height.
+	var box: PackedStringArray = text.split("MediaBox")
+	assert(box.size() > 1, "a page box is written")
+	var numbers: PackedStringArray = String(box[1]) \
+		.replace("[", " ").replace("]", " ").split(" ", false)
+	assert(numbers.size() >= 4, String(box[1]).substr(0, 40))
+	assert(
+		is_equal_approx(float(numbers[2]), float(numbers[3]) * 297.0 / 420.0),
+		"the page is taller than it is wide: %s" % str(numbers)
+	)
+
+
+## A sheet of a set is identified by its drawing number, not by its paper: two sheets of one set on the
+## same size sheet are still two sheets.
+func test_the_title_block_names_the_sheet_by_its_drawing_number() -> void:
+	var numbered := Exporter.export_pdf(
+		_document(), {"sheet": "A3", "number": "L1.2", "revision": "C"}
+	).get_string_from_utf8()
+	assert(numbered.contains("(L1.2) Tj"), "the sheet cell carries the drawing number")
+	assert(numbered.contains("(C) Tj"), "and the revision cell its revision")
+	# With no number, the paper size stands in, which is the sheet this app plotted before sets existed.
+	var plain := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	assert(plain.contains("(A3) Tj"), "a drawing with no number is identified by its paper")
+	assert(plain.contains("(-) Tj"), "and an unstated revision reads as a dash")

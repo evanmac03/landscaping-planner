@@ -27,6 +27,8 @@ const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
+const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
+const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -89,7 +91,14 @@ static func is_annotation_layer(layer_name: StringName) -> bool:
 ## True while the tools own the left mouse button.
 var drawing: bool = false
 
-var document
+var document: DraftDocument = null:
+	set(value):
+		document = value
+		# The paper fields - the sheet, the scale, the drawing number, the revision, the title - belong to
+		# the sheet in hand, so binding a document adopts its current sheet right here. Adopting later,
+		# the first time something reaches for the set, would mean a caller that set a field *first* had it
+		# silently overwritten by the adoption it did not know was coming.
+		_adopt_current_sheet()
 var snap
 var tool
 var canvas: Node2D = null
@@ -105,6 +114,17 @@ var drawing_layer: StringName = LayerSetScript.NEW_HARDSCAPE
 var sheet: String = "A3"
 var plot_scale: float = 100.0
 var pen_table = null
+## The current sheet's *drawing number*, revision and whether it is portrait. Beside the sheet and the
+## scale because they are the same kind of thing: the current sheet of the set, as the rest of the app
+## reads it. The set itself (every sheet, in order) is on the document, because it travels in the file
+## with the drawing.
+var sheet_number: String = ""
+var revision: String = ""
+var portrait: bool = false
+## The date the set is drawn with, as it goes on every title block. Empty means "today", which is what
+## the plotter writes when a drawing has never been dated - a date is a fact somebody types once for a
+## whole set, not once per sheet.
+var sheet_date: String = ""
 ## What goes in the title block, and whether the layer key is drawn with it. The
 ## sheet is a deliverable, so its wording is a property of the drawing too.
 var project_name: String = "Backyard Design"
@@ -998,11 +1018,19 @@ func cycle_dimension_style() -> StringName:
 ## returns. It is handed in rather than read off here, because the drafting controller has no
 ## yard and no catalogue: the planting schedule is the one part of a sheet that comes from the
 ## garden rather than from the drawing, and it is passed the way the pen table is.
-func plot(schedule: Array = []) -> String:
+##
+## `options_override` is the sheet of the *set* being plotted, when a caller has one: its paper, scale,
+## number, title and revision lay over this drawing's own. It is an argument rather than a state change
+## because plotting the set must not leave the drawing set up as whatever sheet happened to be last.
+func plot(schedule: Array = [], options_override: Dictionary = {}) -> String:
 	if document.count() == 0:
 		last_message = "nothing to plot"
 		_refresh_canvas()
 		return ""
+	# The set is the truth for a sheet's own fields, so the live ones are written back before they are
+	# used: a size chosen from the File menu and a size typed in the sheet window then end up in one
+	# place rather than in whichever of the two the last code path happened to consult.
+	save_sheet()
 	var options := {
 		"sheet": sheet,
 		"scale": plot_scale,
@@ -1011,13 +1039,24 @@ func plot(schedule: Array = []) -> String:
 		"drawing": drawing_title,
 		"legend": show_legend,
 		"schedule": schedule,
+		"number": sheet_number,
+		"revision": revision,
+		"portrait": portrait,
 	}
+	# The date is only passed when it has been stated: an empty one is the absence of an instruction, and
+	# the plotter's own default - today - is what should stand.
+	if not sheet_date.strip_edges().is_empty():
+		options["date"] = sheet_date
+	options.merge(options_override, true)
 	var bytes: PackedByteArray = SheetExporterScript.export_pdf(document, options)
 	# A timestamped name, so plotting twice does not silently replace the first
-	# sheet a client has already been sent.
-	var path := "user://sheets/plot-%s.pdf" % Time.get_datetime_string_from_system(
-		false, true
-	).replace(":", "-")
+	# sheet a client has already been sent. A sheet of a set also carries its own
+	# number, which is the name a person looks for: two sheets of one set plotted in
+	# one minute are otherwise the same file name to the second.
+	var stamp := Time.get_datetime_string_from_system(false, true).replace(":", "-")
+	var tag: String = StoreScript.sanitise(String(options.get("number", "")).strip_edges())
+	var stem := "plot-%s-%s" % [tag, stamp] if not tag.is_empty() else "plot-%s" % stamp
+	var path := "user://sheets/%s.pdf" % stem
 	var directory := DirAccess.open("user://")
 	if directory == null or (not directory.dir_exists("sheets") and directory.make_dir("sheets") != OK):
 		last_message = "could not create the sheets folder"
@@ -1034,6 +1073,202 @@ func plot(schedule: Array = []) -> String:
 	last_message = "plotted %d entities, %d bytes" % [document.count(), bytes.size()]
 	_refresh_canvas()
 	return plot_path
+
+
+# --- the sheet set -------------------------------------------------------------------
+
+
+## The sheets this drawing is plotted as. On the document, because a set is a property of the drawing
+## and travels in the file with it; this is only how the rest of the app reaches it.
+##
+## The paper fields are adopted from the current sheet the moment a document is bound (see `document`),
+## so by the time anything asks for the set the two already agree.
+func sheet_set() -> DraftSheetSet:
+	return document.sheets if document != null else null
+
+
+## Make one sheet of the set the current one: the drawing's paper fields take its values. That is what
+## choosing a sheet means - the sheet is what is plotted next, and the drawing is set up as it.
+func load_sheet(index: int) -> bool:
+	var sheet_book := sheet_set()
+	if sheet_book == null or not sheet_book.select(index):
+		return false
+	return _adopt_current_sheet()
+
+
+func _adopt_current_sheet() -> bool:
+	var sheet_book := sheet_set()
+	if sheet_book == null:
+		return false
+	var row: Dictionary = sheet_book.current()
+	if row.is_empty():
+		return false
+	sheet = String(row["sheet"])
+	plot_scale = float(row["scale"])
+	show_legend = bool(row["legend"])
+	portrait = bool(row["portrait"])
+	sheet_number = String(row["number"])
+	revision = String(row["revision"])
+	# The sheet titles the drawing, which is what the DRAWING row of a title block says: a set's sheets
+	# are several drawings of one job, and "Planting plan" belongs to the sheet rather than to the site.
+	drawing_title = String(row["title"])
+	project_name = sheet_book.project if not sheet_book.project.strip_edges().is_empty() else project_name
+	sheet_date = sheet_book.date
+	return true
+
+
+## Write the live paper fields back into the current sheet. Called on every plot as well as on every
+## edit, so the set cannot fall out of step with what is on screen.
+func save_sheet() -> bool:
+	var sheet_book := sheet_set()
+	if sheet_book == null:
+		return false
+	var index := sheet_book.current_index()
+	sheet_book.set_field(index, "title", drawing_title)
+	sheet_book.set_field(index, "number", sheet_number)
+	sheet_book.set_field(index, "revision", revision)
+	sheet_book.set_field(index, "sheet", sheet)
+	sheet_book.set_field(index, "scale", plot_scale)
+	sheet_book.set_field(index, "legend", show_legend)
+	sheet_book.set_field(index, "portrait", portrait)
+	sheet_book.project = project_name
+	sheet_book.date = sheet_date
+	return true
+
+
+## Choose the paper size, from the File menu or from the sheet window. One door, so the size and the
+## current sheet cannot disagree.
+func set_sheet_size(sheet_name: String) -> bool:
+	if not PlotScaleScript.sheet_names().has(sheet_name):
+		return false
+	sheet = sheet_name
+	save_sheet()
+	return true
+
+
+func set_plot_scale(ratio: float) -> bool:
+	if ratio <= 0.0:
+		return false
+	plot_scale = ratio
+	save_sheet()
+	return true
+
+
+## One row per sheet of the set, as anything drawing a list of them needs it: the set's own fields,
+## plus whether this is the current sheet. Saying it in one place keeps the window, a menu and a test
+## from each deciding what a sheet is.
+func sheet_rows() -> Array[Dictionary]:
+	var sheet_book := sheet_set()
+	var out: Array[Dictionary] = []
+	if sheet_book == null:
+		return out
+	for index in sheet_book.count():
+		var row: Dictionary = sheet_book.sheet(index)
+		out.append({
+			"index": index,
+			"title": String(row["title"]),
+			"number": String(row["number"]),
+			"revision": String(row["revision"]),
+			"sheet": String(row["sheet"]),
+			"scale": float(row["scale"]),
+			"legend": bool(row["legend"]),
+			"portrait": bool(row["portrait"]),
+			"current": index == sheet_book.current_index(),
+			"description": sheet_book.describe(index),
+		})
+	return out
+
+
+## Add a sheet to the set, titled and papered like the current one: a second sheet of a set is
+## usually the same job on the same paper, and the designer edits what differs. One undo step, because
+## adding a sheet is a change to the drawing like any other.
+func add_sheet(title: String = "") -> int:
+	var sheet_book := sheet_set()
+	if sheet_book == null:
+		return -1
+	var current: Dictionary = sheet_book.current()
+	var wanted := title if not title.strip_edges().is_empty() else String(current.get("title", drawing_title))
+	# The paper is copied and the *identity* is not: the new sheet takes the current one's size, scale and
+	# flags, but gets its own number from the set and starts with no revision, because a second sheet of a
+	# set is the same job on the same paper and not a copy of the sheet it came from.
+	var paper := {
+		"sheet": current.get("sheet", SheetSetScript.DEFAULT_SHEET),
+		"scale": current.get("scale", SheetSetScript.DEFAULT_SCALE),
+		"legend": current.get("legend", true),
+		"portrait": current.get("portrait", false),
+	}
+	document.begin_gesture()
+	var index: int = sheet_book.add(wanted, paper)
+	_adopt_current_sheet()
+	last_message = "sheet %s added" % String(sheet_book.current()["number"])
+	_refresh_canvas()
+	return index
+
+
+func remove_sheet(index: int) -> bool:
+	var sheet_book := sheet_set()
+	if sheet_book == null:
+		return false
+	if not sheet_book.is_valid(index):
+		return false
+	document.begin_gesture()
+	if not sheet_book.remove(index):
+		last_message = "a drawing always plots as at least one sheet"
+		_refresh_canvas()
+		return false
+	_adopt_current_sheet()
+	last_message = "sheet removed"
+	_refresh_canvas()
+	return true
+
+
+## Change one field of one sheet of the set. Routed through here rather than through the set directly,
+## so that editing the *current* sheet also moves the live fields the rest of the app reads.
+func set_sheet_field(index: int, field: String, value: Variant) -> bool:
+	var sheet_book := sheet_set()
+	if sheet_book == null or not sheet_book.is_valid(index):
+		return false
+	if not sheet_book.set_field(index, field, value):
+		return false
+	if index == sheet_book.current_index():
+		_adopt_current_sheet()
+	return true
+
+
+## Plot one sheet of the set.
+func plot_sheet(index: int, schedule: Array = []) -> String:
+	var sheet_book := sheet_set()
+	if sheet_book == null or not sheet_book.is_valid(index):
+		last_message = "there is no such sheet"
+		_refresh_canvas()
+		return ""
+	save_sheet()
+	var options: Dictionary = sheet_book.options_for(index, {"pen_table": pen_table, "project": project_name})
+	return plot(schedule, options)
+
+
+## Plot every sheet of the set, in order, and report how many were written. The set is left as the
+## designer set it up - nothing is switched by hand in between, which is the whole reason a set exists
+## - and one sheet that fails does not stop the rest.
+func plot_set(schedule: Array = []) -> Array[String]:
+	var written: Array[String] = []
+	var sheet_book := sheet_set()
+	if sheet_book == null:
+		return written
+	if document.count() == 0:
+		# One reason for the whole set rather than one per sheet: an empty drawing has nothing to plot on
+		# any of them, and "plotted 0 of 3 sheets" would bury the reason.
+		last_message = "nothing to plot"
+		_refresh_canvas()
+		return written
+	save_sheet()
+	for index in sheet_book.count():
+		var path: String = plot_sheet(index, schedule)
+		if not path.is_empty():
+			written.append(path)
+	last_message = "plotted %d of %d sheets" % [written.size(), sheet_book.count()]
+	_refresh_canvas()
+	return written
 
 
 ## Put an imported survey on the drawing.
@@ -1140,6 +1375,16 @@ func note(message: String) -> void:
 func new_drawing() -> void:
 	document.clear()
 	document.undo.clear()
+	# A new drawing starts from one sheet. The set is not carried over from the drawing that was in hand:
+	# a new drawing is a new job on a new title block, and inheriting the last job's drawing numbers and
+	# revisions is how a set of sheets ends up describing somebody else's garden.
+	document.sheets = SheetSetScript.new()
+	# The set's own first sheet is taken as it is - A3 at 1:100, numbered under the drawing number - and
+	# the two things a new job must not inherit are cleared with it: the last revision, and its date.
+	_adopt_current_sheet()
+	revision = ""
+	sheet_date = ""
+	save_sheet()
 	drawing_path = ""
 	dirty = false
 	last_message = "new drawing"
@@ -1177,7 +1422,10 @@ func open_drawing(path: String) -> bool:
 		_refresh_canvas()
 		return false
 	var opened := DocumentScript.from_dict(read["data"])
-	document.changed.disconnect(_on_document_changed)
+	# Guarded because a controller that was never in a scene tree - a test, or a headless run - never ran
+	# `_ready` and so never bound to the document it was given. Rebinding is still correct there.
+	if document.changed.is_connected(_on_document_changed):
+		document.changed.disconnect(_on_document_changed)
 	document = opened
 	document.changed.connect(_on_document_changed)
 	# The history goes with the drawing it belonged to: an undo that reached across a file
@@ -1192,6 +1440,8 @@ func open_drawing(path: String) -> bool:
 	dirty = false
 	StoreScript.remember(path)
 	last_message = "opened %s" % StoreScript.display_name(path)
+	# The sheets the drawing is plotted as came out of the file with it, and binding the document above
+	# already set the drawing up as its current sheet rather than as the paper the last drawing was on.
 	_refresh_canvas()
 	return true
 

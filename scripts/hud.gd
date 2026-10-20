@@ -229,6 +229,7 @@ const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
+const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
@@ -255,6 +256,9 @@ var _plant_export_dialog: FileDialog = null
 ## The ground: one window, because the site's conditions and the conditions of every area of the plan
 ## are one subject, and a menu cannot hold an area.
 var _ground_window: GroundWindow = null
+## The sheet setup: what this drawing goes out on, and the set of sheets it goes out as. A window
+## because it is the one surface here that takes typed text - a drawing number, a title, a revision.
+var _sheet_window: SheetWindow = null
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -294,6 +298,7 @@ func _ready() -> void:
 	_build_site_report_panel()
 	_build_survey_panel()
 	_build_hatch_panel()
+	_build_sheet_window()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -1274,6 +1279,10 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot", NEEDS_DRAFT))
 	items.append(_command(&"file.still", "Render a proposal still", &"", &"_menu_render_still", NEEDS_PRESENTATION))
 	items.append(_separator())
+	# The set stands above the two submenus that set the *current* sheet, because that is the order the
+	# subject goes in: the set is what the drawing goes out as, and the size and the scale are what this
+	# sheet of it is drawn on.
+	items.append(_command(&"file.sheet_setup", "Sheet setup...", &"", &"_menu_sheet_setup", NEEDS_DRAFT))
 	items.append(_submenu(&"file.sheet", "Sheet size", sheet_items()))
 	items.append(_submenu(&"file.scale", "Plot scale", scale_items()))
 	items.append(_separator())
@@ -2082,14 +2091,20 @@ func _fill_recent_menu() -> void:
 	_menu_items[_recent_popup] = entries
 
 
+## Both of these write through to the set's current sheet, so choosing A4 from the menu and choosing it
+## in the sheet window are the same act rather than two numbers that drift apart.
 func _menu_set_sheet(entry: Dictionary) -> void:
 	if _draft != null:
-		_draft.sheet = String(entry["value"])
+		_draft.set_sheet_size(String(entry["value"]))
+		if is_sheet_window_open():
+			_refresh_sheet_window()
 
 
 func _menu_set_scale(entry: Dictionary) -> void:
 	if _draft != null:
-		_draft.plot_scale = float(entry["value"])
+		_draft.set_plot_scale(float(entry["value"]))
+		if is_sheet_window_open():
+			_refresh_sheet_window()
 
 
 func _menu_undo(_entry: Dictionary) -> void:
@@ -2950,6 +2965,144 @@ func open_ground_window() -> void:
 func close_ground_window() -> void:
 	if _ground_window != null:
 		_ground_window.hide()
+		_ground_window.say("")
+
+
+# --- the sheet setup ------------------------------------------------------------------------
+
+
+## Build the sheet window and wire every one of its intents to the controller. One door for all of
+## them, because the window draws nothing and plots nothing: it announces what a person did, and this
+## is the place that answers, so a sheet cannot be edited by one control and plotted by another.
+func _build_sheet_window() -> void:
+	if _sheet_window != null:
+		return
+	_sheet_window = SheetWindowScript.new()
+	_sheet_window.name = "SheetWindow"
+	add_child(_sheet_window)
+	_sheet_window.field_changed.connect(_on_sheet_field_changed)
+	_sheet_window.identity_changed.connect(_on_sheet_identity_changed)
+	_sheet_window.sheet_added.connect(_on_sheet_added)
+	_sheet_window.sheet_removed.connect(_on_sheet_removed)
+	_sheet_window.sheet_selected.connect(_on_sheet_selected)
+	_sheet_window.plot_requested.connect(_on_sheet_plot)
+	_sheet_window.plot_set_requested.connect(_on_sheet_plot_set)
+	_sheet_window.closed.connect(close_sheet_window)
+	_sheet_window.hide()
+
+
+## Open it on the drawing's own set. The live paper fields are written into the current sheet first, so
+## the window shows what the drawing is actually set up as rather than what the set last held.
+func open_sheet_window() -> void:
+	if _sheet_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_draft.save_sheet()
+	_refresh_sheet_window()
+	_sheet_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_sheet_window() -> void:
+	if _sheet_window != null:
+		_sheet_window.hide()
+		_sheet_window.say("")
+
+
+func is_sheet_window_open() -> bool:
+	return _sheet_window != null and _sheet_window.visible
+
+
+## What the window says about the drawing: the sheet in the form, and what the last plot did.
+func sheet_status_text() -> String:
+	if _sheet_window == null:
+		return ""
+	return _sheet_window.status_text()
+
+
+func _refresh_sheet_window() -> void:
+	if _sheet_window == null or _draft == null:
+		return
+	_sheet_window.set_identity(_draft.project_name, _draft.sheet_date)
+	_sheet_window.set_sheets(_draft.sheet_rows())
+
+
+## Everything the drawing says about itself is written where it belongs before a plot, so the sheet
+## window is also refreshed after an edit: the row's description and the current sheet's marker both
+## change when a field does.
+func _on_sheet_field_changed(index: int, field: String, value: Variant) -> void:
+	if _draft == null:
+		return
+	if not _draft.set_sheet_field(index, field, value):
+		_sheet_window.say("that is not something a sheet can be set to")
+	_refresh_sheet_window()
+
+
+func _on_sheet_identity_changed(field: String, value: String) -> void:
+	if _draft == null:
+		return
+	match field:
+		"project":
+			_draft.project_name = value
+		"date":
+			_draft.sheet_date = value
+	_draft.save_sheet()
+
+
+func _on_sheet_added() -> void:
+	if _draft == null:
+		return
+	var added: int = _draft.add_sheet(_draft.drawing_title)
+	# The form is moved onto the new sheet *after* the rows have been rebuilt: selecting it first looks
+	# right and does nothing, because the window cannot select a row it has not been told about yet - and
+	# then the sheet the designer types into is the one they were on, not the one they just added.
+	_refresh_sheet_window()
+	if added >= 0:
+		_sheet_window.select(added)
+
+
+func _on_sheet_removed(index: int) -> void:
+	if _draft == null:
+		return
+	var removed: bool = _draft.remove_sheet(index)
+	_refresh_sheet_window()
+	if not removed:
+		_sheet_window.say(_draft.last_message)
+	else:
+		_sheet_window.select(mini(index, _draft.sheet_set().count() - 1))
+
+
+## Choosing a sheet chooses what is being plotted next, so the drawing's own paper fields follow it.
+func _on_sheet_selected(index: int) -> void:
+	if _draft == null:
+		return
+	_draft.load_sheet(index)
+	_refresh_sheet_window()
+
+
+func _on_sheet_plot(index: int) -> void:
+	if _draft == null:
+		return
+	var path: String = _draft.plot_sheet(index, _planting_rows())
+	# What the plotter said, and where the sheet went: a plot is reported by its file, because the only
+	# thing a person does next with a sheet is open it.
+	_sheet_window.say("%s -> %s" % [_draft.last_message, path] if not path.is_empty() else _draft.last_message)
+
+
+func _on_sheet_plot_set() -> void:
+	if _draft == null:
+		return
+	var written: Array[String] = _draft.plot_set(_planting_rows())
+	_sheet_window.say(_draft.last_message)
+	_refresh_sheet_window()
+	# The list is what says which sheets went out; a set that plotted four of five should say so.
+	if not written.is_empty():
+		_sheet_window.say("%s (%s)" % [_draft.last_message, String(written[written.size() - 1])])
+
+
+func _menu_sheet_setup(_entry: Dictionary) -> void:
+	open_sheet_window()
 
 
 func is_ground_window_open() -> bool:

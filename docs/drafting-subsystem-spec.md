@@ -342,6 +342,50 @@ broken.
 of the sheet, so that a drawing too large for its frame is set against the foot
 of what is left and what it overruns is clear paper rather than the block.
 
+### 3.2a The sheet set, as built
+
+**Built and tested**: `scripts/draft/sheet_set.gd` (the set), `scripts/sheet_window.gd` (the setup
+window) and `DraftController`'s sheet methods, reached from the File menu ("Sheet setup..."), with
+16 + 13 + 12 tests. `Plot a sheet` and `Plot the set` write what the set says.
+
+A drawing leaves the office as **several sheets, not one**: the layout plan at 1:200 to see how the
+whole property works, the planting plan at 1:100 because its subject is the beds, and each of them
+identified by its own drawing number and revision. A set is that list, and it lives on the
+**drawing**, beside the site conditions and the dimension standard, so it travels in the file and
+comes back when the file is opened. The document format is **v6** for it: a v5 file reads as one
+sheet at the drawing's own size, which is what this app plotted before sets existed.
+
+**A sheet is paper, not geometry.** It holds a title, a drawing number, a revision, a paper size, a
+scale, whether it carries the layer key and whether it is turned portrait - and nothing else. That
+is the property that keeps a set from quietly becoming a second copy of the drawing, which is what
+happens the moment a sheet is allowed to own entities: the same bed then exists twice and the two
+drift apart.
+
+The two fields a whole set shares are the **project** and the **date**, because a set is one
+transmittal rather than a pile of unrelated drawings.
+
+**REQ 3.2a.1** A set MUST always hold at least one sheet, and a sheet's number MUST be its place in
+the set by default (L1.1, L1.2) and MUST NOT be handed out twice. A number MAY be typed over, and
+renumbering MUST be an explicit command rather than something an edit does behind the designer's
+back.
+
+**REQ 3.2a.2** The drawing's paper fields - size, scale, key, revision, title - MUST belong to the
+sheet in hand, and setting any of them from anywhere MUST write through to that sheet, so the File
+menu's sheet size, the File menu's scale and the sheet window cannot come to disagree.
+
+**REQ 3.2a.3** Plotting one sheet, or the whole set, MUST leave the drawing set up as it was: a set
+is plotted in one command, and plotting it MUST NOT move the designer onto whichever sheet happened
+to be last. Each written file MUST carry the sheet's drawing number, because two sheets of one set
+plotted in one minute are otherwise the same file name to the second.
+
+**REQ 3.2a.4** A **portrait** sheet MUST be the same sheet turned a quarter turn - the two sizes
+swapped in one function - so that the page box, the border and the drawing's frame cannot disagree
+about which way up the paper is.
+
+**REQ 3.2a.5** The title block's SHEET cell MUST carry the sheet's **drawing number** when it has
+one, and the paper size only as the fallback, because two sheets of a set on the same paper are
+still two sheets. The REV cell MUST carry the sheet's revision.
+
 ### 3.3 Exact output
 
 **REQ 3.3.1** True-to-scale output MUST be **vector**, as PDF or SVG. A raster
@@ -1102,6 +1146,8 @@ Each is testable and each maps to a requirement above.
 | AC-21 | A drawing saved as "Backyard" is on disk as `Backyard.json`; on the next run File > Open recent lists it and opens it with its entities and their layers intact. |
 | AC-22 | A name typed into the Save dialog's file field reaches the file written to disk. |
 | AC-23 | The Save dialog's browser lists no file that is not a drawing. |
+| AC-24 | A drawing with two sheets plots two PDFs, each carrying its own drawing number, title and scale, and the drawing is left on the sheet it was on. |
+| AC-25 | A drawing saved and reopened comes back with its sheet set, its current sheet, and the paper the drawing is set up at. |
 
 ---
 

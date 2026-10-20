@@ -17,6 +17,7 @@ const UnitsScript := preload("res://scripts/draft/units.gd")
 const UndoScript := preload("res://scripts/draft/undo_stack.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
+const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
 
 signal changed()
 signal entity_added(id: int)
@@ -41,6 +42,18 @@ var dimension_style: DimensionStyleScript
 ## It also gives the undo stack the environment for free, because the stack stores whole snapshots of
 ## the document - so stating a zone is undoable exactly like moving a wall is.
 var environment: ZoneMapScript
+
+## The sheets this drawing is plotted as: the set of paper sizes, scales, drawing numbers, titles and
+## revisions the drawing goes out on (see `DraftSheetSet`).
+##
+## It lives on the drawing for the same reason the ground and the dimension standard do: it is a fact
+## about *this drawing* rather than about the application or the session, so it travels in the file
+## with the design it belongs to and it comes back when the file is opened. It is also, as those are,
+## part of the undo snapshot - setting up a sheet is a change to the drawing like any other.
+##
+## It is paper and not geometry: a sheet carries no entities, so nothing here can become a second copy
+## of the linework.
+var sheets: DraftSheetSet = SheetSetScript.new()
 
 ## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
 ## units are a fact about the practice, so it lives on the drawing rather than on the sun
@@ -345,6 +358,7 @@ func snapshot() -> Dictionary:
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
+		"sheets": sheets.to_dict(),
 	}
 
 
@@ -386,6 +400,9 @@ func restore(state: Dictionary) -> void:
 	# says so rather than handing out verdicts about a garden it knows nothing about.
 	var env_state: Variant = state.get("environment", null)
 	environment = ZoneMapScript.from_dict(env_state if env_state is Dictionary else {})
+	# The sheet set is the newest arrival: a file written before it existed gets one sheet at the
+	# drawing's own size and scale, which is the sheet this app plotted before sets existed.
+	sheets = SheetSetScript.from_dict(state.get("sheets", null))
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -431,12 +448,16 @@ func to_dict() -> Dictionary:
 	# than inferred because a reader has to be able to tell "this file has no environment in it" from
 	# "this file's environment is empty" - and 4 and 5 are the same drawing with a different answer to
 	# that question.
+	#
+	# Version 6 states which sheets the drawing is plotted as, for the same reason: one sheet at the
+	# drawing's own size is not the same answer as "this file was written before sets existed".
 	return {
-		"version": 5,
+		"version": 6,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
+		"sheets": sheets.to_dict(),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

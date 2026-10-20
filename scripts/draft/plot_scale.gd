@@ -62,13 +62,20 @@ static func sheet_names() -> Array[String]:
 	return out
 
 
-static func sheet_size_mm(sheet_name: String) -> Vector2:
-	return SHEETS.get(sheet_name, Vector2(420.0, 297.0))
+## A sheet's size in millimetres. `SHEETS` holds every sheet the way it is normally used - landscape,
+## wider than it is tall - and `portrait` turns it a quarter turn, which is what a sheet carrying more
+## rows of schedule than drawing is printed at. Width and height are swapped rather than looked up a
+## second time, so a sheet cannot have two sizes.
+static func sheet_size_mm(sheet_name: String, portrait: bool = false) -> Vector2:
+	var size: Vector2 = SHEETS.get(sheet_name, Vector2(420.0, 297.0))
+	return Vector2(size.y, size.x) if portrait else size
 
 
 ## The area inside the border, where a viewport may sit.
-static func printable_size_mm(sheet_name: String, margin_mm: float = DEFAULT_MARGIN_MM) -> Vector2:
-	var size := sheet_size_mm(sheet_name)
+static func printable_size_mm(
+	sheet_name: String, margin_mm: float = DEFAULT_MARGIN_MM, portrait: bool = false
+) -> Vector2:
+	var size := sheet_size_mm(sheet_name, portrait)
 	return Vector2(maxf(size.x - margin_mm * 2.0, 1.0), maxf(size.y - margin_mm * 2.0, 1.0))
 
 
@@ -183,8 +190,8 @@ static func mm_from_points(points: float) -> float:
 
 ## A sheet's page box in PDF points. 1 pt = 1/72 in exactly, so these are not
 ## round numbers and must not be rounded before emission.
-static func sheet_size_points(sheet_name: String) -> Vector2:
-	var size := sheet_size_mm(sheet_name)
+static func sheet_size_points(sheet_name: String, portrait: bool = false) -> Vector2:
+	var size := sheet_size_mm(sheet_name, portrait)
 	return Vector2(points_from_mm(size.x), points_from_mm(size.y))
 
 

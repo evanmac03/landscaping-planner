@@ -101,10 +101,17 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	var margin_mm: float = float(options.get("margin_mm", PlotScaleScript.DEFAULT_MARGIN_MM))
 	var imperial: bool = bool(options.get("imperial", false))
 	var show_border: bool = bool(options.get("show_border", true))
+	# A portrait sheet is the same sheet turned a quarter turn, which is what a sheet whose subject is
+	# a tall narrow garden - or one carrying more rows of schedule than drawing - is printed at.
+	var portrait: bool = bool(options.get("portrait", false))
+	# What the title block calls this sheet. A sheet of a set is identified by its *drawing number* -
+	# L1.2 - and the paper size is not an identifier: two sheets of a set on A3 are two sheets. With no
+	# number given the size stands in, which is the sheet this app plotted before sets existed.
+	var number: String = String(options.get("number", "")).strip_edges()
 	var legend: bool = bool(options.get("legend", false))
 	var effective_margin := margin_mm + (BORDER_INSET_MM if show_border else 0.0)
 
-	var sheet_mm: Vector2 = PlotScaleScript.sheet_size_mm(sheet_name)
+	var sheet_mm: Vector2 = PlotScaleScript.sheet_size_mm(sheet_name, portrait)
 	var sheet_pt := sheet_mm * POINTS_PER_MM
 	var inset_pt := Vector2(effective_margin, effective_margin) * POINTS_PER_MM
 	var drawing_area := Rect2(inset_pt, sheet_pt - inset_pt * 2.0)
@@ -200,6 +207,8 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		"margin_mm": effective_margin,
 		"imperial": imperial,
 		"show_border": show_border,
+		"portrait": portrait,
+		"sheet_label": number if not number.is_empty() else sheet_name,
 		"printable_pt": drawing_area,
 		"content_pt": content,
 		"extent": extent,
@@ -655,7 +664,7 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 
 	var cells: Array = [
 		["SCALE", _scale_label(plan)],
-		["SHEET", String(plan["sheet"])],
+		["SHEET", String(plan["sheet_label"])],
 		["DATE", String(options.get("date", Time.get_date_string_from_system()))],
 		["REV", String(options.get("revision", "-"))],
 	]
