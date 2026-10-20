@@ -194,8 +194,9 @@ func fit_plan_to_yard() -> void:
 # --- view control -----------------------------------------------------------------
 
 
-## Swap between the flat 2D plan and the 3D overhead view. From the ground this
-## rises to the 3D overhead view first, and works from there.
+## Swap between the flat 2D plan and the 3D overhead view. From the ground it goes
+## to the plan, flying up through the overhead framing on the way, because the key
+## is the one that gets you back to drawing and the plan is where drawing happens.
 func toggle_overhead() -> void:
 	_go(ViewMode.PLAN_2D if mode != ViewMode.PLAN_2D else ViewMode.OVERHEAD_3D)
 

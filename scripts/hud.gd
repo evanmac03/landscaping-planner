@@ -7,8 +7,13 @@ const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 
 const EDIT_HINTS := "Left-drag: move a plant     "
-const HINTS_2D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     Tab: 3D view     G: ground"
-const HINTS_3D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     Tab: 2D plan     G: ground"
+## The key that swaps the two overhead views is written as a token and filled in
+## from the input map: it is the one key in these lines that gets rebound, and a
+## hint naming a key that no longer switches anything is the same class of lie as a
+## legend entry that does nothing.
+const VIEW_KEY_TOKEN := "%VIEW%"
+const HINTS_2D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     %VIEW%: 3D view     G: ground"
+const HINTS_3D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     %VIEW%: 2D plan     G: ground"
 const HINTS_GROUND := "W A S D: walk     Shift: run     Mouse: look     Arrows: look     Esc: free cursor     G: back to overhead"
 
 ## The drawing tools, in the order the number keys select them: the action that
@@ -100,6 +105,9 @@ func _ready() -> void:
 	draft_hints_label.text = drafting_hints()
 	_build_palette()
 	_on_view_mode_changed(view_controller.mode)
+	# Last, so it covers the buttons the palette just built as well as the ones in
+	# the scene: a button that holds the keyboard takes the drawing keys with it.
+	release_keyboard_focus(self)
 
 
 func _process(_delta: float) -> void:
@@ -133,12 +141,23 @@ func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
 	else:
 		mode_label.text = "GROUND VIEW"
 		mode_label.add_theme_color_override("font_color", Color(0.85, 0.78, 0.5))
-	toggle_button.text = "3D view  (Tab)" if flat else "2D plan  (Tab)"
+	var switch_key := _key_label(&"toggle_view")
+	toggle_button.text = "3D view  (%s)" % switch_key if flat else "2D plan  (%s)" % switch_key
 	toggle_button.visible = overhead
 	fit_button.visible = overhead
 	ground_button.text = "Ground view  (G)" if overhead else "Back to overhead  (G)"
-	hints_label.text = HINTS_2D if flat else (HINTS_3D if overhead else HINTS_GROUND)
+	hints_label.text = _hints_for(new_mode)
 	overlay.set_mode(new_mode)
+
+
+## The control hints for a view, with the key that swaps the overhead views filled
+## in from the input map.
+static func _hints_for(view_mode: int) -> String:
+	if view_mode == ViewController.ViewMode.GROUND:
+		return HINTS_GROUND
+	var template := HINTS_2D \
+		if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
+	return template.replace(VIEW_KEY_TOKEN, _key_label(&"toggle_view"))
 
 
 func _on_transition_started(_to_ground: bool) -> void:
@@ -191,6 +210,9 @@ static func _wrap(entries: Array[String], per_row: int) -> Array[String]:
 
 
 ## The key an action is bound to, or "" when it is bound to nothing.
+##
+## The *first* event an action lists is the one it is introduced by, so the order of
+## an action's events is what decides which key gets advertised.
 ##
 ## Modifiers are included, so Ctrl+Z does not print as a bare Z, which would be a
 ## different command. The name comes from the event rather than from a table here,
@@ -380,3 +402,15 @@ static func palette_label(pair: Array) -> String:
 	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
 	var key := _key_label(pair[0])
 	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+
+
+## Keep the HUD out of the keyboard focus chain.
+##
+## Godot hands Tab to focus navigation as soon as a Control holds it, and a focused
+## Button swallows the keys the drawing tools are driven by: the moment the palette was
+## clicked, Tab stopped reaching the view switch and Enter started pressing the button
+## that had focus rather than finishing the shape. Nothing in the HUD is typed into, so
+## nothing in it should hold the keyboard, and every key belongs to the drawing.
+static func release_keyboard_focus(root: Node) -> void:
+	for found: Node in root.find_children("*", "Button", true, false):
+		(found as Button).focus_mode = Control.FOCUS_NONE

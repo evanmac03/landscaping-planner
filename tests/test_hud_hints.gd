@@ -244,3 +244,59 @@ func test_the_palette_lists_every_layer_with_a_purpose() -> void:
 	assert(choices[0]["name"] == LayerSet.SURVEY_PROPERTY)
 	assert(choices[choices.size() - 1]["name"] == LayerSet.GUIDES)
 	controller.free()
+
+
+# --- the view switch ------------------------------------------------------------------
+
+
+## Q swaps the two overhead views, and the hints and the button name it because they
+## read the key out of the input map rather than spelling it out. This is the
+## assertion that would notice the key being rebound without the labels saying so.
+func test_the_view_switch_is_advertised_as_the_key_it_is_really_on() -> void:
+	assert(Hud._key_label(&"toggle_view") == "Q")
+
+
+func test_the_control_hints_name_the_key_that_really_switches_views() -> void:
+	var flat := Hud._hints_for(ViewController.ViewMode.PLAN_2D)
+	assert(flat.contains("Q: 3D view"), flat)
+	assert(not flat.contains(Hud.VIEW_KEY_TOKEN), flat)
+	var solid := Hud._hints_for(ViewController.ViewMode.OVERHEAD_3D)
+	assert(solid.contains("Q: 2D plan"), solid)
+	assert(not solid.contains(Hud.VIEW_KEY_TOKEN), solid)
+	# The ground view has its own way out, and names that instead.
+	assert(Hud._hints_for(ViewController.ViewMode.GROUND).contains("G: back to overhead"))
+
+
+# --- the keyboard belongs to the drawing ----------------------------------------------
+
+
+## A focused Button swallows Tab, Enter and Escape before the drawing tools are offered
+## them, so clicking the palette once used to break the view switch and the finish and
+## cancel keys without a word. Nothing in the HUD is typed into, so nothing in it takes
+## the keyboard.
+func test_a_hud_control_never_takes_keyboard_focus() -> void:
+	var root := PanelContainer.new()
+	var nested := VBoxContainer.new()
+	root.add_child(nested)
+	for index in 3:
+		var button := Button.new()
+		button.name = "Button%d" % index
+		# One of them built the way the palette builds its own, one already focused.
+		if index == 1:
+			button.focus_mode = Control.FOCUS_ALL
+		nested.add_child(button)
+	# A control that is typed into would keep its focus, so the rule is about buttons.
+	var field := LineEdit.new()
+	root.add_child(field)
+
+	Hud.release_keyboard_focus(root)
+
+	for child: Node in nested.get_children():
+		assert((child as Button).focus_mode == Control.FOCUS_NONE, String(child.name))
+	# An OptionButton is a Button, and the layer list is one of those.
+	var option := OptionButton.new()
+	root.add_child(option)
+	Hud.release_keyboard_focus(root)
+	assert(option.focus_mode == Control.FOCUS_NONE)
+	assert(field.focus_mode != Control.FOCUS_NONE)
+	root.free()
