@@ -29,6 +29,19 @@ var undo: UndoScript
 ## practice's standard only has to be set once.
 var dimension_style: DimensionStyleScript
 
+## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
+## units are a fact about the practice, so it lives on the drawing rather than on the sun
+## study or on the scene: a designer who works at one latitude sets it once and every
+## shadow in every presentation agrees with the survey.
+##
+## The default is 45°N, the middle of the band these plans are drawn in — close enough to
+## read as a northern hemisphere garden, far enough from any single city to be obviously
+## a placeholder. A sun study is only worth anything once this number is the site's own
+## (visualization spec §16).
+const DEFAULT_SITE_LATITUDE := 45.0
+
+var site_latitude: float = DEFAULT_SITE_LATITUDE
+
 var _entities: Dictionary = {}
 ## Insertion order, which is the tie-break inside a layer's plotting band.
 var _order: PackedInt32Array = PackedInt32Array()
@@ -223,6 +236,7 @@ func snapshot() -> Dictionary:
 		"entities": saved,
 		"layers": layers.copy(),
 		"units": units_snapshot(),
+		"site_latitude": site_latitude,
 		"dimension_style": dimension_style.to_dict(),
 	}
 
@@ -252,6 +266,9 @@ func restore(state: Dictionary) -> void:
 	units.display_precision = int(units_state.get("display_precision", 3))
 	units.inch_denominator = int(units_state.get("inch_denominator", 16))
 	units.use_us_survey_foot = bool(units_state.get("use_us_survey_foot", false))
+	# A latitude is a recent arrival, so a file written before it existed gets the default
+	# rather than zero: zero is the equator, which is a site, and a wrong one.
+	site_latitude = float(state.get("site_latitude", DEFAULT_SITE_LATITUDE))
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -294,8 +311,9 @@ func to_dict() -> Dictionary:
 	for id in _order:
 		order.append(id)
 	return {
-		"version": 2,
+		"version": 3,
 		"units": units_snapshot(),
+		"site_latitude": site_latitude,
 		"dimension_style": dimension_style.to_dict(),
 		"layers": layer_list,
 		"order": order,

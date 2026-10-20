@@ -2717,7 +2717,7 @@ the file exists, has tests, and is reachable from the running game.
 | **2. Sketch** | **built** | `sketch_stroke.gd` (the wobble), `sketch_style.gd` + `resources/vis/sketch_default.tres` (the look), `ink_painter.gd` (the two-pass ink), `sketch_compositor.gd` + `resources/shaders/sketch_paper.gdshader` (paper, grain, hatch, bleed, wet edge, ink), supersampling in the painted path. So the painted plan is colour *and* linework. `tests/test_vis_sketch.gd`, 18 tests. |
 | **3. Hardscape** | **built** | `solid_table.gd` (keyed by the real layers), `cad_solid.gd`'s `slab()` and `ribbon()` with the winding decided and tested, `hardscape_material.gd` + `texture_set_builder.gd` and five generated texture sets in `resources/textures/hardscape/`, `derived_builder.gd` as a node in `main.tscn`. Draw a rectangle on 300-NEW-HARD and a paving slab stands up in the 3D view. `tests/test_vis_solid.gd`, 38 tests. §8.8 records the seven corrections building it forced. |
 | **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. `tests/test_vis_presentation.gd`. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
-| **5. Planting at scale** | not built | `planting_instancer.gd` does not exist; the yard's props are ordinary nodes. |
+| **5. Planting at scale** | **not needed at this scale** | `planting_instancer.gd` does not exist and should not: §16's answer is *dozens of plants per plan*, and forty plants want ordinary nodes. Recorded as a decision rather than as a gap — REQ-V7.6's threshold is the whole argument, and a plan that grows to hundreds is the event that reopens it. |
 | **6. Still** | partly built | `still_exporter.gd` and `still_sidecar.gd` exist and write real PNGs with records, from the presentation camera and from the painted plan. The batch, the A3-at-300-dpi preset and §10.5's video are not built. |
 | **7. Walk-through** | not built | `walk_route.gd` does not exist. |
 | **8. Plugin** | not built | `addons/vis_tools` does not exist. |
@@ -2753,30 +2753,44 @@ not only unit-tested. All three passed their tests.
 
 Answers change the phasing, not the architecture.
 
-1. **Which output matters most?** A proposal PDF page, a 4K JPEG for an email, or
-   a walk-through video? The first makes phase 6 the priority; the last makes
-   phase 7 into phase 1.5.
-2. **Is the hand-drawn look for the client, or for the drawing set?** If it is for
-   the drawing set, the painted path must feed the PDF exporter
-   (`sheet_exporter.gd`) and the sketch becomes a plotted line style rather than a
-   compositing pass — a materially different build.
-3. **Does the client ever see the software, or only the images?** If only the
-   images, the orbit rig and the HUD hiding are unnecessary and the still exporter
-   plus a batch tool carry the whole feature.
-4. **Are texture sets being bought, or generated?** **Answered by building it: generated.**
-   Only a set's albedo is drawn; its normal and ORM maps are derived from it (§5.1), so a
-   set cannot disagree with itself and can be re-derived at a different resolution. A
-   bought pack is still a drop-in — the table is keyed by name, not by path — but nothing
-   here needs one.
-5. **How many plants per plan, really?** Instancing, and the whole of §7.4, is only
-   worth building if a typical plan has hundreds. A plan with forty plants should
-   keep its ordinary nodes.
-6. **Sun study accuracy:** approximate (this specification) or astronomical, with
-   the equation of time and refraction? The second is a table and an afternoon, and
-   it matters only if a shadow is being used as evidence rather than as a picture.
-7. **Which latitude and time zone is the site?** The sun study needs one number to
-   be useful and there is nowhere to ask for it yet; it belongs on a project
-   settings surface, next to the units the drafting spec already asks for.
-8. **Do stills go into the repository or into `user://`?** This specification says
-   `user://` (§10.2). If a proposal image is a deliverable that gets versioned, it
-   wants a project folder and a `.gitignore` rule for the batch output.
+**Answered 2026-10-20.** Recorded here rather than in a conversation, because two of them
+changed the plan:
+
+1. **Which output matters most?** — **All three, in that order: the sheet, then a 4K image,
+   then video.** Phase 6 (the still and the batch) is therefore next, and phase 7 (the
+   walk-through) stays last. The most valuable single thing phase 6 can add is a **proposal
+   page**: a still placed on a sheet with the title block. That is the two outputs that come
+   first, joined, and it is why the still exporter and the sheet exporter should learn about
+   each other.
+2. **Is the hand-drawn look for the client, or for the drawing set?** — **The client now,
+   the drawing set later.** So the painted path stays a compositor over the bake: images and
+   stills get the look, and the plotted PDF does not, yet. The door must not close, and it
+   has not: the wash and the ink both take their geometry from `DraftRender` — the same
+   `strokes()` and `layout()` the sheet plots from — so a sketch-style plot later is a new
+   *emitter* over existing geometry, not a second drawing engine.
+3. **Does the client ever see the software?** — **Probably later.** The orbit rig and the
+   presentation panel stay, and stay in working order.
+4. **Are texture sets being bought, or generated?** — **Generated**, and this is answered by
+   building it (§5.1): only a set's albedo is drawn, and its normal and ORM maps are derived
+   from it.
+5. **How many plants per plan, really?** — **Dozens.** **This cancels phase 5.** Instancing,
+   per-instance colour and a foliage shader are not worth their complexity for a plan with
+   forty plants, and the yard's ordinary nodes are what such a plan wants. The status table
+   below records it as *not needed* rather than as *not built*, which is a different thing
+   and a better one: REQ-V7.6's own threshold is the reason — instancing is justified by
+   count, not by fashion.
+6. **Sun-study accuracy:** still open, and the only question left. Approximate is what is
+   built; astronomical (the equation of time, refraction) matters only if a shadow is used
+   as evidence rather than as a picture.
+7. **Which latitude and time zone?** — **~45°N, eastern Canada / northern US.** A latitude
+   is now a property of the *drawing* (`DraftDocument.site_latitude`, default 45°N), because
+   it is a fact about the site in the way the units are a fact about the practice: it is
+   saved with the document, it survives an undo, and the presenter reads it. The sun form on
+   the presentation panel follows the presenter, so the number the panel shows and the
+   number it applies are the site's. The time zone is not modelled: the sun study takes a
+   *solar* time, which is what a shadow study wants, and a clock time is a property of where
+   in a time zone the site sits.
+8. **Do stills go into the repository, or into `user://`?** — **`user://`**, as §10.2 says.
+   The sample sheets are generated on demand by `tools/sample_sheets.gd`, and the rasterised
+   previews of them are gitignored: a committed picture of output goes stale the moment the
+   exporter changes and then disagrees with the code in silence.

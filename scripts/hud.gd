@@ -608,11 +608,11 @@ func _build_presentation_panel() -> void:
 	presentation.still_written.connect(_on_still_written)
 	presentation.still_failed.connect(_on_still_failed)
 
-	# Start from what the scene actually holds, so the form describes the garden
-	# rather than a default.
-	_sun_hour.value = presentation.hour
-	_sun_day.value = float(presentation.day_of_year)
-	_sun_latitude.value = presentation.latitude
+	# Start from what the scene actually holds, so the form describes the garden rather
+	# than a default. The sun's own values are set by `_refresh_presentation()`, which is
+	# the one place that reads the presenter: the site's latitude arrives from the drawing
+	# when the *presenter* is ready, and the presenter is later in the scene than this
+	# panel is.
 	_refresh_presentation()
 
 
@@ -645,10 +645,21 @@ func _spin(
 func _refresh_presentation() -> void:
 	if _present_toggle == null or presentation == null:
 		return
-	var state := "%s|%d" % [str(presentation.is_active()), presentation.tier]
+	# The sun's settings are part of the state this panel describes, and not only the
+	# tier. The site's latitude reaches the presenter from the drawing when the presenter
+	# is ready — later than this panel — so a signature that ignored the sun would leave
+	# the form showing a default the scene does not use, and *Apply* would then push that
+	# default back over the site's own latitude.
+	var state := "%s|%d|%.2f|%d|%.2f" % [
+		str(presentation.is_active()), presentation.tier,
+		presentation.latitude, presentation.day_of_year, presentation.hour,
+	]
 	if state == _presentation_state:
 		return
 	_presentation_state = state
+	_sun_hour.value = presentation.hour
+	_sun_day.value = float(presentation.day_of_year)
+	_sun_latitude.value = presentation.latitude
 	# By the silent setters: setting a button the ordinary way fires the handler, which
 	# would then call `begin()` on a presentation that is already running.
 	_present_toggle.set_pressed_no_signal(presentation.is_active())

@@ -31,6 +31,29 @@ func test_add_assigns_an_id_and_a_layer() -> void:
 	assert(document.get_entity(second).layer == LayerSet.NEW_BED)
 
 
+## A site's latitude is a fact about the drawing, so it is saved with it: a designer who
+## works at one latitude should not have to tell every presentation about it again.
+func test_a_site_latitude_is_a_property_of_the_drawing() -> void:
+	var document = Document.new()
+	assert(is_equal_approx(document.site_latitude, Document.DEFAULT_SITE_LATITUDE))
+	document.site_latitude = 51.5
+	var restored = Document.from_dict(document.to_dict())
+	assert(is_equal_approx(restored.site_latitude, 51.5))
+	# A file written before the site had a latitude gets the default rather than zero:
+	# zero is the equator, which is a site, and never the one that was meant.
+	var older: Dictionary = document.to_dict()
+	older.erase("site_latitude")
+	assert(is_equal_approx(Document.from_dict(older).site_latitude, Document.DEFAULT_SITE_LATITUDE))
+	# And an undo step does not move the site to another country.
+	restored.site_latitude = 45.0
+	restored.begin_gesture()
+	restored.add(_sample_line())
+	var snapshot: Dictionary = restored.snapshot()
+	restored.site_latitude = 12.0
+	restored.restore(snapshot)
+	assert(is_equal_approx(restored.site_latitude, 45.0))
+
+
 func test_an_unknown_layer_falls_back() -> void:
 	var document = Document.new()
 	var id: int = document.add(_sample_line(), &"999-NOT-A-LAYER")

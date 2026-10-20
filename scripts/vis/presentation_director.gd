@@ -75,6 +75,29 @@ func _ready() -> void:
 	_exporter = StillExporterScript.new()
 	_exporter.name = "StillExporter"
 	add_child(_exporter)
+	# The site's latitude comes off the drawing, so the shadows in a presentation agree
+	# with the survey rather than with whatever this node happened to be set to. The
+	# exported value stays as the fallback for a scene with no drawing behind it.
+	var site: float = _site_latitude()
+	if not is_zero_approx(site):
+		latitude = site
+
+
+## The latitude the drawing says the site is at, or 0 when there is no drawing to ask.
+##
+## Reached the same way `DerivedBuilder` reaches the document: through the view controller,
+## which owns the drafting controller. A `0.0` answer means "no opinion" rather than "the
+## equator", which is why it is a sentinel here and not a default.
+func _site_latitude() -> float:
+	if view_controller == null or not view_controller.has_method("draft_controller"):
+		return 0.0
+	var controller: Node = view_controller.draft_controller()
+	if controller == null:
+		return 0.0
+	var drawing = controller.document
+	if drawing == null:
+		return 0.0
+	return float(drawing.site_latitude)
 
 
 func is_active() -> bool:
