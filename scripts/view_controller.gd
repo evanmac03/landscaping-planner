@@ -628,6 +628,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				plan_canvas.hovered = null
 			get_viewport().set_input_as_handled()
 			return
+		# Plotting is not a tool, so it does not need drawing to be armed.
+		if event.is_action_pressed("draft_plot"):
+			_draft.plot()
+			get_viewport().set_input_as_handled()
+			return
 		if _draft.drawing and _handle_drafting(event):
 			return
 

@@ -134,6 +134,8 @@ static func slot_colour(slot: int) -> Color:
 		return Color(level / 255.0, level / 255.0, level / 255.0)
 	if slot >= FIRST_FAMILY_SLOT:
 		var index := slot - FIRST_FAMILY_SLOT
+		# Whole families of ten shades: the truncation is the point.
+		@warning_ignore("integer_division")
 		var family := index / 10
 		var shade := index % 10
 		if family >= FAMILY_COUNT:

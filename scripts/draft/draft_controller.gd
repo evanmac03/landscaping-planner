@@ -15,6 +15,8 @@ const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
+const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
+const PenStyleScript := preload("res://scripts/draft/plot_style_table.gd")
 
 @export var plan_canvas_path: NodePath = ^"../PlanLayer/PlanCanvas"
 ## The 3D linework overlay, when the scene has one. Optional: drawing works
@@ -30,6 +32,14 @@ var tool
 var canvas: Node2D = null
 var overlay: Node = null
 
+## The sheet the drawing plots to: a property of the drawing rather than of a
+## tool, so it lives here beside the document.
+var sheet: String = "A3"
+var plot_scale: float = 100.0
+var pen_table = null
+## Where the last plot was written, so the result can be reported.
+var plot_path: String = ""
+
 var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
 var last_message: String = ""
@@ -44,6 +54,7 @@ func _ready() -> void:
 	snap = SnapScript.new()
 	tool = ToolScript.new()
 	tool.begin(ToolScript.Kind.LINE, LayerSetScript.NEW_HARDSCAPE)
+	pen_table = PenStyleScript.default_table()
 	snap.bind(document.entities())
 	document.changed.connect(_on_document_changed)
 	var node := get_node_or_null(plan_canvas_path)
@@ -92,7 +103,10 @@ func entity_count() -> int:
 
 func status() -> String:
 	if not drawing:
-		return ""
+		# Plotting works whether or not a tool is armed, so its result - and the
+		# key that triggers it - belong on screen outside drawing mode too.
+		var idle := "P plots a sheet at 1:%d on %s" % [int(plot_scale), sheet]
+		return "%s   %s" % [idle, last_message] if last_message != "" else idle
 	var text := "%s  ·  %s  ·  %s" % [
 		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
 	]
@@ -191,6 +205,47 @@ func _commit(pick: Dictionary) -> void:
 			document.units.format_length(measure["distance"]),
 			document.units.format_length(measure["delta"].length()),
 		]
+
+
+# --- plotting -----------------------------------------------------------------------
+
+
+## Plot the drawing to a PDF sheet at its exact scale. Returns the absolute path,
+## or an empty string when there was nothing to plot or the file could not be
+## written.
+func plot() -> String:
+	if document.count() == 0:
+		last_message = "nothing to plot"
+		_refresh_canvas()
+		return ""
+	var options := {
+		"sheet": sheet,
+		"scale": plot_scale,
+		"pen_table": pen_table,
+		"title": String(ProjectSettings.get_setting("application/config/name", "")),
+	}
+	var bytes: PackedByteArray = SheetExporterScript.export_pdf(document, options)
+	# A timestamped name, so plotting twice does not silently replace the first
+	# sheet a client has already been sent.
+	var path := "user://sheets/plot-%s.pdf" % Time.get_datetime_string_from_system(
+		false, true
+	).replace(":", "-")
+	var directory := DirAccess.open("user://")
+	if directory == null or (not directory.dir_exists("sheets") and directory.make_dir("sheets") != OK):
+		last_message = "could not create the sheets folder"
+		_refresh_canvas()
+		return ""
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		last_message = "could not write the sheet"
+		_refresh_canvas()
+		return ""
+	file.store_buffer(bytes)
+	file.close()
+	plot_path = ProjectSettings.globalize_path(path)
+	last_message = "plotted %d entities, %d bytes" % [document.count(), bytes.size()]
+	_refresh_canvas()
+	return plot_path
 
 
 # --- plumbing -----------------------------------------------------------------------

@@ -102,7 +102,6 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 	writer.begin_page(sheet_mm.x * POINTS_PER_MM, sheet_mm.y * POINTS_PER_MM)
 
 	var pen_table = options.get("pen_table", null)
-	var scale: float = plan["scale"]
 
 	if bool(plan["show_border"]):
 		_emit_border(writer, plan)
@@ -110,7 +109,7 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 	# Draw order is the document's own, which already sorts by the layer's
 	# plotting band, so big things sit under small ones exactly as on screen.
 	for entity in document.plotting_entities():
-		_emit_entity(writer, document, entity, pen_table, scale, plan)
+		_emit_entity(writer, document, entity, pen_table, plan)
 
 	_emit_scale_label(writer, plan, String(options.get("title", "")))
 	return writer.build()
@@ -142,7 +141,7 @@ static func _emit_scale_label(writer, plan: Dictionary, title: String) -> void:
 	writer.restore_state()
 
 
-static func _emit_entity(writer, document, entity: EntityScript, pen_table, scale: float, plan: Dictionary) -> void:
+static func _emit_entity(writer, document, entity: EntityScript, pen_table, plan: Dictionary) -> void:
 	var layer = document.layers.get_layer(entity.layer)
 	var style := _plot_style(entity, layer, pen_table)
 	writer.set_line_width_points(style.width_points())
