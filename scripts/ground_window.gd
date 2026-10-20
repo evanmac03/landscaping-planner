@@ -20,13 +20,15 @@ extends Window
 ##
 ## ## What it does not do
 ##
-## It does not draw a new area. A zone is always an outline the plan already has, because an outline
-## somebody drew is one the takeoff, the plot and the planting list can all find again, and a zone
-## floating in a dialog could not be seen on the plan it describes. Drawing a *new* area means
-## drawing the thing itself - a bed outline, or the paving - which is what the drafting tools are.
+## It does not draw the areas of the plan itself: a bed, a lawn or the paving is drawn with the
+## drafting tools, and then appears here. A **ground zone** is the one outline this window's subject
+## owns rather than borrows - ground nothing on the plan encloses, like a frost pocket or a strip of
+## shade - and that is drawn with the polygon tool from the Site menu, because a zone floating in a
+## dialog could not be seen on the plan it describes.
 
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
+const GeomScript := preload("res://scripts/draft/geom2d.gd")
 
 ## The ground changed, or an area was stated or unstated: the borders and the Site menu are stale.
 
@@ -41,13 +43,17 @@ signal closed()
 ## Big enough for everything in it at once. Measured rather than guessed: the first version was 640
 ## tall and the row with "Read the ground from the drawing" on it fell off the bottom edge, which is a
 ## button that exists and cannot be pressed.
-const SIZE := Vector2i(760, 780)
+const SIZE := Vector2i(760, 850)
 
 ## What the ground of an area falls back to, in words, for a line that has to name it.
 const SITE_WORDS := "the site's own conditions"
 
 ## One label per attribute, in the order a person reads them, and the sets each offers.
-const SETS: Array[String] = ["sun", "moisture", "soil", "zone"]
+##
+## Drainage is here beside the rest because a *place* drains one way and a plant tolerates a set of
+## ways: a boggy corner and a fast-draining bank in one garden are the whole reason a designer states
+## conditions per area rather than once for the site.
+const SETS: Array[String] = ["sun", "moisture", "soil", "drainage", "zone"]
 
 var document: DraftDocument = null
 
@@ -104,8 +110,9 @@ func build() -> void:
 	column.add_child(_separator())
 	column.add_child(_heading("Areas on the plan"))
 	column.add_child(_note(
-		"Every bed, lawn, paving and building the drawing encloses. State what the ground is like in "
-		+ "the ones that are not like the rest of the site."
+		"Every bed, lawn, paving and building the drawing encloses, and any ground zone you have "
+		+ "drawn by hand. State what the ground is like in the ones that are not like the rest of "
+		+ "the site."
 	))
 
 	_area_list = ItemList.new()
@@ -221,6 +228,10 @@ static func values_for(key: String) -> Array:
 		var soils: Array = [TerrainProfileScript.no_value(key)]
 		soils.append_array(TerrainProfileScript.SOILS.keys())
 		return soils
+	if key == "drainage":
+		var drains: Array = [TerrainProfileScript.no_value(key)]
+		drains.append_array(TerrainProfileScript.DRAINAGE_NAMES.keys())
+		return drains
 	var zones: Array = [TerrainProfileScript.no_value(key)]
 	zones.append_array(range(1, 14))
 	return zones
@@ -237,6 +248,8 @@ static func text_for(key: String, value: Variant) -> String:
 		return "zone %d" % int(value)
 	if key == "sun":
 		return String(TerrainProfileScript.SUN_NAMES.get(int(value), str(value)))
+	if key == "drainage":
+		return String(TerrainProfileScript.DRAINAGE_NAMES.get(int(value), str(value)))
 	return String(TerrainProfileScript.MOISTURE_NAMES.get(int(value), str(value)))
 
 
@@ -289,7 +302,11 @@ func refresh() -> void:
 		var option: OptionButton = _site_rows[key]["option"]
 		option.disabled = false
 		option.select(maxi(index_of(key, map.base.stated(key)), 0))
-	_areas = ZoneMapScript.describe_areas(ZoneMapScript.areas_of(document), map)
+	# The areas the drawing encloses, then the ground zones somebody drew by hand - which have no
+	# entity behind them, so they come from the map rather than from the document.
+	var rows: Array[Dictionary] = ZoneMapScript.areas_of(document)
+	rows.append_array(_hand_zone_rows(map))
+	_areas = ZoneMapScript.describe_areas(rows, map)
 	_fill_area_list()
 	if _selected_key.is_empty() and not _areas.is_empty():
 		_area_list.select(0)
@@ -297,6 +314,36 @@ func refresh() -> void:
 	else:
 		_show_area(_selected_key)
 	_set_status(_describe_state(map))
+
+
+## The ground zones somebody has drawn by hand, in draw order, as rows the area list can hold.
+##
+## A hand zone has no entity behind it, so it is not in `areas_of`: it comes from the map itself. It is
+## told apart from an area of the plan by its key - both are keyed under `HAND_PREFIX`, but a hand
+## zone's "layer" token is the literal `zone`, which is not one of the AREAS the plan encloses.
+static func _hand_zone_rows(map: ZoneMap) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null:
+		return out
+	for zone: ZoneMapScript.Zone in map.zones:
+		var source := String(zone.source)
+		if not source.begins_with(ZoneMapScript.HAND_PREFIX):
+			continue
+		var rest := source.substr(ZoneMapScript.HAND_PREFIX.length())
+		var hash_at := rest.find("#")
+		if hash_at <= 0 or ZoneMapScript.AREAS.has(StringName(rest.substr(0, hash_at))):
+			continue
+		var outline: PackedVector2Array = zone.outline
+		out.append({
+			"entity_id": 0,
+			"layer": &"",
+			"key": source,
+			"label": "zone",
+			"name": zone.name if not zone.name.is_empty() else "zone",
+			"outline": outline,
+			"area_m2": absf(GeomScript.polygon_area(outline)),
+		})
+	return out
 
 
 ## The list of areas, with what is already known about each one beside it.

@@ -32,6 +32,10 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 ## meant to draw is not a region.
 const HATCH_MIN_AREA := 0.1
 
+## The "layer" a hand-drawn ground zone is keyed under: `by hand:zone#<n>`. `zone` is not
+## a layer, which is exactly what tells a hand zone apart from an area of the plan.
+const HAND_ZONE_TAG := "zone#"
+
 ## The editing commands: what can be done to geometry that is already on the
 ## drawing. Held apart from the drawing tools because a tool answers "make me a new
 ## shape" and an edit answers "change the shape I already have", and because a tool
@@ -141,6 +145,10 @@ var select_mode: StringName = SelectScript.MODE_WINDOW
 var _select_points: Array[Vector2] = []
 ## The ids of the shapes a band last caught, in document order.
 var _selected: Array[int] = []
+## Whether the next closed shape drawn becomes a **ground zone** rather than geometry: a zone whose
+## outline is drawn by hand has no entity behind it, so the outline *is* the zone and nothing is added
+## to the drawing.
+var zone_hand: bool = false
 
 var _last_snap: Dictionary = {}
 
@@ -177,6 +185,9 @@ func set_tool(kind: ToolScript.Kind) -> void:
 	# puts the selection away too: a highlight on the screen that no command can act
 	# on is a lie about what is in hand.
 	clear_selection()
+	# A ground zone is drawn with the polygon tool for one purpose; choosing another tool, or putting
+	# the tools away, drops the purpose with the tool rather than leaving a click meaning two things.
+	zone_hand = false
 	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
 	_last_snap = {}
@@ -225,6 +236,8 @@ func set_drawing(on: bool) -> void:
 		clear_edit()
 		cancel()
 		clear_selection()
+		# Putting the tools away drops the zone purpose with them, like another tool.
+		zone_hand = false
 	last_message = "drawing on" if drawing else ""
 	_refresh_canvas()
 
@@ -452,6 +465,11 @@ func redo() -> bool:
 func _commit(pick: Dictionary) -> void:
 	var entity = pick["entity"]
 	if entity != null:
+		# A ring drawn to state a ground zone is not geometry: nothing goes on the drawing, and the
+		# map takes the outline itself.
+		if zone_hand and entity.kind == EntityScript.Kind.POLYGON:
+			state_ground_zone(entity.outline())
+			return
 		# One snapshot per committed shape, so a single undo removes a whole
 		# entity rather than un-picking a point.
 		document.begin_gesture()
@@ -604,6 +622,61 @@ func _select_status() -> String:
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
+
+
+# --- drawing a ground zone by hand ----------------------------------------------------
+
+
+## Take the polygon tool, meaning the next closed shape drawn will be a **ground zone**.
+##
+## A hand zone is for ground nothing on the plan outlines: a wet corner, a frost pocket, a strip of
+## shade. There is therefore no entity to key it to - the outline the designer draws *is* the zone -
+## so nothing is added to the drawing and the map holds the ring itself. The polygon tool is the
+## gesture because closing a ring is what it already does, so there is nothing new to learn.
+func begin_ground_zone() -> void:
+	arm(ToolScript.Kind.POLYLINE)
+	zone_hand = true
+	last_message = ""
+
+
+func ground_zone_pending() -> bool:
+	return zone_hand
+
+
+## The number the next hand zone takes, from the zones already in the map.
+func _next_hand_zone_number() -> int:
+	var most := 0
+	if document != null and document.environment != null:
+		var prefix := ZoneMapScript.HAND_PREFIX + HAND_ZONE_TAG
+		for zone in document.environment.zones:
+			var source := String(zone.source)
+			if source.begins_with(prefix):
+				most = maxi(most, String(source.get_slice("#", 1)).to_int())
+	return most + 1
+
+
+## State a ground zone over a ring the designer drew. One gesture, so Ctrl+Z takes the zone off the
+## map (the map travels in the document - docs/plant-database-spec.md §7a).
+func state_ground_zone(outline: PackedVector2Array) -> Dictionary:
+	if document == null or document.environment == null:
+		last_message = "there is no ground to state a zone on"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	if outline.size() < 3:
+		last_message = "a ground zone needs an outline that encloses something"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	var number := _next_hand_zone_number()
+	document.begin_gesture()
+	document.environment.add_zone(
+		"ground zone %d" % number, outline, null,
+		"%s%d" % [ZoneMapScript.HAND_PREFIX + HAND_ZONE_TAG, number]
+	)
+	zone_hand = false
+	dirty = true
+	last_message = "stated ground zone %d where you drew it" % number
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "number": number, "message": last_message}
 
 
 # --- filling a region with a pattern --------------------------------------------------

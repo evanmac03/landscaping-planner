@@ -1472,6 +1472,7 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_info(&"site.ground", "the plan does not say what the ground is like"))
 	items.append(_separator())
 	items.append(_command(&"site.window", "What the ground is like...", &"", &"_menu_ground_window"))
+	items.append(_command(&"site.zone", "Draw a ground zone...", &"", &"_menu_draw_ground_zone"))
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
 	items.append(_separator())
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
@@ -3043,6 +3044,17 @@ func _menu_label_plants(_entry: Dictionary) -> void:
 ## Open the ground window: the site's conditions and one statement per area of the plan.
 func _menu_ground_window(_entry: Dictionary) -> void:
 	open_ground_window()
+
+
+## Draw a ground zone: ground nothing on the plan outlines - a frost pocket, a strip of shade, a wet
+## corner. It takes the polygon tool for one closed ring, and the ring becomes a zone rather than an
+## entity, so the plan is untouched and the map holds the outline.
+func _menu_draw_ground_zone(_entry: Dictionary) -> void:
+	if _draft == null:
+		return
+	if view_controller != null and view_controller.is_planting():
+		view_controller.stop_planting()
+	_draft.begin_ground_zone()
 
 
 ## Ask the drawing what it already knows about the ground: a building is shade, a hard surface is hot

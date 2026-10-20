@@ -371,10 +371,12 @@ library and writes the summary and the worst rows into its status line.
 ### 7a.8 Where it is reached from
 
 The **Site** menu, between Draft and Plant: one info line saying what the ground is, **What the
-ground is like...**, **Read the ground from the drawing**, and **Check the planting**.
+ground is like...**, **Draw a ground zone...**, **Read the ground from the drawing**, and **Check
+the planting**.
 
 "What the ground is like..." opens a `Window` (`scripts/ground_window.gd`, "What the ground is like"):
-the site's own light, moisture, soil and hardiness zone as four dropdowns at the top, then **every area
+the site's own light, moisture, soil, drainage and hardiness zone as five dropdowns at the top, then
+**every area
 of the plan the drawing encloses** - each bed, lawn, paving, existing planting and building, with its
 area in square metres - each of which can be stated separately. A window rather than sets of radios in
 the menu because the second half of it is a *list*, and a list of the plan's areas is the one thing a
@@ -386,6 +388,14 @@ ground a designer is describing is the ground they are looking at, and a "chosen
 half-state is a state nobody asked for. **State these conditions** is the same act said out loud, and
 **Take them back** returns the area to the site it sits in - which is also what choosing "not stated"
 for the last stated attribute means: not a statement that says nothing, but no statement at all.
+
+A **ground zone** is the one outline this window's subject owns rather than borrows. Ground nothing
+on the plan encloses - a wet corner, a frost pocket, a strip of shade - is drawn with the polygon
+tool from the Site menu (**Draw a ground zone...**): the ring becomes a zone on the map rather than an
+entity on the drawing, and it is listed here beside the plan's areas and stated like them. A hand
+zone is keyed `by hand:zone#<n>` under the same `HAND_PREFIX` as an area, told apart by its `zone`
+layer token, which is not a layer the plan has - so `areas_of` never doubles it, and stating it twice
+edits one zone.
 
 An area is keyed by what it *is* (`ZoneMap.area_key`), so stating an area twice **edits** it instead of
 stacking a second zone on it. This is what makes a hand statement override what the drawing implies: the
@@ -419,21 +429,22 @@ comes to, both halves.
 the willow dry and damp, the lavender in a bog, the milder mismatch tolerated in both directions, a
 gap in the plan outranking a mismatch, a stated fault outranking a gap, the catalogue not asked what
 it does not say, hardiness only where a zone is claimed, two metres away being a different answer, and
-the audit's counts, its lines and its unnamed plants. `tests/test_ground_window.gd` (10) holds the
+the audit's counts, its lines and its unnamed plants. `tests/test_ground_window.gd` (14) holds the
 window: every value it offers is a value the model accepts, an area stores only what was changed,
 choosing a condition states it at once, the last stated attribute taken back is no statement at all,
 stating an area twice edits it rather than stacking zones, reading the drawing keeps what a person
-stated, and a window with no drawing says so instead of failing. `tests/test_hud_menu.gd` holds the
+stated, and a window with no drawing says so instead of failing; a hand zone is listed beside
+ the plan's areas and stated like one, and `areas_of` does not double it. `tests/test_ground_zone_tool.gd`
+(9) holds the ring drawn by hand becoming a zone rather than geometry, numbered apart, one undo step,
+and dropped with the tool. `tests/test_hud_menu.gd` holds the
 menu that opens it.
 
 
 ## 8. What is not built
 
-The ground can be **read from the drawing** (§7a.4) and stated for the site and for any area the
-drawing encloses (§7a.8). What is still not built is a zone whose outline is **drawn by hand**: the
-window states ground for an area the plan already encloses, so a wet corner, a frost pocket or a strip
-of shade that no entity outlines cannot be described yet. `ZoneMap.add_zone` takes an arbitrary
-outline and the rules it obeys are built and tested, so what is missing is a plan tool that picks one.
+The ground can be **read from the drawing** (§7a.4), stated for the site and for any area the
+drawing encloses (§7a.8), and stated for ground the drawing does not enclose by drawing a
+**ground zone** by hand (§7a.8).
 
 * **Editing a species in the library.** The browser reads; a catalogue is edited in a spreadsheet or
   added to by an import. That is the design, and an editor pane is a decision to revisit rather than

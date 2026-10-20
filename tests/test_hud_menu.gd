@@ -392,6 +392,16 @@ func test_the_draft_menu_offers_hatching_a_region() -> void:
 	assert(String(entry["method"]) == "_menu_hatch_region")
 
 
+## A ground zone is drawn from the Site menu, because a zone is a statement about the ground rather
+## than a piece of the drawing.
+func test_the_site_menu_offers_drawing_a_ground_zone() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("Site"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("site.zone"), "the Site menu can draw a ground zone")
+	assert(String(_entry(&"site.zone")["method"]) == "_menu_draw_ground_zone")
+
+
 ## The coverage report is reached from the Site menu, and it names the method that shows it.
 func test_the_site_menu_offers_the_site_report() -> void:
 	var ids: Array[String] = []

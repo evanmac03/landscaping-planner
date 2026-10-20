@@ -19,6 +19,9 @@ const Species := preload("res://scripts/plant_species.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
+const Ctrl := preload("res://scripts/draft/draft_controller.gd")
+const Tool := preload("res://scripts/draft/draft_tool.gd")
+const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 
 const SUN := Species.FULL_SUN
 const SHADE := Species.FULL_SHADE
@@ -194,7 +197,8 @@ func test_reading_the_drawing_keeps_what_a_person_stated() -> void:
 func test_every_value_a_dropdown_offers_is_a_value_the_model_accepts() -> void:
 	# The dropdown's item index is how a choice is read back, so the round trip has to hold for every
 	# attribute - and each set's "not stated" is a different value, which is the trap this is here for.
-	for key: String in ["sun", "moisture", "soil", "zone"]:
+	# The list is the window's own `SETS`, so a condition added to the window cannot skip the check.
+	for key: String in WindowScript.SETS:
 		var values: Array = WindowScript.values_for(key)
 		assert(not values.is_empty(), "%s offers something" % key)
 		assert(not Profile.value_stated(key, values[0]), "%s starts with not stated" % key)
@@ -219,6 +223,75 @@ func test_every_value_a_dropdown_offers_is_a_value_the_model_accepts() -> void:
 	assert(WindowScript.text_for("sun", 0) == "not stated")
 	assert(WindowScript.text_for("soil", &"CLAY") == "clay")
 	assert(WindowScript.text_for("zone", 6) == "zone 6")
+
+## Drainage is a condition of a *place*, not only of a plant: a boggy corner and a fast-draining bank
+## in one garden are the whole reason conditions are stated per area. The window offers it at the site
+## and at every area, and it reads back as a value the model accepts.
+func test_drainage_is_a_condition_a_place_can_state() -> void:
+	assert(WindowScript.SETS.has("drainage"), "the window offers drainage")
+	assert(WindowScript.text_for("drainage", Species.DRAINS_FAST) == "fast-draining")
+	assert(WindowScript.text_for("drainage", Species.DRAINS_SLOW) == "slow-draining")
+	# Not stated comes first and is not a drainage: the first choice is a claim that can be withdrawn.
+	var values: Array = WindowScript.values_for("drainage")
+	assert(not Profile.value_stated("drainage", values[0]))
+	assert(values.size() == 4, "three ways a place drains, and a way of saying nothing")
+
+
+## A place drains one way, and one area's way does not become the site's: stating a bed fast-draining
+## leaves the rest of the garden saying whatever it said.
+func test_a_boggy_corner_is_stated_in_one_area_and_leaves_the_site_alone() -> void:
+	var document: DraftDocument = _drawing()
+	var window: GroundWindow = _window(document)
+	window.choose_site("drainage", Species.DRAINS_SLOW)
+	window.select_area_by_name("bed 1")
+	window.choose_area("drainage", Species.DRAINS_FAST)
+	assert(document.environment.zone_count() == 1, "one area stated, not the site")
+	assert(document.environment.zones[0].profile.drainage_level() == Species.DRAINS_FAST)
+	assert(document.environment.base.drainage_level() == Species.DRAINS_SLOW, "the site is unchanged")
+	assert(_line_named(window, "bed 1").contains("fast-draining"), _line_named(window, "bed 1"))
+	window.free()
+
+
+## A ground zone has no entity behind it, so it is not in `areas_of`: the window reaches it through the
+## map. It is listed beside the plan's areas, and stating conditions for it edits that one zone.
+func test_a_ground_zone_drawn_by_hand_is_listed_beside_the_plan_areas() -> void:
+	var document: DraftDocument = _drawing()
+	var controller = Ctrl.new()
+	controller.document = document
+	controller.tool = Tool.new()
+	controller.snap = SnapScript.new()
+	var stated: Dictionary = controller.state_ground_zone(PackedVector2Array([
+		Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0), Vector2(40.0, 50.0)]))
+	assert(bool(stated["ok"]), String(stated["reason"]))
+	var window: GroundWindow = _window(document)
+	assert(window.area_count() == 4, "three areas of the plan and the hand zone")
+	var found := ""
+	for text: String in window.area_list_texts():
+		if text.begins_with("ground zone 1"):
+			found = text
+	assert(found != "", str(window.area_list_texts()))
+	# And it is stated like anything else, editing that one zone rather than stacking a second.
+	window.select_area_by_name("ground zone 1")
+	window.choose_area("drainage", Species.DRAINS_FAST)
+	assert(document.environment.zone_count() == 1, "one zone, edited not stacked")
+	assert(document.environment.zones[0].profile.drainage_level() == Species.DRAINS_FAST)
+	window.free()
+	controller.free()
+
+
+## A zone whose outline is drawn by hand is not an area of the plan, so `areas_of` must not pick it up
+## or the window would list it twice.
+func test_a_hand_zone_is_not_an_area_of_the_plan() -> void:
+	var document: DraftDocument = _drawing()
+	var controller = Ctrl.new()
+	controller.document = document
+	controller.tool = Tool.new()
+	controller.snap = SnapScript.new()
+	controller.state_ground_zone(PackedVector2Array([
+		Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0)]))
+	assert(ZoneMapScript.areas_of(document).size() == 3, "areas_of sees only the plan's own areas")
+	controller.free()
+
 
 func test_choosing_a_condition_for_an_area_states_it_at_once() -> void:
 	# The dropdowns apply as they are chosen, the same way the site's do: the ground a designer is
