@@ -38,15 +38,20 @@ const SHEET_VIEWPORT := &"901-SHEET-VPORT"
 const UNDERLAY := &"950-UNDERLAY"
 const GUIDES := &"960-GUIDES"
 
-## Conventional drafting colours.
-const BLUE := Color(0.15, 0.35, 0.85)
-const MAGENTA := Color(0.78, 0.22, 0.78)
-const CYAN := Color(0.10, 0.60, 0.72)
-const GREEN := Color(0.18, 0.60, 0.28)
-const YELLOW := Color(0.80, 0.66, 0.10)
-const RED := Color(0.83, 0.22, 0.20)
+## Conventional drafting colours, and deliberately the exact values of the
+## standard palette rather than pleasant approximations of them. A
+## colour-dependent pen table is keyed by colour slot, so a layer's colour has
+## to *be* a slot for a practice's existing pen assignments to apply to it.
+## These are slots 1 to 6, in the usual order.
+const RED := Color(1, 0, 0)
+const YELLOW := Color(1, 1, 0)
+const GREEN := Color(0, 1, 0)
+const CYAN := Color(0, 1, 1)
+const BLUE := Color(0, 0, 1)
+const MAGENTA := Color(1, 0, 1)
+## Grey and ink sit on the grey ramp instead, because this plan is drawn on light
+## paper: the palette's "white" pen would be white-on-white and invisible.
 const GREY := Color(0.52, 0.52, 0.52)
-## The "white" pen of a pen table is the black one on paper.
 const INK := Color(0.10, 0.10, 0.12)
 
 ## name, purpose, colour, weight (mm), linetype, plots.
