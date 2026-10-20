@@ -381,6 +381,17 @@ func test_the_file_menu_offers_importing_a_survey() -> void:
 	assert(entry["needs"] == HudScript.NEEDS_DRAFT, "and it needs a drawing to import into")
 
 
+## Filling a region with a pattern is reached from the Draft menu, and it names the method that
+## shows the choices.
+func test_the_draft_menu_offers_hatching_a_region() -> void:
+	var ids: Array[String] = []
+	for entry: Dictionary in HudScript.items_for("Draft"):
+		ids.append(String(entry.get("id", "")))
+	assert(ids.has("draft.hatch"), "the Draft menu can hatch a region")
+	var entry: Dictionary = _entry(&"draft.hatch")
+	assert(String(entry["method"]) == "_menu_hatch_region")
+
+
 ## The coverage report is reached from the Site menu, and it names the method that shows it.
 func test_the_site_menu_offers_the_site_report() -> void:
 	var ids: Array[String] = []

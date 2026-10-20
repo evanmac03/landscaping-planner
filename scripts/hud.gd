@@ -264,6 +264,11 @@ var _plant_chosen: StringName = &""
 ## catalogue of four thousand is searched; this is where the one plant you already know you want is
 ## reached, one click, without a window, a menu or a key in the way.
 var _plant_panel: PlantPanel = null
+## Hatching a region: the page over the drawing and the panel of choices in it. A page rather than a
+## window, like the survey report, because it opens over the drawing it is about and must not take
+## the keyboard away from it.
+var _hatch_page: Control = null
+var _hatch_panel: HatchPanel = null
 
 
 func _ready() -> void:
@@ -288,6 +293,7 @@ func _ready() -> void:
 	_build_ground_window()
 	_build_site_report_panel()
 	_build_survey_panel()
+	_build_hatch_panel()
 	_build_estimate_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
@@ -327,6 +333,8 @@ func _process(_delta: float) -> void:
 		close_painted()
 	_refresh_presentation()
 	_refresh_menus()
+	if is_hatch_panel_open():
+		_refresh_hatch_panel()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -1399,6 +1407,8 @@ static func draft_items() -> Array[Dictionary]:
 	items.append(_command(
 		&"draft.style", "Next dimension standard", &"draft_dimension_style", &"_menu_cycle_dimension_style"
 	))
+	items.append(_separator())
+	items.append(_command(&"draft.hatch", "Hatch a region...", &"", &"_menu_hatch_region"))
 	return items
 
 
@@ -2525,6 +2535,96 @@ func _on_survey_chosen(path: String) -> void:
 func _apply_hints_visibility() -> void:
 	if hints != null:
 		hints.visible = _show_hints and not _presenting
+
+
+# --- hatching a region ---------------------------------------------------------------------
+
+
+## The page that hatches a region. Built in code like the survey report, and a `Control` rather than a
+## `Window` for the same two reasons: it opens over the drawing it is about, and it must not take the
+## keyboard away from it.
+func _build_hatch_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "HatchPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var page := PanelContainer.new()
+	page.name = "Page"
+	page.custom_minimum_size = Vector2(520.0, 0.0)
+	if top_bar != null:
+		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	page.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Hatch a region"
+	column.add_child(heading)
+
+	var panel := HatchPanel.new()
+	panel.name = "HatchChoices"
+	panel.fill_requested.connect(_on_hatch_fill)
+	panel.close_requested.connect(close_hatch_panel)
+	column.add_child(panel)
+	panel.build()
+
+	wrapper.add_child(page)
+	_hatch_page = wrapper
+	_hatch_panel = panel
+	root.add_child(wrapper)
+
+
+func is_hatch_panel_open() -> bool:
+	return _hatch_page != null and _hatch_page.visible
+
+
+## What the page says about the drawing: the regions it offers, and what the last fill did.
+func hatch_status_text() -> String:
+	if _hatch_panel == null:
+		return ""
+	return _hatch_panel.status_text()
+
+
+func open_hatch_panel() -> void:
+	if _hatch_page == null or _hatch_panel == null:
+		return
+	_refresh_hatch_panel()
+	_hatch_page.visible = true
+
+
+func close_hatch_panel() -> void:
+	if _hatch_page != null:
+		_hatch_page.visible = false
+	if _hatch_panel != null:
+		_hatch_panel.say("")
+
+
+## The regions the drawing encloses, re-read every frame the page is open: a bed is drawn, moved and
+## deleted while the plan is made, and a page listing the beds of a minute ago would fill the wrong
+## one.
+func _refresh_hatch_panel() -> void:
+	if _hatch_panel == null or _draft == null:
+		return
+	_hatch_panel.set_regions(_draft.hatch_regions())
+
+
+## Hatch the region the panel named, and report what happened on the panel's own line.
+func _on_hatch_fill(entity_id: int, options: Dictionary) -> void:
+	if _draft == null or _hatch_panel == null:
+		return
+	var filled: Dictionary = _draft.fill_entity(entity_id, options)
+	_hatch_panel.say(String(filled.get("message", filled.get("reason", ""))))
+	_refresh_hatch_panel()
+
+
+func _menu_hatch_region(_entry: Dictionary) -> void:
+	open_hatch_panel()
 
 
 # --- the plant list -----------------------------------------------------------------------

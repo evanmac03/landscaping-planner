@@ -526,6 +526,34 @@ region with holes MUST NOT fill the holes.
 
 ---
 
+### 4.6a The region fills, as built
+
+**Built and tested**: `scripts/draft/hatch_fill.gd` (the pattern geometry) and
+`scripts/hatch_panel.gd` (the choices), with `DraftController.fill_region` /
+`fill_entity` writing the result, 22 + 11 + 9 tests. Reached from the Draft menu
+("Hatch a region...").
+
+The four patterns of REQ 4.6.1 ship. A fill is a *pattern over a region somebody has
+already drawn*: the region is a closed shape of the plan, and the pattern's linework
+lands on `600-HATCH` as ordinary lines, which the plot, the key and every other consumer
+already understand. There is no fill primitive in the entity model and there does not
+need to be one.
+
+**REQ 4.6a.1** Spacing MUST be offered in **paper millimetres** and converted to model
+metres by the plot scale at the moment of filling. A mulch hatch is a texture the eye
+reads rather than a measured distance, and the drawing stores model geometry, so the two
+are reconciled at the moment of the fill.
+
+**REQ 4.6a.2** A solid fill MUST have a fixed paper density of its own rather than the
+spacing given for a line hatch, and MUST be crosshatched so it reads as solid whichever
+way it is turned.
+
+**REQ 4.6a.3** A fill MUST be offered only for the regions the drawing already encloses -
+the same `ZoneMap.areas_of` list the ground window and a bed-fill use, so a bed is named
+the same way wherever it is offered - and MUST refuse a shape that encloses no area. A
+spacing finer than the region can carry MUST be refused in words, naming the count,
+rather than drawn. A whole fill is **one undo step**.
+
 ## 5. Layer system with preset conventions
 
 ### 5.1 Preset layer set

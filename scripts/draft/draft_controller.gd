@@ -25,6 +25,12 @@ const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
+const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
+
+## The smallest area a fill will offer a region at, in square metres: a sliver nobody
+## meant to draw is not a region.
+const HATCH_MIN_AREA := 0.1
 
 ## The editing commands: what can be done to geometry that is already on the
 ## drawing. Held apart from the drawing tools because a tool answers "make me a new
@@ -598,6 +604,83 @@ func _select_status() -> String:
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
+
+
+# --- filling a region with a pattern --------------------------------------------------
+
+
+## The closed regions of the drawing a fill can cover, in draw order.
+##
+## The list is `ZoneMap.areas_of`'s - the same areas the ground window states conditions for and a
+## bed is filled with plants in - so a bed is named the same way wherever it is offered. The caller
+## re-reads it before filling, because a bed is drawn, moved and deleted while the plan is made.
+func hatch_regions() -> Array[Dictionary]:
+	if document == null:
+		return []
+	return ZoneMapScript.areas_of(document, HATCH_MIN_AREA)
+
+
+## Fill one closed region with a pattern, writing the pattern's linework as lines on the hatch
+## layer.
+##
+## `options` carries `pattern`, `spacing_mm`, `angle_deg` and `symbol`, the same four things the
+## panel offers. The paper spacing is turned into a model one here, because the drawing is in metres
+## and the person chose millimetres (see `HatchFill`). The whole fill is one gesture: hatching a bed
+## is one act, and Ctrl+Z takes the whole pattern back off rather than one line of it.
+func fill_region(rings: Array, options: Dictionary) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to fill"}
+	var pattern := StringName(options.get("pattern", HatchFillScript.HATCH))
+	var symbol := StringName(options.get("symbol", HatchFillScript.SYMBOL_DOT))
+	if not HatchFillScript.is_pattern(pattern):
+		last_message = "there is no such fill pattern"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	if not HatchFillScript.is_symbol(symbol):
+		symbol = HatchFillScript.SYMBOL_DOT
+	# A solid fill has no spacing of its own to choose: its density is fixed on paper.
+	var spacing_m: float = HatchFillScript.solid_spacing_m(plot_scale) \
+		if pattern == HatchFillScript.SOLID \
+		else HatchFillScript.model_spacing_m(float(options.get("spacing_mm", 2.0)), plot_scale)
+	var angle := deg_to_rad(float(options.get("angle_deg", 45.0)))
+	var worked: Dictionary = HatchFillScript.fill(rings, pattern, spacing_m, angle, symbol)
+	if not bool(worked.get("ok", false)):
+		last_message = String(worked.get("reason", "the fill could not be made"))
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	var lines: Array = worked.get("lines", [])
+	document.begin_gesture()
+	var added := 0
+	for stroke: PackedVector2Array in lines:
+		if stroke.size() < 2:
+			continue
+		document.add(
+			EntityScript.make_line(stroke[0], stroke[stroke.size() - 1]), LayerSetScript.HATCH
+		)
+		added += 1
+	snap.bind(document.entities())
+	dirty = true
+	last_message = "filled the region: %s" % HatchFillScript.describe(worked)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "count": added, "message": last_message}
+
+
+## Fill a region named by the id of the closed shape that encloses it. The outline is read from the
+## drawing again here, so a bed moved since the list was built fills where it is now.
+func fill_entity(entity_id: int, options: Dictionary) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to fill"}
+	var entity: EntityScript = document.get_entity(entity_id)
+	if entity == null:
+		last_message = "that region is not on the drawing any more"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	var ring: PackedVector2Array = entity.outline()
+	if ring.size() < 3:
+		last_message = "that shape does not enclose an area"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message}
+	return fill_region([ring], options)
 
 
 # --- the editing commands -------------------------------------------------------------
