@@ -23,6 +23,14 @@ const EXTENSION := ".json"
 ## there is a file somebody can browse to and save over - and the recent list is the one file in
 ## this app that nothing but this app may write. It also keeps the folder showing drawings only.
 const RECENT_FILE := "user://recent-drawings.json"
+## The named revisions of a drawing, one file per drawing, and **also deliberately not in `DIR`**: the
+## same reason as the recent list. A file dialogs opens on the drawing folder, so a histories folder
+## inside it would put one file per drawing in the list of drawings a person is offered.
+##
+## Keyed by the drawing's *name* rather than by its path, which means Save As starts a fresh history.
+## That is the right reading of what a history is: the revisions belong to the design that was sent,
+## and the copy somebody keeps working on is a new document.
+const REVISIONS_DIR := "user://revisions"
 ## What the recent list was called while it lived in `DIR`. A build from before the move left its
 ## list behind in the drawings folder, and a Save dialog opens on that folder.
 const LEGACY_RECENT_NAME := "recent.json"
@@ -195,6 +203,58 @@ static func list_drawings() -> Array[String]:
 		if name.ends_with(EXTENSION):
 			out.append(DIR.path_join(name))
 	return out
+
+
+# --- the named revisions of a drawing -------------------------------------------------
+
+
+## Where a drawing's history is kept, or "" when the drawing has no file name yet - a drawing that has
+## never been saved has no identity for a history to belong to.
+static func revisions_path(drawing_path: String) -> String:
+	if drawing_path.is_empty():
+		return ""
+	return REVISIONS_DIR.path_join(sanitise(display_name(drawing_path)) + EXTENSION)
+
+
+## Write a drawing's history, through a temporary file and a rename like the drawing itself: a log
+## that fails halfway would lose the revisions it was supposed to keep, which is the one thing a
+## history must not do.
+static func write_revisions(log: DraftRevisionLog, drawing_path: String) -> Dictionary:
+	var path: String = revisions_path(drawing_path)
+	if path.is_empty():
+		return _refused("this drawing has no file name yet, so it has no history to keep")
+	if log == null:
+		return _refused("there are no revisions to write")
+	if DirAccess.open(REVISIONS_DIR) == null and DirAccess.make_dir_recursive_absolute(REVISIONS_DIR) != OK:
+		return _refused("cannot open the revisions folder")
+	var temp := path + TEMP_SUFFIX
+	var file := FileAccess.open(temp, FileAccess.WRITE)
+	if file == null:
+		return _refused("cannot write %s" % temp.get_file())
+	file.store_string(JSON.stringify(log.to_dict(), "  "))
+	file.close()
+	var error := DirAccess.rename_absolute(temp, path)
+	if error != OK:
+		DirAccess.remove_absolute(temp)
+		return _refused("cannot put %s in place: %s" % [path.get_file(), error_string(error)])
+	return {"ok": true, "reason": "", "path": path}
+
+
+## Read a drawing's history. No file is not a failure: it is a drawing nothing has been recorded
+## against yet, which is what every drawing is to begin with.
+static func read_revisions(drawing_path: String) -> DraftRevisionLog:
+	var path: String = revisions_path(drawing_path)
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return DraftRevisionLog.new()
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return DraftRevisionLog.new()
+	var text := file.get_as_text()
+	file.close()
+	var reader := JSON.new()
+	if reader.parse(text) != OK:
+		return DraftRevisionLog.new()
+	return DraftRevisionLog.from_dict(reader.data)
 
 
 # --- what was opened recently ---------------------------------------------------------

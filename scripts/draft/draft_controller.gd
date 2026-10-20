@@ -29,6 +29,7 @@ const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
+const RevisionLogScript := preload("res://scripts/draft/revision_log.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -139,6 +140,13 @@ var plot_path: String = ""
 ## in the HUD because it is a property of the drawing and not of the furniture: a drawing that
 ## has a file knows where its next Save goes.
 var drawing_path: String = ""
+## The named revisions of this drawing: a history you keep, kept beside the drawing rather than in it.
+##
+## Not in the document, because a revision *is* the document: a log stored inside the drawing would be
+## a snapshot of a state that contains the snapshot of the state before it, growing without bound. It
+## lives in `user://revisions/<name>.json`, and it is loaded when a drawing is opened and written when
+## a revision is recorded.
+var revisions: DraftRevisionLog = RevisionLogScript.new()
 ## Whether the drawing has changed since it was last written or read. What decides whether Save
 ## has anything to do, and whether New or Open would throw work away.
 var dirty: bool = false
@@ -1385,6 +1393,9 @@ func new_drawing() -> void:
 	revision = ""
 	sheet_date = ""
 	save_sheet()
+	# A new drawing has no history: the revisions belong to the design that was sent, and a new drawing
+	# is a new job rather than a continuation of the one in hand.
+	revisions = RevisionLogScript.new()
 	drawing_path = ""
 	dirty = false
 	last_message = "new drawing"
@@ -1403,6 +1414,10 @@ func save_drawing(path: String = "") -> Dictionary:
 		drawing_path = String(written["path"])
 		dirty = false
 		StoreScript.remember(drawing_path)
+		# The history follows the drawing to its file. A revision recorded before the drawing had a name
+		# was kept in memory - the designer had done their part and the file name is a separate errand -
+		# and this is the moment it has somewhere to go.
+		StoreScript.write_revisions(revisions, drawing_path)
 		last_message = "saved %s" % StoreScript.display_name(drawing_path)
 	else:
 		last_message = String(written["reason"])
@@ -1422,10 +1437,29 @@ func open_drawing(path: String) -> bool:
 		_refresh_canvas()
 		return false
 	var opened := DocumentScript.from_dict(read["data"])
-	# Guarded because a controller that was never in a scene tree - a test, or a headless run - never ran
-	# `_ready` and so never bound to the document it was given. Rebinding is still correct there.
-	if document.changed.is_connected(_on_document_changed):
+	_bind_document(opened)
+	drawing_path = path
+	dirty = false
+	StoreScript.remember(path)
+	# The history that belongs to this drawing comes with it. A drawing nothing has been recorded
+	# against has no history file, which is not a failure: it is a history with nothing in it yet.
+	revisions = StoreScript.read_revisions(path)
+	last_message = "opened %s" % StoreScript.display_name(path)
+	_refresh_canvas()
+	return true
+
+
+## Put a document in place of the one in hand and re-bind everything that holds it - the snaps, the
+## canvas and the overlay each keep the document they were given.
+##
+## One door, because *two* things now do this: opening a drawing, and restoring a revision of the one
+## that is open. The document's own `changed` signal is connected by `_ready` when the controller is in
+## a scene, and guarded here because a controller that never entered a tree never ran it.
+func _bind_document(opened) -> void:
+	if document != null and document.changed.is_connected(_on_document_changed):
 		document.changed.disconnect(_on_document_changed)
+	# Setting `document` adopts the current sheet of whatever set the new drawing carries, so the paper
+	# the drawing is set up at is the paper it was saved at.
 	document = opened
 	document.changed.connect(_on_document_changed)
 	# The history goes with the drawing it belonged to: an undo that reached across a file
@@ -1436,12 +1470,65 @@ func open_drawing(path: String) -> bool:
 		canvas.bind_document(document)
 	if overlay != null:
 		overlay.bind_document(document)
-	drawing_path = path
-	dirty = false
-	StoreScript.remember(path)
-	last_message = "opened %s" % StoreScript.display_name(path)
-	# The sheets the drawing is plotted as came out of the file with it, and binding the document above
-	# already set the drawing up as its current sheet rather than as the paper the last drawing was on.
+
+
+# --- the named revisions of the drawing -----------------------------------------------
+
+
+## Record the drawing as it stands, under a message. The one act a revision log needs, and the only
+## thing a designer has to do: everything else - the time, the author, the size of the drawing, the
+## difference from the revision before - is read off what it keeps.
+##
+## A drawing that has never been saved has nowhere to keep its history, so the revision is held in
+## memory until the drawing is saved; the message says so rather than failing, because the designer has
+## done their part and the file name is a separate errand.
+func capture_revision(message: String = "", author: String = "") -> Dictionary:
+	var record: Dictionary = revisions.capture(document.to_dict(), message, author)
+	var written: Dictionary = StoreScript.write_revisions(revisions, drawing_path)
+	if bool(written["ok"]):
+		last_message = "recorded %s" % revisions.describe(revisions.count() - 1)
+	else:
+		last_message = "recorded in memory only: %s" % String(written["reason"])
+	_refresh_canvas()
+	return record
+
+
+## One row per revision, as anything listing them needs it, plus the difference from the revision
+## before it - which is the question a history exists to answer, and which is cheap here because a
+## snapshot is five lines' work to compare.
+func revision_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for index in revisions.count():
+		var row: Dictionary = revisions.record_at(index)
+		var changes: Dictionary = revisions.diff(index - 1, index) if index > 0 else {}
+		row["description"] = revisions.describe(index)
+		row["change"] = DraftRevisionLog.describe_diff(changes) if not changes.is_empty() else ""
+		rows.append(row)
+	return rows
+
+
+## Put an earlier revision back on the drawing. It is a change to the drawing like any other, so the
+## state it replaces is pushed onto the undo stack: a designer who restores the wrong revision must be
+## able to get back the drawing they had a moment before.
+func restore_revision(index: int) -> bool:
+	if not revisions.is_valid(index):
+		last_message = "there is no such revision"
+		_refresh_canvas()
+		return false
+	var state: Dictionary = revisions.snapshot(index)
+	var restored := DocumentScript.from_dict(state)
+	if restored == null:
+		last_message = "that revision cannot be put back"
+		_refresh_canvas()
+		return false
+	var before: Dictionary = document.snapshot()
+	_bind_document(restored)
+	if not before.is_empty():
+		document.undo.push(before)
+	# The drawing no longer matches the file it came from: what is on screen is an earlier revision of
+	# it, and nothing has been written since.
+	dirty = true
+	last_message = "restored %s" % revisions.describe(index)
 	_refresh_canvas()
 	return true
 
