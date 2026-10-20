@@ -19,7 +19,13 @@ extends RefCounted
 ## the installation - the same reason a proposal still goes there.
 const DIR := "user://drawings"
 const EXTENSION := ".json"
-const RECENT_FILE := "user://drawings/recent.json"
+## The recent list, deliberately NOT in `DIR`. The file dialogs open on `DIR`, so anything kept
+## there is a file somebody can browse to and save over - and the recent list is the one file in
+## this app that nothing but this app may write. It also keeps the folder showing drawings only.
+const RECENT_FILE := "user://recent-drawings.json"
+## What the recent list was called while it lived in `DIR`. A build from before the move left its
+## list behind in the drawings folder, and a Save dialog opens on that folder.
+const LEGACY_RECENT_NAME := "recent.json"
 ## How many drawings the menu remembers. Eight is a menu that still opens in one column.
 const RECENT_MAX := 8
 ## The name a write goes through on its way to the real one.
@@ -34,9 +40,36 @@ const ALLOWED := " _-"
 ## Make sure the folder is there. Every write, read and listing needs it, and a menu that lists
 ## drawings needs it to exist in order to have nothing to list.
 static func ensure_dir() -> bool:
-	if DirAccess.open(DIR) != null:
-		return true
-	return DirAccess.make_dir_recursive_absolute(DIR) == OK
+	if DirAccess.open(DIR) == null and DirAccess.make_dir_recursive_absolute(DIR) != OK:
+		return false
+	_migrate_the_recent_list()
+	return true
+
+
+## Carry the recent list out of the drawings folder, once, if a build left it there.
+##
+## The folder is where a Save dialog opens, and the recent list is the one file here that only this
+## app may write: browsing to it and saving over it would lose the list. What decides whether the
+## file is the list is its *contents* - the list is a JSON array of paths and a drawing is a JSON
+## object - because a person may legitimately name a drawing "recent".
+static func _migrate_the_recent_list() -> void:
+	var legacy := DIR.path_join(LEGACY_RECENT_NAME)
+	var file := FileAccess.open(legacy, FileAccess.READ)
+	if file == null:
+		return
+	# Read it without going through `write_recent`, which would call back into here.
+	var reader := JSON.new()
+	var readable: bool = reader.parse(file.get_as_text()) == OK
+	file.close()
+	if not readable or not (reader.data is Array):
+		return
+	var paths: Array[String] = read_recent(legacy)
+	if not paths.is_empty() and not FileAccess.file_exists(RECENT_FILE):
+		var out := FileAccess.open(RECENT_FILE, FileAccess.WRITE)
+		if out != null:
+			out.store_string(JSON.stringify(paths, "  "))
+			out.close()
+	DirAccess.remove_absolute(legacy)
 
 
 ## A file name for a drawing title: its letters, digits, spaces, dashes and underscores, with
@@ -149,17 +182,18 @@ static func _refused(reason: String) -> Dictionary:
 ## have" command would list.
 static func list_drawings() -> Array[String]:
 	var out: Array[String] = []
+	# Which also takes a recent list left in here by an older build out of the folder, so that it
+	# is not offered as a drawing and cannot be saved over.
+	if not ensure_dir():
+		return out
 	var directory := DirAccess.open(DIR)
 	if directory == null:
 		return out
 	for name in directory.get_files():
-		var path := DIR.path_join(name)
-		# The recent list lives in the same folder and is called `recent.json`, so it would be
-		# offered as a drawing by anything that lists them - which it was, until a test that writes
-		# the list and then asks what drawings there are failed. A temp file cannot be mistaken for
-		# one: `<name>.json.writing` does not end in the extension.
-		if name.ends_with(EXTENSION) and path != RECENT_FILE:
-			out.append(path)
+		# A temp file cannot be mistaken for a drawing: `<name>.json.writing` does not end in the
+		# extension.
+		if name.ends_with(EXTENSION):
+			out.append(DIR.path_join(name))
 	return out
 
 

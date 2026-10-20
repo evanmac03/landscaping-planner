@@ -526,7 +526,23 @@ static func palette_label(pair: Array) -> String:
 ## nothing in it should hold the keyboard, and every key belongs to the drawing.
 static func release_keyboard_focus(root: Node) -> void:
 	for found: Node in root.find_children("*", "Button", true, false):
+		# A Button inside a Window is a *dialog's* own - Save, Cancel, Keep editing - and a modal
+		# dialog is meant to hold the keyboard while it is up. Taking its buttons out of the focus
+		# chain too left the dialog unable to focus the one it opens on: it appeared, and the
+		# engine logged "This control can't grab focus" at the moment of popping up.
+		if _inside_window(found):
+			continue
 		(found as Button).focus_mode = Control.FOCUS_NONE
+
+
+## Whether a node lives inside a Window - a dialog rather than the HUD's own furniture.
+static func _inside_window(node: Node) -> bool:
+	var walk: Node = node
+	while walk != null:
+		if walk is Window:
+			return true
+		walk = walk.get_parent()
+	return false
 
 
 # --- the client presentation ----------------------------------------------------------
@@ -1540,10 +1556,11 @@ static func is_enabled(state: StringName, world: Dictionary) -> bool:
 ## rather than at the filesystem at large: a drawing lives in `user://drawings`, and a dialog that
 ## opens anywhere invites somebody to file their drawing where the recent list cannot follow.
 func _build_file_dialogs() -> void:
-	var root := get_node_or_null(^"Root")
-	if root == null:
-		return
-
+	# Parented to the HUD - the CanvasLayer - and not to `Root`, which is a Control with
+	# `focus_mode` off so that nothing in the HUD can take the keyboard away from the drawing.
+	# Godot 4.7 inherits focus behaviour down the tree, so a dialog under `Root` could not focus
+	# its own file-name field: it opened, and could not be typed into. A CanvasLayer passes no
+	# focus behaviour on, and the dialog's field gets the keyboard for as long as it is up.
 	_open_dialog = FileDialog.new()
 	_open_dialog.name = "OpenDrawing"
 	_open_dialog.title = "Open a drawing"
@@ -1552,7 +1569,7 @@ func _build_file_dialogs() -> void:
 	_open_dialog.current_dir = StoreScript.DIR
 	_open_dialog.filters = PackedStringArray(["*.json ; Drawings"])
 	_open_dialog.file_selected.connect(_on_open_chosen)
-	root.add_child(_open_dialog)
+	add_child(_open_dialog)
 
 	_save_dialog = FileDialog.new()
 	_save_dialog.name = "SaveDrawing"
@@ -1562,7 +1579,7 @@ func _build_file_dialogs() -> void:
 	_save_dialog.current_dir = StoreScript.DIR
 	_save_dialog.filters = PackedStringArray(["*.json ; Drawings"])
 	_save_dialog.file_selected.connect(_on_save_as_chosen)
-	root.add_child(_save_dialog)
+	add_child(_save_dialog)
 
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
@@ -1574,7 +1591,7 @@ func _build_file_dialogs() -> void:
 	_discard_dialog.cancel_button_text = "Keep editing"
 	_discard_dialog.confirmed.connect(_on_discard_confirmed)
 	_discard_dialog.canceled.connect(_on_discard_cancelled)
-	root.add_child(_discard_dialog)
+	add_child(_discard_dialog)
 
 
 func _file_dialog_open() -> bool:
@@ -1639,10 +1656,11 @@ func save_drawing_dialog() -> void:
 	if _save_dialog == null or _draft == null:
 		return
 	_save_dialog.current_dir = StoreScript.DIR
-	var name := StoreScript.display_name(_draft.drawing_path)
-	if name.is_empty():
-		name = StoreScript.sanitise(_draft.project_name)
-	_save_dialog.current_file = name + StoreScript.EXTENSION
+	# Not `name`: this is a CanvasLayer, and `name` is the node's own.
+	var file_name := StoreScript.display_name(_draft.drawing_path)
+	if file_name.is_empty():
+		file_name = StoreScript.sanitise(_draft.project_name)
+	_save_dialog.current_file = file_name + StoreScript.EXTENSION
 	_save_dialog.popup_centered_ratio(0.7)
 
 
@@ -1739,12 +1757,13 @@ func _fill_recent_menu() -> void:
 		})
 	else:
 		for path in paths:
-			var name := StoreScript.display_name(path)
-			_recent_popup.add_item(name)
+			# Not `name`: this is a CanvasLayer, and `name` is the node's own.
+			var file_name := StoreScript.display_name(path)
+			_recent_popup.add_item(file_name)
 			entries.append({
-				"kind": &"command", "id": StringName("file.recent." + name), "label": name,
-				"action": &"", "method": &"_menu_open_recent", "needs": NEEDS_DRAFT,
-				"value": path,
+				"kind": &"command", "id": StringName("file.recent." + file_name),
+				"label": file_name, "action": &"", "method": &"_menu_open_recent",
+				"needs": NEEDS_DRAFT, "value": path,
 			})
 	_menu_items[_recent_popup] = entries
 

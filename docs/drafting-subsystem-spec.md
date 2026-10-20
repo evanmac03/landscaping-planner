@@ -861,6 +861,22 @@ cannot work. New, Open and Quit MUST ask before discarding changes that have not
 been saved, and the question MUST NOT be the only way to save: the way to save is
 the menu that asked.
 
+**REQ 8.7** The file dialogs are children of the HUD (`CanvasLayer`) and are `Window`s, and a
+dialog keeps the keyboard while it is up. `release_keyboard_focus()` sweeps every `Button` under the
+HUD and sets `focus_mode` to `FOCUS_NONE`, and it must skip anything inside a `Window`: a modal
+dialog focused by the engine is not the HUD holding the keyboard, and taking a dialog's own buttons
+out of the focus chain left it unable to focus the field it opens on - the engine logged *This
+control can't grab focus* and the file name could not be typed. Verified live: a name typed into the
+Save dialog's field reached the file on disk.
+
+**REQ 8.8** The recent list is not kept in the drawings folder. The folder is where a Save dialog
+opens, so anything in it can be browsed to and saved over, and the recent list is the one file here
+that only this app may write. It lives at `user://recent-drawings.json`; a list left in the drawings
+folder by an earlier build is carried out of it, once, the first time the store looks in a folder
+that is about to be listed. What decides whether the file found there is the list is its *contents* -
+the list is a JSON array of paths and a drawing is a JSON object - because a person may legitimately
+name a drawing "recent". Verified live: the Save dialog's browser shows drawings only.
+
 ---
 
 ## 9. Acceptance criteria
@@ -889,6 +905,9 @@ Each is testable and each maps to a requirement above.
 | AC-18 | A locked layer is visible but not selectable. |
 | AC-19 | `Escape` during any tool leaves the document byte-identical. |
 | AC-20 | A hatch clipped to a region with a hole leaves the hole unfilled. |
+| AC-21 | A drawing saved as "Backyard" is on disk as `Backyard.json`; on the next run File > Open recent lists it and opens it with its entities and their layers intact. |
+| AC-22 | A name typed into the Save dialog's file field reaches the file written to disk. |
+| AC-23 | The Save dialog's browser lists no file that is not a drawing. |
 
 ---
 

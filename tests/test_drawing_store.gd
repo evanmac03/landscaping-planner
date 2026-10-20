@@ -243,11 +243,35 @@ func test_a_recent_list_that_is_rubbish_is_not_a_crash() -> void:
 func test_the_folder_is_made_before_it_is_written_to() -> void:
 	assert(StoreScript.ensure_dir(), "the drawings folder can be made")
 	assert(DirAccess.open(StoreScript.DIR) != null, "and is there")
-	# Only drawings are listed as drawings: the folder holds the recent list too.
-	var found: Array[String] = StoreScript.list_drawings()
-	assert(not found.has(StoreScript.RECENT_FILE), "the recent list is not a drawing")
+	# Only drawings are listed as drawings. The recent list is kept outside this folder now, but a
+	# build from before it was left a `recent.json` in here, and offering that as a drawing would
+	# be offering the one file the app must never open as one.
+	var legacy := StoreScript.DIR.path_join("recent.json")
+	var file := FileAccess.open(legacy, FileAccess.WRITE)
+	file.store_string("[]")
+	file.close()
+	assert(not StoreScript.list_drawings().has(legacy), "the recent list is not a drawing")
+	assert(
+		not FileAccess.file_exists(legacy),
+		"and does not stay in the folder a Save dialog opens on"
+	)
 	StoreScript.write(_drawing(), SCRATCH)
 	assert(StoreScript.list_drawings().has(SCRATCH), "a written drawing is listed")
+	DirAccess.remove_absolute(legacy)
+	_clean()
+
+
+func test_a_drawing_somebody_named_recent_is_a_drawing() -> void:
+	# The file name is not the evidence. The recent list is a JSON array of paths and a drawing is
+	# a JSON object, so a person who names a drawing "recent" keeps it: a housekeeping rule that
+	# went by the name alone would delete a drawing to tidy the folder.
+	_clean()
+	var path := StoreScript.DIR.path_join(StoreScript.LEGACY_RECENT_NAME)
+	StoreScript.write(_drawing(), path)
+	assert(StoreScript.ensure_dir(), "the folder is there")
+	assert(FileAccess.file_exists(path), "a drawing called recent is left where it is")
+	assert(StoreScript.list_drawings().has(path), "and is offered as one")
+	DirAccess.remove_absolute(path)
 	_clean()
 
 

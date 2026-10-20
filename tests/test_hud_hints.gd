@@ -300,3 +300,36 @@ func test_a_hud_control_never_takes_keyboard_focus() -> void:
 	assert(option.focus_mode == Control.FOCUS_NONE)
 	assert(field.focus_mode != Control.FOCUS_NONE)
 	root.free()
+
+
+func test_a_dialog_keeps_the_keyboard_while_it_is_up() -> void:
+	# The rule is "nothing in the HUD holds the keyboard", and a modal dialog is not the HUD: taking
+	# its own buttons out of the focus chain too left it unable to focus the one it opens on, which
+	# is how a file dialog ends up on screen and unable to be typed into. A Window is the boundary,
+	# because a Window is what the engine hands the keyboard to.
+	var hud := PanelContainer.new()
+	var hud_button := Button.new()
+	hud.add_child(hud_button)
+	var dialog := Window.new()
+	hud.add_child(dialog)
+	var dialog_button := Button.new()
+	var field := LineEdit.new()
+	dialog.add_child(dialog_button)
+	dialog.add_child(field)
+	var twice_nested := Button.new()
+	var deeper := MarginContainer.new()
+	deeper.add_child(twice_nested)
+	dialog.add_child(deeper)
+
+	Hud.release_keyboard_focus(hud)
+
+	assert(hud_button.focus_mode == Control.FOCUS_NONE, "the HUD's own button is released")
+	assert(dialog_button.focus_mode != Control.FOCUS_NONE, "the dialog's button keeps the keyboard")
+	assert(twice_nested.focus_mode != Control.FOCUS_NONE, "however deep inside the dialog it is")
+	assert(field.focus_mode != Control.FOCUS_NONE, "and the field it is typed into")
+
+	# Everything off the HUD, because nothing else needs the rule.
+	assert(Hud._inside_window(dialog_button))
+	assert(Hud._inside_window(twice_nested))
+	assert(not Hud._inside_window(hud_button))
+	hud.free()

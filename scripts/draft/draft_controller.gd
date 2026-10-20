@@ -456,10 +456,11 @@ func recent_drawings() -> Array[String]:
 ## What the drawing is, for a menu line or a window title: its file name, and whether what is on
 ## the screen is what the file holds.
 func drawing_state_text() -> String:
-	var name := StoreScript.display_name(drawing_path)
-	if name.is_empty():
-		name = "untitled drawing"
-	return "%s - unsaved changes" % name if dirty else name
+	# Not `name`: this is a Node, and `name` is the node's own.
+	var file_name := StoreScript.display_name(drawing_path)
+	if file_name.is_empty():
+		file_name = "untitled drawing"
+	return "%s - unsaved changes" % file_name if dirty else file_name
 
 
 func _on_document_changed() -> void:
