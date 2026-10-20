@@ -194,11 +194,19 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
+const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
 ## species in order to write one line on itself would be a menu nobody could use.
 var _plants: PlantCatalogue = null
+## How many entities the palette's bed list was read from. The list is a *menu of what can be filled*
+## and not the source of the outline that is filled: `_on_plant_fill_bed` reads the drawing again when
+## the button is pressed, so a bed that has been moved since the list was built still fills at its new
+## outline. That is what makes it safe to re-read on a count rather than every frame, which matters
+## because an area row carries the outline of its entity and a HUD that allocated a ring of points per
+## bed sixty times a second would be a HUD nobody could draw in.
+var _beds_from_count: int = -1
 ## The library: the window, the browser inside it, and the two dialogs a plant list arrives and
 ## leaves by. The window is a `Window` rather than a panel in `Root` on purpose - it is the one
 ## boundary at which something in this HUD is allowed to hold the keyboard, which is what makes the
@@ -2230,6 +2238,7 @@ func _build_plant_panel() -> void:
 	panel.plant_chosen.connect(_on_plant_panel_chosen)
 	panel.library_requested.connect(open_plant_browser)
 	panel.stop_requested.connect(_on_plant_panel_stop)
+	panel.fill_requested.connect(_on_plant_fill_bed)
 	palette_column.add_child(panel)
 	_plant_panel = panel
 
@@ -2245,6 +2254,59 @@ func _on_plant_panel_stop() -> void:
 		view_controller.stop_planting()
 
 
+# --- filling a bed ---------------------------------------------------------------------------
+
+
+## The beds a planting can go in: the areas the drawing encloses, narrowed by `PlantSpacing` to the beds
+## and the planting already there.
+##
+## Read from the drawing rather than kept, because a bed is drawn, moved and deleted with the drawing
+## tools: a list built once would offer beds that are no longer there and miss the one just drawn.
+func _planting_beds() -> Array[Dictionary]:
+	if _draft == null or _draft.document == null:
+		return []
+	return PlantSpacingScript.bed_areas(_draft.document)
+
+
+## Fill a bed with the plant the palette has chosen: the whole point of the arithmetic being in one
+## module is that this is the only place that plants a bed, and it plants it by asking for the points
+## and putting an ordinary plant on each of them.
+##
+## The report goes to the palette's own status line rather than to the plan's, because the plan's line
+## is rewritten every frame by the planting verdict while a plant is in hand - a message written there
+## would be on screen for a single frame.
+func _on_plant_fill_bed(bed_key: String, spacing: float, arrangement: String) -> void:
+	if _plant_panel == null:
+		return
+	var species_id: StringName = _plant_panel.selected_id()
+	if species_id.is_empty():
+		_plant_panel.say("Choose a plant to fill a bed with")
+		return
+	var bed: Dictionary = {}
+	for row: Dictionary in _planting_beds():
+		if String(row.get("key", "")) == bed_key:
+			bed = row
+	if bed.is_empty():
+		# The bed was in the drop-down and the drawing has moved on since: say so rather than filling
+		# whichever bed is now first, which would be planting somewhere nobody pointed at.
+		_plant_panel.say("That bed is not on the drawing any more")
+		return
+	var yard: Node = view_controller.yard if view_controller != null else null
+	var report: Dictionary = PlantSpacingScript.fill(
+		plant_list(), yard, species_id, bed["outline"],
+		{"spacing": spacing, "arrangement": arrangement}
+	)
+	_plant_panel.say(PlantSpacingScript.report_words(report))
+	if not bool(report["ok"]):
+		return
+	# A filled bed is a planting: the plan reads the yard again, the picker's cache is dropped, and the
+	# count the menu reports moves with it - the same three things a single placement does.
+	if view_controller != null:
+		view_controller.refresh_after_planting()
+	_refresh_plant_panel()
+	_refresh_menus()
+
+
 ## Match the plants section to the controller. Bound to whatever the list is now, because an import
 ## replaces the catalogue itself and a panel still listing the plants from this morning would look
 ## like an import that failed. The expensive part - the rows - is only rebuilt when the catalogue or
@@ -2255,6 +2317,13 @@ func _refresh_plant_panel() -> void:
 	var catalogue: PlantCatalogue = plant_list()
 	if _plant_panel.catalogue != catalogue:
 		_plant_panel.bind(catalogue)
+	# The beds the drawing encloses, offered beside the plants. Read when the drawing has a different
+	# number of things on it rather than every frame, for the reason the bed list's own field gives.
+	if _draft != null and _draft.document != null:
+		var entities: int = _draft.document.count()
+		if entities != _beds_from_count:
+			_beds_from_count = entities
+			_plant_panel.set_beds(PlantSpacingScript.bed_areas(_draft.document))
 	var in_hand: StringName = &""
 	var standing: int = 0
 	if view_controller != null:

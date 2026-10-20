@@ -6,10 +6,11 @@ scenes - a tree, a shrub, a flower bed - placed by hand in `yard.tscn`. What it 
 water, and is drawn as a tree. This module is that, and everything that hangs off it.
 
 **Status.** Built: the catalogue, the placement link, the planting list, the browser, the palette
-section, and the ground under a plant with the ring that reads it. The starter list is **130 species**:
-the 17 it began with and the expansion of §2a. 45 tests in `test_plants.gd` (20),
-`test_plant_placement.gd` (11) and `test_plant_browser.gd` (14), plus the Plant menu in
-`test_hud_menu.gd`, the palette in `test_plant_panel.gd` (12) and the expansion in
+section, the ground under a plant with the ring that reads it, and the fill that plants a whole
+bed at a spacing (§5a). The starter list is **130 species**: the 17 it began with and the
+expansion of §2a. 45 tests in `test_plants.gd` (20), `test_plant_placement.gd` (11) and
+`test_plant_browser.gd` (14), plus the fill in `test_plant_spacing.gd` (18), the Plant menu in
+`test_hud_menu.gd`, the palette in `test_plant_panel.gd` (17) and the expansion in
 `test_plant_expansion.gd` (7).
 
 ## 1. JSON, not one `.tres` per species
@@ -136,6 +137,37 @@ The list reaches the **sheet**: the plotting exporter draws it as a third table 
 right edge, the drafting controller takes the rows from whoever knows the yard, and the
 palette's plot button and the Plot entry in the menu both go through one door, so a plan
 cannot be plotted carrying two different lists.
+
+## 5a. A bed at a spacing
+
+A designer does not place a hedge fourteen clicks at a time. They say "45 cm apart, staggered"
+and the plan answers with the planting. `PlantSpacing` (`scripts/plant_spacing.gd`) is that
+arithmetic and nothing else: given an outline the plan already draws, a spacing and an arrangement
+it returns the points a plant goes at, and it is the only place those points are decided - which
+is what keeps the symbols on the plan, the props in the yard, the count on the planting schedule
+and the quantity in the takeoff from disagreeing about how many plants there are.
+
+Two arrangements, because planting is not a lattice: **square**, and **staggered**, whose rows are
+half a spacing across from each other and `sqrt(3)/2` of a spacing apart so that every plant is the
+same distance from all six of its neighbours. Staggered is the default because it is what a
+planting plan draws and because it packs more plants into the same ground - about 15% over a large
+bed, and 104 against 99 at 0.3 m in a four by three metre one.
+
+Two rules, both horticulture rather than taste:
+
+* a plant is pulled in from the edge by **half its own spread**, so the plant on the edge stands
+  inside the bed rather than hanging over the lawn beside it;
+* the spacing **defaults to the species' own spread**, so a bed filled with no number given has its
+  plants just touching, which is what a nursery means by "at the recommended spacing".
+
+**A fill refuses rather than half-doing it.** A spacing tighter than a plan draws is refused, an
+outline that encloses no ground is refused, a bed with no room for the plant is refused in a
+sentence naming the two numbers that caused it, and a bed that wants more than 500 plants is
+refused naming the limit rather than planting the first few hundred and leaving a schedule to match.
+
+The beds it offers are the areas the plan already encloses, narrowed to the layers a planting goes
+in (a bed and the planting that is already there), so nothing is planted into a driveway - the same
+list the ground window shows, read through `ZoneMap.areas_of`.
 
 ## 6. The browser
 
@@ -441,6 +473,21 @@ outline and the rules it obeys are built and tested, so what is missing is a pla
   replaced, and an entry already in the list is left alone (`test_plant_expansion.gd`)
 * a species that states soil or drainage states a value the vocabulary knows and keeps it through a
   file, and one that states neither is still valid (`test_plant_suitability.gd`)
+* a fill puts the plants no closer than the spacing, checked against every pair of them rather
+  than against the grid they were built from: a test that read the grid back would agree with a
+  fill that was wrong (`test_plant_spacing.gd`)
+* staggered rows are sqrt(3)/2 of a spacing apart with alternate rows half a spacing across, no two
+  plants are closer than they would be in square rows, and no plant stands on the outline itself
+* what a fill plants is what the schedule then counts: every plant carries its species, stands at
+  `Vector3(x, 0, y)`, and the count agrees to the one
+* the refusals are refusals and not silent half-jobs: a spacing tighter than a plan draws, an
+  outline enclosing no ground, a bed with no room for the plant, and a bed wanting more than a
+  fill puts down
+* the beds offered are the beds and the planting already there, and not the paving, the lawn or
+  the house
+* the fill controls take no keyboard, the button is dead until there is both a plant and a bed and
+  says in its tooltip which is missing, a report stays until a new plant is chosen, and a bed the
+  drawing no longer encloses cannot stay chosen (`test_plant_panel.gd`)
 * the list reaches the plotted sheet: a species is one row with its count beside it, and the
   plants the catalogue cannot name are one row that says so rather than being dropped
   (`test_sheet_export.gd`)

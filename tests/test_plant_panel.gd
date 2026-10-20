@@ -220,6 +220,12 @@ func test_nothing_in_the_panel_takes_the_keyboard() -> void:
 	assert(panel.get_node("Actions/PlaceButton").focus_mode == Control.FOCUS_NONE, "place")
 	assert(panel.get_node("Actions/StopButton").focus_mode == Control.FOCUS_NONE, "stop")
 	assert(panel.get_node("Header/LibraryButton").focus_mode == Control.FOCUS_NONE, "the library button")
+	# The controls that fill a bed are the newest thing in the panel and the easiest to forget: a
+	# drop-down that keeps the keyboard is a number key that stops arming a tool.
+	assert(panel.get_node("FillRow/SpacingOption").focus_mode == Control.FOCUS_NONE, "the spacing")
+	assert(panel.get_node("FillRow/ArrangementOption").focus_mode == Control.FOCUS_NONE, "the rows")
+	assert(panel.get_node("BedRow/BedOption").focus_mode == Control.FOCUS_NONE, "the bed")
+	assert(panel.get_node("FillButton").focus_mode == Control.FOCUS_NONE, "and the fill button")
 	assert(not (panel.get_node("Species") as ItemList).allow_search,
 		"and the list does not search, because letter keys belong to the drawing")
 	panel.free()
@@ -255,4 +261,139 @@ func test_the_stop_button_is_dead_until_something_is_being_planted() -> void:
 	assert(not stop.disabled, "and having one in hand makes stopping possible")
 	panel.refresh(&"", 0)
 	assert(stop.disabled, "and putting it away makes stopping impossible again")
+	panel.free()
+
+
+# --- filling a bed -------------------------------------------------------------------------
+
+
+## A bed row as `PlantSpacing.bed_areas` returns one. The panel never sees an outline of its own
+## making: a bed is an area of the drawing, and the outline in the row is the drawing's.
+func _bed_row(key: String, name: String, area: float) -> Dictionary:
+	return {
+		"entity_id": 1 + absi(key.hash() % 100),
+		"layer": &"400-NEW-BED",
+		"key": key,
+		"label": "bed",
+		"name": name,
+		"outline": PackedVector2Array([
+			Vector2.ZERO, Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0),
+		]),
+		"area_m2": area,
+	}
+
+
+func test_the_beds_the_drawing_encloses_are_offered_and_a_change_is_reported() -> void:
+	var panel: PlantPanel = _panel()
+	var first := _bed_row("a", "bed 1", 12.0)
+	var second := _bed_row("b", "bed 2", 6.0)
+	assert(panel.set_beds([first, second]), "the list is taken")
+	assert(panel.beds().size() == 2, "both beds are held")
+	assert(panel.selected_bed_key() == "a", "and the first is on")
+
+	# The same list again is not a change: the HUD offers this every refresh, and rebuilding a
+	# drop-down sixty times a second would close it out from under whoever is using it.
+	assert(not panel.set_beds([first, second]), "the same beds are not a change")
+
+	# A bed that is still there stays chosen, however the list has been reordered around it.
+	assert(panel.set_beds([second, first]), "a reordered list is a change")
+	assert(panel.selected_bed_key() == "a", "and the bed that was chosen is still chosen")
+
+	# A bed the drawing no longer encloses cannot stay chosen. The drop-down moves to the first bed
+	# rather than sitting empty with a dead button under it.
+	assert(panel.set_beds([second]), "one bed left")
+	assert(panel.selected_bed_key() == "b", "and the drop-down is on the one that is left")
+
+	assert(panel.set_beds([]), "a drawing with no beds")
+	assert(panel.selected_bed_key().is_empty(), "has nothing to fill")
+	panel.free()
+
+
+func test_the_fill_button_is_dead_until_there_is_both_a_plant_and_a_bed() -> void:
+	var panel: PlantPanel = _panel()
+	var fill: Button = panel.get_node("FillButton")
+	assert(fill.disabled, "nothing chosen, nothing to fill")
+	assert(fill.tooltip_text.contains("Choose a plant"), "and it says which: %s" % fill.tooltip_text)
+
+	panel.select(MAPLE)
+	assert(fill.disabled, "a plant and no bed is still no fill")
+	assert(fill.tooltip_text.contains("no bed"), "and it says so: %s" % fill.tooltip_text)
+
+	panel.set_beds([_bed_row("a", "bed 1", 12.0)])
+	assert(not fill.disabled, "both halves and the button is live")
+	assert(fill.tooltip_text.contains("bed 1"), "and it names the bed: %s" % fill.tooltip_text)
+	assert(fill.tooltip_text.contains("Its own spread"), "and what the spacing is: %s" % fill.tooltip_text)
+	panel.free()
+
+
+## The spacing is what the drop-down says, and the first choice is the plant's own spread - which is
+## zero, because the spread is a property of the plant and not of this list.
+func test_the_choices_are_the_ones_the_drop_downs_show() -> void:
+	var panel: PlantPanel = _panel()
+	assert(panel.spacing_choice() == 0.0, "its own spread to begin with")
+	assert(panel.arrangement_choice() == "triangular", "and staggered rows, as a planting plan draws")
+	assert(panel.set_spacing_choice(0.45), "a round spacing can be asked for by value")
+	assert(panel.spacing_choice() == 0.45)
+	assert(panel.set_arrangement_choice("square"), "so can an arrangement")
+	assert(panel.arrangement_choice() == "square")
+	assert(not panel.set_spacing_choice(0.123), "and one the list does not offer is refused")
+	assert(panel.spacing_choice() == 0.45, "rather than replacing what is chosen")
+	assert(not panel.set_arrangement_choice("hexagonal"), "as is an arrangement nobody offers")
+	assert(panel.arrangement_choice() == "square")
+	panel.free()
+
+
+func test_filling_asks_for_the_bed_the_spacing_and_the_arrangement() -> void:
+	var panel: PlantPanel = _panel()
+	panel.select(BOXWOOD)
+	panel.set_beds([_bed_row("a", "bed 1", 12.0), _bed_row("b", "bed 2", 6.0)])
+	var asked: Array = []
+	panel.fill_requested.connect(
+		func(bed_key: String, spacing: float, arrangement: String) -> void:
+			asked.append([bed_key, spacing, arrangement])
+	)
+
+	assert(panel.fill_selected(), "a plant and a bed is a fill")
+	assert(asked.size() == 1, "and it was asked for once")
+	assert(String(asked[0][0]) == "a", "the bed it names: %s" % String(asked[0][0]))
+	assert(float(asked[0][1]) == 0.0, "the spacing it is on")
+	assert(String(asked[0][2]) == "triangular", "and the arrangement")
+
+	panel.set_spacing_choice(0.6)
+	panel.set_arrangement_choice("square")
+	panel.fill_selected()
+	assert(float(asked[1][1]) == 0.6, "changing the controls changes what is asked for")
+	assert(String(asked[1][2]) == "square")
+
+	# The button goes through the same door, so a click and a call cannot ask for two different fills.
+	(panel.get_node("FillButton") as Button).pressed.emit()
+	assert(asked.size() == 3, "the button fills by the same signal")
+
+	# And with nothing chosen there is nothing to ask for.
+	panel.free()
+	var fresh: PlantPanel = _panel()
+	fresh.set_beds([_bed_row("a", "bed 1", 12.0)])
+	assert(not fresh.fill_selected(), "no plant, no fill")
+	fresh.free()
+
+
+func test_a_fill_reports_itself_beside_the_plant_count_and_a_new_plant_clears_it() -> void:
+	var panel: PlantPanel = _panel()
+	panel.select(BOXWOOD)
+	panel.set_beds([_bed_row("a", "bed 1", 12.0)])
+	panel.say("38 x Buxus sempervirens at 0.45 m, staggered")
+	assert(panel.status_text() == "38 x Buxus sempervirens at 0.45 m, staggered",
+		"what just happened is what the panel says: %s" % panel.status_text())
+
+	# A new plant in hand is a new act, and the report of the last one is not news any more.
+	panel.refresh(MAPLE, 38)
+	assert(not panel.status_text().contains("Buxus"), "a new choice clears it: %s" % panel.status_text())
+	# What is left is the line about what is in hand, which is the one a person needs while planting.
+	assert(panel.status_text().contains("Red maple") and panel.status_text().contains("38"),
+		"the line is about the plant in hand: %s" % panel.status_text())
+
+	# A count on its own does not: a fill changes how many are standing, and the report is what says so.
+	panel.say("nothing to report")
+	panel.refresh(MAPLE, 40)
+	assert(panel.status_text() == "nothing to report", "the plant count moving is not a new act")
 	panel.free()

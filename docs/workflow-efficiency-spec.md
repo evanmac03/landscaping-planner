@@ -153,6 +153,15 @@ on the plan, and it stays armed, because a bed is a dozen clicks and not a dozen
 window. Escape puts it away. Arming a plant puts the drawing tools away, so planting and drafting
 never both own the left button.
 
+**A whole bed at a spacing - BUILT, and it makes the sentence above the slow way.** Clicking a
+bed a plant at a time is right when a designer is composing it - that is what the reach argument
+is for - but it is not how a bed of a hundred groundcover plants gets planted. `PlantSpacing`
+(`scripts/plant_spacing.gd`) plants a bed from the outline the plan already draws: two controls in
+the palette say at what spacing and in which arrangement, the drop-down says which bed, and one
+press puts the planting down and reports what it did. Square or staggered, half a spread in from
+the edge by default, and a refusal rather than a half-planted bed when there is no answer -
+`docs/plant-database-spec.md` section 5a. One press per bed, not one click per plant.
+
 Caching, in two layers:
 
 * `PlantCatalogue.thumbnail_for` / `scene_for` cache **including misses**, so a species with no

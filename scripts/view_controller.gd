@@ -838,9 +838,7 @@ func plant_at(screen: Vector2) -> Dictionary:
 	# The plan is a projection of the yard, so it is told to read it again; and the picker caches
 	# the objects it can select, so that cache is dropped. Miss either and the new plant is a plant
 	# you can see and not touch, or touch and not see.
-	_placeable_cache_ready = false
-	if plan_canvas != null:
-		plan_canvas.rebind(yard)
+	refresh_after_planting()
 	# What the plan says about where it went, in words. The ring only ever described the spot under
 	# the cursor; this describes the spot the plant is actually standing on, which is the one thing
 	# the designer cannot see for themselves.
@@ -848,6 +846,16 @@ func plant_at(screen: Vector2) -> Dictionary:
 	_say_planting(planting_verdict)
 	result["suitability"] = planting_verdict
 	return result
+
+
+## The yard has changed: one plant, or a bed of them. The plan is a projection of the yard and the
+## picker caches what it can select, so both have to be told, and they have to be told together -
+## which is why this is one function rather than two lines written out at each of the places that
+## plant something.
+func refresh_after_planting() -> void:
+	_placeable_cache_ready = false
+	if plan_canvas != null:
+		plan_canvas.rebind(yard)
 
 
 ## Judge the plant in hand against the ground at one point, and remember the answer.
