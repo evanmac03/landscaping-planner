@@ -198,11 +198,149 @@ The palette section is the second way in, and the one that asks you to remember 
 same `L`-keyed button on it that opens the library. The library is for searching, the panel is for
 reaching, and both roads arm the same plant in the same controller.
 
+The third way in is the **Site** menu (§7a.8), which does not place a plant but says what the
+ground is like where it would go.
+
 Choosing a plant arms it and closes the library, so the very next click is on the plan. It stays armed
 afterwards: a bed is a dozen clicks, not a dozen trips back. Escape puts it away. Planting and the
 drawing tools never both own the left button - arming a plant puts the tools away.
 
+## 7a. Suitability: whether the plant belongs where it is going
+
+A green ring on a plant that suits its spot and a red one on a plant that does not, with the reason
+written beside it. **Warn, never block**: the plant goes in the ground and the ring tells the truth
+about it, because deciding what a garden should be is the designer's job and this is a tool that
+informs them.
+
+### 7a.1 The ground is data on the drawing
+
+`scripts/terrain_profile.gd` (`TerrainProfile`) is what one place is like; `scripts/zone_map.gd`
+(`ZoneMap`) is the whole site's conditions as a base profile plus any number of areas laid over it.
+The map lives on `DraftDocument.environment` (file version **5**), so it travels in the drawing, moves
+with the undo stack, and there is no second document to keep in step with the plan.
+
+### 7a.2 A profile states only what it was told
+
+There is no default "medium" for a property nobody set. A plan that says nothing about how wet a spot
+is has not said "medium" - it has said nothing - and a check that read silence as an average would
+give a green ring to a willow in a bone-dry bed with exactly the confidence it gave to a willow in a
+bog. An unstated attribute is absent from `attrs`; `describe()` says "nothing stated about this spot".
+
+The vocabulary is the plant table's, reused rather than restated: a place's light level is the same
+bit a species uses for the conditions it tolerates, moisture is the same 0..2 as a species' water
+need, and a place's drainage is **one** of the bits a species may tolerate as a set - so every
+comparison is a bit test or a table lookup with no translation layer to disagree with itself.
+
+### 7a.3 A zone states only what it changes, and the last one drawn wins
+
+A zone holds the attributes somebody stated about it, `merged_over` the site's base, so marking a bed
+"full shade" does not also claim to know its soil. Zones answer in the order they were drawn and the
+last one containing a point is the one that applies: that is the order a designer draws in, and
+"smallest area wins" would silently reorder a map as somebody edited it.
+
+### 7a.4 The drawing is evidence, and only for two things
+
+`ZoneMap.from_document()` reads what a plan already states about the ground: **a building is shade and
+its eaves are dry; a hard surface is full sun, dry and fast-draining.** Nothing else is derived. A bed
+outline, a turf area or a hatch is a design intention about what will be planted, and reading it back
+as the environment would be describing the design to itself. What a drawing cannot tell you - shade
+cast by a tree, soil, the fall of the land - is named in `ZoneMap.NOT_DERIVED` and shown in the Site
+menu, so a grey ring everywhere has an answer.
+
+### 7a.5 Four verdicts, because two would be dishonest
+
+`scripts/plant_suitability.gd` (`PlantSuitability`) compares a species against a profile and returns a
+verdict **plus one finding per property asked about** (`{key, label, wanted, found, outcome, because,
+brief}`):
+
+| verdict | colour | what it means |
+| --- | --- | --- |
+| `GOOD` | green | every property the plan states matches |
+| `TOLERATED` | amber | nothing against it, but something is not ideal |
+| `UNSUITABLE` | red | a property is against it |
+| `UNKNOWN` | grey | the plan does not say what the ground is like |
+
+**`UNKNOWN` is not "fine".** It is the honest state of a plan nobody has described, and it is drawn
+grey rather than green because a check that never ran must never read as a pass. `ok` is
+`verdict != UNSUITABLE` and `certain` is `GOOD or TOLERATED`.
+
+**A question nobody answered is skipped, not answered.** If the catalogue entry does not say which
+soils it takes, soil is not asked about at all (the gap is the catalogue's); if the *plan* does not
+say what the soil is, that is reported as unknown (the gap is the designer's). The two are different
+and only the second is anybody's to fix.
+
+Hardiness is asked about **only where the place claims a zone of its own** - a frost pocket, a
+sheltered court - because a site's zone is stated once for the site and a plan that has not stated it
+must not turn every ring grey.
+
+The moisture rule is horticulture, not arithmetic. Wanting *less* water than the ground holds is not
+the mirror image of wanting more: a drought-tolerant plant in a wet bed rots at the crown, while a
+thirsty plant in a dry bed can be carried by irrigation. So both directions can be `UNSUITABLE`, and
+the milder mismatch in each direction (medium where it wants low, or medium where it wants high) is
+`TOLERATED`.
+
+### 7a.6 The ring, and where it comes from
+
+`ViewController` owns the question - it already knows the species, the document and the cursor - and
+hands `PlanCanvas` a point, a radius and a colour (`PlanCanvas.plant_ghost`); the canvas draws the
+ring, a washed disc at the plant's mature spread, a cross at the exact spot, and the short reason.
+The verdict is recomputed every frame while a plant is in hand, because a pan, a zoom and a menu entry
+that states the ground all change the answer while the mouse stands still.
+
+Only a **placement** writes the status line ("…is the wrong plant for the rest of the site: it wants
+full sun and this spot is in full shade. 31 planted."), never the cursor: a line rewritten every frame
+flickers.
+
+### 7a.7 The report on the planting already in the ground
+
+`PlantSuitability.audit(catalogue, yard, zone_map)` checks every plant standing in the yard and counts
+each verdict, **naming the plants with no species recorded** rather than passing over them - the
+shipped yard is thirty of those. Reached from the Site menu as "Check the planting", which opens the
+library and writes the summary and the worst rows into its status line.
+
+### 7a.8 Where it is reached from
+
+The **Site** menu, between Draft and Plant: one info line saying what the ground is, four sets of
+radios (the site's light, moisture, soil and hardiness zone, each starting with "not stated" so that a
+statement can be withdrawn), **Read the ground from the drawing**, and **Check the planting**. Sets of
+radios rather than a dialog, because a dialog is a window and a window is the one thing this HUD may
+not open casually.
+
+The trap the menu is built around: **zero is a real moisture level** (low water), so it cannot be the
+value that means "not stated" - and it *is* that value for light and zone, where 0 is not a level
+anybody can state. `Hud.no_ground_value(key)` is the one place that knows this.
+
+### 7a.9 The tests, and what they hold down
+
+`tests/test_terrain.gd` (13) holds the profile, the zones, the derivation and the file. Roughly:
+
+* a new profile states nothing, and reading it back says so rather than inventing an average
+* a zone lays only its own statements over the site, and a later zone wins
+* a profile refuses a value that is not a value (`sun: 3` is two levels at once; `drainage: ANY` is a
+  set where a place drains one way)
+* a zone with no area, or one that states nothing, is named as such
+* the map survives a JSON round trip as levels and not as 2.0
+* the drawing states a building and a hard surface and nothing else, and reading it twice does not
+  double the zones
+* the ground travels in a version 5 file, a version 4 file gets "nothing stated", and stating the
+  ground is one undo step
+
+`tests/test_plant_suitability.gd` (18) holds the verdicts - the tomato in shade, the hosta in shade,
+the willow dry and damp, the lavender in a bog, the milder mismatch tolerated in both directions, a
+gap in the plan outranking a mismatch, a stated fault outranking a gap, the catalogue not asked what
+it does not say, hardiness only where a zone is claimed, two metres away being a different answer, and
+the audit's counts, its lines and its unnamed plants. `tests/test_hud_menu.gd` holds the menu: the
+four sets, the sentinel that differs per set, and the handler that must copy the map before stating
+something on it.
+
+
 ## 8. What is not built
+
+Zones on the ground map can be **read from the drawing** (§7a.4) and stated for the site (§7a.8),
+but nothing in the interface **draws a zone by hand** yet: the model for it (`ZoneMap.add_zone`) and
+the rules it obeys are built and tested, and the tool that picks an outline on the plan to put one
+where the drawing cannot know about it - a wet corner, a frost pocket, a bed on the other side of
+something - is not.
 
 * **A planting schedule on a sheet.** `schedule()` and `schedule_text()` exist and are tested; nothing
   plots them yet. Sheet furniture has a cross-reference table and a key, and a planting plan wants a

@@ -16,6 +16,7 @@ const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 const UndoScript := preload("res://scripts/draft/undo_stack.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
 
 signal changed()
 signal entity_added(id: int)
@@ -28,6 +29,18 @@ var undo: UndoScript
 ## override it, and the same rule covers the plan and the plotted sheet, so a
 ## practice's standard only has to be set once.
 var dimension_style: DimensionStyleScript
+
+## What the ground is like where the design is going: light, moisture, soil, drainage, hardiness,
+## as a base for the whole site plus any number of areas laid over it.
+##
+## It lives on the drawing because it is a fact about *this site*, the same way the latitude and the
+## units are: a designer describes the ground once and every plant they place is checked against it,
+## and it travels in the file with the design it belongs to. A separate environment document would
+## be a second thing to keep in step with the plan.
+##
+## It also gives the undo stack the environment for free, because the stack stores whole snapshots of
+## the document - so stating a zone is undoable exactly like moving a wall is.
+var environment: ZoneMapScript
 
 ## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
 ## units are a fact about the practice, so it lives on the drawing rather than on the sun
@@ -74,6 +87,7 @@ func _init() -> void:
 	units = UnitsScript.new()
 	undo = UndoScript.new()
 	dimension_style = DimensionStyleScript.architectural()
+	environment = ZoneMapScript.make()
 
 
 # --- entities -----------------------------------------------------------------------
@@ -214,6 +228,39 @@ func clear() -> void:
 	changed.emit()
 
 
+# --- the ground ---------------------------------------------------------------------
+
+
+## State what the ground is like, or replace what is stated.
+##
+## One act and one undo step, like `set_site`: describing the site is a change to the drawing, and a
+## designer who states the wrong zone wants Ctrl+Z to put it back. Answers false when nothing
+## changed, so a caller can tell "saved" from "already so".
+func set_environment(map: ZoneMapScript) -> bool:
+	if map == null or map.to_dict() == environment.to_dict():
+		return false
+	begin_gesture()
+	environment = map
+	changed.emit()
+	return true
+
+
+## Copy the site's conditions out from the entities already drawn: a building is shade, a hard
+## surface is full sun and dry. See `ZoneMap.from_document`.
+##
+## The base survives - what somebody has stated about the whole site is not thrown away by asking the
+## drawing what it knows - and zones drawn from the drawing are replaced, so a designer who edits a
+## patio and asks again gets the new patio rather than two of them.
+##
+## Answers the number of zones read, which is 0 for a drawing with no structure and no paving on it.
+func read_environment_from_drawing() -> int:
+	var derived: ZoneMapScript = ZoneMapScript.from_document(self, environment.base.to_dict())
+	if derived.zones.is_empty() and environment.zones.is_empty():
+		return 0
+	set_environment(derived)
+	return derived.zones.size()
+
+
 # --- the site -----------------------------------------------------------------------
 
 
@@ -288,6 +335,7 @@ func snapshot() -> Dictionary:
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
+		"environment": environment.to_dict(),
 	}
 
 
@@ -324,6 +372,11 @@ func restore(state: Dictionary) -> void:
 	site_latitude = float(site_state.get("latitude", state.get("site_latitude", DEFAULT_SITE_LATITUDE)))
 	site_longitude = float(site_state.get("longitude", DEFAULT_SITE_LONGITUDE))
 	site_utc_offset_hours = float(site_state.get("utc_offset_hours", DEFAULT_SITE_UTC_OFFSET_HOURS))
+	# What the ground is like is a recent arrival too, so a file written before it existed gets an
+	# empty map - which is not "average ground" but "nothing stated", and a suitability check on it
+	# says so rather than handing out verdicts about a garden it knows nothing about.
+	var env_state: Variant = state.get("environment", null)
+	environment = ZoneMapScript.from_dict(env_state if env_state is Dictionary else {})
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -365,11 +418,16 @@ func to_dict() -> Dictionary:
 	var order: Array = []
 	for id in _order:
 		order.append(id)
+	# Version 5 is the version that states what the ground is like. The number is written out rather
+	# than inferred because a reader has to be able to tell "this file has no environment in it" from
+	# "this file's environment is empty" - and 4 and 5 are the same drawing with a different answer to
+	# that question.
 	return {
-		"version": 4,
+		"version": 5,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
+		"environment": environment.to_dict(),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

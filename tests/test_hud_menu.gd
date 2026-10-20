@@ -10,6 +10,7 @@ const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
+const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
 const KINDS: Array[StringName] = [
 	&"command", &"radio", &"check", &"submenu", &"separator", &"info",
@@ -37,7 +38,7 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 				KINDS.has(StringName(entry.get("kind", &""))),
 				"%s entry has a kind the builder knows" % String(menu["title"])
 			)
-	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Plant", "Present", "Help"]
+	var expected: Array[String] = ["File", "Edit", "View", "Draft", "Site", "Plant", "Present", "Help"]
 	assert(titles == expected)
 
 
@@ -297,3 +298,99 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 	assert(text.contains("Keys") or text.contains("Drawing"))
 	assert(hud.keys_footer().contains(Engine.get_version_info()["string"]))
 	hud.free()
+
+# --- the ground the plants are judged against ----------------------------------------------
+
+
+func test_the_site_menu_asks_about_the_ground_in_the_sets_a_place_has() -> void:
+	# The ring around a plant being placed is the answer; this menu is the question. Each set is
+	# radios rather than a dialog, and each starts with "not stated".
+	assert(_entry(&"site.ground")["kind"] == &"info", "the menu says what the ground is")
+	assert(_entry(&"site.read")["method"] == &"_menu_read_ground")
+	assert(_entry(&"site.check")["method"] == &"_menu_check_planting")
+	var wanted := {
+		&"site.sun": 4, &"site.moisture": 4, &"site.soil": 6, &"site.zone": 14,
+	}
+	for id: StringName in wanted:
+		var entry: Dictionary = _entry(id)
+		assert(entry["kind"] == &"submenu", "%s is a set of choices" % id)
+		var items: Array = entry["items"]
+		assert(items.size() == int(wanted[id]), "%s offers %d choices" % [id, items.size()])
+		assert(String(items[0]["label"]) == "not stated", "%s can be unstated again" % id)
+		for item: Dictionary in items:
+			assert(item["kind"] == &"radio", "%s is chosen rather than toggled" % id)
+			assert(String(item["method"]) == "_menu_set_ground", "%s states one thing" % id)
+
+
+func test_the_missing_value_is_a_different_value_in_every_set() -> void:
+	# The trap this whole menu is built around: **zero is a real moisture level** (low water), so it
+	# cannot be the value that means "nothing stated" - and it *is* that value for light and zone,
+	# where 0 is not a level anybody can state (the levels are 1, 2 and 4; zones start at 1).
+	assert(HudScript.ground_value_stated("moisture", 0), "and 0 IS one: low water is a real level")
+	assert(HudScript.ground_value_stated("moisture", 1), "medium water is a statement")
+	assert(HudScript.ground_value_stated("moisture", 2), "and so is high water")
+	assert(not HudScript.ground_value_stated("moisture", -1), "so the missing one is -1, not 0")
+	assert(int(HudScript.no_ground_value("moisture")) == -1, "which is what the menu offers")
+	assert(not HudScript.ground_value_stated("sun", 0), "no light level is 0")
+	assert(HudScript.ground_value_stated("sun", 1), "full sun is 1")
+	assert(HudScript.ground_value_stated("sun", 4), "full shade is 4")
+	assert(not HudScript.ground_value_stated("soil", &""), "no soil is the empty name")
+	assert(HudScript.ground_value_stated("soil", &"LOAM"), "and loam is a soil")
+	assert(not HudScript.ground_value_stated("zone", 0), "no zone is 0")
+	assert(HudScript.ground_value_stated("zone", 1), "zone 1 is the coldest zone there is")
+	# Every set's missing value is the value its own "not stated" radio carries, or that radio would
+	# be a choice that un-states something by stating it.
+	for key: String in ["sun", "moisture", "soil", "zone"]:
+		var entry: Dictionary = _entry(StringName("site.%s" % key))
+		var first: Dictionary = (entry["items"] as Array)[0]
+		assert(first["value"] == HudScript.no_ground_value(key), "%s: %s" % [key, str(first["value"])])
+		assert(not HudScript.ground_value_stated(key, first["value"]), "%s: the radio un-states" % key)
+
+
+func test_the_ground_radios_show_the_stated_value_and_only_that() -> void:
+	var world := {
+		"ground.sun": 4, "ground.moisture": 0, "ground.soil": &"LOAM", "ground.zone": 0,
+	}
+	assert(HudScript.is_checked(&"ground.sun", 4, world), "the stated light is the one that is on")
+	assert(not HudScript.is_checked(&"ground.sun", 1, world))
+	assert(HudScript.is_checked(&"ground.moisture", 0, world), "and the stated moisture")
+	assert(not HudScript.is_checked(&"ground.moisture", -1, world), "not the unstated one")
+	assert(HudScript.is_checked(&"ground.soil", &"LOAM", world))
+	assert(not HudScript.is_checked(&"ground.soil", &"CLAY", world))
+	assert(HudScript.is_checked(&"ground.zone", 0, world), "a zone nobody stated is not stated")
+	# A number that has been through a file is a float, and "is this the stated one" must not depend
+	# on which side of the file it came from.
+	assert(HudScript.is_checked(&"ground.sun", 4, {"ground.sun": 4.0}), "4.0 is the level 4")
+	assert(HudScript.is_checked(&"ground.moisture", 2, {"ground.moisture": 2.0}))
+	assert(not HudScript.is_checked(&"ground.sun", 4, {"ground.sun": 2}))
+
+
+func test_stating_the_ground_changes_the_drawing_and_leaves_the_old_map_alone() -> void:
+	# The handler the radio entries call. It is tested here rather than only in the running program
+	# because of the one thing it must not do: the map it is handed is the map on the document, and
+	# `set_environment` tells "saved" from "already so" by comparing what it is given with what is
+	# there - so an object edited in place would always look unchanged, and the menu would tick and
+	# change nothing.
+	var controller: DraftController = ControllerScript.new()
+	var hud := HudScript.new()
+	hud._draft = controller
+	# A bare controller has run no `_ready`, so its document is made here: the handler reaches the
+	# document through the controller and through nothing else.
+	var document: DraftDocument = DocumentScript.new()
+	controller.document = document
+	assert(document.environment.base.is_empty(), "a new drawing states nothing about the ground")
+	hud._menu_set_ground({"state": &"ground.moisture", "value": 2})
+	assert(document.environment.base.moisture_level() == 2, "the moisture is stated")
+	assert(document.environment.zones.is_empty(), "and nothing else was invented")
+	hud._menu_set_ground({"state": &"ground.soil", "value": &"CLAY"})
+	assert(document.environment.base.soil_name() == &"CLAY")
+	assert(document.environment.base.moisture_level() == 2, "the moisture survives the soil")
+	# Choosing "not stated" takes the statement back, and it is a change like any other.
+	hud._menu_set_ground({"state": &"ground.moisture", "value": HudScript.no_ground_value("moisture")})
+	assert(not document.environment.base.has("moisture"), "the moisture is unstated again")
+	assert(document.environment.base.soil_name() == &"CLAY", "and the soil is untouched")
+	# And it is one undo step, because it went through the document.
+	assert(document.undo_last(), "the ground changes are undoable")
+	assert(document.environment.base.has("moisture"), "which put the moisture back")
+	hud.free()
+	controller.free()

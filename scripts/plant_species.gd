@@ -56,6 +56,43 @@ const WATER_MEDIUM := 1
 const WATER_HIGH := 2
 const WATER_NAMES := {WATER_LOW: "low water", WATER_MEDIUM: "medium water", WATER_HIGH: "high water"}
 
+## The soils a species will grow in. **Empty means the catalogue does not say**, which is not the same
+## as "any soil": a question nobody answered is skipped, not answered on their behalf.
+##
+## This table and the drainage bits below are the *vocabulary of growing conditions*, and they live
+## here rather than in `TerrainProfile` because this is where they were first needed and because a
+## place's conditions are described in the same words a plant's needs are. `TerrainProfile` reuses
+## them verbatim - a light level is the same bit, a moisture level the same number - so that no
+## translation layer can ever decide that "semi-shade" and "part shade" are different things.
+const SAND := &"SAND"
+const LOAM := &"LOAM"
+const CLAY := &"CLAY"
+const SILT := &"SILT"
+const ORGANIC := &"ORGANIC"
+const SOILS := {
+	SAND: "sand",
+	LOAM: "loam",
+	CLAY: "clay",
+	SILT: "silt",
+	ORGANIC: "organic",
+}
+
+## The drainage a species tolerates, as **bits**, because a plant very often takes more than one kind
+## of ground. A *place* drains one way, so a place's drainage is a single bit of the same set, and
+## asking whether a plant belongs there is a bitwise test with nothing in between.
+##
+## `DRAINS_ANY` is the default: a catalogue that says nothing about drainage must not make every
+## plant in it wrong on a heavy clay site.
+const DRAINS_FAST := 1
+const DRAINS_MEDIUM := 2
+const DRAINS_SLOW := 4
+const DRAINS_ANY := 7
+const DRAINAGE_NAMES := {
+	DRAINS_FAST: "fast-draining",
+	DRAINS_MEDIUM: "moderately drained",
+	DRAINS_SLOW: "slow-draining",
+}
+
 ## USDA hardiness zones 1..13. Zone 0 is not a zone: it is a missing value, and a plant that claims
 ## it would be offered to every customer in the coldest climate the map has.
 const ZONE_MIN := 1
@@ -82,6 +119,10 @@ var height_cm: int = 0
 var spread_cm: int = 0
 var sun: int = FULL_SUN
 var water: int = WATER_MEDIUM
+## The soils it will grow in, from `SOILS`. Empty means the catalogue does not say.
+var soils: Array[StringName] = []
+## The drainage it tolerates, as bits from `DRAINS_*`. `DRAINS_ANY` means it is not stated.
+var drainage: int = DRAINS_ANY
 ## Bloom months as bits, bit `month - 1` set. Zero means it is grown for its foliage.
 var bloom_months: int = 0
 var bloom_colour: Color = Color(0.89, 0.42, 0.6)
@@ -227,6 +268,28 @@ func water_text() -> String:
 	return String(WATER_NAMES.get(water, "?"))
 
 
+## The soils it takes, in words, or "" when the catalogue does not say. The empty answer is reported
+## as empty on purpose: a suitability check that treated it as "any soil" would be inventing a fact
+## about the plant, and one that treated it as "no soil" would make every plant in an incomplete
+## catalogue wrong everywhere.
+func soil_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for soil: StringName in soils:
+		parts.append(String(SOILS.get(soil, "?")))
+	return ", ".join(parts)
+
+
+## The drainage it takes, in words, or "" when it is not stated.
+func drainage_text() -> String:
+	if drainage >= DRAINS_ANY:
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	for bit: int in [DRAINS_FAST, DRAINS_MEDIUM, DRAINS_SLOW]:
+		if (drainage & bit) != 0:
+			parts.append(String(DRAINAGE_NAMES[bit]))
+	return ", ".join(parts)
+
+
 func category_name() -> String:
 	return String(CATEGORY_NAMES.get(category, "?"))
 
@@ -277,6 +340,11 @@ func problem() -> String:
 		return "plant %s has sun %d, which is not a set of light conditions" % [id, sun]
 	if not WATER_NAMES.has(water):
 		return "plant %s has water %d, which is not a water need" % [id, water]
+	for soil: StringName in soils:
+		if not SOILS.has(soil):
+			return "plant %s grows in \"%s\", which is not a soil" % [id, String(soil)]
+	if drainage == 0 or (drainage & ~DRAINS_ANY) != 0:
+		return "plant %s has drainage %d, which is not a set of drainages" % [id, drainage]
 	if (bloom_months & ~0xFFF) != 0:
 		return "plant %s blooms in months outside January..December (bits %d)" % [id, bloom_months]
 	if form.strip_edges().is_empty():
@@ -295,6 +363,15 @@ func copy() -> PlantSpecies:
 	return from_dict(to_dict())
 
 
+## The soil names as plain strings, because a StringName in a JSON dictionary is a type the reader on
+## the other side has to guess at.
+func _soil_names() -> Array:
+	var out: Array = []
+	for soil: StringName in soils:
+		out.append(String(soil))
+	return out
+
+
 func to_dict() -> Dictionary:
 	return {
 		"id": String(id),
@@ -308,6 +385,8 @@ func to_dict() -> Dictionary:
 		"spread_cm": spread_cm,
 		"sun": sun,
 		"water": water,
+		"soils": _soil_names(),
+		"drainage": drainage,
 		"bloom_months": bloom_months,
 		# With the `#`: `Color.from_string` on a bare hex run is not the parse it looks like, and a
 		# colour that came back as the fallback would be a bloom the plan draws in the wrong colour.
@@ -335,6 +414,13 @@ static func from_dict(data: Dictionary) -> PlantSpecies:
 	species.spread_cm = int(data.get("spread_cm", 0))
 	species.sun = int(data.get("sun", FULL_SUN))
 	species.water = int(data.get("water", WATER_MEDIUM))
+	var raw_soils: Variant = data.get("soils", [])
+	if raw_soils is Array:
+		for soil: Variant in raw_soils:
+			var name: StringName = StringName(soil)
+			if not name.is_empty() and not species.soils.has(name):
+				species.soils.append(name)
+	species.drainage = int(data.get("drainage", DRAINS_ANY))
 	species.bloom_months = int(data.get("bloom_months", 0))
 	var colour_text: String = String(data.get("bloom_colour", ""))
 	species.bloom_colour = Color.from_string(colour_text, Color(0.89, 0.42, 0.6)) if not colour_text.is_empty() else Color(0.89, 0.42, 0.6)

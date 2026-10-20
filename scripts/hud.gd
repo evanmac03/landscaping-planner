@@ -188,6 +188,9 @@ var _recent_filled: String = ""
 const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
 const PlantPanelScript := preload("res://scripts/plant_panel.gd")
+const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -1143,6 +1146,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Edit", "items": edit_items()})
 	menus.append({"title": "View", "items": view_items()})
 	menus.append({"title": "Draft", "items": draft_items()})
+	menus.append({"title": "Site", "items": site_items()})
 	menus.append({"title": "Plant", "items": plant_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
@@ -1324,6 +1328,89 @@ static func still_size_items() -> Array[Dictionary]:
 	return items
 
 
+## What the ground is like here: the facts about the place rather than the things drawn on it.
+##
+## This menu is where the green and red rings around a plant being placed come from. The ring is the
+## answer; these entries are the question - the site's light, moisture, soil and hardiness - plus the
+## report on the planting that is already in the ground.
+##
+## Half of it is a set of radios rather than a dialog, because that is what these are: four facts with
+## a handful of values each, stated once for the site. A dialog would be a window with a dropdown in
+## it to choose between "full sun" and "part shade", and a window is the one thing this HUD may not
+## open casually. Each set starts with "not stated", because the truth about a plan nobody has
+## described is that nobody has described it, and the way back to that has to exist.
+static func site_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"site.ground", "the plan does not say what the ground is like"))
+	items.append(_separator())
+	items.append(_ground_submenu(
+		"site.sun", "The site's light", "sun", TerrainProfileScript.SUN_LEVELS,
+		TerrainProfileScript.SUN_NAMES
+	))
+	items.append(_ground_submenu(
+		"site.moisture", "The site's moisture", "moisture", TerrainProfileScript.MOISTURE_LEVELS,
+		TerrainProfileScript.MOISTURE_NAMES
+	))
+	items.append(_ground_submenu(
+		"site.soil", "The site's soil", "soil", TerrainProfileScript.SOILS.keys(),
+		TerrainProfileScript.SOILS
+	))
+	items.append(_ground_submenu(
+		"site.zone", "The site's hardiness zone", "zone", range(1, 14), _zone_names()
+	))
+	items.append(_separator())
+	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
+	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
+	return items
+
+
+## Hardiness zones as labels: "zone 6".
+static func _zone_names() -> Dictionary:
+	var names: Dictionary = {}
+	for zone in range(1, 14):
+		names[zone] = "zone %d" % zone
+	return names
+
+
+## One set of ground conditions as a submenu. `key` is the attribute its entries state.
+static func _ground_submenu(
+	id: String, label: String, key: String, values: Array, names: Dictionary
+) -> Dictionary:
+	var items: Array[Dictionary] = []
+	var state := StringName("ground.%s" % key)
+	items.append(_radio(
+		"%s.none" % id, "not stated", &"", &"_menu_set_ground", state, no_ground_value(key)
+	))
+	for value: Variant in values:
+		items.append(_radio(
+			"%s.%s" % [id, str(value)], String(names.get(value, str(value))), &"",
+			&"_menu_set_ground", state, value
+		))
+	return _submenu(id, label, items)
+
+
+## What "not stated" is, per attribute - and it is a different value in each set, because each set
+## holds a different kind of value: no light level is 0 (the levels are 1, 2 and 4), no moisture is
+## -1 (**0 is a real moisture level**, low water, so it cannot be the missing one), no soil is the
+## empty name, and no zone is 0 - which is the "zone 0 is not a zone" rule `PlantSpecies` already
+## uses for a missing zone.
+static func no_ground_value(key: String) -> Variant:
+	if key == "soil":
+		return &""
+	if key == "sun" or key == "zone":
+		return 0
+	return -1
+
+
+## Whether a menu value states something, rather than being that set's "not stated".
+static func ground_value_stated(key: String, value: Variant) -> bool:
+	if key == "soil":
+		return not StringName(value).is_empty()
+	if key == "sun" or key == "zone":
+		return int(value) > 0
+	return int(value) >= 0
+
+
 ## The plant list, and the one thing a plant list is for.
 ##
 ## Every entry here reaches the catalogue rather than the scene, so this is the same menu in a scene
@@ -1419,6 +1506,18 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return bool(world.get("keys_panel", false))
 		&"hints":
 			return bool(world.get("hints", true))
+		# The ground: four sets of conditions where exactly one value of each is on. Compared as
+		# integers, because a value that has been through a saved file is a float - a light level of
+		# 4.0 is the level 4, and "is this the stated one" must not depend on which side of the file
+		# the number came from.
+		&"ground.sun":
+			return int(world.get("ground.sun", 0)) == int(value)
+		&"ground.moisture":
+			return int(world.get("ground.moisture", -1)) == int(value)
+		&"ground.soil":
+			return StringName(world.get("ground.soil", &"")) == StringName(value)
+		&"ground.zone":
+			return int(world.get("ground.zone", 0)) == int(value)
 	return false
 
 
@@ -1450,8 +1549,52 @@ func menu_world() -> Dictionary:
 		"plants": _plants.describe() if _plants != null else "",
 		"planting": String(view_controller.planting_species) if view_controller != null else "",
 		"planted": view_controller.planted_count() if view_controller != null else 0,
+		# What the ground is stated to be, which is what every plant verdict is judged against: the
+		# whole point of a ring that changes when a plant is dropped two metres to the left.
+		"ground": _ground_text(),
+		"ground.sun": _ground_attr("sun"),
+		"ground.moisture": _ground_attr("moisture"),
+		"ground.soil": _ground_attr("soil"),
+		"ground.zone": _ground_attr("zone"),
 	}
 	return world
+
+
+## The drawing's own record of what the ground is like, or null in a scene with no drawing. The
+## ground belongs to the document, so it travels in the file with the design it describes and moves
+## with the undo stack like everything else on it.
+func _ground_map() -> ZoneMapScript:
+	if _draft == null:
+		return null
+	var document: DraftDocument = _draft.document
+	if document == null:
+		return null
+	return document.environment
+
+
+## What the ground is stated to be, in one line, for the Site menu to say rather than to imply.
+func _ground_text() -> String:
+	var map: ZoneMapScript = _ground_map()
+	if map == null:
+		return "there is no drawing to say what the ground is like"
+	return map.describe()
+
+
+## One ground attribute as the menu reads it: the value somebody stated, or this set's "not stated".
+func _ground_attr(key: String) -> Variant:
+	var map: ZoneMapScript = _ground_map()
+	if map == null or not map.base.has(key):
+		return no_ground_value(key)
+	match key:
+		"sun":
+			return map.base.sun_level()
+		"moisture":
+			return map.base.moisture_level()
+		"soil":
+			return map.base.soil_name()
+		"drainage":
+			return map.base.drainage_level()
+	return map.base.zone()
 
 
 ## Build the menus from the plan.
@@ -1535,6 +1678,9 @@ func _hide_unavailable_menus() -> void:
 		var title: String = menu_bar.get_menu_title(index)
 		if title == "Draft":
 			menu_bar.set_menu_hidden(index, _draft == null)
+		elif title == "Site":
+			# The ground lives on the drawing, so a scene with no drawing has no ground to state.
+			menu_bar.set_menu_hidden(index, _ground_map() == null)
 		elif title == "Present":
 			menu_bar.set_menu_hidden(index, presentation == null)
 
@@ -1569,6 +1715,7 @@ func _refresh_menus() -> void:
 				popup.set_item_disabled(index, not is_enabled(available, world))
 	_refresh_file_menu()
 	_refresh_plant_menu()
+	_refresh_site_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -2239,6 +2386,67 @@ func _menu_stop_planting(_entry: Dictionary) -> void:
 		view_controller.stop_planting()
 
 
+# --- what the ground is like, and what that means for the planting -----------------------
+
+
+## State one thing about the site's ground, or take the statement back.
+##
+## The whole map is copied rather than edited in place, because the map being edited *is* the one on
+## the document: `set_environment` compares what it is handed with what is already there to tell
+## "saved" from "already so", and an object that is its own argument would always look unchanged - a
+## menu that ticked and changed nothing.
+func _menu_set_ground(entry: Dictionary) -> void:
+	var map: ZoneMapScript = _ground_map()
+	if map == null:
+		return
+	var document: DraftDocument = _draft.document
+	var key: String = String(entry.get("state", &"ground.sun")).get_slice(".", 1)
+	var value: Variant = entry.get("value", null)
+	var updated: ZoneMapScript = map.copy()
+	if ground_value_stated(key, value):
+		updated.base.with(key, value)
+	else:
+		updated.base.forget(key)
+	document.set_environment(updated)
+	_refresh_menus()
+
+
+## Ask the drawing what it already knows about the ground: a building is shade, a hard surface is hot
+## and dry. Nothing else is read, because nothing else on a plan is a fact about the ground rather
+## than an intention about the design - and what is not read is named in the menu, so a grey ring
+## everywhere has an answer.
+func _menu_read_ground(_entry: Dictionary) -> void:
+	var map: ZoneMapScript = _ground_map()
+	if map == null:
+		return
+	var document: DraftDocument = _draft.document
+	var count: int = document.read_environment_from_drawing()
+	if count <= 0:
+		_plant_say(
+			"the drawing has no buildings or hard surfaces on it, so it says nothing about the ground"
+		)
+		return
+	_plant_say("read %d area%s of ground from the drawing" % [count, "" if count == 1 else "s"])
+	_refresh_menus()
+
+
+## Report on the planting that is already in the ground: which plants the plan's own conditions say
+## are in the wrong place.
+##
+## The answer arrives in the library's status line because it is a list, and because the library is
+## where a designer goes to do something about it. The window is opened: a report nobody can see is
+## not a report, and the ring at the cursor only ever tells you about the plant in your hand.
+func _menu_check_planting(_entry: Dictionary) -> void:
+	var yard: Node3D = view_controller.yard if view_controller != null else null
+	var report: Dictionary = PlantSuitabilityScript.audit(plant_list(), yard, _ground_map())
+	var lines: Array[String] = PlantSuitabilityScript.audit_lines(report)
+	var text: String = String(report["text"])
+	if not lines.is_empty():
+		text = "%s   %s" % [text, " | ".join(lines)]
+	open_plant_browser()
+	_plant_say(text)
+
+
 func _menu_plant_import(_entry: Dictionary) -> void:
 	if _plant_import_dialog != null:
 		_plant_import_dialog.popup_centered_ratio(0.7)
@@ -2318,6 +2526,16 @@ func _on_plant_export_chosen(path: String) -> void:
 func _plant_say(text: String) -> void:
 	if _plant_browser != null:
 		_plant_browser.set_status(text)
+
+
+## The live part of the Site menu: the line describing what the ground is stated to be. The radios
+## need nothing here - the snapshot drives those - but a sentence derived from a map has to be
+## written out, in the same way the File menu writes out which drawing is open.
+func _refresh_site_menu() -> void:
+	var named := _find_item(&"site.ground")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _ground_text())
 
 
 ## The two live parts of the Plant menu: the line describing the list, and the one entry that only

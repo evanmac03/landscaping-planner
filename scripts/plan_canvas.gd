@@ -77,6 +77,13 @@ var document = null
 var display_scale: float = 100.0
 ## The shape being drawn, ghosted: {"entity": …, "layer": …}.
 var ghost: Dictionary = {}
+## Where the plant being placed would go, and what the plan's own conditions say about that spot:
+## `{point, radius, colour, label, verdict, species}`. Empty when nothing is being planted.
+##
+## The colour is the whole feature - green where the plant suits the ground, red where it does not -
+## and it is computed by the ViewController, which is where the species, the document and the cursor
+## already are. This node is told a point, a size and a colour, and draws them.
+var plant_ghost: Dictionary = {}
 ## Where the cursor snapped to, from the drafting controller.
 var snap: Dictionary = {}
 ## What the drafting tools are waiting for, drawn on the plan itself.
@@ -203,6 +210,7 @@ func _draw() -> void:
 	var marked: Node3D = grabbed if grabbed != null else hovered
 	if marked != null:
 		_draw_selection(marked, grabbed != null)
+	_draw_plant_ghost()
 	_draw_status()
 
 
@@ -321,6 +329,38 @@ func _draw_selection(node: Node3D, active: bool) -> void:
 		GRAB if active else HOVER,
 		(3.0 if active else 2.0) / pixels_per_metre
 	)
+
+
+## The plant about to be placed, ringed in the colour of what the plan says about the spot.
+##
+## The same shape the selection ring uses, deliberately: a designer already reads a circle around a
+## plant as "this is the object the click will hit", so the plant in hand is ringed the same way and
+## only the colour is new. The wash under it is the **mature spread** - the room the plant will want,
+## not a dot - because "there is no space for this" is one of the things the ground cannot tell you
+## and the ring should not pretend otherwise.
+##
+## A ring's thickness is divided by the zoom for the same reason every other stroke here is: it is a
+## mark on the plan, and it must stay the same weight on screen at every scale.
+func _draw_plant_ghost() -> void:
+	if plant_ghost.is_empty():
+		return
+	var point: Vector2 = plant_ghost.get("point", Vector2.ZERO)
+	var radius: float = maxf(float(plant_ghost.get("radius", 0.4)), 2.5 / pixels_per_metre)
+	var colour: Color = plant_ghost.get("colour", Color.WHITE)
+	var wash := colour
+	wash.a = 0.2
+	draw_circle(point, radius, wash)
+	draw_arc(point, radius, 0.0, TAU, 48, colour, 3.0 / pixels_per_metre)
+	# A cross at the exact spot: a radius is a size, and the plant goes at a point.
+	var tick: float = 5.0 / pixels_per_metre
+	draw_line(point - Vector2(tick, 0.0), point + Vector2(tick, 0.0), colour, 1.5 / pixels_per_metre)
+	draw_line(point - Vector2(0.0, tick), point + Vector2(0.0, tick), colour, 1.5 / pixels_per_metre)
+	var label: String = String(plant_ghost.get("label", ""))
+	if not label.is_empty():
+		var screen: Vector2 = position + point * pixels_per_metre
+		_draw_screen_text(
+			screen + Vector2(radius * pixels_per_metre + 8.0, 4.0), label, 13, colour.darkened(0.3)
+		)
 
 
 ## Points around a circle whose radius wobbles, so a shrub looks like foliage

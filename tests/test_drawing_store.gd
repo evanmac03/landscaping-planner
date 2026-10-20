@@ -85,7 +85,9 @@ func test_the_file_is_json_a_person_can_read() -> void:
 	var file := FileAccess.open(SCRATCH, FileAccess.READ)
 	var text := file.get_as_text()
 	file.close()
-	assert(text.contains("\"version\": 4"), "the file says what it is")
+	# Version 5 is the one that states what the ground is like: a reader has to be able to tell "this
+	# file has no environment in it" from "this file's environment is empty".
+	assert(text.contains("\"version\": 5"), "the file says what it is")
 	assert(text.contains("\"entities\""), "the entities are named")
 	assert(text.contains(String(LayerSetScript.NEW_HARDSCAPE)), "the layer name is in the file")
 	# Integer keys, which is what JSON does to them: the id is a number in the document and a

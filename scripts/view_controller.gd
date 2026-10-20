@@ -36,6 +36,7 @@ const NO_PENDING := -1
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
+const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
@@ -136,6 +137,14 @@ var _draft = null
 ## ground; the browser knows what a plant *is* and hands it over rather than reaching in.
 var plant_catalogue: PlantCatalogue = null
 var planting_species: StringName = &""
+
+## What the last verdict about the plant in hand said: `{verdict, ok, certain, colour, findings,
+## summary, label, species, place, conditions}` from `PlantSuitability`. Empty until a plant is armed
+## and the cursor is over the plan.
+##
+## Kept rather than only pushed at the canvas, because a verdict is a thing a person can ask about -
+## the state line says which plant is in hand, and the ring says whether it belongs here.
+var planting_verdict: Dictionary = {}
 
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
@@ -628,6 +637,13 @@ func _process(delta: float) -> void:
 	if _draft == null or not _draft.drawing:
 		_update_hover()
 
+	# The plant in hand is judged against the ground every frame rather than on mouse motion: the
+	# cursor is in the same place after a pan, a zoom or a menu entry has just changed what the
+	# ground is, and all three change the answer. Reading the position here also means the verdict
+	# cannot go stale while the mouse is still.
+	if is_planting():
+		_update_plant_ghost()
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_view"):
@@ -741,6 +757,7 @@ func arm_planting(catalogue: PlantCatalogue, species_id: StringName) -> bool:
 	# A click cannot be two things, so arming a plant puts the drawing tools away.
 	if _draft != null and _draft.drawing:
 		_draft.set_drawing(false)
+	planting_verdict = {}
 	_say_planting()
 	planting_changed.emit(planting_species)
 	return true
@@ -750,9 +767,58 @@ func stop_planting() -> void:
 	if planting_species.is_empty():
 		return
 	planting_species = &""
+	planting_verdict = {}
 	if plan_canvas != null:
 		plan_canvas.status_text = ""
+		plan_canvas.plant_ghost = {}
 	planting_changed.emit(planting_species)
+
+
+## What the plan says the ground is like, which is the drawing's own map. Null in a scene with no
+## drawing, and every check treats that as "nothing is stated" rather than as a reason to fail.
+func environment_map() -> ZoneMap:
+	var controller: DraftControllerScript = draft_controller()
+	if controller == null:
+		return null
+	var document: DraftDocument = controller.document
+	return document.environment if document != null else null
+
+
+## Judge one species against the ground at one point, without planting anything. The question the
+## ring answers, askable from a script or a test.
+func spot_verdict(species: PlantSpecies, world: Vector2) -> Dictionary:
+	if species == null:
+		return {}
+	return PlantSuitabilityScript.check_at(species, environment_map(), world)
+
+
+## Show where the plant in hand would go, and what the plan's own conditions say about that spot.
+##
+## Three things are decided here and nowhere else: which point on the ground the cursor is over, how
+## much room the plant will want, and the verdict. The canvas is handed a point, a radius and a
+## colour and draws them, so there is one place to change what a verdict means and one place that
+## knows how to draw a ring.
+func _update_plant_ghost() -> void:
+	if plan_canvas == null or plant_catalogue == null:
+		return
+	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
+	if species == null:
+		plan_canvas.plant_ghost = {}
+		return
+	var world: Vector2 = ViewMath.clamp_to_rect(
+		_screen_to_world(get_viewport().get_mouse_position()), edit_bounds
+	)
+	var verdict: Dictionary = PlantSuitabilityScript.check_at(species, environment_map(), world)
+	planting_verdict = verdict
+	plan_canvas.plant_ghost = {
+		"point": world,
+		# The room the plant will want, not the size of the dot it is drawn as.
+		"radius": species.spread_m() * 0.5,
+		"colour": verdict["colour"],
+		"label": verdict["label"],
+		"verdict": verdict["verdict"],
+		"species": planting_species,
+	}
 
 
 ## Put one down where the cursor is, and leave the species armed so the next click puts down
@@ -775,8 +841,22 @@ func plant_at(screen: Vector2) -> Dictionary:
 	_placeable_cache_ready = false
 	if plan_canvas != null:
 		plan_canvas.rebind(yard)
-	_say_planting()
+	# What the plan says about where it went, in words. The ring only ever described the spot under
+	# the cursor; this describes the spot the plant is actually standing on, which is the one thing
+	# the designer cannot see for themselves.
+	_judge_placement(world)
+	_say_planting(planting_verdict)
+	result["suitability"] = planting_verdict
 	return result
+
+
+## Judge the plant in hand against the ground at one point, and remember the answer.
+func _judge_placement(world: Vector2) -> void:
+	if plant_catalogue == null:
+		planting_verdict = {}
+		return
+	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
+	planting_verdict = spot_verdict(species, world)
 
 
 ## How many plants are standing in the yard, for a menu that reports on the planting.
@@ -784,17 +864,28 @@ func planted_count() -> int:
 	return PlantPlacement.planted(yard).size()
 
 
-func _say_planting() -> void:
+func _say_planting(verdict: Dictionary = {}) -> void:
 	if plan_canvas == null or plant_catalogue == null:
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
 	if species == null:
 		plan_canvas.status_text = ""
 		return
-	plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [
-		species.common_name if not species.common_name.is_empty() else species.display_name(),
-		planted_count(),
-	]
+	# `name` is not available as a local: it is a property of every Node, and shadowing it is an
+	# error here for the same reason it would be a bug anywhere else in this file.
+	var label: String = (
+		species.common_name if not species.common_name.is_empty() else species.display_name()
+	)
+	var summary: String = String(verdict.get("summary", ""))
+	# Armed but nothing placed yet: what the click will do. Only a *placement* writes the verdict
+	# here - the one under the cursor is drawn at the cursor, because a status line rewritten every
+	# frame is a status line that flickers while the mouse moves.
+	if summary.is_empty():
+		plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [
+			label, planted_count()
+		]
+		return
+	plan_canvas.status_text = "%s  %d planted.  Escape puts it away." % [summary, planted_count()]
 
 
 # --- drafting -------------------------------------------------------------------------
