@@ -617,11 +617,17 @@ static func _emit_entity(writer, document, entity: EntityScript, pen_table, plan
 ## The pen a plotted entity draws with. The pen table wins when it has a pen for
 ## the entity's slot, and the layer's own style is the fallback, so an entity
 ## whose colour nobody assigned a pen to still plots.
+##
+## The pen's linetype is then constrained: a dimension's generated linework is
+## continuous whatever pen its layer resolves to, because a dashed dimension line is
+## not a drafting standard (see `DraftRender.linework_style`).
 static func _plot_style(entity: EntityScript, layer, pen_table) -> LineStyleScript:
 	var fallback: LineStyleScript = RenderScript.style_for(entity, layer)
 	if pen_table == null:
-		return fallback
-	return pen_table.resolve_for(RenderScript.screen_colour(layer), fallback)
+		return RenderScript.generated_linework_style(entity, fallback)
+	return RenderScript.generated_linework_style(
+		entity, pen_table.resolve_for(RenderScript.screen_colour(layer), fallback)
+	)
 
 
 ## Dash lengths in paper points, which is what a PDF dash array takes. They are

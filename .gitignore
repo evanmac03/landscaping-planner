@@ -2,6 +2,12 @@
 .godot/
 /android/
 
+# Rasterised previews of plotted output, kept out of the repository on purpose: a
+# committed picture of a sheet goes stale the moment the exporter changes and then
+# disagrees with the code in silence. Regenerate with tools/sample_sheets.gd, or look
+# at the PDF itself.
+preview/
+
 # Ziva editor tooling: installed by the plugin, ~1.5 GB of vendored
 # platform binaries (CEF / zivacode). Not part of this project's source.
 addons/ziva_agent/

@@ -17,6 +17,8 @@ const LineStyle := preload("res://scripts/draft/line_style.gd")
 const Dimension := preload("res://scripts/draft/dimension.gd")
 const PlotScale := preload("res://scripts/draft/plot_scale.gd")
 const Render := preload("res://scripts/draft/draft_render.gd")
+const DimensionStyle := preload("res://scripts/draft/dimension_style.gd")
+const SampleSheets := preload("res://tools/sample_sheets.gd")
 
 
 func _document():
@@ -764,6 +766,115 @@ func test_a_solid_linetype_clears_the_dash_array() -> void:
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
 	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
 	assert(text.contains("[] 0 d"))
+
+
+func test_a_dimension_plots_continuous_whatever_pen_its_layer_resolves_to() -> void:
+	# The premise, so this test cannot pass by the pen happening to be solid: the
+	# dimensions layer shares the *magenta* slot with the setback/easement layer, and the
+	# magenta pen is dashed. That is exactly right for a setback line, which is what a
+	# dashed pen is for, and wrong for a dimension.
+	var pen_table = PenStyle.default_table()
+	var layer = Document.new().layers.get_layer(LayerSet.DIMENSION)
+	assert(layer != null)
+	var pen: LineStyle = pen_table.resolve_for(Render.screen_colour(layer), LineStyle.new())
+	assert(pen.linetype == &"dashed", "the dimensions pen is %s" % pen.linetype)
+	# And the setback line, on the same slot, is the case that must keep it. Two single
+	# entity sheets rather than one, because one stream with two dashed-or-not paths is
+	# a test that guesses which path is which.
+	var setback := Document.new()
+	setback.add(
+		Entity.make_line(Vector2(3, 0), Vector2(3, 12)), LayerSet.SETBACK_EASEMENT
+	)
+	var setback_text := Exporter.export_pdf(
+		setback, {"show_border": false, "pen_table": pen_table}
+	).get_string_from_utf8()
+	assert(
+		setback_text.contains("[17.0079 5.6693] 0 d"),
+		"a setback line is exactly what the dashed pen is for"
+	)
+
+	# A dimension's own linework — its line, its extension lines and its leader — is
+	# *generated* geometry rather than something a person drew, and a dashed dimension
+	# line is not a drafting standard: it is a mistake that reaches a client.
+	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
+	assert(entity.style == null, "the test must not be an entity override")
+	var dimensions := Document.new()
+	dimensions.add(entity, LayerSet.DIMENSION)
+	var text := Exporter.export_pdf(
+		dimensions, {"show_border": false, "pen_table": pen_table}
+	).get_string_from_utf8()
+	assert(
+		not text.contains("[17.0079"),
+		"a dimension is still plotting with the dashed pen"
+	)
+
+
+func test_the_screen_draws_a_dimension_continuous_too() -> void:
+	# The same rule on the other side of the export, so the plan and the sheet cannot
+	# disagree about what a dimension looks like: both read this style.
+	var document = Document.new()
+	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
+	document.add(entity, LayerSet.DIMENSION)
+	var layer = document.layers.get_layer(LayerSet.DIMENSION)
+	var layout: Dictionary = Render.layout(entity, layer, 100.0)
+	var style: LineStyle = layout["style"]
+	assert(style.linetype == &"continuous")
+	# And an ordinary entity is left alone, so the rule is about dimensions and not
+	# about switching every dash off.
+	var line = Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var dashed := LineStyle.new()
+	dashed.linetype = &"dashed"
+	line.style = dashed
+	var line_layout: Dictionary = Render.layout(line, layer, 100.0)
+	assert((line_layout["style"] as LineStyle).linetype == &"dashed")
+
+
+# --- the sample sheets -----------------------------------------------------------------
+
+
+## The samples are the only place several dimensions, a layer key and the furniture are
+## all on one page at once, and they are what a person looks at to judge the plotting.
+## They live in the repository so that a change to the exporter or to the pen table cannot
+## quietly leave them describing a sheet the program no longer draws — and this is the
+## test that would notice.
+func test_the_sample_sheets_say_what_they_are_supposed_to() -> void:
+	var plan = SampleSheets.make_document()
+	var a3 := Exporter.export_pdf(plan, SampleSheets.sheet_options()).get_string_from_utf8()
+	for phrase in [
+		"20.00 m", "12.00 m", "6.00 m", "4.72 m", "R1.50 m",
+		"PATIO \\(NEW\\)", "1:100", "A3", "Riverbend Residence",
+		"Planting & Hardscape Plan", "020-SETBACK-EASE", "710-TEXT",
+	]:
+		assert(a3.contains(phrase), "the sample sheet does not say %s" % phrase)
+	# The turned sheet is the same design on a bigger page, so the pair covers the
+	# viewport, the scale it is given, and the other dimension standard.
+	var turned = SampleSheets.make_document()
+	turned.dimension_style = DimensionStyle.engineering()
+	var a2 := Exporter.export_pdf(turned, SampleSheets.turned_options()).get_string_from_utf8()
+	assert(a2.contains("A2"), "the turned sheet should be on A2")
+	assert(a2.contains("1:100"))
+	assert(a2.contains("Riverbend Residence"))
+	# Two sheets, two page sizes: if the turned options stopped reaching the page box the
+	# pair would be one sheet written twice.
+	assert(a3 != a2)
+
+
+func test_the_sample_sheet_keeps_the_dashed_pen_and_loses_it_on_dimensions() -> void:
+	# Both are on the sample sheet on purpose: the magenta slot the dimension layer shares
+	# with the setback layer is the dashed pen, so the sheet shows a dashed line and five
+	# dimensions that are not, and a reader can see the rule working.
+	var pen_table = PenStyle.default_table()
+	var plan = SampleSheets.make_document()
+	var text := Exporter.export_pdf(plan, SampleSheets.sheet_options()).get_string_from_utf8()
+	# The setback line, the key's sample of it, and the key's sample of the pen the
+	# dimension layer *resolves to*. Three, and the count is the assertion: a fourth would
+	# mean a dimension had gone back to plotting dashed.
+	assert(
+		text.count("[17.0079 5.6693] 0 d") == 3,
+		"expected the setback line and two key samples to be dashed, got %d"
+		% text.count("[17.0079 5.6693] 0 d")
+	)
+	assert(pen_table.enabled)
 
 
 # --- curves and text -----------------------------------------------------------------

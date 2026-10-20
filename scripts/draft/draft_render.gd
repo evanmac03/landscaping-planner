@@ -36,6 +36,39 @@ static func style_for(entity: EntityScript, layer: LayerScript) -> LineStyleScri
 	return LineStyleScript.new()
 
 
+## The style an entity's *own linework* is drawn in, which is not always a style that
+## the entity or its layer chose.
+##
+## **A dimension's linework is continuous whatever its pen says.** The pen table gives
+## each conventional colour a linetype, and 700-DIMENSION's slot carries the dashed pen
+## that a property line legitimately uses — a pen is a good way of saying "this layer is
+## drawn dashed", and the property boundary on the sample sheet proves it. It is not a
+## good way of saying it about a dimension, whose line, extension lines and leader are
+## *generated* geometry rather than something a person drew: every drafting standard
+## draws them continuous, and a dashed dimension line is not a style choice, it is a
+## mistake that reaches a client.
+##
+## This was found by looking at the plotted sheet — the first time in this project that
+## the PDF was rasterised and read back — and it is the reason the rule lives here, where
+## both the screen and the paper pass through, rather than in the exporter alone.
+static func linework_style(entity: EntityScript, layer: LayerScript) -> LineStyleScript:
+	return generated_linework_style(entity, style_for(entity, layer))
+
+
+## A style with the linetype that generated linework must have, whatever it was given.
+##
+## Separate from `linework_style` because the exporter has already resolved a pen by the
+## time it knows the entity, and both callers must end up with the same answer.
+static func generated_linework_style(entity: EntityScript, style: LineStyleScript) -> LineStyleScript:
+	if entity == null or style == null:
+		return style
+	if int(entity.kind) != EntityScript.Kind.DIMENSION:
+		return style
+	var continuous: LineStyleScript = style.copy()
+	continuous.linetype = &"continuous"
+	return continuous
+
+
 ## The entity's linework as drawable polylines, with the dash pattern for the
 ## layer's linetype applied at a plot scale of 1:`plot_scale`.
 ##
@@ -125,7 +158,9 @@ static func layout(
 		"lines": lines,
 		"marks": marks,
 		"labels": labels,
-		"style": style_for(entity, layer),
+		# The linework style rather than the raw layer style, so a dimension's
+		# generated line is continuous on the screen as well as on the paper.
+		"style": linework_style(entity, layer),
 	}
 
 
