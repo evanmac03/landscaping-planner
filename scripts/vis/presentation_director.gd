@@ -34,6 +34,9 @@ const SidecarScript := preload("res://scripts/vis/still_sidecar.gd")
 ## a house in it, and framing the full height of the house would halve the plan's
 ## size on screen for no gain.
 const YARD_BOX_HEIGHT_M := 6.0
+## Air beyond the garden's own radius in the sun's shadow range, so a shadow thrown by
+## something at the fence is drawn whole rather than cut off at the edge of the range.
+const SHADOW_MARGIN_M := 5.0
 ## Pixels of drag per metre of ground when panning the rig sideways.
 const TRUCK_PIXELS_PER_METRE := 60.0
 
@@ -274,6 +277,36 @@ func frame_yard() -> void:
 	)
 	# A little air around the fence, so the picture does not end at a post.
 	orbit.frame(box, 0.12)
+	# Framing moves the camera, and the shadow range has to follow it.
+	_clamp_shadow_distance()
+
+
+## Keep the sun's shadow range at least as long as the framing needs.
+##
+## A directional shadow is drawn from the camera outward, so a range shorter than the distance
+## to the garden is not a cheaper shadow: it is no shadow, over the whole subject at once. The
+## tier's number is the *budget* - how many texels per metre of garden - and this is the floor
+## under it, because a budget that cannot reach the subject is a blind spot rather than a
+## saving. Called when either the tier or the camera moves, since the two together decide it.
+func _clamp_shadow_distance() -> void:
+	if sun == null:
+		return
+	sun.directional_shadow_max_distance = maxf(
+		float(Tier.look(tier)["shadow_max_distance"]), required_shadow_distance()
+	)
+
+
+## The shadow range the current framing needs: the garden's far corner as the camera sees it,
+## plus a little air, so that a shadow at the fence is drawn whole.
+func required_shadow_distance() -> float:
+	if orbit == null or orbit.camera == null or yard == null or not is_instance_valid(yard):
+		return 0.0
+	var bounds: Rect2 = yard.get_bounds()
+	var centre := Vector3(
+		bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5
+	)
+	var radius: float = Vector2(bounds.size.x, bounds.size.y).length() * 0.5
+	return orbit.camera.global_position.distance_to(centre) + radius + SHADOW_MARGIN_M
 
 
 ## Render a proposal still of the current view and write it, with its record.
@@ -319,8 +352,10 @@ func sun_settings() -> Dictionary:
 func _apply_tier() -> void:
 	var look: Dictionary = Tier.look(tier)
 	if sun != null:
-		sun.directional_shadow_max_distance = float(look["shadow_max_distance"])
 		sun.shadow_blur = float(look["shadow_blur"])
+	# Through the clamp rather than straight from the table: the table's number is what the
+	# budget is, and the framing decides whether it can be spent at all.
+	_clamp_shadow_distance()
 	if world_environment == null or world_environment.environment == null:
 		return
 	var environment: Environment = world_environment.environment

@@ -961,7 +961,7 @@ shorter max distance buys shadow resolution for nothing:
 | Property | Working | Presentation | Why |
 |---|---|---|---|
 | `shadow_enabled` | true | true | The one shadow that matters outdoors. |
-| `directional_shadow_max_distance` | 90.0 | 45.0 | A smaller range means sharper shadows, and nothing outside the fence casts one worth seeing. |
+| `directional_shadow_max_distance` | 90.0 | 45.0 | A smaller range means sharper shadows, and nothing outside the fence casts one worth seeing. A **floor** rather than the whole answer: the framing raises it to cover the garden (REQ-V6.6, §8.8 item 10). |
 | `directional_shadow_mode` | PSSM 4 splits | PSSM 2 splits | Two splits at this scale, more texels in each. |
 | `shadow_blur` | 0.0 | by tier | §6.6; support on this renderer to be confirmed on the machine. |
 | `shadow_bias`, `shadow_normal_bias` | as-is | as-is | Already tuned. Changing bias for a render is how peter-panning gets shipped. |
@@ -970,6 +970,11 @@ REQ-V6.1 A presentation tier may change shadow resolution, split count and blur,
 but shall not silently change light energy. Because this renderer draws a shadowed
 light in a different colour space (§1.3), energy tuned with shadows on looks wrong
 with them off and vice versa.
+
+REQ-V6.6 A tier's shadow range shall be the greater of its own budget and the distance that
+covers the framed garden as the camera sees it. A range shorter than that is not a cheaper
+shadow, it is no shadow at all, over the whole subject at once - which is the failure a sun
+path renders in six frames and a table of numbers cannot show at all.
 
 ### 6.2 What stands in for global illumination
 
@@ -1220,6 +1225,10 @@ const LOOKS := {
     STILL: {
         # A still is allowed to be slow: it is rendered once and looked at for
         # months. This is where every budget is spent.
+        # The distance below is a floor under the framing and not a promise about where
+        # the camera stands: a garden framed from 62 m raises it to 84 m, because at 30 m
+        # the whole subject falls outside the range and the still comes back with no cast
+        # shadow anywhere in it (REQ-V6.6).
         "shadow_max_distance": 30.0, "shadow_blur": 1.4,
         "ssao": true, "ssao_radius": 1.0, "ssao_intensity": 2.0,
         "textured": true, "supersample": 2, "stylised": true,
@@ -1985,6 +1994,23 @@ subsystem whose answer can be checked against the world and not only against a r
    which is what makes the site machinery the same trigonometry rather than a second copy of
    it, and another rebuilds a recorded sun from the keys it recorded.
 
+**And one the sun path found, which no test in this repository could have.** Building
+`tools/sun_demo.gd` - a day rendered six times, one an hour - produced six shadowless
+pictures:
+
+10. **A tier's shadow distance is a floor, not a distance.** §6.6's table gives the still tier
+   30 m, on the reasoning that a smaller range buys sharper shadows. A shadow is drawn
+    *from the camera outward*, so a range shorter than the framed garden is not a cheaper
+    shadow: it is no shadow, over the whole subject at once. The presentation camera stands
+    **61.9 m** from this yard's middle to fit it in frame, so at the still tier - the tier
+   whose entire purpose is a picture a client keeps - every hour of the day came back with no
+   cast shadow in it, while the same scene at the working tier showed every shadow the study
+   implies. `PresentationDirector` now takes the greater of the table's number and what the
+   framing needs (`required_shadow_distance()`), on the tier *and* on every re-framing, and
+   AC-V31 holds it there. The lesson is the one this section keeps relearning: the numbers in
+   a budget table are only as good as the thing they are measured against, and a render is
+   what says which of them is wrong.
+
 ---
 
 ## 9. Presentation camera controls
@@ -2629,6 +2655,7 @@ project's tests is a promise.
 | `scripts/vis/walk_route.gd` | Walk-through stops (§9.2) |
 | `scripts/vis/still_exporter.gd` | High-resolution stills (§10.2) |
 | `scripts/vis/still_sidecar.gd` | The render record (§10.4) |
+| `tools/sun_demo.gd` + `scenes/sun_demo.tscn` | A sun path: a day in one picture (§7.3) |
 | `resources/shaders/sketch_paper.gdshader` | The compositor (§3.5) |
 | `resources/shaders/stylised_surface.gdshader` | Banded diffuse for the preview (§5.3) |
 | `resources/shaders/foliage.gdshader` | Per-instance colour and sway (§7.4) |
@@ -2735,8 +2762,9 @@ coexist without either of them being a code change.
 | AC-V28 | A site's clock time becomes a solar time through the longitude, the zone offset and the equation of time; the two paths through the study agree to three arcseconds once that difference is paid. | test |
 | AC-V29 | A site is a latitude, a longitude and a zone offset together: saved with the drawing, restored from an older file that carries only a latitude, carried through an undo, and returned by `DraftDocument.site()` in the shape the study takes. | test |
 | AC-V30 | A moment whose sun never rises reports a polar day or night rather than a time, and refraction is reported beside the geometric altitude rather than in it. | test |
+| AC-V31 | A tier's shadow range covers the framed garden and is never less than the tier's own budget, whichever order the tier and the framing arrive in. | test |
 
-REQ-V14.1 AC-V1 to AC-V30 shall be automated tests in `tests/test_vis_*.gd`,
+REQ-V14.1 AC-V1 to AC-V31 shall be automated tests in `tests/test_vis_*.gd`,
 following this project's existing test convention, and shall run in the existing
 suite, except AC-V25, which needs a running editor and is manual. The numbers a
 sun study is held to are published ones - Meeus's worked example, the dates the

@@ -464,3 +464,43 @@ func test_the_sun_settings_the_panel_reads_are_the_ones_that_get_applied() -> vo
 	) * SunStudyScript.DISTANCE_M
 	assert(light.position.distance_to(expected) < 0.001)
 	director.queue_free()
+
+
+## A tier's shadow distance is a budget for texels per metre, and a garden the budget cannot
+## reach gets no shadow at all - which is what a sun path found: the still tier's 30 m against
+## a camera framed 60 m out turned every hour of a day into a shadowless picture, at the one
+## tier meant for a picture a client keeps. So the framing sets a floor under the table.
+func test_a_tier_never_takes_the_shadows_off_the_garden() -> void:
+	var director := Node3D.new()
+	director.set_script(DirectorScript)
+	add_child(director)
+	var light := DirectionalLight3D.new()
+	add_child(light)
+	director.sun = light
+	var rig := _rig()
+	director.orbit = rig
+	var yard: Yard = load("res://scenes/world/yard.tscn").instantiate()
+	add_child(yard)
+	director.yard = yard
+	# Framed, which is what a presentation does before it renders anything.
+	director.frame_yard()
+	director.set_tier(Tier.STILL)
+	var bounds: Rect2 = yard.get_bounds()
+	var centre := Vector3(
+		bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5
+	)
+	var to_the_garden: float = rig.camera.global_position.distance_to(centre)
+	assert(to_the_garden > float(Tier.look(Tier.STILL)["shadow_max_distance"]), "premise: framed further out than the tier reaches")
+	assert(
+		light.directional_shadow_max_distance > to_the_garden,
+		"the shadow range must reach the garden, not stop short of it"
+	)
+	# And the table is still the table: the range is the larger of the budget and the
+	# requirement, so a tier can never be quietly cheaper than what it is drawing.
+	assert(is_equal_approx(
+		light.directional_shadow_max_distance,
+		maxf(float(Tier.look(Tier.STILL)["shadow_max_distance"]), director.required_shadow_distance())
+	))
+	rig.queue_free()
+	yard.queue_free()
+	director.queue_free()
