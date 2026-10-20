@@ -23,7 +23,7 @@ func test_a_horizontal_dimension_measures_along_x() -> void:
 	assert(layout["lines"].size() == 3)
 	assert(layout["marks"].size() == 2)
 	assert(layout["labels"].size() == 1)
-	assert(_label(layout)["text"] == "10.000 m")
+	assert(_label(layout)["text"] == "10.00 m")
 
 
 func test_the_dimension_line_is_set_out_by_the_offset() -> void:
@@ -55,13 +55,13 @@ func test_a_vertical_dimension_measures_along_y() -> void:
 	var dimension_line: PackedVector2Array = layout["lines"][2]
 	assert(dimension_line[0].is_equal_approx(Vector2(2, 0)))
 	assert(dimension_line[1].is_equal_approx(Vector2(2, 6)))
-	assert(_label(layout)["text"] == "6.000 m")
+	assert(_label(layout)["text"] == "6.00 m")
 
 
 func test_an_aligned_dimension_measures_the_true_distance() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(3, 4), 1.0, Entity.DimensionKind.ALIGNED)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
-	assert(_label(layout)["text"] == "5.000 m")
+	assert(_label(layout)["text"] == "5.00 m")
 	# The dimension line runs parallel to the measured points.
 	var line: PackedVector2Array = layout["lines"][2]
 	var along := line[1] - line[0]
@@ -76,7 +76,7 @@ func test_an_angular_dimension_falls_back_to_aligned() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(4, 0), 1.0, Entity.DimensionKind.ANGULAR)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 	assert(layout["lines"].size() == 3)
-	assert(_label(layout)["text"] == "4.000 m")
+	assert(_label(layout)["text"] == "4.00 m")
 
 
 func test_a_degenerate_dimension_draws_nothing() -> void:
@@ -97,7 +97,7 @@ func test_a_radius_dimension_is_a_leader_with_the_value() -> void:
 	assert(layout["marks"].size() == 1)
 	assert(layout["marks"][0]["tip"].is_equal_approx(Vector2(5, 0)))
 	assert(layout["marks"][0]["direction"].is_equal_approx(Vector2(1, 0)))
-	assert(_label(layout)["text"] == "R5.000 m")
+	assert(_label(layout)["text"] == "R5.00 m")
 
 
 # --- paper sizing -------------------------------------------------------------------
@@ -161,18 +161,23 @@ func test_the_measurement_uses_the_document_units() -> void:
 
 
 func test_a_measurement_is_written_to_a_fixed_precision() -> void:
-	# Two dimensions of the same drawing must not differ in precision.
+	# Two dimensions of the same drawing must not differ in precision. At 1:100
+	# the scale buys hundredths of a metre and no more.
 	var whole = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
 	var part = Entity.make_dimension(Vector2(0, 0), Vector2(10.5, 0), 1.0)
-	assert(_label(Dimension.layout(whole, 100.0))["text"] == "10.000 m")
-	assert(_label(Dimension.layout(part, 100.0))["text"] == "10.500 m")
+	assert(_label(Dimension.layout(whole, 100.0))["text"] == "10.00 m")
+	assert(_label(Dimension.layout(part, 100.0))["text"] == "10.50 m")
+	# A coarser sheet buys fewer: the same design at 1:500 reads whole metres.
+	assert(_label(Dimension.layout(whole, 500.0))["text"] == "10.0 m")
+	assert(_label(Dimension.layout(whole, 2000.0))["text"] == "10 m")
 
 
-## With a document's units in hand the measurement is written in those units,
-## which is the path a plotted sheet and the plan both take.
+## An imperial document writes the measurement in feet and inches, where the
+## fraction is the precision and no decimal count means anything.
 func test_the_measurement_follows_the_document_units() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0)
 	var units = UnitsScript.new()
+	units.system = UnitsScript.System.IMPERIAL
 	assert(_label(Dimension.layout(entity, 100.0, units))["text"] == units.format_length(10.0))
 	# And an authored height is a constant unless a caller overrides it.
 	assert(is_equal_approx(

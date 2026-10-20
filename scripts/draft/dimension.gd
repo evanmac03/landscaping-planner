@@ -101,7 +101,7 @@ static func _radius(from: Vector2, to: Vector2, plot_scale: float, units, looks)
 		"lines": lines,
 		"marks": marks,
 		"labels": [{
-			"text": "R" + _format(radius, units, looks),
+			"text": "R" + _format(radius, units, looks, plot_scale),
 			"position": (from + to) * 0.5 \
 				+ normal * side * (_model(looks.text_gap_mm, plot_scale) + height),
 			"angle": direction.angle(),
@@ -172,7 +172,7 @@ static func _assemble(
 		"lines": lines,
 		"marks": marks,
 		"labels": [{
-			"text": prefix + _format(measured, units, looks),
+			"text": prefix + _format(measured, units, looks, plot_scale),
 			"position": (dimension_from + dimension_to) * 0.5 \
 				- sideways * side * (_model(looks.text_gap_mm, plot_scale) + height),
 			"angle": angle,
@@ -251,15 +251,17 @@ static func _model(paper_mm: float, plot_scale: float) -> float:
 ## fixed precision: String.num trims trailing zeros, which would put "10 m" and
 ## "10.5 m" on two dimensions of the same drawing.
 ##
-## A style that names a decimal count writes the number itself, but only for a
-## metric document: an imperial one writes feet and inches, where the fraction is
-## the precision and a decimal count would mean something else.
-static func _format(metres: float, units, looks) -> String:
-	if looks.text_decimals >= 0 and (units == null or units.system == UnitsScript.System.METRIC):
-		return "%s m" % _fixed(metres, looks.text_decimals)
+## The count comes from the style at the plot scale in force. A metric document
+## whose style names no count of its own takes it from the scale; an imperial one
+## writes feet and inches, where the fraction *is* the precision and a decimal
+## count would mean something else entirely.
+static func _format(metres: float, units, looks, plot_scale: float) -> String:
+	var decimals: int = looks.decimals_at(plot_scale)
+	if decimals >= 0 and (units == null or units.system == UnitsScript.System.METRIC):
+		return "%s m" % _fixed(metres, decimals)
 	if units != null:
 		return units.format_length(metres)
-	return "%.3f m" % metres
+	return "%s m" % _fixed(metres, 3)
 
 
 ## A number written to an exact number of decimals. The format string is built

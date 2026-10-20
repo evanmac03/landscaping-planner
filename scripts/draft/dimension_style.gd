@@ -54,11 +54,17 @@ var text_gap_mm: float = 1.0
 ## convention when the line is below the thing being measured, which is the
 ## usual case; the other way round suits a dimension set inside a building.
 var text_above: bool = true
-## Decimals the measurement is written to, or -1 to let the document's units
-## decide. It applies to the metric decimal form only: an imperial document
-## writes feet and inches, where the fraction *is* the precision and a decimal
-## count would mean something else.
+## Decimals the measurement is written to, or -1 to leave the precision to the
+## drawing rather than to the style. It applies to the metric decimal form only:
+## an imperial document writes feet and inches, where the fraction *is* the
+## precision and a decimal count would mean something else.
 var text_decimals: int = -1
+## What "leave it to the drawing" means. A dimension can only be read as finely
+## as it can be drawn - at 1:100 a hundredth of a metre is a tenth of a
+## millimetre of pencil - so the shipped standards take their precision from the
+## plot scale. Switch this off and the document's units decide instead, which is
+## what an office whose standard is one fixed precision wants.
+var scale_aware: bool = true
 
 ## Extension lines run from the measured point out past the dimension line, and
 ## a dimension without them has nothing tying it to what it measures.
@@ -118,6 +124,19 @@ static func decimals_for_scale(plot_scale: float) -> int:
 	return 0
 
 
+## The decimals this style writes a metric measurement to at a given plot scale,
+## or -1 for "the document's units decide after all".
+##
+## Resolution order is the same as everywhere else in the drafting module: what
+## the dimension says, then what the drawing's standard says, then what the units
+## say. A style that names a count names it for every scale, which is what an
+## office standard is.
+func decimals_at(plot_scale: float) -> int:
+	if text_decimals >= 0:
+		return text_decimals
+	return decimals_for_scale(plot_scale) if scale_aware else -1
+
+
 ## This style with its precision set for a plot scale.
 func with_scale(plot_scale: float) -> DraftDimensionStyle:
 	var scaled := copy()
@@ -137,6 +156,7 @@ func copy() -> DraftDimensionStyle:
 	other.text_gap_mm = text_gap_mm
 	other.text_above = text_above
 	other.text_decimals = text_decimals
+	other.scale_aware = scale_aware
 	other.extension_lines = extension_lines
 	other.extension_gap_mm = extension_gap_mm
 	other.extension_overshoot_mm = extension_overshoot_mm
@@ -152,6 +172,7 @@ func to_dict() -> Dictionary:
 		"text_gap_mm": text_gap_mm,
 		"text_above": text_above,
 		"text_decimals": text_decimals,
+		"scale_aware": scale_aware,
 		"extension_lines": extension_lines,
 		"extension_gap_mm": extension_gap_mm,
 		"extension_overshoot_mm": extension_overshoot_mm,
@@ -170,6 +191,7 @@ static func from_dict(data: Dictionary) -> DraftDimensionStyle:
 	style.text_gap_mm = float(data.get("text_gap_mm", 1.0))
 	style.text_above = bool(data.get("text_above", true))
 	style.text_decimals = int(data.get("text_decimals", -1))
+	style.scale_aware = bool(data.get("scale_aware", true))
 	style.extension_lines = bool(data.get("extension_lines", true))
 	style.extension_gap_mm = float(data.get("extension_gap_mm", 1.5))
 	style.extension_overshoot_mm = float(data.get("extension_overshoot_mm", 1.5))
@@ -177,6 +199,16 @@ static func from_dict(data: Dictionary) -> DraftDimensionStyle:
 
 
 func describe() -> String:
-	return "dimension style: %s marks, %.2f mm, %s text" % [
+	return "dimension style: %s marks, %.2f mm, %s text, %s" % [
 		MARK_NAMES.get(mark, "?"), mark_size_mm, "above" if text_above else "below",
+		precision_description(),
 	]
+
+
+## How this style arrives at its precision, in words, for a status line. The
+## scale itself is not named because the style does not hold one: it is handed
+## the scale at the moment of drawing.
+func precision_description() -> String:
+	if text_decimals >= 0:
+		return "%d decimal places" % text_decimals
+	return "precision by scale" if scale_aware else "precision by units"

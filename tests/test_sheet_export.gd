@@ -292,9 +292,9 @@ func test_a_dimension_plots_its_measurement() -> void:
 	var document = _dimension_document()
 	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
 		.get_string_from_utf8()
-	# Written in the document's own units, so the sheet and the plan agree about
-	# the measurement rather than each formatting it their own way.
-	assert(text.contains("(%s) Tj" % document.units.format_length(10.0)))
+	# The drawing's own precision, which at 1:100 is hundredths of a metre: a
+	# dimension on a sheet can only be read as finely as it can be drawn.
+	assert(text.contains("(10.00 m) Tj"))
 
 
 ## The arrowheads have to land where the shared layout says, or the sheet and the
@@ -330,7 +330,7 @@ func test_a_vertical_dimension_rotates_its_text() -> void:
 	)
 	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
 		.get_string_from_utf8()
-	assert(text.contains("(%s) Tj" % document.units.format_length(6.0)))
+	assert(text.contains("(6.00 m) Tj"))
 	assert(text.contains(" Tm "))
 
 
@@ -608,7 +608,7 @@ func test_a_dimension_reads_along_its_line_when_the_viewport_is_turned() -> void
 	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
 	# The dimension runs up the page, so its text carries a rotation.
 	assert(text.contains(" Tm "))
-	assert(text.contains("(%s) Tj" % document.units.format_length(10.0)))
+	assert(text.contains("(10.00 m) Tj"))
 	# And the measurement still measures.
 	var from := Exporter.model_to_paper(Vector2(0, 0), plan)
 	var to := Exporter.model_to_paper(Vector2(10, 0), plan)

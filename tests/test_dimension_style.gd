@@ -79,7 +79,7 @@ func test_a_style_with_no_marks_draws_only_the_lines() -> void:
 	assert(layout["marks"].is_empty())
 	# No marks and no extension lines: the measured line alone.
 	assert(layout["lines"].size() == 1)
-	assert(_text(layout) == "10.000 m")
+	assert(_text(layout) == "10.00 m")
 
 
 func test_extension_lines_can_be_switched_off_on_their_own() -> void:
@@ -125,11 +125,33 @@ func test_a_style_can_name_the_precision() -> void:
 	var style := DimensionStyle.architectural()
 	style.text_decimals = 1
 	assert(_text(Dimension.layout(_dimension(), 100.0, null, style)) == "10.0 m")
+	# A named count is the style's, so it does not move with the scale.
+	assert(_text(Dimension.layout(_dimension(), 2000.0, null, style)) == "10.0 m")
 	style.text_decimals = 3
 	assert(_text(Dimension.layout(_dimension(), 100.0, null, style)) == "10.000 m")
-	# The shipped default defers to the document's units.
+
+
+## With no count of its own a style takes one from the plot scale, because a
+## dimension can only be read as finely as it can be drawn. Switching that off
+## hands the precision back to the document's units instead.
+func test_an_unnamed_precision_comes_from_the_scale_until_it_is_switched_off() -> void:
+	var style := DimensionStyle.architectural()
+	assert(style.decimals_at(100.0) == 2)
+	assert(_text(Dimension.layout(_dimension(), 100.0, null, style)) == "10.00 m")
+	style.scale_aware = false
+	assert(style.decimals_at(100.0) == -1)
 	var units = UnitsScript.new()
-	assert(_text(Dimension.layout(_dimension(), 100.0, units)) == units.format_length(10.0))
+	assert(_text(Dimension.layout(_dimension(), 100.0, units, style)) == units.format_length(10.0))
+
+
+func test_the_description_says_where_the_precision_comes_from() -> void:
+	assert(DimensionStyle.architectural().describe().contains("precision by scale"))
+	var named := DimensionStyle.architectural()
+	named.text_decimals = 2
+	assert(named.precision_description() == "2 decimal places")
+	named.scale_aware = false
+	named.text_decimals = -1
+	assert(named.precision_description() == "precision by units")
 
 
 func test_the_named_precision_follows_the_scale() -> void:
@@ -163,12 +185,14 @@ func test_a_style_round_trips_through_persistence() -> void:
 	style.mark_size_mm = 3.25
 	style.text_above = false
 	style.text_decimals = 1
+	style.scale_aware = false
 	style.extension_lines = false
 	var back := DimensionStyle.from_dict(style.to_dict())
 	assert(back.mark == DimensionStyle.Mark.TICK)
 	assert(is_equal_approx(back.mark_size_mm, 3.25))
 	assert(not back.text_above)
 	assert(back.text_decimals == 1)
+	assert(not back.scale_aware)
 	assert(not back.extension_lines)
 
 
@@ -181,6 +205,8 @@ func test_reading_a_broken_style_gives_a_usable_one() -> void:
 	assert(empty.mark == DimensionStyle.Mark.ARROW)
 	assert(empty.extension_lines)
 	assert(empty.text_height_mm > 0.0)
+	# A style written before scale-awareness existed gets the shipped behaviour.
+	assert(empty.scale_aware)
 
 
 func test_a_document_keeps_its_standard_through_a_snapshot() -> void:
