@@ -208,6 +208,10 @@ var _menu_state: String = ""
 ## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
 ## one place that decides whether it is up is the panel's own `visible`.
 var _keys_panel: Control = null
+## The manual: what this program is and everything it does, in one page with a search box. A window
+## like the other pages, and for the one reason a window exists in this HUD - it has a field to search
+## it with, and a text field is the one thing the HUD may not own outside a window.
+var _help_window: HelpWindow = null
 ## The site-stats page, built by `_build_site_report_panel` and shown from the Site menu.
 var _site_report_panel: Control = null
 ## The survey import page, built by `_build_survey_panel`. A survey is read and *shown* before it
@@ -258,6 +262,8 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
+const HelpDocScript := preload("res://scripts/help_doc.gd")
+const HelpWindowScript := preload("res://scripts/help_window.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
@@ -417,6 +423,7 @@ func _ready() -> void:
 		_presence.changed.connect(_on_presence_changed)
 	_build_menu_bar()
 	_build_keys_panel()
+	_build_help_window()
 	_build_file_dialogs()
 	_build_plant_library()
 	_build_ground_window()
@@ -1852,6 +1859,7 @@ static func light_items() -> Array[Dictionary]:
 ## on-screen hints cannot, because they are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
+	items.append(_command(&"help.manual", "Landscaping Planner help...", &"", &"_menu_help"))
 	items.append(_check(&"help.keys", "Drawing keys", &"", &"_menu_keys", &"keys_panel"))
 	return items
 
@@ -2726,6 +2734,11 @@ func _menu_keys(_entry: Dictionary) -> void:
 		open_keys()
 
 
+## Show the manual. Nothing is asked of the drawing, so this works in any scene this HUD is in.
+func _menu_help(_entry: Dictionary) -> void:
+	open_help_window()
+
+
 # --- the key reference ----------------------------------------------------------------
 
 
@@ -2817,6 +2830,68 @@ func open_keys() -> void:
 func close_keys() -> void:
 	if _keys_panel != null:
 		_keys_panel.visible = false
+
+
+# --- the manual --------------------------------------------------------------------------
+#
+# The manual is one page: the contents of `HelpDoc` beside the text of whichever subject is chosen,
+# with a box to search it by. A `Window` for the reason every other page here is one - a text field
+# is the one thing this HUD may not own outside a window.
+#
+# The keys are the one subject the manual does not carry as prose. They are built by `keys_text()`,
+# which is the same string the key reference shows, so the manual cannot name a key that does nothing
+# - the half worth deriving is derived, and there is no fourth copy of the bindings to drift.
+
+
+## The subject the keys live under, appended to the manual's own topics.
+const KEYS_TOPIC := "Keys"
+
+
+## Build the manual's window by hand, so the window the designer opens is the window this file has
+## already wired to the menu. Built before it is ever shown, because a window that builds itself on
+## its first `_ready` shows an empty frame for one frame.
+func _build_help_window() -> void:
+	if _help_window != null:
+		return
+	_help_window = HelpWindowScript.new()
+	_help_window.name = "HelpWindow"
+	add_child(_help_window)
+	_help_window.hide()
+
+
+## The topics the manual shows: everything it documents, and then the keys - appended rather than
+## written into it, because the keys come from the tables that actually drive the program.
+func help_topics() -> Array[Dictionary]:
+	var topics: Array[Dictionary] = HelpDocScript.topics()
+	topics.append({"title": KEYS_TOPIC, "body": keys_text()})
+	return topics
+
+
+## Point the manual at what it is to show. Kept apart from showing the window itself so that the
+## filling can be driven without a window server, which is how the suite checks it.
+func _fill_help_window() -> void:
+	if _help_window == null:
+		return
+	_help_window.set_topics(help_topics())
+
+
+func open_help_window() -> void:
+	if _help_window == null:
+		return
+	_fill_help_window()
+	_help_window.popup_centered()
+	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
+	# the drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+func close_help_window() -> void:
+	if _help_window != null:
+		_help_window.hide()
+
+
+func is_help_window_open() -> bool:
+	return _help_window != null and _help_window.visible
 
 
 # --- the site report ------------------------------------------------------------------
