@@ -248,7 +248,7 @@ The first step is genuinely small and worth taking: provision the relay, then on
 only, no geometry. It buys a team the thing teams ask for first - knowing who is where - and it puts
 no merge problem on the table.
 
-## 7. Integration between the modules - SPEC'D; PHASES 0-10 OF 12 ARE BUILT
+## 7. Integration between the modules - SPEC'D; PHASES 0-11 OF 12 ARE BUILT
 
 The chain, what each link is made of, and where it stands:
 
@@ -263,6 +263,7 @@ The chain, what each link is made of, and where it stands:
 | ledger adapters | invoices posted to a service or a folder, and what it would not take | **built** - `ledger_adapter.gd`, `file_ledger.gd`, `invoice_ninja.gd`, `akaunting.gd`, `ledger_push.gd`, `credit_note.gd`, `ledger_desk.gd`, `ledger_window.gd`, 194 tests |
 | analytics | what the records say: win rate, profitability, what is owed, how busy the crew is | **built** - `analytics.gd`, `analytics_window.gd`, 92 tests |
 | store and sync | per-record revisions, append-only journal, HTTP | **built** - `store.gd`, `sync_transport.gd`, `http_transport.gd`, `sync.gd`, 119 tests |
+| editor tooling | a supplier's price list read into the book, and what it would change before it does | **built** - `book_import.gd`, `price_preview.gd`, `addons/biz_tools/`, 107 tests |
 
 The primitives that already exist and are tested: `Money` (integer minor units, invalid is contagious,
 one rounding per line), `Tax` (rates as integer parts per million - a basis point cannot state QST at
@@ -362,4 +363,4 @@ takeoff's first job is to generalise that to every layer.
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by searching for
 anything multiplayer-shaped and finding nothing; section 7 against the business specification's own
-phase table, where phases 0 to 10 are marked built and 11 specified.
+phase table, where phases 0 to 11 are marked built.

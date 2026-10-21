@@ -1061,7 +1061,7 @@ before anything depends on it.
 | 8 | **Ledger adapters** | `ledger_adapter.gd`, `file_ledger.gd`, `invoice_ninja.gd`, `akaunting.gd`, `ledger_push.gd`, `credit_note.gd`, `scripts/biz/ledger_desk.gd`, `scripts/ledger_window.gd`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, the outbox and reconciliation | **built** - 194 tests (`test_ledger_adapter` 21, `test_file_ledger` 19, `test_biz_credit_note` 13, `test_ledger_push` 10, `test_invoice_ninja` 12, `test_akaunting` 9, `test_biz_ledger_desk` 61, `test_ledger_window` 37, `test_hud_ledger` 12); the outbox has a home on disk (`user://biz/outbox.json`) while the adapters' own settings are held in memory until the store of phase 10 |
 | 9 | **Analytics** | `analytics.gd`, `scripts/analytics_window.gd`; the figures in §10, each with its basis; the window and the as-of moment as arguments | **built** - 92 tests (`test_biz_analytics` 51, `test_analytics_window` 29, `test_hud_analytics` 12); the figures are read off the pipeline, the job desk and the billing ledger, so a working day is stated on the page rather than stored until the store of phase 10 |
 | 10 | **Store and sync** | `store.gd`, `sync_transport.gd`, `http_transport.gd`, `sync.gd`; records, revisions, an append-only journal, the four service calls, the three conflict policies, the offline queue | **built** - 119 tests (`test_biz_store` 42, `test_biz_sync_transport` 13, `test_biz_http_transport` 24, `test_biz_sync` 40); the live round trip needs a deployment - the store was proved on disk and the sync against a stubbed service and a real `HTTPClient`, not against a running one (section 15.16) |
-| 11 | **Editor plugin** | `addons/biz_tools/`; the cost book dock, bulk import and price preview | specified |
+| 11 | **Editor plugin** | `addons/biz_tools/`; the cost book dock, bulk import and price preview | **built** - 107 tests (`test_biz_book_import` 42, `test_biz_price_preview` 29, `test_biz_costbook_dock` 36); the dock is a plain `Control` driven off-tree, and only `plugin.gd` knows it is a plugin |
 
 REQ-B23 A phase shall be shippable on its own, and shall add its tests in the same commit.
 
@@ -1464,6 +1464,48 @@ REQ-B38 A transport shall refuse a call it cannot make in words that name what w
 value that disagrees with money shall never be merged without a person choosing between the two
 copies.
 
+## 14h. The cost book dock
+
+Phase 11 is the first thing in this project that runs *inside the editor* rather than inside the
+game, and it is the last phase of the business layer. It has three files, and a deliberate split
+between them: two are plain modules with no editor API in them at all, and only the third knows it
+is a plugin. That split is what makes the phase testable - `BizBookImport`, `BizPricePreview` and
+`BizCostBookDock` are ordinary `RefCounted` / `Control` objects, so every test drives them off-tree
+with no editor running, and the one file that cannot be so driven is four lines long.
+
+**`scripts/biz/book_import.gd`** (`BizBookImport`) reads a supplier's price list. `read_csv` takes a
+heading line and a row per item, read by any of the words a column can be headed with (id, name,
+unit, cost, kind, supplier, cost code, waste), and it **keeps and names every row it cannot read**,
+with its line number and its text, rather than dropping it - a supplier's file with one bad line is
+still a supplier's file. `plan(book, rows)` matches each row to an item by id, then by exactly one
+name, and a row that matches nothing is **unmatched and reported** unless `allow_new` was asked for,
+in which case it is created under a slug of its name. `apply(book, plan, effective, who, at)` returns
+a **new version** and leaves the book it read from untouched. A plan that changes nothing, a date that
+is not a date, a plan priced in another currency (naming both) or a plan whose own `ok` is false are
+all refused rather than half-applied.
+
+**`scripts/biz/price_preview.gd`** (`BizPricePreview`) answers the second question a price list
+raises: what would this change to my quotes? `bulk_plan(source_book, percent_ppm, supplier)` builds
+the same plan shape for a percentage rise or fall across the book or across one supplier's items.
+`preview` walks a list of `Estimate`s, and here is the whole point of the phase: **the price does not
+move, the cost does**. A quoted price is a promise; a supplier's new list changes what the job costs,
+not what it sells for, so `price_after == price_before` deliberately, and what the preview shows is
+the **margin** moving. `read_estimates(store)` reads them out of the store a job at a time, so the
+dock can answer the question against a shop's real records and not only against a list in hand.
+
+**`addons/biz_tools/costbook_dock.gd`** (`BizCostBookDock`) is the dock: a plain `Control` that loads
+a book, reads a price list or builds a bulk plan, shows the plan in money, reads the preview, and
+writes the next version. It carries **no editor API and no dialogs**, so it is driven entirely
+off-tree in tests, and it reports its own state through read-backs (`status_text`, `plan_rows`,
+`preview_rows`, `diagnostic_rows`) rather than only through labels.
+
+REQ-B39 The importer shall keep and name every row it cannot read, with the row's line number and its
+text, rather than dropping it or reading it as nothing; and it shall report an item the book does not
+have as unmatched rather than create it, unless creating it was asked for.
+
+REQ-B40 Applying a price change shall produce a new version of the book and leave the book it was read
+from untouched; and a preview shall recompute the cost and leave the price where it was, so that what
+a cost-book change moves is the margin.
 
 The entries below were found **before** the code that would have depended on them was
 written, which is the cheapest place to find them.
@@ -1596,6 +1638,15 @@ passes against nothing - and would pass identically against a deployment that re
 wrong way. **A request proved pure is not a protocol proved end to end.** The deployment is what turns
 the first into the second, and the first thing to check when one exists is that a stale `If-Match`
 comes back `409` and not `200`.
+
+**15.17 The editor plugin API the notes described was not the one 4.7 has.** The plan for
+`addons/biz_tools/plugin.gd` was written from memory and from older notes, and the method that
+registers a dock control in older Godot - `add_control_to_dock` - is not how a 4.7 editor plugin
+attaches a dock. The way to settle it was not to read a changelog but to **run the plugin**: a copy of
+the project was made with the plugin instrumented to print what it did, and run headless with
+`--editor --quit`, which printed that the dock had been added under `EditorDock` with `add_dock`. The
+plugin now says `add_dock` / `remove_dock`. **An API written from memory is a guess, and the authority
+is the running editor, not the recollection** - the same lesson as 15.1, one layer up.
 
 corrections, every one of them found by building rather than by reading, and two of them found by
 looking at a render. This section is where the same thing happens here: the changes are recorded as
