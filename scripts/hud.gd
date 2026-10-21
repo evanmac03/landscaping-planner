@@ -7,6 +7,7 @@ const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
+const PresenceScript := preload("res://scripts/presence.gd")
 
 const EDIT_HINTS := "Left-drag: move a plant     "
 ## The key that swaps the two overhead views is written as a token and filled in
@@ -205,6 +206,10 @@ var _survey_dialog: FileDialog = null
 ## way the person left them.
 var _show_hints: bool = true
 
+## The shared session, when this scene has one. Found by path rather than exported, so a scene
+## without a session - every window test, and any scene that is not the planner - simply has none.
+var _presence: PresenceScript = null
+
 ## The file dialogs, and the question asked before work is thrown away.
 var _open_dialog: FileDialog = null
 var _save_dialog: FileDialog = null
@@ -360,6 +365,11 @@ func _ready() -> void:
 	_build_plant_panel()
 	_build_presentation_panel()
 	_build_painted_actions()
+	# A session is a sibling of this HUD in the planner scene and absent everywhere else. Found
+	# here rather than exported so no test scene has to remember to provide one.
+	_presence = get_node_or_null(^"../Presence") as PresenceScript
+	if _presence != null:
+		_presence.changed.connect(_on_presence_changed)
 	_build_menu_bar()
 	_build_keys_panel()
 	_build_file_dialogs()
@@ -421,6 +431,10 @@ func _process(_delta: float) -> void:
 	if _presenting and painted_sheet.visible:
 		close_painted()
 	_refresh_presentation()
+	# A session carries which drawing this peer has open and where they are pointing, so it is told
+	# both before the bar is refreshed - the one line about the session reads the session's own facts.
+	if _presence != null and _presence.is_on():
+		_presence.watch(_drawing_label(), get_viewport().get_mouse_position())
 	_refresh_menus()
 	if is_hatch_panel_open():
 		_refresh_hatch_panel()
@@ -1274,7 +1288,8 @@ func _unhandled_input(event: InputEvent) -> void:
 const NEEDS_NOTHING := &""
 const NEEDS_DRAFT := &"draft"
 const NEEDS_PRESENTATION := &"presentation"
-const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION]
+const NEEDS_PRESENCE := &"presence"
+const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION, NEEDS_PRESENCE]
 
 
 ## One entry that runs a command.
@@ -1345,6 +1360,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Jobs", "items": jobs_items()})
 	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
+	menus.append({"title": "Team", "items": team_items()})
 	menus.append({"title": "Help", "items": help_items()})
 	return menus
 
@@ -1696,6 +1712,21 @@ static func help_items() -> Array[Dictionary]:
 	return items
 
 
+## The shared session. Sharing is started on purpose and the line says who is in the room, so a
+## designer can see who is around without turning anything on - and nothing is opened, or billed,
+## until Share is chosen.
+static func team_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"team.info", "no session"))
+	items.append(_command(
+		&"team.start", "Share this drawing...", &"", &"_menu_start_session", NEEDS_PRESENCE
+	))
+	items.append(_command(
+		&"team.leave", "Leave the session", &"", &"_menu_leave_session", NEEDS_PRESENCE, &"session_on"
+	))
+	return items
+
+
 ## Every entry in the bar, flattened, each with the menu it sits under. What a test reads.
 static func menu_entries() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -1824,6 +1855,10 @@ func menu_world() -> Dictionary:
 		# The crew, the jobs and the board's own count of the clashes. Cheap like the two above: it
 		# reads sizes and asks the schedule for its conflicts, and holds no arithmetic.
 		"jobs": _jobs_text(),
+		# The shared session: whether one is open, and who is in it. Cheap, and it is the one part
+		# of the bar that changes because somebody else did something.
+		"session": _presence_text(),
+		"session_on": _presence != null and _presence.is_on(),
 	}
 	return world
 
@@ -1958,6 +1993,8 @@ func _menu_needs_met(needs: StringName) -> bool:
 			return _draft != null
 		NEEDS_PRESENTATION:
 			return presentation != null
+		NEEDS_PRESENCE:
+			return _presence != null
 	return true
 
 
@@ -1985,6 +2022,9 @@ func _hide_unavailable_menus() -> void:
 			menu_bar.set_menu_hidden(index, _draft == null or _draft.document == null)
 		elif title == "Present":
 			menu_bar.set_menu_hidden(index, presentation == null)
+		elif title == "Team":
+			# A session is a node in the planner scene, so a scene without one has nothing to share.
+			menu_bar.set_menu_hidden(index, _presence == null)
 
 
 ## Match the checks to the state, from the snapshot.
@@ -2023,6 +2063,7 @@ func _refresh_menus() -> void:
 	_refresh_estimate_menu()
 	_refresh_pipeline_menu()
 	_refresh_jobs_menu()
+	_refresh_team_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -2068,12 +2109,14 @@ func _menu_quit(_entry: Dictionary) -> void:
 
 
 ## Whether an entry is available in this state, for the entries that come and go with the state
-## rather than with the scene. Save is the only one: there is nothing to save until something has
-## changed.
+## rather than with the scene. Save is one - there is nothing to save until something has changed -
+## and leaving the shared session is the other: there is no session to leave until one is open.
 static func is_enabled(state: StringName, world: Dictionary) -> bool:
 	match state:
 		&"dirty":
 			return bool(world.get("dirty", false))
+		&"session_on":
+			return bool(world.get("session_on", false))
 	return true
 
 
@@ -4080,6 +4123,52 @@ func _refresh_jobs_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _jobs_text())
+
+
+# --- the shared session --------------------------------------------------------------
+
+
+## What the Team menu's own line says: who is in the room, in the session's words.
+func _presence_text() -> String:
+	if _presence == null:
+		return "no session"
+	return _presence.roster_text()
+
+
+func _refresh_team_menu() -> void:
+	var named := _find_item(&"team.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _presence_text())
+
+
+## The session changed - somebody joined or left, or it opened or closed - so the line about it is
+## stale. A session is the one part of the bar that moves because somebody else did something.
+func _on_presence_changed() -> void:
+	_refresh_team_menu()
+
+
+func _menu_start_session(_entry: Dictionary) -> void:
+	if _presence == null:
+		return
+	_presence.start(PresenceScript.DEFAULT_ROOM, PresenceScript.local_name())
+
+
+func _menu_leave_session(_entry: Dictionary) -> void:
+	if _presence == null:
+		return
+	_presence.leave()
+
+
+## Which drawing this peer has open, as a short name: the file's own name when it has one, and a
+## plain phrase when it is not saved yet. A colleague sees "Backyard Design" rather than a path.
+func _drawing_label() -> String:
+	if _draft == null:
+		return ""
+	var where := String(_draft.drawing_path)
+	if where != "":
+		return where.get_file().get_basename()
+	return "an unsaved drawing"
 
 
 ## The ground: the site's conditions and one statement per area of the plan.

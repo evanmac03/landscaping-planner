@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/yard.tscn" id="1_yard"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/vis/painted_plan.gd" id="10_painted"]
 [ext_resource type="Resource" path="res://resources/vis/sketch_default.tres" id="11_style"]
 [ext_resource type="Script" path="res://scripts/vis/derived_builder.gd" id="12_derived"]
+[ext_resource type="Script" path="res://scripts/presence.gd" id="13_presence"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.29, 0.47, 0.78, 1)
@@ -99,6 +100,9 @@ script = ExtResource("7_overlay")
 view_controller = NodePath("../ViewController")
 presentation = NodePath("../Presentation")
 painted_plan = NodePath("../PaintedPlan")
+
+[node name="Presence" type="Node" parent="."]
+script = ExtResource("13_presence")
 
 [node name="PaintedPlan" type="Node" parent="." node_paths=PackedStringArray("view_controller", "yard")]
 script = ExtResource("10_painted")

@@ -43,7 +43,7 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 			)
 	var expected: Array[String] = [
 		"File", "Edit", "View", "Draft", "Site", "Plant", "Water", "Light", "Pipeline", "Jobs",
-		"Estimate", "Present", "Help",
+		"Estimate", "Present", "Team", "Help",
 	]
 	assert(titles == expected)
 
@@ -258,6 +258,21 @@ func test_the_presentation_entries_report_the_presentation() -> void:
 	assert(sizes == HudScript.STILL_SIZES.size())
 	assert(HudScript.is_checked(&"still_size", 2, {"still_size": 2}))
 	assert(not HudScript.is_checked(&"still_size", 2, {"still_size": 0}))
+
+
+## The shared session: a line that says who is in the room, and two commands that open and close it.
+## Sharing is deliberate - nothing is opened, or billed, until Share is chosen - so the pair is here.
+func test_the_team_menu_offers_sharing_the_drawing() -> void:
+	var ids: Array[StringName] = []
+	for entry: Dictionary in HudScript.items_for("Team"):
+		ids.append(StringName(entry.get("id", &"")))
+	assert(ids.has(&"team.info"), "the line that says who is in the session")
+	assert(ids.has(&"team.start"), "sharing is started on purpose")
+	assert(ids.has(&"team.leave"), "and left on purpose")
+	assert(StringName(_entry(&"team.start")["needs"]) == HudScript.NEEDS_PRESENCE,
+		"and only in a scene that has a session to share")
+	assert(not HudScript.is_enabled(&"session_on", {"session_on": false}),
+		"leaving is dead until a session is open")
 
 
 func test_the_help_entry_reports_whether_the_keys_are_up() -> void:

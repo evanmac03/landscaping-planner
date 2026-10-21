@@ -257,3 +257,9 @@ rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2.0
+
+[ziva]
+
+multiplayer/user_id="cg4F5xQeZszDeLiM325x3lqnww1taRpi"
+multiplayer/relay_url="wss://ziva-multiplayer.ziva-multiplayer.workers.dev"
+multiplayer/game_id="1a69bc5f20596cd064802ad008792"
