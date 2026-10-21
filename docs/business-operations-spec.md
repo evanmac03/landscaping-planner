@@ -1060,7 +1060,7 @@ before anything depends on it.
 | 7 | **Billing and invoices** | `rate.gd`, `milestone.gd`, `billing.gd`, `invoice.gd`, `payment.gd`, `invoice_sheet.gd`, `scripts/biz/billing_desk.gd`, `scripts/billing_window.gd`; rates in parts per million, milestones and retainage, percentage completion with its measured basis, the document and the page | **built** - 213 tests (`test_biz_rate` 9, `test_biz_payment` 8, `test_biz_milestone` 15, `test_biz_billing` 33, `test_biz_invoice` 27, `test_invoice_sheet` 22, `test_biz_billing_desk` 60, `test_billing_window` 30, `test_hud_billing` 9); invoices and their schedules are held in memory until the store of phase 10 |
 | 8 | **Ledger adapters** | `ledger_adapter.gd`, `file_ledger.gd`, `invoice_ninja.gd`, `akaunting.gd`, `ledger_push.gd`, `credit_note.gd`, `scripts/biz/ledger_desk.gd`, `scripts/ledger_window.gd`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, the outbox and reconciliation | **built** - 194 tests (`test_ledger_adapter` 21, `test_file_ledger` 19, `test_biz_credit_note` 13, `test_ledger_push` 10, `test_invoice_ninja` 12, `test_akaunting` 9, `test_biz_ledger_desk` 61, `test_ledger_window` 37, `test_hud_ledger` 12); the outbox has a home on disk (`user://biz/outbox.json`) while the adapters' own settings are held in memory until the store of phase 10 |
 | 9 | **Analytics** | `analytics.gd`, `scripts/analytics_window.gd`; the figures in §10, each with its basis; the window and the as-of moment as arguments | **built** - 92 tests (`test_biz_analytics` 51, `test_analytics_window` 29, `test_hud_analytics` 12); the figures are read off the pipeline, the job desk and the billing ledger, so a working day is stated on the page rather than stored until the store of phase 10 |
-| 10 | **Store and sync** | `store.gd`, `sync.gd`; records, revisions, journal, HTTP, conflicts, presence | specified |
+| 10 | **Store and sync** | `store.gd`, `sync_transport.gd`, `http_transport.gd`, `sync.gd`; records, revisions, an append-only journal, the four service calls, the three conflict policies, the offline queue | **built** - 119 tests (`test_biz_store` 42, `test_biz_sync_transport` 13, `test_biz_http_transport` 24, `test_biz_sync` 40); the live round trip needs a deployment - the store was proved on disk and the sync against a stubbed service and a real `HTTPClient`, not against a running one (section 15.16) |
 | 11 | **Editor plugin** | `addons/biz_tools/`; the cost book dock, bulk import and price preview | specified |
 
 REQ-B23 A phase shall be shippable on its own, and shall add its tests in the same commit.
@@ -1391,7 +1391,79 @@ arguments changes and shall say which window and which moment it is reading.
 
 ---
 
-## 15. What building it will change
+## 14g. The store, and the wire
+
+Phase 10 has no arithmetic in it: it is two files that decide where a record lives and how it
+travels, and the specification for both was written before the code (section 11.1 - section 11.6).
+
+**`scripts/biz/store.gd`** (`BizStore`) is the store: one file per record under `user://biz/`
+(section 11.1), a revision on every write and an append-only journal. Four decisions, all of them
+defensive:
+
+* **A write names the revision it expected, and a mismatch is refused rather than overwritten.**
+  `put(...)` answers `conflict: true` when the record on disk is not at the revision the caller
+  named, so losing a concurrent edit is something the caller chooses, not something the store
+  decides. Nothing is silently merged at the file level either (REQ-B37).
+* **The journal is append-only and records the before and the after of every changed field.** One
+  file a month (`journals/events-YYYY-MM.jsonl`, or `events-undated.jsonl` for a moment nobody
+  stated), and a field that holds a `{cents, currency}` value is journalled as its integer cents, so
+  a money change is a number in the log rather than a sentence. **Nothing reads the clock**: the
+  moment is an argument (REQ-B37).
+* **A record already on disk that cannot be read is never written over.** A file whose JSON does
+  not parse, or whose `schema_version` is newer than this build, is reported as a problem and left
+  alone; the store would rather fail a write than destroy a record it cannot understand.
+* **`schema_version` plus an upcaster table.** A stored record is carried forward on load by a
+  registered step, and a record from a newer build is refused naming both numbers. `upcast` takes a
+  `target`, so a step can be proved against a future version before it ships (section 11.6.3).
+
+Every file is written temp-and-rename, so an interrupted write leaves the previous record rather
+than half a new one.
+
+**`scripts/biz/sync_transport.gd`** (`BizSyncTransport`) is the wire, and it does nothing. It names
+the four calls of section 11.2 (changes, push, attachment, health and whoami), the four roles of
+section 11.6.4 (OWNER / OFFICE / FIELD / VIEWER) and the one rule a retry loop needs: the statuses
+worth trying again and the ones that are a refusal. The base class **refuses every call in words,
+naming what was asked for**, so an unimplemented transport is a refusal a page can show rather than
+a silent success (REQ-B38).
+
+**`scripts/biz/http_transport.gd`** (`BizHttpTransport`) implements those four calls over a real
+`HTTPClient`: `GET /changes?since=&limit=`, `PUT /records/<kind>/<id>` carrying `If-Match: <rev>`,
+`POST /attachments`, `GET /health` and `GET /whoami`. The address carries a scheme, a host, an
+optional port and an optional path prefix; https reads through `TLSOptions.client()`; a request is
+computed **pure** by `request_for(which, args)` and only then sent, and an address nobody answers is
+status 0, which is retryable rather than a refusal. Configured and ready are two different states:
+an address with no token can build every request and will not send one.
+
+**`scripts/biz/sync.gd`** (`BizSync`) is the join, and it is the one file in this project that holds
+the conflict policy of section 11.3. Pull-then-push, idempotent, safe to interrupt: **the cursor
+advances only after the pull is applied**, and **a failed pull does not push**. It is offline first
+(section 11.5): `enqueue` works with no transport at all, one entry per record carrying the latest
+body and every field either edit touched with the earliest `before`, and `queue_text()` always says
+how much is waiting. The three policies, by what a field holds:
+
+* **money** - a money-shaped value, or a field named in `MONEY_NAMES` (a rate, a quantity, an
+  approval) - is **never auto-merged**. A disagreement becomes a conflict naming both values, both
+  authors and both timestamps, the document **refuses to issue** until a person picks a copy, and
+  the change is **held back from the push** while the conflict is open. That refusal is the feature.
+* **structure** - an Array or a Dictionary - is record-level last-writer-wins with the other copy
+  kept as a conflict.
+* **text** - anything else - is last-writer-wins, ours kept, and **noted rather than conflicted**.
+
+`resolve` writes the chosen value, closes the conflict and re-queues against the revision the service
+is at, so a settled conflict is a push like any other and not a separate mechanism.
+
+A JSON round trip turns every whole number into a float, so the join compares a pulled record to a
+local one through `same_value`, which is numeric-tolerant and walks dicts and arrays - an `==` there
+would report a change that did not happen.
+
+REQ-B37 The store shall refuse a write that names a revision the record is not at, rather than
+overwrite; and the journal shall be append-only, recording the before and the after of every changed
+field with the moment passed in rather than read from a clock.
+
+REQ-B38 A transport shall refuse a call it cannot make in words that name what was asked for; and a
+value that disagrees with money shall never be merged without a person choosing between the two
+copies.
+
 
 The entries below were found **before** the code that would have depended on them was
 written, which is the cheapest place to find them.
@@ -1515,7 +1587,16 @@ never wrong.
 the fault was in the join that printed both. **A join's job includes deciding whose sentence to
 keep.**
 
-The visualization specification's equivalent section (§8.8) accumulated ten
+**15.16 The last mile of the sync is unproved, and only a deployment can prove it.** The store was
+proved on disk; the sync was proved on both halves of its join - a stubbed transport for the protocol
+and the conflict policy, and the real `HTTPClient` transport for the requests, whose `request_for` is
+pure and asserted against section 11.2's own table. What no test can reach is a service that answers:
+an address nobody answers is status 0, which is retryable, so every one of the transport's tests
+passes against nothing - and would pass identically against a deployment that reads `If-Match` the
+wrong way. **A request proved pure is not a protocol proved end to end.** The deployment is what turns
+the first into the second, and the first thing to check when one exists is that a stale `If-Match`
+comes back `409` and not `200`.
+
 corrections, every one of them found by building rather than by reading, and two of them found by
 looking at a render. This section is where the same thing happens here: the changes are recorded as
 they are found, with the reason, and not written after the fact to look inevitable.
