@@ -273,6 +273,8 @@ with the aim each position wants, the load check with its refusals, the cover ch
 rows, and the circuit's file format. `scripts/draft/lighting.gd` is the arithmetic, with
 `tests/test_lighting.gd` over it.
 
+**Built, the drawing slice:** fixtures are entities on `501-LIGHTING` (section 2.9) with `fixture_entity`, `run_entity`, `is_fixture_entity`, `circuit_of_entity` and `fixture_words`; a circuit and the transformer travel in the drawing file under the document's `lighting` key (format **8**); and `draft_controller.gd` adds `lighting_circuits`, `lighting_transformer`, `set_lighting_transformer`, `lightable_areas`, `light_area`, `remove_circuit`, `lighting_rows`, `lighting_lines` and `lighting_summary`. Lighting an area is **one undo step** however many fixtures it sets: a circuit and its fixtures are one act. A circuit that would not run off the stated transformer is **not put on the drawing at all**. Held down by `tests/test_lighting_tools.gd`.
+
 **Not built yet, and why:**
 
 * **Photometrics.** Illuminance, uniformity and glare want a light model - lumens, candela,

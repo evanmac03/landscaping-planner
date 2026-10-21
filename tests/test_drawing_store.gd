@@ -88,7 +88,7 @@ func test_the_file_is_json_a_person_can_read() -> void:
 	# Version 7 is the one that states what irrigation the drawing carries, on top of version 6's
 	# sheets: a reader has to be able to tell "this file has no irrigation in it" from "this file's
 	# irrigation is empty", and that is the same question the sheets and the ground ask.
-	assert(text.contains("\"version\": 7"), "the file says what it is")
+	assert(text.contains("\"version\": 8"), "the file says what it is")
 	assert(text.contains("\"sheets\""), "and which sheets the drawing goes out as")
 	assert(text.contains("\"irrigation\""), "and what irrigation it carries")
 	assert(text.contains("\"entities\""), "the entities are named")

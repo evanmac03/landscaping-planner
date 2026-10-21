@@ -24,6 +24,7 @@ const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
+const LightingScript := preload("res://scripts/draft/lighting.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
@@ -1594,6 +1595,184 @@ static func _zone_count_words(zones: int, heads: int, flow: String) -> String:
 	var zone_part := "1 zone" if zones == 1 else "%d zones" % zones
 	var head_part := "1 head" if heads == 1 else "%d heads" % heads
 	return "%s, %s drawing %s L/min" % [zone_part, head_part, flow]
+
+
+# --- lighting a circuit --------------------------------------------------------------------
+
+
+## The circuits this drawing is lit by, as the lighting module's own records. Reading is defensive
+## in one place and one place only: `Lighting.from_dict` drops a record that is not a circuit, so a
+## damaged file gives fewer circuits rather than an error nobody can act on.
+func lighting_circuits() -> Array[Dictionary]:
+	if document == null:
+		return []
+	return LightingScript.from_dict(document.lighting)
+
+
+## The transformer, as somebody stated it. A drawing with nothing stated gives an empty body, and the
+## load check refuses on it - which is the point: the app never assumes a hundred volt-amperes.
+func lighting_transformer() -> Dictionary:
+	if document == null:
+		return {}
+	var stated = document.lighting.get("transformer", null)
+	return stated if stated is Dictionary else {}
+
+
+## State the transformer: a capacity in volt-amperes at a voltage. One undo step, because it is a
+## change to the drawing like any other.
+func set_lighting_transformer(va: float, volts: float) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to state a transformer for"}
+	if va <= 0.0 or volts <= 0.0:
+		return {"ok": false, "reason": "a transformer is a capacity at a voltage, and neither can be nothing"}
+	document.begin_gesture()
+	document.lighting["transformer"] = LightingScript.make_transformer(va, volts)
+	dirty = true
+	last_message = "the transformer is %s" % LightingScript.transformer_words(lighting_transformer())
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "transformer": lighting_transformer()}
+
+
+## How many fixtures of a kind the stated transformer can carry, or 0 when nothing is stated.
+func lighting_fixture_budget(kind: String) -> int:
+	return LightingScript.power_budget(lighting_transformer(), kind)
+
+
+## The areas of the plan that can be lit. `hatch_regions`' own list, for the reason that list gives:
+## a bed has to be named the same way wherever a designer is offered one.
+func lightable_areas() -> Array[Dictionary]:
+	return hatch_regions()
+
+
+## Light an area: make a circuit, lay its fixtures out, keep the circuit with the drawing and put the
+## fixtures on the plan. **One undo step**, because lighting a bed is one act.
+##
+## Refuses before it touches anything - an area the grid cannot be laid out in, or a circuit that
+## would not run off the stated transformer - and that is deliberate: laying out a circuit that cannot
+## be opened and leaving it on the drawing for the next person to find is worse than saying so.
+##
+## Returns `{ok, reason, message, circuit, number, placed, verdict, rows}`.
+func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
+		staggered: bool = false) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to light", "placed": 0}
+	if not LightingScript.is_kind(kind):
+		last_message = "that is not a kind of fixture"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	var circuits := lighting_circuits()
+	var circuit := LightingScript.make_circuit(LightingScript.next_number(circuits), kind)
+	circuit["tap"] = LightingScript.next_tap(circuits)
+	LightingScript.set_area(circuit, ring)
+	var report := LightingScript.lay_out(circuit, kind, spacing, staggered)
+	if not bool(report["ok"]):
+		last_message = String(report["reason"])
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	var transformer := lighting_transformer()
+	var verdict := LightingScript.check(circuit, transformer)
+	if not bool(verdict["ok"]):
+		last_message = LightingScript.verdict_words(circuit, transformer)
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	document.begin_gesture()
+	circuits.append(circuit)
+	document.lighting["circuits"] = LightingScript.to_dict(circuits)["circuits"]
+	var placed := _stamp_fixtures(circuit)
+	_rebind_snap()
+	dirty = true
+	last_message = "%s, and %s" % [LightingScript.verdict_words(circuit, transformer),
+		"1 fixture is on the plan" if placed == 1 else "%d fixtures are on the plan" % placed]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "message": last_message, "circuit": circuit,
+		"number": int(circuit["number"]), "placed": placed,
+		"verdict": LightingScript.verdict_words(circuit, transformer), "rows": lighting_rows(),
+	}
+
+
+## Put a circuit's fixtures on the drawing, one entity each, and say how many.
+func _stamp_fixtures(circuit: Dictionary) -> int:
+	var placed := 0
+	for entry in LightingScript.fixtures_of(circuit):
+		var fixture: Dictionary = entry
+		var entity := LightingScript.fixture_entity(fixture, int(circuit.get("number", 0)), plot_scale)
+		if entity == null:
+			continue
+		document.add(entity, LightingScript.layer())
+		placed += 1
+	return placed
+
+
+## Take a circuit off the drawing: its record with it, and the fixtures that belong to it, in one
+## step. A circuit whose fixtures stayed behind would be a plan with unexplained circles on it.
+func remove_circuit(number: int) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to change"}
+	var circuits := lighting_circuits()
+	var kept: Array[Dictionary] = []
+	var found := false
+	for circuit in circuits:
+		if int(circuit.get("number", 0)) == number:
+			found = true
+			continue
+		kept.append(circuit)
+	if not found:
+		last_message = "there is no Circuit %d" % number
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "removed": 0}
+	document.begin_gesture()
+	var removed := 0
+	for entity in document.entities():
+		if LightingScript.circuit_of_entity(entity) == number and document.remove(entity.id):
+			removed += 1
+	document.lighting["circuits"] = LightingScript.to_dict(kept)["circuits"]
+	_rebind_snap()
+	dirty = true
+	last_message = "Circuit %d is off the drawing, with %s" % [number,
+		"1 fixture" if removed == 1 else "%d fixtures" % removed]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
+		"rows": lighting_rows()}
+
+
+## The circuits as a schedule reads them, one row each, checked against the stated transformer.
+func lighting_rows() -> Array[Dictionary]:
+	return LightingScript.schedule(lighting_circuits(), lighting_transformer())
+
+
+## The schedule as the lines a sheet or a status bar carries.
+func lighting_lines() -> Array[String]:
+	return LightingScript.schedule_lines(lighting_circuits(), lighting_transformer())
+
+
+## One line saying what the drawing is lit by, for a panel to lead with.
+func lighting_summary() -> String:
+	var circuits := lighting_circuits()
+	if circuits.is_empty():
+		return "nothing on this drawing is lit yet"
+	var fixtures := 0
+	var load := 0.0
+	var area := 0.0
+	var wrong := ""
+	for circuit in circuits:
+		fixtures += LightingScript.fixture_count(circuit)
+		load += LightingScript.demand_of(circuit)
+		area += LightingScript.area_m2(circuit)
+		if wrong.is_empty():
+			var verdict := LightingScript.check(circuit, lighting_transformer())
+			if not bool(verdict["ok"]):
+				wrong = LightingScript.verdict_words(circuit, lighting_transformer())
+	if wrong.is_empty():
+		wrong = "every circuit runs off the transformer"
+	return "%s over %s m2, %s" % [_circuit_count_words(circuits.size(), fixtures,
+		_quantity_words(load)), _quantity_words(area), wrong]
+
+
+static func _circuit_count_words(circuits: int, fixtures: int, load: String) -> String:
+	var circuit_part := "1 circuit" if circuits == 1 else "%d circuits" % circuits
+	var fixture_part := "1 fixture" if fixtures == 1 else "%d fixtures" % fixtures
+	return "%s, %s drawing %s W" % [circuit_part, fixture_part, load]
 
 
 ## Write the planting's own labels onto the drawing.

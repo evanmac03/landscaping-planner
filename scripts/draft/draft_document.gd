@@ -68,6 +68,12 @@ var sheets: DraftSheetSet = SheetSetScript.new()
 ## refuses on, and what a file written before any of this existed gets.
 var irrigation: Dictionary = {}
 
+## What the drawing is lit by, as the lighting module writes it: `{"circuits": [...], "transformer":
+## {...}}`, with each circuit's own record shape owned by `Lighting`. It is the sibling of `irrigation`
+## and is held the same way and for the same reasons: the module is static and does the sums, the
+## drawing only keeps the records, and the load check refuses a circuit with no transformer stated.
+var lighting: Dictionary = {}
+
 ## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
 ## units are a fact about the practice, so it lives on the drawing rather than on the sun
 ## study or on the scene: a designer who works at one latitude sets it once and every
@@ -373,6 +379,7 @@ func snapshot() -> Dictionary:
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),
 		"irrigation": irrigation.duplicate(true),
+		"lighting": lighting.duplicate(true),
 	}
 
 
@@ -422,6 +429,11 @@ func restore(state: Dictionary) -> void:
 	# not a garden with mysterious forty-litres-a-minute water in it.
 	var irrigation_state: Variant = state.get("irrigation", null)
 	irrigation = irrigation_state.duplicate(true) if irrigation_state is Dictionary else {}
+	# What the drawing is lit by is newer still, and reads the same way: a file written before it
+	# existed gets no circuits and no transformer stated, which is a drawing nobody has worked the
+	# lighting out for.
+	var lighting_state: Variant = state.get("lighting", null)
+	lighting = lighting_state.duplicate(true) if lighting_state is Dictionary else {}
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -474,14 +486,18 @@ func to_dict() -> Dictionary:
 	# Version 7 states what the drawing is watered by. A file with no irrigation in it is not a garden
 	# with no water in it: it is a drawing nobody has worked the irrigation out for, and the flow
 	# check says so rather than blessing a zone against a supply nobody stated.
+	#
+	# Version 8 states what the drawing is lit by, for the same reason and in the same shape: no
+	# circuits is a drawing nobody has worked the lighting out for, not a garden with no light.
 	return {
-		"version": 7,
+		"version": 8,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),
 		"irrigation": irrigation.duplicate(true),
+		"lighting": lighting.duplicate(true),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,
