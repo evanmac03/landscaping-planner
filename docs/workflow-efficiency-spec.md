@@ -59,9 +59,9 @@ going in.
 constraints draw their guides, but there is no "alignment guide while dragging" line for a moved
 object, because nothing is draggable yet (see section 2).
 
-## 2. Auto-cleanup - NOT BUILT
+## 2. Auto-cleanup - AUTO-SIMPLIFY BUILT; ALIGN AND GROUP NOT
 
-Nothing aligns, groups or simplifies. What exists is adjacent and worth knowing before designing it:
+**Auto-simplify is built** (commit `f98b6dd`); nothing aligns and nothing groups. What exists is adjacent and worth knowing before designing it:
 
 * `Geom2D.offset_polygon` insets exactly, and a self-intersecting ring is refused *with a reason*.
 * `bulge` on a polyline vertex expands into a real arc, so a "simplify" that turned curves into
@@ -75,6 +75,25 @@ Douglas-Peucker pass with a tolerance in model units, then a *refusal* if the re
 endpoint that another entity shares. That last rule is the whole design - a simplifier that silently
 detaches a wall from a bed is worse than no simplifier. It belongs in `scripts/draft/geom2d.gd` beside
 `offset_polygon`, as `simplify(points, tolerance) -> PackedVector2Array` plus a `SimplifyReport`.
+
+**As built.** `Geom2D.simplify(points, tolerance, closed)` is the pure pass; `SimplifyReport` is
+the plan - what would change, and every refusal with its reason - worked out before anything is
+touched; `DraftSimplify.plan` builds it and `DraftSimplify.apply` carries it out as one undo step.
+Three corrections the build forced:
+
+1. **A ring is simplified as two chains** meeting at its two opposite extremes, not as one chain
+   run from its start back to itself: a chain Douglas-Peucker'd against its own start and end keeps
+   nothing, and for a small bed that is the bed disappearing.
+2. **A shared corner counts as kept when the simplified shape still passes through it**, not only
+   when the vertex survives - a vertex dropped on a straight run leaves the two shapes touching, and
+   refusing that would refuse the simplification that is obviously safe.
+3. **A curved (bulged) shape is refused, naming the arcs.** The note above is right that a vertex
+   pass cannot carry an arc, so the pass steps around such a shape rather than straightening it.
+
+The tolerance is a paper length - `DraftSimplify.PAPER_MM` (0.4 mm) through the same
+`LineStyleScript.model_width_m` every other paper length uses - so "invisible" is a statement about
+the plot scale. It is reachable from **Edit > Simplify...**, which asks with the pass's own report
+before it changes anything.
 
 **Auto-align** is a batch snap: an edge, a midpoint or an axis taken from whichever entity is
 selected first, applied to everything else selected, recorded as **one undo step** per run (the
@@ -351,8 +370,8 @@ takeoff's first job is to generalise that to every layer.
    crossing bands in the two modes the plan asks for, swept over the drawing's own geometry, armed
    from the Edit menu. What is still missing is *dragging* what is selected - the band says which
    shapes, and moving them is a separate step.
-3. **Auto-simplify.** A pure function over a frozen entity list, with the rule that it refuses when it
-   would move an endpoint shared with another entity. **Still not built.**
+3. ~~**Auto-simplify.**~~ **Done.** Built as `Geom2D.simplify`, `SimplifyReport` and
+   `DraftSimplify`, with the shared-corner refusal that is the whole design and reachable from Edit > Simplify... See section 2.
 4. ~~**Named revisions and the document diff.**~~ **Done.** Built as `scripts/draft/revision_log.gd`,
    `scripts/revision_window.gd` and the store's own `write_revisions`; see section 3, which is now
    built down to the audit journal.
