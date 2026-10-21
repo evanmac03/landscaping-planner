@@ -590,6 +590,23 @@ Two rules matter:
 `5yd2`) because area is what users actually type for takeoff, and infer the
 square unit from the linear one so `format_area` round-trips.
 
+**An area is turned into words in exactly one place: `DraftUnits.format_area`.** Nothing else
+may append a unit word to an area. A whole number stays whole and anything else carries one
+decimal (`18` / `18.4`), because a bed of 12.4 m² written as `12` is a small lie on a drawing
+dimensioned to the millimetre; a hectare takes over above a hectare, and an imperial document
+reads `ft2` and `ac` and never `m2`. `DraftUnits.area_words(m2)` is the same words for a caller
+with no document in hand, and `DraftUnits.is_whole` is the whole-or-decimal question on its own.
+
+The list a UI shows must not become a second writer. `ZoneMap.areas_of(document, min_area)` is
+the single **producer** of area rows, and every row it makes carries both the number and the
+words - `{..., "area_m2": size, "area_text": area_words(document, size)}`. A panel is handed
+rows rather than the drawing, so it reads `ZoneMap.row_area_text(row)`; a caller that does have
+the drawing reads `ZoneMap.area_words(document, m2)`. The module functions that state an area
+(`Irrigation.verdict_words`, `Irrigation.schedule`, `Lighting.verdict_words`,
+`Lighting.schedule` and the `_row_words` readers beside them) take an optional
+`units: DraftUnits = null` that defaults to the metre default, so a caller with no document - a
+test, a hand-built row - keeps working and keeps saying metres.
+
 ### Scale bar (both systems)
 
 `HudOverlay` currently picks a round metre value from
