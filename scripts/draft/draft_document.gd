@@ -133,7 +133,7 @@ var site_latitude: float = DEFAULT_SITE_LATITUDE
 var site_longitude: float = DEFAULT_SITE_LONGITUDE
 var site_utc_offset_hours: float = DEFAULT_SITE_UTC_OFFSET_HOURS
 
-var _entities: Dictionary = {}
+var _entities: Dictionary[int, EntityScript] = {}
 ## Insertion order, which is the tie-break inside a layer's plotting band.
 var _order: PackedInt32Array = PackedInt32Array()
 var _next_id: int = 1

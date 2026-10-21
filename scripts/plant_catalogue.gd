@@ -25,14 +25,16 @@ var version: int = 1
 var source: String = ""
 ## StringName -> PlantSpecies. A query with a String finds it too (verified: Godot treats a String
 ## and a StringName key as the same entry), which matters because JSON hands keys back as Strings.
-var species: Dictionary = {}
+var species: Dictionary[StringName, PlantSpecies] = {}
 ## Entries a load carried but could not use, with the reason - reported by `problems()`.
 var rejected: Array[String] = []
-## A person's own groups: name -> Array[StringName]. Saved separately (COLLECTIONS_PATH).
-var collections: Dictionary = {}
+## A person's own groups: name -> an array of StringName ids. Saved separately (COLLECTIONS_PATH).
+## The value is a plain `Array`: Godot refuses a typed collection nested inside a typed one, so the
+## ids are held untyped even though they are always StringNames.
+var collections: Dictionary[StringName, Array] = {}
 
-var _thumbnails: Dictionary = {}
-var _scenes: Dictionary = {}
+var _thumbnails: Dictionary[String, Texture2D] = {}
+var _scenes: Dictionary[String, PackedScene] = {}
 var _thumbnail_loads: int = 0
 var _scene_loads: int = 0
 

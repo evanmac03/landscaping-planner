@@ -20,8 +20,8 @@ const MAX_BUCKETS_PER_ENTITY := 64
 
 var cell_size: float = DEFAULT_CELL_SIZE
 
-var _buckets: Dictionary = {}          # Vector2i -> PackedInt32Array
-var _boxes: Dictionary = {}            # id -> Rect2
+var _buckets: Dictionary[Vector2i, PackedInt32Array] = {}   # Vector2i -> PackedInt32Array
+var _boxes: Dictionary[int, Rect2] = {}                     # id -> Rect2
 var _overflow: PackedInt32Array = PackedInt32Array()
 
 

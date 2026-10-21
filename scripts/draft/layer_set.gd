@@ -178,7 +178,7 @@ const STATES := {
 	],
 }
 
-var _layers: Dictionary = {}
+var _layers: Dictionary[StringName, DraftLayerScript] = {}
 var _order: Array[StringName] = []
 
 

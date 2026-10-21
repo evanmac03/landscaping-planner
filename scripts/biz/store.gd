@@ -59,7 +59,7 @@ const REMOVE_ACTION := "remove"
 var root: String
 ## from_version -> Callable(body: Dictionary) -> Dictionary. Empty until a schema changes, at which
 ## point a `1 -> 2` step is registered here and old records start reading again.
-var _upcasters: Dictionary = {}
+var _upcasters: Dictionary[int, Callable] = {}
 
 
 func _init(root_path: String = ROOT) -> void:

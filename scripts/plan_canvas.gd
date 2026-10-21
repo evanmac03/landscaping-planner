@@ -25,7 +25,7 @@ const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 ## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
 ## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
 ## so the disk is not asked for it again either.
-var _underlay_textures: Dictionary = {}
+var _underlay_textures: Dictionary[String, Texture2D] = {}
 
 ## The shapes a selection band caught, by id, handed over by the drafting controller.
 var _selected: Array[int] = []

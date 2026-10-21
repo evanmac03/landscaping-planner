@@ -45,11 +45,11 @@ var _dirty: bool = false
 var _timer: float = 0.0
 
 ## Entity id -> the MeshInstance3D picturing it. Also what makes a delete a removal.
-var _built: Dictionary = {}
+var _built: Dictionary[int, Node] = {}
 ## Entity id -> why it is not standing, so a refusal survives until it is fixed.
-var _refusals: Dictionary = {}
+var _refusals: Dictionary[int, String] = {}
 ## Material set name -> the built material, so fifty patio slabs share one material.
-var _materials: Dictionary = {}
+var _materials: Dictionary[String, StandardMaterial3D] = {}
 ## What the last rebuild did, for a status line.
 var _last: Dictionary = {}
 
@@ -105,8 +105,8 @@ func rebuild() -> void:
 		_refusals.clear()
 		_last = {"solids": 0, "refusals": 0, "reason": "no document"}
 		return
-	var refusal_ids: Dictionary = {}
-	var standing: Dictionary = {}
+	var refusal_ids: Dictionary[int, String] = {}
+	var standing: Dictionary[int, bool] = {}
 	var drawn := 0
 	# `entities()` is the document's own draw order — the layer bands, heaviest first —
 	# which is the same order the working plan and the plotted sheet draw in. There is no
