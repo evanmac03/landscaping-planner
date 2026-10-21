@@ -83,7 +83,7 @@ var _built: bool = false
 var _selected_id: StringName = &""
 var _results: Array[PlantSpecies] = []
 ## Tag name -> its chip. Kept so a refresh does not throw away what is ticked.
-var _chips: Dictionary = {}
+var _chips: Dictionary[String, CheckBox] = {}
 ## Tag name -> how many species carry it, so a chip says how much it will leave.
 var _chip_counts: Dictionary = {}
 

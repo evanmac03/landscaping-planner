@@ -221,7 +221,7 @@ var _painted_save: Button = null
 
 ## The menu bar's entries, per popup, in the order they were added. A PopupMenu item's id is its
 ## index, so this is the way back from a press to the entry that describes it.
-var _menu_items: Dictionary = {}
+var _menu_items: Dictionary[PopupMenu, Array] = {}
 ## What the menu was last drawn to match, so a check every frame does not restate state that has
 ## not moved.
 var _menu_state: String = ""

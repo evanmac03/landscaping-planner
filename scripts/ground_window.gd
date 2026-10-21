@@ -57,8 +57,8 @@ const SETS: Array[String] = ["sun", "moisture", "soil", "drainage", "zone"]
 
 var document: DraftDocument = null
 
-var _site_rows: Dictionary = {}
-var _area_rows: Dictionary = {}
+var _site_rows: Dictionary[String, Dictionary] = {}
+var _area_rows: Dictionary[String, Dictionary] = {}
 var _areas: Array[Dictionary] = []
 var _selected_key: String = ""
 var _area_list: ItemList = null
