@@ -274,11 +274,25 @@ func _funnel(from: String, to: String) -> Figure:
 	for held in rows:
 		var count := int(held["count"])
 		entered += count
-		parts.append("%d %s" % [count, String(held["name"]).to_lower()])
+		parts.append("%d %s" % [count, _stage_words(String(held["name"]), count)])
 	var words := "nothing entered the funnel in this window"
 	if entered > 0:
 		words = ", ".join(parts)
 	return _found("funnel", rows, words, window_text(from, to))
+
+
+## A stage's name as a person says it with a count beside it: "1 lead" and "3 leads", "1 site visit"
+## and "2 site visits". The other stages of the funnel are already adjectives - qualified, estimating,
+## proposed, won - so they read the same whatever the count is. The words are the pipeline's own.
+static func _stage_words(name: String, count: int) -> String:
+	var words: String = name.to_lower()
+	if count == 1:
+		return words
+	if words == "lead":
+		return "leads"
+	if words == "site visit":
+		return "site visits"
+	return words
 
 
 func _win_rate(from: String, to: String) -> Figure:

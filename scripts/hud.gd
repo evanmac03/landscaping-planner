@@ -249,6 +249,8 @@ const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
 const BillingWindowScript := preload("res://scripts/billing_window.gd")
 const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
 const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
+const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
+const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
@@ -311,6 +313,11 @@ var _billing_window: BillingWindow = null
 ## billing desk, because what an office hands over is the documents that desk holds.
 var _ledger_desk: LedgerDesk = null
 var _ledger_window: LedgerWindow = null
+## The report: the figures of §10 over the three desks above. It holds nothing of its own - every
+## figure is recomputed from the records for the window and the moment it is asked about - so there is
+## nothing here to keep in step with the desks, only a page that reads it again.
+var _analytics_report: Analytics = null
+var _analytics_window: AnalyticsWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -369,6 +376,8 @@ func _ready() -> void:
 	_build_billing_window()
 	_build_ledger_desk()
 	_build_ledger_window()
+	_build_analytics_report()
+	_build_analytics_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1603,6 +1612,7 @@ static func jobs_items() -> Array[Dictionary]:
 	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
 	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
 	items.append(_command(&"jobs.outbox", "What has been handed to a ledger...", &"", &"_menu_ledger_window"))
+	items.append(_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window"))
 	return items
 
 
@@ -3641,8 +3651,10 @@ func _pipeline_text() -> String:
 	return _pipeline_board.summary_text()
 
 
-## A card moved or a lead was added: the menu line about the pipeline is now stale.
+## A card moved or a lead was added: the menu line about the pipeline is now stale, and so is the
+## report if it is open, because the figures about leads are the pipeline's own.
 func _on_pipeline_changed() -> void:
+	_refresh_analytics()
 	_refresh_menus()
 
 
@@ -3740,6 +3752,7 @@ func _on_job_started(estimate: Estimate) -> void:
 		_cost_window.refresh()
 	if _billing_window != null:
 		_billing_window.refresh()
+	_refresh_analytics()
 	_refresh_menus()
 
 
@@ -3789,6 +3802,7 @@ func is_cost_window_open() -> bool:
 func _on_cost_changed() -> void:
 	if _schedule_board != null:
 		_schedule_board.refresh()
+	_refresh_analytics()
 	_refresh_menus()
 
 
@@ -3851,6 +3865,7 @@ func is_billing_window_open() -> bool:
 ## swallowed.
 func _on_billing_changed() -> void:
 	queue_invoices_for_ledger()
+	_refresh_analytics()
 	_refresh_menus()
 
 
@@ -3915,6 +3930,81 @@ func _on_ledger_changed() -> void:
 
 func _menu_ledger_window(_entry: Dictionary) -> void:
 	open_ledger_window()
+
+
+## The figures: the pipeline's win rate, the jobs' profitability, what is owed and how busy the crew is
+## (spec §10). Built by hand like the other pages - the report is pointed at the three desks this file
+## already wired to the menus - and it needs no drawing, because what the business is doing is not on
+## the plan.
+##
+## The report holds no figures: it reads the records every time it is asked, so there is nothing to keep
+## in step when a lead moves or an invoice goes out. What there is to do is read the open page again,
+## which is what the change handlers below do.
+func _build_analytics_report() -> void:
+	if _analytics_report != null:
+		return
+	if _pipeline_board == null:
+		_build_pipeline_board()
+	if _job_desk == null:
+		_build_job_desk()
+	if _billing_ledger == null:
+		_build_billing_ledger()
+	_analytics_report = AnalyticsScript.new(
+		_pipeline_board.pipeline, _job_desk, _billing_ledger
+	)
+
+
+func _build_analytics_window() -> void:
+	if _analytics_window != null:
+		return
+	if _analytics_report == null:
+		_build_analytics_report()
+	_analytics_window = AnalyticsWindowScript.new()
+	_analytics_window.name = "AnalyticsWindow"
+	add_child(_analytics_window)
+	_analytics_window.build()
+	_analytics_window.bind(_analytics_report)
+	_analytics_window.report_changed.connect(_on_analytics_changed)
+	_analytics_window.hide()
+
+
+## Bind the report to the three desks as they stand and open the page. **The binding is redone here**
+## rather than only at build time, because the pipeline board's own pipeline is what the figures about
+## leads read and a HUD built before the board existed would be reading nothing.
+func open_analytics_window() -> void:
+	if _analytics_window == null:
+		_build_analytics_window()
+	if _analytics_window == null:
+		return
+	_analytics_window.bind(_analytics_report)
+	_analytics_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_analytics_window() -> void:
+	if _analytics_window != null:
+		_analytics_window.hide()
+
+
+func is_analytics_window_open() -> bool:
+	return _analytics_window != null and _analytics_window.visible
+
+
+## A working day was stated on the page, which is the only thing there a person decides rather than
+## reads. Its own line is on the page; the menu has nothing new to say.
+func _on_analytics_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_analytics_window(_entry: Dictionary) -> void:
+	open_analytics_window()
+
+
+## A record moved under the report: the page reads the records again rather than being told what
+## changed, because it holds no figures of its own. Only an open page is worth reading again.
+func _refresh_analytics() -> void:
+	if _analytics_window != null and _analytics_window.visible:
+		_analytics_window.refresh()
 
 
 ## Hand every invoice the office has issued over to the chosen ledger. Called as part of issuing one -

@@ -15,6 +15,7 @@ extends Node2D
 ## `res://scenes/analytics_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
+const HudScript := preload("res://scripts/hud.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const JobScript := preload("res://scripts/biz/job.gd")
@@ -120,6 +121,28 @@ func _ready() -> void:
 	print(report.summary_text("", "", today))
 	for figure: AnalyticsScript.Figure in report.figures("", "", today):
 		print("  ", figure.text())
+
+	print("--- the same report, on the page the Jobs menu opens ---")
+	hud.open_analytics_window()
+	var page: AnalyticsWindow = hud._analytics_window
+	print("the Jobs menu offers: ", _menu_line())
+	print("the page opens saying: ", page.opening_words())
+	print("reading ", page.window_text(), ", ", page.as_of_text())
+	print(page.summary_text())
+	for row: Dictionary in page.figure_rows():
+		if bool(row["ok"]):
+			print("  ", row["text"])
+	print("with ", page.row_count(), " row(s), ", page.available_count(), " of them readable, ",
+		page.unavailable_texts().size(), " waiting on something")
+	print("nothing on the page takes the keyboard: ", page.buttons_are_focus_free())
+	print("and it offers no working day until one is stated: ", page.working_day_text(), " (",
+		page.state_button_disabled(), " with the field left empty)")
+	page.set_working_day_field(480)
+	print("stating eight hours: ", page.state_working_day())
+	print("so the hours figure is readable: ", _figure_line(page, "crew_utilisation"))
+	print("and the status line reads: ", page.status_text())
+	hud.close_analytics_window()
+	print("closing it: ", hud.is_analytics_window_open(), " (false is closed)")
 
 	print("--- a book with a history behind it ---")
 	var book: Dictionary = _book(today)
@@ -290,3 +313,19 @@ func _days_from_today(offset: int) -> String:
 
 func _days_ago(days: int) -> String:
 	return _days_from_today(-days)
+
+
+## The Jobs menu entry about the figures, as the bar would read it.
+func _menu_line() -> String:
+	for entry in HudScript.jobs_items():
+		if String(entry.get("id", "")) == "jobs.analytics":
+			return String(entry["label"])
+	return "the Jobs menu offers nothing about the figures"
+
+
+## One figure's own sentence, by key, read off the page the same way the page builds its rows.
+func _figure_line(page: AnalyticsWindow, key: String) -> String:
+	for row: Dictionary in page.figure_rows():
+		if String(row["key"]) == key:
+			return String(row["text"])
+	return "the page has no figure called %s" % key

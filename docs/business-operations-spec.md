@@ -1059,7 +1059,7 @@ before anything depends on it.
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `scripts/biz/job_desk.gd`, `scripts/job_cost_window.gd`; committed vs actual, variance, WIP | **built** - 121 tests (`test_biz_purchase_order` 22, `test_biz_change_order` 22, `test_biz_job_cost` 23, `test_biz_job_costing` 30, `test_job_cost_window` 18, `test_hud_costing` 6); orders, changes and the billed figures are held in memory until the store of phase 10 |
 | 7 | **Billing and invoices** | `rate.gd`, `milestone.gd`, `billing.gd`, `invoice.gd`, `payment.gd`, `invoice_sheet.gd`, `scripts/biz/billing_desk.gd`, `scripts/billing_window.gd`; rates in parts per million, milestones and retainage, percentage completion with its measured basis, the document and the page | **built** - 213 tests (`test_biz_rate` 9, `test_biz_payment` 8, `test_biz_milestone` 15, `test_biz_billing` 33, `test_biz_invoice` 27, `test_invoice_sheet` 22, `test_biz_billing_desk` 60, `test_billing_window` 30, `test_hud_billing` 9); invoices and their schedules are held in memory until the store of phase 10 |
 | 8 | **Ledger adapters** | `ledger_adapter.gd`, `file_ledger.gd`, `invoice_ninja.gd`, `akaunting.gd`, `ledger_push.gd`, `credit_note.gd`, `scripts/biz/ledger_desk.gd`, `scripts/ledger_window.gd`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, the outbox and reconciliation | **built** - 194 tests (`test_ledger_adapter` 21, `test_file_ledger` 19, `test_biz_credit_note` 13, `test_ledger_push` 10, `test_invoice_ninja` 12, `test_akaunting` 9, `test_biz_ledger_desk` 61, `test_ledger_window` 37, `test_hud_ledger` 12); the outbox has a home on disk (`user://biz/outbox.json`) while the adapters' own settings are held in memory until the store of phase 10 |
-| 9 | **Analytics** | `analytics.gd`; the figures in §10, each with its basis | specified |
+| 9 | **Analytics** | `analytics.gd`, `scripts/analytics_window.gd`; the figures in §10, each with its basis; the window and the as-of moment as arguments | **built** - 92 tests (`test_biz_analytics` 51, `test_analytics_window` 29, `test_hud_analytics` 12); the figures are read off the pipeline, the job desk and the billing ledger, so a working day is stated on the page rather than stored until the store of phase 10 |
 | 10 | **Store and sync** | `store.gd`, `sync.gd`; records, revisions, journal, HTTP, conflicts, presence | specified |
 | 11 | **Editor plugin** | `addons/biz_tools/`; the cost book dock, bulk import and price preview | specified |
 
@@ -1340,6 +1340,54 @@ never be sent by the retry loop again.
 
 REQ-B34 A credential a backend authenticates with shall not be written into the outbox file, and
 shall be put back at the moment of sending.
+
+---
+
+## 14f. The report
+
+Phase 9's arithmetic is `scripts/biz/analytics.gd` (`Analytics`): the thirteen figures of §10 and a
+fourteenth (cost tracking, the per-code face of job profitability), each one a function of the
+records, a window with both ends and an as-of moment. **Nothing is accumulated** - a figure for a
+quarter that has closed does not move when next month's leads arrive (REQ-B15, AC-B17) - and **a
+figure that cannot be worked out is refused naming what is missing, and never returned as zero**
+(REQ-B16, AC-B18). Every figure carries its basis in words, and the window and the moment it was
+read over (REQ-B20).
+
+Three decisions the table in §10 did not settle, all of them made in the arithmetic:
+
+* **A figure about invoices is read off the invoices.** `BillingDesk.invoiced_total` answers for a
+  job whenever a ledger is loaded, and the job desk's own `invoiced` dictionary is reached only when
+  there is no ledger at all - and then the figure says so. An empty ledger means **nothing has been
+  billed**, because the ledger is the record of what went out; an empty dictionary means nobody has
+  said, which is not the same fact.
+* **Billable hours are approved hours.** A timesheet line nobody has approved is work somebody did
+  and is not yet what the business has agreed to pay for.
+* **An unpaid invoice that is not yet due sits in the 0-30 bucket.** Ageing buckets a document by
+  how late it is against its own due date, so one with days still to run is the youngest row on the
+  page rather than an error.
+
+Crew utilisation refuses until a working day is stated, because no hours-per-day is recorded
+anywhere - `CrewMember.available_on` knows a day off and knows nothing about a day's length - and
+the report will not invent the one number the figure is a ratio of.
+
+**`scripts/analytics_window.gd`** (`AnalyticsWindow`) is the page. It holds no figures of its own:
+the two dates and the as-of moment are arguments, and every line is recomputed when one of them
+changes, so a figure can never be a moment out of date. Two things the page does that the report
+may not: **it fills the as-of field in with today** when that field is empty - a page is where today
+is the sensible starting point, and the report is where reading a clock is not - and **it offers the
+eight-hour day as a placeholder rather than a value**, so the hours figure stays refused until
+somebody presses the button that states a day. A figure that cannot be worked out keeps its row,
+greyed, saying what it is waiting for, because a figure left off the page would read as a figure the
+report does not have.
+
+Reached from the **Jobs** menu, beside the board, the cost report, what has been billed and the
+outbox, because what the business is doing is a fact about its records and needs no drawing.
+
+REQ-B35 A figure shall be recomputed from the records for the window and the moment it is asked
+about: no analytic shall be cached, accumulated or carried from one report to the next.
+
+REQ-B36 A page showing the figures shall hold none of them. It shall recompute them when one of its
+arguments changes and shall say which window and which moment it is reading.
 
 ---
 

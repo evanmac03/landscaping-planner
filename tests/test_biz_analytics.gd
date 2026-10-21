@@ -230,6 +230,16 @@ func test_the_funnel_counts_where_a_lead_entered_a_stage_not_where_it_is_now() -
 	assert(counts[LeadScript.LEAD] == 3, "three leads arrived: %s" % str(counts))
 
 
+func test_a_funnel_reads_the_way_a_person_says_a_count_and_a_name() -> void:
+	var line := _text_of(_analytics(), "funnel")
+	assert(line.contains("3 leads"), line)
+	# One, and it is a site visit: the count and the name agree.
+	assert(line.contains("1 site visit,"), line)
+	assert(line.contains("0 qualified"), line)
+	assert(line.contains("3 proposed"), line)
+	assert(line.contains("2 won."), line)
+
+
 func test_a_funnel_with_nothing_in_it_says_so_rather_than_showing_zeroes() -> void:
 	var line := _text_of(_analytics(), "funnel", "2026-05-01", "2026-05-31")
 	assert(line.contains("nothing entered the funnel in this window"), line)
