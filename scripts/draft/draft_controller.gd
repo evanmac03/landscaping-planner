@@ -24,6 +24,7 @@ const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
+const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
@@ -1493,12 +1494,58 @@ func import_osm(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 	}
 
 
+## Put a LandXML plat on the drawing: a surveyor's or a civil engineer's own file, read into
+## something to draw over. The same shape table, the same one undo step and the same default of the
+## layer that does not plot that the DXF and OpenStreetMap readers have (see `LandXmlFile`).
+##
+## The message says *shape* rather than *parcel* because one file may hold parcels, alignments and plan
+## features at once, and naming one of them would be a lie about the other two.
+func import_landxml(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+	if document == null:
+		last_message = "there is no drawing to import it into"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	if not LandXmlFileScript.is_usable(plan):
+		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
+			else "the plat has nothing in it that this can draw")
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	var placed := _place_shapes(plan["shapes"])
+	last_message = "placed %d shape%s%s from %s" % [
+		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
+		"the underlay" if bool(plan["underlay"]) else "the layers the file's features map to",
+	]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "added": int(placed["added"]),
+		"refused": int(placed["refused"]), "message": last_message,
+	}
+
+
 ## Put a table of shape dictionaries on the drawing as **one** undo step, whatever it holds and
 ## whoever read it.
 ##
-## The shapes are `DxfFile`'s own vocabulary, and `OsmFile` speaks it too, so there is exactly one
-## place where a shape becomes a drawing entity. That is what keeps a second reader from being a
-## second chance to forget the circle of no radius or the text with nothing written in it.
+## **The shape table is the interface between a reader and the drawing, and it is three readers old.**
+## A shape is a dictionary with these keys, and nothing else is asked of it:
+##
+## * `kind` - `LINE`, `LWPOLYLINE`, `POLYLINE`, `CIRCLE`, `ARC` or `TEXT`
+## * `layer` - which drawing layer it belongs on, decided by the reader that read it
+## * `points` - the geometry, in model metres: two points for a line, a centre and a `(radius, 0)` for a
+##   circle or an arc, one point for a text, and the vertices of a polyline
+## * `bulges` - one per polyline point: the turn from that point to the next, 0 for a straight run
+## * `closed` - whether a polyline's last point joins its first
+## * `words` - what a text says; `height` - how tall it is, as a model length, reconciled with the
+##   drawing's paper scale here; `arc` - a start angle and a sweep, for an arc
+##
+## `DxfFile`, `OsmFile` and `LandXmlFile` fill that table from a pair stream, a JSON tree and an XML
+## tree respectively, and each adds its own words *beside* those keys - the DXF reader the layer name
+## the file used, the other two the feature a shape came from - because those are facts about a file
+## format rather than about a shape. What is not shared is the units: each reader answers that question
+## itself, and the table is geometry in model metres by the time it is written. That is why a third
+## format with another coordinate convention, another closure rule and another way of stating a curve
+## needed no new key: there is exactly one place where a shape becomes a drawing entity, so a reader
+## cannot be a new chance to forget the circle of no radius or the text with nothing written in it.
 ##
 ## One gesture because an import is one act: somebody who read the wrong file wants one Ctrl+Z
 ## rather than three hundred.

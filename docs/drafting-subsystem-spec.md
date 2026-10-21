@@ -1064,6 +1064,85 @@ to a person who would rather keep the context as conditions on the existing laye
 `options["underlay"] = false` exactly as the DXF import offers it.
 
 
+### 6.7c Cadastral plats from LandXML
+
+**REQ 6.7c.1** A cadastral plat MAY be read from a LandXML file - what a surveyor's or a civil
+engineer's software writes when it hands a *site* to somebody else's software - so that a lot's
+boundary can be traced over rather than re-keyed.
+
+**REQ 6.7c.2** A reader MUST fill the **same shape table** `DxfFile` produces (REQ 6.7.4). A reader
+that needs a new key in it has found a fault in the table, not licence to extend it; the table is
+geometry in model metres by the time it is written, because units are a fact about a file format and
+each reader answers for its own.
+
+**REQ 6.7c.3** A file that states no linear unit MUST be refused until one is given, because
+LandXML's unit is a fact the file states and a plat placed at the wrong scale is a dimension that
+reads right and is wrong. A unit a person gives MUST NOT override one the file states.
+
+**REQ 6.7c.4** A stated linear unit that is not a length this program knows MUST be refused **by
+name**, and a file that states none MUST be refused with a sentence that asks the question.
+
+**REQ 6.7c.5** Closure and the curve are the *format's* facts and MUST be taken from it: a `Parcel`
+is a ring by the schema's own definition, so it is placed closed whether or not its first point is
+written twice, and a `Curve` states its own centre and rotation, so it is placed as the bulge on the
+line it belongs to rather than as a fan of separate arcs.
+
+**REQ 6.7c.6** A file whose units are known but which holds nothing this draws MUST be refused with
+a sentence different from a file that could not be parsed at all (REQ 6.7.6).
+
+**Built:** `scripts/draft/landxml_file.gd` (`LandXmlFile`), with `import_landxml` on the controller
+and File > Import a LandXML plat... in the HUD.
+
+* The reader turns an XML tree of features into the **same shape table `DxfFile` and `OsmFile`
+  produce**, so `DraftController.import_landxml` places it through the same `_place_shapes` the other
+  two use. That table is eight keys - `kind`, `layer`, `points`, `bulges`, `closed`, `words`,
+  `height`, `arc` - and a third format with a different coordinate convention, a different closure
+  rule and a different way of stating a curve needed **no new key**: `tests/test_shape_table.gd` is
+  that claim under test. A reader may add only *provenance* words beside the eight (this one the kind
+  of feature and its name), because those are facts about a file rather than about a shape.
+* `Parcel` is a closed boundary and the one area row, `Alignment` an open line on the existing
+  hardscape layer, `PlanFeature` an open line on the property layer: the layer is the reader's
+  decision, exactly as it is for the other two, and `options["underlay"]` (true by default) overrides
+  all three the way the DXF import offers it.
+* **A point is written northing first** - the schema's own point is `"north east"` or
+  `"north east elev"` - and the model is east +X and north -Y (REQ 1.2.3), so the mapping is
+  `Vector2(easting, -northing)`: a swap *and* a reflection, and one that draws a plat plausibly
+  *turned a quarter turn* if it is missed. `tests/test_landxml_file.gd` holds a northing and an
+  easting an order of magnitude apart so a swap cannot pass as a reflection. The reflection reverses
+  handedness, so every bulge is negated along with the points.
+* `<Start>1000 2000</Start>` and `<Start pntRef="31"/>` are the same point, and the second means
+  "the file's own `CgPoint` 31": the document is read in one pass into a table of points and a list
+  of segments that may still be references, and the references are resolved at the end. A line
+  pointing at a point the file does not hold is counted and left out rather than guessed at.
+* A `Curve` is reduced to the **bulge** between two points - the same arc, stated as the turn - so an
+  alignment arrives as one polyline rather than as a fan of arcs, and a curve with no centre cannot
+  be reconstructed and is refused rather than guessed at. A piece of geometry that is neither a line
+  nor a curve - a spiral - **breaks the line it is in and is named**, because joining the two sides
+  of a spiral with a straight line would be drawing something the file does not say.
+* Surfaces, pipe networks, roadways, typical sections, cross-sections, coordinate systems and
+  monuments are **counted and skipped by name**, like a DXF block: a surface is a TIN of thousands of
+  triangles and a pipe network is a graph, each a whole problem of its own, and saying so is better
+  than half-reading one. One import draws at most `MAX_SHAPES` (4000) shapes and says how many it
+  left out.
+* The page is a panel in the HUD rather than a `Window`, because it holds no text field - the file is
+  chosen through the File menu and the only control it owns is the units drop-down, whose list
+  (`IMPORT_UNIT_CHOICES`) is read as the DXF page's, since it is the same question with the same
+  words. The drop-down is live only while the file's own answer is missing, and answering it re-reads
+  the file rather than converting what was read: the answer is part of reading, not a step after it.
+* An import is **one undo step** whatever it holds, inherited from `_place_shapes`, and the report
+  reads the way the DXF report reads - one line each for the points, the curves, what came in, what
+  was not drawn, where each kind of feature's geometry went, and everything the reader noticed.
+  `tools/landxml_demo.gd` drives the whole page against the real main scene.
+
+**Deviation, recorded deliberately.** LandXML is a *transport* format for a civil survey and not one
+practice's dialect: the schema admits far more than a planting plan needs, and this reader reads the
+plan-view and boundary part of it and names everything else rather than following it. It is also the
+first reader whose units are words rather than a code (`linearUnit="USSurveyFoot"`), which is why the
+unit table, the words for those units and the refusal for a unit it cannot convert all live in the
+reader: the drawing is metric either way, and the US survey foot is 2.0 ppm from the international
+foot - immaterial for a bed and material for a legal boundary (REQ 6.6.3).
+
+
 ### 6.8 Tracing stance
 
 **REQ 6.8.1** Automatic raster vectorisation MUST NOT be offered as a

@@ -255,14 +255,17 @@ const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
+const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const OsmFetchScript := preload("res://scripts/draft/osm_fetch.gd")
 const OsmWindowScript := preload("res://scripts/osm_window.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 
-## The units a person may tell a DXF it is in, when the file does not say. The empty one means "as the
-## file says"; the rest are the names the reader knows, kept short because this is a drop-down.
-const DXF_UNIT_CHOICES: Array[String] = [
+## The units a person may tell an imported file it is in, when the file does not say. The empty one
+## means "as the file says"; the rest are names both the DXF reader and the LandXML reader know, kept
+## short because this is a drop-down. One list rather than one per reader: the question is the same
+## question and the answer is the same word, and two lists of the same words is how they drift.
+const IMPORT_UNIT_CHOICES: Array[String] = [
 	"", "metres", "feet", "inches", "millimetres", "centimetres", "yards", "US survey feet",
 ]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
@@ -315,6 +318,15 @@ var _dxf_text: String = ""
 var _dxf_name: String = ""
 var _dxf_units: String = ""
 var _pending_dxf: Dictionary = {}
+## The LandXML import: the same three pieces the DXF import has, because it is the same act - somebody
+## else's file, read into something to trace over, with the one question a file that does not say its
+## units has to be asked.
+var _landxml_dialog: FileDialog = null
+var _landxml_panel: Control = null
+var _landxml_text: String = ""
+var _landxml_name: String = ""
+var _landxml_units: String = ""
+var _pending_landxml: Dictionary = {}
 ## The OpenStreetMap import: the chooser for a saved extract, the window that holds the site's
 ## coordinates and the radius, and the reader that can reach the network. The map is somebody else's
 ## data over a network, so the reading and the asking are two modules rather than one, and this is
@@ -405,6 +417,7 @@ func _ready() -> void:
 	_build_sheet_window()
 	_build_revision_window()
 	_build_dxf_panel()
+	_build_landxml_panel()
 	_build_osm_window()
 	_build_estimate_window()
 	_build_pipeline_board()
@@ -1460,6 +1473,7 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
 	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
 	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
+	items.append(_command(&"file.landxml", "Import a LandXML plat...", &"", &"_menu_import_landxml", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -2254,6 +2268,17 @@ func _build_file_dialogs() -> void:
 	_dxf_dialog.file_selected.connect(_on_dxf_chosen)
 	add_child(_dxf_dialog)
 
+	# And a LandXML plat is the third shape of the same thing: a file somebody else's software wrote,
+	# holding the site rather than a drawing of it. It reads the whole filesystem for the same reason.
+	_landxml_dialog = FileDialog.new()
+	_landxml_dialog.name = "ImportLandXml"
+	_landxml_dialog.title = "Import a LandXML plat"
+	_landxml_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_landxml_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_landxml_dialog.filters = PackedStringArray(["*.xml ; LandXML plats"])
+	_landxml_dialog.file_selected.connect(_on_landxml_chosen)
+	add_child(_landxml_dialog)
+
 	# A saved Overpass response: the offline half of the map import, for a site somebody looked at on a
 	# machine that could reach the network. JSON only, because that is the one form the reader reads
 	# and a dialog that offers a form it will refuse is a dialog that lies.
@@ -2977,7 +3002,7 @@ func _build_dxf_panel() -> void:
 	var units_choice := OptionButton.new()
 	units_choice.name = "DxfUnits"
 	# Not `name`: this is a CanvasLayer, and `name` is the node's own property.
-	for unit_name: String in DXF_UNIT_CHOICES:
+	for unit_name: String in IMPORT_UNIT_CHOICES:
 		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
 		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
 	units_choice.item_selected.connect(func(index: int) -> void:
@@ -3135,6 +3160,214 @@ func _on_dxf_chosen(path: String) -> void:
 
 func _menu_import_dxf(_entry: Dictionary) -> void:
 	open_dxf_dialog()
+
+
+# --- the LandXML plat ------------------------------------------------------------------
+
+
+## The page a LandXML plat is read onto: what is in the file, where each kind of feature's geometry
+## will land, and - when the file does not say - the question this reader refuses to guess at.
+##
+## Built the way the DXF page is built, because it answers the same two questions - what did you read,
+## and may it go on the drawing - and because a person who has imported one of these has imported the
+## other.
+func _build_landxml_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "LandXmlPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var panel := PanelContainer.new()
+	panel.name = "Page"
+	panel.custom_minimum_size = Vector2(680.0, 0.0)
+	if top_bar != null:
+		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	panel.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Import a LandXML plat"
+	column.add_child(heading)
+
+	var body := Label.new()
+	body.name = "LandXmlText"
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(body)
+
+	# The one question a plat cannot be read without, when it does not answer it itself.
+	var units_row := HBoxContainer.new()
+	units_row.name = "UnitsRow"
+	var units_caption := Label.new()
+	units_caption.text = "Units"
+	units_row.add_child(units_caption)
+	var units_choice := OptionButton.new()
+	units_choice.name = "LandXmlUnits"
+	# Not `name`: this is a CanvasLayer, and `name` is the node's own property.
+	for unit_name: String in IMPORT_UNIT_CHOICES:
+		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
+		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
+	units_choice.item_selected.connect(func(index: int) -> void:
+		choose_landxml_units(String(units_choice.get_item_metadata(index)))
+	)
+	units_row.add_child(units_choice)
+	column.add_child(units_row)
+
+	var buttons := HBoxContainer.new()
+	buttons.name = "Buttons"
+	var import_button := Button.new()
+	import_button.name = "ImportLandXml"
+	import_button.text = "Put it on the drawing"
+	import_button.pressed.connect(confirm_landxml_import)
+	buttons.add_child(import_button)
+	var close_button := Button.new()
+	close_button.name = "CloseLandXml"
+	close_button.text = "Cancel"
+	close_button.pressed.connect(close_landxml_panel)
+	buttons.add_child(close_button)
+	column.add_child(buttons)
+
+	wrapper.add_child(panel)
+	_landxml_panel = wrapper
+	root.add_child(wrapper)
+
+
+func is_landxml_panel_open() -> bool:
+	return _landxml_panel != null and _landxml_panel.visible
+
+
+## What the page says: what is in the plat, where each kind of feature's geometry will go, and what
+## the reader noticed. A person accepts an import by reading this and nothing else.
+func landxml_report_text() -> String:
+	var lines: Array[String] = []
+	if not _landxml_name.is_empty():
+		lines.append(_landxml_name)
+	if _pending_landxml.is_empty():
+		lines.append("no LandXML plat has been read")
+		return "\n".join(PackedStringArray(lines))
+	for line: String in LandXmlFileScript.report_lines(_pending_landxml):
+		lines.append(line)
+	return "\n".join(PackedStringArray(lines))
+
+
+## Whether what was read may go on the drawing. A refused file is *shown* rather than hidden, because
+## the usual reason is the one question it can still answer.
+func landxml_import_enabled() -> bool:
+	return (
+		_draft != null and _draft.document != null
+		and LandXmlFileScript.is_usable(_pending_landxml)
+	)
+
+
+## Read the plat in hand again, with the units a person chose. Called on open and whenever the choice
+## changes: the answer is part of reading the file, not a second step after it.
+func _read_pending_landxml() -> Dictionary:
+	var options := {"underlay": true}
+	if not _landxml_units.is_empty():
+		options["units"] = _landxml_units
+	var plan := LandXmlFileScript.read_text(_landxml_text, options)
+	if bool(plan["ok"]):
+		plan["source"] = _landxml_name
+	return plan
+
+
+func open_landxml_panel() -> void:
+	_pending_landxml = _read_pending_landxml()
+	if _landxml_panel == null:
+		return
+	var body := _landxml_panel.get_node_or_null(^"Page/Column/LandXmlText")
+	if body is Label:
+		(body as Label).text = landxml_report_text()
+	# The units row is live only while the file's own answer is missing. A plat that names its linear
+	# unit is not asked about, for the reason the DXF page gives: answering for a file that already
+	# answered is how a drawing gets halved by accident.
+	var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+	if choice is OptionButton:
+		var option := choice as OptionButton
+		var needed := String(_pending_landxml.get("declared_unit", "")).is_empty()
+		option.disabled = not needed
+		option.tooltip_text = ("this plat does not say what its units are" if needed
+			else "the file states its own units")
+	var answer := _landxml_panel.get_node_or_null(^"Page/Column/Buttons/ImportLandXml")
+	if answer is Button:
+		(answer as Button).disabled = not landxml_import_enabled()
+	_landxml_panel.visible = true
+
+
+func close_landxml_panel() -> void:
+	if _landxml_panel != null:
+		_landxml_panel.visible = false
+	_pending_landxml = {}
+	_landxml_text = ""
+	_landxml_name = ""
+	_landxml_units = ""
+
+
+## What the units drop-down does: answer the question, then read the file again with the answer. The
+## drop-down is also told what was chosen, so the page cannot read the file with one answer while
+## showing another - `select()` does not emit `item_selected`, so this cannot come back round.
+func choose_landxml_units(units: String) -> void:
+	_landxml_units = units
+	if _landxml_panel != null:
+		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		if choice is OptionButton:
+			var option := choice as OptionButton
+			for index in option.item_count:
+				if String(option.get_item_metadata(index)) == units:
+					option.select(index)
+					break
+	open_landxml_panel()
+
+
+## What the units drop-down is currently showing, for a run that wants to see that it agrees with what
+## the file was read as.
+func landxml_units_text() -> String:
+	if _landxml_panel != null:
+		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		if choice is OptionButton:
+			var option := choice as OptionButton
+			if option.item_count > 0:
+				return option.get_item_text(maxi(option.selected, 0))
+	return ""
+
+
+## Put what was read on the drawing. The page stays up until the drawing has taken it, so a refused
+## import is answered by the same page that asked.
+func confirm_landxml_import() -> void:
+	if _draft == null or _pending_landxml.is_empty():
+		return
+	var taken: Dictionary = _draft.import_landxml(_pending_landxml)
+	if bool(taken.get("ok", false)):
+		close_landxml_panel()
+
+
+## The plat chooser. Anywhere on the disk, because a plat is a file somebody else's software wrote.
+func open_landxml_dialog() -> void:
+	if _landxml_dialog != null:
+		_landxml_dialog.popup_centered_ratio(0.7)
+
+
+## A plat was chosen: read it, then show what was read. The file is kept as text rather than read once,
+## because a file that does not say its units has to be read again with the answer.
+func _on_landxml_chosen(path: String) -> void:
+	release_keyboard_focus(self)
+	_landxml_units = ""
+	_landxml_name = path.get_file()
+	_landxml_text = ""
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file != null:
+		_landxml_text = file.get_as_text()
+		file.close()
+	open_landxml_panel()
+
+
+func _menu_import_landxml(_entry: Dictionary) -> void:
+	open_landxml_dialog()
 
 
 # --- the site map from OpenStreetMap -------------------------------------------------

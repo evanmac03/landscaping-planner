@@ -339,11 +339,12 @@ static func _shape_for(
 static func _shape(
 	kind: String, layer: StringName, points: PackedVector2Array, closed: bool, words: String, feature: String
 ) -> Dictionary:
+	# No `reason` on a shape that was drawn: a reason belongs to the refusal path (`_no_points`), and a
+	# key that is always empty on everything a reader produced is a key a caller has to wonder about.
 	return {
 		"kind": kind, "layer": layer, "feature": feature,
 		"points": points, "bulges": PackedFloat64Array(), "closed": closed,
 		"words": words, "height": 0.0, "arc": Vector2.ZERO,
-		"reason": "",
 	}
 
 
