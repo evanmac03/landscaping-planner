@@ -45,6 +45,7 @@ const SUBJECTS: Array[String] = [
 	"Jobs, crews and the schedule",
 	"Billing and the books",
 	"Presenting the garden",
+	"The sun and the shadows",
 	"Sheets and plotting",
 	"Working with others",
 	"Undo, revisions and where your files are",
@@ -448,6 +449,25 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"The painted plan and the ground view are the other two ways of showing the same garden: one is "
 		+ "the plan as a drawing would be coloured by hand, the other is standing in it.",
+	]))
+	out.append(_topic("The sun and the shadows", [
+		"Present > Sun and shadow study... opens the page that answers the questions a client "
+		+ "actually asks: will the patio be in shade by four, and will it be in shade in June. A "
+		+ "study is a list of moments rather than one moment, so the four buttons are a June day, a "
+		+ "December day, the equinoxes and the two solstices, and the day and hour fields add any "
+		+ "moment of your own.",
+		"",
+		"Each row says where the sun stands and how far the shadow of the height you type reaches, "
+		+ "in the drawing's own units. A moment after dark casts nothing and says so rather than "
+		+ "showing nought, and a moment with the sun very low says its number is really about the "
+		+ "hour rather than the garden.",
+		"",
+		"Aim the sun at it points the presentation at the moment you have chosen, and Render the "
+		+ "stills writes one picture per moment the sun is up, each named for the moment it shows "
+		+ "rather than for when it was rendered.",
+		"",
+		"The site a study is of is the drawing's own - the latitude, longitude and zone offset on "
+		+ "the presentation panel - because a place is stated once.",
 	]))
 	out.append(_topic("Sheets and plotting", [
 		"A sheet is paper, not geometry: the drawing goes on it at a scale, with a border, a title block, "

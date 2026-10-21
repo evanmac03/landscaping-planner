@@ -105,6 +105,10 @@ const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
+## The study of the sun rather than the sun itself: `SunStudy` says where the sun is at one moment,
+## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
+const SunReportScript := preload("res://scripts/vis/sun_report.gd")
+const SunWindowScript := preload("res://scripts/sun_window.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
@@ -402,6 +406,24 @@ var _plant_order_window: PlantOrderWindowScript = null
 ## What the last refresh of that page was drawn from: the planting rows and the desk's own counts. The
 ## page is about the yard and about the jobs, and either can move while it is open.
 var _plant_order_state: String = ""
+## The study of the sun: a list of moments, and what the height in hand casts at each. A window,
+## because the height is typed and the study is built out of the fields.
+var _sun_window: SunWindowScript = null
+## What the last refresh of that page was drawn from: the site the study is of, and the size of the
+## study. The page holds the list, so a refresh that rebound it every frame would be the page arguing
+## with the hand that is building it.
+var _sun_state: String = ""
+## The study being rendered, one still at a time: the moments, the name each still takes, and how far
+## the walk has got. A small state machine rather than a loop that awaits, because the director renders
+## in real frames and reports by signal, so the next moment is started by the previous one landing.
+var _sun_render_moments: Array = []
+var _sun_render_names: Array[String] = []
+var _sun_render_index: int = 0
+var _sun_render_written: int = 0
+var _sun_render_refused: int = 0
+## Whether a still this HUD asked for is in flight, so a still the panel's own button asked for is not
+## counted as one of the study's.
+var _sun_render_waiting: bool = false
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -503,6 +525,8 @@ func _ready() -> void:
 	_build_ledger_window()
 	_build_analytics_report()
 	_build_analytics_window()
+	# The sun's study: a window, because the height it reports about is typed into it.
+	_build_sun_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -527,6 +551,9 @@ func _process(delta: float) -> void:
 	_tick_grading_window()
 	# And the same for the plants to buy: the yard and the job desk both move under that page.
 	_tick_plant_order_window()
+	# And the same for the sun: the study's own site lives on the drawing, and an undo can put another
+	# one back under a page that is open.
+	_tick_sun_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -1324,12 +1351,21 @@ func _on_still_written(path: String) -> void:
 	visible = true
 	if _still_status != null:
 		_still_status.text = "wrote %s" % path.get_file()
+	# A study renders one still per moment and starts the next from this one landing, so the file has
+	# to be checked against the moment in hand: a still the panel's own button asked for in between is
+	# not a step of the study.
+	if _sun_still_is_ours(path):
+		_sun_still_landed(true)
 
 
 func _on_still_failed(reason: String) -> void:
 	visible = true
 	if _still_status != null:
 		_still_status.text = "no still: %s" % reason
+	# A failure in the middle of a study does not stop it: the rest of the moments are still worth
+	# rendering, and the walk's own sentence counts what it could not do.
+	if _sun_render_waiting:
+		_sun_still_landed(false)
 
 
 # --- the painted plan -----------------------------------------------------------------
@@ -1793,6 +1829,11 @@ static func present_items() -> Array[Dictionary]:
 	items.append(_separator())
 	items.append(_submenu(&"present.still_size", "Still size", still_size_items()))
 	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
+	items.append(_command(
+		&"present.sun_study", "Sun and shadow study...", &"", &"_menu_sun_window", NEEDS_PRESENTATION
+	))
+	items.append(_separator())
+	items.append(_info(&"present.sun_info", "the sun"))
 	items.append(_separator())
 	items.append(_command(&"present.save_site", "Save the site to the drawing", &"", &"_menu_save_site"))
 	return items
@@ -2125,6 +2166,10 @@ func menu_world() -> Dictionary:
 		# of the bar that changes because somebody else did something.
 		"session": _presence_text(),
 		"session_on": _presence != null and _presence.is_on(),
+		# The sun's study in hand, in the site's own words plus its size. Cheap: it formats two
+		# numbers and the site, and it is on the signature because the page's study changes without
+		# the drawing changing at all.
+		"sun": _sun_text(),
 	}
 	return world
 
@@ -2348,6 +2393,7 @@ func _refresh_menus() -> void:
 	_refresh_pipeline_menu()
 	_refresh_jobs_menu()
 	_refresh_team_menu()
+	_refresh_present_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -4500,6 +4546,231 @@ func _apply_hints_visibility() -> void:
 	if hints != null:
 		var painted: bool = painted_sheet != null and painted_sheet.visible
 		hints.visible = _show_hints and not _presenting and not painted
+
+
+# --- the sun and the shadows --------------------------------------------------------------
+#
+# The presentation panel states the site and aims the sun at one moment: it is a *view* control, and
+# what it is aiming is a viewing fact. This is the study of that sun - a list of moments, and what the
+# height in hand casts at each - which is a question a client asks ("will it be in shade by four",
+# "will it be in shade in June") rather than a camera position.
+#
+# The arithmetic is `SunReport`'s and the page is `SunWindow`'s. What is left here is the three joins:
+# the site the page is pointed at, the sun it aims, and the stills it renders.
+
+
+## Build the page and wire every one of its intents.
+func _build_sun_window() -> void:
+	if _sun_window != null:
+		return
+	_sun_window = SunWindowScript.new()
+	_sun_window.name = "SunWindow"
+	_sun_window.apply_requested.connect(apply_sun_moment)
+	_sun_window.render_requested.connect(render_sun_study)
+	_sun_window.closed.connect(_on_sun_window_closed)
+	add_child(_sun_window)
+	_sun_window.build()
+	_sun_window.hide()
+
+
+func open_sun_window() -> void:
+	_build_sun_window()
+	if _sun_window == null:
+		return
+	_fill_sun_window()
+	_sun_window.popup_centered()
+	# A page with a height to type into holds the keyboard while it is up, the way the grading page
+	# does; the drawing keys belong to the drawing again the moment it closes.
+	release_keyboard_focus(self)
+
+
+func close_sun_window() -> void:
+	if _sun_window != null and _sun_window.visible:
+		_sun_window.hide()
+
+
+func is_sun_window_open() -> bool:
+	return _sun_window != null and _sun_window.visible
+
+
+## Point the page at the presentation's own site and the drawing's own units, and give it a study to
+## start from when it has none. Kept apart from *showing* the page so the filling can be driven with no
+## window server, which is how the suite checks it.
+##
+## The study is only seeded when there is none: a page that had been closed with a study in hand and
+## opened again should come back to that study rather than to a June day.
+func _fill_sun_window() -> void:
+	_build_sun_window()
+	if _sun_window == null:
+		return
+	_sun_window.set_units(_drawing_units())
+	_sun_window.bind(_sun_site())
+	_sun_state = ""
+	_refresh_sun_window()
+	if _sun_window.moment_count() == 0:
+		_sun_window.use_preset(&"june_day")
+	_sun_window.say(_sun_window.opening_words())
+	_refresh_menus()
+
+
+## The site the study is of: the presentation's own fields, which are the ones the panel edits and the
+## ones the drawing keeps. With no presentation in the scene there is no site, and the page says so
+## rather than studying a latitude nobody stated.
+func _sun_site() -> Dictionary:
+	if presentation == null:
+		return {}
+	return presentation.current_site()
+
+
+## The page while it is up: the site can move behind it - somebody editing the panel's fields, or a
+## drawing loaded with another site in it - so it is read again whenever the site has moved. The
+## *study* is not read again: it is the page's own, and rebinding it would throw away what a person is
+## in the middle of building.
+func _tick_sun_window() -> void:
+	if _sun_window == null or not _sun_window.visible:
+		return
+	var state := str(_sun_site())
+	if state == _sun_state:
+		return
+	_sun_state = state
+	_sun_window.bind(_sun_site())
+	_refresh_menus()
+
+
+func _refresh_sun_window() -> void:
+	if _sun_window == null:
+		return
+	_sun_state = str(_sun_site())
+
+
+## Aim the presentation's sun at one moment of the study, and say on the page what came of it.
+##
+## The presentation says whether it could rather than this: a moment whose sun is below the horizon, or
+## whose sun is on it, is refused there by name rather than clamped to something. Returns false the same
+## way, for a caller with no page to read.
+func apply_sun_moment(moment: Dictionary) -> bool:
+	if presentation == null:
+		if _sun_window != null:
+			_sun_window.say("there is no presentation to aim")
+		return false
+	var aimed: bool = presentation.apply_sun(_sun_site(), moment)
+	if _sun_window != null:
+		if aimed:
+			_sun_window.say("the sun is at %s" % SunReportScript.moment_words(moment))
+		else:
+			_sun_window.say("the sun was not moved at %s" % SunReportScript.moment_words(moment))
+	_refresh_menus()
+	return aimed
+
+
+## Render one still per moment of the study, named for the moment each shows.
+##
+## One at a time and signal-driven: a rendering walk that awaited a loop would block the frame it was
+## pressed in, and the director already answers by signal. The sun is aimed before each shot, because
+## a still of the garden is a still of the garden *at that moment*.
+##
+## Returns what it is going to do, so a caller - or a test - can see the plan without a renderer.
+func render_sun_study(moments: Array) -> Dictionary:
+	if presentation == null:
+		return _refuse_sun_render("there is no presentation to render from")
+	if moments.is_empty():
+		return _refuse_sun_render("no moment of this study has the sun up, so there is nothing to render")
+	_sun_render_moments = moments.duplicate()
+	_sun_render_names = SunReportScript.still_names(moments)
+	_sun_render_index = 0
+	_sun_render_written = 0
+	_sun_render_refused = 0
+	_sun_render_waiting = false
+	_render_next_sun_still()
+	return {"ok": true, "reason": "", "names": _sun_render_names}
+
+
+func _refuse_sun_render(reason: String) -> Dictionary:
+	if _sun_window != null:
+		_sun_window.say(reason)
+	var none: Array[String] = []
+	return {"ok": false, "reason": reason, "names": none}
+
+
+## The next still of the walk, or the end of it. A moment whose sun cannot be aimed - which the page's
+## own `renderable_moments` should already have kept out - is counted as refused rather than rendered,
+## so the end of the walk can say how many of the study's moments it managed.
+func _render_next_sun_still() -> void:
+	if presentation == null or _sun_render_index >= _sun_render_moments.size():
+		_finish_sun_render()
+		return
+	var moment: Dictionary = _sun_render_moments[_sun_render_index]
+	if not presentation.apply_sun(_sun_site(), moment):
+		_sun_render_refused += 1
+		_sun_render_index += 1
+		_render_next_sun_still()
+		return
+	_sun_render_waiting = true
+	presentation.render_still(selected_still_size(), _sun_render_names[_sun_render_index])
+
+
+## Whether a still that has just landed is one of this study's: it is, when the walk is waiting and the
+## file is the one the moment in hand was to be called. A still the panel's own button asked for while a
+## study was being rendered is therefore left alone rather than counted.
+func _sun_still_is_ours(path: String) -> bool:
+	if not _sun_render_waiting:
+		return false
+	if _sun_render_index >= _sun_render_names.size():
+		return false
+	return path.contains(_sun_render_names[_sun_render_index])
+
+
+func _sun_still_landed(rendered: bool) -> void:
+	_sun_render_waiting = false
+	if rendered:
+		_sun_render_written += 1
+	else:
+		_sun_render_refused += 1
+	_sun_render_index += 1
+	_render_next_sun_still()
+
+
+func _finish_sun_render() -> void:
+	_sun_render_waiting = false
+	if _sun_window == null:
+		return
+	if _sun_render_written == 0 and _sun_render_refused == 0:
+		return
+	var words := "%d still%s written" % [_sun_render_written, "" if _sun_render_written == 1 else "s"]
+	if _sun_render_refused > 0:
+		words += ", %d moment%s could not be rendered" \
+			% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
+	_sun_window.say(words)
+
+
+## What the Present menu's own line says about the sun: the site it is of, and how big the study in
+## hand is. The count of what has the sun up is on the line because a study of six June hours is a
+## different study from one of six December ones, and the two read the same until they are rendered.
+func _sun_text() -> String:
+	if presentation == null:
+		return "there is no presentation to study the sun from"
+	var site: String = presentation.site_text()
+	var count: int = _sun_window.moment_count() if _sun_window != null else 0
+	if count == 0:
+		return "%s: no moments chosen yet" % site
+	var up: int = _sun_window.renderable_moments().size()
+	return "%s: %d moment%s, %d with the sun up" \
+		% [site, count, "" if count == 1 else "s", up]
+
+
+func _refresh_present_menu() -> void:
+	var info := _find_item(&"present.sun_info")
+	if not info.is_empty():
+		var popup: PopupMenu = info[0]
+		popup.set_item_text(int(info[1]), _sun_text())
+
+
+func _menu_sun_window(_entry: Dictionary) -> void:
+	open_sun_window()
+
+
+func _on_sun_window_closed() -> void:
+	_refresh_menus()
 
 
 # --- hatching a region ---------------------------------------------------------------------

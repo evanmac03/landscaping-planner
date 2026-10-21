@@ -26,6 +26,7 @@ signal note(text: String)
 
 const Tier := preload("res://scripts/vis/presentation_tier.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
+const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const OrbitCameraScript := preload("res://scripts/vis/orbit_camera.gd")
 const StillExporterScript := preload("res://scripts/vis/still_exporter.gd")
 const SidecarScript := preload("res://scripts/vis/still_sidecar.gd")
@@ -143,12 +144,12 @@ func save_site() -> bool:
 
 
 ## The site in words, for a status line: "45.0°N 75.0°W, UTC-5".
+##
+## Worded by `SunReport`, which is where a site's three numbers become a sentence: the panel's
+## line, a study's page and a study's own record all read the same because they call the same
+## function.
 func site_text() -> String:
-	return "%.1f°%s %.1f°%s, UTC%+.1f" % [
-		absf(latitude), "N" if latitude >= 0.0 else "S",
-		absf(longitude), "E" if longitude >= 0.0 else "W",
-		utc_offset_hours,
-	]
+	return SunReportScript.site_words(current_site())
 
 
 func is_active() -> bool:
@@ -314,7 +315,12 @@ func required_shadow_distance() -> float:
 ## Asynchronous: it waits for real frames, and it says what happened by signal, so
 ## the caller is a status line rather than a function that blocks the frame it was
 ## pressed in.
-func render_still(output_size: Vector2i) -> void:
+##
+## `base_name` is what the file is named after, before the moment it was written. A
+## presentation's still is named for the wall clock; a sun study's is named for the moment it
+## shows, so a folder of them reads in the order of the study rather than of the evening
+## somebody rendered them.
+func render_still(output_size: Vector2i, base_name: String = "presentation") -> void:
 	if _exporter == null:
 		still_failed.emit("there is no renderer to take a still with.")
 		return
@@ -335,7 +341,7 @@ func render_still(output_size: Vector2i) -> void:
 	var path: String = await _exporter.render_still(
 		[orbit.camera] as Array[Node],
 		output_size,
-		StillExporterScript.timestamp_name("presentation"),
+		StillExporterScript.timestamp_name(base_name),
 		record
 	)
 	if path == "":

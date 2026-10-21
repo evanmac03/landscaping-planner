@@ -1368,6 +1368,99 @@ REQ-V7.14 A study's accuracy shall not be claimed beyond its inputs. The astrono
 good to a hundredth of a degree, which leaves the *drawing* in charge of the error, and the
 documentation shall say so rather than implying that a stiller number makes a truer shadow.
 
+### 7.3b The study: a season of moments
+
+Section 7.3's `SunStudy` answers *where is the sun at this moment*, which is a camera position.
+The question a garden actually gets asked is a different one - "will the patio be in shade by
+four", "will it be in shade in June" - and it is a question about a **list** of moments, because
+the person asking does not yet know which moment matters. That list is a **study**, and it is
+`SunReport`.
+
+**A study is a list, not a moment.** The page's own subject is the list, and the four ready-made
+studies it offers are the four questions gardens get asked: a June day, a December day, the two
+equinoxes and the two solstices. Two of those are stated as *sets of days*, because a season is
+read the way a day is.
+
+**The site is not stated on the study page.** A latitude, a longitude and a zone offset are a fact
+about the drawing, and the presentation panel is where they are edited - a second site form would
+be a second answer to one question. The page is *told* a site, and the HUD tells it the
+presentation's own `current_site()`; the site's one wording, `site_words`, is also what the
+presentation's own `site_text()` prints, so the panel and a study cannot describe one site two
+ways.
+
+**The height is stated on the page, and that is the whole of what a study claims.** An entity on
+the plan is a shape on the ground and carries no height above it, so a study reports what a
+*stated* height casts and never claims to know what is in the shade. `DEFAULT_HEIGHT_M` is 1.8 m,
+and the figure is in the drawing's own units, because a drawing in feet gets a field in feet.
+
+**A sun that is not up casts nothing, and that is a refusal rather than a zero.** Zero is what a
+sun straight overhead casts - the shortest length a shadow can have - so a garden after dark is
+reported by naming the moment, and a sun whose *centre* is on the horizon is refused in different
+words again ("so the shadow has no end"), because that length is a division by a tangent near zero
+rather than a shadow. A sun below `MIN_ALTITUDE_DEG` (5 degrees) is a third case: the length is
+stated, because it is arithmetically right, and a note beside it says the number says more about
+the hour than the garden - a 46 m shadow at 2 degrees is the honest answer to a question nobody
+should be asking with a tree.
+
+**A study's still is named for the moment it shows** - `sun-study-172-1600`, not the wall clock the
+render happened to run at - so a folder of a season's stills sorts into the order of the study.
+That is why the presenter's `render_still` takes a `base_name`.
+
+**The page promises only the stills it can render.** `render_requested` hands over the moments
+with the sun up, so a caller does not have to sort them out and cannot render a garden after dark
+by accident; the dark moments are still *rows* of the table, because they are part of the answer.
+Nothing is written by the page: the sun is aimed and the stills rendered by signals the HUD acts
+on.
+
+```gdscript
+class_name SunReport
+extends RefCounted
+
+const DAY_HOURS := [8.0, 10.0, 12.0, 14.0, 16.0, 18.0]
+const MIN_ALTITUDE_DEG := 5.0          # below this the length is stated, with a note
+const DEFAULT_HEIGHT_M := 1.8
+static func preset_names() -> Array[StringName]                # june_day, december_day, ...
+static func preset(name: StringName) -> Array[Dictionary]      # no such name: EMPTY, not a default
+static func still_name(moment: Dictionary) -> String           # "sun-study-172-1600"
+static func shadow(site, moment, height_m) -> Dictionary       # the length, the bearing, or why not
+static func row_for(site, moment, height_m, units) -> Dictionary  # one row of the table, as words
+static func rows(site, moments, height_m, units) -> Array[Dictionary]
+static func days(site, moments) -> Array[Dictionary]           # each day once: rise, set, length
+static func summary(site, moments, height_m, units) -> String  # the page's own opening sentence
+```
+
+The page is `SunWindow`, a `Window` rather than a `Control` for the reason the grading page is:
+it has a height to *type into*, so it must take the keyboard while it is up and give it back when
+it closes. It holds the study, the day and hour fields the moments are built from, the four preset
+buttons, the table of rows, the day lines and the summary.
+
+The HUD joins it in three places: the Present menu's `Sun and shadow study...` entry, a menu line
+saying how big the study in hand is and how many of its moments have the sun up, and a
+`_tick_sun_window` that rebinds the *site* while the page is up - the study is the page's own and
+is never rebound, because a refresh that threw away what a person was building would be the page
+arguing with the hand. Rendering is one still at a time and signal-driven: `render_sun_study`
+walks the moments, aiming the sun before each shot, and each step is finished by the director's own
+report - which is why the walk checks the file name it is handed, so a still the panel's own button
+asked for in between is not counted as a step of the study.
+
+REQ-V7.15 A study shall be a list of moments rather than a single moment, read in the order the
+moments were chosen. Its ready-made studies shall be the four questions a garden is asked - a June
+day, a December day, the equinoxes and the two solstices - and a preset name nobody has shall be an
+empty study rather than a default one.
+
+REQ-V7.16 A study's site shall be the drawing's own site, stated in one place, and the study page
+shall be told it rather than stating it. A study's cast shall be computed for the height stated in
+the study, in the drawing's own units, and no study shall claim to know what is in the shade.
+
+REQ-V7.17 A sun that is below the horizon shall be refused by naming the moment, and a sun whose
+centre is on the horizon shall be refused as a shadow with no end. Both are different from a zero,
+which is what a sun straight overhead casts. A sun below five degrees shall state its length and a
+note saying the hour is doing the talking.
+
+REQ-V7.18 A study's still shall be named for the moment it shows rather than for the time it was
+rendered, and a study shall ask for stills only for the moments the sun is up. The page shall
+write nothing itself: aiming the sun and rendering the stills are the HUD's acts.
+
 ### 7.4 Planting at scale: instancing, with per-instance variation
 
 A planting plan holds hundreds of plants. As nodes, that is hundreds of objects; as

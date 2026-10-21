@@ -90,6 +90,7 @@ say what each menu is *for* rather than only listing its rows:
 | Jobs, crews and the schedule | handing an estimate to a job, booking, clashes |
 | Billing and the books | rates, milestones, invoices, payments, the ledger |
 | Presenting the garden | the painted plan, stills, the proposal page |
+| The sun and the shadows | a season of moments, what a stated height casts, and a still for each |
 | Sheets and plotting | the sheet set, sizes, scale, plotting |
 | Working with others | presence — a session started on purpose |
 | Undo, revisions and where your files are | the gesture history, revisions, the copy kept for unsaved work, `user://` |

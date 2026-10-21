@@ -475,6 +475,13 @@ photograph, the consultant's concept.
     grower onto the job desk. It issues nothing, and the only two things the page asks for are the
     two things only a person knows: which job the plants are for, and which nursery they come from.
 
+11. ~~**The sun, and the shadows it casts across a season.**~~ **Done.** Built as
+    `scripts/vis/sun_report.gd` and `scripts/sun_window.gd` with three test files; see the
+    visualization subsystem spec, section 7.3b. `SunStudy` already said where the sun is at one
+    moment; this says what a *list* of moments and a *stated* height come to, which is the question
+    a garden is actually asked. It writes nothing: aiming the sun and rendering the stills are the
+    HUD's acts.
+
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
@@ -491,3 +498,9 @@ Section 8c was checked in `tools/plant_order_demo.gd`, which orders the shipped 
 planting through the real page and reads the order back off the job desk. Its first run was
 refused because the yard's props carry no species recorded, and that refusal is the module
 answering honestly rather than pricing a plant nobody can name.
+
+Section 8d was checked in `tools/sun_study_demo.gd`, which drives the real page through the
+buttons its own captions name - a season first, then two moments typed into its fields - aims the
+presentation's own sun at each of them and renders a still for each. Two captures of the *same*
+moment came back with 0 of the 39 898 sampled pixels differing that the two suns differ in, so what
+moved was the sun and not the screen under it.
