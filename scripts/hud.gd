@@ -243,6 +243,9 @@ const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
+const OsmFetchScript := preload("res://scripts/draft/osm_fetch.gd")
+const OsmWindowScript := preload("res://scripts/osm_window.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 
@@ -301,6 +304,14 @@ var _dxf_text: String = ""
 var _dxf_name: String = ""
 var _dxf_units: String = ""
 var _pending_dxf: Dictionary = {}
+## The OpenStreetMap import: the chooser for a saved extract, the window that holds the site's
+## coordinates and the radius, and the reader that can reach the network. The map is somebody else's
+## data over a network, so the reading and the asking are two modules rather than one, and this is
+## where the two meet.
+var _osm_dialog: FileDialog = null
+var _osm_window: OsmWindow = null
+var _osm_fetch: OsmFetch = null
+var _pending_osm: Dictionary = {}
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -383,6 +394,7 @@ func _ready() -> void:
 	_build_sheet_window()
 	_build_revision_window()
 	_build_dxf_panel()
+	_build_osm_window()
 	_build_estimate_window()
 	_build_pipeline_board()
 	_build_job_desk()
@@ -1389,6 +1401,7 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_submenu(&"file.recent", "Open recent", []))
 	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
 	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
+	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -2182,6 +2195,18 @@ func _build_file_dialogs() -> void:
 	_dxf_dialog.filters = PackedStringArray(["*.dxf ; DXF drawings"])
 	_dxf_dialog.file_selected.connect(_on_dxf_chosen)
 	add_child(_dxf_dialog)
+
+	# A saved Overpass response: the offline half of the map import, for a site somebody looked at on a
+	# machine that could reach the network. JSON only, because that is the one form the reader reads
+	# and a dialog that offers a form it will refuse is a dialog that lies.
+	_osm_dialog = FileDialog.new()
+	_osm_dialog.name = "OsmDialog"
+	_osm_dialog.title = "Open a saved map"
+	_osm_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_osm_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_osm_dialog.filters = PackedStringArray(["*.json ; OpenStreetMap responses"])
+	_osm_dialog.file_selected.connect(_on_osm_chosen)
+	add_child(_osm_dialog)
 
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
@@ -3052,6 +3077,160 @@ func _on_dxf_chosen(path: String) -> void:
 
 func _menu_import_dxf(_entry: Dictionary) -> void:
 	open_dxf_dialog()
+
+
+# --- the site map from OpenStreetMap -------------------------------------------------
+
+
+## Build the map window and wire every one of its intents. The window draws nothing, reads nothing and
+## asks nothing of the network: it announces what a person did and this is the place that answers, so
+## the coordinates a fetch was made with and the coordinates a report was read at cannot disagree.
+func _build_osm_window() -> void:
+	if _osm_window != null:
+		return
+	_osm_window = OsmWindowScript.new()
+	_osm_window.name = "OsmWindow"
+	_osm_window.fetch_requested.connect(_on_osm_fetch)
+	_osm_window.open_file_requested.connect(open_osm_map_dialog)
+	_osm_window.import_requested.connect(confirm_osm_import)
+	_osm_window.closed.connect(close_osm_window)
+	add_child(_osm_window)
+	_osm_window.build()
+	# The one node in this HUD that reaches the network, kept beside the window it serves.
+	_osm_fetch = OsmFetchScript.new()
+	_osm_fetch.name = "OsmFetch"
+	add_child(_osm_fetch)
+	# Not shown until it is asked for, the same as every other page in this HUD: a map window that
+	# appeared the moment the program started would be the drawing buried under a form nobody opened.
+	_osm_window.hide()
+
+
+## Open the map window on the drawing's own site. A site is already a fact about the drawing - the sun
+## study reads the same two numbers - so the common case is a person opening this and pressing Fetch.
+func open_osm_window() -> void:
+	_build_osm_window()
+	if _osm_window == null:
+		return
+	_fill_osm_window()
+	_osm_window.popup_centered()
+
+
+## Point the window at the drawing's own site and show whatever is in hand. Kept apart from showing
+## the window itself so the filling can be driven without a window server, which is how the suite
+## checks it - `popup_centered` needs a screen and a test does not have one.
+func _fill_osm_window() -> void:
+	if _osm_window == null:
+		return
+	if _draft != null and _draft.document != null:
+		_osm_window.show_site(_draft.document.site_latitude, _draft.document.site_longitude)
+	_osm_window.show_report(osm_report_text())
+	_osm_window.set_import_enabled(osm_import_enabled())
+	_osm_window.say("")
+
+
+## Close it and forget the map in hand, the same way the DXF page does: a page that has been closed
+## and reopened says "no map has been read" rather than showing one that is no longer on screen.
+func close_osm_window() -> void:
+	if _osm_window != null and _osm_window.visible:
+		_osm_window.hide()
+	_pending_osm = {}
+
+
+func is_osm_window_open() -> bool:
+	return _osm_window != null and _osm_window.visible
+
+
+## The place the form is showing, or the drawing's own site when there is no window - so a saved map
+## read from a file dialog is read at the same centre as one fetched from the network.
+func _osm_centre() -> Dictionary:
+	if _osm_window != null:
+		return _osm_window.centre()
+	if _draft != null and _draft.document != null:
+		return _draft.document.site()
+	return {}
+
+
+func _osm_radius() -> float:
+	if _osm_window != null:
+		return _osm_window.radius_m()
+	return OsmFetchScript.DEFAULT_RADIUS_M
+
+
+## What the window says: the file it came from, if any, and everything the reader noticed.
+func osm_report_text() -> String:
+	if _pending_osm.is_empty():
+		return "no map has been read"
+	var lines: Array[String] = []
+	if not String(_pending_osm.get("source", "")).is_empty():
+		lines.append(String(_pending_osm["source"]))
+	for line: String in OsmFileScript.report_lines(_pending_osm):
+		lines.append(line)
+	return "\n".join(PackedStringArray(lines))
+
+
+## Whether what was read may go on the drawing. A refused map is *shown* rather than hidden, because
+## the usual reason is one a person can fix: a coordinate that is not a place, or a name that is not a
+## file.
+func osm_import_enabled() -> bool:
+	return _draft != null and _draft.document != null and OsmFileScript.is_usable(_pending_osm)
+
+
+## Ask OpenStreetMap for the map around the site the form shows, and read what it answers.
+##
+## Awaited, because a network answer is not a thing a frame can wait for: the status line says what is
+## happening, and the report replaces it when it arrives.
+func _on_osm_fetch(centre: Dictionary, radius_m: float) -> void:
+	_build_osm_window()
+	if _osm_fetch == null:
+		return
+	if _osm_window != null:
+		_osm_window.say("asking OpenStreetMap...")
+	var plan: Dictionary = await _osm_fetch.fetch(centre, radius_m)
+	_pending_osm = plan
+	if _osm_window == null:
+		return
+	_osm_window.show_report(osm_report_text())
+	_osm_window.set_import_enabled(osm_import_enabled())
+	_osm_window.say(
+		"the map was not read" if not bool(plan.get("ok", false))
+		else OsmFileScript.describe(plan)
+	)
+
+
+## The chooser for a map already saved on disk. Anywhere on the disk, because it is a file somebody
+## exported rather than one this program wrote where it can follow it.
+func open_osm_map_dialog() -> void:
+	if _osm_dialog != null:
+		_osm_dialog.popup_centered_ratio(0.7)
+
+
+## A saved map was chosen: read it at the centre and the radius the window is showing, then show what
+## was read. Nothing reaches the drawing until the report has been shown.
+func _on_osm_chosen(path: String) -> void:
+	release_keyboard_focus(self)
+	_pending_osm = OsmFetchScript.read_saved(path, _osm_centre(), _osm_radius())
+	if _osm_window == null:
+		return
+	_osm_window.show_report(osm_report_text())
+	_osm_window.set_import_enabled(osm_import_enabled())
+	_osm_window.say(
+		"the map was not read" if not bool(_pending_osm.get("ok", false))
+		else OsmFileScript.describe(_pending_osm)
+	)
+
+
+## Put what was read on the drawing. The window stays up until the drawing has taken it, so a refused
+## import is answered by the same page that asked.
+func confirm_osm_import() -> void:
+	if _draft == null or _pending_osm.is_empty():
+		return
+	var taken: Dictionary = _draft.import_osm(_pending_osm)
+	if bool(taken.get("ok", false)):
+		close_osm_window()
+
+
+func _menu_import_osm(_entry: Dictionary) -> void:
+	open_osm_window()
 
 
 func open_survey_dialog() -> void:

@@ -23,6 +23,7 @@ const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
@@ -1381,11 +1382,65 @@ func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 			else "the file has nothing in it that this can draw")
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	var placed := _place_shapes(plan["shapes"])
+	last_message = "placed %d shape%s%s on the %s" % [
+		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
+		"underlay" if bool(plan["underlay"]) else "layers it maps to",
+	]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "added": int(placed["added"]),
+		"refused": int(placed["refused"]), "message": last_message,
+	}
+
+
+## Put an OpenStreetMap extract on the drawing: the existing conditions around the site, to trace
+## over. The same shape table the DXF reader produces and the same one undo step, and the same
+## default of the layer that does not plot, because map context is context rather than survey
+## (see `OsmFile`).
+##
+## The message says *feature* rather than *shape* because that is what an OSM element is: a house, a
+## street, a row of trees. Saying "shape" would read as though the reader had failed to understand
+## its own file.
+func import_osm(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+	if document == null:
+		last_message = "there is no drawing to import it into"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	if not OsmFileScript.is_usable(plan):
+		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
+			else "the map has nothing in it that this can draw")
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+	var placed := _place_shapes(plan["shapes"])
+	last_message = "placed %d feature%s%s from %s" % [
+		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
+		"the underlay" if bool(plan["underlay"]) else "the existing conditions layers",
+	]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "added": int(placed["added"]),
+		"refused": int(placed["refused"]), "message": last_message,
+	}
+
+
+## Put a table of shape dictionaries on the drawing as **one** undo step, whatever it holds and
+## whoever read it.
+##
+## The shapes are `DxfFile`'s own vocabulary, and `OsmFile` speaks it too, so there is exactly one
+## place where a shape becomes a drawing entity. That is what keeps a second reader from being a
+## second chance to forget the circle of no radius or the text with nothing written in it.
+##
+## One gesture because an import is one act: somebody who read the wrong file wants one Ctrl+Z
+## rather than three hundred.
+func _place_shapes(shapes: Array) -> Dictionary:
 	document.begin_gesture()
 	var added := 0
 	var refused := 0
-	for shape: Dictionary in (plan["shapes"] as Array):
-		var entity := _entity_from_dxf(shape)
+	for shape: Dictionary in shapes:
+		var entity := _entity_from_shape(shape)
 		if entity == null:
 			refused += 1
 			continue
@@ -1393,19 +1448,13 @@ func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 		added += 1
 	_rebind_snap()
 	dirty = true
-	last_message = "placed %d shape%s%s on the %s" % [
-		added, "" if added == 1 else "s",
-		"" if refused == 0 else " and left out %d" % refused,
-		"underlay" if bool(plan["underlay"]) else "layers it maps to",
-	]
-	_refresh_canvas()
-	return {"ok": true, "reason": "", "added": added, "refused": refused, "message": last_message}
+	return {"added": added, "refused": refused}
 
 
-## One DXF shape as a drawing entity, or null when it cannot be one - a shape with too few points, a
+## One shape as a drawing entity, or null when it cannot be one - a shape with too few points, a
 ## circle of no radius, a text with nothing written in it. Refusing here rather than placing a
 ## degenerate entity is what keeps a bad record from becoming a shape nobody can select or delete.
-func _entity_from_dxf(shape: Dictionary) -> DraftEntity:
+func _entity_from_shape(shape: Dictionary) -> DraftEntity:
 	var points: PackedVector2Array = shape["points"]
 	var kind := String(shape["kind"])
 	if kind == "LINE":
