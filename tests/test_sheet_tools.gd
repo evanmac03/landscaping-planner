@@ -13,6 +13,7 @@ const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
+const Irrigation := preload("res://scripts/draft/irrigation.gd")
 
 
 func _controller():
@@ -154,6 +155,35 @@ func test_plotting_a_sheet_that_is_not_there_writes_nothing() -> void:
 	var controller = _controller()
 	assert(controller.plot_sheet(4).is_empty())
 	assert(controller.last_message.contains("no such sheet"), controller.last_message)
+	controller.free()
+
+
+## A zone is stored with the drawing, so the sheet's irrigation schedule needs no argument the way the
+## planting list does: the controller reads it off the drawing it is plotting.
+func test_a_watered_drawing_carries_its_irrigation_schedule_on_the_sheet() -> void:
+	var controller = _controller()
+	controller.set_irrigation_supply(60.0, 350.0)
+	var bed: Dictionary = controller.waterable_areas()[0]
+	var watered: Dictionary = controller.water_area(bed["outline"], Irrigation.SPRAY)
+	assert(bool(watered["ok"]), String(watered.get("reason", "")))
+	assert(controller.irrigation_rows().size() == 1, "one zone on the drawing")
+	var path: String = controller.plot_sheet(0)
+	assert(not path.is_empty(), controller.last_message)
+	var text: String = _sheet_text(path)
+	assert(text.contains("IRRIGATION SCHEDULE"), "the sheet carries the schedule")
+	assert(text.contains("Zone 1"), "naming the zone it waters")
+	assert(text.contains("will run"), "with what the module says about it")
+	_discard(path)
+	controller.free()
+
+
+## An unwatered drawing gets no irrigation table rather than an empty one.
+func test_a_drawing_that_is_not_watered_carries_no_irrigation_schedule() -> void:
+	var controller = _controller()
+	var path: String = controller.plot_sheet(0)
+	assert(not path.is_empty(), controller.last_message)
+	assert(not _sheet_text(path).contains("IRRIGATION SCHEDULE"))
+	_discard(path)
 	controller.free()
 
 

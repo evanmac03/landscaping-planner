@@ -19,6 +19,7 @@ const PlotScale := preload("res://scripts/draft/plot_scale.gd")
 const Render := preload("res://scripts/draft/draft_render.gd")
 const DimensionStyle := preload("res://scripts/draft/dimension_style.gd")
 const SampleSheets := preload("res://tools/sample_sheets.gd")
+const Irrigation := preload("res://scripts/draft/irrigation.gd")
 
 
 func _document():
@@ -1101,6 +1102,107 @@ func test_a_schedule_needs_the_border_it_sits_in() -> void:
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert((plan["schedule_pt"] as Rect2).size == Vector2.ZERO)
 	assert(not text.contains("PLANTING SCHEDULE"))
+
+
+# --- the irrigation schedule ----------------------------------------------------------
+
+
+## Two zones as `Irrigation.schedule()` returns them, so the sheet carries the module's own rows.
+func _zones() -> Array:
+	return [
+		{
+			"number": 1, "label": "Zone 1", "valve": 1, "kind": Irrigation.SPRAY,
+			"kind_name": Irrigation.kind_name(Irrigation.SPRAY), "heads": 25, "flow": 225.0,
+			"area_m2": 324.0, "precipitation": 41.7, "verdict": "will run",
+		},
+		{
+			"number": 2, "label": "Zone 2", "valve": 2, "kind": Irrigation.ROTOR,
+			"kind_name": Irrigation.kind_name(Irrigation.ROTOR), "heads": 6, "flow": 78.0,
+			"area_m2": 210.0, "precipitation": 22.3, "verdict": "will run",
+		},
+	]
+
+
+## A zone's line on the sheet is the module's own line, so a zone cannot read one way on paper and
+## another in the panel. The second assertion is the one that matters: it is a *number* rather than
+## the same function quoted back.
+func test_the_irrigation_schedule_lists_the_zones_and_what_they_draw() -> void:
+	var options := {"sheet": "A3", "irrigation": _zones()}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	assert(text.contains("(IRRIGATION SCHEDULE) Tj"))
+	assert((plan["irrigation"] as Array).size() == 2)
+	var line: String = Exporter.irrigation_row_text(_zones()[0])
+	assert(text.contains("(%s) Tj" % line), "the module's own line: %s" % line)
+	assert(text.contains("225 L/min"))
+	assert(text.contains("will run"))
+	assert(text.contains("Zone 2"), "and the other zone is there too")
+
+
+func test_without_zones_the_sheet_has_no_irrigation_table() -> void:
+	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	assert(not text.contains("IRRIGATION SCHEDULE"))
+	assert((plan["irrigation_pt"] as Rect2).size == Vector2.ZERO)
+	assert((plan["irrigation"] as Array).is_empty())
+
+
+func test_an_irrigation_schedule_needs_the_border_it_sits_in() -> void:
+	var options := {"show_border": false, "irrigation": _zones()}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
+	assert((plan["irrigation_pt"] as Rect2).size == Vector2.ZERO)
+	assert(not text.contains("IRRIGATION SCHEDULE"))
+
+
+## The two tables are one stack of tables down the right edge rather than two columns eating the
+## sheet: the irrigation table sits directly above the planting one, they share the right edge, and
+## neither runs into the other.
+func test_the_two_schedules_share_one_column_and_stack() -> void:
+	var options := {"sheet": "A3", "schedule": _schedule(), "irrigation": _zones()}
+	var plan := Exporter.plan_sheet(_document(), options)
+	var zones: Rect2 = plan["irrigation_pt"]
+	var plants: Rect2 = plan["schedule_pt"]
+	assert(zones.size.x > 0.0 and plants.size.x > 0.0, "both tables are on the sheet")
+	assert(is_equal_approx(zones.end.x, plants.end.x), "sharing the column's right edge")
+	assert(zones.position.y >= plants.end.y - 0.01,
+		"the irrigation table sits above the planting one: %f vs %f" % [zones.position.y, plants.end.y])
+	assert(zones.end.y > plants.end.y, "and it is the higher of the two on the page")
+
+
+## One right-hand column, as wide as the wider of the two tables: reserving both widths would take
+## the drawing's room away twice for furniture that only ever goes in one place.
+func test_the_column_is_as_wide_as_the_wider_of_the_two_tables() -> void:
+	var bare: float = (Exporter.plan_sheet(_document(), {"sheet": "A3"})["content_pt"] as Rect2).size.x
+	var plants: float = (Exporter.plan_sheet(
+		_document(), {"sheet": "A3", "schedule": _schedule()}
+	)["content_pt"] as Rect2).size.x
+	var both: float = (Exporter.plan_sheet(
+		_document(), {"sheet": "A3", "schedule": _schedule(), "irrigation": _zones()}
+	)["content_pt"] as Rect2).size.x
+	# The irrigation table is the wider of the two (104 mm against the planting schedule's 92), so
+	# the column is 104 mm whether or not the planting schedule is also there.
+	assert(both < plants, "the irrigation column is wider than the planting one")
+	var with_zones: float = (Exporter.plan_sheet(
+		_document(), {"sheet": "A3", "irrigation": _zones()}
+	)["content_pt"] as Rect2).size.x
+	assert(is_equal_approx(both, with_zones),
+		"adding the narrow table to the wide one costs no more room: %f vs %f" % [both, with_zones])
+	assert(bare > plants)
+
+
+## A schedule that silently stops at the foot of the page is a schedule somebody orders from, so the
+## last line says how many zones the column could not carry.
+func test_a_zone_the_column_cannot_hold_is_counted() -> void:
+	var rows := _zones()
+	var roomy: float = Exporter.SCHEDULE_HEADER_MM + Exporter.SCHEDULE_PAD_MM + Exporter.SCHEDULE_ROW_MM * 4.0
+	assert((Exporter.fit_irrigation(rows, roomy) as Array).size() == 2, "room for both")
+	var tight: float = Exporter.SCHEDULE_HEADER_MM + Exporter.SCHEDULE_PAD_MM + Exporter.SCHEDULE_ROW_MM
+	var kept: Array = Exporter.fit_irrigation(rows, tight)
+	assert(kept.size() == 1, "room for one row: %d" % kept.size())
+	assert(String(kept[0].get("words", "")).contains("not shown"),
+		"and it says what it left out: %s" % str(kept[0]))
+	assert(Exporter.fit_irrigation(rows, 0.0).is_empty(), "no room at all is no table")
 
 
 ## The schedule mirrors the key: against the right edge of the border, hanging from the top edge and

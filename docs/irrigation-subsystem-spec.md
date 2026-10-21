@@ -294,7 +294,11 @@ waters an area and lists the zones. The pieces are `scripts/draft/irrigation.gd`
 `draft_controller.gd` (`irrigation_zones`, `irrigation_supply`, `set_irrigation_supply`,
 `waterable_areas`, `water_area`, `remove_zone`, `irrigation_rows`, `irrigation_summary`), the
 document's `irrigation` property (format **7**), and `scripts/irrigation_panel.gd` with its HUD
-page and its Water menu. Watering an area is **one undo step** whether it sets one head or
+page and its Water menu. The sheet carries an **irrigation schedule** in the same right-hand
+column as the planting one and above it, one row per zone in the module's own words - and it
+needs no argument the way the planting list does, because a zone is stored with the drawing:
+`DraftController.plot` reads the rows off the drawing it is plotting. Watering an area is
+**one undo step** whether it sets one head or
 fifty: a zone and its heads are one act, and Ctrl+Z takes the whole thing back. A zone that
 would not run off the stated supply is **not put on the drawing at all** - the page says why
 and leaves the plan alone.
@@ -343,6 +347,14 @@ different numbers; the water button is dead until there is both an area and a *s
 conventional values is shown as itself rather than rounded; the budget line names what the
 supply buys; the zone list carries the selection across a refresh; and nothing in the panel
 takes the keyboard.
+
+`tests/test_sheet_export.gd` holds the schedule on the sheet: the table is absent when the
+drawing is not watered and absent without the border it sits in, every zone's line reaches the
+paper in the module's own words, the two schedules stack in one column sharing its right edge
+without touching, the column is the width of the wider table so adding the narrow one to the
+wide one costs no room, and a zone the column cannot hold is counted rather than dropped.
+`tests/test_sheet_tools.gd` holds it end to end through the controller: a watered drawing's plot
+carries the schedule naming its zone, and an unwatered drawing's plot carries none.
 
 `tests/test_hud_water.gd` holds the wiring: the Water menu offers watering an area, with the
 controller's own summary and the supply on its info line; stating the supply and watering an

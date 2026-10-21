@@ -1027,7 +1027,9 @@ func cycle_dimension_style() -> StringName:
 ## `schedule` is the planting list the sheet carries, in the rows `PlantPlacement.schedule()`
 ## returns. It is handed in rather than read off here, because the drafting controller has no
 ## yard and no catalogue: the planting schedule is the one part of a sheet that comes from the
-## garden rather than from the drawing, and it is passed the way the pen table is.
+## garden rather than from the drawing, and it is passed the way the pen table is. The irrigation
+## schedule is the other way round - a zone is stored with the drawing - so that table is filled in
+## here and needs no argument.
 ##
 ## `options_override` is the sheet of the *set* being plotted, when a caller has one: its paper, scale,
 ## number, title and revision lay over this drawing's own. It is an argument rather than a state change
@@ -1057,6 +1059,12 @@ func plot(schedule: Array = [], options_override: Dictionary = {}) -> String:
 	# the plotter's own default - today - is what should stand.
 	if not sheet_date.strip_edges().is_empty():
 		options["date"] = sheet_date
+	# The irrigation schedule is the one table the sheet reads off the drawing itself: a zone is stored
+	# with the drawing, so nobody has to hand it in the way the planting list is handed in. An unwatered
+	# drawing gets no table rather than an empty one.
+	var zones := irrigation_rows()
+	if not zones.is_empty():
+		options["irrigation"] = zones
 	options.merge(options_override, true)
 	var bytes: PackedByteArray = SheetExporterScript.export_pdf(document, options)
 	# A timestamped name, so plotting twice does not silently replace the first

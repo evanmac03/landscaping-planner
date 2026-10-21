@@ -323,8 +323,18 @@ in one function rather than sprinkled through the emitters.
 | Piece | Corner | Grows |
 |---|---|---|
 | Layer key | top-left, flush to the border | downwards, a row per layer |
-| Planting schedule | top-right, flush to the border | downwards, a row per species |
+| Irrigation schedule | right edge, above the planting schedule | downwards, a row per zone |
+| Planting schedule | right edge, below the irrigation one | downwards, a row per species |
 | Title block | bottom-right, flush to the border | four rows, read top to bottom |
+
+The two schedules share **one** right-hand column rather than claiming a column each: a
+design carries at most one planting table and at most one irrigation table, and reserving two
+columns for them would take the drawing's room away twice for furniture that only ever goes in
+one place. The column is reserved as the width of the **wider** of the two - the irrigation
+table, because a zone's line names the valve, the head count, the flow and the coverage - and
+each table is drawn at its own width against the column's right edge. The column grows up from
+the foot of the border, clear of the title block, and a table with more rows than the column
+can hold is cut with its last line saying how many it left out.
 
 The title block's four rows are the **project**, the **drawing**, the
 **numbering** that identifies the sheet, and the **foot** carrying the graphic

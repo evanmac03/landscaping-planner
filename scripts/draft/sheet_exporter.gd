@@ -30,6 +30,7 @@ const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const LineStyleScript := preload("res://scripts/draft/line_style.gd")
 const DimensionScript := preload("res://scripts/draft/dimension.gd")
 const Geom := preload("res://scripts/draft/geom2d.gd")
+const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 
 const POINTS_PER_MM := 72.0 / 25.4
 
@@ -90,6 +91,13 @@ const SCHEDULE_PAD_MM := 2.0
 const SCHEDULE_TITLE_MM := 3.5
 const SCHEDULE_TEXT_GAP_MM := 2.0
 
+## The irrigation schedule shares the schedules' row and header heights so a reader who has learnt one
+## table has learnt the other. It is wider because a zone's line names more of its own numbers than a
+## species' line does - the valve, the head count, the flow and the coverage - and it sits *above* the
+## planting schedule in the same right-hand column, so the two are one stack of tables rather than two
+## columns eating the sheet. The column is reserved as the width of the wider of the two.
+const IRRIGATION_WIDTH_MM := 104.0
+
 
 # --- layout -------------------------------------------------------------------------
 
@@ -118,28 +126,48 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	# The key takes a column and the title block a strip, so the drawing is
 	# centred in what is left rather than in the whole sheet: a drawing centred
 	# under a title block is a drawing with a title block on top of it.
-	# The planting schedule is furniture of the key's kind: a table against an edge, only as tall
-	# as its rows. It takes the right edge and the key the left, and only as many of its rows as
-	# the column can hold are drawn - what is left out is counted in its own row, because a
-	# schedule that silently stops at the foot of the page is a schedule somebody orders from.
+	# The tables are furniture of the key's kind: a column of tables against the right edge, each
+	# only as tall as its rows, and the key against the left. Only as many rows as the column can
+	# hold are drawn - what is left out is counted in its own row, because a schedule that silently
+	# stops at the foot of the page is a schedule somebody orders from.
 	var block_mm: float = (TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM) if show_border else 0.0
+	# The two schedules share one right-hand column, so they share its room: the irrigation table is
+	# measured first because it is only present when the drawing is watered, and a planting schedule
+	# cut to make room for a table that is not there would be a sheet with a gap in it.
+	var column_mm := drawing_area.size.y / POINTS_PER_MM - block_mm
+	var irrigation: Array = []
 	var schedule: Array = []
 	if show_border:
-		schedule = fit_schedule(
-			options.get("schedule", []), drawing_area.size.y / POINTS_PER_MM - block_mm
+		irrigation = fit_irrigation(options.get("irrigation", []), column_mm)
+		var used_mm := _schedule_height_mm(irrigation.size()) if not irrigation.is_empty() else 0.0
+		schedule = fit_schedule(options.get("schedule", []), column_mm - used_mm)
+	# The column is as wide as the wider of the two tables, and each table is drawn at its own width
+	# against the column's right edge.
+	var column_width_mm := _schedule_column_mm(schedule, irrigation)
+	var column_bottom := drawing_area.end.y
+	var irrigation_rect := Rect2()
+	if not irrigation.is_empty():
+		var irrigation_mm := _schedule_height_mm(irrigation.size())
+		irrigation_rect = Rect2(
+			Vector2(
+				drawing_area.end.x - IRRIGATION_WIDTH_MM * POINTS_PER_MM,
+				column_bottom - irrigation_mm * POINTS_PER_MM
+			),
+			Vector2(IRRIGATION_WIDTH_MM, irrigation_mm) * POINTS_PER_MM
 		)
+		column_bottom -= irrigation_mm * POINTS_PER_MM
 	var schedule_rect := Rect2()
 	if not schedule.is_empty():
 		var schedule_mm := _schedule_height_mm(schedule.size())
 		schedule_rect = Rect2(
 			Vector2(
 				drawing_area.end.x - SCHEDULE_WIDTH_MM * POINTS_PER_MM,
-				drawing_area.end.y - schedule_mm * POINTS_PER_MM
+				column_bottom - schedule_mm * POINTS_PER_MM
 			),
 			Vector2(SCHEDULE_WIDTH_MM, schedule_mm) * POINTS_PER_MM
 		)
 
-	var reserved := _reserved_mm(show_border, legend, not schedule.is_empty())
+	var reserved := _reserved_mm(show_border, legend, column_width_mm)
 	var content := _content_area(drawing_area, reserved) if show_border else drawing_area
 
 	var extent: Rect2 = _plot_extent(document)
@@ -224,6 +252,8 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		"legend_pt": legend_rect,
 		"schedule": schedule,
 		"schedule_pt": schedule_rect,
+		"irrigation": irrigation,
+		"irrigation_pt": irrigation_rect,
 		"empty": document.count() == 0,
 	}
 
@@ -234,10 +264,22 @@ static func _legend_height_mm(rows: int) -> float:
 	return LEGEND_HEADER_MM + LEGEND_ROW_MM * float(maxi(rows, 0)) + LEGEND_PAD_MM
 
 
-## How tall the planting schedule is for a given number of rows: a title, the rows, and a little
-## air under the last of them, exactly as the key is measured.
+## How tall a schedule is for a given number of rows: a title, the rows, and a little
+## air under the last of them, exactly as the key is measured. The two schedules are one
+## table's worth of rows apart, so they are measured the same way.
 static func _schedule_height_mm(rows: int) -> float:
 	return SCHEDULE_HEADER_MM + SCHEDULE_ROW_MM * float(maxi(rows, 0)) + SCHEDULE_PAD_MM
+
+
+## How wide the right-hand column is: the wider of the tables going in it, and nothing when neither is
+## there. A column sized to the narrower table would let the wider one run over the border.
+static func _schedule_column_mm(schedule: Array, irrigation: Array) -> float:
+	var column := 0.0
+	if not schedule.is_empty():
+		column = maxf(column, SCHEDULE_WIDTH_MM)
+	if not irrigation.is_empty():
+		column = maxf(column, IRRIGATION_WIDTH_MM)
+	return column
 
 
 ## One row of the planting schedule as it reads on the sheet: the name a nursery sends and the
@@ -280,9 +322,7 @@ static func clipped_text(writer, text: String, size_points: float, room_points: 
 ## whatever else is cut, one line is spent on the row that names what the cutting left out, and a
 ## sheet with room for neither gets no table rather than a table hanging off the border.
 static func fit_schedule(rows: Array, available_mm: float) -> Array:
-	var room := int(floor(
-		(available_mm - SCHEDULE_HEADER_MM - SCHEDULE_PAD_MM) / SCHEDULE_ROW_MM
-	))
+	var room := _schedule_room_rows(available_mm)
 	if rows.size() <= room:
 		return rows
 	if room < 1:
@@ -305,6 +345,45 @@ static func fit_schedule(rows: Array, available_mm: float) -> Array:
 		kept.append({"id": &"", "count": 0, "name": "%d species not shown" % omitted})
 	kept.append_array(unnamed)
 	return kept
+
+
+## One row of the irrigation schedule as it reads on the sheet.
+##
+## The words are the module's own (`Irrigation.schedule_row_words`), so the sheet, the status bar and
+## the panel cannot describe one zone three ways. A row that carries its own `words` is the one row
+## that is not a zone: the count of zones the column had no room for.
+static func irrigation_row_text(row: Dictionary) -> String:
+	if row.has("words"):
+		return String(row["words"])
+	return IrrigationScript.schedule_row_words(row)
+
+
+## The rows of the irrigation schedule the sheet has room for, measured in the same rows as the
+## planting schedule's so the two tables are the same height per line.
+##
+## A zone is not a species and none of them is more important than another - but a schedule that
+## stops without saying so is a schedule somebody orders a valve count from, so the last line is
+## spent on saying how many zones the column could not carry. A sheet with room for no row at all
+## gets no table rather than a table hanging off the border.
+static func fit_irrigation(rows: Array, available_mm: float) -> Array:
+	if rows.size() <= _schedule_room_rows(available_mm):
+		return rows
+	var room := _schedule_room_rows(available_mm)
+	if room < 1:
+		return []
+	var listed := maxi(room - 1, 0)
+	var kept: Array = []
+	for index in mini(rows.size(), listed):
+		kept.append(rows[index])
+	var omitted := rows.size() - kept.size()
+	if omitted > 0:
+		kept.append({"words": "%d zones not shown" % omitted})
+	return kept
+
+
+## How many rows of a schedule the column can hold, which both tables share.
+static func _schedule_room_rows(available_mm: float) -> int:
+	return int(floor((available_mm - SCHEDULE_HEADER_MM - SCHEDULE_PAD_MM) / SCHEDULE_ROW_MM))
 
 
 ## The extent of what will actually be plotted.
@@ -332,21 +411,20 @@ static func _plot_extent(document) -> Rect2:
 
 
 ## The part of the sheet, in paper millimetres, that the furniture claims: a
-## column down the left edge for the layer key and a strip across the bottom for
-## the title block.
+## column down the left edge for the layer key, a column down the right for the
+## schedules, and a strip across the bottom for the title block.
 ##
 ## The choice of scale is made against what is left, not against the whole page.
 ## A sheet that picked a scale for the full printable area and then laid its
 ## furniture over the drawing would be inconsistent with itself, and the
 ## inconsistency would only show up on paper.
-static func _reserved_mm(show_border: bool, legend: bool, schedule: bool = false) -> Vector2:
+static func _reserved_mm(show_border: bool, legend: bool, schedule_column_mm: float = 0.0) -> Vector2:
 	if not show_border:
 		return Vector2.ZERO
 	var columns := 0.0
 	if legend:
 		columns += LEGEND_WIDTH_MM
-	if schedule:
-		columns += SCHEDULE_WIDTH_MM
+	columns += schedule_column_mm
 	return Vector2(columns, TITLE_BLOCK_HEIGHT_MM + TITLE_BLOCK_CLEARANCE_MM)
 
 
@@ -434,6 +512,7 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 	# The furniture goes on last, so nothing a user drew can end up under it.
 	if bool(plan["show_border"]):
 		_emit_legend(writer, document, pen_table, plan, options)
+		_emit_irrigation(writer, plan, options)
 		_emit_schedule(writer, plan, options)
 		_emit_title_block(writer, plan, options)
 	return writer.build()
@@ -600,6 +679,56 @@ static func _emit_schedule(writer, plan: Dictionary, options: Dictionary) -> voi
 		)
 		if not counted.is_empty():
 			writer.draw_text(Vector2(rect.end.x - pad - count_room, baseline), counted, size)
+		baseline -= row_height
+	writer.restore_state()
+
+
+# --- the irrigation schedule --------------------------------------------------------
+
+
+## The irrigation schedule, drawn in the same right-hand column as the planting schedule and above it:
+## one line per zone, in the module's own words, with the title the caller may rename.
+##
+## The rows are handed in rather than read off the drawing, which is the one place this table differs
+## from the planting one: a zone *is* stored with the drawing, so `DraftController.plot` fills them in
+## by itself, where the planting list has to come from the yard.
+static func _emit_irrigation(writer, plan: Dictionary, options: Dictionary) -> void:
+	var rect: Rect2 = plan["irrigation_pt"]
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var rows: Array = plan.get("irrigation", [])
+	if rows.is_empty():
+		return
+
+	writer.save_state()
+	writer.set_line_width_points(BORDER_WEIGHT_MM * POINTS_PER_MM)
+	writer.set_stroke_colour(Color.BLACK)
+	writer.set_dash([])
+	writer.rectangle(rect)
+	writer.stroke()
+
+	var pad := SCHEDULE_PAD_MM * POINTS_PER_MM
+	# Read from the top down, as the other tables are.
+	var title_y := rect.end.y - pad - SCHEDULE_TITLE_MM * POINTS_PER_MM
+	writer.set_fill_colour(Color.BLACK)
+	writer.draw_text(
+		Vector2(rect.position.x + pad, title_y),
+		String(options.get("irrigation_title", "IRRIGATION SCHEDULE")),
+		SCHEDULE_TITLE_MM * POINTS_PER_MM
+	)
+	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
+	var header := rect.end.y - SCHEDULE_HEADER_MM * POINTS_PER_MM
+	_rule(writer, Vector2(rect.position.x, header), Vector2(rect.end.x, header))
+
+	var size := CAPTION_TEXT_MM * POINTS_PER_MM
+	var row_height := SCHEDULE_ROW_MM * POINTS_PER_MM
+	var baseline := header - row_height + pad * 0.5
+	for row: Dictionary in rows:
+		writer.set_fill_colour(Color.BLACK)
+		writer.draw_text(
+			Vector2(rect.position.x + pad, baseline),
+			clipped_text(writer, irrigation_row_text(row), size, rect.size.x - pad * 2.0), size
+		)
 		baseline -= row_height
 	writer.restore_state()
 
