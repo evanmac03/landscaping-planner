@@ -796,12 +796,15 @@ func detail_text() -> String:
 ## plan's own vocabulary rather than from the prop's name, because a spruce and a maple are the same
 ## prop and no longer the same picture.
 func _drawn_as(species: PlantSpecies) -> String:
-	if not species.model_scene.is_empty():
-		return species.model_scene.get_file()
+	# The scene the species is really planted as - its own model when it has one, and the form whose
+	# shape stands in for it otherwise - said together with the symbol the plan draws, because a
+	# species with a model of its own is still drawn in the plan's own vocabulary and a line naming
+	# only the file would not say what shape stands on the paper.
+	var scene: String = species.model_scene if not species.model_scene.is_empty() else species.form
 	var symbol: StringName = PlantSymbolsScript.of(
-		species, PlanStyleScript.spec_for(species.form)["symbol"]
+		species, PlanStyleScript.spec_for(scene)["symbol"]
 	)
-	return "%s (%s)" % [species.form.get_file(), PlantSymbolsScript.words(symbol)]
+	return "%s (%s)" % [scene.get_file(), PlantSymbolsScript.words(symbol)]
 
 
 func summary_text() -> String:

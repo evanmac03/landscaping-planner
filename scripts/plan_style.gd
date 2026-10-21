@@ -54,6 +54,34 @@ const SYMBOLS := {
 	"res://scenes/props/flower_bed.tscn": {
 		"symbol": &"bed", "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH,
 	},
+	# The shapes the drawing already spoke, as models: `PlantSymbols` has drawn a spruce as a conifer
+	# and a fern as a fern since it was written, while the 3D view had three props for all nine of
+	# them, so a spruce stood in the garden as a maple's crown. Built by `tools/plant_models.gd`, and
+	# each size is the footprint that file measured rather than one typed in by hand - a plant is
+	# planted at `spread / size.x`, so a size that drifted would put every plant at the wrong size
+	# while every view still looked plausible. `tests/test_plant_models.gd` measures the assets.
+	"res://assets/plants/conifer.gltf": {
+		"symbol": &"conifer", "size": Vector2(2.6, 2.6), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/grass.gltf": {
+		"symbol": &"grass", "size": Vector2(1.09, 1.09), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/groundcover.gltf": {
+		"symbol": &"groundcover", "size": Vector2(0.64, 0.64), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/vine.gltf": {
+		"symbol": &"vine", "size": Vector2(0.91, 0.91), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/fern.gltf": {
+		"symbol": &"fern", "size": Vector2(1.13, 1.13), "wash": FOLIAGE_WASH,
+	},
+	# A perennial is drawn as the bed it is planted as, so its model is a bed too - the same oblong
+	# ground the raised bed prop occupied, and the oblong shape is what makes the `bed` symbol oblong
+	# rather than round (`PlantSymbols.shape_for`). The size is the one the builder *measured*, not one
+	# typed in: the sphere a bed's soil is made of reports a bounding box a shade inside its radius.
+	"res://assets/plants/perennial.gltf": {
+		"symbol": &"bed", "size": Vector2(2.56, 1.38), "wash": BLOOM_WASH,
+	},
 }
 
 ## The foliage green and the bloom pink, spelled out as constants so the tests can

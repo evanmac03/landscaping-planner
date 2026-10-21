@@ -236,8 +236,8 @@ func test_the_drawn_as_line_names_the_symbol_the_plan_uses() -> void:
 	assert(browser.detail_text().contains("tree.tscn (a broadleaf canopy)"),
 		"a maple says it is drawn as the tree prop, and in what shape")
 	browser.select(&"rudbeckia-fulgida-goldsturm")
-	assert(browser.detail_text().contains("flower_bed.tscn (a planted bed)"),
-		"a perennial drawn as a bed says so")
+	assert(browser.detail_text().contains("perennial.gltf (a planted bed)"),
+		"a perennial drawn as a bed says so, and says which model it is planted as")
 	# And the shape named is the plan's own vocabulary, plant by plant: a symbol added to the
 	# drawing without a word for it would be a line that says nothing.
 	var words: Array = PlantSymbolsScript.WORDS.values()
