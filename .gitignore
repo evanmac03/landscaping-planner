@@ -11,3 +11,6 @@ preview/
 # Ziva editor tooling: installed by the plugin, ~1.5 GB of vendored
 # platform binaries (CEF / zivacode). Not part of this project's source.
 addons/ziva_agent/
+
+# Ziva's own QA-run scratch (run_scene / run_tests output). Not project source.
+.ziva/

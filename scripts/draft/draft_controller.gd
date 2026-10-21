@@ -402,6 +402,31 @@ func entity_count() -> int:
 	return document.count()
 
 
+## A key as a person reads it: the first event an action lists, with its modifier.
+##
+## The idle status advertises the two keys a person needs before any tool is armed - the one that arms
+## the tools and the one that plots a sheet. A letter written into the string goes stale the moment a
+## binding moves, and it did: `draft_mode` was moved from D to 0 and this line went on telling people
+## to press D, which now pans the camera - a legend that sends somebody to the wrong key is worse than
+## no legend at all. So the keys are read from the bindings, the way the HUD's legend labels its own
+## rows; `test_hud_hints` holds the two to the same answer so they cannot drift apart.
+static func action_key_label(action: StringName) -> String:
+	if not InputMap.has_action(action):
+		return ""
+	for event: InputEvent in InputMap.action_get_events(action):
+		var key := event as InputEventKey
+		if key == null:
+			continue
+		# An action binds by physical keycode or by keycode depending on how it was authored, and
+		# which one is set differs between the number keys and the named ones, so both are looked at.
+		var code := key.physical_keycode if key.physical_keycode != 0 else key.keycode
+		if code == 0:
+			continue
+		var rendered := OS.get_keycode_string(code)
+		return ("Ctrl+" + rendered) if key.ctrl_pressed else rendered
+	return ""
+
+
 func status() -> String:
 	if not drawing:
 		# Plotting works whether or not a tool is armed, so its result - and the
@@ -409,8 +434,9 @@ func status() -> String:
 		# The key that arms the tools is advertised here because this is where every
 		# other key the drawing needs is advertised, and it is the one key a user
 		# cannot discover by accident. The rest of the legend appears once armed.
-		var idle := "P plots a sheet at 1:%d on %s   D: drawing tools" % [
-			int(plot_scale), sheet
+		var idle := "%s plots a sheet at 1:%d on %s   %s: drawing tools" % [
+			action_key_label(&"draft_plot"), int(plot_scale), sheet,
+			action_key_label(&"draft_mode"),
 		]
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
 	if is_editing():

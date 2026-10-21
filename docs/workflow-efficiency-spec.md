@@ -500,6 +500,8 @@ photograph, the consultant's concept.
     happened...; and the command palette ranks the commands you ran last first when nothing has
     been typed into the box. See section 8f.
 
+A later whole-project pass, looking for issues rather than building anything, found one: the idle status line the controller shows when nothing is in hand still spelled "D: drawing tools" while the key had moved to 0, and the test that guarded it asserted the same stale string, so the suite stayed green on a line that lied about its own key. Both now read the binding (`DraftController.action_key_label`), so the line says whatever the key really is.
+
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own

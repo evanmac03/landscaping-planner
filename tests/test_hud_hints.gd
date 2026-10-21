@@ -207,8 +207,13 @@ func test_the_key_the_polyline_names_for_finishing_is_bound() -> void:
 ## appears once the tools are armed.
 func test_the_idle_status_advertises_the_key_that_arms_the_tools() -> void:
 	var controller = Ctrl.new()
-	assert(controller.status().contains("D: drawing tools"))
-	assert(controller.status().contains("P plots a sheet"))
+	# The line reads its keys from the bindings rather than printing a letter, so it cannot go on
+	# naming a key that has moved - it did once, when the tools' key moved from D to 0. It is held
+	# to the same labels the legend's own rows are written from, so the two cannot disagree.
+	assert(controller.status().contains(Hud._key_label(&"draft_mode") + ": drawing tools"),
+		controller.status())
+	assert(controller.status().contains(Hud._key_label(&"draft_plot") + " plots a sheet"),
+		controller.status())
 	controller.free()
 
 
