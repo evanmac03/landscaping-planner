@@ -6,6 +6,11 @@ extends Node
 ##
 ## Run it with run_scene and read the console:
 ##     res://tools/hud_layout_check.tscn
+##
+## The check is `run()` and not the scene, so `tools/audit.gd` can call it on the same instance of the
+## game it runs the other checks on; this scene is that call with a game brought up for it. It returns
+## `{name, ok, clashes, overflow, summary}`, counting a panel whose contents do not fit as a fault
+## exactly as it counts a clash.
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -29,9 +34,14 @@ const PAGE_OF: Dictionary = {
 }
 
 
+## The one word `_fits` says when a thing has the room it wants, so the verdict below can count the
+## other case without comparing prose.
+const FITS := "FITS"
+
+
 ## Whether what wants a width has it, in the words the check reports it with.
 static func _fits(wants: float, have: float) -> String:
-	return "FITS" if wants <= have else "OVERFLOWS BY %.1f px" % (wants - have)
+	return FITS if wants <= have else "OVERFLOWS BY %.1f px" % (wants - have)
 
 
 func _ready() -> void:
@@ -39,10 +49,18 @@ func _ready() -> void:
 	add_child(main)
 	for i in 5:
 		await get_tree().process_frame
+	await run(main, get_tree())
+
+
+## The check itself, against a game that is already standing: `_ready` above brings one up for it, and
+## `tools/audit.gd` hands over the same instance it runs the other checks on. Returns
+## `{name, ok, clashes, overflow, summary}`.
+static func run(main: Node, tree: SceneTree) -> Dictionary:
 	var root: Control = main.get_node_or_null(^"Hud/Root") as Control
 	if root == null:
 		print("LAYOUT: no Hud/Root")
-		return
+		return {"name": "HUD layout", "ok": false, "clashes": 0, "overflow": 1,
+			"summary": "no Hud/Root in the scene"}
 	# The Hud rewrites panel visibility every frame; stop it so a forced panel stays forced.
 	var hud: Node = main.get_node_or_null(^"Hud")
 	if hud != null:
@@ -53,6 +71,10 @@ func _ready() -> void:
 
 	var measured: Dictionary = {}
 	var shown: Dictionary = {}
+	# A panel whose contents do not fit is a fault the same way a clash is, and it is the fault the
+	# rectangles cannot see: every panel can be clear of every other one while the legend runs off the
+	# side of the panel it is in.
+	var overflow := 0
 	for panel_name in PANELS:
 		var node: Control = root.get_node_or_null(NodePath(panel_name)) as Control
 		if node == null:
@@ -60,7 +82,7 @@ func _ready() -> void:
 			continue
 		var was: bool = node.visible
 		node.visible = true
-		await get_tree().process_frame
+		await tree.process_frame
 		# A centering wrapper is measured through to its page; everything else is measured as it stands.
 		var page: Control = node
 		if PAGE_OF.has(panel_name):
@@ -80,8 +102,11 @@ func _ready() -> void:
 	var row: Control = root.get_node_or_null(^"TopBar/Row") as Control
 	if top_bar != null and row != null:
 		var wants: float = row.get_combined_minimum_size().x
+		var row_fits: String = _fits(wants, top_bar.size.x)
+		if row_fits != FITS:
+			overflow += 1
 		print("  TopBar row wants %.1f px, panel is %.1f px  ->  %s" % [
-			wants, top_bar.size.x, _fits(wants, top_bar.size.x),
+			wants, top_bar.size.x, row_fits,
 		])
 
 	# What is *inside* the panels, because a panel's own rectangle says nothing about whether its
@@ -93,10 +118,13 @@ func _ready() -> void:
 	if palette_panel != null and palette_column != null:
 		var palette_was: bool = palette_panel.visible
 		palette_panel.visible = true
-		await get_tree().process_frame
+		await tree.process_frame
 		var column_wants: float = palette_column.get_combined_minimum_size().x
+		var column_fits: String = _fits(column_wants, palette_panel.size.x)
+		if column_fits != FITS:
+			overflow += 1
 		print("  PaletteColumn wants %6.1f px, Palette panel is %6.1f px  ->  %s" % [
-			column_wants, palette_panel.size.x, _fits(column_wants, palette_panel.size.x),
+			column_wants, palette_panel.size.x, column_fits,
 		])
 		palette_panel.visible = palette_was
 	var hints_panel: Control = root.get_node_or_null(^"DraftHints") as Control
@@ -104,11 +132,14 @@ func _ready() -> void:
 	if hints_panel != null and legend != null:
 		var hints_was: bool = hints_panel.visible
 		hints_panel.visible = true
-		await get_tree().process_frame
+		await tree.process_frame
 		var legend_wants: float = legend.get_combined_minimum_size().x
 		var legend_lines: int = (legend as Label).text.split("\n").size()
+		var legend_fits: String = _fits(legend_wants, hints_panel.size.x)
+		if legend_fits != FITS:
+			overflow += 1
 		print("  widest legend line wants %6.1f px, DraftHints panel is %6.1f px over %d lines  ->  %s" % [
-			legend_wants, hints_panel.size.x, legend_lines, _fits(legend_wants, hints_panel.size.x),
+			legend_wants, hints_panel.size.x, legend_lines, legend_fits,
 		])
 		hints_panel.visible = hints_was
 
@@ -144,5 +175,15 @@ func _ready() -> void:
 	if draft_hints != null:
 		draft_hints.visible = true
 	for i in 3:
-		await get_tree().process_frame
+		await tree.process_frame
 	print("=== END LAYOUT ===")
+	var ok: bool = clashes == 0 and overflow == 0
+	var summary: String
+	if ok:
+		summary = "no clash with a panel that is always on screen, and no contents wider than their panel"
+	else:
+		summary = "%d clash(es) with a panel that is always on screen, %d thing(s) wider than their panel" % [
+			clashes, overflow,
+		]
+	return {"name": "HUD layout", "ok": ok, "clashes": clashes, "overflow": overflow,
+		"summary": summary}

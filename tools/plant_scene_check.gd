@@ -14,6 +14,9 @@ extends Node
 ##
 ## Run it with `run_scene` and read the console:
 ##     res://tools/plant_scene_check.tscn
+##
+## The check is `run()` and not the scene, so `tools/audit.gd` can call it on the same instance of the
+## game it runs the other checks on; this scene is that call with a game brought up for it.
 
 const MAIN := preload("res://scenes/main.tscn")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
@@ -45,16 +48,28 @@ func _ready() -> void:
 	# be measuring a scene that has not finished coming up.
 	for i: int in 5:
 		await get_tree().process_frame
+	run(main)
 
+
+## The check itself, against a game that is already standing: `_ready` above brings one up for it, and
+## `tools/audit.gd` hands over the same instance it runs the other checks on - which is the point of
+## having this as a function rather than a scene. Returns
+## `{name, ok, planted, total, wrong, summary}`.
+static func run(main: Node) -> Dictionary:
 	var hud: Node = main.get_node_or_null(^"Hud")
 	var controller: Node = main.get_node_or_null(^"ViewController")
 	if hud == null or controller == null:
-		print("PLANT SCENE: no Hud (%s) or ViewController (%s) - is this the real main scene?" % [hud, controller])
-		return
+		var gone: String = "no Hud (%s) or ViewController (%s) - is this the real main scene?" % [
+			hud, controller,
+		]
+		print("PLANT SCENE: " + gone)
+		return {"name": "what the scene plants", "ok": false, "planted": 0, "total": 0, "wrong": 0,
+			"summary": gone}
 	var catalogue: PlantCatalogue = hud.plant_list()
 	if catalogue == null:
 		print("PLANT SCENE: the scene has no plant list")
-		return
+		return {"name": "what the scene plants", "ok": false, "planted": 0, "total": 0, "wrong": 0,
+			"summary": "the scene has no plant list"}
 
 	print("=== WHAT THE SCENE PLANTS (%d species from %s, view mode %d) ===" % [
 		catalogue.count(), catalogue.source, int(controller.mode),
@@ -75,15 +90,23 @@ func _ready() -> void:
 
 	print("standing after: %d" % controller.planted_count())
 	var total: int = picked.size()
-	if wrong == 0 and planted == total and total == CATEGORY_WORDS.size():
-		print("PLANT SCENE: every category planted a model of its own shape, at its own size")
+	# Every category, one plant each, and not one of them wrong. A category the list has none of counts
+	# against the check rather than quietly making it shorter.
+	var ok: bool = wrong == 0 and planted == total and total == CATEGORY_WORDS.size()
+	var summary: String
+	if ok:
+		summary = "every category planted a model of its own shape, at its own size"
+		print("PLANT SCENE: " + summary)
 	else:
-		print("PLANT SCENE: %d of %d categories planted, %d wrong" % [planted, total, wrong])
+		summary = "%d of %d categories planted, %d wrong" % [planted, total, wrong]
+		print("PLANT SCENE: " + summary)
+	return {"name": "what the scene plants", "ok": ok, "planted": planted, "total": total,
+		"wrong": wrong, "summary": summary}
 
 
 ## Arm one species and plant it where the next click would go, then hold the node that landed up
 ## against the four things the rest of the program will read off it.
-func _plant_one(
+static func _plant_one(
 	hud: Node, controller: Node, picked: Dictionary, index: int, slot: int
 ) -> Dictionary:
 	var words: String = CATEGORY_WORDS[index]

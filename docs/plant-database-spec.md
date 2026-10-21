@@ -311,6 +311,19 @@ between species so the next arm is the only plant in hand, and ends with a verdi
 one wrong plant in every garden, so this is the one place where the catalogue, the pack, the `PlanStyle`
 table and the running game are held up together.
 
+**Every check that needs the game running is one pass.** This check and the HUD layout check each
+used to bring up their own copy of `main.tscn` - three startup costs, and three differently-aged
+scenes, which cannot show a fault that appears only once something else has run. `tools/audit.gd`
+(`.tscn`) brings the game up once, calls both checks as `run()` on it, and adds a third check that
+loads every scene and resource in the project, then prints a pass/fail table:
+
+    res://tools/audit.tscn                    # every check, one instance of the game, one table
+
+Both checks are functions and not only scenes, so each can be called on a game somebody else
+brought up. `tests/test_audit_tool.gd` holds the part the language cannot: a check is handed a bare
+node - what a scene that is not `main.tscn` looks like - and has to refuse it, because a table that
+says PASS is theatre if no check can fail.
+
 ## 5. Planting: what the catalogue does to the plan
 
 A species is not a thing on the plan; it is a description of one. What stands on the plan is an
