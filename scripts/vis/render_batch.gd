@@ -35,15 +35,10 @@ var _results: Array[Dictionary] = []
 
 
 ## Add a still to the batch. Refused when the name is already taken or the batch is
-## full, in both cases saying so.
+## full, in both cases saying so through `reason_against`.
 func add(name: String, preset, view: String = "3D presentation", flatten: bool = true, note: String = "") -> bool:
-	if name.strip_edges().is_empty():
+	if reason_against(name) != "":
 		return false
-	if _jobs.size() >= MAX_JOBS:
-		return false
-	for job: Dictionary in _jobs:
-		if String(job["name"]) == name:
-			return false
 	_jobs.append({
 		"name": name,
 		"preset": StringName(preset),
@@ -52,6 +47,23 @@ func add(name: String, preset, view: String = "3D presentation", flatten: bool =
 		"note": note,
 	})
 	return true
+
+
+## Why a still with this name would not be taken, or "" when it would be.
+##
+## The refusal is a *sentence* rather than a bare false, because a batch is driven by a
+## panel and the panel has to say something: a dock that invented its own wording for
+## "that name is taken" would be a second copy of this rule, and the second copy is the
+## one that drifts.
+func reason_against(name: String) -> String:
+	if name.strip_edges().is_empty():
+		return "a still needs a name."
+	if _jobs.size() >= MAX_JOBS:
+		return "the batch is full: %d is as many stills as it holds." % MAX_JOBS
+	for job: Dictionary in _jobs:
+		if String(job["name"]) == name:
+			return "there is already a still called '%s'." % name
+	return ""
 
 
 ## Every job, in the order they were added.

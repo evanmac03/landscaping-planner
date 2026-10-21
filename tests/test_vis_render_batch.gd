@@ -145,3 +145,21 @@ func test_the_report_reads_one_line_per_job_in_order() -> void:
 	assert(lines.size() == 2, "one line a job")
 	assert(lines[0].contains("Painted plan") and lines[0].contains("/p/a.png"), "the first line names the file")
 	assert(lines[1].contains("waiting"), "the untouched job reads as waiting: %s" % lines[1])
+
+
+func test_a_refused_name_is_refused_in_words() -> void:
+	# The batch says *why* a still will not be taken, so a panel driving it has a sentence to show
+	# rather than a bare false to invent a reason for.
+	var batch := _fake_batch()
+	assert(batch.reason_against("Working plan") == "", "a name nobody has is free")
+	assert(batch.add("A new one", "hd", "Painted plan"))
+	assert(batch.reason_against("Working plan") == "", "and the old name is still free")
+	assert(batch.reason_against("A new one").contains("already"), "a taken name says so: %s" % batch.reason_against("A new one"))
+	assert(batch.reason_against("A new one").contains("A new one"), "and names it")
+	assert(batch.reason_against("   ").contains("name"), "a blank one asks for a name: %s" % batch.reason_against("   "))
+	# A full batch refuses the next one, and says how many it holds.
+	var small := Batch.new()
+	for index in small.MAX_JOBS:
+		assert(small.add("still %d" % index, "hd", "Painted plan"), "still %d fits" % index)
+	assert(small.reason_against("one too many").contains(str(small.MAX_JOBS)), "a full batch counts itself: %s" % small.reason_against("one too many"))
+	assert(not small.add("one too many", "hd", "Painted plan"))
