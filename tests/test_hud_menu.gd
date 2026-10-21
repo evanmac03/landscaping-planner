@@ -42,7 +42,7 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 				"%s entry has a kind the builder knows" % String(menu["title"])
 			)
 	var expected: Array[String] = [
-		"File", "Edit", "View", "Draft", "Site", "Plant", "Estimate", "Present", "Help",
+		"File", "Edit", "View", "Draft", "Site", "Plant", "Water", "Estimate", "Present", "Help",
 	]
 	assert(titles == expected)
 

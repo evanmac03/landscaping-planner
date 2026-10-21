@@ -232,6 +232,7 @@ const GroundWindowScript := preload("res://scripts/ground_window.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 
 ## The units a person may tell a DXF it is in, when the file does not say. The empty one means "as the
 ## file says"; the rest are the names the reader knows, kept short because this is a drop-down.
@@ -292,6 +293,10 @@ var _plant_panel: PlantPanel = null
 ## the keyboard away from it.
 var _hatch_page: Control = null
 var _hatch_panel: HatchPanel = null
+## Watering an area: the page over the drawing and the panel of choices in it, built the way the hatch
+## page is and for the same reason.
+var _water_page: Control = null
+var _water_panel: IrrigationPanel = null
 
 
 func _ready() -> void:
@@ -317,6 +322,7 @@ func _ready() -> void:
 	_build_site_report_panel()
 	_build_survey_panel()
 	_build_hatch_panel()
+	_build_irrigation_panel()
 	_build_sheet_window()
 	_build_revision_window()
 	_build_dxf_panel()
@@ -361,6 +367,8 @@ func _process(_delta: float) -> void:
 	_refresh_menus()
 	if is_hatch_panel_open():
 		_refresh_hatch_panel()
+	if is_water_panel_open():
+		_refresh_water_panel()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -1272,6 +1280,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Draft", "items": draft_items()})
 	menus.append({"title": "Site", "items": site_items()})
 	menus.append({"title": "Plant", "items": plant_items()})
+	menus.append({"title": "Water", "items": water_items()})
 	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
@@ -1558,6 +1567,18 @@ static func plant_items() -> Array[Dictionary]:
 	return items
 
 
+## What the drawing is watered by: the supply, the zones, and the page that lays a new one out. A
+## menu of its own rather than a corner of Site, because irrigation is a subsystem with its own
+## vocabulary - a valve, a zone, a head - and burying it under the ground would put a pump among the
+## soil types.
+static func water_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"water.info", "nothing on this drawing is watered yet"))
+	items.append(_separator())
+	items.append(_command(&"water.panel", "Water an area...", &"", &"_menu_water_panel", NEEDS_DRAFT))
+	return items
+
+
 ## The reference: every key in one place, which is the one thing a menu can offer that the
 ## on-screen hints cannot, because they are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
@@ -1712,6 +1733,26 @@ func _ground_text() -> String:
 	return map.describe()
 
 
+## What the Water menu's own line says: the controller's one-line summary of the zones and the budget
+## beside it, so a designer can read the supply and the zones without opening the page.
+func _water_text() -> String:
+	if _draft == null or _draft.document == null:
+		return "there is no drawing to water"
+	var budget: String = _draft.irrigation_summary()
+	return "%s. %s" % [budget, _water_budget_text()]
+
+
+## The supply's own line, as the panel writes it, so the menu and the page never disagree about what
+## the source gives.
+func _water_budget_text() -> String:
+	if _draft == null:
+		return "no supply stated"
+	var supply: Dictionary = _draft.irrigation_supply()
+	if not IrrigationScript.has_supply(supply):
+		return "no supply stated: nothing is laid out until one is"
+	return "supply: %s" % IrrigationScript.supply_words(supply)
+
+
 
 
 ## Build the menus from the plan.
@@ -1795,6 +1836,9 @@ func _hide_unavailable_menus() -> void:
 		var title: String = menu_bar.get_menu_title(index)
 		if title == "Draft":
 			menu_bar.set_menu_hidden(index, _draft == null)
+		elif title == "Water":
+			# A zone is a set of heads on the drawing, so a scene with no drawing has nothing to water.
+			menu_bar.set_menu_hidden(index, _draft == null)
 		elif title == "Site":
 			# The ground lives on the drawing, so a scene with no drawing has no ground to state.
 			menu_bar.set_menu_hidden(index, _ground_map() == null)
@@ -1836,6 +1880,7 @@ func _refresh_menus() -> void:
 	_refresh_file_menu()
 	_refresh_plant_menu()
 	_refresh_site_menu()
+	_refresh_water_menu()
 	_refresh_estimate_menu()
 
 
@@ -2895,6 +2940,129 @@ func _menu_hatch_region(_entry: Dictionary) -> void:
 	open_hatch_panel()
 
 
+# --- watering an area ----------------------------------------------------------------------
+
+
+## The page that waters an area. Built in code like the hatch page, and a `Control` rather than a
+## `Window` for the same two reasons: it opens over the drawing it is about, and it must not take the
+## keyboard away from it.
+func _build_irrigation_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "WaterPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var page := PanelContainer.new()
+	page.name = "Page"
+	page.custom_minimum_size = Vector2(520.0, 0.0)
+	if top_bar != null:
+		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	page.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Water an area"
+	column.add_child(heading)
+
+	var panel := IrrigationPanel.new()
+	panel.name = "WaterChoices"
+	panel.supply_requested.connect(_on_water_supply)
+	panel.water_requested.connect(_on_water_area)
+	panel.remove_requested.connect(_on_water_remove)
+	panel.close_requested.connect(close_water_panel)
+	column.add_child(panel)
+	panel.build()
+
+	wrapper.add_child(page)
+	_water_page = wrapper
+	_water_panel = panel
+	root.add_child(wrapper)
+
+
+func is_water_panel_open() -> bool:
+	return _water_page != null and _water_page.visible
+
+
+## What the page says about the drawing: the areas it offers, the supply, and the zones already laid
+## out.
+func water_status_text() -> String:
+	if _water_panel == null:
+		return ""
+	var parts: Array[String] = [_water_panel.budget_text(), _water_panel.status_text()]
+	return " ".join(parts)
+
+
+func open_water_panel() -> void:
+	if _water_page == null or _water_panel == null:
+		return
+	_refresh_water_panel()
+	_water_page.visible = true
+
+
+func close_water_panel() -> void:
+	if _water_page != null:
+		_water_page.visible = false
+	if _water_panel != null:
+		_water_panel.say("")
+
+
+## The areas and the zones the drawing has, re-read every frame the page is open: a bed is drawn,
+## moved and deleted while the plan is made, and a page listing the beds of a minute ago would water
+## the wrong one. The supply is read too, so a supply stated by a script shows up here.
+func _refresh_water_panel() -> void:
+	if _water_panel == null or _draft == null:
+		return
+	_water_panel.set_areas(_draft.waterable_areas())
+	_water_panel.set_supply(_draft.irrigation_supply())
+	_water_panel.set_zones(_draft.irrigation_rows())
+
+
+## State the supply the panel shows, and report what happened on the panel's own line.
+func _on_water_supply(flow: float, pressure: float) -> void:
+	if _draft == null or _water_panel == null:
+		return
+	var stated: Dictionary = _draft.set_irrigation_supply(flow, pressure)
+	_water_panel.say(String(stated.get("message", stated.get("reason", ""))))
+	_refresh_water_panel()
+
+
+## Water the area the panel named, and report what happened on the panel's own line.
+func _on_water_area(region_key: String, kind: String, spacing: float, staggered: bool) -> void:
+	if _draft == null or _water_panel == null:
+		return
+	var ring := PackedVector2Array()
+	for row: Dictionary in _draft.waterable_areas():
+		if String(row.get("key", "")) == region_key:
+			ring = row.get("outline", PackedVector2Array())
+			break
+	if ring.size() < 3:
+		_water_panel.say("that area is not there any more")
+		_refresh_water_panel()
+		return
+	var watered: Dictionary = _draft.water_area(ring, kind, spacing, staggered)
+	_water_panel.say(String(watered.get("message", watered.get("reason", ""))))
+	_refresh_water_panel()
+
+
+## Take the zone the panel named off the drawing, heads and all, and report it.
+func _on_water_remove(number: int) -> void:
+	if _draft == null or _water_panel == null:
+		return
+	var taken: Dictionary = _draft.remove_zone(number)
+	_water_panel.say(String(taken.get("message", taken.get("reason", ""))))
+	_refresh_water_panel()
+
+
+func _menu_water_panel(_entry: Dictionary) -> void:
+	open_water_panel()
+
+
 # --- the plant list -----------------------------------------------------------------------
 
 
@@ -3667,6 +3835,14 @@ func _refresh_site_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _ground_text())
+
+
+## The live part of the Water menu: the line saying what this drawing is watered by.
+func _refresh_water_menu() -> void:
+	var named := _find_item(&"water.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _water_text())
 
 
 ## The live part of the Estimate menu: the line saying what has been measured and what it comes to.

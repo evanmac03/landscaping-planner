@@ -121,8 +121,15 @@ report, not a defect to refuse - unlike an overloaded valve, which is a defect.
 
 A placed head is a circle on the irrigation layer carrying its kind, its zone and its
 heading in its own metadata, so the takeoff counts it, the sheet keys it, and selecting it
-says what it is - with no second model to keep in step. (Drawing it is the next slice; see
-section 7.)
+says what it is - with no second model to keep in step. The radius is a *paper* size -
+`HEAD_SYMBOL_MM`, three millimetres - so a head is 0.3 m of ground at 1:100 and 0.6 m at
+1:200: a head is a symbol on a plan rather than a measured object, and drawing it in model
+metres instead would make it invisible on a garden plan and enormous on a detail. The plan
+canvas draws it by the same path as every other shape.
+
+A zone is a property of the **drawing**, not of a caller's memory: the module writes
+`{zones: [...], supply: {...}}` under the document's `irrigation` key, which is what makes a
+zone and the heads that belong to it arrive together and leave together.
 
 ## 3. Data models
 
@@ -277,20 +284,30 @@ fraction naming the worst point, and is not refused for it. |
 **Built:** the head table, a zone, the supply, the layout rule on the planting grid with the
 nozzle each position wants, the flow check with its seven refusals, the precipitation rate,
 the measured coverage check, the schedule rows, and the zone's file format.
-`scripts/draft/irrigation.gd` is the whole of it, with `tests/test_irrigation.gd` over it -
+`scripts/draft/irrigation.gd` is the arithmetic, with `tests/test_irrigation.gd` over it -
 36 tests, every count and every fraction in them hand-computed from the grid.
+
+**Built, the drawing slice:** heads are entities on `500-IRRIGATION` (section 2.9), a zone and
+the supply travel in the drawing file, and the Water menu opens the page that states a supply,
+waters an area and lists the zones. The pieces are `scripts/draft/irrigation.gd`
+(`head_entity`, `run_entity`, `is_head_entity`, `zone_of_entity`, `head_words`),
+`draft_controller.gd` (`irrigation_zones`, `irrigation_supply`, `set_irrigation_supply`,
+`waterable_areas`, `water_area`, `remove_zone`, `irrigation_rows`, `irrigation_summary`), the
+document's `irrigation` property (format **7**), and `scripts/irrigation_panel.gd` with its HUD
+page and its Water menu. Watering an area is **one undo step** whether it sets one head or
+fifty: a zone and its heads are one act, and Ctrl+Z takes the whole thing back. A zone that
+would not run off the stated supply is **not put on the drawing at all** - the page says why
+and leaves the plan alone.
 
 **Not built yet, and why:**
 
 * **Drip.** A drip zone is a run of tubing rather than a set of points: its flow is
   per metre and its wetted ground is a strip either side of the line. That wants a second
   geometry and a second coverage rule, and it is deliberately not faked as small point heads.
-* **Drawing heads on the plan** - a head symbol, a pipe run, and the palette that places
-  them - which is the next slice, and the one that makes the takeoff and the sheet see
-  them with no further work.
-* **Zones as a property of the drawing.** Today a zone is arithmetic a caller holds; storing
-  the zones with the drawing wants a document-format bump, and it goes with the drawing
-  slice so that a zone and the heads that belong to it arrive together.
+* **Pipe runs as a connected system.** `run_entity` writes the polyline a run would be on
+  `500-IRRIGATION`, and the takeoff measures a line there as a length - but no palette places
+  a run yet, and nothing holds the runs as a graph, so where the water goes and how far it has
+  to travel are not modelled.
 * **Hydraulics proper:** pressure loss along a pipe run, matched precipitation rates across
   zones, and a valve count against the manifold. Stated here so nobody mistakes the flow
   check for a hydraulic calculation - it is a capacity check, which is what a plan needs.
@@ -298,9 +315,10 @@ the measured coverage check, the schedule rows, and the zone's file format.
 
 ## 8. The tests, and what they hold down
 
-`tests/test_irrigation.gd` holds: the table is complete and every kind is named and reachable;
-a full-circle head covers its throw and no further while a half-circle one covers only its own
-half; the flow check refuses each of its seven cases with the numbers in the sentence; the
+`tests/test_irrigation.gd` holds the arithmetic: the table is complete and every kind is named
+and reachable; a full-circle head covers its throw and no further while a half-circle one
+covers only its own half; the flow check refuses each of its seven cases with the numbers in
+the sentence; the
 precipitation rate is the stated law (3.6 mm/h) and the verdict line carries it; the layout
 lands on the grid lines including the edges and lays out the textbook nine-head square; a
 triangular layout sets 42 where the square sets 49 and both cover the bed; a bed that is not a
@@ -308,6 +326,29 @@ whole number of throws reports what it misses; the cap refuses without setting a
 without disturbing the zone; a zone round-trips through the file while a broken record is
 dropped and a damaged head is dropped on its own; and the schedule, the schedule lines and the
 verdict line read as a designer reads them.
+
+`tests/test_irrigation_tools.gd` holds the drawing slice: the supply is stated for the whole
+drawing and one undo step returns it; a bed is watered in one step and the heads land on
+`500-IRRIGATION` carrying their zone, kind and nozzle; a head's radius is three millimetres of
+paper however the scale changes; an over-supply, a tiny area and an unknown kind are all
+refused *without touching the drawing*; a zone that would not run is not put on the plan;
+zones are numbered and valved apart; a zone travels in the file (version 7) while a damaged
+record is dropped; and taking a zone off takes its heads with it.
+
+`tests/test_irrigation_panel.gd` holds the page: the areas the drawing offers are the ones the
+drop-down shows and a redraw does not move the choice; the spacing is the factor applied to
+the chosen head's own throw, so a rotor's 11 m and a spray's 4.5 m are the same choice and
+different numbers; the water button is dead until there is both an area and a *stated* supply
+- it reads the drawing's supply, never its own default; a supply that is not one of the
+conventional values is shown as itself rather than rounded; the budget line names what the
+supply buys; the zone list carries the selection across a refresh; and nothing in the panel
+takes the keyboard.
+
+`tests/test_hud_water.gd` holds the wiring: the Water menu offers watering an area, with the
+controller's own summary and the supply on its info line; stating the supply and watering an
+area through the page's own signals change the drawing and say what happened; watering an area
+the page has that has since gone says so rather than failing; and the page's line reports the
+verdict until it is cleared, then the zones the drawing holds.
 
 ---
 
