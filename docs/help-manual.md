@@ -71,6 +71,7 @@ say what each menu is *for* rather than only listing its rows:
 | Subject | What it covers |
 |---|---|
 | What this program is | the one model, three views, where things live |
+| Finding any command: the palette | every command in one box, Ctrl+P, what a row says |
 | The three views | 2D plan, 3D overhead, ground view and how to move between them |
 | Drawing: the nine tools | each drawing tool and the key that selects it |
 | Snapping and precision | object snap, exact entry, constraints |

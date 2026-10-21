@@ -212,6 +212,11 @@ var _keys_panel: Control = null
 ## like the other pages, and for the one reason a window exists in this HUD - it has a field to search
 ## it with, and a text field is the one thing the HUD may not own outside a window.
 var _help_window: HelpWindow = null
+## The command palette: the whole bar in one box with a field to type into. A window like the manual,
+## and for the same reason - it has a field, and a text field is the one thing the HUD may not own
+## outside a window. It holds none of the bar itself: what is in it is read from `menu_plan()` every
+## time it opens, so a command cannot appear in one and be missing from the other.
+var _command_palette: CommandPalette = null
 ## The site-stats page, built by `_build_site_report_panel` and shown from the Site menu.
 var _site_report_panel: Control = null
 ## The survey import page, built by `_build_survey_panel`. A survey is read and *shown* before it
@@ -264,6 +269,7 @@ const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
 const HelpWindowScript := preload("res://scripts/help_window.gd")
+const CommandPaletteScript := preload("res://scripts/command_palette.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
@@ -424,6 +430,7 @@ func _ready() -> void:
 	_build_menu_bar()
 	_build_keys_panel()
 	_build_help_window()
+	_build_command_palette()
 	_build_file_dialogs()
 	_build_plant_library()
 	_build_ground_window()
@@ -1400,6 +1407,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			_menu_save_drawing({})
 			get_viewport().set_input_as_handled()
 			return
+		# The palette, on the same footing as the file commands and behind the same guard: it is a
+		# way to reach *any* command, including the ones that open a dialog, and a second palette
+		# behind an open Save dialog could open another one.
+		if event.is_action_pressed(&"command_palette"):
+			toggle_command_palette()
+			get_viewport().set_input_as_handled()
+			return
 		# The plant library, on the same footing: a plant browser is reached for constantly while
 		# planting a bed, and a menu is a slow way to get to something you use every minute.
 		if event.is_action_pressed(&"plant_library"):
@@ -1855,10 +1869,17 @@ static func light_items() -> Array[Dictionary]:
 	return items
 
 
-## The reference: every key in one place, which is the one thing a menu can offer that the
-## on-screen hints cannot, because they are three lines in three corners.
+## The two ways of answering "how do I do this here": the manual, in prose, and the palette, which is
+## the commands themselves. They belong together for that reason, and Help is the one menu that is
+## there in every scene, which is what a command palette has to be.
+##
+## The key reference is the third thing the menu can offer that the on-screen hints cannot, because
+## the hints are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
+	items.append(_command(
+		&"help.palette", "Command palette...", &"command_palette", &"_menu_command_palette"
+	))
 	items.append(_command(&"help.manual", "Landscaping Planner help...", &"", &"_menu_help"))
 	items.append(_check(&"help.keys", "Drawing keys", &"", &"_menu_keys", &"keys_panel"))
 	return items
@@ -2219,19 +2240,13 @@ func _refresh_menus() -> void:
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
-## here to fall out of step with the first.
+## here to fall out of step with the first - and the palette's own box comes through the same door,
+## so a command cannot mean one thing from its menu and another from the list of the same commands.
 func _on_menu_item_pressed(id: int, popup: PopupMenu) -> void:
 	var entries: Array = _menu_items.get(popup, [])
 	if id < 0 or id >= entries.size():
 		return
-	var entry: Dictionary = entries[id]
-	var method := StringName(entry.get("method", &""))
-	if method == &"" or not has_method(String(method)):
-		return
-	call(String(method), entry)
-	# A menu is a Control, and choosing from one can leave it holding the keyboard that the
-	# drawing keys belong to. This is the same release the HUD does at startup.
-	release_keyboard_focus(self)
+	run_entry(entries[id])
 
 
 # --- what each entry does -------------------------------------------------------------
@@ -2892,6 +2907,164 @@ func close_help_window() -> void:
 
 func is_help_window_open() -> bool:
 	return _help_window != null and _help_window.visible
+
+
+# --- the command palette --------------------------------------------------------------
+#
+# The whole bar in one box with a field to type into: the way to reach a command whose name you know
+# and whose menu you do not, and the only way to reach one whose key has been forgotten. It is the
+# same subject as the manual - "how do I do this here" - which is why the two sit together in Help.
+#
+# It holds no list of its own. The rows come from `menu_plan()`, the bar's one source, and each row
+# carries the entry it stands for, so a command runs through the same door from the palette as from
+# its menu (`run_entry`). A palette with its own list of commands would be a second menu bar, and the
+# two would drift the first time one of them gained an entry.
+
+
+## Build the palette by hand, so the box the designer opens is the box this file has already wired to
+## the bar. Built before it is ever shown, because a window that builds itself on its first `_ready`
+## shows an empty frame for one frame.
+func _build_command_palette() -> void:
+	if _command_palette != null:
+		return
+	_command_palette = CommandPaletteScript.new()
+	_command_palette.name = "CommandPalette"
+	add_child(_command_palette)
+	_command_palette.chosen.connect(_on_command_chosen)
+	_command_palette.hide()
+
+
+## Every command the bar holds, as a row the palette can show and run.
+##
+## Read fresh every time rather than kept, because what the bar holds is derived from tables that
+## change with the drawing: a palette holding this morning's list would offer commands that are not
+## in the drawing open now.
+##
+## The punctuation is left out. A separator does nothing, an "info" line is a sentence rather than a
+## command, and a submenu heading is a name for a set of commands rather than one of them - but the
+## commands *inside* a submenu are commands, and they are here, because a palette that could not
+## reach the plot scales would be a box with a hole in it.
+func command_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for entry: Dictionary in menu_entries():
+		var kind: StringName = entry.get("kind", &"command")
+		if kind == &"separator" or kind == &"info" or kind == &"submenu":
+			continue
+		var needed: bool = _menu_needs_met(StringName(entry.get("needs", NEEDS_NOTHING)))
+		var gated: StringName = StringName(entry.get("enabled_when", &""))
+		var enabled: bool = gated == &"" or is_enabled(gated, menu_world())
+		out.append(command_row(entry, needed, enabled))
+	return out
+
+
+## One row: what the command is called, the key that also does it, the menu it lives under, and
+## whether it can run here - with the reason when it cannot.
+##
+## The two questions are handed in rather than worked out here so that the row is a pure function of
+## them: whether a scene satisfies an entry is the bar's business (`_menu_needs_met`, `is_enabled`),
+## and this decides only what the row *says* about it.
+static func command_row(entry: Dictionary, needed: bool, enabled: bool) -> Dictionary:
+	var why: String = ""
+	if not needed:
+		why = needs_words(StringName(entry.get("needs", NEEDS_NOTHING)))
+	elif not enabled:
+		why = gated_words(StringName(entry.get("enabled_when", &"")))
+	return {
+		"id": String(entry.get("id", "")),
+		"label": String(entry.get("label", "")),
+		"key": _key_label(StringName(entry.get("action", &""))),
+		"menu": String(entry.get("menu", "")),
+		"method": StringName(entry.get("method", &"")),
+		"entry": entry,
+		"available": why == "",
+		"why": why,
+	}
+
+
+## What a command needs that this scene has not got, in words rather than in the name of the need.
+static func needs_words(needs: StringName) -> String:
+	match needs:
+		NEEDS_DRAFT:
+			return "there is no drawing open"
+		NEEDS_PRESENTATION:
+			return "the presentation is not in this scene"
+		NEEDS_PRESENCE:
+			return "there is no shared session"
+	return "it cannot be done in this scene"
+
+
+## Why a command that is only sometimes available is not available now. The same two states the bar
+## greys out for, and the same words: a palette and a menu describing the same entry differently
+## would be two answers to one question.
+static func gated_words(state: StringName) -> String:
+	match state:
+		&"dirty":
+			return "nothing has changed since it was saved"
+		&"session_on":
+			return "no session is open"
+	return "it cannot be done just now"
+
+
+## Run a menu entry through the method it names.
+##
+## The one door the bar and the palette both use, so a command cannot do one thing from its menu and
+## another from the box that lists the same command. Returns whether anything ran, because an entry
+## naming a method that is not here is a menu item that looks like it works.
+func run_entry(entry: Dictionary) -> bool:
+	var method := StringName(entry.get("method", &""))
+	if method == &"" or not has_method(String(method)):
+		return false
+	call(String(method), entry)
+	# Choosing a command can leave a Control holding the keyboard that the drawing keys belong to.
+	# This is the same release the HUD does at startup.
+	release_keyboard_focus(self)
+	return true
+
+
+## Show the palette, with the bar read again as it opens: a command that has appeared, gone or become
+## possible since the last time is exactly what a box like this is for.
+func open_command_palette() -> void:
+	if _command_palette == null:
+		return
+	_command_palette.set_commands(command_rows())
+	_command_palette.open()
+
+
+func close_command_palette() -> void:
+	if _command_palette != null:
+		_command_palette.close_palette()
+
+
+func is_command_palette_open() -> bool:
+	return _command_palette != null and _command_palette.visible
+
+
+## The key's one act. A palette is a box you open and close, not one you can open twice.
+func toggle_command_palette() -> void:
+	if is_command_palette_open():
+		close_command_palette()
+	else:
+		open_command_palette()
+
+
+## Fill the palette without putting it on the screen, which is how the suite checks it with no window
+## server behind it: the filling and the showing are kept apart for exactly this reason.
+func _fill_command_palette() -> void:
+	if _command_palette != null:
+		_command_palette.set_commands(command_rows())
+
+
+## A command was chosen from the palette. Run through the bar's own door, and then let the bar catch
+## up: a command that moved the drawing leaves the ticks and the lines that describe the drawing
+## describing the drawing before it.
+func _on_command_chosen(row: Dictionary) -> void:
+	var entry: Dictionary = row.get("entry", {})
+	if run_entry(entry):
+		_refresh_menus()
+
+
+func _menu_command_palette(_entry: Dictionary) -> void:
+	open_command_palette()
 
 
 # --- the site report ------------------------------------------------------------------

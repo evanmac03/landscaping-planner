@@ -27,12 +27,15 @@ func _entry(id: StringName) -> Dictionary:
 	return {}
 
 
-func test_the_help_menu_offers_the_manual_above_the_key_reference() -> void:
+func test_the_help_menu_offers_the_palette_the_manual_then_the_keys() -> void:
+	# The palette comes first because it is the shortest way to *any* command, including the ones
+	# that are not in this menu - it is the commands themselves rather than prose about them. The
+	# manual comes next, and the key reference last.
 	var ids: Array[String] = []
 	for entry: Dictionary in HudScript.items_for("Help"):
 		ids.append(String(entry.get("id", "")))
-	var expected: Array[String] = ["help.manual", "help.keys"]
-	assert(ids == expected, "the manual is offered above the keys")
+	var expected: Array[String] = ["help.palette", "help.manual", "help.keys"]
+	assert(ids == expected, "the palette, then the manual, then the keys")
 
 
 func test_the_manual_reaches_nothing_in_the_scene_it_is_opened_from() -> void:

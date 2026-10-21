@@ -26,6 +26,7 @@ extends RefCounted
 ## test rather than quietly stop being documented.
 const SUBJECTS: Array[String] = [
 	"What this program is",
+	"Finding any command: the palette",
 	"The three views",
 	"Drawing: the nine tools",
 	"Snapping and precision",
@@ -67,8 +68,27 @@ static func topics() -> Array[Dictionary]:
 		+ "palette down the left holds the drawing tools and the layers. The lines in the corners name "
 		+ "the keys.",
 		"",
-		"Help > Landscaping Planner help opens this manual, and Help > Drawing keys opens the key "
-		+ "reference. Everything the bar offers is described in here.",
+		"Help > Landscaping Planner help opens this manual, Help > Drawing keys opens the key "
+		+ "reference, and Help > Command palette opens one box that reaches every command there is. "
+		+ "Everything the bar offers is described in here.",
+	]))
+	out.append(_topic("Finding any command: the palette", [
+		"Help > Command palette opens a box holding every command the program has, with a field to type "
+		+ "into. It is the shortest way to reach something whose name you know and whose menu you do "
+		+ "not: type a word and the list narrows to the commands that mention it - the ones named after "
+		+ "it first, then the ones merely filed under a menu of that name.",
+		"",
+		"Ctrl+P opens the same box from anywhere in the program. Type to narrow the list, the up and "
+		+ "down arrows move through it, Enter runs the command that is chosen, and Escape puts the box "
+		+ "away.",
+		"",
+		"A row says three things: what the command is called, the key that also does it, and the menu it "
+		+ "lives under. A command that cannot be used in the drawing you have open says so in place of "
+		+ "its menu, and picking it says the same thing rather than doing nothing - the bar greys out "
+		+ "what the scene cannot do instead of hiding it, and this box keeps that rule. Nothing is ever "
+		+ "offered that is not in the menus, because the list is read out of the bar itself.",
+		"",
+		"The rest of this manual describes what each of those commands does; this is only the way in.",
 	]))
 	out.append(_topic("The three views", [
 		"2D plan - the drafting view: linework, dimensions, planting symbols and hatching, measured and "

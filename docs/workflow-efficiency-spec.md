@@ -6,7 +6,8 @@ which file it is in, what holds it down, and what is genuinely missing. Written 
 there is one, the test that would fail if it stopped being true.
 
 All eight are now built or answered: sections 1 to 5 are in the drawing, section 6 is presence on
-demand, and section 7's business chain runs phases 0 to 11. Section 8 names what is left, and the order.
+demand, section 7's business chain runs phases 0 to 11, and section 8 is the box that reaches
+all of it. Section 9 names what is left, and the order.
 
 ## 0. The shape everything hangs off
 
@@ -360,7 +361,44 @@ The four rules it has to obey, every one of them already a decision in this proj
 'Autumn Blaze'", "30 x unidentified" - and it already counts what it cannot name as its own row. The
 takeoff's first job is to generalise that to every layer.
 
-## 8. What I would build next, in this order
+## 8. One box for the whole bar - BUILT
+
+`scripts/command_palette.gd` (`CommandPalette`) and the HUD's join in `scripts/hud.gd`. Held
+down by `tests/test_command_palette.gd` (19 tests) and `tests/test_hud_palette.gd` (19 tests),
+and looked at live by `tools/palette_demo.gd`.
+
+The problem it answers is not "I cannot find the command" but "I know its name and not its
+menu". The bar is fourteen menus and a hundred and twelve commands in the shipped scene, and the
+handful of keys that reach the ones used every minute are the only ones anybody remembers.
+
+* **It holds no list of commands of its own.** The rows are built from `menu_plan()` - the bar's
+  one source - so a command cannot be in the box and missing from the menu, or called two
+  different things in the two places. Every row carries the entry it stands for, and the HUD runs
+  it through the same door a press in the menu uses (`Hud.run_entry`): that one line is what makes
+  the box and the bar the same program rather than two lists of the same commands.
+* **A command that cannot run here is shown rather than dropped.** The bar greys out what the
+  scene cannot do instead of hiding it, so a menu still says what the program does in a scene that
+  cannot do it. The box keeps that rule and takes it further: the row says *what is missing* in
+  place of its menu - "there is no drawing open" - and picking it refuses it in the same words
+  rather than doing nothing. An entry that vanishes cannot teach anybody anything.
+* **The ranking is the usability.** A command whose *name* begins with the word beats one that
+  merely contains it, and either beats one that is only in a menu of that name. Ties keep the
+  bar's order, so the same search gives the same list every time. Reaching one of the ten plot
+  scales by typing `A2` is the whole point of the box.
+* **The keys are the box's own.** While a `Window` has the keyboard the HUD never sees a key
+  event at all, so Escape, Enter and the arrows are answered for on the one control that holds it
+  - the field - which is also why the field takes focus the moment the box opens. Nothing else in
+  the box can hold the keyboard, and the box never holds it while it is closed.
+* **`Ctrl+P` sits inside the file-dialog guard**, beside Ctrl+N/O/S and for the same reason: the
+  box can reach a command that opens a dialog, and a second box behind an open Save dialog could
+  open another one.
+
+The manual gained `Finding any command: the palette` as its second subject, because a way in that
+is all keyboard is exactly what prose is for. The live check presses the real keys through
+`Input.parse_input_event` rather than `Input.action_press`, which sets an action's state and sends
+no event at all - a check built on it would never have exercised the handler Ctrl+P lives in.
+
+## 9. What I would build next, in this order
 
 1. ~~**The takeoff and the estimate (business phases 2 and 3, together).**~~ **Done.** Built as
    `takeoff.gd`, `estimate_line.gd` and `estimate.gd` with 47 tests, and verified against the shipped
@@ -383,3 +421,6 @@ takeoff's first job is to generalise that to every layer.
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
 phase table, where phases 0 to 11 are marked built.
+Section 8 was checked by reading the box in the running program rather than by reading the
+script that builds it: `tools/palette_demo.gd` presses Ctrl+P, types a word, presses Enter and
+presses Escape through the real input pipeline, and each of the four acts on the real controls.
