@@ -160,6 +160,10 @@ var _arm_button: CheckButton = null
 var _tool_buttons: Array[Button] = []
 var _edit_buttons: Array[Button] = []
 var _layer_option: OptionButton = null
+## The lock for the layer in hand. A check box rather than a key, because it is a state rather
+## than a command: locked means "leave this layer alone", and it is the state the drawing, the
+## selection band and every editing command read.
+var _lock_button: CheckButton = null
 var _layer_names: Array[StringName] = []
 var _style_button: Button = null
 ## What the palette was last drawn to match, so a check every frame does not
@@ -654,6 +658,15 @@ func _build_palette() -> void:
 		)
 	_layer_option.item_selected.connect(_on_layer_selected)
 	layer_row.add_child(_layer_option)
+	# The lock sits on the layer's own row because it is a property of that layer rather than a
+	# tool. Focus-free so a HUD check box cannot swallow Tab or Enter before the drawing sees it.
+	_lock_button = CheckButton.new()
+	_lock_button.name = "LockButton"
+	_lock_button.text = "Lock"
+	_lock_button.focus_mode = Control.FOCUS_NONE
+	_lock_button.tooltip_text = "Lock this layer: its shapes stay on the sheet but cannot be picked, selected or drawn on"
+	_lock_button.pressed.connect(_on_lock_pressed)
+	layer_row.add_child(_lock_button)
 	palette_column.add_child(layer_row)
 
 	# What to do with the shape in hand, then what to do with the drawing.
@@ -715,9 +728,10 @@ func _command_button(
 func _refresh_palette() -> void:
 	if _draft == null or _arm_button == null:
 		return
-	var state := "%s|%d|%s|%s|%d" % [
+	var state := "%s|%d|%s|%s|%d|%s" % [
 		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
 		String(_draft.dimension_style_name), int(_draft.current_edit()),
+		_is_layer_locked(),
 	]
 	if state == _palette_state:
 		return
@@ -740,6 +754,9 @@ func _refresh_palette() -> void:
 	var selected := _layer_names.find(_draft.current_layer())
 	if selected >= 0:
 		_layer_option.selected = selected
+	# By the silent setter for the same reason the arm button uses it: setting a toggle the
+	# ordinary way fires its handler, and the refresh would then be driving the layer it reports on.
+	_lock_button.set_pressed_no_signal(_is_layer_locked())
 	_style_button.text = "Standard: %s" % String(_draft.dimension_style_name)
 	_style_button.tooltip_text = "%s (%s)" % [
 		_draft.document.dimension_style.describe(), _key_label(&"draft_dimension_style"),
@@ -764,6 +781,40 @@ func _on_layer_selected(index: int) -> void:
 	if _draft == null or index < 0 or index >= _layer_names.size():
 		return
 	_draft.set_layer(_layer_names[index])
+
+
+## Whether the layer the drawing is on is locked. False with nothing to draw on, so a HUD with
+## no drawing shows an unlocked, unpressable check box rather than failing.
+func _is_layer_locked() -> bool:
+	if _draft == null or _draft.document == null:
+		return false
+	return _draft.document.is_layer_locked(_draft.current_layer())
+
+
+## Lock or unlock the layer in hand. The lock belongs to the layer rather than to this button, and
+## it is recorded as one undo step like any other change to the drawing - a lock somebody tripped
+## over is a change they may want back.
+##
+## Public because the decision is worth testing without a built palette, and because one door for
+## locking a layer is the same discipline as one door for editing one.
+func set_layer_locked(locked: bool) -> void:
+	if _draft == null or _draft.document == null:
+		return
+	# Named `layer_name` rather than `layer`: the Hud is a CanvasLayer, so a local called `layer`
+	# would shadow the canvas layer the HUD itself is drawn on.
+	var layer_name: StringName = _draft.current_layer()
+	_draft.document.begin_gesture()
+	_draft.document.layers.set_locked(layer_name, locked)
+	_draft.document.changed.emit()
+
+
+## The button's own handler. It reads the button rather than taking `toggled`'s argument, because
+## the refresh writes the button's state: reading the argument would let a refresh that arrived
+## mid-click report a lock it had just drawn, which is the bug the silent setter exists to avoid.
+func _on_lock_pressed() -> void:
+	if _lock_button == null:
+		return
+	set_layer_locked(_lock_button.button_pressed)
 
 
 ## What one tool button says: the tool on the first line, the key that does the same

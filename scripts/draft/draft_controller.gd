@@ -513,6 +513,12 @@ func _commit(pick: Dictionary) -> void:
 		if zone_hand and entity.kind == EntityScript.Kind.POLYGON:
 			state_ground_zone(entity.outline())
 			return
+		# A locked layer is not one you can add to either, or locking the survey and then finding a
+		# line you drew on it would be the worst of both. The check is here rather than in
+		# `document.add` because a command has a status line to say *why* nothing happened.
+		if document != null and document.is_layer_locked(tool.layer):
+			last_message = "%s is locked" % String(tool.layer)
+			return
 		# One snapshot per committed shape, so a single undo removes a whole
 		# entity rather than un-picking a point.
 		document.begin_gesture()
@@ -610,7 +616,7 @@ func clear_selection() -> void:
 func select_all() -> int:
 	_selected = []
 	if document != null:
-		for entity: EntityScript in document.visible_entities():
+		for entity: EntityScript in document.editable_entities():
 			_selected.append(int(entity.id))
 	_select_points = []
 	last_message = SelectScript.describe(_selected.size(), select_mode)
@@ -645,7 +651,7 @@ func select_at(world: Vector2) -> Dictionary:
 		last_message = reason
 		return {"ok": false, "progress": 1, "reason": reason}
 	var caught: Dictionary = SelectScript.pick_between(
-		document.visible_entities() if document != null else [], first, world, select_mode
+		document.editable_entities() if document != null else [], first, world, select_mode
 	)
 	_selected = []
 	for id in caught["ids"]:
@@ -676,7 +682,7 @@ func _select_status() -> String:
 func plan_simplify() -> SimplifyReportScript:
 	var chosen: Array[EntityScript] = selected_entities()
 	if chosen.is_empty() and document != null:
-		chosen = document.visible_entities()
+		chosen = document.editable_entities()
 	return DraftSimplifyScript.plan(chosen, DraftSimplifyScript.default_tolerance(plot_scale))
 
 
@@ -1024,7 +1030,10 @@ func _pick_world(world: Vector2):
 		aperture = PICK_PIXELS / maxf(canvas.pixels_per_metre, 1e-9)
 	var best = null
 	var best_distance := aperture
-	for entity in document.visible_entities():
+	# `editable_entities` is what leaves a locked layer out: its shapes stay on the sheet and
+	# still plot, they simply cannot be picked (REQ 5.2.2). Every editing command reaches its
+	# shape through here, so one filter covers offset, trim, extend, fillet, erase and rotate.
+	for entity in document.editable_entities():
 		if is_annotation_layer(entity.layer):
 			continue
 		var distance := _distance_to(entity, world)

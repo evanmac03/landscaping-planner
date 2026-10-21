@@ -309,6 +309,63 @@ func test_the_status_line_prompts_each_of_the_turns_three_picks() -> void:
 	controller.free()
 
 
+# --- the layer lock -----------------------------------------------------------------
+
+
+## The one door every editing command picks through. A locked shape is still on the sheet, so the
+## command is not given a different shape by accident: it is told there is nothing to pick.
+func test_a_locked_shape_is_not_picked_by_any_edit_command() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 10, 0), LayerSet.NEW_HARDSCAPE)
+	controller.document.layers.set_locked(LayerSet.NEW_HARDSCAPE, true)
+	controller.arm_edit(EditKind.ERASE)
+	controller.edit_at(Vector2(5, 0.05))
+	assert(controller.document.count() == 1, "a locked shape is not erased")
+	assert(controller.last_message.contains("nothing"), "and the line says so")
+
+	# Offset picks through the same door, so it is refused for the same reason.
+	controller.arm_edit(EditKind.OFFSET)
+	controller.edit_at(Vector2(5, 0.0))
+	assert(controller.document.count() == 1, "and it is not offset either")
+	assert(controller.last_message.contains("nothing"))
+	controller.free()
+
+
+## Locking one layer does not freeze the drawing: a locked shape is still on the sheet and still
+## visible, and everything on the other layers stays perfectly editable.
+func test_a_locked_layer_does_not_freeze_the_rest_of_the_drawing() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 10, 0), LayerSet.NEW_HARDSCAPE)
+	controller.document.layers.set_locked(LayerSet.NEW_HARDSCAPE, true)
+	controller.document.add(_line(0, 1, 10, 1), LayerSet.NEW_BED)
+	controller.arm_edit(EditKind.ERASE)
+	controller.edit_at(Vector2(5, 1.0))
+	assert(controller.document.count() == 1, "the unlocked shape was picked and erased")
+	assert(controller.document.entities()[0].layer == LayerSet.NEW_HARDSCAPE,
+		"and the locked one is the shape left alone")
+	controller.free()
+
+
+## A locked layer is not one you can add to either. Drawing a line and finding it on the layer you
+## had just locked would be the worst of both states: protected and unprotected at once.
+##
+## Driven through `_commit`, which is the one door a finished shape goes out by - both `click` and
+## `finish` hand their shape to it - and with the same dictionary they hand over.
+func test_nothing_is_drawn_onto_a_locked_layer() -> void:
+	var controller = _controller()
+	controller.set_layer(LayerSet.NEW_BED)
+	controller.document.layers.set_locked(LayerSet.NEW_BED, true)
+	controller._commit({"entity": _line(0, 0, 4, 0), "measure": null})
+	assert(controller.document.count() == 0, "no line was added")
+	assert(controller.last_message.contains("locked"), "and the line says why")
+	assert(controller.document.layers.is_locked(LayerSet.NEW_BED), "the lock still stands")
+	# And the very same commit lands once the lock is off, so the refusal was the lock and not the call.
+	controller.document.layers.set_locked(LayerSet.NEW_BED, false)
+	controller._commit({"entity": _line(0, 0, 4, 0), "measure": null})
+	assert(controller.document.count() == 1, "and it lands with the lock off")
+	controller.free()
+
+
 # --- staying out of the way -------------------------------------------------------
 
 

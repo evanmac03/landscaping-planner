@@ -188,6 +188,33 @@ func test_an_edit_command_outranks_the_band() -> void:
 # --- selecting everything -------------------------------------------------------------
 
 
+## Select-all is a selection, and a selection is the first step of changing something, so it leaves
+## a locked layer out for the same reason an editing command cannot pick one.
+func test_select_all_leaves_out_a_locked_layer() -> void:
+	var controller = _controller()
+	_add(controller, _line(1.0, 1.0, 2.0, 2.0))
+	_add(controller, _line(3.0, 3.0, 4.0, 4.0), LayerSet.NEW_PLANTING)
+	assert(controller.select_all() == 2, "nothing is protected yet")
+	controller.document.layers.set_locked(LayerSet.NEW_PLANTING, true)
+	assert(controller.select_all() == 1, "a locked layer is left out of select-all")
+	assert(controller.document.count() == 2, "and is still on the drawing")
+	controller.free()
+
+
+## The band is the other way a selection is made, and it reads the same door.
+func test_a_band_does_not_catch_a_locked_layer() -> void:
+	var controller = _controller()
+	_add(controller, _line(1.0, 1.0, 2.0, 2.0))
+	_add(controller, _line(3.0, 3.0, 4.0, 4.0), LayerSet.NEW_PLANTING)
+	controller.document.layers.set_locked(LayerSet.NEW_PLANTING, true)
+	controller.select_at(Vector2(0.0, 0.0))
+	controller.select_at(Vector2(5.0, 5.0))
+	var caught := controller.selection()
+	assert(caught.size() == 1, "only the unlocked shape was caught")
+	assert(caught[0] == 1, "and it is the one on the bed layer")
+	controller.free()
+
+
 func test_select_all_takes_everything_on_a_visible_layer() -> void:
 	var controller = _controller()
 	var one := _add(controller, _line(1.0, 1.0, 2.0, 2.0))

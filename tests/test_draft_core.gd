@@ -647,6 +647,23 @@ func test_layer_set_copy_is_independent() -> void:
 	assert(not duplicate.get_layer(LayerSet.NEW_BED).visible)
 
 
+## Locking is a state of the layer, read back by name, and it has nothing to do with hiding: a
+## locked layer is still on the sheet and still plots, which is the whole point of locking the
+## survey you were given rather than a layer you are not working on.
+func test_a_layer_can_be_locked_without_being_hidden() -> void:
+	var set := LayerSet.default_set()
+	assert(not set.is_locked(LayerSet.SURVEY_PROPERTY), "a fresh set has nothing locked")
+	assert(set.locked_names().is_empty())
+	set.set_locked(LayerSet.SURVEY_PROPERTY, true)
+	assert(set.is_locked(LayerSet.SURVEY_PROPERTY))
+	assert(set.locked_names() == [LayerSet.SURVEY_PROPERTY], "and it is named back")
+	assert(set.get_layer(LayerSet.SURVEY_PROPERTY).plots, "a locked layer still plots")
+	assert(set.visible_names().has(LayerSet.SURVEY_PROPERTY), "and is still shown")
+	# A name nobody has is not a locked layer, and a copy keeps the lock.
+	assert(not set.is_locked(&"No such layer"))
+	assert(set.copy().is_locked(LayerSet.SURVEY_PROPERTY))
+
+
 func test_every_layer_has_a_purpose_and_a_weight() -> void:
 	var set := LayerSet.default_set()
 	for layer in set.layers():

@@ -199,6 +199,26 @@ func entities() -> Array[EntityScript]:
 	return out
 
 
+## Whether a layer's geometry may be picked, selected or edited. A locked layer is still
+## drawn and still plots - locking takes away the ability to *change* what is on it, which is
+## what makes it worth doing to a survey or a consultant's base plan (REQ 5.2.2).
+func is_layer_locked(layer_name: StringName) -> bool:
+	return layers.is_locked(layer_name)
+
+
+## Only what can be changed: on a visible layer, and not on a locked one.
+##
+## The one place the lock is read, for the reason `visible_entities` is the one place hiding is
+## read: a pick aperture, a selection band, select-all and the simplify pass all ask here, so
+## none of them can disagree about what is protected (REQ 5.2.2).
+func editable_entities() -> Array[EntityScript]:
+	var out: Array[EntityScript] = []
+	for entity: EntityScript in visible_entities():
+		if not is_layer_locked(entity.layer):
+			out.append(entity)
+	return out
+
+
 ## Only what is on a visible layer. Drives every view at once, so a hidden layer
 ## is hidden in the plan, the 3D overhead and the ground view alike (REQ 5.2.3).
 func visible_entities() -> Array[EntityScript]:

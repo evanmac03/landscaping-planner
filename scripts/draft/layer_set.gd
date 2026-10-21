@@ -256,6 +256,22 @@ func visible_names() -> Array[StringName]:
 	return out
 
 
+## Whether one layer is locked. A locked layer stays on the sheet and still plots; what it
+## loses is the ability to be picked, selected or edited (REQ 5.2.2).
+func is_locked(layer_name: StringName) -> bool:
+	var layer: DraftLayerScript = _layers.get(layer_name, null)
+	return layer != null and layer.locked
+
+
+## Layer names that are locked, in draw order.
+func locked_names() -> Array[StringName]:
+	var out: Array[StringName] = []
+	for name: StringName in _order:
+		if _layers[name].locked:
+			out.append(name)
+	return out
+
+
 ## Show exactly the layers a state names, and hide the rest.
 func apply_state(state_name: String) -> bool:
 	if not STATES.has(state_name):

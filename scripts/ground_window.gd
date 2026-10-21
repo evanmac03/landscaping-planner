@@ -322,9 +322,11 @@ func refresh() -> void:
 ## told apart from an area of the plan by its key - both are keyed under `HAND_PREFIX`, but a hand
 ## zone's "layer" token is the literal `zone`, which is not one of the AREAS the plan encloses.
 ##
-## The document comes in only so the area can be written in its units: a row carries the words, so
-## nothing that lists areas has to know what a square metre is.
-static func _hand_zone_rows(document: DraftDocument, map: ZoneMap) -> Array[Dictionary]:
+## The drawing comes in only so the area can be written in its units: a row carries the words, so
+## nothing that lists areas has to know what a square metre is. It is named `drawing` rather than
+## `document` because the window already has a `document` member and a parameter of that name
+## shadows it - which GDScript warns about, and a warning in this project is a defect.
+static func _hand_zone_rows(drawing: DraftDocument, map: ZoneMap) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if map == null:
 		return out
@@ -346,7 +348,7 @@ static func _hand_zone_rows(document: DraftDocument, map: ZoneMap) -> Array[Dict
 			"name": zone.name if not zone.name.is_empty() else "zone",
 			"outline": outline,
 			"area_m2": area,
-			"area_text": ZoneMapScript.area_words(document, area),
+			"area_text": ZoneMapScript.area_words(drawing, area),
 		})
 	return out
 

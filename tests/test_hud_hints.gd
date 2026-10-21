@@ -130,6 +130,37 @@ func test_the_legend_row_is_the_controllers_own_edit_set() -> void:
 	assert(offered == expected, "the legend offers %s, the commands are %s" % [offered, expected])
 
 
+# --- the layer lock ---------------------------------------------------------------
+
+
+## Locking the layer in hand is the palette's decision, driven here rather than through a built
+## palette. The lock belongs to the layer rather than to the button, and like any other change to
+## the drawing it is one step of undo - a lock somebody tripped over is a change they may want back.
+func test_locking_the_layer_in_hand_is_one_undoable_step() -> void:
+	var controller = _controller()
+	controller.set_layer(LayerSet.NEW_BED)
+	var hud := Hud.new()
+	hud._draft = controller
+	assert(not controller.document.is_layer_locked(controller.current_layer()),
+		"a fresh drawing has nothing locked")
+	hud.set_layer_locked(true)
+	assert(controller.document.is_layer_locked(LayerSet.NEW_BED))
+	assert(controller.document.undo_last(), "a lock can be taken back")
+	assert(not controller.document.is_layer_locked(LayerSet.NEW_BED), "and it lets go again")
+	hud.free()
+	controller.free()
+
+
+## With no drawing there is no layer in hand, so the palette has nothing to lock and nothing to
+## report: it says so rather than failing.
+func test_a_hud_with_no_drawing_has_no_layer_to_lock() -> void:
+	var hud := Hud.new()
+	assert(not hud._is_layer_locked())
+	hud.set_layer_locked(true)
+	assert(not hud._is_layer_locked(), "and locking nothing locks nothing")
+	hud.free()
+
+
 ## The legend covers every drafting action the project binds, and no others. A new
 ## tool cannot arrive without a line, and a line cannot outlive its binding.
 func test_the_legend_covers_every_drafting_action_exactly() -> void:

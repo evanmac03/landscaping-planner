@@ -142,6 +142,21 @@ func test_hiding_a_layer_removes_its_geometry_from_every_selection() -> void:
 	assert(document.visible_entities()[0].layer == LayerSet.NEW_BED)
 
 
+## Locking is the second state a pick reads, and it is deliberately not hiding: everything on the
+## locked layer is still drawn and still plots, it is simply left out of what can be changed.
+func test_a_locked_layers_geometry_is_drawn_but_not_editable() -> void:
+	var document = Document.new()
+	document.add(_sample_line(), LayerSet.NEW_BED)
+	document.add(_sample_line(8.0), LayerSet.NEW_PLANTING)
+	assert(document.editable_entities().size() == 2, "nothing is protected yet")
+	document.layers.set_locked(LayerSet.NEW_PLANTING, true)
+	assert(document.is_layer_locked(LayerSet.NEW_PLANTING))
+	assert(document.visible_entities().size() == 2, "a locked layer is still drawn")
+	assert(document.editable_entities().size() == 1, "and left out of what can be changed")
+	assert(document.editable_entities()[0].layer == LayerSet.NEW_BED)
+	assert(not document.is_layer_locked(LayerSet.NEW_BED), "the other layer is untouched")
+
+
 func test_non_plotting_layers_are_excluded_from_the_plot_set() -> void:
 	var document = Document.new()
 	document.add(_sample_line(), LayerSet.NEW_BED)
