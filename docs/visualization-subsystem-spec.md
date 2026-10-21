@@ -2176,6 +2176,24 @@ func look_target_at(distance_along: float) -> Vector3:
     return _stops[_stops.size() - 1]["look"]
 ```
 
+**What building this changed** (`scripts/vis/walk_route.gd`). Two corrections, both because
+the route had to be *testable*, and neither visible until it was written:
+
+1. **The route is its own clock.** The sketch above follows a `Curve3D` the caller steps; the
+   built `WalkRoute` answers `duration()`, `position_at(elapsed)` and `look_at(elapsed)`
+   itself, so "where is the camera at 12.4 seconds" is a question with an answer that does
+   not need a frame rendered to check. A walk-through that can only be inspected by watching
+   it is one no test can hold. The `Curve3D` still exists - `path()` returns it - but it is a
+   description of the route, not the thing that is followed. `stage_at()` gathers the whole
+   answer (position, look, stop index, travelling, done, progress) in one call.
+2. **`add_stop`'s target is named `aim_at`, not `look_at`.** `look_at` is a method of
+   `WalkRoute` itself (`look_at(elapsed)`), and in Godot 4.7 a method name claims that name
+   for the whole file, so a parameter may not share it. Same value, same meaning, a spelling
+   the compiler accepts.
+
+The stops also lie along the *open* side of the garden and each aims across it: a stop behind
+the house looks at the back of the house, and a stop inside it looks at nothing.
+
 REQ-V9.3 A walk-through shall move between authored stops along a smoothed path and
 dwell at each for a stated time. A continuous fly-through with no stops cannot be
 described to a client, and a walk-through nobody can describe is a screensaver.
@@ -2528,6 +2546,27 @@ func render_preview(output_size: Vector2i) -> String:
     return await exporter.render_still(edited, output_size, "preview")
 ```
 
+**What building this changed** (`addons/vis_tools/`). Three corrections:
+
+1. **The dock is a plain `Control`, built in code, with no `presentation_dock.tscn`.** The
+   tree above shows a scene for the dock and a separate `diagnostics_panel.gd`; both were
+   folded into two files. The dock adds no children a scene would save for it - a few labels,
+   a list, a few buttons - and a scene whose only job is to be instantiated and then have its
+   nodes found by name is a second file to keep in step with the first. What was a *panel* is
+   now a *list in the dock* (`VisPresentationDock`, one `ItemList` of findings beside the
+   jobs), so `diagnostics_panel.gd` does not exist. The dock is a plain `Control` with no
+   editor API precisely so it can be tested off-tree.
+2. **`add_control_to_dock` is gone in Godot 4.7.** An editor dock is attached with
+   `EditorDock` + `add_dock(dock)` / `remove_dock(dock)` - the same correction the business
+   work's cost-book dock forced (§15.17 of `business-operations-spec.md`). The `EditorDock`
+   needs a `title`, a `default_slot` and `available_layouts`, and the plugin owns and frees it.
+3. **The plugin finds the drawing by polling the edited scene, not in `_enter_tree`.** A
+   non-`@tool` script's `_ready` never runs in the editor, so `main.tscn`'s `DraftController`
+   has no document when the plugin enters the tree, and `EditorInterface.get_edited_scene_root()`
+   is itself null during `_enter_tree`. `_process` polls the edited root and re-adopts when it
+   changes, falling back to the most recent saved drawing before an empty layer set, so the
+   dock shows something useful the moment it is turned on.
+
 ### 11.3 Diagnostics
 
 The dock's diagnostics panel answers the questions whose answers are currently
@@ -2580,6 +2619,24 @@ static func report(document, layer_set) -> Array[Dictionary]:
                 })
     return findings
 ```
+
+**The severities, and how a deliberate omission is told from an oversight.** The built
+`VisDiagnostics` reports three levels rather than the sketch's two, and reads the *two halves*
+of each table rather than matching on prose:
+
+- A plotting layer carrying geometry that is in neither `WashTable.WASHES` nor
+  `WashTable.NO_WASH` is a **warning** naming `scripts/vis/wash_table.gd` - somebody drew on a
+  layer nobody decided how to paint.
+- A layer in `NO_WASH` is **silent**: a decision already on the record.
+- The same shape for solids - in neither `SolidTable.SOLIDS` nor `SolidTable.NO_SOLID` is a
+  **warning** naming `solid_table.gd`; in `NO_SOLID` is a **note** quoting `reason_for`, so
+  "flat on purpose" stays visible without reading as a problem.
+- A solid naming a material set `HardscapeMaterial.has_set` does not have is an **error**, and
+  every path in `missing_paths()` is an error of its own - the one class of finding that is
+  *missing data* rather than *an authoring decision*, which is why it is the only error.
+
+A layer nobody has drawn on (`document.entities_on_layer` returns nothing) and a non-plotting
+layer are not reported at all, because "you have not used this layer" is not a finding.
 
 REQ-V11.1 The plugin shall render through the project's own exporter and shall not
 implement a second render path.
@@ -2815,9 +2872,9 @@ the file exists, has tests, and is reachable from the running game.
 | **3. Hardscape** | **built** | `solid_table.gd` (keyed by the real layers), `cad_solid.gd`'s `slab()` and `ribbon()` with the winding decided and tested, `hardscape_material.gd` + `texture_set_builder.gd` and five generated texture sets in `resources/textures/hardscape/`, `derived_builder.gd` as a node in `main.tscn`. Draw a rectangle on 300-NEW-HARD and a paving slab stands up in the 3D view. `tests/test_vis_solid.gd`, 38 tests. §8.8 records the seven corrections building it forced. |
 | **4. Preview** | **built** | Phase 4 was built before phase 1, because a presentation needed a camera: `presentation_tier.gd`, `presentation_director.gd`, `sun_study.gd`, `orbit_camera.gd`, the Presentation panel. The sun study is **astronomical** since §16.6 was answered: Meeus's routine with the equation of time and refraction in it, a site of three fields on the drawing, and a clock hour that means the client's own clock, exposed as five labelled fields on the panel with a button that saves the site back to the plan. `tests/test_vis_presentation.gd` and `tests/test_vis_sun.gd`, 35 tests between them. §3–§4 of this table's order is a dependency order for the *painted* path, not a commitment about which comes first. |
 | **5. Planting at scale** | **not needed at this scale** | `planting_instancer.gd` does not exist and should not: §16's answer is *dozens of plants per plan*, and forty plants want ordinary nodes. Recorded as a decision rather than as a gap — REQ-V7.6's threshold is the whole argument, and a plan that grows to hundreds is the event that reopens it. |
-| **6. Still** | partly built | `still_exporter.gd` and `still_sidecar.gd` exist and write real PNGs with records, from the presentation camera and from the painted plan. The batch, the A3-at-300-dpi preset and §10.5's video are not built. |
-| **7. Walk-through** | not built | `walk_route.gd` does not exist. |
-| **8. Plugin** | not built | `addons/vis_tools` does not exist. |
+| **6. Still** | **built** | `still_exporter.gd` and `still_sidecar.gd` write real PNGs with sidecar records, from the presentation camera and from the painted plan. `still_preset.gd` holds the four output sizes with the proposal default at A3-at-300-dpi; `render_batch.gd` is the batch as a *ledger* (`next_job`/`record`, not a loop); `proposal_page.gd` places a still on a sheet and reads the sheet's own title block rather than inventing a second one; and `pdf_writer.gd` gained image XObjects, byte-identical when there are no images. §10.5's Movie Maker remains the documented route for video, not a built feature. `tests/test_vis_still_preset.gd`, `test_vis_render_batch.gd`, `test_vis_proposal_page.gd`. |
+| **7. Walk-through** | **built** | `walk_route.gd` (the stops, and the route as its own clock: `duration`, `position_at`, `look_at`, `stage_at`) and `walk_director.gd` (the camera that follows it). A route of fewer than two stops is refused by name (REQ-V9.5); a stalled frame is clamped and cannot teleport the camera; a camera standing exactly on what it looks at keeps its own orientation. Movie Maker stays the documented recorder (`OS.has_feature("movie")`). `tests/test_vis_walk.gd`, 30 tests; `tools/walk_demo.gd` + `scenes/walk_demo.tscn` take a still at each stop. |
+| **8. Plugin** | **built** | `addons/vis_tools/` — `plugin.gd` (`@tool EditorPlugin`, an `EditorDock` on `DOCK_SLOT_RIGHT_BL`), `presentation_dock.gd` (a plain `Control` with no editor API, so it is testable off-tree) and `scripts/vis/vis_diagnostics.gd`. The dock holds no arithmetic and does no rendering: findings from `VisDiagnostics`, jobs from `VisRenderBatch`, and `render_requested` answered by the plugin through the project's own `StillExporter` (REQ-V11.1). `tests/test_vis_diagnostics.gd` (18) and `test_vis_presentation_dock.gd` (19). |
 
 **Two design corrections the build forced**, both recorded in §4.2 and §4.4: the wash
 table's layer names, and where a prop's wash colour comes from. Neither was visible
@@ -2843,6 +2900,23 @@ was a setting that did nothing:
 
 The lesson the three share: a visual feature must be *looked at*, at its real size, and
 not only unit-tested. All three passed their tests.
+
+**Four more, from phases 6 to 8**, each a place the sketch was wrong and the build said so:
+
+1. **The batch is a ledger, not a loop** (§10, phase 6). `for job in jobs: await render(job)`
+   cannot be stopped, cannot say which job failed, and cannot be driven from an editor dock
+   where each render answers later. `VisRenderBatch` hands out one job (`next_job`) and takes
+   its answer back (`record`), and the dock holds exactly one in flight - which is what makes
+   "3 of 7 written, one refused" something the dock can show.
+2. **The proposal page reads the sheet's own furniture** (§16.1, phase 6). The page does not
+   lay out a second title block; it takes the one the sheet exporter already draws, so the
+   proposal and the plotted sheet cannot disagree about where the border is. An embedded still
+   is never enlarged and is capped, so a small render is not stretched into a soft one.
+3. **The route is its own clock** (§9.2, phase 7): a walk-through that can only be checked by
+   watching it is one nobody can test.
+4. **A deliberate non-wash is silent and a deliberate non-solid is a note** (§11.3, phase 8).
+   The first sketch treated "no wash entry" and "no solid" alike; they are not alike, and the
+   tables already say which is which by having two halves.
 
 ---
 
