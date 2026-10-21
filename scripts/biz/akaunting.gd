@@ -126,6 +126,21 @@ func problems() -> Array[String]:
 	return out
 
 
+## The one header this service authenticates with, built out of the user and the password. It is what
+## keeps the password out of the outbox file and what lets a rotated one be the one that goes out.
+func secret_headers() -> Array[String]:
+	return [AUTH_HEADER]
+
+
+func authorise(request: Dictionary) -> Dictionary:
+	var ready: Dictionary = request.duplicate(true)
+	var headers_in: Variant = ready.get("headers", {})
+	var sent: Dictionary = headers_in if headers_in is Dictionary else {}
+	sent[AUTH_HEADER] = BASIC_PREFIX + Marshalls.utf8_to_base64("%s:%s" % [email, password])
+	ready["headers"] = sent
+	return ready
+
+
 # --- building a push (pure) ---------------------------------------------------------------------
 
 

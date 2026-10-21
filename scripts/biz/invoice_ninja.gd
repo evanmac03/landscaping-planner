@@ -114,6 +114,21 @@ func problems() -> Array[String]:
 	return out
 
 
+## The one header this service authenticates with. It is what keeps the token out of the outbox file
+## and what lets a rotated token be the one that goes out.
+func secret_headers() -> Array[String]:
+	return [TOKEN_HEADER]
+
+
+func authorise(request: Dictionary) -> Dictionary:
+	var ready: Dictionary = request.duplicate(true)
+	var headers_in: Variant = ready.get("headers", {})
+	var sent: Dictionary = headers_in if headers_in is Dictionary else {}
+	sent[TOKEN_HEADER] = token
+	ready["headers"] = sent
+	return ready
+
+
 # --- building a push (pure) ---------------------------------------------------------------------
 
 

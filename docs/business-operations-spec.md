@@ -1058,7 +1058,7 @@ before anything depends on it.
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `scripts/biz/job_desk.gd`, `scripts/schedule_board.gd`; scheduling, routing, offline time, the board | **built** - 109 tests (`test_biz_crew` 9, `test_biz_job` 10, `test_biz_schedule` 8, `test_biz_route` 11, `test_biz_time_entry` 13, `test_biz_job_desk` 31, `test_schedule_board` 18, `test_hud_jobs` 7, and 2 more in `test_estimate_window`); crews and jobs are held in memory until the store of phase 10 |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `scripts/biz/job_desk.gd`, `scripts/job_cost_window.gd`; committed vs actual, variance, WIP | **built** - 121 tests (`test_biz_purchase_order` 22, `test_biz_change_order` 22, `test_biz_job_cost` 23, `test_biz_job_costing` 30, `test_job_cost_window` 18, `test_hud_costing` 6); orders, changes and the billed figures are held in memory until the store of phase 10 |
 | 7 | **Billing and invoices** | `rate.gd`, `milestone.gd`, `billing.gd`, `invoice.gd`, `payment.gd`, `invoice_sheet.gd`, `scripts/biz/billing_desk.gd`, `scripts/billing_window.gd`; rates in parts per million, milestones and retainage, percentage completion with its measured basis, the document and the page | **built** - 213 tests (`test_biz_rate` 9, `test_biz_payment` 8, `test_biz_milestone` 15, `test_biz_billing` 33, `test_biz_invoice` 27, `test_invoice_sheet` 22, `test_biz_billing_desk` 60, `test_billing_window` 30, `test_hud_billing` 9); invoices and their schedules are held in memory until the store of phase 10 |
-| 8 | **Ledger adapters** | `ledger/*`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, reconciliation | specified |
+| 8 | **Ledger adapters** | `ledger_adapter.gd`, `file_ledger.gd`, `invoice_ninja.gd`, `akaunting.gd`, `ledger_push.gd`, `credit_note.gd`, `scripts/biz/ledger_desk.gd`, `scripts/ledger_window.gd`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, the outbox and reconciliation | **built** - 194 tests (`test_ledger_adapter` 21, `test_file_ledger` 19, `test_biz_credit_note` 13, `test_ledger_push` 10, `test_invoice_ninja` 12, `test_akaunting` 9, `test_biz_ledger_desk` 61, `test_ledger_window` 37, `test_hud_ledger` 12); the outbox has a home on disk (`user://biz/outbox.json`) while the adapters' own settings are held in memory until the store of phase 10 |
 | 9 | **Analytics** | `analytics.gd`; the figures in §10, each with its basis | specified |
 | 10 | **Store and sync** | `store.gd`, `sync.gd`; records, revisions, journal, HTTP, conflicts, presence | specified |
 | 11 | **Editor plugin** | `addons/biz_tools/`; the cost book dock, bulk import and price preview | specified |
@@ -1083,9 +1083,9 @@ a desk that recomputed a total would be a second place for the rounding rule to 
 
 It is **not** a fifth engine and it is not a mode. The business specification's §14 describes a
 business *mode* with twelve panels; what is built is the four engines that mode would have shown, so
-what is built is what the door opens onto. Phases 4-11 remain specified and unbuilt, and the desk
-does not pretend otherwise: it prices a drawing and it writes a proposal, and it knows nothing about
-leads, jobs, invoices or a ledger.
+what is built is what the door opens onto. It is still not a mode, and it does not pretend to be: it
+prices a drawing and it writes a proposal. The jobs, billing and ledger engines built after it are
+reached from their own menus (§14b to §14e); they are not bolted onto this desk.
 
 Three decisions inside it are worth naming:
 
@@ -1291,6 +1291,55 @@ REQ-B31 An invoice shall name a job by its own label or number, never by its dat
 
 REQ-B32 A voided invoice shall remove the billing it recorded from the schedule, so the reissue that
 voiding makes possible can be raised.
+
+---
+
+## 14e. The way in to a ledger
+
+Phase 8's engines are `LedgerAdapter` (a capability is a property, a request is built and never
+sent), `FileLedger` (the backend that always works), `InvoiceNinjaLedger` and `AkauntingLedger`
+(the two hosted services), `LedgerPush` (one document's journey) and `CreditNote` (a positive
+document that reverses a charge). Their door is two files and one rule.
+
+**`scripts/biz/ledger_desk.gd`** (`LedgerDesk`) is the outbox. It holds the adapters, one push per
+document per backend, and answers a page in words. Four decisions:
+
+* **One push per document per backend, and the key is the identity.** `idempotency_key_for` names
+  the backend, the kind, the document's id and a marker (`number@total`), so handing the same
+  invoice over twice is the same push while a void and reissue is a different one. Nothing in the
+  key reads a clock, so a retry after a restart sends the document the first attempt sent
+  (REQ-B14, AC-B15).
+* **The request is built once, at queue time, and never rebuilt.** The push stores the method, the
+  URL and the body exactly as the backend built them, because a request rebuilt from a document
+  that has since changed would be a second posting of something else (AC-B15).
+* **The desk never writes a document.** Handing an invoice over changes neither the invoice nor
+  the schedule: it has gone out and been printed whether or not a ledger is configured.
+* **A document a backend cannot build is refused by name, not dropped** (AC-B14). It is kept in
+  `refusals`, counted on the summary line itself and not only in the problems list, and it does
+  not stop the documents after it.
+
+`reconcile` reports three things and **changes nothing**, because a program that quietly fixed what
+it found would be editing an accounting record on a guess: an invoice issued here and handed to
+nobody; an invoice posted and since called back, which only a credit note against it reverses; and
+one the ledger numbered differently from the office.
+
+The credential is the one thing written down twice. `_written` blanks every header a backend
+authenticates with when the outbox is saved, and `LedgerAdapter.authorise` puts it back at the
+moment of sending, so an outbox file sitting beside the drawings holds no token.
+
+**`scripts/ledger_window.gd`** (`LedgerWindow`) is the page: a `Window` like the billing page,
+every button `FOCUS_NONE`, the typed settings fields the only keyboard. Its **Test it** button is
+the backend's own `self_test()`, so a hosted ledger that cannot be probed yet says so in words
+rather than showing a green light that verified nothing.
+
+Reached from the **Jobs** menu, beside the board and the cost report, because where a document got
+to is a fact about a job and needs no drawing: the outbox is not on the plan.
+
+REQ-B33 An outbox shall be the only place a request is sent, and a push already delivered shall
+never be sent by the retry loop again.
+
+REQ-B34 A credential a backend authenticates with shall not be written into the outbox file, and
+shall be put back at the moment of sending.
 
 ---
 

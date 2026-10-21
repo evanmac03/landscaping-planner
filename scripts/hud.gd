@@ -247,6 +247,8 @@ const JobCostWindowScript := preload("res://scripts/job_cost_window.gd")
 const JobDeskScript := preload("res://scripts/biz/job_desk.gd")
 const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
 const BillingWindowScript := preload("res://scripts/billing_window.gd")
+const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
+const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
@@ -305,6 +307,10 @@ var _cost_window: JobCostWindow = null
 ## alone - §8.4's billed figure is a number somebody states, and §9's is a document (§9).
 var _billing_ledger: BillingDesk = null
 var _billing_window: BillingWindow = null
+## The outbox: what has been handed to a ledger, and what each ledger said about it. Pointed at the
+## billing desk, because what an office hands over is the documents that desk holds.
+var _ledger_desk: LedgerDesk = null
+var _ledger_window: LedgerWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -361,6 +367,8 @@ func _ready() -> void:
 	_build_cost_window()
 	_build_billing_ledger()
 	_build_billing_window()
+	_build_ledger_desk()
+	_build_ledger_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1594,6 +1602,7 @@ static func jobs_items() -> Array[Dictionary]:
 	items.append(_command(&"jobs.board", "Open the schedule board...", &"", &"_menu_schedule_board"))
 	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
 	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
+	items.append(_command(&"jobs.outbox", "What has been handed to a ledger...", &"", &"_menu_ledger_window"))
 	return items
 
 
@@ -3702,19 +3711,21 @@ func is_schedule_board_open() -> bool:
 ## What the Jobs menu says on itself: the desk's own words, including its count of the clashes, and -
 ## once anything has actually been billed, or once the ledger has something wrong with it - what the
 ## ledger says, because an outstanding balance is the one number an office should not have to open a
-## window to see.
+## window to see. And, once anything has been handed over or wants a person, what the outbox says: a
+## document that did not arrive is the other thing an office must not have to open a window to find out.
 ##
 ## A schedule that has been started and has billed nothing yet says **nothing** here: "0 invoices,
-## $0.00 billed" is noise on the one line a person reads from across the room.
+## $0.00 billed" is noise on the one line a person reads from across the room. The outbox says nothing
+## for the same reason, unless it has something waiting or something stranded.
 func _jobs_text() -> String:
 	if _job_desk == null:
 		return "no crews and no jobs yet"
 	var line: String = _job_desk.describe()
-	if _billing_ledger == null:
-		return line
-	if _billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0:
-		return line
-	return "%s, %s" % [line, _billing_ledger.describe()]
+	if _billing_ledger != null and not (_billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0):
+		line = "%s, %s" % [line, _billing_ledger.describe()]
+	if _ledger_desk != null and (_ledger_desk.count() > 0 or _ledger_desk.issues() > 0):
+		line = "%s, %s" % [line, _ledger_desk.describe()]
+	return line
 
 
 ## A job was started from the estimate. The estimate window does not hold jobs; this is where the
@@ -3833,12 +3844,94 @@ func is_billing_window_open() -> bool:
 ## An invoice went out or was called back, a step was billed, or money arrived: the menu line about the
 ## desk is stale. Nothing on the job desk has moved - §8.4's billed figure is a number somebody states
 ## and this is a document - so the cost page is left where it is.
+##
+## **An invoice that has just gone out is handed to the ledger here** (REQ-B14: the push is queued when
+## the document issues). The outbox is idempotent, so this is safe on every change to what has been
+## billed, and a document that cannot be built for the chosen backend is refused by name rather than
+## swallowed.
 func _on_billing_changed() -> void:
+	queue_invoices_for_ledger()
 	_refresh_menus()
 
 
 func _menu_billing_window(_entry: Dictionary) -> void:
 	open_billing_window()
+
+
+## The outbox: what has been handed to a ledger and what each ledger said about it. Built by hand like
+## the other pages for the same reason - the outbox is pointed at the billing ledger this file already
+## wired to the menus - and it needs no drawing, because where a document has got to is not on the plan.
+##
+## The desk starts with the file backend and nothing else, because a hosted ledger's address and token
+## are the office's to state on the page rather than something this file should invent.
+func _build_ledger_desk() -> void:
+	if _ledger_desk != null:
+		return
+	if _billing_ledger == null:
+		_build_billing_ledger()
+	_ledger_desk = LedgerDeskScript.new()
+	_ledger_desk.bind(_billing_ledger)
+
+
+func _build_ledger_window() -> void:
+	if _ledger_window != null:
+		return
+	if _ledger_desk == null:
+		_build_ledger_desk()
+	_ledger_window = LedgerWindowScript.new()
+	_ledger_window.name = "LedgerWindow"
+	add_child(_ledger_window)
+	_ledger_window.build()
+	_ledger_window.bind(_ledger_desk)
+	_ledger_window.ledger_changed.connect(_on_ledger_changed)
+	_ledger_window.hide()
+
+
+func open_ledger_window() -> void:
+	if _ledger_window == null:
+		_build_ledger_window()
+	if _ledger_window == null:
+		return
+	_ledger_window.bind(_ledger_desk)
+	_ledger_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_ledger_window() -> void:
+	if _ledger_window != null:
+		_ledger_window.hide()
+
+
+func is_ledger_window_open() -> bool:
+	return _ledger_window != null and _ledger_window.visible
+
+
+## A document was handed over, or the ledger was configured: the menu line about the outbox is stale.
+## Nothing on the job desk or the billing ledger has moved - a push is not a document and not money - so
+## the other two pages are left where they are.
+func _on_ledger_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_ledger_window(_entry: Dictionary) -> void:
+	open_ledger_window()
+
+
+## Hand every invoice the office has issued over to the chosen ledger. Called as part of issuing one -
+## REQ-B14 wants the push queued when the document issues rather than remembered about later - and it is
+## idempotent, because a document already in the outbox is one push already.
+##
+## A document that could not be built for this backend is refused **by name** and kept in the desk, so it
+## shows up on the menu line and on the page rather than being swallowed here.
+func queue_invoices_for_ledger() -> Dictionary:
+	if _ledger_desk == null:
+		_build_ledger_desk()
+	if _ledger_desk == null:
+		return {"ok": false, "reason": "there is no outbox", "queued": 0, "refused": 0}
+	var handed: Dictionary = _ledger_desk.queue_unhanded()
+	if int(handed["queued"]) > 0 or int(handed["refused"]) > 0:
+		_refresh_menus()
+	return handed
 
 
 func _menu_schedule_board(_entry: Dictionary) -> void:

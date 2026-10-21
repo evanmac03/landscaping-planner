@@ -138,6 +138,29 @@ func problems() -> Array[String]:
 	return []
 
 
+## The headers this backend **authenticates with**, by name. Named rather than inferred, because a
+## credential is not a thing a caller can recognise in a header value.
+##
+## It exists so that an outbox can be written down without writing a token into it: a request is stored
+## with its document intact (AC-B15) and with these headers blanked, and `authorise` puts them back at
+## the moment of sending. An empty list - the file backend's answer - means this backend's requests
+## carry nothing secret and go to disk as they stand.
+func secret_headers() -> Array[String]:
+	return []
+
+
+## The request as it goes out: what was built, with the credential this backend needs **restored now**.
+##
+## This is the other half of `secret_headers`. A request read back from the outbox has its credential
+## blanked, and a credential is live configuration rather than part of a document - so this is also the
+## only way a token rotated between two sessions can be the right one at the second send.
+##
+## The default hands the request straight back: a backend that authenticates with nothing has nothing
+## to put back.
+func authorise(request: Dictionary) -> Dictionary:
+	return request
+
+
 # --- the idempotency key (one place, and it reads no clock) --------------------------------------
 
 
