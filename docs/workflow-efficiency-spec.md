@@ -5,8 +5,8 @@ which file it is in, what holds it down, and what is genuinely missing. Written 
 "already built" verdict can be checked rather than trusted - every claim names a script and, where
 there is one, the test that would fail if it stopped being true.
 
-Two of the eight are built and in use; three are half-built; three are not built at all. The sections
-below are ordered as asked, and section 8 is what I would build next and in what order.
+All eight are now built or answered: sections 1 to 5 are in the drawing, section 6 is presence on
+demand, and section 7's business chain runs phases 0 to 11. Section 8 names what is left, and the order.
 
 ## 0. The shape everything hangs off
 
@@ -239,10 +239,10 @@ recommended. The wobble already gives a drawing the look of a sketch without let
 and a CAD document with a line whose length is not its length is a document nothing downstream can
 measure - which would break the takeoff in section 7 on the day it is built.
 
-## 6. Solo designers and teams - SOLO BUILT, TEAMS NOTHING AT ALL
+## 6. Solo designers and teams - PRESENCE BUILT, ON DEMAND
 
-Stated plainly because it is the one item on the list with nothing behind it: there is no
-`MultiplayerSynchronizer`, no autoload, no peer and no relay anywhere in `scripts/` or `scenes/`.
+Presence is built, and it is presence and nothing more - the drawing stays one person's file and
+nothing is merged: `scripts/presence.gd` and `scripts/presence_member.gd` carry it, a `Presence` node sits in `scenes/main.tscn`, and the Hud grows a Team menu.
 
 **What is ready** is the data model, and it is ready by accident of the other decisions: every record
 is JSON with a stable id; a book carries a `version` and a new version is a new book; collections are
@@ -250,22 +250,22 @@ stored separately from the catalogue; writes are atomic (temp file, then rename)
 never touches the open drawing. That is the shape a second person's copy has to travel in - identity
 per record, and a version to cite - and building it that way was not wasted work.
 
-**What is missing**, in the order it has to be *decided* rather than coded:
+**What is still missing**, in the order it has to be *decided* rather than coded:
 
-1. **Who owns the drawing.** Two people drawing in one document is a different product from two people
-   working on one garden. The cheap, useful answer is presence and hand-off - "Bob is in Backyard
-   Design" - which is one small synchronised state, instead of a merge strategy over geometry.
+1. **Who owns the drawing.** **Answered, provisionally.** Two people drawing in one document is a
+   different product from two people working on one garden, and the cheap useful answer was taken:
+   presence and hand-off - "Bob is in Backyard Design" - rather than a merge strategy over geometry.
 2. **The unit of change.** With whole-document snapshots for undo, the honest unit is the document,
    with an explicit save and an explicit lock, until somebody demonstrates a need for finer. Merging
    two sets of entity edits is a research problem, and doing it because it sounds right is how a
    drawing gets corrupted in a way nobody can see.
-3. **The transport.** This project has none, and the relay needs a specific, non-obvious connection
-   pattern. Read that before writing any multiplayer code.
+3. **The transport.** **Answered.** Ziva's relay is provisioned, and a session connects a
+   `WebSocketMultiplayerPeer` to the room address only when somebody chooses Share - never on launch.
 
-The first step is genuinely small and worth taking: provision the relay, then one
-`MultiplayerSynchronizer` over a `Presence` node carrying (name, current drawing, cursor). Presence
-only, no geometry. It buys a team the thing teams ask for first - knowing who is where - and it puts
-no merge problem on the table.
+**This is built.** The relay is provisioned, and a `MultiplayerSynchronizer` per member over a
+`Presence` node carries the name, the current drawing and the cursor - presence only, no geometry.
+One real peer is the host (the lowest real peer id, computed identically by every peer, with no
+election and no handoff), and a session is opened on purpose from the Team menu, never on launch.
 
 ## 7. Integration between the modules - SPEC'D; PHASES 0-11 OF 12 ARE BUILT
 
@@ -376,10 +376,10 @@ takeoff's first job is to generalise that to every layer.
    `scripts/revision_window.gd` and the store's own `write_revisions`; see section 3, which is now
    built down to the audit journal.
 
-5. **Presence.** One synchronizer, no merge problem, and it is what a team asks for first.
-6. Then the rest of the business chain in specification order (4 pipeline, 5 jobs and crews, 6 job
-   costing, 7 billing, 8 ledger adapters, 9 analytics, 10 store and sync, 11 the editor plugin).
+5. ~~**Presence.**~~ **Done.** One synchronizer per member, no merge problem, and it is what a team asks for first; see section 6.
+6. ~~Then the rest of the business chain in specification order (4 pipeline, 5 jobs and crews, 6 job
+   costing, 7 billing, 8 ledger adapters, 9 analytics, 10 store and sync, 11 the editor plugin).~~ **Done.** Phases 4 to 11 are built; see section 7.
 
-Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by searching for
-anything multiplayer-shaped and finding nothing; section 7 against the business specification's own
+Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
+`presence.gd` and its own fifteen tests; section 7 against the business specification's own
 phase table, where phases 0 to 11 are marked built.
