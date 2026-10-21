@@ -70,6 +70,21 @@ func _ready() -> void:
 		)
 		return
 	bind_document(controller.document)
+	# Opening a drawing - or restoring a revision of it, or recovering a copy - *replaces* the
+	# document rather than editing it, and the controller says so. Without this the builder keeps
+	# deriving the drawing that was replaced: the working plan and the 3D linework follow the new
+	# one, and the solids (which are where the buildings, the paving and the decks come from)
+	# quietly do not, so a presentation comes out with the planting standing in an empty garden.
+	#
+	# Through `connect()` by name rather than a typed property access, because `controller` is a
+	# plain `Node` here on purpose - see `view_controller`.
+	if controller.has_signal(&"document_replaced"):
+		controller.connect(&"document_replaced", _on_document_replaced)
+
+
+## Follow the drawing that just replaced the one in hand.
+func _on_document_replaced(opened) -> void:
+	bind_document(opened)
 
 
 ## Follow a document, and rebuild when it changes.

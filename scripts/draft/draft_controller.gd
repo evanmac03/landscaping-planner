@@ -223,6 +223,13 @@ var _last_snap: Dictionary = {}
 
 signal changed()
 
+## The document in hand was *replaced* rather than edited: a drawing was opened, a revision of it was
+## restored, or a copy of it was recovered. Every holder of a document watches this, because a
+## replacement leaves each of them pointing at a drawing that is no longer on the screen. The snaps,
+## the canvas and the overlay are re-bound by `_bind_document` itself; anything else that keeps a
+## document - the 3D derivation is the one in the scene - re-binds on the signal.
+signal document_replaced(opened: DraftDocument)
+
 
 func _ready() -> void:
 	document = DocumentScript.new()
@@ -2669,6 +2676,9 @@ func _bind_document(opened) -> void:
 		canvas.bind_document(document)
 	if overlay != null:
 		overlay.bind_document(document)
+	# Announced last, once the document is fully in place: a listener that re-binds here must find
+	# the new drawing rather than a half-installed one.
+	document_replaced.emit(document)
 
 
 # --- a copy kept in case the program stops --------------------------------------------
