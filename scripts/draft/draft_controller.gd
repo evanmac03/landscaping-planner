@@ -57,6 +57,7 @@ enum EditKind {
 	EXTEND,
 	FILLET,
 	ERASE,
+	ROTATE,
 }
 
 ## The words each edit command is introduced by, so the status line, the menu and
@@ -67,6 +68,7 @@ const EDIT_LABELS: Dictionary = {
 	EditKind.EXTEND: "Extend",
 	EditKind.FILLET: "Fillet",
 	EditKind.ERASE: "Erase",
+	EditKind.ROTATE: "Rotate",
 }
 
 ## How near the cursor has to come to a shape, in screen pixels, before a pick
@@ -402,6 +404,13 @@ func _edit_status() -> String:
 			hint = "pick the first line" if _edit_picked.is_empty() else "pick the second line"
 		EditKind.ERASE:
 			hint = "pick what to erase"
+		EditKind.ROTATE:
+			if _edit_picked.is_empty():
+				hint = "pick the shape to turn"
+			elif _edit_points.is_empty():
+				hint = "pick the point to turn it about"
+			else:
+				hint = "click the direction to turn it to"
 	var text := "%s  ·  %s" % [edit_label(edit_kind), hint]
 	if edit_kind == EditKind.FILLET:
 		text += "  ·  radius %s" % document.units.format_length(fillet_radius)
@@ -842,6 +851,8 @@ func edit_at(world: Vector2) -> void:
 			_edit_fillet(world)
 		EditKind.ERASE:
 			_edit_erase(world)
+		EditKind.ROTATE:
+			_edit_rotate(world)
 
 
 ## Trim: cut the picked piece of a line out against every other editable shape.
@@ -891,6 +902,53 @@ func _edit_erase(world: Vector2) -> void:
 	document.begin_gesture()
 	document.remove(target.id)
 	last_message = "erased"
+
+
+## Rotate: pick a shape, pick the point to turn it about, then click the direction to turn it to.
+##
+## The angle is read off the third pick the way `Vector2.angle()` reads one - from +X toward +Y - so
+## clicking due east is a turn of nothing and clicking due north is a quarter turn. That is the CAD
+## convention for "specify the rotation angle", and it is the one that lets a designer aim a shape at
+## something on the plan rather than work out a number: the direction clicked *is* the answer.
+##
+## The shape is replaced rather than duplicated. Offsetting makes a second shape and leaves the first,
+## which is why offset is a drawing aid; turning changes the shape that is already there, which is why
+## this keeps the original's id and its place in the draw order.
+##
+## The key is U because every letter that spells the command is spoken for - R toggles the painted
+## plan, O is offset, T trim, A walks the camera, E erases - and U was the free key nearest the
+## drafting run.
+func _edit_rotate(world: Vector2) -> void:
+	if _edit_picked.is_empty():
+		var target = _pick_world(world)
+		if target == null:
+			last_message = "nothing there to turn"
+			return
+		_edit_picked = [target]
+		last_message = "pick the point to turn it about"
+		return
+	if _edit_points.is_empty():
+		_edit_points = [world]
+		last_message = "click the direction to turn it to"
+		return
+	var source = _edit_picked[0]
+	var pivot: Vector2 = _edit_points[0]
+	var angle: float = (world - pivot).angle()
+	_edit_picked = []
+	_edit_points = []
+	var result: Dictionary = EditScript.rotate(source, pivot, angle)
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	var turned = result["entities"][0]
+	document.begin_gesture()
+	document.replace(source.id, turned)
+	last_message = "turned by %s" % _turn_words(angle)
+
+
+## An angle in words, for the line the command reports itself on.
+static func _turn_words(angle: float) -> String:
+	return String.num(rad_to_deg(angle), 1) + "°"
 
 
 ## Offset: pick a shape, then the side and distance. The offset is a new shape; the

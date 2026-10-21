@@ -234,6 +234,81 @@ func test_filleting_needs_two_different_lines() -> void:
 	controller.free()
 
 
+# --- rotate -----------------------------------------------------------------------
+
+
+## Turning replaces the shape rather than leaving a second one beside it. Offsetting makes a pair and
+## keeps both, because offset is a drawing aid; turning something changes the thing that is there.
+## The id survives too, so whatever else refers to the shape - a fill, a zone, the undo stack's idea
+## of what is on the sheet - still finds it.
+func test_turning_replaces_the_shape_rather_than_copying_it() -> void:
+	var controller = _controller()
+	var id: int = controller.document.add(_line(1, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.ROTATE)
+	controller.edit_at(Vector2(1.5, 0.0))
+	assert(controller.document.count() == 1, "the first pick only chooses the shape")
+	controller.edit_at(Vector2(0, 0))
+	assert(controller.document.count() == 1, "the second only sets the pivot")
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.document.count() == 1, "and the third turns it in place")
+	var turned = controller.document.get_entity(id)
+	assert(turned != null, "it is still the same shape on the sheet")
+	assert(turned.point(0).is_equal_approx(Vector2(0, 1)), "a click due north is a quarter turn")
+	assert(turned.point(1).is_equal_approx(Vector2(0, 2)), "so +x became +y")
+	controller.free()
+
+
+func test_a_turn_is_one_undoable_step() -> void:
+	var controller = _controller()
+	controller.document.add(_line(1, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.ROTATE)
+	controller.edit_at(Vector2(1.5, 0.0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.document.undo_last(), "a turn can be taken back")
+	var back = controller.document.entities()[0]
+	assert(back.point(1).is_equal_approx(Vector2(2, 0)), "and one step puts the whole shape back")
+	controller.free()
+
+
+func test_turning_nothing_says_so() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 10, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.ROTATE)
+	controller.edit_at(Vector2(5, 5))
+	assert(controller.document.count() == 1, "nothing was picked, so nothing turned")
+	assert(controller.last_message.contains("nothing"), "and it said so")
+	controller.free()
+
+
+## The angle is the *bearing* of the third click, not a drag from the shape, so clicking back along
+## the pivot is a turn of nothing and is refused rather than recorded as a step that did nothing.
+func test_a_click_on_the_pivot_is_a_turn_of_nothing_and_is_refused() -> void:
+	var controller = _controller()
+	controller.document.add(_line(1, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.ROTATE)
+	controller.edit_at(Vector2(1.5, 0.0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(0, 0))
+	assert(controller.last_message.contains("nothing"), "turning by nothing is refused")
+	assert(controller.document.entities()[0].point(1).is_equal_approx(Vector2(2, 0)), "unchanged")
+	controller.free()
+
+
+func test_the_status_line_prompts_each_of_the_turns_three_picks() -> void:
+	var controller = _controller()
+	controller.arm_edit(EditKind.ROTATE)
+	assert(controller.status().contains("shape to turn"))
+	controller.document.add(_line(1, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.edit_at(Vector2(1.5, 0.0))
+	assert(controller.status().contains("point to turn it about"))
+	controller.edit_at(Vector2(0, 0))
+	assert(controller.status().contains("direction to turn it to"))
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.last_message.contains("90.0"), "and it reports the angle it turned by")
+	controller.free()
+
+
 # --- staying out of the way -------------------------------------------------------
 
 

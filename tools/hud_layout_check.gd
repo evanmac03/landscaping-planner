@@ -29,6 +29,11 @@ const PAGE_OF: Dictionary = {
 }
 
 
+## Whether what wants a width has it, in the words the check reports it with.
+static func _fits(wants: float, have: float) -> String:
+	return "FITS" if wants <= have else "OVERFLOWS BY %.1f px" % (wants - have)
+
+
 func _ready() -> void:
 	var main: Node = MAIN.instantiate()
 	add_child(main)
@@ -76,9 +81,36 @@ func _ready() -> void:
 	if top_bar != null and row != null:
 		var wants: float = row.get_combined_minimum_size().x
 		print("  TopBar row wants %.1f px, panel is %.1f px  ->  %s" % [
-			wants, top_bar.size.x,
-			"FITS" if wants <= top_bar.size.x else "OVERFLOWS BY %.1f px" % (wants - top_bar.size.x),
+			wants, top_bar.size.x, _fits(wants, top_bar.size.x),
 		])
+
+	# What is *inside* the panels, because a panel's own rectangle says nothing about whether its
+	# contents fit: the palette's grids are as wide as the tables that build them, and the legend is one
+	# line per row of those tables. A table that grows can quietly push both past their panel.
+	print("--- content fitting ---")
+	var palette_panel: Control = root.get_node_or_null(^"Palette") as Control
+	var palette_column: Control = root.find_child("PaletteColumn", true, false) as Control
+	if palette_panel != null and palette_column != null:
+		var palette_was: bool = palette_panel.visible
+		palette_panel.visible = true
+		await get_tree().process_frame
+		var column_wants: float = palette_column.get_combined_minimum_size().x
+		print("  PaletteColumn wants %6.1f px, Palette panel is %6.1f px  ->  %s" % [
+			column_wants, palette_panel.size.x, _fits(column_wants, palette_panel.size.x),
+		])
+		palette_panel.visible = palette_was
+	var hints_panel: Control = root.get_node_or_null(^"DraftHints") as Control
+	var legend: Control = root.find_child("DraftHintsLabel", true, false) as Control
+	if hints_panel != null and legend != null:
+		var hints_was: bool = hints_panel.visible
+		hints_panel.visible = true
+		await get_tree().process_frame
+		var legend_wants: float = legend.get_combined_minimum_size().x
+		var legend_lines: int = (legend as Label).text.split("\n").size()
+		print("  widest legend line wants %6.1f px, DraftHints panel is %6.1f px over %d lines  ->  %s" % [
+			legend_wants, hints_panel.size.x, legend_lines, _fits(legend_wants, hints_panel.size.x),
+		])
+		hints_panel.visible = hints_was
 
 	print("--- panel rectangles that meet ---")
 	var names: Array = measured.keys()

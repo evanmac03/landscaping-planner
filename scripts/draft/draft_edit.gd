@@ -158,6 +158,28 @@ static func _offset_open(points: PackedVector2Array, distance: float) -> PackedV
 	return out
 
 
+# --- rotate ---------------------------------------------------------------------------
+
+
+## Turn one entity rigidly about a pivot, returning a copy.
+##
+## A copy rather than a change to the entity handed in, for the reason the whole module gives:
+## editing is a replacement, and the caller decides how the replacement is recorded - wholesale, or
+## in place of the original as the controller does.
+##
+## `angle` is in radians, read the way `Vector2.angle()` reads one - from +X toward +Y - so a caller
+## can hand over the bearing of the point the user clicked and mean it. A turn of nothing is refused
+## rather than returned as an unchanged copy, so no gesture that did nothing is ever recorded.
+static func rotate(entity, centre: Vector2, angle: float) -> Dictionary:
+	if entity == null:
+		return _failed("there is nothing to turn")
+	if is_zero_approx(angle):
+		return _failed("turning by nothing is nothing")
+	var turned = entity.copy()
+	turned.rotate_about(centre, angle)
+	return _ok([turned])
+
+
 # --- trim and extend ------------------------------------------------------------------
 
 

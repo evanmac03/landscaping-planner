@@ -388,16 +388,36 @@ func translate(offset: Vector2) -> void:
 		set_point(index, p + offset)
 
 
-## Rotate every point about a centre, for the rotate tool.
+## Turn about a centre, for the turn tool. A rigid turn: a circle keeps its radius, a rectangle and a
+## regular polygon keep their size, an arc keeps its radius and its sweep, and a bulge - which is
+## tan(sweep / 4) - is unchanged by a rotation, so nothing here touches one.
+##
+## A kind that stores a *centre* has to be handled explicitly rather than point by point. Its
+## orientation parameter turns by the angle while its own centre is carried around the pivot. An arc
+## in particular cannot be turned the generic way at all: `set_point` reads an arc's point 0 as "move
+## the centre and keep the two ends where they are", which is a different operation entirely, and it
+## has no branch for points 1 and 2. So an arc turned through the generic loop would have been left
+## mangled rather than turned - which is why this is spelled out per kind.
 func rotate_about(centre: Vector2, angle: float) -> void:
-	if kind == Kind.RECT or kind == Kind.REGULAR_POLY:
-		params[4] += angle
-	elif kind == Kind.TEXT:
-		params[2] += angle
-	var count := point_count()
-	for index in count:
-		var p := point(index)
-		set_point(index, centre + (p - centre).rotated(angle))
+	var orientation := -1
+	match kind:
+		Kind.RECT, Kind.REGULAR_POLY:
+			orientation = 4
+		Kind.ARC:
+			orientation = 3
+		Kind.TEXT:
+			orientation = 2
+	if orientation >= 0:
+		params[orientation] += angle
+	match kind:
+		Kind.CIRCLE, Kind.RECT, Kind.REGULAR_POLY, Kind.ARC, Kind.TEXT:
+			var anchor := Vector2(params[0], params[1])
+			var moved := centre + (anchor - centre).rotated(angle)
+			params[0] = moved.x
+			params[1] = moved.y
+		_:
+			for index in point_count():
+				set_point(index, centre + (point(index) - centre).rotated(angle))
 
 
 func copy() -> DraftEntity:

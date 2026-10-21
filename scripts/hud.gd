@@ -73,11 +73,17 @@ const EDIT_TOOLS: Array = [
 		"Round the corner where two lines meet"],
 	[&"edit_erase", "erase", DraftControllerScript.EditKind.ERASE,
 		"Take the picked shape off the drawing"],
+	[&"edit_rotate", "rotate", DraftControllerScript.EditKind.ROTATE,
+		"Turn the picked shape about a point you pick, to the direction you click"],
 ]
 
 ## How many entries share a line before the legend wraps.
 const DRAFTING_TOOLS_PER_ROW := 5
 const DRAFTING_COMMANDS_PER_ROW := 4
+## The editing commands get their own line count. Six of them still share one legend
+## line, which is what the panel has room for; the drawing tools' five across would
+## have pushed them onto a seventh line and off the panel.
+const EDIT_TOOLS_PER_ROW := 6
 const DRAFTING_ROW_GAP := "    "
 
 ## The palette: three tools across, which is what makes it a palette rather than a
@@ -85,11 +91,12 @@ const DRAFTING_ROW_GAP := "    "
 ## its key underneath.
 const PALETTE_COLUMNS := 3
 const PALETTE_CELL_WIDTH := 86.0
-## The editing commands share one row of five: they have one-word names, and the
-## palette has to fit the whole column without pushing the plant list off the foot
-## of the screen.
-const PALETTE_EDIT_COLUMNS := 5
-const PALETTE_EDIT_CELL_WIDTH := 58.0
+## The editing commands share one row: they have one-word names, and the palette has
+## to fit the whole column without widening the palette - which is centre-anchored, so
+## growing it would walk the plant list out from under the clicks a person has learned.
+## Six across at 50 keeps the column inside the width the panel already had.
+const PALETTE_EDIT_COLUMNS := 6
+const PALETTE_EDIT_CELL_WIDTH := 50.0
 
 ## The client presentation: the budgets it can be shown at, and the sizes a proposal
 ## still is rendered at. Both are read from the tables that act on them rather than
@@ -516,7 +523,7 @@ static func drafting_rows() -> Array[String]:
 	rows.append("%s leaves the drawing tools" % _key_label(&"draft_mode"))
 	rows.append_array(_wrap(_entries(DRAFTING_TOOLS), DRAFTING_TOOLS_PER_ROW))
 	rows.append_array(_wrap(_entries(DRAFTING_COMMANDS), DRAFTING_COMMANDS_PER_ROW))
-	rows.append_array(_wrap(_entries(EDIT_TOOLS), DRAFTING_TOOLS_PER_ROW))
+	rows.append_array(_wrap(_entries(EDIT_TOOLS), EDIT_TOOLS_PER_ROW))
 	return rows
 
 

@@ -112,7 +112,7 @@ func test_every_edit_command_is_named_with_its_own_key() -> void:
 		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s" % key)
 		assert(not keys.has(key), "%s is not shared with another command" % key)
 		keys.append(key)
-	assert(keys == ["O", "T", "X", "I", "E"], "the edit keys are the ones promised")
+	assert(keys == ["O", "T", "X", "I", "E", "U"], "the edit keys are the ones promised")
 
 
 ## The edit commands are exactly the controller's own set, so a command cannot

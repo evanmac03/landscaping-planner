@@ -215,3 +215,44 @@ func test_a_fillet_refuses_a_pick_on_the_corner() -> void:
 	# A pick exactly at the corner leaves the kept half undecided.
 	var result := Edit.fillet(a, b, 1.0, Vector2(0, 0), Vector2(0, 5))
 	assert(not result["ok"], "an ambiguous pick is refused rather than guessed")
+
+
+# --- rotate -------------------------------------------------------------------------
+
+
+## A turn hands back a copy, for the reason the whole module gives: editing is a replacement, and the
+## caller decides how the replacement is recorded. So the shape it was asked about must be untouched.
+func test_a_turn_hands_back_a_copy_and_leaves_the_original_alone() -> void:
+	var line := Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var result := Edit.rotate(line, Vector2(0, 0), PI * 0.5)
+	assert(result["ok"], "a line turns")
+	assert(result["entities"].size() == 1, "into one shape")
+	var turned = result["entities"][0]
+	assert(turned != line, "it is a copy")
+	assert(_near(line.point(0), Vector2(0, 0)), "the original did not move")
+	assert(_near(line.point(1), Vector2(10, 0)), "either end")
+	assert(_near(turned.point(0), Vector2(0, 0)), "the copy turned about the pivot it was given")
+	assert(_near(turned.point(1), Vector2(0, 10)), "a quarter turn takes +x to +y")
+
+
+## The angle is read the way the third click is read - from +X toward +Y - so a caller can hand over
+## the bearing of a point and mean it. A whole turn is a turn, and it is not refused for being large.
+func test_the_angle_is_a_bearing_from_the_positive_x_axis() -> void:
+	var line := Entity.make_line(Vector2(1, 0), Vector2(2, 0))
+	var pivot := Vector2(0, 0)
+	# A point clicked due +y is a quarter turn; one clicked due -y is three quarters.
+	var quarter = Edit.rotate(line, pivot, Vector2(0, 5).angle())["entities"][0]
+	assert(_near(quarter.point(1), Vector2(0, 2)), "a click due north is a quarter turn")
+	var three_quarters = Edit.rotate(line, pivot, Vector2(0, -5).angle())["entities"][0]
+	assert(_near(three_quarters.point(1), Vector2(0, -2)), "a click due south is three quarters")
+
+
+## A gesture that did nothing is refused rather than recorded, the way a zero offset is. Otherwise a
+## turn of nothing would land on the undo stack as a step that changes nothing.
+func test_turning_by_nothing_is_refused() -> void:
+	var line := Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var still := Edit.rotate(line, Vector2(5, 5), 0.0)
+	assert(not still["ok"], "a turn of nothing is refused")
+	assert(still["reason"].contains("nothing"), "and the reason says as much")
+	assert(Edit.rotate(null, Vector2(5, 5), 1.0)["reason"].contains("nothing"),
+		"as is asking to turn nothing at all")

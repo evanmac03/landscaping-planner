@@ -433,6 +433,70 @@ func test_translate_moves_every_kind() -> void:
 	assert(is_equal_approx(circle.params[2], 2.5))
 
 
+## A turn is rigid: every point of the outline lands exactly where the same turn about the same pivot
+## would put it. Asserting on the outline rather than on the stored parameters is what makes this a
+## test of the turn rather than a test of the parameter layout - and it is the assertion an arc fails,
+## because an arc stores a centre, a radius and two angles rather than points, so a turn implemented
+## "rotate every point" moves an arc's centre to where a point's turn would have put it and then
+## recomputes the arc around the *old* ends.
+func test_a_turn_is_rigid_for_every_kind() -> void:
+	var pivot := Vector2(-3.0, 5.0)
+	var angle := deg_to_rad(37.0)
+	# A bulged polyline belongs in here: a bulge is tan(sweep / 4), which a rotation leaves alone, so
+	# the sampled arc has to turn with its chord.
+	var bulged := Entity.make_polyline(PackedVector2Array([
+		Vector2(0, 0), Vector2(6, 0), Vector2(6, 4)]), false)
+	bulged.bulges = PackedFloat64Array([0.4, 0.0, 0.0])
+	var shapes: Array = [
+		Entity.make_line(Vector2(0, 0), Vector2(4, 2)),
+		Entity.make_arc(Vector2(0, 0), 3.0, 0.2, 1.1),
+		Entity.make_rectangle(Vector2(2, 1), Vector2(4, 3), 0.3),
+		Entity.make_regular_polygon(Vector2(1, -2), 2.0, 6, 0.4),
+		Entity.make_polyline(PackedVector2Array([
+			Vector2(0, 0), Vector2(5, 0), Vector2(5, 3)]), true),
+		bulged,
+		Entity.make_dimension(Vector2(0, 0), Vector2(4, 0)),
+	]
+	for shape in shapes:
+		var before: PackedVector2Array = shape.outline()
+		assert(before.size() >= 2, "a drawn shape has an outline to turn")
+		shape.rotate_about(pivot, angle)
+		var after: PackedVector2Array = shape.outline()
+		assert(after.size() == before.size(), "a turn does not change how finely a shape is sampled")
+		for index in before.size():
+			var want: Vector2 = pivot + (before[index] - pivot).rotated(angle)
+			assert(after[index].distance_to(want) < 0.0001,
+				"point %d of kind %d turned by 37 degrees lands at %s, not %s"
+					% [index, shape.kind, after[index], want])
+
+
+## A circle is the one shape that cannot be checked point for point, and it is the shape that proves
+## why the check is on the outline: a circle has no orientation, so a turn leaves the *same* circle at
+## a new centre, and its outline is sampled from angle 0 about whatever centre it has. The samples
+## therefore do not turn with it even though the circle did. Its centre and radius are what say so.
+func test_a_turn_moves_a_circles_centre_and_leaves_its_radius() -> void:
+	var pivot := Vector2(-3.0, 5.0)
+	var angle := deg_to_rad(37.0)
+	var circle := Entity.make_circle(Vector2(1, 1), 2.5)
+	circle.rotate_about(pivot, angle)
+	var want: Vector2 = pivot + (Vector2(1, 1) - pivot).rotated(angle)
+	assert(Vector2(circle.params[0], circle.params[1]).is_equal_approx(want),
+		"a circle's centre is carried around the pivot")
+	assert(is_equal_approx(circle.params[2], 2.5), "and a turn does not change its radius")
+	for sampled: Vector2 in circle.outline():
+		assert(is_equal_approx(sampled.distance_to(want), 2.5), "so it is still a circle of radius 2.5")
+
+
+## Text has no outline to compare - it is drawn from its own font - so its turn is checked on what it
+## does store: the point it sits at, and the angle its baseline runs at.
+func test_text_turns_about_its_own_anchor() -> void:
+	var text := Entity.make_text(Vector2(2, 2), "bed", 0.25)
+	text.rotate_about(Vector2(2, 2), deg_to_rad(90.0))
+	assert(text.point(0).is_equal_approx(Vector2(2, 2)), "a turn about its own anchor leaves it there")
+	assert(is_equal_approx(text.params[2], 0.25 + deg_to_rad(90.0)),
+		"and its baseline turns by the angle as well")
+
+
 func test_entity_round_trips_through_serialisation() -> void:
 	var original := Entity.make_polyline(PackedVector2Array([
 		Vector2(1.25, 2.5), Vector2(3.75, 4.125)]), false)
