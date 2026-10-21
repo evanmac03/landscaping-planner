@@ -61,6 +61,16 @@ var _book_tried: bool = false
 var _plan_status: Label = null
 var _takeoff_list: ItemList = null
 var _takeoff_note: Label = null
+## The depth row under the takeoff: which of the drawing's layers a depth is stated for, how deep, and
+## the one thing a person consults - the takeoff line for it, which changes from a flat measure to a
+## cubic one as soon as the depth is stated.
+var _depth_row: HBoxContainer = null
+var _depth_layer: OptionButton = null
+var _depth_mm: SpinBox = null
+var _depth_button: Button = null
+## The layers offered in `_depth_layer`, in the order the items were added, because an OptionButton
+## holds text and these are StringNames - `desk.surface_layers()` is the source.
+var _depth_layers: Array[StringName] = []
 var _line_list: ItemList = null
 var _book_list: ItemList = null
 var _book_note: Label = null
@@ -171,6 +181,133 @@ func _build_takeoff_tab(page: VBoxContainer) -> void:
 	page.add_child(_takeoff_note)
 	_takeoff_list = _list("TakeoffLines")
 	page.add_child(_takeoff_list)
+	_build_depth_row(page)
+
+
+## The depth row: the one fact a drawing cannot show, and the only reason a takeoff can price the
+## cubic metre at all.
+##
+## A practice buys mulch, soil amendment and a lift of aggregate by the volume, and the depth is what
+## turns an outline into that volume - so somebody has to state it, once, for a whole layer. It is
+## here rather than on the layer panel because this is the window where the consequence is on screen:
+## state 75 mm against a bed and the line above changes from an area to a volume - a bed of
+## twenty-four square metres becomes 1.8 cubic metres - priced at whatever per-cubic-metre rate the
+## book holds. The chooser offers only layers bought by a **surface**, because a depth
+## cannot be stated for a count - and it keeps offering a layer that already has one, so the depth just
+## stated is still on screen and can be changed.
+func _build_depth_row(page: VBoxContainer) -> void:
+	_depth_row = HBoxContainer.new()
+	_depth_row.name = "DepthRow"
+	_depth_row.add_theme_constant_override("separation", 6)
+	page.add_child(_depth_row)
+	var words := Label.new()
+	words.name = "DepthLabel"
+	words.text = "depth"
+	words.custom_minimum_size = Vector2(60, 0)
+	_depth_row.add_child(words)
+	_depth_layer = _depth_option()
+	_depth_layer.item_selected.connect(_on_depth_layer_chosen)
+	_depth_row.add_child(_depth_layer)
+	_depth_mm = SpinBox.new()
+	_depth_mm.name = "DepthMm"
+	_depth_mm.min_value = 5
+	_depth_mm.max_value = 1000
+	_depth_mm.step = 5
+	_depth_mm.value = 75
+	_depth_mm.suffix = "mm"
+	_depth_mm.custom_minimum_size = Vector2(110, 0)
+	_depth_mm.tooltip_text = "How deep this layer's work goes. A bed at 75 mm of mulch is 1.8 m³ of it."
+	_depth_row.add_child(_depth_mm)
+	_depth_button = _button("Buy by volume", "_on_depth_stated")
+	_depth_button.tooltip_text = "Measure this layer's outlines as a volume: its area at this depth."
+	_depth_row.add_child(_depth_button)
+
+
+func _depth_option() -> OptionButton:
+	var option := OptionButton.new()
+	option.name = "DepthLayer"
+	option.custom_minimum_size = Vector2(220, 0)
+	# An OptionButton is a Button, and a Button takes the keyboard from the drawing when it is focused.
+	option.focus_mode = Control.FOCUS_NONE
+	return option
+
+
+## Fill the depth chooser from the drawing, and say what the layer currently is.
+##
+## The first entry is the honest default: a layer that is already measured as a volume keeps the depth
+## it was given, so opening the window twice shows the same thing rather than resetting the decision.
+func _fill_depth_row() -> void:
+	if _depth_row == null:
+		return
+	var candidates: Array[StringName] = desk.surface_layers()
+	var wanted: StringName = &""
+	if not _depth_layers.is_empty() and _depth_layer.selected >= 0:
+		wanted = _depth_layers[_depth_layer.selected]
+	_depth_layers = candidates
+	_depth_layer.clear()
+	if candidates.is_empty():
+		_depth_layer.add_item("no layer here is bought by the square metre")
+		_depth_layer.disabled = true
+		_depth_mm.editable = false
+		_depth_button.disabled = true
+		return
+	_depth_layer.disabled = false
+	_depth_mm.editable = true
+	_depth_button.disabled = false
+	var at: int = 0
+	for index in candidates.size():
+		var layer_name: StringName = candidates[index]
+		var depth: int = desk.layer_depth(layer_name)
+		_depth_layer.add_item(
+			"%s%s" % [String(layer_name), "   %d mm" % depth if depth > 0 else ""]
+		)
+		if layer_name == wanted:
+			at = index
+	_depth_layer.select(at)
+	# The spin box shows the chosen layer's own depth, so the row never reads as though a layer that is
+	# already bought by the cubic metre had no depth.
+	var depth_here: int = desk.layer_depth(candidates[at])
+	if depth_here > 0:
+		_depth_mm.value = float(depth_here)
+	_set_depth_button_words()
+
+
+## The button says what pressing it will do, so the row reads as a sentence rather than a label and a
+## verb. There is no "back to the area": a depth stated is a decision, and the way to take it back is
+## the same one every other decision about a layer has - state a different depth.
+func _set_depth_button_words() -> void:
+	if _depth_button == null or _depth_layers.is_empty() or _depth_layer.selected < 0:
+		return
+	var as_volume: bool = desk.layer_depth(_depth_layers[_depth_layer.selected]) > 0
+	_depth_button.text = "Change the depth" if as_volume else "Buy by volume"
+	_depth_button.name = _depth_button.text.replace(" ", "")
+
+
+## Choosing a different layer shows that layer's own depth, so a row that says "Change the depth" is
+## never sitting under a number somebody typed for a different layer.
+func _on_depth_layer_chosen(_index: int) -> void:
+	if _depth_layers.is_empty() or _depth_layer.selected < 0:
+		return
+	var depth: int = desk.layer_depth(_depth_layers[_depth_layer.selected])
+	_depth_mm.value = float(maxi(depth, 5))
+	_set_depth_button_words()
+
+
+## The whole feature in one gesture: state the depth of a layer, measure the drawing again, and show
+## the line for that layer as a volume priced at the book's per-cubic-metre rate.
+func _on_depth_stated() -> void:
+	if desk == null or _depth_layers.is_empty() or _depth_layer.selected < 0:
+		return
+	var layer_name: StringName = _depth_layers[_depth_layer.selected]
+	var depth: int = int(_depth_mm.value)
+	if not desk.set_layer_depth(layer_name, depth):
+		_set_status("%s is not measured as an area, so it has no depth to state." % String(layer_name))
+		return
+	_set_status("%s is bought by the volume: %d mm deep." % [String(layer_name), depth])
+	refresh()
+	# The measurement changed, so the estimate did, so the HUD's one line about where the job stands is
+	# now stale - the same announcement every other edit here makes.
+	estimate_changed.emit()
 
 
 func _build_proposal_tab(page: VBoxContainer) -> void:
@@ -258,6 +395,7 @@ func refresh() -> void:
 			_set_status("the prices would not load: %s" % String(loaded["reason"]))
 	_fill_tax()
 	_fill_takeoff()
+	_fill_depth_row()
 	_fill_lines()
 	_fill_totals()
 	_fill_book()
@@ -549,6 +687,54 @@ func plan_status_text() -> String:
 
 func takeoff_texts() -> Array[String]:
 	return _texts_of(_takeoff_list)
+
+
+## The layers the depth row offers, in the order it shows them. Only layers the takeoff measures by
+## the square metre, because a depth cannot be stated for a count.
+func depth_choices() -> Array[StringName]:
+	return _depth_layers.duplicate()
+
+
+## How the depth row words each choice, which is the only place a layer's depth is shown on the panel.
+func depth_texts() -> Array[String]:
+	var out: Array[String] = []
+	if _depth_layer == null:
+		return out
+	for index in _depth_layer.item_count:
+		out.append(_depth_layer.get_item_text(index))
+	return out
+
+
+## The layer the depth row is pointed at, or empty.
+func depth_choice() -> StringName:
+	if _depth_layers.is_empty() or _depth_layer == null or _depth_layer.selected < 0:
+		return &""
+	return _depth_layers[_depth_layer.selected]
+
+
+## Point the row at a layer the way choosing it does, showing that layer's own depth.
+func choose_depth(layer_name: StringName) -> bool:
+	for index in _depth_layers.size():
+		if _depth_layers[index] == layer_name:
+			_depth_layer.select(index)
+			_on_depth_layer_chosen(index)
+			return true
+	return false
+
+
+## The depth in the spin box, in millimetres.
+func depth_mm() -> int:
+	return int(_depth_mm.value) if _depth_mm != null else 0
+
+
+func set_depth_mm(depth_mm_value: int) -> void:
+	if _depth_mm != null:
+		_depth_mm.value = float(depth_mm_value)
+
+
+## Whether the depth row is usable at all: false for a drawing with no layer bought by the square metre.
+func depth_row_enabled() -> bool:
+	return _depth_button != null and not _depth_button.disabled
 
 
 func line_texts() -> Array[String]:

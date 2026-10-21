@@ -563,6 +563,47 @@ pick entities on a layer  →  measure by kind  →  choose a cost item  →  li
 REQ-B12 A takeoff line shall record the entity ids and the measurement it came from. A quantity
 with no lineage is a number somebody typed, and must be marked as such.
 
+### 6.1 Volume: the one dimension the drawing cannot show
+
+A practice buys mulch, soil amendment and a lift of aggregate by the cubic metre, and the starter book
+ships rates for exactly that (`bed-mulch`, `hard-paving-base`, both per `CU_M`) - but nothing in a
+drawing says how deep the work goes, so those rates could never be reached from a takeoff.
+
+The depth is therefore a property of the **layer**, not of an outline: the same bed at 75 mm and at
+150 mm is one decision about the whole garden, and not a fact about one closed shape.
+
+- `LAYER_MEASURES` may state `depth_mm`, and a layer whose `measure` is `VOLUME` requires one.
+- `Takeoff.set_depth(layer, mm)` states it and makes the layer a volume layer; `Takeoff.clear_depth`
+  is the same decision taken the other way; `Takeoff.depth_of` and `Takeoff.is_volume_layer` read it.
+- A volume is an area at that depth, computed as one product and rounded once: 24 m2 at 75 mm is
+  1.800 m3.
+- A **volume layer with no depth is refused and named** (`Takeoff.problems`), not measured as its area
+  and quietly priced with a per-m3 rate against a per-m2 number.
+- The line's unit follows the drawing's own system and the quantity is converted for it: 1.8 m3 is
+  stated as `CU_YD` in an imperial drawing. `value` stays in the canonical base (m3), so a lineage
+  reads as the geometry measured it.
+- An entity with a length and no area on a volume layer falls back to its length, exactly as on an area
+  layer: a run of edging over a mulch bed is still a length of edging, in a line of its own.
+
+The suggestion rule is unchanged and does the work here: the layer names the item it suggests, and the
+takeoff falls back to the first item of the **same dimension** under the layer's cost code - which is
+how 1.8 m3 of bed reaches a per-m3 rate even when the layer's own suggestion is per-m2.
+
+### 6.2 A unit is a promise about the number
+
+Found while building 6.1: an imperial drawing reported a 24 m2 patio as `24.000 ft2`, because the unit
+said `SQ_FT` and the quantity had been left in square metres. Every measurement is now computed in its
+canonical base and **stated** in the drawing's unit through the unit table's own exact ratio, which is
+the conversion `priced_line` already used. `TakeoffLine.value` remains the canonical base.
+
+### 6.3 The depth row on the takeoff tab
+
+`EstimateWindow` shows a depth row under the takeoff list: a chooser over the drawing's surface layers
+(area or volume, never a count), a depth in millimetres, and a button. Stating a depth re-runs the
+takeoff in the same gesture, so the line above changes from `24.000 m2` to `1.200 m3` where it can be
+seen. The chooser keeps offering a layer that already has a depth - it is the only place the decision
+is visible, so dropping a layer the moment its depth was stated would hide what had just been told.
+
 ---
 
 ## 7. Jobs, crews and time
@@ -1053,7 +1094,7 @@ before anything depends on it.
 | 0 | **Money, tax, units** | `money.gd`, `tax.gd`, `work_unit.gd`; integer minor units, currencies, rounding, parsing; tax codes with compounding; the unit table with dimensions | **built** - 28 tests |
 | 1 | **Cost book** | `cost_item.gd`, `cost_kit.gd`, `cost_book.gd`; items, kits with cycle detection, JSON persistence, versioning, refusals | **built** - 16 tests |
 | 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | **built** - 29 tests |
-| 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | **built** - 18 tests |
+| 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage, re-takeoff diffs, and the volume dimension (§6.1) | **built** - 29 tests |
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`, `scripts/pipeline_board.gd`; stages as events, funnel and conversion metrics, the board | **built** - 48 tests (`test_biz_pipeline` 24, `test_pipeline_board` 18, `test_hud_pipeline` 6); leads are held in memory until the store of phase 10 |
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `scripts/biz/job_desk.gd`, `scripts/schedule_board.gd`; scheduling, routing, offline time, the board | **built** - 109 tests (`test_biz_crew` 9, `test_biz_job` 10, `test_biz_schedule` 8, `test_biz_route` 11, `test_biz_time_entry` 13, `test_biz_job_desk` 31, `test_schedule_board` 18, `test_hud_jobs` 7, and 2 more in `test_estimate_window`); crews and jobs are held in memory until the store of phase 10 |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `scripts/biz/job_desk.gd`, `scripts/job_cost_window.gd`; committed vs actual, variance, WIP | **built** - 121 tests (`test_biz_purchase_order` 22, `test_biz_change_order` 22, `test_biz_job_cost` 23, `test_biz_job_costing` 30, `test_job_cost_window` 18, `test_hud_costing` 6); orders, changes and the billed figures are held in memory until the store of phase 10 |
@@ -1647,6 +1688,14 @@ the project was made with the plugin instrumented to print what it did, and run 
 `--editor --quit`, which printed that the dock had been added under `EditorDock` with `add_dock`. The
 plugin now says `add_dock` / `remove_dock`. **An API written from memory is a guess, and the authority
 is the running editor, not the recollection** - the same lesson as 15.1, one layer up.
+
+**15.18 A unit was a label, not a promise, and only an imperial drawing could show it.** An imperial
+drawing reported a 24 m2 patio as `24.000 ft2`: `Takeoff._measure` named the unit `SQ_FT` from the
+drawing's own system and left the number in square metres. A metric drawing could not reveal it and no
+test drew an imperial one, so it sat there looking entirely reasonable. Building the volume dimension of
+§6.1 is what exposed it - 1.8 m3 stated as `CU_YD` is wrong by a factor of more than thirty, and a wrong
+number is easier to notice than a wrong label. Every measurement is now converted, through the unit
+table's own exact ratio, into the unit it is stated in (§6.2); `value` stays in the canonical base.
 
 corrections, every one of them found by building rather than by reading, and two of them found by
 looking at a render. This section is where the same thing happens here: the changes are recorded as

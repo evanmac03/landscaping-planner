@@ -22,6 +22,13 @@ extends RefCounted
 ## 3. **A line with no price is refused and named, not left at zero.** The same rule the cost book,
 ##    the tax table and the plant catalogue already follow, and the one that stops an estimate being
 ##    quietly short.
+##
+## A fourth dimension joins those three here: a layer may be measured as a **volume**, which is its
+## area at a depth the office states once for the layer. Mulch over a bed, soil amendment, and a
+## lift of aggregate are all bought by the cubic metre, and the plan already holds the outline that
+## says how much of the bed there is - so the depth is the one fact the drawing cannot show and
+## somebody has to state. A volume layer with no depth stated is **refused and named**, not measured
+## as its area and quietly priced as though the depth were zero.
 
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const WorkUnitScript := preload("res://scripts/biz/work_unit.gd")
@@ -52,6 +59,11 @@ const SCALE := 1000
 ## `item` is the item the layer **suggests**, and it is here rather than inferred so that a suggestion
 ## is a decision somebody made. Without it the suggestion would be whichever matching item the book
 ## happened to list first, which is how a paving layer comes to suggest precast slabs.
+##
+## An entry may also state `"depth_mm"`, and it is **required by a layer whose `measure` is `VOLUME`**:
+## the depth is what turns an outline into a quantity of soil or mulch, and it is a property of the
+## layer because the same bed at 75 mm and at 150 mm is a different decision, made once for the whole
+## garden rather than per outline. See `depth_of` and `set_depth`.
 static var LAYER_MEASURES: Dictionary = {
 	&"300-NEW-HARD": {
 		"measure": WorkUnitScript.AREA, "cost_code": &"HARDSCAPE",
@@ -92,7 +104,7 @@ const NOT_MEASURED := {
 	&"100-EXIST-STRUCT": "existing building, not new work",
 	&"101-EXIST-HARD": "existing paving, not new work",
 	&"110-EXIST-PLANT": "existing planting, not new work",
-	&"200-GRADE-CONT": "grading is measured as volume, which this takeoff does not do",
+	&"200-GRADE-CONT": "a contour is a line, and a grading volume needs the levels on either side of it",
 	&"201-GRADE-SPOT": "a spot elevation is not a quantity",
 	&"600-HATCH": "a hatch is a pattern over work that is measured on its own layer",
 	&"700-DIMENSION": "an annotation, and it has a length that must not be billed",
@@ -249,6 +261,7 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 	var buckets: Dictionary = {}
 	var order: Array = []
 	var unmeasured: Dictionary = {}
+	var depthless: Dictionary = {}
 	for entity: DraftEntity in document.plotting_entities():
 		var plan: Dictionary = measure_plan(entity.layer)
 		if plan.is_empty():
@@ -256,7 +269,18 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 				unmeasured[entity.layer] = 0
 			unmeasured[entity.layer] = int(unmeasured[entity.layer]) + 1
 			continue
-		var found: Dictionary = _measure(entity, plan["measure"], takeoff.metric)
+		var wanted: StringName = StringName(plan["measure"])
+		var depth_mm: int = int(plan.get("depth_mm", 0))
+		if wanted == WorkUnitScript.VOLUME and depth_mm <= 0:
+			# A volume layer nobody has given a depth to cannot be measured, and measuring its
+			# outline as an area instead would price a truckload of mulch by the square metre - a
+			# number that looks plausible in a total and is wrong. So it is counted here and named
+			# below, which is the same answer this file gives every other thing it will not measure.
+			if not depthless.has(entity.layer):
+				depthless[entity.layer] = 0
+			depthless[entity.layer] = int(depthless[entity.layer]) + 1
+			continue
+		var found: Dictionary = _measure(entity, wanted, takeoff.metric, depth_mm)
 		if found.is_empty():
 			continue
 		var key: String = "%s|%s" % [String(entity.layer), String(found["measure"])]
@@ -308,6 +332,14 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 				]
 			)
 		takeoff.lines.append(line)
+
+	for layer: Variant in depthless.keys():
+		var layer_name: StringName = StringName(layer)
+		var count: int = int(depthless[layer_name])
+		takeoff.problems.append(
+			"%s is measured as a volume and no depth is stated for it, so %d thing%s on it could not be measured - state one with Takeoff.set_depth()"
+			% [String(layer_name), count, "" if count == 1 else "s"]
+		)
 
 	for layer: Variant in unmeasured.keys():
 		var layer_name: StringName = StringName(layer)
@@ -425,6 +457,60 @@ static func cost_code_for(layer_name: StringName) -> StringName:
 static func measure_for(layer_name: StringName) -> StringName:
 	var plan: Dictionary = measure_plan(layer_name)
 	return StringName(plan.get("measure", "")) if not plan.is_empty() else StringName("")
+
+
+## The depth a layer's work is measured at, in millimetres, or 0 when it states none.
+##
+## A depth is what turns an outline into a quantity of soil, mulch or aggregate. It lives on the
+## **layer** rather than on the outline because the same bed at 75 mm and at 150 mm is one decision
+## about the whole garden - twice as much mulch - and not a fact about one closed shape.
+static func depth_of(layer_name: StringName) -> int:
+	var plan: Dictionary = measure_plan(layer_name)
+	if plan.is_empty():
+		return 0
+	return int(plan.get("depth_mm", 0))
+
+
+## Whether a layer's work is bought by the cubic metre rather than by the square metre.
+static func is_volume_layer(layer_name: StringName) -> bool:
+	return measure_for(layer_name) == WorkUnitScript.VOLUME
+
+
+## State the depth for a layer whose work is bought by the cubic metre, which is also what makes it a
+## volume layer: a depth is only ever stated because the work has one, and a layer that stated a depth
+## and went on being measured as an area would be a fact nothing read.
+##
+## Returns false for a layer that is not measured at all. A layer with no plan is **left alone**
+## rather than given one, because a plan says what the layer is worth - its cost code and the item it
+## suggests - and inventing those from a depth would be this file deciding something nobody stated.
+## A depth of nothing is refused for the same reason: no depth is not a very thin layer of mulch.
+static func set_depth(layer_name: StringName, depth_mm: int) -> bool:
+	if depth_mm <= 0:
+		return false
+	var plan: Variant = LAYER_MEASURES.get(layer_name)
+	if not (plan is Dictionary):
+		return false
+	(plan as Dictionary)["measure"] = WorkUnitScript.VOLUME
+	(plan as Dictionary)["depth_mm"] = depth_mm
+	return true
+
+
+## The way back: forget a layer's depth, so its outlines are measured as the areas they are.
+##
+## This is the same decision `set_depth` makes, taken the other way - a volume layer is an area layer
+## with a depth and nothing else, so removing the depth leaves an area layer. It exists rather than a
+## "depth of zero" because no depth is not a measurement, and `set_depth` refuses one.
+##
+## Returns false for a layer that is not measured at all, and for one that has no depth to forget.
+static func clear_depth(layer_name: StringName) -> bool:
+	var plan: Variant = LAYER_MEASURES.get(layer_name)
+	if not (plan is Dictionary):
+		return false
+	if not (plan as Dictionary).has("depth_mm"):
+		return false
+	(plan as Dictionary).erase("depth_mm")
+	(plan as Dictionary)["measure"] = WorkUnitScript.AREA
+	return true
 
 
 ## The unit a measurement of this dimension should be stated in, in the drawing's own system.
@@ -717,7 +803,12 @@ static func from_dict(data: Dictionary) -> Takeoff:
 ## (see `LAYER_MEASURES`). An entity on an **area** layer that has no area - a line of wall, a kerb, an
 ## edging run - contributes its **length** instead of nothing, because a wall is real work; the two
 ## never mix in one line, since the line is keyed by layer *and* measure.
-static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool) -> Dictionary:
+##
+## A **volume** layer is an area layer with a depth: `depth_mm` is the one fact the outline cannot
+## carry, and without it there is nothing to measure, so this returns nothing and the caller says so.
+## An entity with a length and no area on a volume layer falls back to its length, exactly as it does
+## on an area layer - a run of edging over a mulch bed is still a length of edging.
+static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool, depth_mm: int = 0) -> Dictionary:
 	if entity == null:
 		return {}
 	if wanted == WorkUnitScript.COUNT:
@@ -729,21 +820,53 @@ static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool) -
 		}
 	var area: float = entity.area()
 	var length: float = entity.length()
+	if wanted == WorkUnitScript.VOLUME and area > 0.0 and depth_mm > 0:
+		# Cubic metres out of square metres and millimetres, computed as one product so the only
+		# rounding is the one at the end - the resolution a quantity is stored at.
+		var volume: float = area * (float(depth_mm) / 1000.0)
+		var stated: Dictionary = _stated(WorkUnitScript.VOLUME, volume, in_metric)
+		return {
+			"measure": WorkUnitScript.VOLUME,
+			"unit": stated["unit"],
+			"quantity_milli": int(stated["quantity_milli"]),
+			"value": volume,
+		}
 	if wanted == WorkUnitScript.AREA and area > 0.0:
+		var squared: Dictionary = _stated(WorkUnitScript.AREA, area, in_metric)
 		return {
 			"measure": WorkUnitScript.AREA,
-			"unit": unit_for(WorkUnitScript.AREA, in_metric),
-			"quantity_milli": int(round(area * float(SCALE))),
+			"unit": squared["unit"],
+			"quantity_milli": int(squared["quantity_milli"]),
 			"value": area,
 		}
 	if length > 0.0:
+		var ran: Dictionary = _stated(WorkUnitScript.LINEAR, length, in_metric)
 		return {
 			"measure": WorkUnitScript.LINEAR,
-			"unit": unit_for(WorkUnitScript.LINEAR, in_metric),
-			"quantity_milli": int(round(length * float(SCALE))),
+			"unit": ran["unit"],
+			"quantity_milli": int(ran["quantity_milli"]),
 			"value": length,
 		}
 	return {}
+
+
+## A measurement in its canonical base - square metres, metres, cubic metres - **stated** in the unit
+## the drawing uses.
+##
+## The distinction matters and was once got wrong here: a metric-drawn patio of 24 m² is 258.334 ft²,
+## and naming the unit `SQ_FT` while leaving the number at 24 makes a quantity that looks right in a
+## total and is out by a factor of ten. So the conversion happens here, through the unit table's own
+## exact ratio - the same one `priced_line` uses - and the returned `value` outside this function stays
+## in the base, which is what makes a lineage readable as "the bed was 24 m²" in any system.
+static func _stated(dimension: StringName, base_value: float, in_metric: bool) -> Dictionary:
+	var unit: StringName = unit_for(dimension, in_metric)
+	var base_unit: StringName = unit_for(dimension, true)
+	var quantity_milli: int = int(round(base_value * float(SCALE)))
+	if unit != base_unit:
+		var converted: Dictionary = WorkUnitScript.convert(quantity_milli, base_unit, unit)
+		if bool(converted["ok"]):
+			quantity_milli = int(converted["quantity_milli"])
+	return {"unit": unit, "quantity_milli": quantity_milli}
 
 
 static func _measure_words(measure: StringName) -> String:
@@ -752,6 +875,8 @@ static func _measure_words(measure: StringName) -> String:
 			return "area"
 		WorkUnitScript.LINEAR:
 			return "length"
+		WorkUnitScript.VOLUME:
+			return "volume"
 		WorkUnitScript.COUNT:
 			return "count of items"
 	return String(measure)

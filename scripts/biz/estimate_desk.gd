@@ -207,8 +207,9 @@ func _no_takeoff(reason: String) -> Dictionary:
 	}
 
 
-## What the takeoff left out on purpose, with the reason ("grading is measured as volume, which this
-## takeoff does not do"). Not a fault: a note. It is here because a plan with a contour line on it
+## What the takeoff left out on purpose, with the reason ("a contour is a line, and a grading volume
+## needs the levels on either side of it"). Not a fault: a note. It is here because a plan with a
+## contour line on it
 ## and no line for it in the proposal is the question every designer asks, and the answer to "why is
 ## nothing on my drawing in the takeoff" has to exist somewhere a person will look.
 func notes() -> Array[String]:
@@ -218,6 +219,60 @@ func notes() -> Array[String]:
 	for note: String in takeoff.notes:
 		out.append(note)
 	return out
+
+
+## The layers whose work is bought by a **surface** - measured by the square metre, or by the cubic
+## metre once a depth has been stated for them.
+##
+## These are exactly the layers a depth can be stated for, and only these: a depth is what turns an area
+## into a volume, so a layer measured as a count (a planting, a run of irrigation heads) has no area to
+## be deep and is not offered. This is the list a panel builds its chooser from, so the choice it offers
+## is always one the takeoff can act on.
+##
+## A layer that **already** states a depth stays on the list, which matters more than it looks: it is
+## the list's only way of showing the decision that was made, and a chooser that dropped a layer the
+## moment its depth was stated would be a row that hides the depth it had just been told.
+func surface_layers() -> Array[StringName]:
+	var out: Array[StringName] = []
+	if document == null:
+		return out
+	for layer: DraftLayer in document.layers.layers():
+		var measure: StringName = TakeoffScript.measure_for(layer.name)
+		if measure == WorkUnitScript.AREA or measure == WorkUnitScript.VOLUME:
+			out.append(layer.name)
+	return out
+
+
+## The depth a layer's work is bought at, in millimetres, or 0 when it states none.
+func layer_depth(layer_name: StringName) -> int:
+	return TakeoffScript.depth_of(layer_name)
+
+
+## State the depth a layer's work is bought at, and re-take-off if a takeoff has already run, so the
+## number the panel is showing changes in the same gesture as the decision.
+##
+## A depth is a decision about the **practice's own layer** rather than about one drawing - a mulch
+## layer at 75 mm is 75 mm on every garden - which is why it is set on the layer table the takeoff
+## reads (`Takeoff.set_depth`) rather than stored in a document. Returns false for a layer that is not
+## measured or for a depth of nothing, and then nothing has been measured again: a refusal has to leave
+## the panel exactly as it found it.
+func set_layer_depth(layer_name: StringName, depth_mm: int) -> bool:
+	if not TakeoffScript.set_depth(layer_name, depth_mm):
+		return false
+	if takeoff != null:
+		take_off()
+	return true
+
+
+## Forget a layer's depth, so its outlines are measured as the areas they are, and re-take-off when a
+## takeoff has already run. The way back from `set_layer_depth`, and refused the same way: a layer that
+## has no depth to forget is left alone and reports that it was.
+func clear_layer_depth(layer_name: StringName) -> bool:
+	if not TakeoffScript.clear_depth(layer_name):
+		return false
+	if takeoff != null:
+		take_off()
+	return true
 
 
 ## What is wrong with the estimate as it stands: the sentences the estimate itself produces, plus
