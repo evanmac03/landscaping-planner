@@ -739,6 +739,40 @@ uncollected**, each with its basis (§2.9). A job with more committed than budge
 moment the PO is issued - not at the WIP review three weeks later - because that is the only
 moment the office can still do something about it.
 
+### 8.5 Ordering the planting: the plan writes the draft, a person names the grower
+
+The one purchase order a landscape office writes over and over is the plants. Every job needs one,
+the quantities are already on the drawing and the rates are already in the book, so the drawing
+writes it: `scripts/biz/plant_order.gd` prices the planting, and `scripts/plant_order_window.gd`
+shows the lines and asks the two questions only a person can answer.
+
+- **The book prices the plant; a person names the nursery.** A rate is the office's knowledge and
+  belongs in the book; *which nursery* is a fact about that business's relationships, which a
+  shipped book cannot carry. Every plant item in the starter book therefore has an empty `supplier`,
+  and the one thing the order insists on is that somebody says who it goes to.
+- **A plant the book cannot price is refused by name, never ordered at nothing** - and the refusal
+  is of the **whole plan**. An order that quietly dropped a species reads as a smaller planting than
+  the plan drew, and a job with an order for three of its five kinds and no word about the other two
+  looks finished.
+- **A category chooses the item, not a species** (§4.3): a 30 cm herb and a 2 m tree are not the same
+  money, so `PlantOrder.CATEGORY_ITEMS` maps each category to a book item, and `item_for` lets the
+  office override the suggestion per category.
+- **It is plant material at the book's rate, not planted material.** Soil preparation, labour and
+  mulch are the estimate's business, priced per square metre off the bed outlines (§6); what is
+  ordered here is what arrives on a truck.
+- **Nothing is issued here.** Every order is written DRAFT against the `PLANTING` cost code, so it
+  commits nothing until somebody issues it where orders are managed (§8.1), and the job's committed
+  cost does not move.
+- The page is reached from **Plant > Order the plants for this drawing...**, beside the takeoff and
+  the estimate, because it is the same drawing read a second way.
+
+REQ-B41 Ordering the planting shall refuse the whole plan, naming the plant, when any species on it
+cannot be priced, and shall refuse it when no nursery has been named - rather than writing part of an
+order that reads as a finished one.
+
+REQ-B42 An order written from the planting shall be one draft purchase order per supplier, and shall
+move no committed cost until it is issued.
+
 ---
 
 ## 9. Billing, invoices, and the ledger
@@ -1548,6 +1582,31 @@ REQ-B40 Applying a price change shall produce a new version of the book and leav
 from untouched; and a preview shall recompute the cost and leave the price where it was, so that what
 a cost-book change moves is the margin.
 
+## 14i. The way in to a nursery order
+
+The planting-taking-off engine of section 6 and the cost book of section 1 were joined by nothing: an
+office could see what the job would cost and could not order what it was made of. The door is one
+static module, one page, and one menu line.
+
+`PlantOrder` (`scripts/biz/plant_order.gd`) is static over the planting rows the HUD already reads and
+the estimator's own book, so the order and the proposal cannot be priced from two different price
+lists. `plan` returns one line per kind of plant with its quantity, its book item, its rate, its
+extension and its own problem; `by_supplier` groups the lines by grower; and `write_orders` is the
+single door that puts them on the desk, through `JobDesk.make_purchase_order` rather than beside it.
+
+`PlantOrderWindow` (`scripts/plant_order_window.gd`) owns only what only a person knows - which job,
+which nursery - and nothing else. The plan arrives from `PlantOrder.plan`, the orders leave through
+`order_requested` for the HUD, and the page writes nothing itself, which is what lets the whole page
+be tested with no desk, no drawing and no screen.
+
+The HUD joins them: the **Plant** menu's *Order the plants for this drawing...* opens the page, fills
+it from the yard, and writes the orders the page asks for - and a **draft** is what lands, so the desk
+shows what the job would commit to without committing to it.
+
+The live pass is `tools/plant_order_demo.gd`: it orders the shipped yard's own planting through the
+real page, presses the button its caption names, and reads the order back off the job desk. Its first
+run was refused, and the refusal was correct - see 15.19.
+
 The entries below were found **before** the code that would have depended on them was
 written, which is the cheapest place to find them.
 
@@ -1696,6 +1755,24 @@ test drew an imperial one, so it sat there looking entirely reasonable. Building
 §6.1 is what exposed it - 1.8 m3 stated as `CU_YD` is wrong by a factor of more than thirty, and a wrong
 number is easier to notice than a wrong label. Every measurement is now converted, through the unit
 table's own exact ratio, into the unit it is stated in (§6.2); `value` stays in the canonical base.
+
+**15.19 The shipped yard's props carry no species, so the whole order is refused.** The first live
+pass of the nursery order reported `30 x no species recorded` and refused to price anything: the
+thirty props `main.tscn` was built with are meshes carrying no `species` metadata, so the planting
+list can name none of them. The module was right - a plant nobody can name is the one thing a
+planting list must not hide, and the refusal named the row rather than pricing it at nothing - but
+the program's own demo scene is not a drawing anybody can order plants for, which is a fact about the
+scene rather than about the order. The live pass now plants two species it can name and reports what
+the unnamed props do to the plan, because the honest demonstration of a refusal is the refusal.
+
+**15.20 The picker and the plan hold node references, so a yard node that goes has to be announced.**
+Removing a prop from the yard during that same live pass produced `Invalid access to property or key
+'global_position' on a base object of type 'previously freed'` out of `ViewController.nearest_placeable`:
+the picker's cache and the plan canvas's `_placeables` array both hold `Node3D`s, and nothing in the
+program removes a plant, so the fault was latent rather than live. `PlantPlacement` adds to the yard, and
+the app's own rule - `ViewController.refresh_after_planting()`, which drops the cache and re-binds the
+canvas - is what a second caller has to call. **A cache of nodes is a cache of things that can die, and
+the rule that keeps it alive has to be written down where the second caller will find it.**
 
 corrections, every one of them found by building rather than by reading, and two of them found by
 looking at a render. This section is where the same thing happens here: the changes are recorded as

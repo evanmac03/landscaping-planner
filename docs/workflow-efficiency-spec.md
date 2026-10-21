@@ -469,6 +469,12 @@ photograph, the consultant's concept.
    A spot level is a mark and a label, a contour a line with a height, an arrow a line with a
    direction, and the check reports where the drawing contradicts itself about its own heights.
 
+10. ~~**Ordering the planting from a nursery.**~~ **Done.** Built as `scripts/biz/plant_order.gd`
+    and `scripts/plant_order_window.gd` with three test files; see the plant database spec,
+    section 7b. It prices the planting from the cost book and writes one draft purchase order per
+    grower onto the job desk. It issues nothing, and the only two things the page asks for are the
+    two things only a person knows: which job the plants are for, and which nursery they come from.
+
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
@@ -480,3 +486,8 @@ presses Escape through the real input pipeline, and each of the four acts on the
 Section 8b was checked by reading the picture's own pixels back off the framebuffer in
 `tools/underlay_demo.gd`, once with the picture drawn and once with it put away, because the first
 version of it was held by the canvas and drawn nowhere.
+
+Section 8c was checked in `tools/plant_order_demo.gd`, which orders the shipped yard's own
+planting through the real page and reads the order back off the job desk. Its first run was
+refused because the yard's props carry no species recorded, and that refusal is the module
+answering honestly rather than pricing a plant nobody can name.

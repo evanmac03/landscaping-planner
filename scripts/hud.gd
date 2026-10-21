@@ -312,6 +312,11 @@ const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
 const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
+## The nursery order: the drawing's planting list and the price list turned into what to buy, and from
+## whom. The arithmetic is business arithmetic, so the module lives with the business modules; the page
+## is a screen, so it does not.
+const PlantOrderScript := preload("res://scripts/biz/plant_order.gd")
+const PlantOrderWindowScript := preload("res://scripts/plant_order_window.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -391,6 +396,12 @@ var _grading_window: GradingWindowScript = null
 ## through an undo - which does not go past this HUD - would otherwise be showing records that are no
 ## longer on the drawing.
 var _grading_state: String = ""
+## The plants to buy: the drawing's planting list priced from the price list and written as draft
+## purchase orders on the job desk. A window, because the nursery is typed.
+var _plant_order_window: PlantOrderWindowScript = null
+## What the last refresh of that page was drawn from: the planting rows and the desk's own counts. The
+## page is about the yard and about the jobs, and either can move while it is open.
+var _plant_order_state: String = ""
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -480,6 +491,7 @@ func _ready() -> void:
 	_build_osm_window()
 	_build_underlay_window()
 	_build_grading_window()
+	_build_plant_order_window()
 	_build_estimate_window()
 	_build_pipeline_board()
 	_build_job_desk()
@@ -513,6 +525,8 @@ func _process(delta: float) -> void:
 	# Likewise ahead of the guard: the ground's heights belong to the drawing, not to the view, and a
 	# page that is open while the drawing changes under it has to keep up.
 	_tick_grading_window()
+	# And the same for the plants to buy: the yard and the job desk both move under that page.
+	_tick_plant_order_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -1906,6 +1920,10 @@ static func plant_items() -> Array[Dictionary]:
 	items.append(_command(&"plant.stop", "Stop planting", &"", &"_menu_stop_planting"))
 	items.append(_separator())
 	items.append(_command(&"plant.label", "Label the planting", &"", &"_menu_label_plants"))
+	# The nursery order: the one thing a planting list is for besides being read. It needs the drawing
+	# because the plants are in the yard, which is a fact about the plan and not about the list.
+	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"",
+		&"_menu_plant_order_window", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
 	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
@@ -5035,6 +5053,132 @@ func open_plant_browser() -> void:
 func close_plant_browser() -> void:
 	if _plant_window != null:
 		_plant_window.hide()
+
+
+## The nursery order: the drawing's planting list priced from the price list, written as draft purchase
+## orders on the job desk. The fifth window onto the desk, and the only one that starts from the plan.
+##
+## It owns nothing - the plan is `PlantOrder`'s arithmetic over the planting rows and the book, the page
+## is a screen, and the orders are the desk's - so all this file does is hand each of the three to the
+## next one.
+func _build_plant_order_window() -> void:
+	if _plant_order_window != null:
+		return
+	_plant_order_window = PlantOrderWindowScript.new()
+	_plant_order_window.name = "PlantOrderWindow"
+	add_child(_plant_order_window)
+	_plant_order_window.build()
+	# The page announces the job and the nursery and does nothing else. Writing the order is this
+	# file's errand, because the desk and the planting rows are both here.
+	_plant_order_window.order_requested.connect(_on_plant_order_requested)
+	_plant_order_window.closed.connect(close_plant_order_window)
+	_plant_order_window.hide()
+
+
+func open_plant_order_window() -> void:
+	_build_plant_order_window()
+	if _plant_order_window == null:
+		return
+	_fill_plant_order_window()
+	_plant_order_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_plant_order_window() -> void:
+	if _plant_order_window != null:
+		_plant_order_window.hide()
+
+
+func is_plant_order_window_open() -> bool:
+	return _plant_order_window != null and _plant_order_window.visible
+
+
+## Point the page at the desk and hand it what the drawing plants. Built and filled without a screen, so
+## the test suite drives the same controls the program shows - `popup_centered` needs a screen and a test
+## has none.
+func _fill_plant_order_window() -> void:
+	_build_plant_order_window()
+	if _plant_order_window == null:
+		return
+	if _job_desk == null:
+		_build_job_desk()
+	_plant_order_window.bind(_job_desk)
+	_plant_order_window.set_plan(plant_order_plan())
+	_plant_order_state = _plant_order_signature()
+
+
+## The page while it is up. The planting and the desk can both move under it - a plant put down in the
+## yard, an order issued on another page - so it is read again whenever either has.
+func _tick_plant_order_window() -> void:
+	if _plant_order_window == null or not _plant_order_window.visible:
+		return
+	var state := _plant_order_signature()
+	if state == _plant_order_state:
+		return
+	_plant_order_state = state
+	_fill_plant_order_window()
+
+
+## What the last refresh was drawn from: the planting rows themselves and the desk's own counts. The
+## price list is deliberately not in it - a page left open does not have to keep up with a book somebody
+## is editing on another screen.
+func _plant_order_signature() -> String:
+	var jobs := 0
+	var orders := 0
+	if _job_desk != null:
+		jobs = _job_desk.jobs.size()
+		orders = _job_desk.purchase_orders.size()
+	return "%d|%d|%d" % [hash(_planting_rows()), jobs, orders]
+
+
+## The plan: the drawing's planting, priced from the price list, one line per kind of plant.
+func plant_order_plan() -> Dictionary:
+	return PlantOrderScript.plan(_planting_rows(), _plant_order_book())
+
+
+## The price list the plants are bought at: the one the estimator is using, so the order and the proposal
+## cannot be priced from two different books. The book's own search order - the business's own file
+## first, the shipped starter list only if there is none - is `load_book`'s, and is not repeated here.
+func _plant_order_book() -> CostBook:
+	if _estimate_window == null or _estimate_window.desk == null:
+		return null
+	if _estimate_window.desk.book == null:
+		_estimate_window.desk.load_book()
+	return _estimate_window.desk.book
+
+
+## Write the orders: one draft purchase order per nursery, one line per kind of plant.
+##
+## Reachable without a page, so the write can be tested on its own. **Nothing is issued here**: ordering
+## is a decision the office takes where orders are managed, and a page that wrote and issued in one press
+## would commit a job to money from a list nobody had read.
+func write_plant_order(job_id: String, supplier: String) -> Dictionary:
+	if _job_desk == null:
+		_build_job_desk()
+	var written: Dictionary = PlantOrderScript.write_orders(
+		_job_desk, job_id, plant_order_plan(), supplier
+	)
+	if bool(written["ok"]):
+		_plant_order_state = _plant_order_signature()
+		# What the job has committed has moved, so the cost page and the menu lines are stale.
+		_on_cost_changed()
+	return written
+
+
+## The page asked for the order to be written: write it and say where it went.
+func _on_plant_order_requested(job_id: String, supplier: String) -> void:
+	var written: Dictionary = write_plant_order(job_id, supplier)
+	if _plant_order_window == null:
+		return
+	if bool(written["ok"]):
+		_plant_order_window.say("written, and waiting to be issued: %s"
+			% PlantOrderScript.orders_words(written["orders"]))
+	else:
+		_plant_order_window.say(String(written["reason"]))
+
+
+func _menu_plant_order_window(_entry: Dictionary) -> void:
+	open_plant_order_window()
 
 
 ## The takeoff and the estimate: the window, and what the menu says about it.

@@ -178,6 +178,9 @@ func test_the_planting_list_counts_what_is_standing_and_names_what_it_cannot() -
 	# The row carries what a schedule has to print: the name, how many, and how big the plant gets.
 	assert(int(rows[0]["spread_cm"]) == 900, "the row carries the spread")
 	assert(String(rows[0]["category_name"]) == "Tree", "and the category")
+	# The machine-readable category beside the printed one: a nursery order prices a plant by asking
+	# what kind of plant it is, and it must not have to match on the words above.
+	assert(int(rows[0]["category"]) == SpeciesScript.TREE, "and the category as a number")
 	yard.free()
 
 

@@ -82,6 +82,7 @@ say what each menu is *for* rather than only listing its rows:
 | Importing somebody else's file | survey, DXF, OSM, LandXML — the one shape table |
 | Tracing over a picture | a scan or a photograph under the plan - kept beside the drawing, placed across the ground, never plotting or snapping |
 | Plants | the library, placing, filling a bed, labelling, the 3D models |
+| Ordering the plants | this drawing's planting priced from the book, and a draft nursery order |
 | Water: irrigation | supply, laying heads out, zones, the schedule |
 | Light: garden lighting | transformer, fixtures, circuits, cover |
 | What it costs: takeoff and estimate | the drawing as the takeoff, the priced estimate |

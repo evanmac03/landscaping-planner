@@ -37,6 +37,7 @@ const SUBJECTS: Array[String] = [
 	"Importing somebody else's file",
 	"Tracing over a picture",
 	"Plants",
+	"Ordering the plants from a nursery",
 	"Water: irrigation",
 	"Light: garden lighting",
 	"What it costs: takeoff and estimate",
@@ -308,6 +309,23 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"A plant list can be imported and exported, so a nursery's list can be brought in without "
 		+ "retyping it.",
+	]))
+	out.append(_topic("Ordering the plants from a nursery", [
+		"Plant > Order the plants for this drawing... prices everything standing in the drawing from the "
+		+ "cost book and writes it out as a nursery order: one line per kind of plant, carrying the "
+		+ "count, the size, the book's own item and the money.",
+		"",
+		"The page asks for the two things it cannot work out for itself - which job the plants are for, "
+		+ "and which nursery they come from. Everything else it already knows from the drawing.",
+		"",
+		"A plant the book cannot price is named rather than quietly left out, and in that case no order "
+		+ "is written at all: an order missing a species would look like a smaller garden than the plan "
+		+ "draws. A plant listed with no species recorded is a yard prop nobody has identified yet, and "
+		+ "that is what the page is telling you.",
+		"",
+		"What is written is plant material at the book's rate - not the soil preparation, the labour or "
+		+ "the mulch, which belong to the estimate - and it is written as a draft purchase order, so it "
+		+ "says what the job would commit to rather than what it has committed.",
 	]))
 	out.append(_topic("Water: irrigation", [
 		"Water > Water an area lays a zone out: choose the area, the kind of head, the spacing as a "

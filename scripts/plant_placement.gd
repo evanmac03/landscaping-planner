@@ -160,6 +160,7 @@ static func schedule(catalogue: PlantCatalogue, yard: Node) -> Array[Dictionary]
 			"botanical_name": species.botanical_name,
 			"common_name": species.common_name,
 			"cultivar": species.cultivar,
+			"category": species.category,
 			"category_name": species.category_name(),
 			"spread_cm": species.spread_cm,
 			"height_cm": species.height_cm,

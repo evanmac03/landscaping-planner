@@ -665,6 +665,37 @@ stated, and a window with no drawing says so instead of failing; a hand zone is 
 and dropped with the tool. `tests/test_hud_menu.gd` holds the
 menu that opens it.
 
+## 7b. Ordering the planting from a nursery
+
+A planting list is what the drawing plants; an order is what a truck brings. The two are the same
+lines seen twice, and the join is `scripts/biz/plant_order.gd` (`PlantOrder`), which is static over
+the planting rows and the cost book, and `scripts/plant_order_window.gd` (`PlantOrderWindow`), which
+shows them and asks the two things only a person knows.
+
+The book prices the plant and a person names the nursery. A rate is the office's knowledge and
+belongs in the book; which nursery is a fact about that business's relationships, which a shipped
+book cannot carry - so every plant item in the starter book has an empty `supplier`, and the one thing
+the order insists on is that somebody says who the plants go to.
+
+`PlantOrder.CATEGORY_ITEMS` chooses a book item per **category**, not per species: `TREE` at
+`plant-tree-50mm`, `SHRUB` and the vines at `plant-shrub-2g`, the perennials and herbs at
+`plant-perennial-1g`, the grasses at `plant-grass-2g`. A 30 cm herb and a 2 m tree are not the same
+money, and a category is the finest thing the book is arranged to price. `plan(rows, book, item_for)`
+takes an override per category, so the office's own judgement beats the suggestion.
+
+A species the book cannot price is **refused by name**, and the refusal is of the whole plan: an order
+that quietly dropped a species would read as a smaller planting than the plan drew. `write_orders`
+writes one DRAFT purchase order per supplier against the `PLANTING` cost code and issues nothing, so
+the desk shows what the job would commit to without committing to it (business specification 8.5 and
+14i).
+
+The planting rows carry the species' **category as a number** as well as its name, which is what lets
+the order price a plant by asking what kind it is rather than by matching a display string.
+
+`tests/test_plant_order.gd` (33) holds the arithmetic and the refusals;
+`tests/test_plant_order_window.gd` (22) holds the page; `tests/test_hud_plant_order.gd` (11) holds the
+menu line and the write.
+
 
 ## 8. What is not built
 
