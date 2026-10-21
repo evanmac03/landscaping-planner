@@ -104,6 +104,28 @@ func test_area_conversions_use_exact_constants() -> void:
 	assert(is_equal_approx(snappedf(Units.acres(lot), 0.000001), 0.137741))
 
 
+## An area as a person reads it. **One place in the program writes one**, so these are the words every
+## panel, list and report show.
+func test_an_area_is_written_in_the_drawings_own_units() -> void:
+	var metric: DraftUnits = Units.new()
+	# A whole number stays whole, and a fraction keeps one decimal: 18.0 m2 written as "18.0" claims a
+	# precision the drawing does not have, and 18.4 m2 written as "18" would be a small lie.
+	assert(metric.format_area(18.0) == "18 m2", metric.format_area(18.0))
+	assert(metric.format_area(18.4) == "18.4 m2", metric.format_area(18.4))
+	assert(metric.format_area(5.76) == "5.8 m2", metric.format_area(5.76))
+	# Above a hectare the hectare is the unit, because nobody reads five figures of square metres.
+	assert(metric.format_area(Units.HECTARE * 1.5) == "1.5 ha", metric.format_area(Units.HECTARE * 1.5))
+
+	# An imperial drawing says square feet and never square metres - the whole reason the words come
+	# from the drawing rather than from the page that prints them.
+	var imperial: DraftUnits = Units.new()
+	imperial.system = Units.System.IMPERIAL
+	assert(imperial.format_area(18.0) == "193.8 ft2", imperial.format_area(18.0))
+	assert(imperial.format_area(Units.ACRE * 1.5) == "1.5 ac", imperial.format_area(Units.ACRE * 1.5))
+	# And the words for a caller with no drawing in hand are the metric ones.
+	assert(Units.area_words(18.0) == "18 m2", Units.area_words(18.0))
+
+
 func test_display_precision_follows_zoom() -> void:
 	assert(Units.display_decimals(33.71) == 3)
 	assert(Units.display_decimals(0.5) == 1)

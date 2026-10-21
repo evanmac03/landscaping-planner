@@ -35,7 +35,7 @@ func _ready() -> void:
 
 	print("--- the areas the drawing encloses ---")
 	for row: Dictionary in controller.waterable_areas():
-		print("  ", row["name"], "  ", snappedf(float(row["area_m2"]), 0.01), " m2  key ", row["key"])
+		print("  ", row["name"], "  ", row["area_text"], "  key ", row["key"])
 
 	print("--- stating the supply, as the button does ---")
 	print("before: ", IrrigationScript.supply_words(controller.irrigation_supply()))

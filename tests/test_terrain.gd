@@ -18,6 +18,7 @@ const SpeciesScript := preload("res://scripts/plant_species.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
+const Units := preload("res://scripts/draft/units.gd")
 
 
 func _square(centre: Vector2, half: float) -> PackedVector2Array:
@@ -284,6 +285,31 @@ func _area_row(rows: Array[Dictionary], name: String) -> Dictionary:
 		if String(row["name"]) == name:
 			return row
 	return {}
+
+
+## An area is offered **in the drawing's own units**, and the row carries the words.
+##
+## A page that listed areas is handed rows rather than a drawing, so it has no units of its own to get
+## this wrong with: whatever an imperial drawing says here is what every list and every report says.
+func test_an_area_is_offered_in_the_drawings_own_units() -> void:
+	var document: Document = Document.new()
+	document.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(6.0, 3.0)), LayerSet.NEW_BED)
+	var metric: Array[Dictionary] = ZoneMapScript.areas_of(document)
+	assert(metric.size() == 1, "one bed encloses ground")
+	assert(String(metric[0]["area_text"]) == "18 m2", String(metric[0]["area_text"]))
+	# The figure is still there for the arithmetic, and it is still square metres.
+	assert(is_equal_approx(float(metric[0]["area_m2"]), 18.0), "the takeoff still reads square metres")
+
+	var imperial: Document = Document.new()
+	imperial.units.system = Units.System.IMPERIAL
+	imperial.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(6.0, 3.0)), LayerSet.NEW_BED)
+	var feet: Array[Dictionary] = ZoneMapScript.areas_of(imperial)
+	assert(String(feet[0]["area_text"]) == "193.8 ft2", String(feet[0]["area_text"]))
+
+	# A row built by hand - a ground zone, or a page's own list - has no words, and is written in the
+	# project's own units rather than left as a dangling comma.
+	assert(ZoneMapScript.row_area_text({"area_m2": 18.0}) == "18 m2", "a bare row")
+	assert(ZoneMapScript.row_area_text(metric[0]) == "18 m2", "a row that already has the words")
 
 
 func test_stating_an_area_by_hand_edits_one_zone_rather_than_stacking_two() -> void:

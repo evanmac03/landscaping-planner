@@ -67,9 +67,9 @@ func test_the_window_lists_the_site_and_every_area_of_the_plan() -> void:
 		assert(texts[index].contains("nothing stated"), "nothing is known yet: %s" % texts[index])
 	# Read by name, not by position: the list is in **draw order**, and the drawing draws its paving
 	# band before its bed band - the order the areas plot in is not the order somebody drew them in.
-	assert(_line_named(window, "bed 1").contains("18.0 m²"), _line_named(window, "bed 1"))
-	assert(_line_named(window, "lawn 2").contains("16.0 m²"), _line_named(window, "lawn 2"))
-	assert(_line_named(window, "paving 3").contains("16.0 m²"), _line_named(window, "paving 3"))
+	assert(_line_named(window, "bed 1").contains("18 m2"), _line_named(window, "bed 1"))
+	assert(_line_named(window, "lawn 2").contains("16 m2"), _line_named(window, "lawn 2"))
+	assert(_line_named(window, "paving 3").contains("16 m2"), _line_named(window, "paving 3"))
 	# A bed nobody has described is named as nothing stated, and the window says so in one line too.
 	assert(window.status_text().contains("Nothing is stated about the ground yet"), window.status_text())
 	window.free()

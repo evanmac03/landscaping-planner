@@ -18,6 +18,7 @@ signal remove_requested(circuit_number: int)
 signal close_requested()
 
 const LightingScript := preload("res://scripts/draft/lighting.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
 
 ## The transformer capacities a residential garden is wired with, in volt-amperes. 100 is the
 ## module's own default and the one a panel opens on.
@@ -257,7 +258,7 @@ func set_areas(rows: Array[Dictionary]) -> bool:
 
 
 func _area_words(row: Dictionary) -> String:
-	return "%s, %s m2" % [String(row.get("name", "")), _number(float(row.get("area_m2", 0.0)))]
+	return "%s, %s" % [String(row.get("name", "")), ZoneMapScript.row_area_text(row)]
 
 
 ## The circuits already on the drawing, one row each. The same signature trick, and the selection is

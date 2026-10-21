@@ -328,6 +328,17 @@ func test_the_summary_reads_as_one_line() -> void:
 	controller.free()
 
 
+func test_the_area_a_summary_states_is_the_drawings_own() -> void:
+	var controller = _controller()
+	controller.set_lighting_transformer(400.0, 12.0)
+	controller.light_area(_bed(9.0), Lighting.WELL)
+	controller.document.units.system = DraftUnits.System.IMPERIAL
+	var line := controller.lighting_summary()
+	assert(line.contains("ft2"), "an imperial drawing states its area in square feet: %s" % line)
+	assert(not line.contains("m2"), "and never in square metres: %s" % line)
+	controller.free()
+
+
 # --- the file -------------------------------------------------------------------------
 
 

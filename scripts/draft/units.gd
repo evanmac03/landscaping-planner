@@ -284,17 +284,35 @@ static func parse_area(text: String, default_system: System = System.METRIC) -> 
 	return NAN
 
 
+## An area a person reads: square metres, or hectares above a hectare, or square feet and acres on an
+## imperial drawing. **This is the one place an area is turned into words** - the panels, the ground
+## window's list and the planting list all print what this returns, so the glyph cannot differ from one
+## page to the next and an imperial drawing cannot go on claiming square metres.
+##
+## A whole number stays whole and anything else carries one decimal: a bed of 12.4 m2 written as 12
+## would be a small lie on a drawing that is dimensioned to the millimetre.
 func format_area(square_metres: float) -> String:
 	match system:
 		System.IMPERIAL:
 			var square_feet := square_metres / SQ_FOOT
 			if absf(square_feet) >= ACRE / SQ_FOOT:
 				return String.num(square_metres / ACRE, 4) + " ac"
-			return String.num(square_feet, 1) + " ft2"
+			return String.num(square_feet, 0 if is_whole(square_feet) else 1) + " ft2"
 		_:
 			if absf(square_metres) >= HECTARE:
 				return String.num(square_metres / HECTARE, 4) + " ha"
-			return String.num(square_metres, 2) + " m2"
+			return String.num(square_metres, 0 if is_whole(square_metres) else 1) + " m2"
+
+
+## The same words for a caller with no document in hand: a panel is handed rows rather than the
+## drawing, and a row that came from `ZoneMap.areas_of` already carries its own `area_text`.
+static func area_words(square_metres: float) -> String:
+	return (new() as DraftUnits).format_area(square_metres)
+
+
+## Whether an area is a whole number of units, so 18.0 reads "18" and 18.4 reads "18.4".
+static func is_whole(value: float) -> bool:
+	return is_equal_approx(value, roundf(value))
 
 
 ## Cubic metres from an area at a depth, for takeoff quantities.

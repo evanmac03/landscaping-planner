@@ -1562,7 +1562,7 @@ func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	var supply := irrigation_supply()
 	var verdict := IrrigationScript.check(zone, supply)
 	if not bool(verdict["ok"]):
-		last_message = IrrigationScript.verdict_words(zone, supply)
+		last_message = IrrigationScript.verdict_words(zone, supply, document.units)
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "placed": 0}
 	document.begin_gesture()
@@ -1571,13 +1571,13 @@ func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	var placed := _stamp_heads(zone)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s, and %s" % [IrrigationScript.verdict_words(zone, supply),
+	last_message = "%s, and %s" % [IrrigationScript.verdict_words(zone, supply, document.units),
 		"1 head is on the plan" if placed == 1 else "%d heads are on the plan" % placed]
 	_refresh_canvas()
 	return {
 		"ok": true, "reason": "", "message": last_message, "zone": zone,
 		"number": int(zone["number"]), "placed": placed,
-		"verdict": IrrigationScript.verdict_words(zone, supply), "rows": irrigation_rows(),
+		"verdict": IrrigationScript.verdict_words(zone, supply, document.units), "rows": irrigation_rows(),
 	}
 
 
@@ -1629,12 +1629,12 @@ func remove_zone(number: int) -> Dictionary:
 
 ## The zones as a schedule reads them, one row each, checked against the stated supply.
 func irrigation_rows() -> Array[Dictionary]:
-	return IrrigationScript.schedule(irrigation_zones(), irrigation_supply())
+	return IrrigationScript.schedule(irrigation_zones(), irrigation_supply(), document.units)
 
 
 ## The schedule as the lines a sheet or a status bar carries.
 func irrigation_lines() -> Array[String]:
-	return IrrigationScript.schedule_lines(irrigation_zones(), irrigation_supply())
+	return IrrigationScript.schedule_lines(irrigation_zones(), irrigation_supply(), document.units)
 
 
 ## One line saying what the drawing is watered by, for a panel to lead with.
@@ -1653,11 +1653,11 @@ func irrigation_summary() -> String:
 		if wrong.is_empty():
 			var verdict := IrrigationScript.check(zone, irrigation_supply())
 			if not bool(verdict["ok"]):
-				wrong = IrrigationScript.verdict_words(zone, irrigation_supply())
+				wrong = IrrigationScript.verdict_words(zone, irrigation_supply(), document.units)
 	if wrong.is_empty():
 		wrong = "every zone runs off the supply"
-	return "%s over %s m2, %s" % [_zone_count_words(zones.size(), heads, _quantity_words(flow)),
-		_quantity_words(area), wrong]
+	return "%s over %s, %s" % [_zone_count_words(zones.size(), heads, _quantity_words(flow)),
+		document.units.format_area(area), wrong]
 
 
 ## A measurement as one line writes it: whole where it is whole, one decimal otherwise.
@@ -1748,7 +1748,7 @@ func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	var transformer := lighting_transformer()
 	var verdict := LightingScript.check(circuit, transformer)
 	if not bool(verdict["ok"]):
-		last_message = LightingScript.verdict_words(circuit, transformer)
+		last_message = LightingScript.verdict_words(circuit, transformer, document.units)
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "placed": 0}
 	document.begin_gesture()
@@ -1757,13 +1757,13 @@ func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	var placed := _stamp_fixtures(circuit)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s, and %s" % [LightingScript.verdict_words(circuit, transformer),
+	last_message = "%s, and %s" % [LightingScript.verdict_words(circuit, transformer, document.units),
 		"1 fixture is on the plan" if placed == 1 else "%d fixtures are on the plan" % placed]
 	_refresh_canvas()
 	return {
 		"ok": true, "reason": "", "message": last_message, "circuit": circuit,
 		"number": int(circuit["number"]), "placed": placed,
-		"verdict": LightingScript.verdict_words(circuit, transformer), "rows": lighting_rows(),
+		"verdict": LightingScript.verdict_words(circuit, transformer, document.units), "rows": lighting_rows(),
 	}
 
 
@@ -1814,12 +1814,12 @@ func remove_circuit(number: int) -> Dictionary:
 
 ## The circuits as a schedule reads them, one row each, checked against the stated transformer.
 func lighting_rows() -> Array[Dictionary]:
-	return LightingScript.schedule(lighting_circuits(), lighting_transformer())
+	return LightingScript.schedule(lighting_circuits(), lighting_transformer(), document.units)
 
 
 ## The schedule as the lines a sheet or a status bar carries.
 func lighting_lines() -> Array[String]:
-	return LightingScript.schedule_lines(lighting_circuits(), lighting_transformer())
+	return LightingScript.schedule_lines(lighting_circuits(), lighting_transformer(), document.units)
 
 
 ## One line saying what the drawing is lit by, for a panel to lead with.
@@ -1838,11 +1838,11 @@ func lighting_summary() -> String:
 		if wrong.is_empty():
 			var verdict := LightingScript.check(circuit, lighting_transformer())
 			if not bool(verdict["ok"]):
-				wrong = LightingScript.verdict_words(circuit, lighting_transformer())
+				wrong = LightingScript.verdict_words(circuit, lighting_transformer(), document.units)
 	if wrong.is_empty():
 		wrong = "every circuit runs off the transformer"
-	return "%s over %s m2, %s" % [_circuit_count_words(circuits.size(), fixtures,
-		_quantity_words(demand)), _quantity_words(area), wrong]
+	return "%s over %s, %s" % [_circuit_count_words(circuits.size(), fixtures,
+		_quantity_words(demand)), document.units.format_area(area), wrong]
 
 
 static func _circuit_count_words(circuits: int, fixtures: int, watts: String) -> String:

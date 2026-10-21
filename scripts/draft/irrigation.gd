@@ -273,6 +273,21 @@ static func area_m2(zone: Dictionary) -> float:
 	return float(zone.get("area_m2", 0.0))
 
 
+## The area as words on this drawing: the drawing's own units when one was handed over, and the metre
+## default otherwise. **This is the one place this module turns an area into text**, so the verdict
+## line, the schedule row and the sheet cannot disagree about it.
+static func _area_text(square_metres: float, units: DraftUnits) -> String:
+	return units.format_area(square_metres) if units != null else DraftUnits.area_words(square_metres)
+
+
+## A schedule row's own area words. A row built by this module carries `area_text`; a row built by hand
+## falls back to the units it was handed, or the metre default.
+static func _row_area_text(row: Dictionary, units: DraftUnits) -> String:
+	if row.has("area_text"):
+		return String(row["area_text"])
+	return _area_text(float(row.get("area_m2", 0.0)), units)
+
+
 static func has_area(zone: Dictionary) -> bool:
 	return area_m2(zone) > TOLERANCE
 
@@ -677,7 +692,7 @@ static func sound(zone: Dictionary, supply: Dictionary) -> bool:
 
 
 ## The verdict as one line a person reads after pressing a button.
-static func verdict_words(zone: Dictionary, supply: Dictionary) -> String:
+static func verdict_words(zone: Dictionary, supply: Dictionary, units: DraftUnits = null) -> String:
 	var result := check(zone, supply)
 	var label := zone_label(zone)
 	if not bool(result["ok"]):
@@ -688,8 +703,8 @@ static func verdict_words(zone: Dictionary, supply: Dictionary) -> String:
 		_number(float(result["flow"])), _number(float(result["supply_flow"])),
 	]
 	if float(result["area_m2"]) > TOLERANCE:
-		line += ", %s mm/h over %s m2" % [_number(float(result["precipitation"])),
-			_number(float(result["area_m2"]))]
+		line += ", %s mm/h over %s" % [_number(float(result["precipitation"])),
+			_area_text(float(result["area_m2"]), units)]
 	for note in (result["notes"] as Array[String]):
 		line += "; " + note
 	return line
@@ -730,7 +745,7 @@ static func coverage(zone: Dictionary) -> Dictionary:
 
 
 ## The rows a schedule shows, one per zone, in the order the zones are held.
-static func schedule(zones: Array, supply: Dictionary) -> Array[Dictionary]:
+static func schedule(zones: Array, supply: Dictionary, units: DraftUnits = null) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for entry in zones:
 		var zone: Dictionary = entry
@@ -744,6 +759,7 @@ static func schedule(zones: Array, supply: Dictionary) -> Array[Dictionary]:
 			"heads": int(result["heads"]),
 			"flow": float(result["flow"]),
 			"area_m2": float(result["area_m2"]),
+			"area_text": _area_text(float(result["area_m2"]), units),
 			"precipitation": float(result["precipitation"]),
 			"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
 		})
@@ -751,22 +767,22 @@ static func schedule(zones: Array, supply: Dictionary) -> Array[Dictionary]:
 
 
 ## One schedule row as a line a sheet can carry.
-static func schedule_row_words(row: Dictionary) -> String:
+static func schedule_row_words(row: Dictionary, units: DraftUnits = null) -> String:
 	var kind := String(row.get("kind", SPRAY))
 	var line := "%s   valve %d   %s   %s L/min" % [
 		String(row.get("label", "Zone")), int(row.get("valve", 0)),
 		kind_count_words(kind, int(row.get("heads", 0))), _number(float(row.get("flow", 0.0))),
 	]
 	if float(row.get("area_m2", 0.0)) > TOLERANCE:
-		line += "   %s m2   %s mm/h" % [_number(float(row.get("area_m2", 0.0))),
+		line += "   %s   %s mm/h" % [_row_area_text(row, units),
 			_number(float(row.get("precipitation", 0.0)))]
 	return line + "   " + String(row.get("verdict", ""))
 
 
-static func schedule_lines(zones: Array, supply: Dictionary) -> Array[String]:
+static func schedule_lines(zones: Array, supply: Dictionary, units: DraftUnits = null) -> Array[String]:
 	var out: Array[String] = []
-	for row in schedule(zones, supply):
-		out.append(schedule_row_words(row))
+	for row in schedule(zones, supply, units):
+		out.append(schedule_row_words(row, units))
 	return out
 
 

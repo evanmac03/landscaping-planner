@@ -386,12 +386,7 @@ static func bed_areas(document: DraftDocument, min_area: float = 0.5) -> Array[D
 
 ## One bed as a list reads it: "bed 4, 6.2 m2". The name comes from the area rather than from a
 ## counter here, so the list a designer picks from and the list the ground window shows name the same
-## bed the same way.
+## bed the same way. The area is written in the drawing's own units, by the one function that writes
+## one (see `ZoneMap.area_words`), so an imperial drawing says square feet here too.
 static func bed_words(row: Dictionary) -> String:
-	return "%s, %s m2" % [String(row.get("name", "")), _area_words(float(row.get("area_m2", 0.0)))]
-
-
-static func _area_words(square_metres: float) -> String:
-	if square_metres < 10.0:
-		return "%.1f" % square_metres
-	return "%d" % int(roundf(square_metres))
+	return "%s, %s" % [String(row.get("name", "")), ZoneMapScript.row_area_text(row)]

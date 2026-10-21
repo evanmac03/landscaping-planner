@@ -270,6 +270,21 @@ static func area_m2(circuit: Dictionary) -> float:
 	return float(circuit.get("area_m2", 0.0))
 
 
+## The area as words on this drawing: the drawing's own units when one was handed over, and the metre
+## default otherwise. **This is the one place this module turns an area into text**, so the verdict
+## line, the schedule row and the sheet cannot disagree about it.
+static func _area_text(square_metres: float, units: DraftUnits) -> String:
+	return units.format_area(square_metres) if units != null else DraftUnits.area_words(square_metres)
+
+
+## A schedule row's own area words. A row built by this module carries `area_text`; a row built by hand
+## falls back to the units it was handed, or the metre default.
+static func _row_area_text(row: Dictionary, units: DraftUnits) -> String:
+	if row.has("area_text"):
+		return String(row["area_text"])
+	return _area_text(float(row.get("area_m2", 0.0)), units)
+
+
 static func has_area(circuit: Dictionary) -> bool:
 	return area_m2(circuit) > TOLERANCE
 
@@ -638,7 +653,7 @@ static func sound(circuit: Dictionary, transformer: Dictionary) -> bool:
 
 
 ## The verdict as one line a person reads after pressing a button.
-static func verdict_words(circuit: Dictionary, transformer: Dictionary) -> String:
+static func verdict_words(circuit: Dictionary, transformer: Dictionary, units: DraftUnits = null) -> String:
 	var result := check(circuit, transformer)
 	var label := circuit_label(circuit)
 	if not bool(result["ok"]):
@@ -649,7 +664,7 @@ static func verdict_words(circuit: Dictionary, transformer: Dictionary) -> Strin
 		_number(float(result["load"])), _number(float(result["capacity"])),
 	]
 	if float(result["area_m2"]) > TOLERANCE:
-		line += ", over %s m2" % _number(float(result["area_m2"]))
+		line += ", over %s" % _area_text(float(result["area_m2"]), units)
 	for note in (result["notes"] as Array[String]):
 		line += "; " + note
 	return line
@@ -690,7 +705,7 @@ static func cover(circuit: Dictionary) -> Dictionary:
 
 
 ## The rows a schedule shows, one per circuit, in the order the circuits are held.
-static func schedule(circuits: Array, transformer: Dictionary) -> Array[Dictionary]:
+static func schedule(circuits: Array, transformer: Dictionary, units: DraftUnits = null) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for entry in circuits:
 		var circuit: Dictionary = entry
@@ -704,27 +719,28 @@ static func schedule(circuits: Array, transformer: Dictionary) -> Array[Dictiona
 			"fixtures": int(result["fixtures"]),
 			"load": float(result["load"]),
 			"area_m2": float(result["area_m2"]),
+			"area_text": _area_text(float(result["area_m2"]), units),
 			"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
 		})
 	return rows
 
 
 ## One schedule row as a line a sheet can carry.
-static func schedule_row_words(row: Dictionary) -> String:
+static func schedule_row_words(row: Dictionary, units: DraftUnits = null) -> String:
 	var kind := String(row.get("kind", PATH))
 	var line := "%s   tap %d   %s   %s W" % [
 		String(row.get("label", "Circuit")), int(row.get("tap", 0)),
 		kind_count_words(kind, int(row.get("fixtures", 0))), _number(float(row.get("load", 0.0))),
 	]
 	if float(row.get("area_m2", 0.0)) > TOLERANCE:
-		line += "   %s m2" % _number(float(row.get("area_m2", 0.0)))
+		line += "   %s" % _row_area_text(row, units)
 	return line + "   " + String(row.get("verdict", ""))
 
 
-static func schedule_lines(circuits: Array, transformer: Dictionary) -> Array[String]:
+static func schedule_lines(circuits: Array, transformer: Dictionary, units: DraftUnits = null) -> Array[String]:
 	var out: Array[String] = []
-	for row in schedule(circuits, transformer):
-		out.append(schedule_row_words(row))
+	for row in schedule(circuits, transformer, units):
+		out.append(schedule_row_words(row, units))
 	return out
 
 

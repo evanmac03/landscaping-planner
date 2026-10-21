@@ -15,6 +15,7 @@ signal fill_requested(entity_id: int, options: Dictionary)
 signal close_requested()
 
 const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
 
 var _region_option: OptionButton = null
 var _pattern_option: OptionButton = null
@@ -163,11 +164,7 @@ func set_regions(rows: Array[Dictionary]) -> bool:
 
 
 func _region_words(row: Dictionary) -> String:
-	return "%s, %s m2" % [String(row.get("name", "")), _area_words(float(row.get("area_m2", 0.0)))]
-
-
-static func _area_words(area: float) -> String:
-	return "%.1f" % area
+	return "%s, %s" % [String(row.get("name", "")), ZoneMapScript.row_area_text(row)]
 
 
 func regions() -> Array[Dictionary]:

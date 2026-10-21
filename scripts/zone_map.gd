@@ -22,6 +22,7 @@ const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
+const UnitsScript := preload("res://scripts/draft/units.gd")
 
 ## The layers a drawing states conditions for, and what each one says about the ground.
 ##
@@ -255,10 +256,36 @@ static func area_key(layer: StringName, entity_id: int) -> String:
 	return "%s%s#%d" % [HAND_PREFIX, String(layer), entity_id]
 
 
+## An area as a row carries it: **the words**, in the document's own units, so that nothing downstream
+## formats a number of its own.
+##
+## A page that printed `area_m2` itself would be a second place an area is written, and the second
+## place is where a superscript creeps into one list and not another, and where an imperial drawing
+## goes on claiming square metres. `areas_of` puts these words on every row it makes, so a panel needs
+## no units of its own to show an area.
+static func area_words(document: DraftDocument, square_metres: float) -> String:
+	if document == null or document.units == null:
+		return UnitsScript.area_words(square_metres)
+	return document.units.format_area(square_metres)
+
+
+## The area of a row as words, for a page that was handed a row rather than a drawing.
+##
+## A row from `areas_of` carries its own `area_text`, already in the drawing's units. A row built by
+## hand - a hand ground zone, or a page's own list - has only the number, and is written in the
+## project's own units rather than left as a dangling comma.
+static func row_area_text(row: Dictionary) -> String:
+	var words: String = String(row.get("area_text", ""))
+	if not words.is_empty():
+		return words
+	return UnitsScript.area_words(float(row.get("area_m2", 0.0)))
+
+
 ## The areas a plan already encloses, which are the ones a designer can state conditions for.
 ##
 ## Returns one row per area, in draw order: `{entity_id, layer, key, label, name, outline, area_m2,
-## source, profile, stated}`. `stated` is true where somebody has already said what that ground is
+## area_text, source, profile, stated}`. `area_text` is the area as a person reads it (see
+## `area_words`). `stated` is true where somebody has already said what that ground is
 ## like, `source` is which zone answers for it (a hand zone, or the zone the drawing itself implies),
 ## and `profile` is what it currently is - so a dialog can show each area's conditions instead of
 ## making somebody remember them.
@@ -288,6 +315,7 @@ static func areas_of(document: DraftDocument, min_area: float = 0.5) -> Array[Di
 			"name": "%s %d" % [String(label), entity.id],
 			"outline": outline,
 			"area_m2": size,
+			"area_text": area_words(document, size),
 		})
 	return out
 

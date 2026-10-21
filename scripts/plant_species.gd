@@ -205,10 +205,6 @@ func spread_m() -> float:
 	return float(spread_cm) / 100.0
 
 
-func plant_height_m() -> float:
-	return height_m()
-
-
 ## How much to scale the form scene so that what is planted is the size the catalogue says, rather
 ## than the size the generic model happens to be. A species that spreads 4.5 m drawn as a form whose
 ## own footprint is 3.7 m is planted at 1.216.

@@ -18,6 +18,7 @@ signal remove_requested(zone_number: int)
 signal close_requested()
 
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
+const ZoneMapScript := preload("res://scripts/zone_map.gd")
 
 ## The flows a residential supply is stated at, in litres a minute. 40 is the module's own default
 ## and the one a panel opens on, so an unstated supply has a sensible first answer rather than none.
@@ -258,7 +259,7 @@ func set_areas(rows: Array[Dictionary]) -> bool:
 
 
 func _area_words(row: Dictionary) -> String:
-	return "%s, %s m2" % [String(row.get("name", "")), _number(float(row.get("area_m2", 0.0)))]
+	return "%s, %s" % [String(row.get("name", "")), ZoneMapScript.row_area_text(row)]
 
 
 ## The zones already on the drawing, one row each. The same signature trick, and the selection is

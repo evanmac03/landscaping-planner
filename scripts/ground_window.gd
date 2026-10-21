@@ -305,7 +305,7 @@ func refresh() -> void:
 	# The areas the drawing encloses, then the ground zones somebody drew by hand - which have no
 	# entity behind them, so they come from the map rather than from the document.
 	var rows: Array[Dictionary] = ZoneMapScript.areas_of(document)
-	rows.append_array(_hand_zone_rows(map))
+	rows.append_array(_hand_zone_rows(document, map))
 	_areas = ZoneMapScript.describe_areas(rows, map)
 	_fill_area_list()
 	if _selected_key.is_empty() and not _areas.is_empty():
@@ -321,7 +321,10 @@ func refresh() -> void:
 ## A hand zone has no entity behind it, so it is not in `areas_of`: it comes from the map itself. It is
 ## told apart from an area of the plan by its key - both are keyed under `HAND_PREFIX`, but a hand
 ## zone's "layer" token is the literal `zone`, which is not one of the AREAS the plan encloses.
-static func _hand_zone_rows(map: ZoneMap) -> Array[Dictionary]:
+##
+## The document comes in only so the area can be written in its units: a row carries the words, so
+## nothing that lists areas has to know what a square metre is.
+static func _hand_zone_rows(document: DraftDocument, map: ZoneMap) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if map == null:
 		return out
@@ -334,6 +337,7 @@ static func _hand_zone_rows(map: ZoneMap) -> Array[Dictionary]:
 		if hash_at <= 0 or ZoneMapScript.AREAS.has(StringName(rest.substr(0, hash_at))):
 			continue
 		var outline: PackedVector2Array = zone.outline
+		var area: float = absf(GeomScript.polygon_area(outline))
 		out.append({
 			"entity_id": 0,
 			"layer": &"",
@@ -341,7 +345,8 @@ static func _hand_zone_rows(map: ZoneMap) -> Array[Dictionary]:
 			"label": "zone",
 			"name": zone.name if not zone.name.is_empty() else "zone",
 			"outline": outline,
-			"area_m2": absf(GeomScript.polygon_area(outline)),
+			"area_m2": area,
+			"area_text": ZoneMapScript.area_words(document, area),
 		})
 	return out
 
@@ -350,8 +355,8 @@ static func _hand_zone_rows(map: ZoneMap) -> Array[Dictionary]:
 func _fill_area_list() -> void:
 	_area_list.clear()
 	for row: Dictionary in _areas:
-		_area_list.add_item("%s   %.1f m²   %s" % [
-			String(row["name"]), float(row["area_m2"]), _area_note(row)
+		_area_list.add_item("%s   %s   %s" % [
+			String(row["name"]), ZoneMapScript.row_area_text(row), _area_note(row)
 		])
 		_area_list.set_item_metadata(_area_list.item_count - 1, String(row["key"]))
 
@@ -379,7 +384,7 @@ func _area_detail(row: Dictionary) -> String:
 	var stated: TerrainProfile = row.get("stated_profile", TerrainProfile.make())
 	var effect: TerrainProfile = row["profile"]
 	var parts: PackedStringArray = PackedStringArray()
-	parts.append("%s   %.1f m²" % [String(row["name"]), float(row["area_m2"])])
+	parts.append("%s   %s" % [String(row["name"]), ZoneMapScript.row_area_text(row)])
 	parts.append("states %s" % (stated.describe() if not stated.is_empty() else "nothing itself"))
 	if effect.is_empty():
 		parts.append("and nothing is known about the ground here yet")

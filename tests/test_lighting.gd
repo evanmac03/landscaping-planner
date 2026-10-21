@@ -368,6 +368,24 @@ func test_the_schedule_reads_as_a_row_a_designer_can_check() -> void:
 	assert(line.contains("will run"), "and the verdict")
 
 
+func test_an_area_is_written_in_the_drawings_own_units() -> void:
+	# The words an area is written in come from the drawing rather than from the page that prints it:
+	# an imperial drawing must not go on claiming square metres on a schedule or a verdict line.
+	var circuit := _circuit_of(8, LightingScript.FLOOD)
+	LightingScript.set_area(circuit, _square(10.0))
+	var imperial := DraftUnits.new()
+	imperial.system = DraftUnits.System.IMPERIAL
+	var row := LightingScript.schedule([circuit], _transformer(), imperial)[0]
+	assert(String(row["area_text"]).ends_with(" ft2"), "an imperial drawing says square feet: %s"
+		% String(row["area_text"]))
+	assert(LightingScript.schedule_row_words(row).contains("ft2"),
+		"and the row a sheet carries says so too: %s" % LightingScript.schedule_row_words(row))
+	# Handed nothing - a panel row built by hand - the words are the metre default.
+	var metric := LightingScript.schedule([circuit], _transformer())[0]
+	assert(String(metric["area_text"]).ends_with(" m2"),
+		"with no drawing handed over it is metres: %s" % String(metric["area_text"]))
+
+
 func test_the_verdict_reads_as_one_line() -> void:
 	var circuit := _circuit_of(8, LightingScript.FLOOD)
 	var line := LightingScript.verdict_words(circuit, _transformer())
