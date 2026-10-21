@@ -156,6 +156,49 @@ func test_the_plant_in_hand_is_shown_as_chosen_and_says_how_many_stand() -> void
 	panel.free()
 
 
+func test_choosing_another_plant_while_one_is_in_hand_replaces_what_is_in_hand() -> void:
+	# The panel re-selects what is in hand on every refresh, so a click on another row would be undone
+	# before it could be read unless the click is taken as a change of mind. Nothing in hand is a
+	# different matter: there the row is only a choice, and the Place button is the door to what is in
+	# hand, so a click asks for nothing on its own.
+	var panel: PlantPanel = _panel()
+	var asked: Array[StringName] = []
+	panel.plant_chosen.connect(func(id: StringName) -> void: asked.append(id))
+	var listed: Array[StringName] = panel.listed_ids()
+	var other: StringName = listed[0] if listed[0] != MAPLE else listed[1]
+	assert(other != MAPLE, "the test needs two different plants")
+
+	panel.select(MAPLE)
+	asked.clear()
+	_click_row(panel, listed.find(other))
+	assert(asked.is_empty(), "a row clicked with nothing in hand asks for nothing")
+
+	panel.refresh(MAPLE, 3)
+	asked.clear()
+	_click_row(panel, listed.find(other))
+	assert(asked == [other], "a row clicked while something is in hand replaces it: %s" % [asked])
+	# The panel has no artillery of its own: the HUD arms what was asked for and tells it, which is the
+	# same refresh every placement ends with. Without that the panel would go on naming the old plant.
+	panel.refresh(other, 3)
+	assert(panel.selected_id() == other, "and the row shown as chosen is the one that was clicked")
+	assert(panel.status_text().begins_with("Planting"), "named on the line: %s" % panel.status_text())
+
+	# Clicking the plant that is already in hand is not a change, so it asks for nothing: a run of
+	# clicks on one plant to put down a bed must not re-arm it every time.
+	asked.clear()
+	_click_row(panel, listed.find(other))
+	assert(asked.is_empty(), "clicking the plant already in hand changes nothing")
+	panel.free()
+
+
+## One row clicked the way a person clicks it: the list takes the selection, then the panel is told.
+## `ItemList.select` is programmatic and emits nothing, so both halves are needed to be a click.
+func _click_row(panel: PlantPanel, row: int) -> void:
+	assert(row >= 0, "the row is on the list")
+	(panel.get_node("Species") as ItemList).select(row, false)
+	panel._on_row_selected(row)
+
+
 func test_a_panel_with_no_list_open_says_so_rather_than_failing() -> void:
 	var panel: PlantPanel = PanelScript.new()
 	panel.build()

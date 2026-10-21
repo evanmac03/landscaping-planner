@@ -357,7 +357,20 @@ func _row_title(species: PlantSpecies) -> String:
 	return species.botanical_name
 
 
+## A row was clicked. With nothing in hand this is only a *choice* - the Place button is the door to
+## what is in hand - but a click on **another** plant while one is already in hand is a person
+## changing their mind, and it has to be taken as one.
+##
+## It would not be, on its own: `_refresh_detail` re-selects whatever is in hand on every refresh, so
+## the click would be undone before the next frame and a palette that looked broken would be exactly
+## what it was. Emitting `plant_chosen` is the same door the library and the Place button use, so
+## nothing new is introduced - the click simply arrives by the way everything else does.
 func _on_row_selected(_index: int) -> void:
+	# Read the row before `_refresh_detail` can put the selection back: that is the click, and after
+	# it the list is what is in hand again.
+	var chosen: StringName = selected_id()
+	if not _planting.is_empty() and not chosen.is_empty() and chosen != _planting:
+		plant_chosen.emit(chosen)
 	_refresh_detail()
 
 
