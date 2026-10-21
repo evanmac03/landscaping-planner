@@ -266,19 +266,17 @@ static func area_key(layer: StringName, entity_id: int) -> String:
 static func area_words(document: DraftDocument, square_metres: float) -> String:
 	if document == null or document.units == null:
 		return UnitsScript.area_words(square_metres)
-	return document.units.format_area(square_metres)
+	return UnitsScript.area_words_in(square_metres, document.units)
 
 
 ## The area of a row as words, for a page that was handed a row rather than a drawing.
 ##
 ## A row from `areas_of` carries its own `area_text`, already in the drawing's units. A row built by
 ## hand - a hand ground zone, or a page's own list - has only the number, and is written in the
-## project's own units rather than left as a dangling comma.
+## project's own units rather than left as a dangling comma. A page that does have the drawing's units
+## in hand asks `DraftUnits.row_area_text(row, units)` instead.
 static func row_area_text(row: Dictionary) -> String:
-	var words: String = String(row.get("area_text", ""))
-	if not words.is_empty():
-		return words
-	return UnitsScript.area_words(float(row.get("area_m2", 0.0)))
+	return UnitsScript.row_area_text(row, null)
 
 
 ## The areas a plan already encloses, which are the ones a designer can state conditions for.

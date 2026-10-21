@@ -270,19 +270,9 @@ static func area_m2(circuit: Dictionary) -> float:
 	return float(circuit.get("area_m2", 0.0))
 
 
-## The area as words on this drawing: the drawing's own units when one was handed over, and the metre
-## default otherwise. **This is the one place this module turns an area into text**, so the verdict
-## line, the schedule row and the sheet cannot disagree about it.
-static func _area_text(square_metres: float, units: DraftUnits) -> String:
-	return units.format_area(square_metres) if units != null else DraftUnits.area_words(square_metres)
-
-
-## A schedule row's own area words. A row built by this module carries `area_text`; a row built by hand
-## falls back to the units it was handed, or the metre default.
-static func _row_area_text(row: Dictionary, units: DraftUnits) -> String:
-	if row.has("area_text"):
-		return String(row["area_text"])
-	return _area_text(float(row.get("area_m2", 0.0)), units)
+## An area on this drawing is turned into words by `DraftUnits.area_words_in`, in the drawing's own
+## units, and a row's own words by `DraftUnits.row_area_text`. Both used to be private copies here,
+## and of two copies of one rule it is always one of them that stops being true.
 
 
 static func has_area(circuit: Dictionary) -> bool:
@@ -664,7 +654,7 @@ static func verdict_words(circuit: Dictionary, transformer: Dictionary, units: D
 		_number(float(result["load"])), _number(float(result["capacity"])),
 	]
 	if float(result["area_m2"]) > TOLERANCE:
-		line += ", over %s" % _area_text(float(result["area_m2"]), units)
+		line += ", over %s" % DraftUnits.area_words_in(float(result["area_m2"]), units)
 	for note in (result["notes"] as Array[String]):
 		line += "; " + note
 	return line
@@ -719,7 +709,7 @@ static func schedule(circuits: Array, transformer: Dictionary, units: DraftUnits
 			"fixtures": int(result["fixtures"]),
 			"load": float(result["load"]),
 			"area_m2": float(result["area_m2"]),
-			"area_text": _area_text(float(result["area_m2"]), units),
+			"area_text": DraftUnits.area_words_in(float(result["area_m2"]), units),
 			"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
 		})
 	return rows
@@ -733,7 +723,7 @@ static func schedule_row_words(row: Dictionary, units: DraftUnits = null) -> Str
 		kind_count_words(kind, int(row.get("fixtures", 0))), _number(float(row.get("load", 0.0))),
 	]
 	if float(row.get("area_m2", 0.0)) > TOLERANCE:
-		line += "   %s" % _row_area_text(row, units)
+		line += "   %s" % DraftUnits.row_area_text(row, units)
 	return line + "   " + String(row.get("verdict", ""))
 
 

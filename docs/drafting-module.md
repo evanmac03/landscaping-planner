@@ -599,13 +599,18 @@ with no document in hand, and `DraftUnits.is_whole` is the whole-or-decimal ques
 
 The list a UI shows must not become a second writer. `ZoneMap.areas_of(document, min_area)` is
 the single **producer** of area rows, and every row it makes carries both the number and the
-words - `{..., "area_m2": size, "area_text": area_words(document, size)}`. A panel is handed
-rows rather than the drawing, so it reads `ZoneMap.row_area_text(row)`; a caller that does have
-the drawing reads `ZoneMap.area_words(document, m2)`. The module functions that state an area
-(`Irrigation.verdict_words`, `Irrigation.schedule`, `Lighting.verdict_words`,
-`Lighting.schedule` and the `_row_words` readers beside them) take an optional
-`units: DraftUnits = null` that defaults to the metre default, so a caller with no document - a
-test, a hand-built row - keeps working and keeps saying metres.
+words - `{..., "area_m2": size, "area_text": area_words(document, size)}`. Every module with
+an optional `units: DraftUnits = null` parameter funnels its **writing** through
+`DraftUnits.area_words_in(m2, units)` and its **reading of a row** through
+`DraftUnits.row_area_text(row, units)`; passing null gives the metre default, so a caller with
+no document - a test, a hand-built row - keeps working and keeps saying metres. Both used to be
+private copies, one in `Irrigation` and one in `Lighting`, until they were collapsed onto the one
+pair: of two copies of a one-line rule it is always one of them that stops being true.
+`ZoneMap.row_area_text(row)` and `ZoneMap.area_words(document, m2)` are thin wrappers over the
+same two, kept because a page handed the drawing rather than the units has something these do
+not. The module functions that state an area (`Irrigation.verdict_words`, `Irrigation.schedule`,
+`Lighting.verdict_words`, `Lighting.schedule` and the row readers beside them) take that same
+optional parameter.
 
 A **reader that words what it read** obeys the same rule. `SurveyFile.read_text(text, options)`
 takes `options["display_units"]`, the drawing's own `DraftUnits` - a different question from

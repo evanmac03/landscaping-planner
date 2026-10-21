@@ -126,6 +126,30 @@ func test_an_area_is_written_in_the_drawings_own_units() -> void:
 	assert(Units.area_words(18.0) == "18 m2", Units.area_words(18.0))
 
 
+## The seam every module with an optional `units` parameter funnels through. There used to be a private
+## copy of this rule in each of `Irrigation` and `Lighting`; these are the assertions that keep it one.
+func test_the_area_words_seam_is_one_function_with_one_default() -> void:
+	var imperial: DraftUnits = Units.new()
+	imperial.system = Units.System.IMPERIAL
+	assert(Units.area_words_in(18.0, null) == Units.area_words(18.0),
+		"a caller with no units gets the metre default rather than a second rule")
+	assert(Units.area_words_in(18.0, Units.new()) == "18 m2", "and a metric drawing its own")
+	assert(Units.area_words_in(18.0, imperial) == "193.8 ft2", Units.area_words_in(18.0, imperial))
+
+
+## A row carries its own words; a row built by hand has only the number. Both read as an area rather
+## than as a dangling comma or a bare figure.
+func test_a_row_is_worded_from_its_own_text_or_from_its_number() -> void:
+	var imperial: DraftUnits = Units.new()
+	imperial.system = Units.System.IMPERIAL
+	assert(Units.row_area_text({"area_m2": 18.0, "area_text": "18 m2"}, imperial) == "18 m2",
+		"the row's own words win, because whoever made it knew the drawing")
+	assert(Units.row_area_text({"area_m2": 18.0}, imperial) == "193.8 ft2",
+		"a hand-built row falls back to the units in hand")
+	assert(Units.row_area_text({"area_m2": 18.0}, null) == "18 m2", "or to the metre default")
+	assert(Units.row_area_text({}, null) == "0 m2", "and a row with no area in it is still an area")
+
+
 func test_display_precision_follows_zoom() -> void:
 	assert(Units.display_decimals(33.71) == 3)
 	assert(Units.display_decimals(0.5) == 1)

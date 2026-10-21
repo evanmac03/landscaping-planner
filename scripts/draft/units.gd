@@ -310,6 +310,28 @@ static func area_words(square_metres: float) -> String:
 	return (new() as DraftUnits).format_area(square_metres)
 
 
+## **The area words for a caller that has the units**, which is the seam every module with an
+## optional `units: DraftUnits = null` parameter funnels through: passing null words it in metres, so
+## a caller with no document - a test, a hand-built row - keeps working, and a caller with one cannot
+## disagree with the drawing it is describing.
+##
+## There was a private `_area_text(m2, units)` in each of `Irrigation` and `Lighting` doing exactly
+## this. Two copies of a one-line rule is how one of them stops being true.
+static func area_words_in(square_metres: float, units: DraftUnits) -> String:
+	return or_default(units).format_area(square_metres)
+
+
+## The area words a row already carries, or the ones its own `area_m2` is worth in the units handed
+## over. A row a module built carries `area_text`; a row built by hand does not, and is written rather
+## than left as a dangling comma. The reader half of the one-writer rule, in the one place a module
+## with rows of its own can reach.
+static func row_area_text(row: Dictionary, units: DraftUnits) -> String:
+	var words := String(row.get("area_text", ""))
+	if not words.is_empty():
+		return words
+	return area_words_in(float(row.get("area_m2", 0.0)), units)
+
+
 ## A length in words for a caller with no document in hand. `format_length` is the one place a length
 ## is turned into words, so a length printed by a module that was handed metres reads the way every
 ## dimension on the same sheet reads - including the unit itself, which a bare number does not carry.
