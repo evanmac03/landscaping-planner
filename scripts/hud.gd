@@ -244,6 +244,15 @@ var _discard_dialog: ConfirmationDialog = null
 ## fresh one worked out against a drawing that may have moved under it.
 var _simplify_dialog: ConfirmationDialog = null
 var _pending_simplify: SimplifyReportScript = null
+## The recovery question: what a session that ended without saving left behind, before it goes back on
+## the drawing. A question rather than an automatic restore, because both answers are reasonable and a
+## restore nobody was asked about is the one thing a recovery feature must not do.
+var _recovery_dialog: ConfirmationDialog = null
+## The copy that is waiting, read off disk when something changes rather than on every frame: the menu
+## world is built every frame and a directory listing is not something a frame may do.
+var _pending_recovery: Dictionary = {}
+## How long the drawing has been worked on since the last copy was kept, in seconds.
+var _autosave_clock: float = 0.0
 ## What to do once the unsaved-changes question has been answered. Held as an id rather than as a
 ## Callable so that a dialog left open while something else happens cannot run a stale action out
 ## of a captured closure.
@@ -270,6 +279,7 @@ const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
 const HelpWindowScript := preload("res://scripts/help_window.gd")
 const CommandPaletteScript := preload("res://scripts/command_palette.gd")
+const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
@@ -432,6 +442,7 @@ func _ready() -> void:
 	_build_help_window()
 	_build_command_palette()
 	_build_file_dialogs()
+	_build_recovery_dialog()
 	_build_plant_library()
 	_build_ground_window()
 	_build_site_report_panel()
@@ -461,13 +472,19 @@ func _ready() -> void:
 		painted_plan.painted.connect(_on_painted)
 		painted_plan.paint_failed.connect(_on_paint_failed)
 	_on_view_mode_changed(view_controller.mode)
+	# What a session that ended without saving left behind, read once here rather than on every frame:
+	# the File menu reports on it, and the menu is built from a snapshot that has to stay cheap.
+	_refresh_pending_recovery()
 	# Last, so it covers the buttons the palette and the presentation panel just
 	# built as well as the ones in the scene: a button that holds the keyboard takes
 	# the drawing keys with it.
 	release_keyboard_focus(self)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# Ahead of the guard, because keeping a copy is about the drawing rather than about the view: a
+	# scene with no view controller still has work in it that is worth not losing.
+	_tick_autosave(delta)
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -1540,6 +1557,12 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.new", "New drawing", &"file_new", &"_menu_new_drawing", NEEDS_DRAFT))
 	items.append(_command(&"file.open", "Open drawing...", &"file_open", &"_menu_open_drawing", NEEDS_DRAFT))
 	items.append(_submenu(&"file.recent", "Open recent", []))
+	# A way of getting a drawing, so it stands with New and Open rather than with Save. It is *shown*
+	# switched off in the ordinary case rather than hidden, for the same reason the bar greys out what
+	# the scene cannot do: an entry that comes and goes cannot teach anybody that it exists.
+	items.append(_command(
+		&"file.recover", "Recover unsaved work...", &"", &"_menu_recover_unsaved", NEEDS_DRAFT, &"recovery"
+	))
 	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
 	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
 	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
@@ -2008,6 +2031,12 @@ func menu_world() -> Dictionary:
 		"drawing_path": String(_draft.drawing_path) if _draft != null else "",
 		"drawing_state": _draft.drawing_state_text() if _draft != null else "",
 		"recent": ", ".join(PackedStringArray(_draft.recent_drawings())) if _draft != null else "",
+		# What a session that ended without saving left behind. Read off a dictionary refreshed when it
+		# can have changed rather than off the disk, because this snapshot is taken on the way to every
+		# menu refresh. The description is in here as well as the flag, so that a copy replaced by a
+		# newer one moves the line instead of leaving a stale sentence on it.
+		"recovery": not _pending_recovery.is_empty(),
+		"recovery_text": AutosaveScript.describe(_pending_recovery) if not _pending_recovery.is_empty() else "",
 		# The plant list is in the signature only once it has been read - this snapshot is taken on
 		# every state change, and it must not be the thing that reads four thousand species. What a
 		# click would plant and how many are planted are cheap, and they are what moves.
@@ -2282,6 +2311,11 @@ static func is_enabled(state: StringName, world: Dictionary) -> bool:
 	match state:
 		&"dirty":
 			return bool(world.get("dirty", false))
+		&"recovery":
+			# There is nothing to recover until a session that ended without saving has left something,
+			# which is the same rule Save follows: an entry that means nothing right now is shown
+			# switched off rather than doing nothing when it is pressed.
+			return bool(world.get("recovery", false))
 		&"session_on":
 			return bool(world.get("session_on", false))
 	return true
@@ -2392,7 +2426,8 @@ func _build_file_dialogs() -> void:
 func _file_dialog_open() -> bool:
 	return (_open_dialog != null and _open_dialog.visible) \
 		or (_save_dialog != null and _save_dialog.visible) \
-		or (_discard_dialog != null and _discard_dialog.visible)
+		or (_discard_dialog != null and _discard_dialog.visible) \
+		or (_recovery_dialog != null and _recovery_dialog.visible)
 
 
 ## Ask before throwing work away, then do what was asked for.
@@ -2453,6 +2488,9 @@ func _run_pending(next: StringName) -> void:
 			# A new drawing has a new history - its own, empty one - so a window already showing the old
 			# drawing's revisions is showing something that is no longer true.
 			_refresh_revision_window()
+			# A new drawing also has no unsaved work in it, and what was left behind by an earlier
+			# session is read off the disk rather than guessed at.
+			_refresh_pending_recovery()
 		&"open":
 			if _pending_path.is_empty():
 				open_drawing_dialog()
@@ -2462,6 +2500,7 @@ func _run_pending(next: StringName) -> void:
 				if _draft != null:
 					_draft.open_drawing(path)
 				_refresh_revision_window()
+				_refresh_pending_recovery()
 		&"quit":
 			get_tree().quit()
 
@@ -2494,6 +2533,9 @@ func _on_open_chosen(path: String) -> void:
 	# The history came with the drawing, so a window already showing the last drawing's revisions is
 	# showing something that is no longer true.
 	_refresh_revision_window()
+	# Saving and opening both change what is waiting: opening the file a copy belonged to says the file
+	# is what was wanted.
+	_refresh_pending_recovery()
 	release_keyboard_focus(self)
 
 
@@ -2504,6 +2546,8 @@ func _on_save_as_chosen(path: String) -> void:
 	# dialog cannot see is a drawing that cannot be opened again.
 	var target := path if path.ends_with(StoreScript.EXTENSION) else path + StoreScript.EXTENSION
 	_draft.save_drawing(target)
+	# The copy was of work that is now on disk, so it is not a rescue any more.
+	_refresh_pending_recovery()
 	release_keyboard_focus(self)
 
 
@@ -2531,10 +2575,121 @@ func _menu_save_drawing(_entry: Dictionary) -> void:
 		save_drawing_dialog()
 		return
 	_draft.save_drawing()
+	# Likewise whatever is waiting: the copy of the drawing just saved is not a rescue any more.
+	_refresh_pending_recovery()
 
 
 func _menu_save_drawing_as(_entry: Dictionary) -> void:
 	save_drawing_dialog()
+
+
+# --- a copy kept in case the program stops --------------------------------------------
+
+
+## The question asked before work a session that ended without saving left behind goes back on the
+## drawing.
+##
+## **Recover** puts it back, **Discard it** throws it away, and closing the window - or pressing **Not
+## now** - decides nothing and leaves the copy where it is. Three answers rather than the usual two,
+## because a dialog's cancel button and its close button are the same signal: a stray Escape must not
+## be the one act that destroys the only copy of somebody's work.
+func _build_recovery_dialog() -> void:
+	_recovery_dialog = ConfirmationDialog.new()
+	_recovery_dialog.name = "RecoverUnsaved"
+	_recovery_dialog.title = "Recover unsaved work"
+	_recovery_dialog.ok_button_text = "Recover"
+	_recovery_dialog.cancel_button_text = "Not now"
+	_recovery_dialog.confirmed.connect(_on_recovery_confirmed)
+	_recovery_dialog.custom_action.connect(_on_recovery_action)
+	_recovery_dialog.add_button("Discard it", true, "discard")
+	add_child(_recovery_dialog)
+
+
+## Keep a copy of the drawing while it has changes the file does not hold, at most once every half
+## minute.
+##
+## Reads `_draft` rather than a signal, because the question it asks - has this drawing unsaved
+## changes - is one field, and asking it is cheaper than routing a notification for every edit. Both
+## halves of the decision are the store's: `is_due` owns the interval, and the store refuses an empty
+## drawing so that a copy of nothing is never offered back.
+func _tick_autosave(delta: float) -> void:
+	if _draft == null:
+		return
+	_autosave_clock += delta
+	if not AutosaveScript.is_due(_draft.dirty, _autosave_clock):
+		return
+	_autosave_clock = 0.0
+	var kept: Dictionary = _draft.keep_a_copy()
+	if bool(kept["ok"]):
+		# The copy just written is of the drawing on the screen, so it is nothing to offer back - but it
+		# *replaces* a copy of the same name, and a copy a session that never saved left behind has to
+		# stop being offered the moment it is gone.
+		_refresh_pending_recovery()
+
+
+## Read what is waiting off disk.
+##
+## Called where it can have changed - startup, a copy being written, a drawing being saved, opened or
+## thrown away, and the question being answered - and never from `menu_world`, which is built on the
+## way to *every* menu refresh: a directory listing is not something a frame may do.
+func _refresh_pending_recovery() -> void:
+	_pending_recovery = _draft.pending_recovery() if _draft != null else {}
+
+
+## The one line the File menu adds when a session that ended without saving left work behind. Empty in
+## the ordinary case, so the line reads as it always did.
+func _recovery_notice() -> String:
+	if _pending_recovery.is_empty():
+		return ""
+	return "unsaved work from an earlier session"
+
+
+## What the File menu's top line says: which drawing is open and whether the screen and the file
+## agree, plus the one thing that line has to say when nobody is looking for it - that a session which
+## ended without saving left work behind.
+func _drawing_state_with_recovery() -> String:
+	var words: String = _draft.drawing_state_text()
+	var notice: String = _recovery_notice()
+	if not notice.is_empty():
+		words += "  |  %s" % notice
+	return words
+
+
+func _menu_recover_unsaved(_entry: Dictionary) -> void:
+	if _pending_recovery.is_empty():
+		_refresh_pending_recovery()
+	if _pending_recovery.is_empty() or _recovery_dialog == null:
+		return
+	_recovery_dialog.dialog_text = (
+		"A copy of a drawing was kept by a session that ended without saving it.\n\n%s\n\nPut it back?"
+		% AutosaveScript.describe(_pending_recovery)
+	)
+	_recovery_dialog.popup_centered()
+
+
+func _on_recovery_confirmed() -> void:
+	if _draft != null:
+		_draft.recover_pending()
+	_refresh_pending_recovery()
+	# The history came with the drawing, so a window already showing the last drawing's revisions is
+	# showing something that is no longer true.
+	_refresh_revision_window()
+	release_keyboard_focus(self)
+
+
+func _on_recovery_action(action: StringName) -> void:
+	if action != &"discard":
+		return
+	_discard_the_recovery()
+
+
+## Say no to the copy. It is removed rather than merely passed over, because a question a person has
+## answered must not be asked again on the next launch.
+func _discard_the_recovery() -> void:
+	if _draft != null:
+		_draft.discard_pending()
+	_refresh_pending_recovery()
+	release_keyboard_focus(self)
 
 
 ## The two parts of the File menu that are live: the line naming the drawing, and the list of what
@@ -2545,7 +2700,7 @@ func _refresh_file_menu() -> void:
 	var named := _find_item(&"file.info")
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
-		popup.set_item_text(int(named[1]), _draft.drawing_state_text())
+		popup.set_item_text(int(named[1]), _drawing_state_with_recovery())
 	var recent := ", ".join(PackedStringArray(_draft.recent_drawings()))
 	if recent != _recent_filled:
 		_recent_filled = recent

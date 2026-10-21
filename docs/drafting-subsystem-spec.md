@@ -1313,6 +1313,19 @@ that is about to be listed. What decides whether the file found there is the lis
 the list is a JSON array of paths and a drawing is a JSON object - because a person may legitimately
 name a drawing "recent". Verified live: the Save dialog's browser shows drawings only.
 
+**REQ 8.9** Work that has not been saved MUST be kept a copy of, so that a program
+which stops unexpectedly does not take it with it. The copy lives apart from the
+drawings, one file per drawing identity, and is written only while there is something
+to recover: an empty drawing has nothing worth keeping. It MUST be cleared whenever
+the work stops being unsaved - a save, a New, an Open - and a copy whose drawing is
+already on disk MUST NOT be offered, because that is a backup and not a rescue. A copy
+MUST never be put back without being asked, and putting it back MUST be an ordinary
+edit on the undo history rather than a silent replacement. The question offers three
+answers - Recover, Discard it and Not now - and the last decides nothing and leaves
+the copy, because a window's own close button and its cancel button are one signal,
+and a stray Escape must not be the single act that destroys the only copy of somebody's
+work.
+
 ---
 
 ## 9. Acceptance criteria

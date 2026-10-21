@@ -89,7 +89,7 @@ say what each menu is *for* rather than only listing its rows:
 | Presenting the garden | the painted plan, stills, the proposal page |
 | Sheets and plotting | the sheet set, sizes, scale, plotting |
 | Working with others | presence — a session started on purpose |
-| Undo, revisions and where your files are | the gesture history, revisions, `user://` |
+| Undo, revisions and where your files are | the gesture history, revisions, the copy kept for unsaved work, `user://` |
 | Keys | the key reference itself, derived from the input map |
 
 Every menu in the bar has something written about it: a test checks it.

@@ -417,6 +417,10 @@ no event at all - a check built on it would never have exercised the handler Ctr
 5. ~~**Presence.**~~ **Done.** One synchronizer per member, no merge problem, and it is what a team asks for first; see section 6.
 6. ~~Then the rest of the business chain in specification order (4 pipeline, 5 jobs and crews, 6 job
    costing, 7 billing, 8 ledger adapters, 9 analytics, 10 store and sync, 11 the editor plugin).~~ **Done.** Phases 4 to 11 are built; see section 7.
+7. ~~**Autosave and crash recovery.**~~ **Done.** Unsaved work is copied while the drawing
+   is dirty, one file per drawing identity under `user://recovery`; the next run offers it
+   through File > Recover unsaved work with Recover / Discard it / Not now, and recovering is
+   one undoable step. See the drafting subsystem spec, REQ 8.9.
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own

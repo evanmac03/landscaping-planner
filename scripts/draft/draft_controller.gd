@@ -37,6 +37,7 @@ const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const RevisionLogScript := preload("res://scripts/draft/revision_log.gd")
 const DraftSimplifyScript := preload("res://scripts/draft/draft_simplify.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
+const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -2048,6 +2049,10 @@ func new_drawing() -> void:
 	# A new drawing has no history: the revisions belong to the design that was sent, and a new drawing
 	# is a new job rather than a continuation of the one in hand.
 	revisions = RevisionLogScript.new()
+	# The drawing being left behind is being left behind on purpose - the question was asked and
+	# answered - so the copy that was kept of it goes too, rather than being offered on the next launch
+	# as work nobody lost.
+	AutosaveScript.clear(drawing_path)
 	drawing_path = ""
 	dirty = false
 	last_message = "new drawing"
@@ -2063,7 +2068,13 @@ func save_drawing(path: String = "") -> Dictionary:
 	var target := path if not path.is_empty() else drawing_path
 	var written: Dictionary = StoreScript.write(document, target)
 	if bool(written["ok"]):
+		# The copy was of work that is now on disk, so it is not a rescue any more. Both identities are
+		# cleared: a drawing that was called `untitled` when the copy was taken is filed under
+		# `untitled`, and a save is exactly the errand that gives it another name.
+		var was := drawing_path
 		drawing_path = String(written["path"])
+		AutosaveScript.clear(was)
+		AutosaveScript.clear(drawing_path)
 		dirty = false
 		StoreScript.remember(drawing_path)
 		# The history follows the drawing to its file. A revision recorded before the drawing had a name
@@ -2089,6 +2100,11 @@ func open_drawing(path: String) -> bool:
 		_refresh_canvas()
 		return false
 	var opened := DocumentScript.from_dict(read["data"])
+	# The drawing in hand was let go on purpose - the question was asked before this ran - so the copy
+	# that was kept of it goes too. The copy of the drawing being *opened* is deliberately left alone:
+	# it is a version of that file which is newer than the file, and opening the file is not a decision
+	# about the copy. Recovering it is what the File menu is for.
+	AutosaveScript.clear(drawing_path)
 	_bind_document(opened)
 	drawing_path = path
 	dirty = false
@@ -2122,6 +2138,104 @@ func _bind_document(opened) -> void:
 		canvas.bind_document(document)
 	if overlay != null:
 		overlay.bind_document(document)
+
+
+# --- a copy kept in case the program stops --------------------------------------------
+
+
+## Where a copy of the drawing in hand would go, or "" when there is nothing to say - a drawing with no
+## name has one identity, `untitled`, and one slot to go with it.
+func recovery_path() -> String:
+	return AutosaveScript.path_for(drawing_path)
+
+
+## Keep a copy of the drawing in case the program stops without being asked.
+##
+## Refuses a drawing that has been saved - there is nothing to recover - and, inside the store, a
+## drawing with nothing drawn on it. Says nothing to anybody: nobody asked for this, and a status line
+## that announced a write every half minute would be a status line that says nothing.
+func keep_a_copy() -> Dictionary:
+	if not dirty:
+		return {"ok": false, "reason": "the drawing has been saved, so there is nothing to keep", "path": ""}
+	return AutosaveScript.write(
+		document.to_dict(), drawing_path, project_name, document.gesture_serial()
+	)
+
+
+## The work a session that ended without saving left behind, or an empty dictionary when there is none.
+##
+## The newest copy that is not of the drawing already on the screen. Two things say "this is the
+## drawing in hand": the file it belongs to, and how many gestures it had been through - which is the
+## number a copy records so that a live backup is never mistaken for a rescue. Everything else is
+## filtered by the store, which passes over a copy whose drawing has since been saved.
+func pending_recovery() -> Dictionary:
+	var found: Dictionary = AutosaveScript.newest_wanted()
+	if found.is_empty():
+		return {}
+	if String(found.get("drawing_path", "")) == drawing_path \
+			and int(found.get("serial", -1)) == document.gesture_serial():
+		return {}
+	return found
+
+
+func has_pending_recovery() -> bool:
+	return not pending_recovery().is_empty()
+
+
+## Put the work a session that ended without saving left behind back on the drawing.
+##
+## An ordinary edit: the drawing it replaces goes onto the undo history under a name that says what
+## happened, so recovering the wrong copy is one Ctrl+Z away. The file the copy belonged to is restored
+## with it and the drawing is left *unsaved* - what came back is a version of that file which the file
+## does not hold, which is the whole reason it was worth keeping.
+func recover_pending() -> bool:
+	var found: Dictionary = pending_recovery()
+	if found.is_empty():
+		last_message = "there is no unsaved work to put back"
+		_refresh_canvas()
+		return false
+	var state: Variant = found.get("state", {})
+	if not (state is Dictionary):
+		last_message = "that copy cannot be put back"
+		_refresh_canvas()
+		return false
+	var recovered := DocumentScript.from_dict(state)
+	if recovered == null:
+		last_message = "that copy cannot be put back"
+		_refresh_canvas()
+		return false
+	var before: Dictionary = document.snapshot()
+	_bind_document(recovered)
+	if not before.is_empty():
+		# Onto the *restored* drawing's history, which is empty because it is a different document:
+		# what comes back on undo is the drawing that was on the screen a moment ago, and the gesture
+		# says what that act was.
+		document.record_gesture(before, "recovering unsaved work")
+	drawing_path = String(found.get("drawing_path", ""))
+	# The history belongs to the drawing, so it comes with it - a named revision recorded before the
+	# copy was taken is a revision of the file this drawing belongs to.
+	revisions = StoreScript.read_revisions(drawing_path)
+	dirty = true
+	# The copy has been taken up, so it is no longer waiting - and the drawing is unsaved from this
+	# moment. A fresh copy of exactly what came back goes down at once rather than half a minute later,
+	# because the stretch between recovering and the next copy is the one moment when a second crash
+	# would be worst. Same identity, so it replaces the copy that was just read.
+	keep_a_copy()
+	last_message = "recovered %s" % AutosaveScript.describe(found)
+	_refresh_canvas()
+	return true
+
+
+## Say no to the work a session that ended without saving left behind. The copy is removed rather than
+## merely passed over, because a question a person has answered must not be asked again.
+func discard_pending() -> bool:
+	var found: Dictionary = pending_recovery()
+	if found.is_empty():
+		return false
+	var removed: bool = AutosaveScript.clear(String(found.get("drawing_path", "")))
+	if removed:
+		last_message = "threw the recovered copy away"
+	return removed
 
 
 # --- the named revisions of the drawing -----------------------------------------------

@@ -435,6 +435,11 @@ static func topics() -> Array[Dictionary]:
 		+ "and it keeps up while it is open. A revision recorded before gestures were counted says that "
 		+ "rather than claiming nothing has been done - the two are different claims.",
 		"",
+		"Work that has not been saved is copied while the drawing is dirty, so a program that stops "
+		+ "unexpectedly does not take it with it. The next time the program opens, File > Recover "
+		+ "unsaved work offers the copy: Recover puts it back as one undoable step, Discard it throws "
+		+ "it away, and Not now decides nothing and leaves it for later.",
+		"",
 		"Where things are kept: drawings and their histories under the user data folder, one history per "
 		+ "drawing beside it rather than among the drawings, so it is never offered as a drawing to open "
 		+ "or to save over. Plotted sheets, rendered stills and the business records have folders of "
