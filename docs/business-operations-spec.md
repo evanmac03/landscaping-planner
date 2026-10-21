@@ -767,6 +767,10 @@ customer, a line grid, a totals block, terms, and a page number. The one thing t
 yet is an image XObject, so a **company logo is deferred and named** (§15) rather than faked with
 text art.
 
+Two things the build decided that the specification did not say: a row that does not fit on the page
+is **counted** rather than run off it, and a zero-rated tax code gets no row at all while **EXEMPT**
+does - an exempt customer needs to be told nothing was charged, and a zero-rated one does not.
+
 ### 9.6 The ledger adapter
 
 ```gdscript
@@ -1053,7 +1057,7 @@ before anything depends on it.
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`, `scripts/pipeline_board.gd`; stages as events, funnel and conversion metrics, the board | **built** - 48 tests (`test_biz_pipeline` 24, `test_pipeline_board` 18, `test_hud_pipeline` 6); leads are held in memory until the store of phase 10 |
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `scripts/biz/job_desk.gd`, `scripts/schedule_board.gd`; scheduling, routing, offline time, the board | **built** - 109 tests (`test_biz_crew` 9, `test_biz_job` 10, `test_biz_schedule` 8, `test_biz_route` 11, `test_biz_time_entry` 13, `test_biz_job_desk` 31, `test_schedule_board` 18, `test_hud_jobs` 7, and 2 more in `test_estimate_window`); crews and jobs are held in memory until the store of phase 10 |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `scripts/biz/job_desk.gd`, `scripts/job_cost_window.gd`; committed vs actual, variance, WIP | **built** - 121 tests (`test_biz_purchase_order` 22, `test_biz_change_order` 22, `test_biz_job_cost` 23, `test_biz_job_costing` 30, `test_job_cost_window` 18, `test_hud_costing` 6); orders, changes and the billed figures are held in memory until the store of phase 10 |
-| 7 | **Billing and invoices** | `billing.gd`, `invoice.gd`, `invoice_sheet.gd`; milestones, percentage completion, the page, the JSON | specified |
+| 7 | **Billing and invoices** | `rate.gd`, `milestone.gd`, `billing.gd`, `invoice.gd`, `payment.gd`, `invoice_sheet.gd`, `scripts/biz/billing_desk.gd`, `scripts/billing_window.gd`; rates in parts per million, milestones and retainage, percentage completion with its measured basis, the document and the page | **built** - 213 tests (`test_biz_rate` 9, `test_biz_payment` 8, `test_biz_milestone` 15, `test_biz_billing` 33, `test_biz_invoice` 27, `test_invoice_sheet` 22, `test_biz_billing_desk` 60, `test_billing_window` 30, `test_hud_billing` 9); invoices and their schedules are held in memory until the store of phase 10 |
 | 8 | **Ledger adapters** | `ledger/*`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, reconciliation | specified |
 | 9 | **Analytics** | `analytics.gd`; the figures in §10, each with its basis | specified |
 | 10 | **Store and sync** | `store.gd`, `sync.gd`; records, revisions, journal, HTTP, conflicts, presence | specified |
@@ -1236,6 +1240,57 @@ REQ-B29 A document's number shall be the highest number already taken plus one, 
 deleted document never frees its number for reuse.
 
 REQ-B30 A cost figure nobody has stated shall be reported as not known, and never as zero.
+
+---
+
+## 14d. The way in to billing
+
+Phase 7's engines are `Rate` (a rate in parts per million, and the one date-shape check), `Milestone`
+(a step priced one of two ways and never both), `Billing` (the method the contract agreed to, and
+`billed_to_date`), `Invoice` (the document, never edited after issue) and `InvoiceSheet` (the page).
+Their door is two files, and neither holds an arithmetic of its own.
+
+**`scripts/biz/billing_desk.gd`** (`BillingDesk`) is the join. It holds the job desk, one schedule per
+job, the invoices and the payments, and answers what a panel asks in words. Every figure comes from
+`Billing.amount_due`, `Billing.retainage_due` or `Invoice.balance`, so the desk and the page cannot
+disagree. Three decisions it does make:
+
+* **The contract sum comes from the job and never from an invoice.** A document that carried its own
+  idea of the job's worth would be a second contract, and the day the two disagreed nobody could say
+  which was right. `contract_sum_of(job_id)` reads the job; an invoice's lines are what happened to
+  it.
+* **An invoice is written and issued in one act.** `raise_invoice` takes the number, issues the
+  document and records the billing on the schedule. A page with two buttons for one intention gets
+  one of them wrong - somebody issues without recording, or records without issuing - so the desk
+  does not offer the intermediate state. (The model keeps drafts; this desk does not need them.)
+* **A voided invoice takes its billing off the schedule with it.** `_unwind_billed` is the only place
+  `billed_to_date` comes back down, exactly as `Billing.record_billed` is the only place it goes up.
+  Without it the schedule still says the step went out, `amount_due` offers nothing for it, and the
+  reissue a void exists to make possible can never happen. The unwind is validated *before* the void:
+  a schedule that would go negative refuses, and the invoice is not called back.
+
+Reached from the **Jobs** menu, under it with the board and the cost report, because what has been
+billed is a fact about a job. Its menu line is quiet until the ledger has raised an invoice or has
+something wrong with it: a schedule that has billed nothing says nothing, because "0 invoices, $0.00
+billed" is noise on the line a person reads across the room.
+
+**`scripts/billing_window.gd`** (`BillingWindow`) is the panel: a `Window` like the cost page, every
+button `FOCUS_NONE`, the typed fields the only keyboard. It shows the amount due **before** the
+invoice button is pressed, which is §9.3's guard made visible. Three decisions:
+
+* **A row's button defers the entry point it calls.** Refreshing frees the button being pressed, so
+  `raise_invoice.call_deferred()` keeps the public call synchronous and testable.
+* **A button appears only on the step the schedule would bill next.** A row that can only fail is
+  not drawn; the schedule's own `billable_step` says which one that is.
+* **Two separate percent fields.** `_share_field` is what a step bills (a share of the contract) and
+  `_percent_field` is what the office has measured (a percent complete) - two different claims that
+  happen to both be percentages, and one field for both would let a person type a milestone share
+  into a progress measurement.
+
+REQ-B31 An invoice shall name a job by its own label or number, never by its database id.
+
+REQ-B32 A voided invoice shall remove the billing it recorded from the schedule, so the reissue that
+voiding makes possible can be raised.
 
 ---
 
