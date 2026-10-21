@@ -32,6 +32,10 @@ const ItemScript := preload("res://scripts/biz/cost_item.gd")
 
 ## The estimate changed: take off, re-price, send or revise. The HUD's menu line about it is stale.
 signal estimate_changed()
+## A job was started from the estimate, and here it is. The window does not hold the job: jobs and
+## crews belong to the job desk, and a window that kept its own copy would be a second place a job
+## could live. So it hands the estimate over and forgets it.
+signal job_started(estimate: Estimate)
 ## The window was closed by its own close button.
 signal closed()
 
@@ -66,6 +70,7 @@ var _tax_option: OptionButton = null
 var _recipient: LineEdit = null
 var _send_button: Button = null
 var _revision_button: Button = null
+var _start_job_button: Button = null
 var _status: Label = null
 
 
@@ -144,6 +149,12 @@ func build() -> void:
 	send_row.add_child(_send_button)
 	_revision_button = _button("Start a revision", "_on_revision")
 	send_row.add_child(_revision_button)
+	# A proposal that has gone and come back won is a job, and a job is where crews, days and time
+	# belong. This is the one door between the estimating half of the business and the doing half, and
+	# it is here rather than in a menu because the estimate is what makes a job possible.
+	_start_job_button = _button("Start a job from it", "_on_start_job")
+	_start_job_button.name = "StartJob"
+	send_row.add_child(_start_job_button)
 
 	_status = Label.new()
 	_status.name = "Status"
@@ -352,6 +363,9 @@ func _fill_buttons() -> void:
 	_revision_button.disabled = not frozen
 	_revision_button.tooltip_text = "a revision is what happens to a proposal that has already gone" \
 		if not frozen else ""
+	_start_job_button.disabled = desk.estimate == null
+	_start_job_button.tooltip_text = "nothing is priced yet, so there is nothing to make a job of" \
+		if desk.estimate == null else ""
 	_plan_status.text = _plan_words()
 
 
@@ -486,6 +500,32 @@ func _on_close_requested() -> void:
 	closed.emit()
 
 
+## Start a job from the estimate as it stands, which is the button's path.
+##
+## Returns `{ok, reason}`. Nothing is refused for being unfrozen or unsound: a job is what the office
+## does next, and the job records the revision it was contracted from, so a job made from a draft says
+## so by its revision rather than being impossible.
+func start_job() -> Dictionary:
+	if desk.estimate == null:
+		return {"ok": false, "reason": "there is nothing priced yet"}
+	var offer: Estimate = desk.estimate
+	var lines := offer.line_count()
+	job_started.emit(offer)
+	_set_status(
+		"a job was started from this estimate: %d line%s, contracted at %s, revision %d. Jobs, crews "
+		% [lines, "" if lines == 1 else "s", offer.price_before_tax().format_with_currency(),
+			offer.revision]
+		+ "and days are on the schedule board."
+	)
+	return {"ok": true, "reason": ""}
+
+
+func _on_start_job() -> void:
+	var result: Dictionary = start_job()
+	if not bool(result["ok"]):
+		_set_status("No job was started: %s." % String(result["reason"]))
+
+
 # --- what a test reads -------------------------------------------------------------------
 
 
@@ -607,6 +647,15 @@ func send_hint() -> String:
 
 func revision_button_disabled() -> bool:
 	return _revision_button.disabled if _revision_button != null else true
+
+
+func start_job_button_disabled() -> bool:
+	return _start_job_button.disabled if _start_job_button != null else true
+
+
+## Why the job button is switched off, in words.
+func start_job_hint() -> String:
+	return _start_job_button.tooltip_text if _start_job_button != null else ""
 
 
 func _texts_of(list: ItemList) -> Array[String]:

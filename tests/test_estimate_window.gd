@@ -183,3 +183,44 @@ func test_checking_the_numbers_says_whether_they_foot() -> void:
 	assert(window.status_text().contains("1 thing to fix"), window.status_text())
 	assert(window.status_text().contains("no price"), window.status_text())
 	window.free()
+
+
+# --- starting a job from it ---------------------------------------------------------------------
+
+
+## The estimate window keeps no jobs: a job is where crews, days and time live, and that is the job
+## desk's. So this is a hand-off, and what is under test is that it happens once an estimate exists,
+## that it says what it handed over, and that it is refused - in words - before one does.
+
+var _handed: Estimate = null
+
+
+func _note_job(estimate: Estimate) -> void:
+	_handed = estimate
+
+
+func test_the_job_button_is_dead_until_something_is_priced() -> void:
+	var window: EstimateWindow = _window()
+	assert(window.start_job_button_disabled(), "there is nothing to make a job of yet")
+	assert(window.start_job_hint().contains("nothing is priced yet"), window.start_job_hint())
+	assert(not bool(window.start_job()["ok"]))
+	assert(String(window.start_job()["reason"]).contains("priced"))
+	# The button's own path words the refusal on the status line.
+	window._on_start_job()
+	assert(window.status_text().contains("No job was started"), window.status_text())
+	window.free()
+
+
+func test_starting_a_job_hands_the_estimate_over_with_what_it_holds() -> void:
+	var window: EstimateWindow = _window()
+	window.take_off()
+	assert(not window.start_job_button_disabled(), "there is a priced estimate now")
+	assert(window.start_job_hint().is_empty())
+	window.job_started.connect(_note_job)
+	var started: Dictionary = window.start_job()
+	assert(bool(started["ok"]), String(started["reason"]))
+	assert(_handed == window.desk.estimate, "the estimate itself, not a copy of its numbers")
+	assert(_handed.line_count() > 0)
+	assert(window.status_text().contains("a job was started from this estimate"), window.status_text())
+	assert(window.status_text().contains("revision 0"), window.status_text())
+	window.free()

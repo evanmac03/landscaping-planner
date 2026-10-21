@@ -242,6 +242,8 @@ const DXF_UNIT_CHOICES: Array[String] = [
 ]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
+const ScheduleBoardScript := preload("res://scripts/schedule_board.gd")
+const JobDeskScript := preload("res://scripts/biz/job_desk.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
@@ -287,6 +289,11 @@ var _estimate_window: EstimateWindow = null
 ## The sales pipeline: the board of leads. Business data rather than drawing data, so it is here in
 ## every scene, not only the ones with a plan open.
 var _pipeline_board: PipelineBoard = null
+## The jobs and the crews and their days: the desk that holds them, and the board that shows them.
+## Business data like the pipeline, so it is here in every scene too, and a job is made from an
+## estimate - which is why the estimate window is the door to it.
+var _job_desk: JobDesk = null
+var _schedule_board: ScheduleBoard = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -338,6 +345,8 @@ func _ready() -> void:
 	_build_dxf_panel()
 	_build_estimate_window()
 	_build_pipeline_board()
+	_build_job_desk()
+	_build_schedule_board()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1296,6 +1305,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Water", "items": water_items()})
 	menus.append({"title": "Light", "items": light_items()})
 	menus.append({"title": "Pipeline", "items": pipeline_items()})
+	menus.append({"title": "Jobs", "items": jobs_items()})
 	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
@@ -1556,6 +1566,19 @@ static func pipeline_items() -> Array[Dictionary]:
 	return items
 
 
+## The jobs and the crews: who works when, and what clashes.
+##
+## Like the pipeline this is business data rather than drawing data, so the menu is here whatever
+## scene is open. The line at the top is the desk's own words - including a count of the clashes,
+## because a board with something wrong on it should say so without being opened.
+static func jobs_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"jobs.info", "no crews and no jobs yet"))
+	items.append(_separator())
+	items.append(_command(&"jobs.board", "Open the schedule board...", &"", &"_menu_schedule_board"))
+	return items
+
+
 ## The takeoff and the estimate: what the plan measures, and what that costs.
 ##
 ## The four business engines were built and tested before anything could reach them, so this menu is
@@ -1751,6 +1774,9 @@ func menu_world() -> Dictionary:
 		# The open pipeline, in the board's own words. Like the estimate, cheap: it reads a count and
 		# two totals and nothing else.
 		"pipeline": _pipeline_text(),
+		# The crew, the jobs and the board's own count of the clashes. Cheap like the two above: it
+		# reads sizes and asks the schedule for its conflicts, and holds no arithmetic.
+		"jobs": _jobs_text(),
 	}
 	return world
 
@@ -1949,6 +1975,7 @@ func _refresh_menus() -> void:
 	_refresh_light_menu()
 	_refresh_estimate_menu()
 	_refresh_pipeline_menu()
+	_refresh_jobs_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -3482,6 +3509,9 @@ func _build_estimate_window() -> void:
 	_estimate_window.name = "EstimateWindow"
 	add_child(_estimate_window)
 	_estimate_window.estimate_changed.connect(_on_estimate_changed)
+	# A proposal that has gone and come back won is a job, so the window hands the estimate to this
+	# file, which gives it to the desk. The window keeps no jobs of its own.
+	_estimate_window.job_started.connect(_on_job_started)
 	_estimate_window.hide()
 
 
@@ -3598,6 +3628,91 @@ func _refresh_pipeline_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _pipeline_text())
+
+
+# --- the jobs and the crews --------------------------------------------------------------------
+
+
+## The desk: the crews, the jobs and their days. Built by hand rather than left to its own `_ready`,
+## so the desk the window is pointed at is the desk this file already wired to the menus.
+##
+## It is here in every scene because a crew and a job are business data and not drawing data. That is
+## also why the desk is not rebuilt when the drawing changes: `make_job_from` records the estimate
+## revision the job was contracted from, so a job made from one drawing is not confused by the next.
+func _build_job_desk() -> void:
+	if _job_desk != null:
+		return
+	_job_desk = JobDeskScript.new()
+
+
+## The board: crews down the side, days across the top. Laid out like the pipeline board and for the
+## same reasons - a `Window`, built by hand, and everything in it focus-free but the typed fields.
+func _build_schedule_board() -> void:
+	if _schedule_board != null:
+		return
+	if _job_desk == null:
+		_build_job_desk()
+	_schedule_board = ScheduleBoardScript.new()
+	_schedule_board.name = "ScheduleBoard"
+	add_child(_schedule_board)
+	_schedule_board.build()
+	_schedule_board.bind(_job_desk)
+	_schedule_board.schedule_changed.connect(_on_schedule_changed)
+	_schedule_board.hide()
+
+
+## Open the board. Like the pipeline it needs no drawing: who works when is not on the plan.
+func open_schedule_board() -> void:
+	if _schedule_board == null:
+		_build_schedule_board()
+	if _schedule_board == null:
+		return
+	_schedule_board.bind(_job_desk)
+	_schedule_board.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_schedule_board() -> void:
+	if _schedule_board != null:
+		_schedule_board.hide()
+
+
+func is_schedule_board_open() -> bool:
+	return _schedule_board != null and _schedule_board.visible
+
+
+## What the Jobs menu says on itself: the desk's own words, including its count of the clashes.
+func _jobs_text() -> String:
+	if _job_desk == null:
+		return "no crews and no jobs yet"
+	return _job_desk.describe()
+
+
+## A job was started from the estimate. The estimate window does not hold jobs; this is where the
+## hand-off lands, and the desk makes the job from the estimate the window handed over.
+func _on_job_started(estimate: Estimate) -> void:
+	if _job_desk == null:
+		_build_job_desk()
+	_job_desk.make_job_from(estimate)
+	if _schedule_board != null:
+		_schedule_board.refresh()
+	_refresh_menus()
+
+
+## A block was booked, moved or taken off: the menu line about the desk is stale.
+func _on_schedule_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_schedule_board(_entry: Dictionary) -> void:
+	open_schedule_board()
+
+
+func _refresh_jobs_menu() -> void:
+	var named := _find_item(&"jobs.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _jobs_text())
 
 
 ## The ground: the site's conditions and one statement per area of the plan.

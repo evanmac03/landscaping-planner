@@ -256,8 +256,8 @@ The chain, what each link is made of, and where it stands:
 | design | `DraftDocument`, plus `PlantCatalogue` for the planting | built |
 | takeoff | measures the design: lengths, areas, counts, hours | **built** - `takeoff.gd`, 18 tests |
 | estimate | takeoff lines x rates, money per line, tax per code | **built** - `estimate_line.gd`, `estimate.gd`, 29 tests |
-| pipeline | prospect, quoted, approved, scheduled | phase 4, specified |
-| jobs and crews | the estimate becomes a job, with crews and dates | phase 5, specified |
+| pipeline | prospect, quoted, approved, scheduled | **built** - `lead.gd`, `pipeline.gd`, `pipeline_board.gd`, 48 tests |
+| jobs and crews | the estimate becomes a job, with crews and dates | **built** - `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `job_desk.gd`, `schedule_board.gd`, 109 tests |
 | job costing | actuals against the estimate | phase 6, specified |
 | billing | invoices off the job, `Tax` per component | phase 7, specified |
 | store and sync | per-record revisions, append-only journal, HTTP | phase 10, specified |

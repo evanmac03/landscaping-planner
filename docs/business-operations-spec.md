@@ -1051,7 +1051,7 @@ before anything depends on it.
 | 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | **built** - 29 tests |
 | 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | **built** - 18 tests |
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`, `scripts/pipeline_board.gd`; stages as events, funnel and conversion metrics, the board | **built** - 48 tests (`test_biz_pipeline` 24, `test_pipeline_board` 18, `test_hud_pipeline` 6); leads are held in memory until the store of phase 10 |
-| 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`; scheduling, routing, offline time | specified |
+| 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `scripts/biz/job_desk.gd`, `scripts/schedule_board.gd`; scheduling, routing, offline time, the board | **built** - 109 tests (`test_biz_crew` 9, `test_biz_job` 10, `test_biz_schedule` 8, `test_biz_route` 11, `test_biz_time_entry` 13, `test_biz_job_desk` 31, `test_schedule_board` 18, `test_hud_jobs` 7, and 2 more in `test_estimate_window`); crews and jobs are held in memory until the store of phase 10 |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`; committed vs actual, variance, WIP | specified |
 | 7 | **Billing and invoices** | `billing.gd`, `invoice.gd`, `invoice_sheet.gd`; milestones, percentage completion, the page, the JSON | specified |
 | 8 | **Ledger adapters** | `ledger/*`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, reconciliation | specified |
@@ -1127,6 +1127,66 @@ recompute a figure the engine already owns.
 
 REQ-B26 A line the module can measure and cannot price shall appear in the estimate **as the refusal**,
 not omitted, and not priced at zero.
+
+---
+
+## 14b. The way in to the jobs
+
+Phase 5's five engines had the problem phases 0-3 had: built and tested, and reachable by
+nothing. The door is three files, and none of them holds any arithmetic.
+
+**`scripts/biz/job_desk.gd`** (`JobDesk`) is the join. It holds the crew, the jobs, the
+schedule board, the places and the time entries, and it answers the questions a panel asks
+in words. Every figure it shows is one a model already computes: what a job's labour comes
+to is `TimeEntry.labour` summed by `Money.sum`, where a crew drives is `Route.plan`, what
+clashes is `Schedule.conflicts`. Two things it does decide, and both are about keeping one
+fact in one place:
+
+* **A block goes in two places at once.** `book` puts it on the board *and* on the job's own
+  `schedule`, from one call, because a job file has to say when it is being built even when
+  the board is closed. `unbook` and `move_block` take a copy of the block **before** the
+  move, because a `Dictionary` in the board is a reference and matching on it afterwards
+  would find nothing.
+* **A place is stated, never guessed.** `route_for` refuses, by name, a job whose place
+  nobody stated. A crew sent to (0, 0) is the failure routing exists to prevent, so the
+  refusal is the feature.
+
+It also drops, on load, a block whose job is not on the desk: the board can name a job or
+it can show a block nothing can be said about, and the second is a row the office cannot
+act on.
+
+**`scripts/schedule_board.gd`** (`ScheduleBoard`) is the panel: a `Window`, like the
+pipeline board, because it has fields to type into. The crew is a name and a role, the days
+are across the top, and a block is a button that carries its own index on the desk. Three
+decisions:
+
+* **The week, not only the days that have work.** A board that shows no column until
+  something is booked on it is a board nothing can ever be *moved onto*, and dragging a
+  block to another day is the one gesture here. So the columns run seven days from the
+  earliest day with work on it, or from today when the board is empty - which means the week
+  follows the work as blocks are moved.
+* **A move made from a drop is rebuilt one frame later.** The drop callback belongs to the day
+  column, and rebuilding the columns frees them: `move_block(index, date, rebuild)` changes
+  the data at once and rebuilds the picture on the next frame, when the move came from a
+  drop.
+* **Nothing is ever rearranged.** §7.4's rule, kept literally: the clashes are a list, and
+  the only thing that moves a block is the office dragging it.
+
+The estimate window gains one button - **Start a job from it** - and one signal,
+`job_started(estimate)`. It is the only door between the estimating half of the business and
+the doing half, and it is there rather than in a menu because the estimate is what makes a
+job possible. The window keeps no jobs of its own: the HUD hands the estimate to the desk.
+
+Reached from the **Jobs** menu, between Pipeline and Estimate, which is shown in every scene
+because a crew and a job are business data and not drawing data. Its own line is the desk's
+`describe()`, including its count of the clashes, so a board with something wrong on it says
+so without being opened.
+
+REQ-B27 A block shall be recorded on the schedule board and on the job from one call, and a
+move shall carry the job's own copy with it.
+
+REQ-B28 A route shall refuse a job whose place nobody has stated, naming the job, rather
+than compute from the drawing's origin.
 
 ---
 

@@ -186,15 +186,17 @@ func _two_crews_on_one_job(date: String, day: Array[Dictionary]) -> Array[Dictio
 		if not jobs_seen.has(job):
 			jobs_seen.append(job)
 	for job in jobs_seen:
-		var crews: Array[String] = []
+		# Not `crews`: this class holds a `crews` dictionary of the crew members it knows about, and a
+		# local of the same name would hide it from every line below.
+		var booked: Array[String] = []
 		for entry in day:
 			if String(entry["job"]) == job:
 				var crew := String(entry["crew"])
-				if not crews.has(crew):
-					crews.append(crew)
-		if crews.size() > 1:
-			out.append(_row(JOB_TWO_CREWS, date, crews[0],
-				"%s has two crews on it (%s)" % [job, ", ".join(crews)]))
+				if not booked.has(crew):
+					booked.append(crew)
+		if booked.size() > 1:
+			out.append(_row(JOB_TWO_CREWS, date, booked[0],
+				"%s has two crews on it (%s)" % [job, ", ".join(booked)]))
 	return out
 
 
