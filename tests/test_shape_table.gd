@@ -222,13 +222,13 @@ func test_each_reader_puts_its_whole_file_on_the_drawing_in_one_undo_step() -> v
 	var landxml: Dictionary = _landxml()
 	assert(bool(controller.import_dxf(dxf).get("ok", false)), controller.last_message)
 	assert(document.count() == 2, "a line and a circle: %d" % document.count())
-	assert(document.undo.depth() == 1, "one undo step for the whole file")
+	assert(document.gestures.depth() == 1, "one undo step for the whole file")
 	assert(bool(controller.import_osm(osm).get("ok", false)), controller.last_message)
 	assert(document.count() == 4, "two features came in: %d" % document.count())
-	assert(document.undo.depth() == 2, "and one step for those two as well")
+	assert(document.gestures.depth() == 2, "and one step for those two as well")
 	assert(bool(controller.import_landxml(landxml).get("ok", false)), controller.last_message)
 	assert(document.count() == 5, "the parcel is the fifth shape: %d" % document.count())
-	assert(document.undo.depth() == 3)
+	assert(document.gestures.depth() == 3)
 	# Undoing once takes the whole plat off again and leaves the other two imports alone - which is the
 	# promise every one of them makes to somebody who read the wrong file.
 	assert(document.undo_last())
@@ -238,5 +238,5 @@ func test_each_reader_puts_its_whole_file_on_the_drawing_in_one_undo_step() -> v
 	# A reader that read nothing refuses rather than opening a gesture: an undo step that changes
 	# nothing is a step a person walks into and finds no change at the end of.
 	assert(not bool(controller.import_landxml(LandXml.refused("none"))["ok"]))
-	assert(document.undo.depth() == 1, "and no empty step was left behind: %d" % document.undo.depth())
+	assert(document.gestures.depth() == 1, "and no empty step was left behind: %d" % document.gestures.depth())
 	controller.free()

@@ -177,3 +177,39 @@ func test_a_difference_that_cannot_be_asked_for_says_so() -> void:
 	assert(not bool(changes["ok"]))
 	assert(LogScript.describe_diff(changes) == "there is no such revision", LogScript.describe_diff(changes))
 	assert(LogScript.describe_diff({}) == "the two revisions cannot be compared")
+
+
+# --- the gestures a revision is counted from ------------------------------------------
+
+
+func test_a_revision_keeps_the_gesture_it_was_taken_at() -> void:
+	var log: DraftRevisionLog = LogScript.make()
+	var record: Dictionary = log.capture(_state(), "sent", "evan", 7)
+	assert(int(record["serial"]) == 7, "the revision keeps the gesture it was taken at")
+	assert(int(log.record_at(0).get("serial", 0)) == 7, "and anything listing it can read it")
+	assert(int(log.to_dict()["records"][0]["serial"]) == 7, "and it travels in the file")
+	log.capture(_state(), "still the seventh gesture")
+	assert(int(log.record_at(1).get("serial", 0)) == 0, "a caller with no history records none")
+
+
+func test_the_gestures_since_a_revision_are_the_difference_of_two_numbers() -> void:
+	var log: DraftRevisionLog = LogScript.make()
+	log.capture(_state(), "sent", "evan", 4)
+	assert(log.gestures_since(0, 4) == 0, "taken at the current moment: nothing since")
+	assert(log.gestures_since(0, 9) == 5, "and five gestures later, five")
+	assert(log.gestures_since(0, 3) == 0, "a serial behind the revision is not a negative count")
+	assert(log.gestures_since(4, 99) == 0, "and a revision that is not there has nothing since")
+
+
+func test_a_history_written_before_gestures_were_counted_says_it_does_not_know() -> void:
+	var log: DraftRevisionLog = LogScript.make()
+	log.capture(_state(), "an old history")
+	assert(int(log.record_at(0).get("serial", 0)) == 0, "no gesture was recorded")
+	assert(log.gestures_since(0, 40) == 0, "so nothing is claimed rather than forty gestures claimed")
+	# And the same for a file written before the field existed: it reads, and it says it does not know.
+	var rows: Array = log.to_dict()["records"]
+	(rows[0] as Dictionary).erase("serial")
+	var back: DraftRevisionLog = LogScript.from_dict({"version": 1, "records": rows})
+	assert(back.count() == 1, "the history still reads")
+	assert(int(back.record_at(0).get("serial", 0)) == 0, "with its gesture unknown rather than zero")
+	assert(back.gestures_since(0, 40) == 0)

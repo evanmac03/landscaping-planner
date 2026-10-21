@@ -494,15 +494,20 @@ func cancel() -> void:
 	_refresh_canvas()
 
 
+## Undo the last gesture, and say which one it was. The label is read *before* the undo, because after it
+## the gesture is on the redo side of the history - and "undo" alone leaves a person guessing whether it
+## will put back the line they just trimmed or the survey they overlaid two hours ago.
 func undo() -> bool:
+	var words: String = document.undo_label() if document != null else ""
 	var done: bool = document.undo_last()
-	last_message = "undo" if done else "nothing to undo"
+	last_message = "undid %s" % words if done else "nothing to undo"
 	return done
 
 
 func redo() -> bool:
+	var words: String = document.redo_label() if document != null else ""
 	var done: bool = document.redo_last()
-	last_message = "redo" if done else "nothing to redo"
+	last_message = "redid %s" % words if done else "nothing to redo"
 	return done
 
 
@@ -520,9 +525,10 @@ func _commit(pick: Dictionary) -> void:
 		if document != null and document.is_layer_locked(tool.layer):
 			last_message = "%s is locked" % String(tool.layer)
 			return
-		# One snapshot per committed shape, so a single undo removes a whole
-		# entity rather than un-picking a point.
-		document.begin_gesture()
+		# One gesture per committed shape, so a single undo removes a whole
+		# entity rather than un-picking a point - and it is named, so the undo
+		# button says which shape it would take back.
+		document.begin_gesture("drawing a new %s" % ToolScript.label_for(tool.kind).to_lower())
 		document.add(entity, tool.layer)
 		last_message = "%s added" % ToolScript.label_for(tool.kind)
 		return
@@ -742,7 +748,7 @@ func state_ground_zone(outline: PackedVector2Array) -> Dictionary:
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message}
 	var number := _next_hand_zone_number()
-	document.begin_gesture()
+	document.begin_gesture("stating the ground")
 	document.environment.add_zone(
 		"ground zone %d" % number, outline, null,
 		"%s%d" % [ZoneMapScript.HAND_PREFIX + HAND_ZONE_TAG, number]
@@ -797,7 +803,7 @@ func fill_region(rings: Array, options: Dictionary) -> Dictionary:
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message}
 	var lines: Array = worked.get("lines", [])
-	document.begin_gesture()
+	document.begin_gesture("hatching a region")
 	var added := 0
 	for stroke: PackedVector2Array in lines:
 		if stroke.size() < 2:
@@ -874,7 +880,7 @@ func _edit_trim(world: Vector2) -> void:
 		return
 	var layer: StringName = target.layer
 	var pieces: Array = result["entities"]
-	document.begin_gesture()
+	document.begin_gesture("trimming")
 	document.remove(target.id)
 	for piece in pieces:
 		document.add(piece, layer)
@@ -893,7 +899,7 @@ func _edit_extend(world: Vector2) -> void:
 		last_message = String(result["reason"])
 		return
 	var layer: StringName = target.layer
-	document.begin_gesture()
+	document.begin_gesture("extending")
 	document.remove(target.id)
 	for piece in result["entities"]:
 		document.add(piece, layer)
@@ -906,7 +912,7 @@ func _edit_erase(world: Vector2) -> void:
 	if target == null:
 		last_message = "nothing there to erase"
 		return
-	document.begin_gesture()
+	document.begin_gesture("erasing")
 	document.remove(target.id)
 	last_message = "erased"
 
@@ -948,7 +954,7 @@ func _edit_rotate(world: Vector2) -> void:
 		last_message = String(result["reason"])
 		return
 	var turned = result["entities"][0]
-	document.begin_gesture()
+	document.begin_gesture("turning a shape")
 	document.replace(source.id, turned)
 	last_message = "turned by %s" % _turn_words(angle)
 
@@ -981,7 +987,7 @@ func _edit_offset(world: Vector2) -> void:
 	if produced.is_empty():
 		last_message = "that offset leaves nothing"
 		return
-	document.begin_gesture()
+	document.begin_gesture("offsetting")
 	for piece in produced:
 		document.add(piece, source.layer)
 	last_message = "offset by %s" % document.units.format_length(absf(distance))
@@ -1014,7 +1020,7 @@ func _edit_fillet(world: Vector2) -> void:
 		last_message = String(result["reason"])
 		return
 	var layer: StringName = first.layer
-	document.begin_gesture()
+	document.begin_gesture("filleting a corner")
 	document.remove(first.id)
 	document.remove(second.id)
 	for piece in result["lines"]:
@@ -1312,7 +1318,7 @@ func add_sheet(title: String = "") -> int:
 		"legend": current.get("legend", true),
 		"portrait": current.get("portrait", false),
 	}
-	document.begin_gesture()
+	document.begin_gesture("adding a sheet")
 	var index: int = sheet_book.add(wanted, paper)
 	_adopt_current_sheet()
 	last_message = "sheet %s added" % String(sheet_book.current()["number"])
@@ -1326,7 +1332,7 @@ func remove_sheet(index: int) -> bool:
 		return false
 	if not sheet_book.is_valid(index):
 		return false
-	document.begin_gesture()
+	document.begin_gesture("taking a sheet away")
 	if not sheet_book.remove(index):
 		last_message = "a drawing always plots as at least one sheet"
 		_refresh_canvas()
@@ -1414,7 +1420,7 @@ func import_survey(parsed: Dictionary) -> Dictionary:
 		last_message = "the survey has no outline to put on the drawing"
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message}
-	document.begin_gesture()
+	document.begin_gesture("importing a survey")
 	var entity := EntityScript.make_polyline(outline, true)
 	if entity == null:
 		last_message = "the survey outline could not be drawn"
@@ -1450,7 +1456,7 @@ func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 			else "the file has nothing in it that this can draw")
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
-	var placed := _place_shapes(plan["shapes"])
+	var placed := _place_shapes(plan["shapes"], "importing a DXF underlay")
 	last_message = "placed %d shape%s%s on the %s" % [
 		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
@@ -1481,7 +1487,7 @@ func import_osm(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 			else "the map has nothing in it that this can draw")
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
-	var placed := _place_shapes(plan["shapes"])
+	var placed := _place_shapes(plan["shapes"], "importing a site map")
 	last_message = "placed %d feature%s%s from %s" % [
 		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
@@ -1510,7 +1516,7 @@ func import_landxml(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 			else "the plat has nothing in it that this can draw")
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
-	var placed := _place_shapes(plan["shapes"])
+	var placed := _place_shapes(plan["shapes"], "importing a LandXML plat")
 	last_message = "placed %d shape%s%s from %s" % [
 		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
@@ -1548,9 +1554,11 @@ func import_landxml(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 ## cannot be a new chance to forget the circle of no radius or the text with nothing written in it.
 ##
 ## One gesture because an import is one act: somebody who read the wrong file wants one Ctrl+Z
-## rather than three hundred.
-func _place_shapes(shapes: Array) -> Dictionary:
-	document.begin_gesture()
+## rather than three hundred. The gesture is *named* by the reader that read the file - "importing a
+## DXF underlay", "importing a site map" - because that is the one thing about the import a person
+## looking at the undo button needs to know, and it is the reader that knows it.
+func _place_shapes(shapes: Array, label: String = "") -> Dictionary:
+	document.begin_gesture(label)
 	var added := 0
 	var refused := 0
 	for shape: Dictionary in shapes:
@@ -1628,7 +1636,7 @@ func set_irrigation_supply(flow: float, pressure: float) -> Dictionary:
 		return {"ok": false, "reason": "there is no drawing to state a supply for"}
 	if flow <= 0.0 or pressure <= 0.0:
 		return {"ok": false, "reason": "a supply is a flow at a pressure, and neither can be nothing"}
-	document.begin_gesture()
+	document.begin_gesture("stating the water supply")
 	document.irrigation["supply"] = IrrigationScript.make_supply(flow, pressure)
 	dirty = true
 	last_message = "the supply is %s" % IrrigationScript.supply_words(irrigation_supply())
@@ -1679,7 +1687,7 @@ func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 		last_message = IrrigationScript.verdict_words(zone, supply, document.units)
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "placed": 0}
-	document.begin_gesture()
+	document.begin_gesture("watering an area")
 	zones.append(zone)
 	document.irrigation["zones"] = IrrigationScript.to_dict(zones)["zones"]
 	var placed := _stamp_heads(zone)
@@ -1726,7 +1734,7 @@ func remove_zone(number: int) -> Dictionary:
 		last_message = "there is no Zone %d" % number
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "removed": 0}
-	document.begin_gesture()
+	document.begin_gesture("taking the water off an area")
 	var removed := 0
 	for entity in document.entities():
 		if IrrigationScript.zone_of_entity(entity) == number and document.remove(entity.id):
@@ -1815,7 +1823,7 @@ func set_lighting_transformer(va: float, volts: float) -> Dictionary:
 		return {"ok": false, "reason": "there is no drawing to state a transformer for"}
 	if va <= 0.0 or volts <= 0.0:
 		return {"ok": false, "reason": "a transformer is a capacity at a voltage, and neither can be nothing"}
-	document.begin_gesture()
+	document.begin_gesture("stating the transformer")
 	document.lighting["transformer"] = LightingScript.make_transformer(va, volts)
 	dirty = true
 	last_message = "the transformer is %s" % LightingScript.transformer_words(lighting_transformer())
@@ -1865,7 +1873,7 @@ func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 		last_message = LightingScript.verdict_words(circuit, transformer, document.units)
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "placed": 0}
-	document.begin_gesture()
+	document.begin_gesture("lighting an area")
 	circuits.append(circuit)
 	document.lighting["circuits"] = LightingScript.to_dict(circuits)["circuits"]
 	var placed := _stamp_fixtures(circuit)
@@ -1911,7 +1919,7 @@ func remove_circuit(number: int) -> Dictionary:
 		last_message = "there is no Circuit %d" % number
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message, "removed": 0}
-	document.begin_gesture()
+	document.begin_gesture("taking the lighting off an area")
 	var removed := 0
 	for entity in document.entities():
 		if LightingScript.circuit_of_entity(entity) == number and document.remove(entity.id):
@@ -1991,7 +1999,7 @@ func label_planting(labels: Array) -> Dictionary:
 		last_message = "there is nothing to label"
 		_refresh_canvas()
 		return {"ok": false, "reason": last_message}
-	document.begin_gesture()
+	document.begin_gesture("labelling the planting")
 	for label: Dictionary in wanted:
 		var entity := EntityScript.make_text(label["at"], String(label["text"]))
 		if entity == null:
@@ -2026,7 +2034,7 @@ func note(message: String) -> void:
 ## was on the screen is not the history of this one.
 func new_drawing() -> void:
 	document.clear()
-	document.undo.clear()
+	document.gestures.clear()
 	# A new drawing starts from one sheet. The set is not carried over from the drawing that was in hand:
 	# a new drawing is a new job on a new title block, and inheriting the last job's drawing numbers and
 	# revisions is how a set of sheets ends up describing somebody else's garden.
@@ -2108,7 +2116,7 @@ func _bind_document(opened) -> void:
 	document.changed.connect(_on_document_changed)
 	# The history goes with the drawing it belonged to: an undo that reached across a file
 	# boundary would resurrect a drawing the file no longer holds.
-	document.undo.clear()
+	document.gestures.clear()
 	_rebind_snap()
 	if canvas != null:
 		canvas.bind_document(document)
@@ -2127,7 +2135,11 @@ func _bind_document(opened) -> void:
 ## memory until the drawing is saved; the message says so rather than failing, because the designer has
 ## done their part and the file name is a separate errand.
 func capture_revision(message: String = "", author: String = "") -> Dictionary:
-	var record: Dictionary = revisions.capture(document.to_dict(), message, author)
+	# The gesture the drawing has been through is read *here*, because it is the one thing about a
+	# revision its own snapshot cannot tell anyone: the history that knows it is the drawing's.
+	var record: Dictionary = revisions.capture(
+		document.to_dict(), message, author, document.gesture_serial()
+	)
 	var written: Dictionary = StoreScript.write_revisions(revisions, drawing_path)
 	if bool(written["ok"]):
 		last_message = "recorded %s" % revisions.describe(revisions.count() - 1)
@@ -2139,7 +2151,8 @@ func capture_revision(message: String = "", author: String = "") -> Dictionary:
 
 ## One row per revision, as anything listing them needs it, plus the difference from the revision
 ## before it - which is the question a history exists to answer, and which is cheap here because a
-## snapshot is five lines' work to compare.
+## snapshot is five lines' work to compare - and how much has happened *since* it, which is the one
+## thing that joins the named history to the undo history.
 func revision_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for index in revisions.count():
@@ -2147,8 +2160,26 @@ func revision_rows() -> Array[Dictionary]:
 		var changes: Dictionary = revisions.diff(index - 1, index) if index > 0 else {}
 		row["description"] = revisions.describe(index)
 		row["change"] = DraftRevisionLog.describe_diff(changes) if not changes.is_empty() else ""
+		row["since"] = gestures_since_text(index)
 		rows.append(row)
 	return rows
+
+
+## How much has been done to the drawing since a revision was taken, in words. The revision kept the
+## gesture it was taken at and the drawing knows how many it has been through, so this is a difference
+## of two numbers rather than a guess.
+##
+## "Nothing has been done" and "not known" are different claims, and a revision recorded before gestures
+## were counted says which one it is rather than reading as a drawing nobody has touched.
+func gestures_since_text(index: int) -> String:
+	if document == null or not revisions.is_valid(index):
+		return ""
+	if int(revisions.record_at(index).get("serial", 0)) <= 0:
+		return "recorded before gestures were counted"
+	var count: int = revisions.gestures_since(index, document.gesture_serial())
+	if count == 0:
+		return "nothing has been done to the drawing since"
+	return "%d gesture%s since" % [count, "" if count == 1 else "s"]
 
 
 ## Put an earlier revision back on the drawing. It is a change to the drawing like any other, so the
@@ -2168,7 +2199,10 @@ func restore_revision(index: int) -> bool:
 	var before: Dictionary = document.snapshot()
 	_bind_document(restored)
 	if not before.is_empty():
-		document.undo.push(before)
+		# Onto the *restored* drawing's history, which is empty because it is a different document:
+		# what comes back on undo is the drawing that was on screen a moment ago, and the gesture says
+		# what that act was.
+		document.record_gesture(before, "putting a revision back")
 	# The drawing no longer matches the file it came from: what is on screen is an earlier revision of
 	# it, and nothing has been written since.
 	dirty = true

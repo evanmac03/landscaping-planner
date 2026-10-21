@@ -11,7 +11,7 @@ const Entity := preload("res://scripts/draft/draft_entity.gd")
 const Style := preload("res://scripts/draft/line_style.gd")
 const Layer := preload("res://scripts/draft/draft_layer.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
-const Undo := preload("res://scripts/draft/undo_stack.gd")
+const History := preload("res://scripts/draft/gesture_history.gd")
 
 
 # --- units --------------------------------------------------------------------------
@@ -699,35 +699,35 @@ func test_every_layer_has_a_purpose_and_a_weight() -> void:
 
 
 func test_undo_and_redo_round_trip() -> void:
-	var stack := Undo.new()
-	stack.push({"value": 1})
-	assert(stack.can_undo())
-	assert(not stack.can_redo())
-	var restored := stack.undo({"value": 2})
+	var history := History.new()
+	history.push({"value": 1})
+	assert(history.can_undo())
+	assert(not history.can_redo())
+	var restored: Dictionary = history.undo({"value": 2})
 	assert(restored["value"] == 1)
-	assert(stack.can_redo())
-	assert(stack.redo({"value": 1})["value"] == 2)
+	assert(history.can_redo())
+	assert(history.redo({"value": 1})["value"] == 2)
 
 
 func test_undo_on_an_empty_stack_is_a_no_op() -> void:
-	var stack := Undo.new()
-	assert(stack.undo({}).is_empty())
-	assert(stack.redo({}).is_empty())
-	assert(not stack.can_undo())
+	var history := History.new()
+	assert(history.undo({}).is_empty())
+	assert(history.redo({}).is_empty())
+	assert(not history.can_undo())
 
 
-func test_undo_stack_is_capped() -> void:
-	var stack := Undo.new()
-	stack.limit = 3
+func test_the_gesture_history_is_capped() -> void:
+	var history := History.new()
+	history.limit = 3
 	for index in 10:
-		stack.push({"value": index})
-	assert(stack.depth() == 3)
+		history.push({"value": index})
+	assert(history.depth() == 3)
 
 
 func test_new_edits_clear_the_redo_branch() -> void:
-	var stack := Undo.new()
-	stack.push({"value": 1})
-	stack.undo({"value": 2})
-	assert(stack.can_redo())
-	stack.push({"value": 3})
-	assert(not stack.can_redo())
+	var history := History.new()
+	history.push({"value": 1})
+	history.undo({"value": 2})
+	assert(history.can_redo())
+	history.push({"value": 3})
+	assert(not history.can_redo())

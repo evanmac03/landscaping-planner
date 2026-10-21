@@ -147,3 +147,49 @@ func test_the_window_reports_the_life_of_the_history() -> void:
 	assert(hud.revision_status_text() == "1 revision kept", hud.revision_status_text())
 	_done(hud)
 	_clean()
+
+
+## The one line that joins the history to the undo history. It is a difference of two numbers - the
+## gesture the revision was taken at and the gesture the drawing is at now - so it moves as the drawing
+## is worked on, and an open window has to keep up with it. A line that still read "nothing has been done
+## to the drawing since" two gestures later would not be an old answer but a wrong one.
+func test_an_open_history_keeps_up_with_the_drawing_it_is_about() -> void:
+	_clean()
+	var hud = _hud()
+	var controller = hud._draft
+	# A gesture is what the controller makes of one act - a drawn line, an erase, a lock - and it is
+	# recorded here the way the controller records it, so nothing in this test is a private path.
+	controller.document.begin_gesture("drawing a new line")
+	controller.document.add(
+		Entity.make_line(Vector2(0.0, 8.0), Vector2(12.0, 8.0)), LayerSet.NEW_HARDSCAPE
+	)
+	hud._on_revision_recorded("sent to the client")
+	assert(int(controller.revisions.record_at(0)["serial"]) == 1, "the revision kept the gesture")
+	hud._revision_window.select(0)
+	assert(hud._revision_window.since_text() == "nothing has been done to the drawing since",
+		hud._revision_window.since_text())
+
+	controller.document.begin_gesture("erasing")
+	controller.document.begin_gesture("locking 300-NEW-HARD")
+	# Nothing was pushed into the window: asking the HUD to refresh is what its own poll does each frame,
+	# and it is the drawing's own count that the line is worked out from.
+	hud._refresh_revision_window()
+	assert(hud._revision_window.since_text() == "2 gestures since", hud._revision_window.since_text())
+
+	# An undo does not put the count back: what happened to this drawing does not unhappen, and a
+	# revision sent in between really did go out before both of those acts.
+	assert(controller.document.undo_last())
+	hud._refresh_revision_window()
+	assert(hud._revision_window.since_text() == "2 gestures since",
+		"the count stands: what happened to this drawing does not unhappen, and the revision went out before both of those acts")
+
+	# A revision recorded before gestures were counted says it does not know rather than claiming nobody
+	# has touched the drawing - which is the difference between "not known" and "none".
+	controller.revisions.capture(controller.document.to_dict(), "imported from an older version")
+	hud.set(&"_revision_state", "")
+	hud._refresh_revision_window()
+	hud._revision_window.select(1)
+	assert(hud._revision_window.since_text() == "recorded before gestures were counted",
+		hud._revision_window.since_text())
+	_done(hud)
+	_clean()

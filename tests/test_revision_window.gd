@@ -160,3 +160,24 @@ func test_the_selection_survives_the_rows_being_replaced() -> void:
 	assert(window.selected_index() == 0)
 	assert(window.selected_row()["message"] == "client asked for more lawn")
 	window.free()
+
+
+# --- what has been done since ---------------------------------------------------------
+
+
+## The one line that joins this window to the undo history. A person opening a history is asking what
+## has happened since the drawing was sent, and a list of timestamps cannot tell them.
+func test_the_selected_revision_says_how_much_has_happened_since() -> void:
+	var window = _window()
+	assert(window.since_text() == "", "a row with nothing to say about it says nothing")
+	var rows: Array[Dictionary] = _rows()
+	rows[0]["since"] = "3 gestures since"
+	rows[1]["since"] = "recorded before gestures were counted"
+	window.set_revisions(rows)
+	assert(window.since_text() == "3 gestures since", window.since_text())
+	assert(window.list_texts()[0] == "rev 1  sent to the client",
+		"and it stays out of the list, which answers only which revision")
+	assert(window.select(1))
+	assert(window.since_text() == "recorded before gestures were counted",
+		"not known is said out loud rather than left blank: %s" % window.since_text())
+	window.free()

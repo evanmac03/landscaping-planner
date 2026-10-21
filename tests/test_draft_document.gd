@@ -238,6 +238,43 @@ func test_undo_with_nothing_recorded_is_a_no_op() -> void:
 	assert(not document.redo_last())
 
 
+# --- the gestures, by name and number -------------------------------------------------
+
+
+func test_a_gesture_is_recorded_under_the_word_it_is_given() -> void:
+	var document = Document.new()
+	document.begin_gesture("drawing a new line")
+	var id: int = document.add(_sample_line())
+	document.begin_gesture("erasing")
+	document.remove(id)
+	assert(document.undo_label() == "erasing", "the last thing done")
+	assert(document.gesture_serial() == 2, "and it is the drawing's second gesture")
+	assert(document.undo_last())
+	assert(document.undo_label() == "drawing a new line", "which puts the erasing on the redo side")
+	assert(document.redo_label() == "erasing", "named, so redo can say what it would do")
+
+
+func test_a_gesture_nobody_named_is_still_a_gesture() -> void:
+	var document = Document.new()
+	document.begin_gesture()
+	assert(document.gesture_serial() == 1)
+	assert(document.undo_label() == "an edit", "an unlabelled act says as much as it can")
+
+
+func test_a_state_this_document_is_not_in_can_be_recorded_as_a_gesture() -> void:
+	# What a restore needs: the drawing is about to be replaced by an earlier revision, so the state it
+	# leaves has to be a gesture on the history it is leaving itself.
+	var document = Document.new()
+	document.add(_sample_line())
+	var before: Dictionary = document.snapshot()
+	document.clear()
+	assert(document.count() == 0, "the drawing is empty")
+	document.record_gesture(before, "putting a revision back")
+	assert(document.undo_label() == "putting a revision back")
+	assert(document.undo_last(), "and undo puts the drawing back")
+	assert(document.count() == 1)
+
+
 # --- persistence --------------------------------------------------------------------
 
 

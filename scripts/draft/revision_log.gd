@@ -31,7 +31,13 @@ extends RefCounted
 
 ## What a revision record holds. One list, so the writer, the reader and the diff cannot disagree
 ## about what a revision is.
-const FIELDS: Array[String] = ["message", "author", "when", "snapshot"]
+##
+## `serial` is the gesture the drawing had been through when this revision was taken - see
+## `DraftGestureHistory`. It is what joins a named revision to the undo history: a stack forgets what it
+## has been through and a timestamp never knew, so this number is how the history can say how much has
+## happened since the drawing was sent. 0 means the revision was taken before gestures were counted, or
+## by a caller with no history to offer - and it is read as "not known" rather than as "nothing".
+const FIELDS: Array[String] = ["message", "author", "when", "serial", "snapshot"]
 
 ## How many revisions a drawing keeps. A cap rather than a limit of the format: a log that grows
 ## without bound is a file nobody prunes, and the oldest revision of a garden is the least interesting
@@ -73,13 +79,19 @@ static func system_author() -> String:
 ## and which revision it is. The snapshot is taken by the caller - `document.to_dict()` - because this
 ## class knows nothing about documents and can therefore be tested without one.
 ##
+## `serial` is how many gestures the drawing had been through, which the caller reads off the history
+## (`DraftDocument.gesture_serial`). It is recorded rather than inferred, because only the drawing knows
+## it at the moment the revision is taken; everything else about the revision is read off its own
+## snapshot.
+##
 ## The parameter is not called `snapshot`, nor the local below `record`: either would shadow a method
 ## of this class, which is a warning in this project rather than a style note.
-func capture(state: Dictionary, message: String, author: String = "") -> Dictionary:
+func capture(state: Dictionary, message: String, author: String = "", serial: int = 0) -> Dictionary:
 	var stored: Dictionary = {
 		"message": message.strip_edges() if not message.strip_edges().is_empty() else NO_MESSAGE,
 		"author": author.strip_edges(),
 		"when": Time.get_datetime_string_from_system(false, true),
+		"serial": maxi(serial, 0),
 		# Through JSON, so a snapshot held in memory and one read back from a file are the *same*
 		# snapshot to `diff()`. Without this a revision compared with itself would look changed.
 		"snapshot": _plain(state),
@@ -120,8 +132,9 @@ func is_valid(index: int) -> bool:
 	return index >= 0 and index < _records.size()
 
 
-## A revision as anything listing them needs it: what it says, who made it, when, and how big the
-## drawing was. Counted from the snapshot rather than stored, so the number cannot go stale.
+## A revision as anything listing them needs it: what it says, who made it, when, how big the drawing
+## was, and which gesture it was taken at. Counted from the snapshot rather than stored, so the number
+## cannot go stale.
 func record_at(index: int) -> Dictionary:
 	if not is_valid(index):
 		return {}
@@ -133,6 +146,7 @@ func record_at(index: int) -> Dictionary:
 		"message": String(stored["message"]),
 		"author": String(stored["author"]),
 		"when": String(stored["when"]),
+		"serial": int(stored.get("serial", 0)),
 		"shapes": entities.size(),
 	}
 
@@ -157,6 +171,18 @@ func describe(index: int) -> String:
 		words += "  (%s)" % String(row["when"])
 	words += "  %d shapes" % int(row["shapes"])
 	return words
+
+
+## How many gestures the drawing has been through since this revision was taken. 0 when it was taken at
+## the current point - and 0 when either number is unknown, which is the honest answer for a revision
+## recorded before gestures were counted: "not known" must not read as "a great many".
+func gestures_since(index: int, serial: int) -> int:
+	if not is_valid(index):
+		return 0
+	var taken_at: int = int((_records[index] as Dictionary).get("serial", 0))
+	if taken_at <= 0 or serial <= taken_at:
+		return 0
+	return serial - taken_at
 
 
 ## The drawing as that revision held it, ready for `DraftDocument.from_dict`. A copy, so a caller that
@@ -301,6 +327,9 @@ static func from_dict(data: Variant) -> DraftRevisionLog:
 			"message": String(entry_record.get("message", NO_MESSAGE)),
 			"author": String(entry_record.get("author", "")),
 			"when": String(entry_record.get("when", "")),
+			# A history written before gestures were counted has no serial in its file, and reads as
+			# unknown rather than as gesture zero - see `FIELDS`.
+			"serial": maxi(int(entry_record.get("serial", 0)), 0),
 			"snapshot": state,
 		})
 	return history

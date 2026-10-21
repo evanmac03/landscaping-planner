@@ -166,6 +166,11 @@ var _layer_option: OptionButton = null
 var _lock_button: CheckButton = null
 var _layer_names: Array[StringName] = []
 var _style_button: Button = null
+## The undo and redo buttons, kept so their tooltips can say *which* gesture they would act on. Their
+## text stays "Undo" and "Redo": a button that grew to "Undo drawing a new polyline" would walk the
+## palette out from under the plant list, and the palette's width is something a hand learns.
+var _undo_button: Button = null
+var _redo_button: Button = null
 ## What the palette was last drawn to match, so a check every frame does not
 ## restate state that has not moved.
 var _palette_state: String = ""
@@ -310,6 +315,12 @@ var _sheet_window: SheetWindow = null
 ## The history: what was recorded against this drawing and what each revision changed. A window for the
 ## same reason the sheet setup is one - a revision needs a message, and a message is typed text.
 var _revision_window: RevisionWindow = null
+## What the last refresh of that window was drawn from: the drawing's name, how many revisions are kept,
+## how many fell off the end, and the gesture the drawing has been through. The last of those is what the
+## "Done since" line is worked out from, so a window left open while a designer keeps drawing is
+## refreshed as the count moves - a line that still read "nothing has been done" two gestures later
+## would not be an old answer, it would be a wrong one.
+var _revision_state: String = ""
 ## The DXF import: the chooser, the file's own text (kept, so answering "what units is it in" can read
 ## it again), and the page that says what was read before the drawing takes it.
 var _dxf_dialog: FileDialog = null
@@ -488,6 +499,11 @@ func _process(_delta: float) -> void:
 		_refresh_water_panel()
 	if is_light_panel_open():
 		_refresh_light_panel()
+	# The history joins the undo history, so what it says about a drawing changes as that drawing is
+	# worked on - which is why it is polled while it is up rather than refreshed only when it is acted
+	# on. Its own signature is what stops a window nobody is drawing into from rebuilding itself.
+	if is_revision_window_open():
+		_refresh_revision_window()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -693,8 +709,8 @@ func _build_palette() -> void:
 	var edit_row := HBoxContainer.new()
 	edit_row.name = "EditRow"
 	palette_column.add_child(edit_row)
-	_command_button(edit_row, &"draft_undo", "Undo", _draft.undo)
-	_command_button(edit_row, &"draft_redo", "Redo", _draft.redo)
+	_undo_button = _command_button(edit_row, &"draft_undo", "Undo", _draft.undo)
+	_redo_button = _command_button(edit_row, &"draft_redo", "Redo", _draft.redo)
 	_command_button(edit_row, &"draft_undo_point", "Drop", _draft.undo_point)
 
 	var plot_row := HBoxContainer.new()
@@ -741,10 +757,13 @@ func _command_button(
 func _refresh_palette() -> void:
 	if _draft == null or _arm_button == null:
 		return
-	var state := "%s|%d|%s|%s|%d|%s" % [
+	# The two gesture labels are part of the signature because they are what the undo and redo tooltips
+	# say: without them a tooltip would keep naming the gesture that was in hand when the palette last
+	# redrew, which is exactly the confusion the labels exist to remove.
+	var state := "%s|%d|%s|%s|%d|%s|%s|%s" % [
 		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
 		String(_draft.dimension_style_name), int(_draft.current_edit()),
-		_is_layer_locked(),
+		_is_layer_locked(), _undo_label(), _redo_label(),
 	]
 	if state == _palette_state:
 		return
@@ -774,6 +793,35 @@ func _refresh_palette() -> void:
 	_style_button.tooltip_text = "%s (%s)" % [
 		_draft.document.dimension_style.describe(), _key_label(&"draft_dimension_style"),
 	]
+	# What the two buttons would act on, by name. A button that says only "Undo" leaves a person to
+	# guess whether it will put back the line they have just trimmed or a survey overlaid two hours ago.
+	if _undo_button != null:
+		_undo_button.tooltip_text = _gesture_tooltip("Undo", _undo_label(), &"draft_undo")
+	if _redo_button != null:
+		_redo_button.tooltip_text = _gesture_tooltip("Redo", _redo_label(), &"draft_redo")
+
+
+## The gesture an undo would undo, in words, or empty when there is none - or when there is no drawing
+## to ask, which a HUD built without one has to survive.
+func _undo_label() -> String:
+	if _draft == null or _draft.document == null:
+		return ""
+	return _draft.document.undo_label()
+
+
+func _redo_label() -> String:
+	if _draft == null or _draft.document == null:
+		return ""
+	return _draft.document.redo_label()
+
+
+## What an undo or redo button says about itself: the verb, the gesture it would act on, and the key.
+## "nothing to undo" rather than a bare verb when the history has run out, because a button that cannot
+## say why it would do nothing is a button that looks broken rather than finished.
+static func _gesture_tooltip(verb: String, gesture: String, action: StringName) -> String:
+	var words := "%s %s" % [verb, gesture] if not gesture.is_empty() else "nothing to %s" % verb.to_lower()
+	var key := _key_label(action)
+	return "%s (%s)" % [words, key] if key != "" else words
 
 
 func _on_arm_toggled(pressed: bool) -> void:
@@ -816,7 +864,8 @@ func set_layer_locked(locked: bool) -> void:
 	# Named `layer_name` rather than `layer`: the Hud is a CanvasLayer, so a local called `layer`
 	# would shadow the canvas layer the HUD itself is drawn on.
 	var layer_name: StringName = _draft.current_layer()
-	_draft.document.begin_gesture()
+	var words: String = "locking %s" % layer_name if locked else "unlocking %s" % layer_name
+	_draft.document.begin_gesture(words)
 	_draft.document.layers.set_locked(layer_name, locked)
 	_draft.document.changed.emit()
 
@@ -4888,6 +4937,13 @@ func revision_status_text() -> String:
 func _refresh_revision_window() -> void:
 	if _revision_window == null or _draft == null:
 		return
+	var state := "%s|%d|%d|%d" % [
+		StoreScript.display_name(_draft.drawing_path), _draft.revisions.count(),
+		_draft.revisions.dropped, _draft.document.gesture_serial(),
+	]
+	if state == _revision_state:
+		return
+	_revision_state = state
 	_revision_window.set_identity(StoreScript.display_name(_draft.drawing_path), _draft.revisions.dropped)
 	_revision_window.set_revisions(_draft.revision_rows())
 

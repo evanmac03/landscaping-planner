@@ -14,7 +14,7 @@ extends RefCounted
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
-const UndoScript := preload("res://scripts/draft/undo_stack.gd")
+const GestureScript := preload("res://scripts/draft/gesture_history.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
@@ -25,7 +25,10 @@ signal entity_removed(id: int)
 
 var layers: LayerSetScript
 var units: UnitsScript
-var undo: UndoScript
+## The gestures this drawing has been through: what undo and redo walk, each with the word for what it
+## was. Named rather than anonymous so an undo button can say what it would put back, and numbered so a
+## named revision can say how many gestures have happened since it was taken (`DraftRevisionLog`).
+var gestures: GestureScript
 ## The drawing's standard for how a dimension is drawn. A single dimension may
 ## override it, and the same rule covers the plan and the plotted sheet, so a
 ## practice's standard only has to be set once.
@@ -117,7 +120,7 @@ static func _new() -> DraftDocument:
 func _init() -> void:
 	layers = LayerSetScript.default_set()
 	units = UnitsScript.new()
-	undo = UndoScript.new()
+	gestures = GestureScript.new()
 	dimension_style = DimensionStyleScript.architectural()
 	environment = ZoneMapScript.make()
 
@@ -291,7 +294,7 @@ func clear() -> void:
 func set_environment(map: ZoneMapScript) -> bool:
 	if map == null or map.to_dict() == environment.to_dict():
 		return false
-	begin_gesture()
+	begin_gesture("stating the ground")
 	environment = map
 	changed.emit()
 	return true
@@ -347,7 +350,7 @@ func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: f
 		and is_equal_approx(new_utc_offset_hours, site_utc_offset_hours)
 	):
 		return false
-	begin_gesture()
+	begin_gesture("moving the site")
 	site_latitude = new_latitude
 	site_longitude = new_longitude
 	site_utc_offset_hours = new_utc_offset_hours
@@ -358,14 +361,42 @@ func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: f
 # --- undo ---------------------------------------------------------------------------
 
 
-## Record the state before a gesture. Call once per gesture, never per motion
-## event, or the stack fills with intermediate states.
-func begin_gesture() -> void:
-	undo.push(snapshot())
+## Record the state before a gesture, and what that gesture is.
+##
+## Call once per gesture, never per motion event, or the history fills with intermediate states. The
+## label is what an undo button and the Edit menu say the act was, so a caller that can name the act
+## should: `DraftController` names every one of them, and a caller that names none leaves the button
+## saying "an edit" (`DraftGestureHistory.UNNAMED`) - which is worse than a wrong word only because it
+## is no word at all.
+func begin_gesture(label: String = "") -> void:
+	gestures.push(snapshot(), label)
+
+
+## Record a state this document is *not* in as one undoable gesture. That is what a restore needs and
+## the only thing that does: the drawing is about to be replaced by an earlier revision, and what has to
+## come back on undo is the drawing that was there a moment earlier. Returns the gesture's serial.
+func record_gesture(state: Dictionary, label: String) -> int:
+	return gestures.push(state, label)
+
+
+## What undo would put back, in words: "drawing a line". Empty when there is nothing to undo, which is
+## what a button that cannot do anything should say.
+func undo_label() -> String:
+	return gestures.undo_label()
+
+
+func redo_label() -> String:
+	return gestures.redo_label()
+
+
+## How many gestures this drawing has been through, ever. What a named revision is taken at, and what
+## "N gestures since" is a difference of.
+func gesture_serial() -> int:
+	return gestures.serial()
 
 
 func undo_last() -> bool:
-	var previous := undo.undo(snapshot())
+	var previous: Dictionary = gestures.undo(snapshot())
 	if previous.is_empty():
 		return false
 	restore(previous)
@@ -373,7 +404,7 @@ func undo_last() -> bool:
 
 
 func redo_last() -> bool:
-	var following := undo.redo(snapshot())
+	var following: Dictionary = gestures.redo(snapshot())
 	if following.is_empty():
 		return false
 	restore(following)

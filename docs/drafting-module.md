@@ -141,7 +141,7 @@ for bed borders. These take and return doubles and never touch `Vector2`.
                                     |
   L3  snapping             snap_engine.gd  ---  spatial_grid.gd
                                     |
-  L2  model                draft_document.gd  ---  draft_entity.gd (+ kinds)  ---  undo_stack.gd
+  L2  model                draft_document.gd  ---  draft_entity.gd (+ kinds)  ---  gesture_history.gd
                                     |
   L1  geometry kernel      geom2d.gd  (double precision, pure)   ---  units.gd
                                     |
@@ -171,7 +171,7 @@ draft_controller  -- screen(t)-->  geom2d/units   (screen -> double world XZ)
   draft_document  --changed(id)-->  plan_canvas.cue_redraw() + draft_view_3d.rebuild(id)
       |
       v
-   undo_stack (snapshot before each committed edit)
+   gesture_history (a named snapshot before each committed gesture)
 ```
 
 The `changed` signal is the whole sync mechanism. Both views subscribe; neither
@@ -203,7 +203,7 @@ inverse and is used for drawing and for sizing the snap marker.
 | `scripts/draft/snap_engine.gd` | candidate generation and prioritised selection |
 | `scripts/draft/draft_entity.gd` | entity base + parameter layouts |
 | `scripts/draft/draft_document.gd` | entity store, layers, change signals |
-| `scripts/draft/undo_stack.gd` | snapshot undo/redo |
+| `scripts/draft/gesture_history.gd` | named, serial-numbered gesture history |
 | `scripts/draft/draft_controller.gd` | tool modes, input routing, dynamic input |
 | `scripts/draft/tools/*.gd` | one state machine per tool |
 | `scripts/draft/draft_view_3d.gd` | projects entities into the 3D scene |
@@ -483,19 +483,53 @@ diagonal), measure each against the AABBs of labels already placed this frame,
 and take the first non-overlapping one, falling back to the perpendicular
 default. Enough to look deliberate without a full layout engine.
 
-### 5.5 Undo / redo
+### 5.5 Undo / redo: the gesture history
 
-**Recommendation: whole-document snapshots, not inverse commands.**
+**Whole-document snapshots, not inverse commands.** A command/inverse
+system is the textbook answer, but every tool then needs a correct inverse
+— and a subtly wrong inverse corrupts the drawing in a way the user cannot
+see or repair. A plan is small: 5,000 vertices is 40 KB, so a snapshot per
+committed gesture costs ~40 KB. Cap the history at 200 gestures (8 MB) and
+the whole problem disappears.
 
-A command/inverse system is the textbook answer, but every tool then needs a
-correct inverse — and a subtly wrong inverse corrupts the drawing in a way the
-user cannot see or repair. A plan is small: 5,000 vertices is 40 KB, so a
-snapshot per committed edit costs ~40 KB. Cap the stack at, say, 200 steps
-(8 MB) and the whole problem disappears.
+**A snapshot is taken on entry to the gesture, never on motion.** A drag that
+moves a selected set, or a polyline tool mid-draw, pushes **one** snapshot,
+not one per `on_move`.
 
-Coalescing: a drag that moves a selected set, or a polyline tool mid-draw, must
-push **one** snapshot on entry to the gesture, not per motion event. Snapshot on
-`tool_start` / `commit`, never on `on_move`.
+**Undo is a gesture, not an anonymous stack.** `DraftGestureHistory`
+(`scripts/draft/gesture_history.gd`, reached as `document.gestures` — the file
+was renamed from `undo_stack.gd` because a file named for what it no longer is
+is a lie) records each act with two extra facts beside its snapshot:
+
+- a **label** — the words an undo button reads back, e.g. `drawing a new line`,
+  `erasing`, `importing a DXF underlay`. `DraftController` names the gesture at
+  every `begin_gesture(...)` site (the tool words come from
+  `ToolScript.label_for(kind)` lower-cased, so `"drawing a new %s"` is correct
+  for every kind); an act nobody labelled records as `UNNAMED` = `"an edit"`.
+  Undo/redo button **text stays "Undo"/"Redo"** for width discipline — the
+  gesture name goes in the **tooltip** (`Undo erasing (Ctrl+Z)`) and the status line.
+- a **serial** — which gesture it was in the drawing's life, counted from 1 and
+  **never reset by trimming or by `clear()`**: a count that went backwards would
+  tell a revision that gestures had *un*happened.
+
+**The serial is the join to the revision log.** `DraftRevisionLog.capture(...)`
+records the serial the drawing was at, so a revision can answer *how many
+gestures have happened since it was sent*. `"nothing has been done"` and `"not
+known"` are different claims: a revision recorded before gestures were counted
+says so (`gestures_since` returns 0 for a history written earlier, because the
+`serial` field is simply absent), and the revision window shows it on its
+**"Done since"** line. `DraftController.gestures_since_text(index)` is the one
+place that turns the difference into words; restoring a revision records the
+state it replaced as one named gesture (`putting a revision back`), so the
+restore can itself be undone.
+
+An open history **keeps up with the drawing it is about**: the HUD refreshes the window from its
+own per-frame poll while the window is up (the same discipline the open water and lighting panels
+follow), guarded by a signature of the drawing's name, the number of revisions kept and the gesture
+the drawing is at. Without that a window left up while a designer keeps drawing would go on
+claiming nothing had been done, which is a wrong answer rather than a stale one. An undo does *not*
+put the count back - what happened to the drawing does not unhappen, and a revision sent in between
+really did go out before those acts.
 
 ### 5.6 Hit-testing and culling
 

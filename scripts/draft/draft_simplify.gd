@@ -99,7 +99,7 @@ static func apply(document, report: ReportScript) -> int:
 			replacing.append(entry)
 	if replacing.is_empty() or document == null:
 		return 0
-	document.begin_gesture()
+	document.begin_gesture("simplifying the drawing")
 	var written := 0
 	for entry in replacing:
 		var original: EntityScript = document.get_entity(int(entry["id"]))

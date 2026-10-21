@@ -42,6 +42,9 @@ var _said: String = ""
 var _list: ItemList = null
 var _description: Label = null
 var _change: Label = null
+## What has happened to the drawing since the selected revision was taken: the one line that joins this
+## history to the undo history (`DraftGestureHistory`).
+var _since: Label = null
 var _message: LineEdit = null
 var _status: Label = null
 var _restore_button: Button = null
@@ -105,6 +108,8 @@ func build() -> void:
 	_description = _wrapped(right, "Description")
 	right.add_child(_caption("Since the one before it"))
 	_change = _wrapped(right, "Change")
+	right.add_child(_caption("Done since"))
+	_since = _wrapped(right, "DoneSince")
 
 	right.add_child(_caption("Record a revision"))
 	var row := HBoxContainer.new()
@@ -249,6 +254,12 @@ func change_text() -> String:
 	return String(selected_row().get("change", ""))
 
 
+## What has been done to the drawing since the selected revision was taken. Empty when there is nothing
+## to say, which is different from saying nothing happened - see `DraftController.gestures_since_text`.
+func since_text() -> String:
+	return String(selected_row().get("since", ""))
+
+
 func description_text() -> String:
 	return String(selected_row().get("description", ""))
 
@@ -292,6 +303,7 @@ func _show_row() -> void:
 	var row: Dictionary = selected_row()
 	_description.text = String(row.get("description", ""))
 	_change.text = change_text()
+	_since.text = since_text()
 	_restore_button.disabled = row.is_empty()
 	_status.text = status_text()
 
