@@ -25,6 +25,10 @@ const DECIMALS := 4
 var _content: PackedStringArray = PackedStringArray()
 var _page_width: float = 595.276
 var _page_height: float = 841.89
+## The images placed on this page, in the order they were placed. Each entry is a
+## name (`/Im1`) and the image itself; the object number is worked out at build time,
+## because a page may place none, one, or several.
+var _images: Array[Dictionary] = []
 
 
 ## Start a page. Geometry is in points, with the origin at the bottom-left, which
@@ -126,6 +130,39 @@ func fill() -> void:
 	_add("f")
 
 
+# --- images -------------------------------------------------------------------------
+
+
+## Place a raster image to fill `rect`, in points. Returns the XObject name it was
+## registered under, or "" when there is nothing to place.
+##
+## The image's own unit square is mapped straight onto the rectangle by the `cm`
+## matrix (`width 0 0 height x y cm`), so the caller says where the picture goes and
+## never touches a pixel. A PDF image is drawn with its first row at the top of that
+## square, which is how `Image.get_data()` lays its rows out, so nothing is flipped.
+##
+## Written raw (RGB8) and deflated rather than as a PNG, because a PNG is a file and
+## what a PDF wants is a stream of samples: `PackedByteArray.compress` gives exactly
+## the zlib stream `/FlateDecode` expects.
+func place_image(image: Image, rect: Rect2) -> String:
+	if image == null or image.is_empty():
+		return ""
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return ""
+	var name := "/Im%d" % (_images.size() + 1)
+	_images.append({"name": name, "image": image})
+	_add("q %s 0 0 %s %s %s cm %s Do Q" % [
+		_n(rect.size.x), _n(rect.size.y),
+		_n(rect.position.x), _n(rect.position.y), name,
+	])
+	return name
+
+
+## The images placed on this page, in order, for a caller or a test to read back.
+func images() -> Array[Dictionary]:
+	return _images
+
+
 # --- text ---------------------------------------------------------------------------
 
 
@@ -167,19 +204,30 @@ func text_width(text: String, size_points: float) -> float:
 
 
 func build() -> PackedByteArray:
-	var page := "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s]" % [
-		_n(_page_width), _n(_page_height),
+	# Object numbers are fixed for the five things every page has, so a file with no
+	# image is byte-for-byte the file this writer has always made. An image takes the
+	# next number, and the page's resource dictionary names it.
+	var resources := "/Resources << /Font << /F1 5 0 R >>"
+	if not _images.is_empty():
+		var refs := PackedStringArray()
+		for index in _images.size():
+			refs.append("%s %d 0 R" % [_images[index]["name"], 6 + index])
+		resources += " /XObject << %s >>" % " ".join(refs)
+	resources += " >>"
+	var page := "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s] %s /Contents 4 0 R >>" % [
+		_n(_page_width), _n(_page_height), resources,
 	]
-	page += " /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
 
 	var stream := content()
-	var bodies: Array[String] = [
-		"<< /Type /Catalog /Pages 2 0 R >>",
-		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-		page,
-		"<< /Length %d >>\nstream\n%s\nendstream" % [stream.to_utf8_buffer().size(), stream],
-		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+	var bodies: Array[PackedByteArray] = [
+		_bytes("<< /Type /Catalog /Pages 2 0 R >>"),
+		_bytes("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+		_bytes(page),
+		_bytes("<< /Length %d >>\nstream\n%s\nendstream" % [stream.to_utf8_buffer().size(), stream]),
+		_bytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),
 	]
+	for entry: Dictionary in _images:
+		bodies.append(image_object(entry["image"]))
 
 	var out := PackedByteArray()
 	_append(out, "%PDF-1.4\n")
@@ -187,7 +235,7 @@ func build() -> PackedByteArray:
 	for index in bodies.size():
 		offsets.append(out.size())
 		_append(out, "%d 0 obj\n" % (index + 1))
-		_append(out, bodies[index])
+		out.append_array(bodies[index])
 		_append(out, "\nendobj\n")
 
 	var xref_offset := out.size()
@@ -241,3 +289,32 @@ func _escape(text: String) -> String:
 
 func _append(buffer: PackedByteArray, text: String) -> void:
 	buffer.append_array(text.to_utf8_buffer())
+
+
+static func _bytes(text: String) -> PackedByteArray:
+	return text.to_utf8_buffer()
+
+
+## One image XObject: the samples, deflated, in a stream.
+##
+## Public and static so a test can read the object back without building a whole
+## file's worth of offsets to find it. Raw RGB8 and zlib, which is what
+## `/DeviceRGB` and `/FlateDecode` name; nothing here guesses at a colour space
+## other than the one this project's images arrive in.
+static func image_object(image: Image) -> PackedByteArray:
+	var source := image
+	if source.get_format() != Image.FORMAT_RGB8:
+		# A copy converted rather than the same bytes relabelled, because rebuilding
+		# an image from another format's data reinterprets every channel.
+		source = Image.new()
+		source.copy_from(image)
+		source.convert(Image.FORMAT_RGB8)
+	var deflated: PackedByteArray = source.get_data().compress(FileAccess.COMPRESSION_DEFLATE)
+	var out := _bytes(
+		"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n" % [
+			source.get_width(), source.get_height(), deflated.size(),
+		]
+	)
+	out.append_array(deflated)
+	out.append_array(_bytes("\nendstream"))
+	return out
