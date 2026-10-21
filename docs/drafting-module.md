@@ -612,6 +612,18 @@ not. The module functions that state an area (`Irrigation.verdict_words`, `Irrig
 `Lighting.verdict_words`, `Lighting.schedule` and the row readers beside them) take that same
 optional parameter.
 
+**And a test says so rather than asking a reader to remember.** `tests/test_area_units_doctrine.gd`
+walks every script under `res://scripts` and asserts that the only one which puts a space and an
+area unit into a string literal is `DraftUnits`. That is a stronger statement than the doctrine, and
+a cheaper one to keep: it does not care *how* a second writer would spell an area, only that a
+person could read one out of a literal. The unit has to end at a boundary - `" has no area"`
+begins with the letters of `ha` and is not a hectare, `"the can"` is not two acres - and a
+literal with no space in front of the unit (`"m2": 1.0` in a parsing table, `"unit": "m2"` in
+a record) is a name rather than a sentence and is left alone. `tests/` is deliberately not walked:
+quoting the words is how a test checks the writer. The guard is also run against hand-written
+samples of both the shape it catches and the shape it must not, because a guard that cannot fail
+is not a guard.
+
 A **reader that words what it read** obeys the same rule. `SurveyFile.read_text(text, options)`
 takes `options["display_units"]`, the drawing's own `DraftUnits` - a different question from
 `options["units"]`, which is what the file's numbers are *in* - and threads it into
