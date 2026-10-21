@@ -419,13 +419,23 @@ func _process(_delta: float) -> void:
 	# The legend and the palette both go away on the ground, where the tools do
 	# nothing at all.
 	var overhead: bool = view_controller.mode != ViewController.ViewMode.GROUND
-	# A presentation is not a working view, so none of the working furniture is in
-	# it: the panel that ends the presentation is the one thing that stays.
-	draft_hints.visible = overhead and view_controller.is_drafting() and not _presenting
+	# A presentation, or the painted plan, is a view of the garden rather than a working view, so none
+	# of the working furniture is on screen in either one. Two exceptions: the presentation panel holds
+	# the switch that ends a presentation, and the painted sheet carries its own Close.
+	var painted: bool = painted_sheet != null and painted_sheet.visible
+	var working: bool = not _presenting and not painted
+	draft_hints.visible = working and overhead and view_controller.is_drafting()
 	if palette.get_child_count() > 0:
-		palette.visible = overhead and not _presenting
+		palette.visible = working and overhead
 		_refresh_palette()
 		_refresh_plant_panel()
+	if top_bar != null:
+		top_bar.visible = working
+	if overlay != null:
+		overlay.visible = working
+	if presentation_panel != null:
+		presentation_panel.visible = presentation != null and not painted
+	_apply_hints_visibility()
 	# A presentation is a view of the garden rather than of the drawing, so the
 	# painted sheet goes away with the rest of the drawing's furniture.
 	if _presenting and painted_sheet.visible:
@@ -3065,10 +3075,12 @@ func _on_survey_chosen(path: String) -> void:
 	open_survey_panel(parsed)
 
 
-## Show the line of hints or not, remembering that a presentation takes them away as well.
+## Show the line of hints or not, remembering that a presentation and the painted sheet take them away
+## as well. Called every frame, so the one flag plus the two modes is the whole rule.
 func _apply_hints_visibility() -> void:
 	if hints != null:
-		hints.visible = _show_hints and not _presenting
+		var painted: bool = painted_sheet != null and painted_sheet.visible
+		hints.visible = _show_hints and not _presenting and not painted
 
 
 # --- hatching a region ---------------------------------------------------------------------
