@@ -123,7 +123,10 @@ func test_discarding_then_opening_opens_the_drawing_that_was_asked_for() -> void
 
 func test_an_action_that_means_nothing_does_nothing() -> void:
 	# `&"quit"` is deliberately not covered: it calls `get_tree().quit()`, which would end the run
-	# that is testing it. What is covered is that an id nothing recognises is not a command.
+	# that is testing it. The window's own close button reaches that same question through
+	# `Hud.quit_requested`, so it is covered the same way - by the live pass in
+	# `tools/quit_guard_demo.gd`, which presses both answers, rather than from here.
+	# What is covered is that an id nothing recognises is not a command.
 	var controller := _drawn()
 	var hud := _hud_for(controller)
 	hud._run_pending(&"open-something-else")

@@ -482,6 +482,12 @@ photograph, the consultant's concept.
     a garden is actually asked. It writes nothing: aiming the sun and rendering the stills are the
     HUD's acts.
 
+12. ~~**One way out of every page, and one question before the window shuts.**~~ **Done.** The
+    pages this HUD draws itself are on a single Escape ladder (`Hud.escape_puts_away`), taken in
+    the order a person takes the layers off, so the key that means "not this" means it on every
+    one of them; and the window's own close button asks the question `File > Quit` asks instead of
+    dropping a drawing nobody has written on the floor. See section 8e.
+
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
@@ -504,3 +510,11 @@ buttons its own captions name - a season first, then two moments typed into its 
 presentation's own sun at each of them and renders a still for each. Two captures of the *same*
 moment came back with 0 of the 39 898 sampled pixels differing that the two suns differ in, so what
 moved was the sun and not the screen under it.
+
+Section 8e was checked in `tools/quit_guard_demo.gd`, which sends a real Escape key through the
+running program's own input pipeline at each of the seven pages the HUD draws itself, at the key
+reference and at the painted sheet - and then delivers the window's own close request to a drawing
+with a line in it. The question came up holding `quit`, "Keep editing" left the work where it was
+and armed nothing, closing again asked again, and "Discard" left the program, which is why that
+pass prints nothing after it. One page in the list has no door of its own: the survey page is the
+question a read file is answered with, so it only appears once a file has been read.

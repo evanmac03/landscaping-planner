@@ -47,7 +47,7 @@ const DRAFTING_COMMANDS: Array = [
 	[&"draft_finish", "finish"],
 	[&"draft_close", "close"],
 	[&"draft_undo_point", "drop a point"],
-	[&"draft_cancel", "cancel"],
+	[&"draft_cancel", "cancel / close page"],
 	[&"draft_undo", "undo"],
 	[&"draft_redo", "redo"],
 	[&"draft_plot", "plot"],
@@ -477,6 +477,15 @@ func _ready() -> void:
 	if view_controller == null:
 		push_error("PlannerHud: view_controller must be assigned.")
 		return
+	# Godot accepts the window manager's close request on its own, so the flag is lowered here - where
+	# the question about unsaved work lives - and `_notification` below answers it. Two things make
+	# that safe: a scene with no HUD keeps the default and still closes, and the guard fails open, so
+	# a drawing with work to lose but no dialog to ask with is quit rather than held.
+	#
+	# Not in the editor's embedded game, which has no close button of its own: holding the request
+	# there is documented not to cooperate with the editor, and there is nothing to catch.
+	if not Engine.is_embedded_in_editor():
+		get_tree().auto_accept_quit = false
 	view_controller.view_mode_changed.connect(_on_view_mode_changed)
 	view_controller.transition_started.connect(_on_transition_started)
 	view_controller.transition_finished.connect(_on_transition_finished)
@@ -1475,16 +1484,19 @@ static func painted_caption_text(report: Dictionary) -> String:
 	]
 
 
-## The painted plan's key, and the way out of it.
+## The keys that belong to the HUD's own surfaces rather than to the drawing: the file commands, the
+## palette, the plant library, and the painted plan's own key.
 ##
-## Handled here rather than in the view controller because the sheet is the HUD's own
-## surface: the key that opens it, the escape that closes it, and the picture it shows
-## are one feature in one place.
+## Handled here rather than in the view controller because each of them is the HUD's own surface - the
+## file it is about to write, the box it opens, the sheet it shows - and one feature in one place is
+## what keeps a key that opens something from being a key that cannot close it: Escape is answered for
+## by `escape_puts_away`, which is the same ladder every page this node draws is on.
 func _unhandled_input(event: InputEvent) -> void:
-	# The key reference is answered for first, because it is the one thing here that can be up in
-	# a scene that has no painted plan at all.
-	if is_keys_open() and event.is_action_pressed(&"draft_cancel"):
-		close_keys()
+	# Escape reaches the HUD before the drawing does, so it is asked first whether it has a surface to
+	# put away: a page that is up is what the person is looking at, and cancelling the shape *behind*
+	# it is the one thing they cannot mean. Nothing up, nothing answered, and the drawing's own cancel
+	# gets the key exactly as it always did.
+	if event.is_action_pressed(&"draft_cancel") and escape_puts_away():
 		get_viewport().set_input_as_handled()
 		return
 	# The file commands, while none of our dialogs is up: a dialog has its own keys, and a second
@@ -1524,12 +1536,42 @@ func _unhandled_input(event: InputEvent) -> void:
 		open_painted()
 		get_viewport().set_input_as_handled()
 		return
-	# Escape closes the sheet before anything else gets a turn: while it is up, the
-	# drawing behind it is not what the person is looking at. Cancelling a shape still
-	# works when the sheet is not up, which is the only time it means anything.
-	if painted_sheet.visible and event.is_action_pressed(&"draft_cancel"):
+
+
+## Put away whatever page is in front, the way Escape does, and say whether there was one.
+##
+## One ladder in the order a person takes the layers off, so the one key that means "out of this"
+## means it on every surface this HUD owns. Until now the keys panel and the painted sheet did this
+## between them, which left the other seven pages reachable only by their own Close button or by the
+## menu that opened them - the same act, taught twice and missing nine times.
+##
+## The pages that live in a `Window` are deliberately not here: a focused window takes the keyboard
+## into its own viewport, so this node never sees an Escape meant for one. Those pages answer for
+## themselves, and the file dialogs are `Popup`s, which Godot already closes on the same key.
+func escape_puts_away() -> bool:
+	# The sheet first: while it is up, the drawing behind it is not what the person is looking at.
+	# Only the sheet is checked, because it can only be shown by a scene that can paint one.
+	if painted_sheet != null and painted_sheet.visible:
 		close_painted()
-		get_viewport().set_input_as_handled()
+		return true
+	if is_keys_open():
+		close_keys()
+		return true
+	# The seven pages this HUD draws itself, newest first. Written out rather than walked, because
+	# each one's door is its own function and a table of method names would be a second list of them.
+	for page: Array in [
+		[is_site_report_open(), close_site_report],
+		[is_survey_panel_open(), close_survey_panel],
+		[is_dxf_panel_open(), close_dxf_panel],
+		[is_landxml_panel_open(), close_landxml_panel],
+		[is_hatch_panel_open(), close_hatch_panel],
+		[is_water_panel_open(), close_water_panel],
+		[is_light_panel_open(), close_light_panel],
+	]:
+		if bool(page[0]):
+			(page[1] as Callable).call()
+			return true
+	return false
 
 
 # --- the menu bar ---------------------------------------------------------------------
@@ -2424,9 +2466,24 @@ func _menu_plot(_entry: Dictionary) -> void:
 
 
 func _menu_quit(_entry: Dictionary) -> void:
-	# Quitting with unsaved work asks first. The drawing lives in memory until it is written, so
-	# this is the last moment at which anybody could be warned.
+	quit_requested()
+
+
+## Quitting, from the menu or from the window's own close button: one door, so the second way out of
+## the program cannot be the one that forgets to ask. The drawing lives in memory until it is written,
+## and the window's close button is the way out nobody gets a second chance at.
+func quit_requested() -> void:
 	_guard_unsaved(&"quit")
+
+
+## The window is being closed: the same question `File > Quit` asks, answered the same way.
+##
+## Godot would otherwise accept the request on its own, which is why `_ready` lowers
+## `auto_accept_quit` - see the note there for why that is only done for a real window rather than in
+## the editor's embedded game.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		quit_requested()
 
 
 # --- the drawing on disk --------------------------------------------------------------

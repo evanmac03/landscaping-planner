@@ -67,7 +67,9 @@ static func topics() -> Array[Dictionary]:
 		+ "design: the plan, the sheet, the picture and the price are all projections of it, and nothing "
 		+ "is measured twice.",
 		"",
-		"The app opens in the 2D plan. The menu bar across the top is the whole program: File, Edit, "
+		"The app opens on the overhead 3D view - the garden as it stands - and Q, or the View menu, "
+		+ "crossfades to the flat 2D plan that the drawing is made on. The menu bar across the top is "
+		+ "the whole program: File, Edit, "
 		+ "View, Draft, Site, Plant, Water, Light, Pipeline, Jobs, Estimate, Present, Team and Help. The "
 		+ "palette down the left holds the drawing tools and the layers. The lines in the corners name "
 		+ "the keys.",
@@ -75,6 +77,12 @@ static func topics() -> Array[Dictionary]:
 		"Help > Landscaping Planner help opens this manual, Help > Drawing keys opens the key "
 		+ "reference, and Help > Command palette opens one box that reaches every command there is. "
 		+ "Everything the bar offers is described in here.",
+		"",
+		"There are two ways out of the program and they agree with each other. Escape puts away "
+		+ "whatever page is in front - the key reference, the painted sheet, and every page that opens "
+		+ "over the drawing - so the one key that means \"not this\" means it everywhere. And closing "
+		+ "the window asks the same question File > Quit asks whenever there is work that has not been "
+		+ "written, rather than dropping it.",
 	]))
 	out.append(_topic("Finding any command: the palette", [
 		"Help > Command palette opens a box holding every command the program has, with a field to type "
