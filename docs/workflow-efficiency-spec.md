@@ -464,6 +464,12 @@ photograph, the consultant's concept.
    program that reads a file without making entities out of it, which is what made it cheap: no
    editing, no takeoff, no plot, no sheet.
 
+9. ~~**Stating the ground's own heights.**~~ **Done.** Built as `scripts/draft/grading.gd` and
+   `scripts/grading_window.gd` with four test files; see the drafting subsystem spec, section 2.1d.
+   A spot level is a mark and a label, a contour a line with a height, an arrow a line with a
+   direction, and the check reports where the drawing contradicts itself about its own heights.
+
+
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
 phase table, where phases 0 to 11 are marked built.

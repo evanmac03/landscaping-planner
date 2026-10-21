@@ -287,6 +287,7 @@ const OsmFetchScript := preload("res://scripts/draft/osm_fetch.gd")
 const OsmWindowScript := preload("res://scripts/osm_window.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const UnderlayWindowScript := preload("res://scripts/underlay_window.gd")
+const GradingWindowScript := preload("res://scripts/grading_window.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
@@ -381,6 +382,15 @@ var _pending_picture: Dictionary = {}
 ## Why the file in hand was not read. Kept apart from the record because a refusal has no record, and
 ## the page has to be able to say what was wrong with what somebody chose.
 var _picture_refusal: String = ""
+## The ground's own heights: the level in hand, the three tools that stamp it, and the check that says
+## whether the drawing's levels, contours and arrows agree with each other. A window, because a level is
+## typed.
+var _grading_window: GradingWindowScript = null
+## What the last refresh of that page was drawn from: the drawing's gesture serial and the grading
+## records themselves. The page lists what the drawing holds and reports on it, so a page left open
+## through an undo - which does not go past this HUD - would otherwise be showing records that are no
+## longer on the drawing.
+var _grading_state: String = ""
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -469,6 +479,7 @@ func _ready() -> void:
 	_build_landxml_panel()
 	_build_osm_window()
 	_build_underlay_window()
+	_build_grading_window()
 	_build_estimate_window()
 	_build_pipeline_board()
 	_build_job_desk()
@@ -499,6 +510,9 @@ func _process(delta: float) -> void:
 	# Ahead of the guard, because keeping a copy is about the drawing rather than about the view: a
 	# scene with no view controller still has work in it that is worth not losing.
 	_tick_autosave(delta)
+	# Likewise ahead of the guard: the ground's heights belong to the drawing, not to the view, and a
+	# page that is open while the drawing changes under it has to keep up.
+	_tick_grading_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -1811,6 +1825,16 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(&"site.zone", "Draw a ground zone...", &"", &"_menu_draw_ground_zone"))
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
 	items.append(_separator())
+	# The ground's own heights. Apart from the conditions above, because a level is a fact about the
+	# shape of the land while a condition is a fact about what will grow on it - and a plan can be
+	# levelled without anybody having said what the soil is like.
+	items.append(_info(&"site.grading", "nothing on this drawing is graded"))
+	items.append(_command(
+		&"site.grade", "The ground's heights: levels, contours, slopes...", &"", &"_menu_grading_window",
+		NEEDS_DRAFT
+	))
+	items.append(_command(&"site.grade.check", "Check the grading", &"", &"_menu_check_grading", NEEDS_DRAFT))
+	items.append(_separator())
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
 	items.append(_separator())
 	items.append(_command(&"site.report", "Site statistics", &"", &"_menu_site_report"))
@@ -2067,6 +2091,9 @@ func menu_world() -> Dictionary:
 		# now rather than a radio state per attribute: the ground is edited in its own window, and the
 		# menu reports what came of it.
 		"ground": _ground_text(),
+		# The ground's own heights, in the controller's words, with the check's disagreement counted on
+		# the line. Cheap: it reads sizes and asks the check, and the check is a handful of comparisons.
+		"grading": _grading_text(),
 		# Where the money stands. Cheap: it reads the estimate's own count and total and nothing else,
 		# so the signature can hold it without this snapshot becoming the thing that prices a plan.
 		"estimate": _estimate_text(),
@@ -2102,6 +2129,24 @@ func _ground_text() -> String:
 	if map == null:
 		return "there is no drawing to say what the ground is like"
 	return map.describe()
+
+
+## What the Site menu's own line says about the ground's heights: the controller's one-line summary of
+## the levels, contours and arrows, and - when there is one - the fact that the check disagrees with
+## something on the drawing.
+##
+## The count is on the line rather than only inside the page, for the reason the clashes are on the Jobs
+## menu's line: a drawing that contradicts itself about its own heights should say so without being
+## opened. It is worded here rather than in the module because it is about the *menu*, and a module that
+## knew how a menu words a count would be a module that knows about menus.
+func _grading_text() -> String:
+	if _draft == null or _draft.document == null:
+		return "there is no drawing to grade"
+	var words: String = _draft.grading_summary()
+	var findings: Array = _draft.grading_report().get("findings", [])
+	if findings.is_empty():
+		return words
+	return "%s - %s" % [words, "%d the check disagrees with" % findings.size()]
 
 
 ## What the Water menu's own line says: the controller's one-line summary of the zones and the budget
@@ -4225,6 +4270,178 @@ func _menu_import_picture(_entry: Dictionary) -> void:
 	open_underlay_window()
 
 
+# --- the ground's own heights ----------------------------------------------------------
+#
+# The page, and nothing else: the levels, the contours and the arrows are the controller's, the
+# arithmetic is the module's, and this is the place that joins a person's press to both. It draws
+# nothing and works nothing out, for the reason the picture page does not read a file.
+#
+# The level and the fall are in hand on the *controller* rather than on the page, because a number in
+# hand has to survive the page stepping out of the way so a tool can be used.
+
+
+## Build the page and wire every one of its intents.
+func _build_grading_window() -> void:
+	if _grading_window != null:
+		return
+	_grading_window = GradingWindowScript.new()
+	_grading_window.name = "GradingWindow"
+	_grading_window.level_requested.connect(state_grading_level)
+	_grading_window.fall_requested.connect(state_grading_fall)
+	_grading_window.tool_requested.connect(arm_grading_tool)
+	_grading_window.change_requested.connect(change_grading_level)
+	_grading_window.remove_requested.connect(remove_grading_record)
+	_grading_window.closed.connect(close_grading_window)
+	add_child(_grading_window)
+	_grading_window.build()
+	_grading_window.hide()
+
+
+func open_grading_window() -> void:
+	_build_grading_window()
+	if _grading_window == null:
+		return
+	_fill_grading_window()
+	_grading_window.popup_centered()
+	# A window holds the keyboard while it is up, which is what a field to type into needs; the moment
+	# it closes the drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+## Close it. The level and the fall in hand stay: they belong to the controller, so a page that has
+## been closed and opened again still has the level the designer put in it.
+func close_grading_window() -> void:
+	if _grading_window != null and _grading_window.visible:
+		_grading_window.hide()
+
+
+func is_grading_window_open() -> bool:
+	return _grading_window != null and _grading_window.visible
+
+
+## Point the page at the drawing in hand: the two numbers in hand, the records, and the check. Kept
+## apart from *showing* the page so the filling can be driven without a window server, which is how the
+## suite checks it - `popup_centered` needs a screen and a test does not have one.
+func _fill_grading_window() -> void:
+	_build_grading_window()
+	if _grading_window == null:
+		return
+	if _draft != null:
+		_grading_window.set_level(_draft.grading_level)
+		_grading_window.set_fall(_draft.grading_fall_percent)
+	_grading_window.say("")
+	_grading_state = ""
+	_refresh_grading_window()
+
+
+## Put what the drawing holds on the page, without touching the two fields: the fields are what a person
+## is *typing*, and a refresh that overwrote them mid-word would be the page arguing with the hand.
+func _refresh_grading_window() -> void:
+	if _grading_window == null or _draft == null:
+		return
+	var state := "%d|%d" % [_draft.document.gesture_serial(), hash(_draft.document.grading)]
+	if state == _grading_state:
+		return
+	_grading_state = state
+	_grading_window.show_records(_grading_rows())
+	_grading_window.set_report(_draft.grading_report())
+
+
+## The page while it is up: the drawing can change behind it - an undo most of all, which does not come
+## past this HUD - so it is read again whenever the drawing's grading has moved.
+func _tick_grading_window() -> void:
+	if _grading_window == null or not _grading_window.visible:
+		return
+	_refresh_grading_window()
+
+
+## The records the page lists, or none in a scene with no drawing.
+func _grading_rows() -> Array[Dictionary]:
+	if _draft == null:
+		var none: Array[Dictionary] = []
+		return none
+	return _draft.grading_rows()
+
+
+# --- what the page's own controls asked for ---------------------------------------------
+
+
+func state_grading_level(level: float) -> void:
+	if _draft == null or _grading_window == null:
+		return
+	_draft.set_grading_level(level)
+	_grading_window.say(_draft.last_message)
+
+
+func state_grading_fall(percent: float) -> void:
+	if _draft == null or _grading_window == null:
+		return
+	_draft.set_grading_fall(percent)
+	_grading_window.say(_draft.last_message)
+
+
+## A tool was asked for: the page steps out of the way and the tool is armed with the level or the fall
+## in hand. The number is already the controller's by then, so nothing is lost by the page going away -
+## and a window left standing over the plan would be a page between the person and the thing they are
+## drawing on.
+func arm_grading_tool(kind: String) -> void:
+	if _grading_window == null:
+		return
+	# A scene with no drawing still gets an answer rather than silence: a button that cannot do anything
+	# explains itself, here as much as anywhere else.
+	var armed: Dictionary = {"ok": false, "reason": "there is no drawing to grade"}
+	if _draft != null:
+		armed = _draft.begin_grading(kind)
+	if not bool(armed.get("ok", false)):
+		_grading_window.say(String(armed.get("reason", "that tool could not be armed")))
+		return
+	close_grading_window()
+	_refresh_menus()
+
+
+func change_grading_level(kind: String, id: int, level: float) -> void:
+	if _draft == null or _grading_window == null:
+		return
+	var changed: Dictionary = _draft.set_grading_level_of(kind, id, level)
+	_grading_window.say(_draft.last_message)
+	if not bool(changed.get("ok", false)):
+		_grading_window.say(String(changed.get("reason", _draft.last_message)))
+	_grading_state = ""
+	_refresh_grading_window()
+	_refresh_menus()
+
+
+func remove_grading_record(kind: String, id: int) -> void:
+	if _draft == null or _grading_window == null:
+		return
+	var removed: Dictionary = _draft.remove_grading(kind, id)
+	if not bool(removed.get("ok", false)):
+		_grading_window.say(String(removed.get("reason", "that record could not be taken off")))
+		return
+	_grading_window.say(_draft.last_message)
+	_grading_state = ""
+	_refresh_grading_window()
+	_refresh_menus()
+
+
+func _menu_grading_window(_entry: Dictionary) -> void:
+	open_grading_window()
+
+
+## Report on the drawing's own heights: whether the levels, the contours and the arrows agree with each
+## other. The answer arrives on the page it belongs to, the way the planting's check arrives in the
+## library - a report nobody can see is not a report.
+func _menu_check_grading(_entry: Dictionary) -> void:
+	if _draft == null or _draft.document == null:
+		return
+	var findings: Array = _draft.grading_report().get("findings", [])
+	open_grading_window()
+	if findings.is_empty():
+		_grading_window.say("the grading agrees with itself")
+		return
+	_grading_window.say("%d the check disagrees with: %s" % [findings.size(), String(findings[0])])
+
+
 func open_survey_dialog() -> void:
 	if _survey_dialog == null:
 		return
@@ -5858,6 +6075,10 @@ func _refresh_site_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _ground_text())
+	var graded := _find_item(&"site.grading")
+	if not graded.is_empty():
+		var graded_popup: PopupMenu = graded[0]
+		graded_popup.set_item_text(int(graded[1]), _grading_text())
 
 
 ## The live part of the Water menu: the line saying what this drawing is watered by.

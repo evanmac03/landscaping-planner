@@ -33,6 +33,7 @@ const SUBJECTS: Array[String] = [
 	"Editing shapes",
 	"Layers, units and the site",
 	"The ground under the garden",
+	"Stating levels and falls",
 	"Importing somebody else's file",
 	"Tracing over a picture",
 	"Plants",
@@ -218,6 +219,25 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"Site > Check the planting reports what is planted in the wrong place, and Site > Site statistics "
 		+ "reports what the drawing covers, measured by layer.",
+	]))
+	out.append(_topic("Stating levels and falls", [
+		"Ground levels are facts about the plan rather than decoration: a spot level says how high the "
+		+ "ground is at a point, a contour says where it reaches a height, and a slope arrow says which "
+		+ "way it falls and how steeply. Site > The ground's heights opens the page that states them.",
+		"",
+		"A spot level is placed with one click: set the level on the page, then press Spot level here. "
+		+ "The level is a number in the drawing's own units.",
+		"",
+		"A contour is drawn like a polyline - pick its points and press Enter - and it carries the level "
+		+ "in hand.",
+		"",
+		"A slope arrow is two picks, where the fall starts and where it ends, and it carries the fall "
+		+ "percentage in hand. It runs downhill in the direction it was drawn.",
+		"",
+		"Site > Check the grading reads the drawing back and reports what contradicts itself: a spot that "
+		+ "disagrees with the contour it stands on, an arrow that contradicts the levels at its ends, two "
+		+ "contours at the same level, or contours that cross. An arrow with no levels under it is "
+		+ "unchecked, which is not the same as wrong.",
 	]))
 	out.append(_topic("Importing somebody else's file", [
 		"Four imports, all from the File menu, and all of them land on a layer that does not plot.",

@@ -85,13 +85,15 @@ func test_the_file_is_json_a_person_can_read() -> void:
 	var file := FileAccess.open(SCRATCH, FileAccess.READ)
 	var text := file.get_as_text()
 	file.close()
-	# Version 9 is the one that states the pictures under the drawing, on top of version 8's lighting
-	# and 7's irrigation: a reader has to be able to tell "this file has no picture in it" from "this
-	# file's picture list is empty", and that is the same question the ground and the sheets ask.
-	assert(text.contains("\"version\": 9"), "the file says what it is")
+	# Version 10 is the one that states the ground's own heights, on top of version 9's pictures under
+	# the drawing, 8's lighting and 7's irrigation: a reader has to be able to tell "this file has no
+	# level in it" from "this file's level list is empty", and that is the same question the ground and
+	# the sheets ask.
+	assert(text.contains("\"version\": 10"), "the file says what it is")
 	assert(text.contains("\"sheets\""), "and which sheets the drawing goes out as")
 	assert(text.contains("\"irrigation\""), "and what irrigation it carries")
 	assert(text.contains("\"underlays\""), "and what pictures are under it")
+	assert(text.contains("\"grading\""), "and what the ground's heights are")
 	assert(text.contains("\"entities\""), "the entities are named")
 	assert(text.contains(String(LayerSetScript.NEW_HARDSCAPE)), "the layer name is in the file")
 	# Integer keys, which is what JSON does to them: the id is a number in the document and a

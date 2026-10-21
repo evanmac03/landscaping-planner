@@ -106,6 +106,7 @@ const NOT_MEASURED := {
 	&"110-EXIST-PLANT": "existing planting, not new work",
 	&"200-GRADE-CONT": "a contour is a line, and a grading volume needs the levels on either side of it",
 	&"201-GRADE-SPOT": "a spot elevation is not a quantity",
+	&"202-GRADE-SLOPE": "a slope arrow states a fall, and a fall is not a quantity",
 	&"600-HATCH": "a hatch is a pattern over work that is measured on its own layer",
 	&"700-DIMENSION": "an annotation, and it has a length that must not be billed",
 	&"710-TEXT": "an annotation",

@@ -12,10 +12,15 @@ extends RefCounted
 
 const Geom := preload("res://scripts/draft/geom2d.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
+const GradingScript := preload("res://scripts/draft/grading.gd")
 
 ## The drawing tools. Dimension is appended after the shape tools rather than
 ## slotted in beside measure, because an enum's values are its numbers and
 ## renumbering a shipped one is a way to break a file that still reads correctly.
+##
+## The three grading tools are appended for the same reason, and they are *different* from the shape
+## tools in what they hand back: a spot level and a slope arrow complete with their picks rather than
+## with an entity (see `_grading_result`). A contour is a ring, and is finished like the polyline.
 enum Kind {
 	SELECT,
 	LINE,
@@ -27,6 +32,9 @@ enum Kind {
 	DIMENSION,
 	DIMENSION_LINEAR,
 	DIMENSION_RADIUS,
+	GRADE_SPOT,
+	GRADE_CONTOUR,
+	GRADE_SLOPE,
 }
 
 ## Smallest shape that is still a shape. Two points closer than this describe
@@ -74,6 +82,13 @@ func needed_points() -> int:
 		# A centre and a point on the circle: the radius is the distance, and the
 		# direction of the second pick is where the leader goes.
 		return 2
+	if kind == Kind.GRADE_SPOT:
+		# A spot level is one place: where the level is. Which level it is belongs to the controller,
+		# which holds the level in hand - a tool that held it would be a tool that could hold two.
+		return 1
+	if kind == Kind.GRADE_SLOPE:
+		# The top of the fall and the bottom of it, which is the direction the arrow runs.
+		return 2
 	# An arc is a centre, a start and a sweep; a linear or aligned dimension is
 	# two points to measure and somewhere to put the line that measures them.
 	if kind == Kind.ARC or kind == Kind.DIMENSION or kind == Kind.DIMENSION_LINEAR:
@@ -92,6 +107,33 @@ static func is_dimension(tool_kind: Kind) -> bool:
 	return tool_kind == Kind.DIMENSION \
 		or tool_kind == Kind.DIMENSION_LINEAR \
 		or tool_kind == Kind.DIMENSION_RADIUS
+
+
+## Whether a tool states something about the ground's heights rather than drawing a shape: the spot
+## level, the contour and the slope arrow. One question, asked by the controller, by the layer the
+## tool draws on and by the commit itself, so those three cannot disagree about which tools these are.
+static func is_grading(tool_kind: Kind) -> bool:
+	return tool_kind == Kind.GRADE_SPOT \
+		or tool_kind == Kind.GRADE_CONTOUR \
+		or tool_kind == Kind.GRADE_SLOPE
+
+
+## Which kind of grading record a grading tool states, or "" for any other tool. The words are the
+## module's own, so a record cannot be filed under a name nothing else knows.
+static func grading_kind(tool_kind: Kind) -> String:
+	if tool_kind == Kind.GRADE_SPOT:
+		return GradingScript.SPOT
+	if tool_kind == Kind.GRADE_CONTOUR:
+		return GradingScript.CONTOUR
+	if tool_kind == Kind.GRADE_SLOPE:
+		return GradingScript.SLOPE
+	return ""
+
+
+## Whether a tool collects points until it is told to stop - the polyline, and a contour, which is a
+## polyline that happens to land on a grading layer and carry a level.
+static func is_ring(tool_kind: Kind) -> bool:
+	return tool_kind == Kind.POLYLINE or tool_kind == Kind.GRADE_CONTOUR
 
 
 ## Drop the last picked point. Backspace, in a drawing tool.
@@ -121,7 +163,7 @@ func click(point: Vector2) -> Dictionary:
 	if kind == Kind.SELECT:
 		return _result(false, null, null, 0)
 
-	if kind == Kind.POLYLINE:
+	if is_ring(kind):
 		_points.append(point)
 		return _result(false, null, null, _points.size())
 
@@ -162,7 +204,7 @@ func click(point: Vector2) -> Dictionary:
 ## tool reports its last pair.
 func finish() -> Dictionary:
 	_last_reason = ""
-	if kind != Kind.POLYLINE:
+	if not is_ring(kind):
 		if kind == Kind.MEASURE and _points.size() >= 2:
 			var measure := _measure_between(_points[_points.size() - 2], _points[_points.size() - 1])
 			_points = PackedVector2Array()
@@ -171,18 +213,36 @@ func finish() -> Dictionary:
 	if _points.size() < 2:
 		_last_reason = "a polyline needs two points"
 		return _result(false, null, null, _points.size())
+	if is_grading(kind):
+		return _grading_result(_points)
 	var entity = EntityScript.make_polyline(_points, false)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
 
 
 func finish_closed() -> Dictionary:
-	if kind != Kind.POLYLINE or _points.size() < 3:
+	if not is_ring(kind) or _points.size() < 3:
 		_last_reason = "a closed polyline needs three points"
 		return _result(false, null, null, _points.size())
+	if is_grading(kind):
+		return _grading_result(_points, true)
 	var entity = EntityScript.make_polyline(_points, true)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
+
+
+## A grading tool's completion: the picks, handed over for the controller to stamp.
+##
+## The tool builds no entity, and that is deliberate rather than an omission. What a spot level or a
+## slope arrow is worth drawing as is a *set* - a mark and a label, sized on paper at the plot scale -
+## and neither the plot scale nor the level in hand belongs to a tool. So the picks come back through
+## the same channel a measurement does, and `DraftController` turns them into records and marks.
+func _grading_result(picked: PackedVector2Array, closed: bool = false) -> Dictionary:
+	if picked.is_empty():
+		return {"ok": false, "reason": "that is not a place on the ground"}
+	var payload := {"grading": grading_kind(kind), "points": picked, "closed": closed}
+	_points = PackedVector2Array()
+	return _result(true, null, payload, 0)
 
 
 func _result(committed: bool, entity, measure, progress: int) -> Dictionary:
@@ -225,6 +285,19 @@ func _build() -> Dictionary:
 		return _radius_dimension(_points[0], _points[1])
 	if kind == Kind.MEASURE:
 		return {"ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1])}
+	if kind == Kind.GRADE_SPOT:
+		return {
+			"ok": true, "entity": null,
+			"measure": {"grading": GradingScript.SPOT, "points": _points.duplicate(), "closed": false},
+		}
+	if kind == Kind.GRADE_SLOPE:
+		var reason := _measured_pair_reason(_points[0], _points[1])
+		if reason != "":
+			return {"ok": false, "reason": "a slope arrow needs two distinct points"}
+		return {
+			"ok": true, "entity": null,
+			"measure": {"grading": GradingScript.SLOPE, "points": _points.duplicate(), "closed": false},
+		}
 	return {"ok": false, "reason": "the %s tool takes no points" % kind}
 
 
@@ -352,12 +425,18 @@ func preview(cursor: Vector2):
 		return null
 	if kind == Kind.LINE:
 		return EntityScript.make_line(_points[0], cursor)
-	if kind == Kind.POLYLINE:
+	if kind == Kind.POLYLINE or kind == Kind.GRADE_CONTOUR:
 		var rubber := _points.duplicate()
 		rubber.append(cursor)
 		if rubber.size() < 2:
 			return null
 		return EntityScript.make_polyline(rubber, false)
+	if kind == Kind.GRADE_SLOPE:
+		# The rubber band is the arrow's own shaft, so what is being drawn is legible before it is
+		# committed: a line from the top of the fall to wherever the bottom is going to be.
+		if _points[0].distance_to(cursor) <= MIN_SIZE:
+			return null
+		return EntityScript.make_line(_points[0], cursor)
 	if kind == Kind.RECTANGLE:
 		var size := (cursor - _points[0]).abs()
 		if size.x <= MIN_SIZE or size.y <= MIN_SIZE:
@@ -412,9 +491,14 @@ func status() -> String:
 		return "Click geometry to select it"
 	if kind == Kind.LINE:
 		return "Specify the first point" if _points.is_empty() else "Specify the second point"
-	if kind == Kind.POLYLINE:
+	if kind == Kind.POLYLINE or kind == Kind.GRADE_CONTOUR:
 		return "Specify the first point" if _points.is_empty() \
 			else "Specify the next point, Enter to finish, C to close"
+	if kind == Kind.GRADE_SPOT:
+		return "Click the place the level is at"
+	if kind == Kind.GRADE_SLOPE:
+		return "Specify the top of the fall" if _points.is_empty() \
+			else "Specify the bottom - the arrow runs downhill"
 	if kind == Kind.RECTANGLE:
 		return "Specify the first corner" if _points.is_empty() else "Specify the opposite corner"
 	if kind == Kind.CIRCLE:
@@ -458,4 +542,10 @@ static func label_for(tool_kind: Kind) -> String:
 		return "Linear dimension"
 	if tool_kind == Kind.DIMENSION_RADIUS:
 		return "Radial dimension"
+	if tool_kind == Kind.GRADE_SPOT:
+		return "Spot level"
+	if tool_kind == Kind.GRADE_CONTOUR:
+		return "Contour"
+	if tool_kind == Kind.GRADE_SLOPE:
+		return "Slope arrow"
 	return "?"

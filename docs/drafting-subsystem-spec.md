@@ -196,6 +196,61 @@ or a note may be selected, because selecting is not editing. A shape the band na
 have been taken off the drawing, so a selection MUST skip ids that no longer exist rather
 than fail.
 
+### 2.1d Stating levels and falls, as built
+
+**Built and tested**: `scripts/draft/grading.gd` (`Grading`, the records and the arithmetic),
+`scripts/grading_window.gd` (the page) and `DraftController`'s grading surface - 24 + 20 + 15 + 12
+tests in `tests/test_grading.gd`, `tests/test_grading_tools.gd`, `tests/test_grading_window.gd` and
+`tests/test_hud_grading.gd`; looked at live by `tools/grading_demo.gd`. Reached from the Site menu,
+which offers the page and the check, and whose own line carries how many things the drawing
+contradicts itself about before the page is opened.
+
+The tool inventory above has no tool for the ground's own height, and the three this grew put no
+shape on the drawing in the ordinary sense: a spot level is a mark and a label, a contour is a line
+that carries a height, an arrow is a line that carries a direction. They are therefore not palette
+tools - they are reached from the page, the footing the ground zone and the planting fill are on -
+and they commit through the `measure` channel rather than by handing back an entity.
+
+**REQ 2.1d.1** A level MUST be a stated fact and not a derived one, so it is stored as it was
+stated. A level that is not a number MUST be carried as not-a-number and reported as a finding,
+never read as zero: zero is a real elevation above a real benchmark, and a spot with no level is a
+mark somebody has to be told about.
+
+**REQ 2.1d.2** A slope arrow MUST carry the fall in hand - the intention - and the check MUST
+compare it against the levels at its ends rather than derive it from them, because a fall derived
+from the levels would leave nothing to check. Positive is downhill along the arrow, and 100 percent
+(one in one) is the steepest fall that is a fall rather than a wall. An arrow with no spot level at
+either end is **unchecked**, and unchecked is a note rather than a finding: the two are separate
+sentences.
+
+**REQ 2.1d.3** The check MUST report what the drawing contradicts itself about: a spot that
+disagrees with the contour it stands on, an arrow that contradicts the levels under it, two
+contours at one level, and contours of different levels that cross. Findings and notes MUST be kept
+apart, because 'the ground is not stated' is not the same claim as 'the ground is stated twice and
+both are wrong'.
+
+**REQ 2.1d.4** A record set MUST survive the file, a snapshot and an undo, and each of placing,
+re-leveling and removing a record MUST be one named undoable gesture. Removing a record MUST take
+its own marks off the drawing and leave every other record's alone, and an act that found nothing
+MUST record no gesture at all.
+
+**REQ 2.1d.5** A record MUST be stamped onto a layer, and stamping onto a locked layer MUST be
+refused rather than written through the lock, the same rule every other tool keeps.
+
+**As built.** The records are plain dictionaries in `DraftDocument.grading` - the `Irrigation` and
+`Lighting` arrangement - with `Grading` static over them; the three tools complete with **picks** and
+the controller stamps them, so the arithmetic is in one module whether a record arrived from a click
+or from a file. Three layers carry them: `200-GRADE-CONT`, `201-GRADE-SPOT` and `202-GRADE-SLOPE`
+(REQ 5.1.1). A level is worded in the drawing's own units through `DraftUnits.format_length`, and a
+fall is worded as a percentage and a ratio - `falling 2.5% (1 in 40)`. The record set is document
+version 10.
+
+**Deviation, recorded deliberately.** A level here is a fact about the plan and not a surface: the
+3D view keeps a flat ground beneath it, with no TIN, no cut-and-fill and no drainage design. Grading
+a site properly is its own discipline, and the useful thing a plan states is where the ground is and
+which way it falls; section 11 records what stays open.
+
+
 ### 2.2 Coordinate entry grammar
 
 **REQ 2.2.1** Every point input MUST accept typed coordinates as an alternative
@@ -626,6 +681,7 @@ lower sorts underneath and plots first.
 | 110 | `110-EXIST-PLANT` | existing plant material | green | 0.13 | Continuous | yes |
 | 200 | `200-GRADE-CONT` | contours | yellow | 0.25 | Continuous | yes |
 | 201 | `201-GRADE-SPOT` | spot elevations | yellow | 0.18 | Continuous | yes |
+| 202 | `202-GRADE-SLOPE` | slope arrows | yellow | 0.18 | Continuous | yes |
 | 300 | `300-NEW-HARD` | new paving, walls, steps | red | 0.50 | Continuous | yes |
 | 301 | `301-NEW-STRUCT` | deck, pergola, structure | red | 0.50 | Continuous | yes |
 | 400 | `400-NEW-BED` | bed outlines and edging | red | 0.35 | Continuous | yes |
@@ -1499,3 +1555,8 @@ Five decisions change this specification structurally rather than cosmetically.
    picture's own frame - and its failures are quiet, which is the failure mode
    REQ 6.8.1 refuses. It stays open until somebody is tracing scans often enough to
    want it.
+
+6. **Is the ground a surface or a set of facts?** REQ 2.1d states levels, contours and falls,
+   and the 3D view keeps a flat ground beneath them. A TIN built from the contours, with cut-and-fill
+   and drainage worked out over it, is the other half of grading and a much larger piece than stating
+   the heights: it changes what the document *is*, not only what it says.

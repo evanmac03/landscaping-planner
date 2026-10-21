@@ -240,8 +240,15 @@ func test_the_palette_offers_a_button_for_every_drawing_tool() -> void:
 	var expected: Array[int] = []
 	for kind: Tool.Kind in Tool.Kind.values():
 		# Selecting is not a drawing tool: it is what you do with no tool in hand.
-		if kind != Tool.Kind.SELECT:
-			expected.append(int(kind))
+		if kind == Tool.Kind.SELECT:
+			continue
+		# Nor are the three grading tools drawing tools. A spot level, a contour and a slope arrow put
+		# no shape on the drawing - they state something about the ground's heights - so they are
+		# reached from the Site menu and from the grading page, the same footing the ground zone and the
+		# planting fill are on. That their own reach exists is what `test_hud_grading.gd` checks.
+		if Tool.is_grading(kind):
+			continue
+		expected.append(int(kind))
 	offered.sort()
 	expected.sort()
 	assert(offered == expected, "palette offers %s, the tools are %s" % [offered, expected])

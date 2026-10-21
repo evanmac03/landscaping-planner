@@ -39,6 +39,7 @@ const DraftSimplifyScript := preload("res://scripts/draft/draft_simplify.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+const GradingScript := preload("res://scripts/draft/grading.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -189,6 +190,23 @@ var _selected: Array[int] = []
 ## to the drawing.
 var zone_hand: bool = false
 
+## The level a grading tool is stating, in metres above whatever benchmark the drawing uses. The level
+## *in hand*, like the layer in hand: it is what the next spot level gets, it is not a fact about the
+## drawing, and it is therefore not written into the file. What the drawing keeps is the levels that
+## were stamped with it.
+## The fall a slope arrow states, in percent, downhill along the arrow. The *intention* rather than a
+## measurement, which is why it is a number in hand rather than something worked out: the levels say
+## what the ground does, the arrow says what the paving is to do, and the check exists to catch the two
+## disagreeing. An arrow whose ends have no levels on them is not wrong, it is unchecked, and the
+## report says which of the two it is.
+var grading_fall_percent: float = 2.0
+
+## The level a grading tool is stating, in metres above whatever benchmark the drawing uses. The level
+## *in hand*, like the layer in hand: it is what the next spot level gets, it is not a fact about the
+## drawing, and it is therefore not written into the file. What the drawing keeps is the levels that
+## were stamped with it.
+var grading_level: float = 0.0
+
 var _last_snap: Dictionary = {}
 
 signal changed()
@@ -244,6 +262,11 @@ func set_tool(kind: ToolScript.Kind) -> void:
 func _layer_for(kind: ToolScript.Kind) -> StringName:
 	if ToolScript.is_dimension(kind):
 		return LayerSetScript.DIMENSION
+	if ToolScript.is_grading(kind):
+		# A grading mark goes on its own grading layer whatever was last drawn on, for the reason a
+		# dimension goes on the dimension layer: a level buried among the paving plots at the paving's
+		# weight and counts in the paving's row of the key.
+		return GradingScript.layer_for(ToolScript.grading_kind(kind))
 	return drawing_layer
 
 
@@ -514,6 +537,13 @@ func redo() -> bool:
 
 
 func _commit(pick: Dictionary) -> void:
+	# A grading tool hands back picks rather than a shape - a spot level is a mark *and* a label, and
+	# only the module knows how big either is on paper - so it is stamped and the commit is over. The
+	# picks come through the measure channel because that is the channel a tool has for "here is what
+	# I picked, and no entity came of it".
+	if ToolScript.is_grading(tool.kind):
+		_commit_grading(pick.get("measure", null))
+		return
 	var entity = pick["entity"]
 	if entity != null:
 		# A ring drawn to state a ground zone is not geometry: nothing goes on the drawing, and the
@@ -1973,6 +2003,269 @@ static func _circuit_count_words(circuits: int, fixtures: int, watts: String) ->
 	var circuit_part := "1 circuit" if circuits == 1 else "%d circuits" % circuits
 	var fixture_part := "1 fixture" if fixtures == 1 else "%d fixtures" % fixtures
 	return "%s, %s drawing %s W" % [circuit_part, fixture_part, watts]
+
+
+# --- the ground's own heights -----------------------------------------------------------
+#
+# Spot levels, contours and slope arrows. The records live on the drawing (`document.grading`) and the
+# marks live on the drawing as entities, which is the split irrigation and lighting use: the module
+# does the arithmetic, the drawing keeps what was stated, and the entities are what a plan and a plot
+# are made of.
+#
+# A grading entity carries its own record's kind and id in `meta`, so taking a level off the drawing
+# finds every mark and every label that level put there and nothing else.
+
+
+## Every grading record the drawing holds, as the module's own set.
+func grading() -> Dictionary:
+	if document == null:
+		return GradingScript.empty_set()
+	return GradingScript.from_dict(document.grading)
+
+
+func grading_spots() -> Array:
+	return GradingScript.spots_of(grading())
+
+
+func grading_contours() -> Array:
+	return GradingScript.contours_of(grading())
+
+
+func grading_slopes() -> Array:
+	return GradingScript.slopes_of(grading())
+
+
+## The level the next grading tool stamps, in words, so a page and a status line cannot word it twice.
+func grading_level_words() -> String:
+	return GradingScript.level_words(grading_level, document.units if document != null else null)
+
+
+## State the level in hand. A level is a number: anything that is not one is refused rather than read
+## as zero, because zero is a real elevation above a real benchmark.
+func set_grading_level(level: float) -> Dictionary:
+	if is_nan(level) or not is_finite(level):
+		last_message = "a level is a number"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "level": grading_level}
+	grading_level = level
+	last_message = "a level of %s" % grading_level_words()
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "level": grading_level, "message": last_message}
+
+
+## State the fall in hand, in percent downhill. Refused rather than clamped for anything that is not a
+## percentage, and refused beyond a fall that is not a fall: 100% is one in one, and a garden path at
+## more than that is a wall.
+func set_grading_fall(percent: float) -> Dictionary:
+	if is_nan(percent) or not is_finite(percent) or absf(percent) > GradingScript.MAX_PERCENT:
+		last_message = "a fall is a percentage below %s" % GradingScript.MAX_PERCENT
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "percent": grading_fall_percent}
+	grading_fall_percent = percent
+	last_message = "slope arrows are drawn %s" % GradingScript.percent_words(percent)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "percent": percent, "message": last_message}
+
+
+## Arm a grading tool with the level in hand. What a menu entry and a button both call, so the level
+## cannot be in hand in one place and not the other.
+func begin_grading(kind: String) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to grade"}
+	if not GradingScript.is_kind(kind):
+		return {"ok": false, "reason": "that is not a kind of grading"}
+	var tool_kind := ToolScript.Kind.GRADE_SPOT
+	if kind == GradingScript.CONTOUR:
+		tool_kind = ToolScript.Kind.GRADE_CONTOUR
+	elif kind == GradingScript.SLOPE:
+		tool_kind = ToolScript.Kind.GRADE_SLOPE
+	arm(tool_kind)
+	last_message = _grading_arm_words(kind)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "tool": tool_kind}
+
+
+## What arming a grading tool says, in the words of the kind: a level in the drawing's own units for
+## the two kinds that state one, and a fall in percent for the arrow that states one instead.
+func _grading_arm_words(kind: String) -> String:
+	if kind == GradingScript.SLOPE:
+		return "a slope arrow %s" % GradingScript.percent_words(grading_fall_percent)
+	return "a %s at %s" % [GradingScript.kind_name(kind), grading_level_words()]
+
+
+## Stamp what a grading tool just picked.
+##
+## The whole act is one gesture, named, and it refuses before it touches the drawing: a spot with no
+## pick, a contour with one point and an arrow with no length are all things that would put a record
+## on the drawing with no mark behind it, which is the state that makes a drawing lie about itself.
+func stamp_grading(picks: Dictionary) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to grade", "added": 0}
+	var kind := String(picks.get("grading", ""))
+	if not GradingScript.is_kind(kind):
+		return {"ok": false, "reason": "that is not a kind of grading", "added": 0}
+	if document.is_layer_locked(GradingScript.layer_for(kind)):
+		last_message = "%s is locked" % String(GradingScript.layer_for(kind))
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0}
+	if is_nan(grading_level) or not is_finite(grading_level):
+		last_message = "a level is a number"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "added": 0}
+
+	var points: PackedVector2Array = picks.get("points", PackedVector2Array())
+	var records := grading()
+	var id := GradingScript.next_id(records, kind)
+	var record: Dictionary = {}
+	var label := ""
+	if kind == GradingScript.SPOT:
+		if points.is_empty():
+			return _grading_refused("a spot level is a place, and nothing was picked")
+		record = GradingScript.make_spot(id, points[0], grading_level)
+		label = "stating a spot level"
+	elif kind == GradingScript.CONTOUR:
+		if points.size() < GradingScript.MIN_CONTOUR_POINTS:
+			return _grading_refused("a contour needs at least two points to be a line")
+		record = GradingScript.make_contour(id, grading_level, points, bool(picks.get("closed", false)))
+		label = "drawing a %s contour" % GradingScript.level_words(grading_level, document.units)
+	else:
+		if points.size() < 2 or points[0].distance_to(points[1]) < GradingScript.MIN_RUN_M:
+			return _grading_refused("a slope arrow needs two points with a fall between them")
+		if is_nan(grading_fall_percent) or not is_finite(grading_fall_percent):
+			return _grading_refused("a slope arrow states a fall, and a fall is a percentage")
+		record = GradingScript.make_slope(id, points[0], points[1], grading_fall_percent)
+		label = "drawing a slope arrow"
+
+	document.begin_gesture(label)
+	GradingScript.add_record(records, kind, record)
+	document.grading = GradingScript.to_dict(records)
+	var added := _stamp_grading(kind, record)
+	_rebind_snap()
+	dirty = true
+	last_message = "%s is on the drawing, with %s" % [GradingScript.record_words(kind, record,
+		document.units), "1 mark" if added == 1 else "%d marks" % added]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "message": last_message, "kind": kind, "id": id,
+		"record": record, "added": added, "rows": grading_rows(),
+	}
+
+
+## Change the level a record states. One named gesture, worked out and compared before anything moves,
+## so asking for the level it already has records nothing.
+func set_grading_level_of(kind: String, id: int, level: float) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to change"}
+	if not GradingScript.is_kind(kind):
+		return {"ok": false, "reason": "that is not a kind of grading"}
+	if is_nan(level) or not is_finite(level):
+		return _grading_refused("a level is a number")
+	var records := grading()
+	var record := GradingScript.record_for(records, kind, id)
+	if record.is_empty():
+		return _grading_refused("there is no %s %d on this drawing" % [GradingScript.kind_name(kind), id])
+	if absf(float(record.get("level", NAN)) - level) <= GradingScript.LEVEL_TOLERANCE:
+		last_message = "%s is already at %s" % [GradingScript.kind_name(kind),
+			GradingScript.level_words(level, document.units)]
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "changed": false}
+	document.begin_gesture("changing the level of a %s" % GradingScript.kind_name(kind))
+	record["level"] = level
+	document.grading = GradingScript.to_dict(records)
+	_clear_grading_entities(kind, id)
+	var added := _stamp_grading(kind, record)
+	_rebind_snap()
+	dirty = true
+	last_message = "%s is %s" % [GradingScript.kind_name(kind),
+		GradingScript.level_words(level, document.units)]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "changed": true, "message": last_message, "added": added}
+
+
+## Take a record off the drawing, with every mark and every label it put there.
+func remove_grading(kind: String, id: int) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to change"}
+	if not GradingScript.is_kind(kind):
+		return {"ok": false, "reason": "that is not a kind of grading"}
+	var records := grading()
+	if GradingScript.record_for(records, kind, id).is_empty():
+		return _grading_refused("there is no %s %d on this drawing" % [GradingScript.kind_name(kind), id])
+	document.begin_gesture("taking a %s off the drawing" % GradingScript.kind_name(kind))
+	GradingScript.remove_record(records, kind, id)
+	document.grading = GradingScript.to_dict(records)
+	var removed := _clear_grading_entities(kind, id)
+	_rebind_snap()
+	dirty = true
+	last_message = "%s off the drawing, with %s" % [GradingScript.kind_name(kind),
+		"1 mark" if removed == 1 else "%d marks" % removed]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
+		"rows": grading_rows()}
+
+
+## The drawing's grading, checked against itself: the crossed contours, the two of one level, the spot
+## that disagrees with the line it stands on and the arrow that contradicts its own ends.
+func grading_report() -> Dictionary:
+	return GradingScript.check(grading(), document.units if document != null else null)
+
+
+## Whether the check has anything wrong to say. A drawing with no grading has nothing wrong with it.
+func grading_reports_findings() -> bool:
+	return not bool(grading_report()["ok"])
+
+
+func grading_rows() -> Array[Dictionary]:
+	return GradingScript.schedule(grading(), document.units if document != null else null)
+
+
+func grading_lines() -> Array[String]:
+	return GradingScript.schedule_lines(grading(), document.units if document != null else null)
+
+
+func grading_summary() -> String:
+	return GradingScript.summary(grading(), document.units if document != null else null)
+
+
+## Put a record's marks and labels on the drawing. Returns how many entities were added.
+func _stamp_grading(kind: String, record: Dictionary) -> int:
+	var added := 0
+	for entity in GradingScript.entities_for(kind, record, plot_scale, document.units):
+		if entity == null:
+			continue
+		document.add(entity, GradingScript.layer_for(kind))
+		added += 1
+	return added
+
+
+## Take a record's own entities off the drawing, and nothing else: the kind and the id in the entity's
+## metadata are what say an entity belongs to this record rather than to the drawing.
+func _clear_grading_entities(kind: String, id: int) -> int:
+	var removed := 0
+	for entry in document.entities():
+		var entity: DraftEntity = entry
+		if GradingScript.kind_of_entity(entity) != kind:
+			continue
+		if GradingScript.id_of_entity(entity) != id:
+			continue
+		if document.remove(entity.id):
+			removed += 1
+	return removed
+
+
+## The commit a grading tool lands on. Named here rather than in `_commit` so the commit stays a
+## dispatcher and the wording stays in one place.
+func _commit_grading(picks) -> void:
+	if not (picks is Dictionary):
+		return
+	var stamped := stamp_grading(picks)
+	last_message = String(stamped.get("message", stamped.get("reason", "")))
+
+
+func _grading_refused(reason: String) -> Dictionary:
+	last_message = reason
+	_refresh_canvas()
+	return {"ok": false, "reason": reason, "added": 0, "removed": 0}
 
 
 # --- the pictures under the drawing ----------------------------------------------------

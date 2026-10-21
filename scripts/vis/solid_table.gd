@@ -84,6 +84,7 @@ const NO_SOLID := {
 	LayerSetScript.EXISTING_PLANTING: "Existing planting is modelled as props, not extruded from symbols; a canopy's height is a property of the plant, not of the drawing.",
 	LayerSetScript.GRADING_CONTOUR: "A contour is a line. The ground it crosses is a solid on the layer that owns the ground.",
 	LayerSetScript.GRADING_SPOT: "An annotation.",
+	LayerSetScript.GRADING_SLOPE: "An annotation: a line with a direction on it, and the ground it falls across is a solid on the layer that owns the ground.",
 	LayerSetScript.NEW_PLANTING: "New planting is props too, for the same reason as existing: a symbol is a canopy seen from above, and a tree is not an extrusion of it.",
 	LayerSetScript.NEW_TURF: "Turf *is* the ground. Extruding it would raise the whole garden by the thickness of the grass and put a step at every border.",
 	LayerSetScript.IRRIGATION: "Below ground, and drawn as linework.",

@@ -77,6 +77,16 @@ var irrigation: Dictionary = {}
 ## drawing only keeps the records, and the load check refuses a circuit with no transformer stated.
 var lighting: Dictionary = {}
 
+## The ground's own heights, as the grading module writes them: `{"spots": [...], "contours": [...],
+## "slopes": [...]}`, with each record's own shape owned by `Grading`. The fourth sibling of
+## `irrigation`, `lighting` and `underlays`, and held the same way for the same reason: `Grading` is
+## static and does the arithmetic, and the drawing only keeps the records.
+##
+## The two grading layers have been in the preset set from the beginning and nothing authored them
+## until this did; a file written before it existed gets no levels, which is a drawing nobody has
+## graded rather than a drawing whose levels went missing.
+var grading: Dictionary = {}
+
 ## The pictures lying under the drawing, as `RasterUnderlay` writes them: a scan of a surveyor's
 ## plan to trace over, an aerial photograph, the consultant's rendered concept. It is the sibling of
 ## `irrigation` and `lighting` and is held the same way - the module `RasterUnderlay` does the
@@ -490,6 +500,7 @@ func snapshot() -> Dictionary:
 		"lighting": lighting.duplicate(true),
 		"underlays": underlays.duplicate(true),
 		"next_underlay_id": _next_underlay_id,
+		"grading": grading.duplicate(true),
 	}
 
 
@@ -553,6 +564,11 @@ func restore(state: Dictionary) -> void:
 		if entry is Dictionary:
 			underlays.append((entry as Dictionary).duplicate(true))
 	_next_underlay_id = int(state.get("next_underlay_id", underlays.size() + 1))
+	# The ground's own heights, read the same way as the three above: a file written before this
+	# existed gets no levels, which is a drawing nobody has graded rather than one whose levels went
+	# missing.
+	var grading_state: Variant = state.get("grading", null)
+	grading = grading_state.duplicate(true) if grading_state is Dictionary else {}
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -612,8 +628,12 @@ func to_dict() -> Dictionary:
 	# Version 9 states the pictures lying under the drawing - a scan to trace over, an aerial
 	# photograph. It is the same shape a fourth time and for the same reason: no pictures is a
 	# drawing nobody has traced over, not a drawing whose picture went missing.
+	#
+	# Version 10 states the ground's own heights - the spot levels, the contours and the slope arrows.
+	# The same shape a fifth time: a file with no grading in it is a drawing nobody has graded, and
+	# the check has nothing to say about it rather than finding it flat.
 	return {
-		"version": 9,
+		"version": 10,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
@@ -623,6 +643,7 @@ func to_dict() -> Dictionary:
 		"lighting": lighting.duplicate(true),
 		"underlays": underlays.duplicate(true),
 		"next_underlay_id": _next_underlay_id,
+		"grading": grading.duplicate(true),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

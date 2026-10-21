@@ -111,6 +111,7 @@ const NO_WASH := {
 	LayerSetScript.SETBACK_EASEMENT: "A constraint, drawn as a line.",
 	LayerSetScript.GRADING_CONTOUR: "A contour is a line; the ground it crosses is washed by the layer that owns the ground.",
 	LayerSetScript.GRADING_SPOT: "An annotation.",
+	LayerSetScript.GRADING_SLOPE: "A slope arrow is a line; the ground it falls across is washed by the layer that owns the ground.",
 	LayerSetScript.IRRIGATION: "Below ground.",
 	LayerSetScript.LIGHTING: "Above ground.",
 	LayerSetScript.HATCH: "A pattern layer. A wash under a hatch would double-count the same ground.",
