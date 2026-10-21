@@ -14,3 +14,8 @@ addons/ziva_agent/
 
 # Ziva's own QA-run scratch (run_scene / run_tests output). Not project source.
 .ziva/
+
+# Scratch written by a one-off tool run: a temp render, a probe image, a dump. Not
+# project source - if something is worth keeping it belongs in a tool's own output
+# folder, not at the root.
+tmp_*
