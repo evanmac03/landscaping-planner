@@ -201,6 +201,99 @@ are mixed - check the licence on the model rather than the site - and Botaniq, T
 SpeedTree are paid. A model arrives Y-up, which is what `.gltf` is and what the rest of the project
 already assumes.
 
+### 4b.2 What was pulled in, and what was refused
+
+The models above are built here. A whole library can also be *pulled in* - and the useful part of doing
+that was measuring, because the two obvious CC0 sources answer differently.
+
+**Kenney's Nature Kit is in, under `assets/plants/kenney/`.** CC0-1.0, no account, one 10.5 MB zip of
+329 `.glb` models - 72 of them plants - under `Models/GLTF format/`:
+
+    https://kenney.nl/media/pages/assets/nature-kit/37ac38a37b-1677698939/kenney_nature-kit.zip
+
+Thirteen of them are here, 3-32 KB each, one self-contained `<id>.glb` beside its siblings (no textures at
+all: the materials are `baseColorFactor` under `KHR_materials_unlit`). The footprints are **measured off
+the file, never typed** - they are the `SYMBOLS` sizes - and the shape is the symbol the plan draws the
+species as.
+
+| file | shape | footprint | height | triangles |
+| --- | --- | --- | --- | --- |
+| `tree_default.glb` | canopy | 0.76 m | 1.71 m | 114 |
+| `tree_detailed.glb` | canopy | 0.85 m | 1.33 m | 402 |
+| `tree_fat.glb` | canopy | 0.76 m | 1.15 m | 50 |
+| `tree_oak.glb` | canopy | 0.74 m | 1.23 m | 196 |
+| `plant_bushDetailed.glb` | shrub | 0.60 m | 0.36 m | 104 |
+| `plant_bush.glb` | shrub | 0.40 m | 0.24 m | 32 |
+| `plant_bushLarge.glb` | shrub | 0.37 m | 0.24 m | 60 |
+| `plant_bushTriangle.glb` | shrub | 0.41 m | 0.30 m | 30 |
+| `grass.glb` | grass | 0.39 m | 0.25 m | 132 |
+| `grass_large.glb` | grass | 0.41 m | 0.25 m | 224 |
+| `grass_leafsLarge.glb` | grass | 0.49 m | 0.14 m | 144 |
+| `plant_flatTall.glb` | groundcover | 0.27 m | 0.28 m | 32 |
+| `plant_bushSmall.glb` | groundcover | 0.38 m | 0.21 m | 16 |
+
+Every one of them dips 5 cm below its own origin on purpose, so a model seated at `y = 0` sits *in* the
+ground rather than on it; `tests/test_plant_packs.gd` grants it a floor of -0.10 m and a ceiling of
++0.02 m. They arrive in the kit's own palette whatever the scene lighting is, which is honest for a shape
+and is also why they cannot be re-inked by the plan's pens.
+
+**The library is not the point; the shape is.** `tools/plant_packs.gd` plants a species with *the model of
+the shape the plan already draws it as*: `SHAPE_MODELS` is keyed by symbol (`canopy`, `shrub`, `grass`,
+`groundcover`), and the four shapes the kit does not sell (`conifer`, `fern`, `vine`, `bed`) stay on the
+models this project built. Several models share a shape and are shared out **by genus** - ranked
+alphabetically, `index % count` - so a border of nine grasses is not nine copies of one tuft and every
+cultivar of a genus gets the same model. A species is only pointed at a model that makes **no claim it
+contradicts**: the file is named for a *shape* (`tree_oak`, `plant_bush`, `grass`), never for another
+species.
+
+`PlantPacks.apply()` writes `nursery_list.json` through `PlantCatalogue.save_to` - the same writer the
+expansion tool uses - so the diff is one `model_scene` line per plant, and all **130** species now carry a
+model: 65 from the pack and 65 of the four shapes the kit does not have. `PlantPacks.symbol_source()`
+prints the `SYMBOLS` text so no size is ever retyped, and `tests/test_plant_packs.gd` measures the files on
+disk against that table on every suite run.
+
+**Poly Haven was measured and refused; nothing of it is kept.** Its trees are not plants you place on a
+plan, they are scan-grade geometry:
+
+| Poly Haven asset (1k) | downloaded |
+| --- | --- |
+| `pine_tree_01` | 958.12 MB |
+| `fir_tree_01` | 487.36 MB |
+| `pine_sapling_medium` | 267.82 MB |
+| `jacaranda_tree` | 214.61 MB |
+| `tree_small_02` | 100.97 MB |
+| `island_tree_03` | 84.89 MB |
+| `fir_sapling_medium` | 78.06 MB |
+| `island_tree_01` | 66.34 MB |
+| `island_tree_02` | 46.17 MB |
+
+and its light botanical models are built for scattering and rendering, not for standing one plant on the
+paper. Most are **flat alpha cards**: `grass_medium_01` measures 5.605 x 0.327 x 0.343 m, a sixty-to-one
+sheet; `moss_01` 0.215 x 0.029 x 0.040; `dandelion_01` 4.214 x 0.258 x 0.170 at **54,764 triangles**;
+`nettle_plant` 1.083 x 0.095 x 0.218. The volumetric ones are thickets or named after another species:
+`didelta_spinosa` is 417,187 triangles, `leipoldtia_schultzei` 385,504, `othonna_cerarioides` 118,149
+measuring 3.97 x 1.80 x 1.97 m, and `shrub_02` 6.57 x 2.54 x 2.55 m standing 0.61 m *below* its own
+origin. One genuinely single 3-D plant did come out of it - `fern_02`, 1.973 x 1.724 x 0.428 m at 6,232
+triangles - and even that is wrong here: a photoreal fern among flat-shaded primitives is exactly the
+mismatch the pack was chosen to avoid. The measured table is the deliverable; the files were deleted.
+
+**The re-pull recipe.** Poly Haven's API and CDN answer `403 Forbidden` to a client that sends no
+`User-Agent`, so state one - `curl` already does, python's `urllib` does not. A download arrives as a
+folder per asset and its relative texture URIs resolve only if the folder keeps that shape:
+
+    python -c "import urllib.request as u; r = u.Request('https://api.polyhaven.com/files/fir_tree_01', headers = {'User-Agent': 'landscaping-planner/1.0'}); print(u.urlopen(r).read()[:200])"
+
+Point `DIR` at the top of `tools/downloads_check.gd` at any folder laid out that way (a `<id>` folder
+holding `<id>_1k.gltf`, or `.glb` files beside the scene) and that one scene photographs every model in it
+at planting scale, measured, one per tile.
+
+### 4b.3 Sources worth pulling next
+
+Same list as section 4b.1, now with a rule of thumb: take a pack whose **models are named for shapes** and whose
+**files are kilobytes**, not one whose models are named for species and whose files are hundreds of
+megabytes. Kenney and Quaternius build the first kind; Poly Haven and ambientCG build the second, and are
+for rendering a picture rather than drawing a plan.
+
 ## 5. Planting: what the catalogue does to the plan
 
 A species is not a thing on the plan; it is a description of one. What stands on the plan is an
