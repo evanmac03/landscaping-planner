@@ -33,6 +33,8 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const SheetSetScript := preload("res://scripts/draft/sheet_set.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const RevisionLogScript := preload("res://scripts/draft/revision_log.gd")
+const DraftSimplifyScript := preload("res://scripts/draft/draft_simplify.gd")
+const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -653,6 +655,31 @@ func _select_status() -> String:
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
+
+
+# --- simplifying what is already drawn ------------------------------------------------
+
+
+## Work out a simplification of the selection, or of the whole visible drawing when nothing is
+## selected, and change nothing. The plan is read back before it is applied, so the refusal
+## rule - a shape that would detach from another is left alone - can be shown first.
+func plan_simplify() -> SimplifyReportScript:
+	var chosen: Array[EntityScript] = selected_entities()
+	if chosen.is_empty() and document != null:
+		chosen = document.visible_entities()
+	return DraftSimplifyScript.plan(chosen, DraftSimplifyScript.default_tolerance(plot_scale))
+
+
+## Carry a plan out as one undo step, and say in the status line what happened. A plan that
+## changes nothing leaves the drawing and the undo stack untouched.
+func apply_simplify(report: SimplifyReportScript) -> int:
+	var written := DraftSimplifyScript.apply(document, report)
+	if written > 0:
+		last_message = report.describe()
+		_refresh_canvas()
+	else:
+		last_message = "nothing to simplify"
+	return written
 
 
 # --- drawing a ground zone by hand ----------------------------------------------------

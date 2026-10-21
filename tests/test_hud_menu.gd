@@ -97,6 +97,21 @@ func test_the_edit_menu_holds_every_editing_command() -> void:
 		assert(int(entry["value"]) == int(pair[2]), "%s runs the command the key runs" % String(pair[0]))
 
 
+## Simplifying the drawing is an Edit command with no key: it is a whole-drawing pass run
+## between strokes rather than something a hand reaches for mid-draw, and it asks before it
+## changes anything.
+func test_the_edit_menu_offers_simplifying_the_drawing() -> void:
+	var found := false
+	for entry: Dictionary in HudScript.items_for("Edit"):
+		if String(entry.get("id", "")) != "edit.simplify":
+			continue
+		found = true
+		assert(String(entry.get("method", "")) == "_menu_simplify",
+			"the entry runs the handler that asks before it changes anything")
+		assert(String(entry.get("action", "")) == "", "it advertises no key")
+	assert(found, "the Edit menu offers Simplify")
+
+
 func test_every_command_the_legend_lists_is_in_the_bar() -> void:
 	# Not every one of them is in the Draft menu: undo and redo are in Edit, which is where a
 	# program of this kind keeps them, and copying them into both menus would be one command with

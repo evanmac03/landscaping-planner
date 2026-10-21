@@ -6,6 +6,7 @@ extends CanvasLayer
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
+const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 
 const EDIT_HINTS := "Left-drag: move a plant     "
 ## The key that swaps the two overhead views is written as a token and filled in
@@ -208,6 +209,11 @@ var _show_hints: bool = true
 var _open_dialog: FileDialog = null
 var _save_dialog: FileDialog = null
 var _discard_dialog: ConfirmationDialog = null
+## The auto-simplify question: what the pass would do, before it does it. The plan is held
+## while the dialog is up so that confirming applies the very pass that was shown, not a
+## fresh one worked out against a drawing that may have moved under it.
+var _simplify_dialog: ConfirmationDialog = null
+var _pending_simplify: SimplifyReportScript = null
 ## What to do once the unsaved-changes question has been answered. Held as an id rather than as a
 ## Callable so that a dialog left open while something else happens cannot run a stale action out
 ## of a captured closure.
@@ -1410,6 +1416,10 @@ static func edit_items() -> Array[Dictionary]:
 	items.append(_separator())
 	items.append(_command(&"edit.drop_point", "Drop the last point", &"draft_undo_point", &"_menu_drop_point"))
 	items.append(_command(&"edit.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
+	# Simplify takes no key: it is a whole-drawing pass run once in a while, not something a hand
+	# reaches for mid-stroke, and a stray keypress that rewrote every shape would be the worst
+	# kind of surprise.
+	items.append(_command(&"edit.simplify", "Simplify...", &"", &"_menu_simplify"))
 	items.append(_separator())
 	items.append(_submenu(&"edit.dimension_style", "Dimension standard", dimension_style_items()))
 	items.append(_separator())
@@ -2132,6 +2142,19 @@ func _build_file_dialogs() -> void:
 	_discard_dialog.canceled.connect(_on_discard_cancelled)
 	add_child(_discard_dialog)
 
+	# Auto-simplify asks first, because it is the one drafting command that changes many shapes
+	# at once and takes something away from each of them. What it shows is the pass's own
+	# report, so the number of shapes and the number of refusals are the pass's numbers rather
+	# than a second count that could disagree with it.
+	_simplify_dialog = ConfirmationDialog.new()
+	_simplify_dialog.name = "SimplifyDrawing"
+	_simplify_dialog.title = "Simplify"
+	_simplify_dialog.ok_button_text = "Simplify"
+	_simplify_dialog.cancel_button_text = "Cancel"
+	_simplify_dialog.confirmed.connect(_on_simplify_confirmed)
+	_simplify_dialog.canceled.connect(_on_simplify_cancelled)
+	add_child(_simplify_dialog)
+
 
 func _file_dialog_open() -> bool:
 	return (_open_dialog != null and _open_dialog.visible) \
@@ -2163,6 +2186,30 @@ func _on_discard_cancelled() -> void:
 	# whatever the next click happens to be.
 	_pending_action = &""
 	_pending_path = ""
+
+
+## Ask what auto-simplify would do before it does it. A pass that changes nothing still opens
+## the question: "nothing to simplify" is an answer a person asked for, and a menu item that
+## silently does nothing looks broken.
+func _menu_simplify(_entry: Dictionary) -> void:
+	if _draft == null or _simplify_dialog == null:
+		return
+	_pending_simplify = _draft.plan_simplify()
+	_simplify_dialog.dialog_text = _pending_simplify.describe()
+	_simplify_dialog.popup_centered()
+
+
+func _on_simplify_confirmed() -> void:
+	if _draft == null or _pending_simplify == null:
+		return
+	_draft.apply_simplify(_pending_simplify)
+	_pending_simplify = null
+
+
+func _on_simplify_cancelled() -> void:
+	# The plan was worked out against a drawing that has since been left alone, so it is
+	# dropped rather than kept for a second question.
+	_pending_simplify = null
 
 
 func _run_pending(next: StringName) -> void:

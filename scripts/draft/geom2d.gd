@@ -397,6 +397,90 @@ static func point_in_polygon(point: Vector2, polygon: PackedVector2Array) -> boo
 	return Geometry2D.is_point_in_polygon(point, polygon)
 
 
+# --- simplification -----------------------------------------------------------------
+
+
+## Douglas-Peucker simplification of a polyline or a closed ring, in model units.
+##
+## The first and last point are always kept, so an open polyline still ends where it
+## ended; a ring keeps its shape without collapsing. `tolerance` is the furthest a
+## dropped vertex's true position may lie from the simplified line, in model metres -
+## the same unit every other authored length in this project uses. A tolerance of zero,
+## or fewer than three points, returns a copy of the input unchanged.
+##
+## Curves are not simplified here: a vertex with a bulge carries an arc no set of
+## vertices can reproduce, so the caller keeps such an entity out of the pass rather
+## than having its corners quietly straightened (`DraftSimplify`).
+static func simplify(points: PackedVector2Array, tolerance: float, closed: bool = false) -> PackedVector2Array:
+	var count := points.size()
+	if count < 3 or tolerance <= 0.0:
+		return points.duplicate()
+	if not closed:
+		return _simplify_open(points, tolerance)
+	# A ring is simplified as two open chains meeting at its two opposite extremes. A
+	# chain Douglas-Peucker'd against its own start and end would collapse a small
+	# regular ring to a single point, which for a bed is the bed disappearing.
+	var far := 0
+	var far_distance := -1.0
+	for index in count:
+		var reach := points[0].distance_squared_to(points[index])
+		if reach > far_distance:
+			far_distance = reach
+			far = index
+	var first_chain := PackedVector2Array()
+	for index in range(0, far + 1):
+		first_chain.append(points[index])
+	var second_chain := PackedVector2Array()
+	for index in range(far, count):
+		second_chain.append(points[index])
+	second_chain.append(points[0])
+	var head := _simplify_open(first_chain, tolerance)
+	var tail := _simplify_open(second_chain, tolerance)
+	var out := PackedVector2Array()
+	for vertex: Vector2 in head:
+		out.append(vertex)
+	# The tail repeats the meeting point at each end; neither is a new vertex.
+	for index in range(1, tail.size() - 1):
+		out.append(tail[index])
+	return out
+
+
+## Douglas-Peucker over an open chain with its endpoints pinned.
+##
+## The work list is explicit rather than recursive: a five-thousand-vertex bed outline
+## is a legal input, and a recursive pass over it is a stack the size of the drawing.
+static func _simplify_open(points: PackedVector2Array, tolerance: float) -> PackedVector2Array:
+	var count := points.size()
+	if count < 3:
+		return points.duplicate()
+	var keep := PackedByteArray()
+	keep.resize(count)
+	keep.fill(0)
+	keep[0] = 1
+	keep[count - 1] = 1
+	var spans: Array = [[0, count - 1]]
+	while not spans.is_empty():
+		var span: Array = spans.pop_back()
+		var first: int = int(span[0])
+		var last: int = int(span[1])
+		var worst := -1
+		var worst_distance := tolerance
+		for index in range(first + 1, last):
+			var gap := distance_to_segment(points[index], points[first], points[last])
+			if gap > worst_distance:
+				worst_distance = gap
+				worst = index
+		if worst >= 0:
+			keep[worst] = 1
+			spans.append([first, worst])
+			spans.append([worst, last])
+	var out := PackedVector2Array()
+	for index in count:
+		if keep[index] == 1:
+			out.append(points[index])
+	return out
+
+
 # --- offsetting ---------------------------------------------------------------------
 
 
