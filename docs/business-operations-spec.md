@@ -1050,7 +1050,7 @@ before anything depends on it.
 | 1 | **Cost book** | `cost_item.gd`, `cost_kit.gd`, `cost_book.gd`; items, kits with cycle detection, JSON persistence, versioning, refusals | **built** - 16 tests |
 | 2 | **Estimate** | `estimate_line.gd`, `estimate.gd`; lines with frozen prices, waste, roll-up, foots-to-subtotal, freezing and revisions | **built** - 29 tests |
 | 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | **built** - 18 tests |
-| 4 | **Pipeline** | `lead.gd`, `pipeline.gd`; stages as events, funnel and conversion metrics, the board | **partly built** - 24 tests (the model and the metrics; the board to come) |
+| 4 | **Pipeline** | `lead.gd`, `pipeline.gd`, `scripts/pipeline_board.gd`; stages as events, funnel and conversion metrics, the board | **built** - 48 tests (`test_biz_pipeline` 24, `test_pipeline_board` 18, `test_hud_pipeline` 6); leads are held in memory until the store of phase 10 |
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`; scheduling, routing, offline time | specified |
 | 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`; committed vs actual, variance, WIP | specified |
 | 7 | **Billing and invoices** | `billing.gd`, `invoice.gd`, `invoice_sheet.gd`; milestones, percentage completion, the page, the JSON | specified |

@@ -293,13 +293,16 @@ func slipped(now: String = "") -> Array[Dictionary]:
 		var due_unix := _unix(held.expected_close_at)
 		if due_unix == 0 or due_unix >= now_unix:
 			continue
+		# Whole days late, and floor rather than truncate so the arithmetic matches the words: a lead
+		# one day and twenty-three hours late is one day late, not two.
+		var days_late := floori(float(now_unix - due_unix) / float(SECONDS_PER_DAY))
 		out.append({
 			"id": held.id,
 			"name": held.name,
 			"stage": held.stage,
 			"stage_name": LeadScript.stage_name(held.stage),
 			"due": held.expected_close_at,
-			"days_late": int((now_unix - due_unix) / SECONDS_PER_DAY),
+			"days_late": days_late,
 		})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a["days_late"]) > int(b["days_late"]))

@@ -79,21 +79,21 @@ func _init(lead_id: String = "", lead_name: String = "") -> void:
 # --- what a stage is ------------------------------------------------------------------
 
 
-static func is_stage(value: int) -> bool:
-	return STAGES.has(value)
+static func is_stage(candidate: int) -> bool:
+	return STAGES.has(candidate)
 
 
 ## "Proposed", for a card or a table cell.
-static func stage_name(value: int) -> String:
-	return String(STAGES.get(value, "Unknown stage"))
+static func stage_name(stage_value: int) -> String:
+	return String(STAGES.get(stage_value, "Unknown stage"))
 
 
-static func is_closed(value: int) -> bool:
-	return CLOSED.has(value)
+static func is_closed(stage_value: int) -> bool:
+	return CLOSED.has(stage_value)
 
 
-static func source_name(value: StringName) -> String:
-	return String(SOURCES.get(value, "Other"))
+static func source_name(code: StringName) -> String:
+	return String(SOURCES.get(code, "Other"))
 
 
 # --- what a lead holds ------------------------------------------------------------------

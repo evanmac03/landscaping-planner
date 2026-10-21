@@ -241,6 +241,7 @@ const DXF_UNIT_CHOICES: Array[String] = [
 	"", "metres", "feet", "inches", "millimetres", "centimetres", "yards", "US survey feet",
 ]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
+const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
@@ -283,6 +284,9 @@ var _pending_dxf: Dictionary = {}
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
+## The sales pipeline: the board of leads. Business data rather than drawing data, so it is here in
+## every scene, not only the ones with a plan open.
+var _pipeline_board: PipelineBoard = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -333,6 +337,7 @@ func _ready() -> void:
 	_build_revision_window()
 	_build_dxf_panel()
 	_build_estimate_window()
+	_build_pipeline_board()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1290,6 +1295,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Plant", "items": plant_items()})
 	menus.append({"title": "Water", "items": water_items()})
 	menus.append({"title": "Light", "items": light_items()})
+	menus.append({"title": "Pipeline", "items": pipeline_items()})
 	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
@@ -1537,6 +1543,19 @@ static func site_items() -> Array[Dictionary]:
 	return items
 
 
+## The sales pipeline: the leads, and the board they move across.
+##
+## A lead is not a drawing, so this menu is here whatever scene is open - it reaches a board of cards
+## rather than anything on the plan. The line at the top is the open pipeline's own words, and the one
+## entry opens the board.
+static func pipeline_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"pipeline.info", "no open leads"))
+	items.append(_separator())
+	items.append(_command(&"pipeline.board", "Open the pipeline board...", &"", &"_menu_pipeline_board"))
+	return items
+
+
 ## The takeoff and the estimate: what the plan measures, and what that costs.
 ##
 ## The four business engines were built and tested before anything could reach them, so this menu is
@@ -1729,6 +1748,9 @@ func menu_world() -> Dictionary:
 		# Where the money stands. Cheap: it reads the estimate's own count and total and nothing else,
 		# so the signature can hold it without this snapshot becoming the thing that prices a plan.
 		"estimate": _estimate_text(),
+		# The open pipeline, in the board's own words. Like the estimate, cheap: it reads a count and
+		# two totals and nothing else.
+		"pipeline": _pipeline_text(),
 	}
 	return world
 
@@ -1926,6 +1948,7 @@ func _refresh_menus() -> void:
 	_refresh_water_menu()
 	_refresh_light_menu()
 	_refresh_estimate_menu()
+	_refresh_pipeline_menu()
 
 
 ## An entry was chosen. The entry knows which method runs it, so there is no second list of ids
@@ -3516,6 +3539,65 @@ func _menu_check_numbers(_entry: Dictionary) -> void:
 	open_estimate_window()
 	if _estimate_window != null:
 		_estimate_window.check_numbers()
+
+
+## The sales pipeline: the board of leads. A `Window` like the estimate and the ground window, and
+## for the same reason - it has fields to type into, and a `Window` owns its own input, so nothing in
+## it can take the drawing keys. Built by hand rather than left to its own `_ready`, so the window the
+## designer opens is the one this file has already wired to the menu.
+func _build_pipeline_board() -> void:
+	if _pipeline_board != null:
+		return
+	_pipeline_board = PipelineBoardScript.new()
+	_pipeline_board.name = "PipelineBoard"
+	add_child(_pipeline_board)
+	# Build it here rather than leave it to its own `_ready`: the HUD reads the board's own words for
+	# its menu line the moment the board exists, and a board that was only built once it was shown
+	# would have nothing to say until somebody opened it.
+	_pipeline_board.build()
+	_pipeline_board.pipeline_changed.connect(_on_pipeline_changed)
+	_pipeline_board.hide()
+
+
+## Open the board. Unlike the estimate it needs no drawing: a pipeline is business data, and there is
+## nowhere in it that a plan is measured.
+func open_pipeline_board() -> void:
+	if _pipeline_board == null:
+		_build_pipeline_board()
+	if _pipeline_board == null:
+		return
+	_pipeline_board.refresh()
+	_pipeline_board.popup_centered()
+	# A window holds the keyboard while it is up; the moment it closes the drawing keys belong to the
+	# drawing again.
+	release_keyboard_focus(self)
+
+
+func is_pipeline_board_open() -> bool:
+	return _pipeline_board != null and _pipeline_board.visible
+
+
+## What the Pipeline menu says on itself: the open pipeline, in the board's own words.
+func _pipeline_text() -> String:
+	if _pipeline_board == null:
+		return "no open leads"
+	return _pipeline_board.summary_text()
+
+
+## A card moved or a lead was added: the menu line about the pipeline is now stale.
+func _on_pipeline_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_pipeline_board(_entry: Dictionary) -> void:
+	open_pipeline_board()
+
+
+func _refresh_pipeline_menu() -> void:
+	var named := _find_item(&"pipeline.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _pipeline_text())
 
 
 ## The ground: the site's conditions and one statement per area of the plan.
