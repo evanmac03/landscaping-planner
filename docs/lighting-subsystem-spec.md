@@ -273,7 +273,10 @@ with the aim each position wants, the load check with its refusals, the cover ch
 rows, and the circuit's file format. `scripts/draft/lighting.gd` is the arithmetic, with
 `tests/test_lighting.gd` over it.
 
-**Built, the drawing slice:** fixtures are entities on `501-LIGHTING` (section 2.9) with `fixture_entity`, `run_entity`, `is_fixture_entity`, `circuit_of_entity` and `fixture_words`; a circuit and the transformer travel in the drawing file under the document's `lighting` key (format **8**); and `draft_controller.gd` adds `lighting_circuits`, `lighting_transformer`, `set_lighting_transformer`, `lightable_areas`, `light_area`, `remove_circuit`, `lighting_rows`, `lighting_lines` and `lighting_summary`. Lighting an area is **one undo step** however many fixtures it sets: a circuit and its fixtures are one act. A circuit that would not run off the stated transformer is **not put on the drawing at all**. Held down by `tests/test_lighting_tools.gd`.
+**Built, the drawing slice:** fixtures are entities on `501-LIGHTING` (section 2.9) with `fixture_entity`, `run_entity`, `is_fixture_entity`, `circuit_of_entity` and `fixture_words`; a circuit and the transformer travel in the drawing file under the document's `lighting` key (format **8**); and `draft_controller.gd` adds `lighting_circuits`, `lighting_transformer`, `set_lighting_transformer`, `lightable_areas`, `light_area`, `remove_circuit`, `lighting_rows`, `lighting_lines` and `lighting_summary`. Lighting an area is **one undo step** however many fixtures it sets: a circuit and its fixtures are one act. A circuit that would not run off the stated transformer is **not put on the drawing at all**. The page that states the transformer and lights an area
+is `scripts/lighting_panel.gd`, opened from the **Light** menu beside Water
+(`_build_lighting_panel`, `open_light_panel`, `_on_light_transformer`, `_on_light_area`,
+`_on_light_remove`), and the drawing slice is held down by `tests/test_lighting_tools.gd`.
 
 **Not built yet, and why:**
 
@@ -287,6 +290,10 @@ rows, and the circuit's file format. `scripts/draft/lighting.gd` is the arithmet
   module's valve count against a manifold.
 * **Control grouping** - which fixtures are on one switch, one timer or one photocell - which is
   a schedule and not a plan.
+* **The lighting schedule on the sheet.** The module produces a circuit's row in words
+  (`schedule`, `schedule_row_words`, `schedule_lines`) and the controller reads them off the
+  drawing (`lighting_rows`), but `SheetExporter` does not yet emit a lighting table the way it
+  emits the irrigation one. The mechanism is there; the block is not.
 
 ## 8. The tests, and what they hold down
 
@@ -296,6 +303,30 @@ only its own half; the load check refuses each of its cases with the numbers in 
 fixture cap refuses without setting anything; a circuit round-trips through the file while a
 broken record is dropped and a damaged fixture is dropped on its own; and the schedule and the
 verdict line read as a designer reads them.
+
+`tests/test_lighting_tools.gd` holds the drawing slice: the transformer is stated for the
+whole drawing and one undo step returns it; a bed is lit in one step and the fixtures land on
+`501-LIGHTING` carrying their circuit, kind and aim; a fixture's radius is three millimetres of
+paper however the scale changes; an over-capacity circuit, a tiny area, an area the grid
+cannot land in, an unknown kind and a line-voltage lantern on a low-voltage transformer are
+all refused *without touching the drawing*; a circuit that would not run is not put on the
+plan; circuits are numbered and tapped apart; a circuit travels in the file (version 8) while
+a damaged record is dropped; and taking a circuit off takes its fixtures with it.
+
+`tests/test_lighting_panel.gd` holds the page: the areas the drawing offers are the ones the
+drop-down shows and a redraw does not move the choice; the spacing is the factor applied to
+the chosen fixture's own throw, so a floodlight's 9 m and a path light's 2.5 m are the same
+choice and different numbers; the light button is dead until there is both an area and a
+*stated* transformer - it reads the drawing's transformer, never its own default; a capacity
+that is not one of the conventional values is shown as itself rather than rounded; the budget
+line names what the transformer buys; the circuit list carries the selection across a refresh;
+and nothing in the page takes the keyboard.
+
+`tests/test_hud_light.gd` holds the wiring: the Light menu offers lighting an area, with the
+controller's own summary and the transformer on its info line; stating the transformer and
+lighting an area through the page's own signals change the drawing and say what happened;
+lighting an area the page has that has since gone says so rather than failing; and the page's
+line reports the verdict until it is cleared, then the circuits the drawing holds.
 
 ---
 

@@ -548,7 +548,7 @@ static func demand_of(circuit: Dictionary) -> float:
 static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 	var kind := String(circuit.get("kind", PATH))
 	var fixtures := fixtures_of(circuit)
-	var load := demand_of(circuit)
+	var demand := demand_of(circuit)
 	var stated := has_transformer(transformer)
 	var capacity := float(transformer.get("va", 0.0))
 	var volts := float(transformer.get("volts", 0.0))
@@ -590,9 +590,9 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 			reasons.append("%d fixtures need %s V and the transformer gives %s V"
 				% [wrong_volts, _number(other_volts), _number(volts)])
 
-	if stated and load > capacity + TOLERANCE and is_kind(kind):
+	if stated and demand > capacity + TOLERANCE and is_kind(kind):
 		reasons.append("%s draw %s W and the transformer gives %s VA - %d of them fit"
-			% [kind_count_words(kind, fixtures.size()), _number(load), _number(capacity),
+			% [kind_count_words(kind, fixtures.size()), _number(demand), _number(capacity),
 				power_budget(transformer, kind)])
 
 	# A fixture outside the area it was put on a circuit for lights somewhere it was not set for.
@@ -623,7 +623,7 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 		"reasons": reasons,
 		"notes": notes,
 		"fixtures": fixtures.size(),
-		"load": load,
+		"load": demand,
 		"capacity": capacity,
 		"volts": volts,
 		"budget": power_budget(transformer, kind),

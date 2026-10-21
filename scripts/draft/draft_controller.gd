@@ -1752,12 +1752,12 @@ func lighting_summary() -> String:
 	if circuits.is_empty():
 		return "nothing on this drawing is lit yet"
 	var fixtures := 0
-	var load := 0.0
+	var demand := 0.0
 	var area := 0.0
 	var wrong := ""
 	for circuit in circuits:
 		fixtures += LightingScript.fixture_count(circuit)
-		load += LightingScript.demand_of(circuit)
+		demand += LightingScript.demand_of(circuit)
 		area += LightingScript.area_m2(circuit)
 		if wrong.is_empty():
 			var verdict := LightingScript.check(circuit, lighting_transformer())
@@ -1766,13 +1766,13 @@ func lighting_summary() -> String:
 	if wrong.is_empty():
 		wrong = "every circuit runs off the transformer"
 	return "%s over %s m2, %s" % [_circuit_count_words(circuits.size(), fixtures,
-		_quantity_words(load)), _quantity_words(area), wrong]
+		_quantity_words(demand)), _quantity_words(area), wrong]
 
 
-static func _circuit_count_words(circuits: int, fixtures: int, load: String) -> String:
+static func _circuit_count_words(circuits: int, fixtures: int, watts: String) -> String:
 	var circuit_part := "1 circuit" if circuits == 1 else "%d circuits" % circuits
 	var fixture_part := "1 fixture" if fixtures == 1 else "%d fixtures" % fixtures
-	return "%s, %s drawing %s W" % [circuit_part, fixture_part, load]
+	return "%s, %s drawing %s W" % [circuit_part, fixture_part, watts]
 
 
 ## Write the planting's own labels onto the drawing.

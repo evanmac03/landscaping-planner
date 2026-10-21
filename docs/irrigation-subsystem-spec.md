@@ -315,7 +315,6 @@ and leaves the plan alone.
 * **Hydraulics proper:** pressure loss along a pipe run, matched precipitation rates across
   zones, and a valve count against the manifold. Stated here so nobody mistakes the flow
   check for a hydraulic calculation - it is a capacity check, which is what a plan needs.
-* **The lighting module**, which is 501 and a sibling of this one.
 
 ## 8. The tests, and what they hold down
 
@@ -366,5 +365,6 @@ verdict until it is cleared, then the zones the drawing holds.
 
 See also: `drafting-subsystem-spec.md` section 5 for the layer this lands on,
 `plant-database-spec.md` section 5a for the grid it is laid out on,
-`business-operations-spec.md` section 6 for what prices it, and
+`business-operations-spec.md` section 6 for what prices it,
+`lighting-subsystem-spec.md` for the sibling module built beside this one, and
 `visualization-subsystem-spec.md` for why this layer has no colour wash.

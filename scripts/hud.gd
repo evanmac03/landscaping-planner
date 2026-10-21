@@ -233,6 +233,7 @@ const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
+const LightingScript := preload("res://scripts/draft/lighting.gd")
 
 ## The units a person may tell a DXF it is in, when the file does not say. The empty one means "as the
 ## file says"; the rest are the names the reader knows, kept short because this is a drop-down.
@@ -297,6 +298,10 @@ var _hatch_panel: HatchPanel = null
 ## page is and for the same reason.
 var _water_page: Control = null
 var _water_panel: IrrigationPanel = null
+## Lighting an area: the page over the drawing and the panel of choices in it, built the way the water
+## page is and for the same reason.
+var _light_page: Control = null
+var _light_panel: LightingPanel = null
 
 
 func _ready() -> void:
@@ -323,6 +328,7 @@ func _ready() -> void:
 	_build_survey_panel()
 	_build_hatch_panel()
 	_build_irrigation_panel()
+	_build_lighting_panel()
 	_build_sheet_window()
 	_build_revision_window()
 	_build_dxf_panel()
@@ -369,6 +375,8 @@ func _process(_delta: float) -> void:
 		_refresh_hatch_panel()
 	if is_water_panel_open():
 		_refresh_water_panel()
+	if is_light_panel_open():
+		_refresh_light_panel()
 
 
 func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
@@ -1281,6 +1289,7 @@ static func menu_plan() -> Array[Dictionary]:
 	menus.append({"title": "Site", "items": site_items()})
 	menus.append({"title": "Plant", "items": plant_items()})
 	menus.append({"title": "Water", "items": water_items()})
+	menus.append({"title": "Light", "items": light_items()})
 	menus.append({"title": "Estimate", "items": estimate_items()})
 	menus.append({"title": "Present", "items": present_items()})
 	menus.append({"title": "Help", "items": help_items()})
@@ -1579,6 +1588,17 @@ static func water_items() -> Array[Dictionary]:
 	return items
 
 
+## What the drawing is lit by: the transformer, the circuits, and the page that lays a new one out. A
+## menu of its own beside Water, because lighting is the sibling subsystem - a transformer, a circuit,
+## a fixture - and its vocabulary is as different from water's as water's is from the soil's.
+static func light_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	items.append(_info(&"light.info", "nothing on this drawing is lit yet"))
+	items.append(_separator())
+	items.append(_command(&"light.panel", "Light an area...", &"", &"_menu_light_panel", NEEDS_DRAFT))
+	return items
+
+
 ## The reference: every key in one place, which is the one thing a menu can offer that the
 ## on-screen hints cannot, because they are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
@@ -1753,6 +1773,26 @@ func _water_budget_text() -> String:
 	return "supply: %s" % IrrigationScript.supply_words(supply)
 
 
+## What the Light menu's own line says: the controller's one-line summary of the circuits and the
+## transformer beside it, so a designer can read the capacity and the circuits without opening the page.
+func _light_text() -> String:
+	if _draft == null or _draft.document == null:
+		return "there is no drawing to light"
+	var budget: String = _draft.lighting_summary()
+	return "%s. %s" % [budget, _light_budget_text()]
+
+
+## The transformer's own line, as the panel writes it, so the menu and the page never disagree about
+## what the transformer gives.
+func _light_budget_text() -> String:
+	if _draft == null:
+		return "no transformer stated"
+	var transformer: Dictionary = _draft.lighting_transformer()
+	if not LightingScript.has_transformer(transformer):
+		return "no transformer stated: nothing is laid out until one is"
+	return "transformer: %s" % LightingScript.transformer_words(transformer)
+
+
 
 
 ## Build the menus from the plan.
@@ -1839,6 +1879,9 @@ func _hide_unavailable_menus() -> void:
 		elif title == "Water":
 			# A zone is a set of heads on the drawing, so a scene with no drawing has nothing to water.
 			menu_bar.set_menu_hidden(index, _draft == null)
+		elif title == "Light":
+			# A circuit is a set of fixtures on the drawing, so a scene with no drawing has nothing to light.
+			menu_bar.set_menu_hidden(index, _draft == null)
 		elif title == "Site":
 			# The ground lives on the drawing, so a scene with no drawing has no ground to state.
 			menu_bar.set_menu_hidden(index, _ground_map() == null)
@@ -1881,6 +1924,7 @@ func _refresh_menus() -> void:
 	_refresh_plant_menu()
 	_refresh_site_menu()
 	_refresh_water_menu()
+	_refresh_light_menu()
 	_refresh_estimate_menu()
 
 
@@ -3063,6 +3107,129 @@ func _menu_water_panel(_entry: Dictionary) -> void:
 	open_water_panel()
 
 
+# --- lighting an area ----------------------------------------------------------------------
+
+
+## The page that lights an area. Built in code like the water page, and a `Control` rather than a
+## `Window` for the same two reasons: it opens over the drawing it is about, and it must not take the
+## keyboard away from it.
+func _build_lighting_panel() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null:
+		return
+	var wrapper := CenterContainer.new()
+	wrapper.name = "LightPanel"
+	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.visible = false
+
+	var page := PanelContainer.new()
+	page.name = "Page"
+	page.custom_minimum_size = Vector2(520.0, 0.0)
+	if top_bar != null:
+		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	page.add_child(column)
+
+	var heading := Label.new()
+	heading.name = "Heading"
+	heading.text = "Light an area"
+	column.add_child(heading)
+
+	var panel := LightingPanel.new()
+	panel.name = "LightChoices"
+	panel.transformer_requested.connect(_on_light_transformer)
+	panel.light_requested.connect(_on_light_area)
+	panel.remove_requested.connect(_on_light_remove)
+	panel.close_requested.connect(close_light_panel)
+	column.add_child(panel)
+	panel.build()
+
+	wrapper.add_child(page)
+	_light_page = wrapper
+	_light_panel = panel
+	root.add_child(wrapper)
+
+
+func is_light_panel_open() -> bool:
+	return _light_page != null and _light_page.visible
+
+
+## What the page says about the drawing: the areas it offers, the transformer, and the circuits already
+## laid out.
+func light_status_text() -> String:
+	if _light_panel == null:
+		return ""
+	var parts: Array[String] = [_light_panel.budget_text(), _light_panel.status_text()]
+	return " ".join(parts)
+
+
+func open_light_panel() -> void:
+	if _light_page == null or _light_panel == null:
+		return
+	_refresh_light_panel()
+	_light_page.visible = true
+
+
+func close_light_panel() -> void:
+	if _light_page != null:
+		_light_page.visible = false
+	if _light_panel != null:
+		_light_panel.say("")
+
+
+## The areas and the circuits the drawing has, re-read every frame the page is open: a bed is drawn,
+## moved and deleted while the plan is made, and a page listing the beds of a minute ago would light
+## the wrong one. The transformer is read too, so one stated by a script shows up here.
+func _refresh_light_panel() -> void:
+	if _light_panel == null or _draft == null:
+		return
+	_light_panel.set_areas(_draft.lightable_areas())
+	_light_panel.set_transformer(_draft.lighting_transformer())
+	_light_panel.set_circuits(_draft.lighting_rows())
+
+
+## State the transformer the panel shows, and report what happened on the panel's own line.
+func _on_light_transformer(va: float, volts: float) -> void:
+	if _draft == null or _light_panel == null:
+		return
+	var stated: Dictionary = _draft.set_lighting_transformer(va, volts)
+	_light_panel.say(String(stated.get("message", stated.get("reason", ""))))
+	_refresh_light_panel()
+
+
+## Light the area the panel named, and report what happened on the panel's own line.
+func _on_light_area(region_key: String, kind: String, spacing: float, staggered: bool) -> void:
+	if _draft == null or _light_panel == null:
+		return
+	var ring := PackedVector2Array()
+	for row: Dictionary in _draft.lightable_areas():
+		if String(row.get("key", "")) == region_key:
+			ring = row.get("outline", PackedVector2Array())
+			break
+	if ring.size() < 3:
+		_light_panel.say("that area is not there any more")
+		_refresh_light_panel()
+		return
+	var lit: Dictionary = _draft.light_area(ring, kind, spacing, staggered)
+	_light_panel.say(String(lit.get("message", lit.get("reason", ""))))
+	_refresh_light_panel()
+
+
+## Take the circuit the panel named off the drawing, fixtures and all, and report it.
+func _on_light_remove(number: int) -> void:
+	if _draft == null or _light_panel == null:
+		return
+	var taken: Dictionary = _draft.remove_circuit(number)
+	_light_panel.say(String(taken.get("message", taken.get("reason", ""))))
+	_refresh_light_panel()
+
+
+func _menu_light_panel(_entry: Dictionary) -> void:
+	open_light_panel()
+
+
 # --- the plant list -----------------------------------------------------------------------
 
 
@@ -3843,6 +4010,14 @@ func _refresh_water_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _water_text())
+
+
+## The live part of the Light menu: the line saying what this drawing is lit by.
+func _refresh_light_menu() -> void:
+	var named := _find_item(&"light.info")
+	if not named.is_empty():
+		var popup: PopupMenu = named[0]
+		popup.set_item_text(int(named[1]), _light_text())
 
 
 ## The live part of the Estimate menu: the line saying what has been measured and what it comes to.
