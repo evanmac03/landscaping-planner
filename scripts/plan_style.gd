@@ -82,6 +82,60 @@ const SYMBOLS := {
 	"res://assets/plants/perennial.gltf": {
 		"symbol": &"bed", "size": Vector2(2.56, 1.38), "wash": BLOOM_WASH,
 	},
+	# The shapes a low-poly kit draws better than three primitives do: pulled from **Kenney's Nature
+	# Kit** (CC0) by `tools/plant_packs.gd`, which records the pack, measures every file and decides
+	# which shape each model stands for. A tree, a shrub, a grass and a groundcover are shapes every
+	# kit has, so those come from the pack; a conifer, a fern, a vine and a planting bed are not, and
+	# those are the models built for this project above.
+	#
+	# Every size here is the one that tool **measured**, to two places, for the same reason the built
+	# models' sizes are: a plant is planted at `spread / size.x`, so a footprint that is 30% out puts
+	# every plant of that shape at the wrong size while every view still looks plausible. The sizes
+	# are written out by `PlantPacks.symbol_source()` rather than typed, and `tests/test_plant_packs.gd`
+	# measures the files on disk against this table whenever the suite runs.
+	#
+	# The names are *shapes* (`tree_oak`, `plant_bush`, `grass`) rather than some other species' name,
+	# which is what makes it honest to plant a red maple as one: the garden says "a small tree is
+	# here", not "a red maple looks like this".
+	"res://assets/plants/kenney/grass.glb": {
+		"symbol": &"grass", "size": Vector2(0.39, 0.39), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/grass_large.glb": {
+		"symbol": &"grass", "size": Vector2(0.41, 0.41), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/grass_leafsLarge.glb": {
+		"symbol": &"grass", "size": Vector2(0.49, 0.49), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_bush.glb": {
+		"symbol": &"shrub", "size": Vector2(0.40, 0.40), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_bushDetailed.glb": {
+		"symbol": &"shrub", "size": Vector2(0.60, 0.60), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_bushLarge.glb": {
+		"symbol": &"shrub", "size": Vector2(0.37, 0.37), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_bushTriangle.glb": {
+		"symbol": &"shrub", "size": Vector2(0.41, 0.41), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_bushSmall.glb": {
+		"symbol": &"groundcover", "size": Vector2(0.38, 0.38), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/plant_flatTall.glb": {
+		"symbol": &"groundcover", "size": Vector2(0.27, 0.27), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/tree_default.glb": {
+		"symbol": &"canopy", "size": Vector2(0.76, 0.76), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/tree_detailed.glb": {
+		"symbol": &"canopy", "size": Vector2(0.85, 0.85), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/tree_fat.glb": {
+		"symbol": &"canopy", "size": Vector2(0.76, 0.76), "wash": FOLIAGE_WASH,
+	},
+	"res://assets/plants/kenney/tree_oak.glb": {
+		"symbol": &"canopy", "size": Vector2(0.74, 0.74), "wash": FOLIAGE_WASH,
+	},
 }
 
 ## The foliage green and the bloom pink, spelled out as constants so the tests can

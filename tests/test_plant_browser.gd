@@ -233,8 +233,12 @@ func test_the_detail_pane_says_what_a_nursery_label_says() -> void:
 func test_the_drawn_as_line_names_the_symbol_the_plan_uses() -> void:
 	var browser: PlantBrowser = _browser()
 	browser.select(MAPLE)
-	assert(browser.detail_text().contains("tree.tscn (a broadleaf canopy)"),
-		"a maple says it is drawn as the tree prop, and in what shape")
+	# Which model the maple is planted as is the pack's business and the catalogue's to say, so it is
+	# read from the catalogue rather than typed here. What this line is about is the *shape*: the file
+	# and the plan's word for the symbol, so a plant cannot be planted as one shape and drawn as another.
+	var maple: PlantSpecies = browser.catalogue.get_species(MAPLE)
+	assert(browser.detail_text().contains("%s (a broadleaf canopy)" % maple.model_scene.get_file()),
+		"a maple says which model it is planted as, and in what shape: %s" % maple.model_scene)
 	browser.select(&"rudbeckia-fulgida-goldsturm")
 	assert(browser.detail_text().contains("perennial.gltf (a planted bed)"),
 		"a perennial drawn as a bed says so, and says which model it is planted as")

@@ -160,15 +160,15 @@ func test_the_builder_and_the_assets_agree_about_what_is_built() -> void:
 
 func test_a_species_is_planted_as_the_shape_it_is_drawn_as() -> void:
 	# The plan has drawn a spruce as a conifer since `PlantSymbols` was written, while the garden had
-	# one tree model for every tree. These are the six that were furthest apart.
+	# one tree model for every tree. The shapes whose model this project builds itself are the four a
+	# low-poly kit does not sell; the tree, shrub, grass and groundcover shapes come from the pack and
+	# are held to the same rule in `tests/test_plant_packs.gd`.
 	var catalogue: PlantCatalogue = _catalogue()
 	var expected := {
 		"picea-pungens-hoopsii": "conifer",
-		"calamagrostis-acutiflora-karl-foerster": "grass",
 		"adiantum-pedatum": "fern",
 		"hosta-patriot": "perennial",
 		"clematis-jackmanii": "vine",
-		"ajuga-reptans": "groundcover",
 	}
 	for id: String in expected:
 		var species: PlantSpecies = catalogue.get_species(StringName(id))
@@ -177,54 +177,48 @@ func test_a_species_is_planted_as_the_shape_it_is_drawn_as() -> void:
 			"%s is planted as its %s: %s" % [id, expected[id], species.model_scene])
 
 
-func test_every_species_of_a_shape_that_has_a_model_is_pointed_at_it() -> void:
-	# The rule rather than the samples: a species added later with no model of its own is a species
-	# that stands in the garden as a shrub, and the drawing will still call it a grass.
+func test_every_species_is_planted_as_the_shape_its_drawing_uses() -> void:
+	# The rule rather than the samples, and it is the whole design: the model a plant stands in the
+	# garden as is the model of the shape the plan draws it as. A species pointed at the wrong shape's
+	# model is a plant whose drawing and whose garden disagree, and nobody would ever see it in a test
+	# of either half alone.
 	var catalogue: PlantCatalogue = _catalogue()
+	var packs := preload("res://tools/plant_packs.gd")
 	for id: StringName in catalogue.ids():
 		var plant: PlantSpecies = catalogue.get_species(id)
-		var wanted := ""
-		if plant.is_conifer():
-			wanted = ModelsScript.path_for("conifer")
-		elif plant.category in [SpeciesScript.PERENNIAL, SpeciesScript.ANNUAL, SpeciesScript.BULB, SpeciesScript.HERB]:
-			wanted = ModelsScript.path_for("perennial")
-		elif plant.category == SpeciesScript.GRASS:
-			wanted = ModelsScript.path_for("grass")
-		elif plant.category == SpeciesScript.GROUNDCOVER:
-			wanted = ModelsScript.path_for("groundcover")
-		elif plant.category == SpeciesScript.VINE:
-			wanted = ModelsScript.path_for("vine")
-		elif plant.category == SpeciesScript.FERN:
-			wanted = ModelsScript.path_for("fern")
-		if wanted.is_empty():
-			continue
+		assert(not plant.model_scene.is_empty(), "%s is planted as a model, not a generic prop" % id)
+		var drawn: StringName = packs.symbol_of_species(plant)
+		var modelled: StringName = PlanStyleScript.spec_for(plant.model_scene)["symbol"]
 		assert(
-			plant.model_scene == wanted,
-			"%s is planted as %s, not %s" % [id, wanted.get_file(), plant.model_scene if not plant.model_scene.is_empty() else "its form"]
+			drawn == modelled,
+			"%s is drawn as %s and planted as a %s" % [id, drawn, modelled]
 		)
 
 
-func test_a_tree_and_a_shrub_still_stand_on_the_generic_forms() -> void:
-	# The two shapes where one prop for every species is right: a red maple is a broadleaf tree and
-	# there is no separate model to give it. This holds the line against the wiring above growing
-	# until every species carries a model of its own.
+func test_a_tree_and_a_shrub_are_models_of_their_own_shape() -> void:
+	# The shapes that used to be one primitive prop each. A kit's tree is still a *shape* rather than
+	# a claim about the species - that is why the models pulled in are named `tree_oak` and
+	# `plant_bush` and not after some other plant - but a red maple no longer stands in the garden as
+	# a cylinder with spheres on it.
 	var catalogue: PlantCatalogue = _catalogue()
+	var packs := preload("res://tools/plant_packs.gd")
 	var maple: PlantSpecies = catalogue.get_species(&"acer-rubrum-autumn-blaze")
-	assert(maple.model_scene.is_empty(), "a broadleaf tree is still its form")
-	assert(maple.form == "res://scenes/props/tree.tscn", "and its form is the tree")
+	assert(packs.shape_of(maple.model_scene.get_file().get_basename()) == SymbolsScript.CANOPY,
+		"a broadleaf tree is a canopy model: %s" % maple.model_scene)
+	assert(maple.form == "res://scenes/props/tree.tscn", "and its form is still the tree")
 	var box: PlantSpecies = catalogue.get_species(&"buxus-sempervirens")
-	assert(box.model_scene.is_empty(), "so is a shrub")
+	assert(packs.shape_of(box.model_scene.get_file().get_basename()) == SymbolsScript.SHRUB,
+		"so a shrub is a shrub model: %s" % box.model_scene)
 	assert(catalogue.missing_files().is_empty(), "and every path in the list is on disk")
 
 
-func test_most_of_the_list_has_a_model_of_its_own_and_not_the_generic_three() -> void:
+func test_every_species_in_the_list_carries_a_model() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var with_model: int = 0
 	for id: StringName in catalogue.ids():
 		if not catalogue.get_species(id).model_scene.is_empty():
 			with_model += 1
-	assert(with_model >= 80, "four species in five are planted as what they are: %d" % with_model)
-	assert(with_model < catalogue.count(), "and the generic forms are still doing the rest")
+	assert(with_model == catalogue.count(), "every one of the %d is planted as a model" % catalogue.count())
 
 
 # --- planting through the real pipeline ---------------------------------------------------------
