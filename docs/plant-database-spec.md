@@ -153,6 +153,54 @@ and what tells two plants apart in the grid is a *tint* from the species' bloom 
 another texture. `PlantIcons.symbol_of` and `PlantSymbols.of` are the one call: a grid that
 showed a plant as one shape while the plan drew another would be worse than no picture at all.
 
+## 4b. The models, and where to get more
+
+Three props stood in for all nine shapes until these were built: the plan drew a spruce as a conifer
+while the garden stood a maple's crown in its place. `assets/plants/` now carries one **`.gltf`** model
+per shape, built by `tools/plant_models.gd` and written out by Godot's own `GLTFDocument` - so the
+project needs no Blender, no export step a person has to remember, and no download.
+
+| model | what it is | footprint |
+| --- | --- | --- |
+| `conifer.gltf` | a spruce: a trunk under four cone tiers | 2.60 m across, 5.90 m tall |
+| `grass.gltf` | a tuft: a mound with two rings of blades fanned out | 1.09 m, 0.70 m tall |
+| `groundcover.gltf` | a flat mat with leaves lying on it | 0.64 m, 0.13 m tall |
+| `vine.gltf` | a stem with foliage up it | 0.91 m, 1.70 m tall |
+| `fern.gltf` | a crown with eleven fronds arching out of it | 1.13 m, 0.56 m tall |
+| `perennial.gltf` | a planted bed: an oblong of leaves with bloom stems | 2.56 x 1.38 m, 0.90 m tall |
+
+**A model is the size its `PlanStyle.SYMBOLS` entry says it is.** `PlantPlacement` plants an instance
+at `spread / size.x`, so the declared footprint is where every one of those species' real size comes
+from: a model rebuilt at another size without its declaration moving would put every one of its plants
+at the wrong size, and no view would look broken. `tests/test_plant_models.gd` *measures the asset on
+disk* against the table rather than trusting either.
+
+`perennial` is oblong on purpose. A perennial, annual, bulb and herb is drawn as a `bed`, and a bed's
+plan footprint is the *prop's own oblong* (`PlantSymbols.is_round`): a round model under an oblong
+symbol stands in the garden as something other than what is on the paper, and `PlantPlacement` sizes
+all sixty of those species by that one footprint.
+
+### 4b.1 A downloaded model
+
+Any `.gltf` or `.glb` drops in the same way, and there is no import step to remember: Godot writes the
+`.import` beside it and the asset becomes a `PackedScene`. Four things, in this order:
+
+1. Put the file under `res://` - `assets/plants/` is where the built ones live.
+2. Add a `PlanStyle.SYMBOLS` entry keyed on that path: the `symbol` it draws as, one of the nine, plus
+   the true footprint in metres and the `wash`. A path the table does not describe is still drawn - as
+   a `marker` with no wash - which is what a half-finished import should look like.
+3. Point the species at it: `model_scene` in `nursery_list.json`, or through the browser's import. The
+   `form` is left alone, because it is both the prop that stood in and the record of what the list was
+   grown with.
+4. Nothing else. The plan symbol, the footprint, the wash, the 3D view and the planting list all read
+   that one table, so there is no second place to keep in step.
+
+Sources that need no account and no attribution for commercial work: **Poly Haven** and **ambientCG**,
+**Kenney** and **Quaternius**, and the CC0 tree packs published on itch.io. Sketchfab and BlenderKit
+are mixed - check the licence on the model rather than the site - and Botaniq, The Grove, Laubwerk and
+SpeedTree are paid. A model arrives Y-up, which is what `.gltf` is and what the rest of the project
+already assumes.
+
 ## 5. Planting: what the catalogue does to the plan
 
 A species is not a thing on the plan; it is a description of one. What stands on the plan is an
