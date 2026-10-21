@@ -79,6 +79,7 @@ say what each menu is *for* rather than only listing its rows:
 | Layers, units and the site | layers, locking, metric/imperial, the site |
 | The ground under the garden | stating ground conditions per area — the plant-suitability feed |
 | Importing somebody else's file | survey, DXF, OSM, LandXML — the one shape table |
+| Tracing over a picture | a scan or a photograph under the plan - kept beside the drawing, placed across the ground, never plotting or snapping |
 | Plants | the library, placing, filling a bed, labelling, the 3D models |
 | Water: irrigation | supply, laying heads out, zones, the schedule |
 | Light: garden lighting | transformer, fixtures, circuits, cover |

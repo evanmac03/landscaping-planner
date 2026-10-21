@@ -285,6 +285,9 @@ const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const OsmFetchScript := preload("res://scripts/draft/osm_fetch.gd")
 const OsmWindowScript := preload("res://scripts/osm_window.gd")
+const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+const UnderlayWindowScript := preload("res://scripts/underlay_window.gd")
+const UnitsScript := preload("res://scripts/draft/units.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 
@@ -368,6 +371,16 @@ var _osm_dialog: FileDialog = null
 var _osm_window: OsmWindow = null
 var _osm_fetch: OsmFetch = null
 var _pending_osm: Dictionary = {}
+## A picture under the drawing: the chooser for the file itself, the page that says how far it lies
+## across the ground, and the record in hand of a picture that has been read and kept but is not yet
+## under the drawing. The counterpart of the DXF, map and LandXML readers, for the file that has no
+## linework in it to read - a scan, an aerial photograph, a rendered concept.
+var _underlay_dialog: FileDialog = null
+var _underlay_window: UnderlayWindow = null
+var _pending_picture: Dictionary = {}
+## Why the file in hand was not read. Kept apart from the record because a refusal has no record, and
+## the page has to be able to say what was wrong with what somebody chose.
+var _picture_refusal: String = ""
 ## The takeoff and the estimate: one window, because the three tables it holds - what the plan
 ## measures, what that prices at, and the price list it came from - are one job.
 var _estimate_window: EstimateWindow = null
@@ -455,6 +468,7 @@ func _ready() -> void:
 	_build_dxf_panel()
 	_build_landxml_panel()
 	_build_osm_window()
+	_build_underlay_window()
 	_build_estimate_window()
 	_build_pipeline_board()
 	_build_job_desk()
@@ -1567,6 +1581,11 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
 	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
 	items.append(_command(&"file.landxml", "Import a LandXML plat...", &"", &"_menu_import_landxml", NEEDS_DRAFT))
+	# The fourth import, and the only one that is not a file of linework: a raster picture, which is
+	# kept beside the drawing and laid under everything rather than read into entities.
+	items.append(_command(
+		&"file.picture", "Put a picture under the drawing...", &"", &"_menu_import_picture", NEEDS_DRAFT
+	))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -2397,6 +2416,19 @@ func _build_file_dialogs() -> void:
 	_osm_dialog.file_selected.connect(_on_osm_chosen)
 	add_child(_osm_dialog)
 
+	# And a picture: a scan, a photograph, a consultant's rendered plan. The one import that reads a
+	# file with no linework in it, so the one that is copied into the app's own folder rather than read
+	# into entities - the filter offers exactly the formats the reader can measure (see
+	# `RasterUnderlay`), because a dialog offering a format that will be refused is a dialog that lies.
+	_underlay_dialog = FileDialog.new()
+	_underlay_dialog.name = "ImportPicture"
+	_underlay_dialog.title = "Put a picture under the drawing"
+	_underlay_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_underlay_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_underlay_dialog.filters = PackedStringArray([RasterUnderlayScript.dialog_filter()])
+	_underlay_dialog.file_selected.connect(_on_underlay_chosen)
+	add_child(_underlay_dialog)
+
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
 	_discard_dialog.title = "Unsaved changes"
@@ -2427,7 +2459,8 @@ func _file_dialog_open() -> bool:
 	return (_open_dialog != null and _open_dialog.visible) \
 		or (_save_dialog != null and _save_dialog.visible) \
 		or (_discard_dialog != null and _discard_dialog.visible) \
-		or (_recovery_dialog != null and _recovery_dialog.visible)
+		or (_recovery_dialog != null and _recovery_dialog.visible) \
+		or (_underlay_dialog != null and _underlay_dialog.visible)
 
 
 ## Ask before throwing work away, then do what was asked for.
@@ -3974,6 +4007,222 @@ func confirm_osm_import() -> void:
 
 func _menu_import_osm(_entry: Dictionary) -> void:
 	open_osm_window()
+
+
+# --- a picture under the drawing -------------------------------------------------------
+
+
+## Build the page and wire every one of its intents. The page draws nothing, reads nothing and copies
+## nothing: it announces what a person did, and this is the place that answers with the module that
+## reads the file and the controller that owns the drawing - the arrangement the map window has, and
+## for the same reason.
+func _build_underlay_window() -> void:
+	if _underlay_window != null:
+		return
+	_underlay_window = UnderlayWindowScript.new()
+	_underlay_window.name = "UnderlayWindow"
+	_underlay_window.choose_file_requested.connect(open_underlay_dialog)
+	_underlay_window.place_requested.connect(place_the_picture)
+	_underlay_window.apply_requested.connect(apply_to_the_picture)
+	_underlay_window.remove_requested.connect(take_the_picture_off)
+	_underlay_window.closed.connect(close_underlay_window)
+	add_child(_underlay_window)
+	_underlay_window.build()
+	# Not shown until it is asked for, like every other page here: a form nobody opened must not be
+	# sitting over the drawing.
+	_underlay_window.hide()
+
+
+func open_underlay_window() -> void:
+	_build_underlay_window()
+	if _underlay_window == null:
+		return
+	_fill_underlay_window()
+	_underlay_window.popup_centered()
+
+
+## Close it and forget the picture in hand, the way the DXF page and the map window do: a page that has
+## been closed and opened again says "no picture chosen" rather than offering the one it was showing.
+func close_underlay_window() -> void:
+	if _underlay_window != null and _underlay_window.visible:
+		_underlay_window.hide()
+	_pending_picture = {}
+	_picture_refusal = ""
+
+
+func is_underlay_window_open() -> bool:
+	return _underlay_window != null and _underlay_window.visible
+
+
+## Point the page at the drawing in hand: its units, the size a picture should start at, and everything
+## already underneath it.
+##
+## Kept apart from *showing* the page so the filling can be driven without a window server, which is how
+## the suite checks it - `popup_centered` needs a screen and a test does not have one.
+func _fill_underlay_window() -> void:
+	_build_underlay_window()
+	if _underlay_window == null:
+		return
+	_underlay_window.set_units(_drawing_units())
+	_underlay_window.set_suggested_width(_picture_suggested_width())
+	_refresh_underlay_window()
+
+
+## Put what is in hand on the page, without showing the page.
+func _refresh_underlay_window() -> void:
+	if _underlay_window == null:
+		return
+	_underlay_window.show_file(_picture_words())
+	_underlay_window.show_report(_picture_report_text())
+	_underlay_window.show_underlays(_picture_rows())
+	if not _pending_picture.is_empty():
+		# The width comes *after* the list, because a picture already chosen in the list would
+		# otherwise put its own width in the field - and a newly read file is what is being placed.
+		_underlay_window.set_suggested_width(float(_pending_picture.get("width_m", 0.0)))
+	_underlay_window.say("")
+
+
+## The drawing's own units, or the metre default when there is no drawing: a page with no document
+## behind it must still be able to say what it is measuring in.
+func _drawing_units() -> UnitsScript:
+	if _draft != null and _draft.document != null:
+		return _draft.document.units
+	return UnitsScript.new()
+
+
+## How far across the ground a picture should start at: the drawing's own extent, so the common case -
+## a scan of this site and a design drawn on it - lands at about the size it already is. A drawing with
+## nothing on it yet gets a plain width, because tracing a scan onto an empty sheet is exactly what
+## somebody does on the first day.
+func _picture_suggested_width() -> float:
+	if _draft != null and _draft.document != null:
+		var box: Rect2 = _draft.document.bounds()
+		if box.size != Vector2.ZERO:
+			return maxf(box.size.x, box.size.y)
+	return RasterUnderlayScript.SUGGESTED_WIDTH
+
+
+## What to call the picture in hand on the page, or "" when none has been read - which is also how the
+## page is told to switch its button off.
+func _picture_words() -> String:
+	if _pending_picture.is_empty():
+		return ""
+	return String(_pending_picture.get("name", "picture"))
+
+
+## What the page says about the picture in hand: why the file was refused, or what was read and where
+## the copy is. A refused file is *shown* with its reason rather than hidden, because the usual cause
+## is one a person can fix - a text file picked by mistake, or a photograph that is not one.
+func _picture_report_text() -> String:
+	if not _picture_refusal.is_empty():
+		return _picture_refusal
+	if _pending_picture.is_empty():
+		return "no picture has been read"
+	var lines: Array[String] = []
+	for line: String in RasterUnderlayScript.report_lines(_pending_picture):
+		lines.append(line)
+	return "\n".join(PackedStringArray(lines))
+
+
+## The pictures already under the drawing, as the list on the page shows them.
+func _picture_rows() -> Array[Dictionary]:
+	if _draft == null:
+		var none: Array[Dictionary] = []
+		return none
+	return _draft.underlay_rows()
+
+
+## The chooser for the picture itself. Anywhere on the disk, because a scan is a file somebody sent
+## rather than one this program wrote where it can follow it - the same reason the survey chooser reads
+## the whole filesystem.
+func open_underlay_dialog() -> void:
+	if _underlay_dialog != null:
+		_underlay_dialog.popup_centered_ratio(0.7)
+
+
+## A picture was chosen: read its header, keep a copy beside the drawing, then show what was read.
+## Nothing reaches the drawing until the page's own button is pressed, and **nothing is copied at all**
+## unless the file really is a picture - so a folder of tracing aids cannot collect files this app
+## cannot draw.
+func _on_underlay_chosen(path: String) -> void:
+	release_keyboard_focus(self)
+	_build_underlay_window()
+	if _underlay_window == null:
+		return
+	var kept: Dictionary = RasterUnderlayScript.keep(path)
+	if not bool(kept.get("ok", false)):
+		_pending_picture = {}
+		_picture_refusal = String(kept.get("reason", "the picture could not be read"))
+		_refresh_underlay_window()
+		return
+	_picture_refusal = ""
+	_pending_picture = RasterUnderlayScript.from_kept(kept, _picture_suggested_width())
+	if _pending_picture.is_empty():
+		_picture_refusal = "the picture could not be measured, so it cannot be laid at a size"
+	_refresh_underlay_window()
+	_underlay_window.say(
+		"the picture was not read" if not _picture_refusal.is_empty()
+		else RasterUnderlayScript.describe(_pending_picture, _drawing_units())
+	)
+
+
+## Put what was read under the drawing, with the numbers the page is showing. The page stays up while
+## the drawing takes it, so a refusal is answered by the page that asked.
+func place_the_picture() -> void:
+	if _draft == null or _underlay_window == null or _pending_picture.is_empty():
+		return
+	var taken: Dictionary = _draft.take_on_picture(_pending_picture, {
+		"width_m": _underlay_window.width_m(),
+		"rotation_deg": _underlay_window.rotation_deg(),
+		"opacity": _underlay_window.opacity(),
+	})
+	if not bool(taken.get("ok", false)):
+		_underlay_window.say(String(taken.get("reason", "the picture could not be taken on")))
+		return
+	_pending_picture = {}
+	_underlay_window.set_suggested_width(_picture_suggested_width())
+	_refresh_underlay_window()
+	_underlay_window.say(_draft.last_message)
+
+
+## Put the numbers the page is showing on a picture that is already under the drawing.
+func apply_to_the_picture() -> void:
+	if _draft == null or _underlay_window == null:
+		return
+	var id := _underlay_window.chosen_id()
+	if id == 0:
+		return
+	var changed: Dictionary = _draft.change_underlay(id, {
+		"width_m": _underlay_window.width_m(),
+		"rotation_deg": _underlay_window.rotation_deg(),
+		"opacity": _underlay_window.opacity(),
+	})
+	if not bool(changed.get("ok", false)):
+		_underlay_window.say(String(changed.get("reason", "the picture could not be changed")))
+		return
+	_refresh_underlay_window()
+	_underlay_window.say(
+		_draft.last_message if bool(changed.get("changed", false))
+		else "the picture already lies like that"
+	)
+
+
+## Take the chosen picture out from under the drawing.
+func take_the_picture_off() -> void:
+	if _draft == null or _underlay_window == null:
+		return
+	var id := _underlay_window.chosen_id()
+	if id == 0:
+		return
+	if not _draft.remove_underlay(id):
+		_underlay_window.say("there is no picture %d under this drawing" % id)
+		return
+	_refresh_underlay_window()
+	_underlay_window.say(_draft.last_message)
+
+
+func _menu_import_picture(_entry: Dictionary) -> void:
+	open_underlay_window()
 
 
 func open_survey_dialog() -> void:

@@ -34,6 +34,7 @@ const SUBJECTS: Array[String] = [
 	"Layers, units and the site",
 	"The ground under the garden",
 	"Importing somebody else's file",
+	"Tracing over a picture",
 	"Plants",
 	"Water: irrigation",
 	"Light: garden lighting",
@@ -242,6 +243,29 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"Each import is one undo step whatever the file holds, and each one says what it read before the "
 		+ "drawing takes it.",
+	]))
+	out.append(_topic("Tracing over a picture", [
+		"A picture under the drawing is a tracing aid: a scan of a surveyor's plan, a marked-up print, an "
+		+ "aerial photograph, a consultant's concept drawing. File > Put a picture under the drawing "
+		+ "opens the page for it.",
+		"",
+		"Only the format and the pixel size are read out of the file's header, so a very large scan is "
+		+ "not decoded just to be measured, and the picture is copied into the program's own folder. A "
+		+ "drawing that pointed at a picture on somebody else's drive would be broken on every other "
+		+ "machine it was sent to.",
+		"",
+		"It is placed by how far it lies across the ground, in the drawing's own units; the picture's own "
+		+ "proportion supplies the other direction, so a plan cannot be stretched out of shape. The same "
+		+ "page turns it and sets how see-through it is, and all three can be changed afterwards by "
+		+ "choosing the picture out of the list at the foot of the page.",
+		"",
+		"A picture is not geometry. It never plots, never snaps, is never measured and is never bought "
+		+ "by the square metre, and it does not enlarge the drawing's own extent - so putting one under a "
+		+ "drawing cannot change the scale a sheet is plotted at.",
+		"",
+		"It lies over the yard's own ground and under every line, which is what makes it possible to "
+		+ "trace over. Putting it under the drawing is one undoable step and taking it off is another, "
+		+ "and the copy stays where it is, so undo can always put the picture back.",
 	]))
 	out.append(_topic("Plants", [
 		"The plant library (L) is the catalogue: every species with its mature spread, its hardiness, the "

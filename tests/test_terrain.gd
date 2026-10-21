@@ -212,7 +212,7 @@ func test_the_ground_travels_in_the_file_and_moves_with_undo() -> void:
 	# irrigation, 8 the lighting, and the number is what a reader tells "no ground in this file" by, so
 	# it moves whenever the meaning of the file does.
 	var saved: Dictionary = document.to_dict()
-	assert(int(saved["version"]) == 8, "the file states what the ground is like: version %d" % int(saved["version"]))
+	assert(int(saved["version"]) == 9, "the file states what the ground is like: version %d" % int(saved["version"]))
 	assert(saved.has("environment"), "and it is written out")
 	var loaded: DraftDocument = Document.from_dict(saved)
 	assert(loaded.environment.base.soil_name() == Profile.SAND, "and read back")

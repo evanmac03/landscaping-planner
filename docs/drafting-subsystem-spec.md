@@ -1143,6 +1143,66 @@ reader: the drawing is metric either way, and the US survey foot is 2.0 ppm from
 foot - immaterial for a bed and material for a legal boundary (REQ 6.6.3).
 
 
+### 6.7d Raster pictures under the drawing
+
+**REQ 6.7d.1** A raster picture - PNG, JPEG, WebP or BMP - MAY be kept beside a
+drawing and drawn **under** it. A picture is **not an entity**: it never plots,
+never snaps, is never measured and is never bought by the square metre, and it
+MUST NOT enlarge the drawing's own extent. Putting one under a drawing therefore
+cannot change the scale a sheet is plotted at.
+
+**REQ 6.7d.2** The format and the pixel size MUST be read from the file's **header**,
+and the decoder MUST only ever be handed bytes whose header has already been
+understood. Godot's image loaders print an error on bytes that are not an image,
+and a 12000 x 9000 scan is 400 MB decoded; the only thing needed to place a picture
+on the ground is its proportion.
+
+**REQ 6.7d.3** The picture MUST be **copied** into the program's own folder
+(`user://underlays`) rather than referred to where it was found, for the same reason
+a recovery copy lives in `user://recovery`: a drawing is a document that gets sent to
+other people, and a drawing that points at `D:\scans\site-plan.png` is broken on
+every machine but the one it was drawn on.
+
+**REQ 6.7d.4** A picture MUST be placed by how far it lies **across the ground**,
+stated in the drawing's own unit; the other direction MUST follow from the picture's
+own pixel proportion, so that a plan cannot be stretched out of shape. Rotation and
+opacity are properties of the record and MAY be changed afterwards. Opacity MUST
+start below 1.0 (`DEFAULT_OPACITY`), because a tracing aid that hides the drawing is
+not a tracing aid.
+
+**REQ 6.7d.5** The page MUST be a `Window` rather than a HUD panel, for the reason
+the sheet and revision pages are: it holds a field to type into, and a HUD control
+holding the keyboard swallows the keys the drawing needs.
+
+**REQ 6.7d.6** Putting a picture under the drawing and taking it off MUST each be
+**one named, undoable gesture**, and a gesture MUST NOT be recorded for an act that
+changed nothing: the change is worked out on a copy and compared before the history
+is asked to record it. Taking a picture off MUST NOT delete its copy, because undo
+has to be able to put it back.
+
+**REQ 6.7d.7** The picture MUST be drawn **after the yard's own flat ground and
+structures and before every entity**, so that enough of it is visible to trace over
+and every line drawn on top of it wins. It is drawn in the **2D plan only**: the 3D
+views show a garden rather than a sheet of paper, and the sheet exporter never sees it.
+
+**As built (REQ 6.7d).** `scripts/draft/raster_underlay.gd` (`RasterUnderlay`) is
+the reader and the arithmetic - `sniff` (header only: PNG, JPEG, WebP's three chunk
+forms and BMP), `decode`, `keep`, `place`, and the geometry; `scripts/underlay_window.gd`
+is the page; `DraftDocument` holds the records and carries them through
+`snapshot`/`restore`/`to_dict` (document version 9); `PlanCanvas._draw_underlays` draws
+them; `tools/underlay_demo.gd` drives the whole thing against the real main scene and
+reads the picture's own pixels back off the framebuffer, because a canvas that holds a
+texture has not said that anything was drawn.
+
+**Deviation, recorded deliberately.** This is *not* the raster half of 6.1/6.3: there
+is no scale-bar reading, no least-squares similarity fit and no list of correspondences,
+because a picture kept under a drawing is traced by eye and the useful question is "how
+wide is it across the ground", which the person answering already knows. A picture is
+also not a `SurveyImport` and carries no traced geometry with it - the geometry traced
+over it is the drawing's own entities on the drawing's own layers, and it plots
+(REQ 6.8.3).
+
+
 ### 6.8 Tracing stance
 
 **REQ 6.8.1** Automatic raster vectorisation MUST NOT be offered as a
@@ -1157,6 +1217,14 @@ tracing with exact, rattachable geometry as the result.
 
 **REQ 6.8.3** Traced geometry MUST land as real entities on the `010`/`011`/`020`
 layers; the raster remains only as a non-plotting underlay.
+
+**As built to date (REQ 6.7d).** REQ 6.8.1 holds by construction: nothing in the
+program vectorises a raster, so there is no feature to refuse. REQ 6.8.3's second half
+is built - a picture is kept as a non-plotting underlay, and any geometry traced over
+it is ordinary entities on layers that plot. REQ 6.8.2 is **not** built: the snap
+engine walks the drawing's entities, and a picture has no entities inside it to lock
+onto, so a picture is traced by eye over a visible one. The snap-to-raster half of
+6.8.2 stays open in section 11.
 
 ---
 
@@ -1233,6 +1301,17 @@ var opacity: float = 0.4
 var locked: bool = true
 var plots: bool = false            # REQ 5.1.3
 ```
+
+**As built (REQ 6.7d).** The picture is a plain record on the document -
+`{id, name, path, format, width_px, height_px, x, z, width_m, rotation_deg, opacity,
+visible}` - rather than the `Underlay` class sketched above, for the reason the
+irrigation and lighting records are Dictionaries: the module does the reading and the
+arithmetic and the document only holds the records. It carries no transform matrix
+(there is nothing to fit: it is placed across the ground and its proportion supplies
+the other direction) and no `locked` flag, because nothing can pick a picture in the
+first place, so a lock would be a lock on nothing. It is persisted as `underlays` from
+document version 9.
+
 
 **REQ 7.1** `SurveyImport` MUST be persisted into the document so an import can be
 re-run or audited. Undo of an import MUST remove the underlay, the traced
@@ -1387,7 +1466,7 @@ time raster alignment arrives the checks that catch a bad fit are already proven
 
 ## 11. Open questions
 
-Four decisions change this specification structurally rather than cosmetically.
+Five decisions change this specification structurally rather than cosmetically.
 
 1. **Is a plot style table (colour-indexed pen mapping) genuinely required, or is
    per-layer weight sufficient?** It is specified because practices adopting a CAD
@@ -1413,3 +1492,10 @@ Four decisions change this specification structurally rather than cosmetically.
    and should be built early. If output is only ever on-screen or raster, phases 5
    and 6 can be much lighter and the true-to-scale requirement relaxes to the
    scale bar alone.
+
+5. **Does tracing need to lock onto the raster's own line work?** REQ 6.8.2 asks for
+   snapping onto the picture, and the picture as built is visible but inert. Snapping
+   onto it is a reader of its own - edge detection over the decoded pixels, in the
+   picture's own frame - and its failures are quiet, which is the failure mode
+   REQ 6.8.1 refuses. It stays open until somebody is tracing scans often enough to
+   want it.

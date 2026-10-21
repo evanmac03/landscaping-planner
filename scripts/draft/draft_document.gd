@@ -77,6 +77,22 @@ var irrigation: Dictionary = {}
 ## drawing only keeps the records, and the load check refuses a circuit with no transformer stated.
 var lighting: Dictionary = {}
 
+## The pictures lying under the drawing, as `RasterUnderlay` writes them: a scan of a surveyor's
+## plan to trace over, an aerial photograph, the consultant's rendered concept. It is the sibling of
+## `irrigation` and `lighting` and is held the same way - the module `RasterUnderlay` does the
+## reading and the arithmetic, and the drawing only keeps the records.
+##
+## **A picture is not geometry**, and that is the whole reason it is not an entity. A sheet plots the
+## document's entities, the snap engine and the takeoff walk them, and a tracing aid must do none of
+## the three: an underlay that appeared on the drawing that goes to a client, or that could be
+## snapped to and bought by the square metre, would be a defect rather than a convenience. So a
+## picture is kept here beside the entities rather than among them, and the plan draws it over the
+## yard's own ground and under every line the designer draws.
+var underlays: Array = []
+## Ids for the pictures, in their own sequence rather than the entities': a picture has no id in any
+## drawing and there is no reason for the two sequences to share a number.
+var _next_underlay_id: int = 1
+
 ## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
 ## units are a fact about the practice, so it lives on the drawing rather than on the sun
 ## study or on the scene: a designer who works at one latitude sets it once and every
@@ -259,6 +275,47 @@ func entities_of_kind(kind: int) -> Array[EntityScript]:
 	return out
 
 
+# --- the pictures under the drawing ---------------------------------------------------
+
+
+## Put a picture under the drawing, assigning it an id. The record is copied in, so whatever built
+## it cannot go on changing the one the drawing holds.
+func add_underlay(record: Dictionary) -> int:
+	var kept: Dictionary = record.duplicate(true)
+	kept["id"] = _next_underlay_id
+	_next_underlay_id += 1
+	underlays.append(kept)
+	changed.emit()
+	return int(kept["id"])
+
+
+func underlay(id: int) -> Dictionary:
+	for record: Dictionary in underlays:
+		if int(record.get("id", 0)) == id:
+			return record
+	return {}
+
+
+func remove_underlay(id: int) -> bool:
+	for index in underlays.size():
+		var record: Dictionary = underlays[index]
+		if int(record.get("id", 0)) == id:
+			underlays.remove_at(index)
+			changed.emit()
+			return true
+	return false
+
+
+## The pictures that are shown, in draw order. A hidden picture is still kept - it is a tracing aid
+## put away rather than one thrown away - so the drawing has to answer which of them are on.
+func visible_underlays() -> Array:
+	var out: Array = []
+	for record: Dictionary in underlays:
+		if bool(record.get("visible", true)):
+			out.append(record)
+	return out
+
+
 ## Bounding box of all geometry, for fitting a view or a sheet.
 func bounds() -> Rect2:
 	var box := Rect2()
@@ -431,6 +488,8 @@ func snapshot() -> Dictionary:
 		"sheets": sheets.to_dict(),
 		"irrigation": irrigation.duplicate(true),
 		"lighting": lighting.duplicate(true),
+		"underlays": underlays.duplicate(true),
+		"next_underlay_id": _next_underlay_id,
 	}
 
 
@@ -485,6 +544,15 @@ func restore(state: Dictionary) -> void:
 	# lighting out for.
 	var lighting_state: Variant = state.get("lighting", null)
 	lighting = lighting_state.duplicate(true) if lighting_state is Dictionary else {}
+	# The pictures under the drawing are the newest arrival and read the way the irrigation and the
+	# lighting do: a file written before they existed gets none, which is a drawing nobody has traced
+	# over - not a drawing with a mysterious picture in it.
+	underlays = []
+	var underlay_state: Array = state.get("underlays", [])
+	for entry in underlay_state:
+		if entry is Dictionary:
+			underlays.append((entry as Dictionary).duplicate(true))
+	_next_underlay_id = int(state.get("next_underlay_id", underlays.size() + 1))
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -540,8 +608,12 @@ func to_dict() -> Dictionary:
 	#
 	# Version 8 states what the drawing is lit by, for the same reason and in the same shape: no
 	# circuits is a drawing nobody has worked the lighting out for, not a garden with no light.
+	#
+	# Version 9 states the pictures lying under the drawing - a scan to trace over, an aerial
+	# photograph. It is the same shape a fourth time and for the same reason: no pictures is a
+	# drawing nobody has traced over, not a drawing whose picture went missing.
 	return {
-		"version": 8,
+		"version": 9,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
@@ -549,6 +621,8 @@ func to_dict() -> Dictionary:
 		"sheets": sheets.to_dict(),
 		"irrigation": irrigation.duplicate(true),
 		"lighting": lighting.duplicate(true),
+		"underlays": underlays.duplicate(true),
+		"next_underlay_id": _next_underlay_id,
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

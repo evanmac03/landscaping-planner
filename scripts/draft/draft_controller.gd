@@ -38,6 +38,7 @@ const RevisionLogScript := preload("res://scripts/draft/revision_log.gd")
 const DraftSimplifyScript := preload("res://scripts/draft/draft_simplify.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const AutosaveScript := preload("res://scripts/draft/autosave.gd")
+const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -1972,6 +1973,200 @@ static func _circuit_count_words(circuits: int, fixtures: int, watts: String) ->
 	var circuit_part := "1 circuit" if circuits == 1 else "%d circuits" % circuits
 	var fixture_part := "1 fixture" if fixtures == 1 else "%d fixtures" % fixtures
 	return "%s, %s drawing %s W" % [circuit_part, fixture_part, watts]
+
+
+# --- the pictures under the drawing ----------------------------------------------------
+
+
+## The pictures lying under the drawing, in draw order. Read straight from the drawing, because a
+## picture is a record the drawing keeps rather than geometry it holds: nothing here has an id in the
+## entity sequence, nothing here snaps, and nothing here plots.
+func underlays() -> Array:
+	if document == null:
+		return []
+	return document.underlays
+
+
+## Take a picture on: copy it beside the drawing, lay it under everything and put the record on the
+## drawing. **One undo step**, because putting a tracing aid under the plan is one act.
+##
+## `options` may carry `at` (the centre on the ground, in world XZ metres), `name` (what to call the
+## copy), `rotation_deg` and `opacity`. Returns `{ok, reason, message, id, picture}`.
+##
+## It lands on the middle of the drawing's own extent unless it is told otherwise, so the common case
+## - a scan of the site, and a design drawn on that site - puts the two on top of each other with
+## nothing to type and nothing to drag.
+func place_underlay(source: String, width_m: float, options: Dictionary = {}) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": {}}
+	var at: Vector2 = _underlay_landing()
+	var stated: Variant = options.get("at", null)
+	if stated is Vector2:
+		at = stated
+	var taken: Dictionary = RasterUnderlayScript.place(source, width_m, at, String(options.get("name", "")))
+	if not bool(taken.get("ok", false)):
+		last_message = String(taken.get("reason", "the picture could not be taken on"))
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "id": 0, "picture": {}}
+	return take_on_picture(taken["record"], options)
+
+
+## Put a picture that has already been read **and kept** under the drawing, with the numbers a form is
+## showing. Returns `{ok, reason, message, id, picture}`.
+##
+## This is the half that touches the drawing; `place_underlay` is this half plus the copy. The two are
+## apart because a page that reads a file and then says how it lies has already kept its copy, and
+## copying it a second time would leave a duplicate in the drawing's folder for every press of a
+## button.
+##
+## The record is validated by the module that owns what a picture is worth, so a width that says
+## nothing, a file that has gone and a size that was never read are all refused in one place, and the
+## refusal names which of them it was.
+func take_on_picture(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": {}}
+	var wanted: Dictionary = record.duplicate(true)
+	# A number a form sent that cannot be read is **refused by name** rather than ignored: a page that
+	# says "left blank" and a page that silently keeps the old width are two different pages, and only
+	# one of them is telling the person what happened.
+	if options.has("width_m"):
+		var width := float(options["width_m"])
+		if is_nan(width):
+			return _picture_refused("the width across the ground is not a number")
+		if width <= 0.0:
+			return _picture_refused("a picture has to be more than nothing across")
+		RasterUnderlayScript.set_width(wanted, width)
+	if options.has("rotation_deg"):
+		if not RasterUnderlayScript.set_rotation(wanted, float(options["rotation_deg"])):
+			return _picture_refused("a picture's turn has to be a number of degrees")
+	if options.has("opacity"):
+		if not RasterUnderlayScript.set_opacity(wanted, float(options["opacity"])):
+			return _picture_refused("how see-through a picture is has to be a number")
+	var problem := RasterUnderlayScript.describe_problem(wanted)
+	if not problem.is_empty():
+		return _picture_refused(problem)
+	var stated: Variant = options.get("at", null)
+	if stated is Vector2:
+		RasterUnderlayScript.move_to(wanted, (stated as Vector2).x, (stated as Vector2).y)
+	document.begin_gesture("putting a picture under the drawing")
+	var id := document.add_underlay(wanted)
+	dirty = true
+	var picture := document.underlay(id)
+	last_message = "put %s under the drawing, %s across" % [
+		String(picture.get("name", "a picture")),
+		document.units.format_length(float(picture.get("width_m", 0.0))),
+	]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "id": id, "picture": picture, "message": last_message}
+
+
+## Nothing reached the drawing, and the reason is what the drawing's own status line says.
+func _picture_refused(reason: String) -> Dictionary:
+	last_message = reason
+	_refresh_canvas()
+	return {"ok": false, "reason": reason, "id": 0, "picture": {}}
+
+
+## Change a picture already under the drawing: how wide it lies, which way round it is, how
+## see-through it is, whether it is shown, or where it lies. One undo step, like any other change to a
+## drawing.
+##
+## The change is worked out on a **copy** and only written across once there is something to record.
+## That is not tidiness: `begin_gesture` records the state there and then, so a gesture opened before
+## a change that turns out to change nothing would leave an undo step that puts back what is already
+## there - worse than no step at all.
+func change_underlay(id: int, changes: Dictionary) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing here", "changed": false, "picture": {}}
+	var record := document.underlay(id)
+	if record.is_empty():
+		return {
+			"ok": false, "reason": "there is no picture %d under this drawing" % id,
+			"changed": false, "picture": {},
+		}
+	var wanted: Dictionary = record.duplicate(true)
+	if changes.has("width_m"):
+		RasterUnderlayScript.set_width(wanted, float(changes["width_m"]))
+	if changes.has("rotation_deg"):
+		RasterUnderlayScript.set_rotation(wanted, float(changes["rotation_deg"]))
+	if changes.has("opacity"):
+		RasterUnderlayScript.set_opacity(wanted, float(changes["opacity"]))
+	if changes.has("visible"):
+		RasterUnderlayScript.set_visible(wanted, bool(changes["visible"]))
+	var stated: Variant = changes.get("at", null)
+	if stated is Vector2:
+		RasterUnderlayScript.move_to(wanted, (stated as Vector2).x, (stated as Vector2).y)
+	if wanted == record:
+		return {"ok": true, "reason": "", "changed": false, "picture": record}
+	document.begin_gesture("moving the picture under the drawing")
+	for key: String in wanted:
+		record[key] = wanted[key]
+	dirty = true
+	last_message = RasterUnderlayScript.describe(record, document.units)
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "changed": true, "picture": record, "message": last_message}
+
+
+## Take a picture out from under the drawing. Its copy stays in the app's own folder, because an undo
+## has to be able to put the picture back and a file thrown away cannot be.
+func remove_underlay(id: int) -> bool:
+	if document == null:
+		return false
+	var record := document.underlay(id)
+	if record.is_empty():
+		return false
+	document.begin_gesture("taking the picture out from under the drawing")
+	if not document.remove_underlay(id):
+		return false
+	dirty = true
+	last_message = "took %s out from under the drawing" % String(record.get("name", "the picture"))
+	_refresh_canvas()
+	return true
+
+
+## What is under the drawing, one row each: the id a button acts on, the words a list shows, the three
+## numbers a form edits, and whether the picture can actually be drawn. The words are built here so
+## that nothing reading a row has to know the shape of a picture's record.
+func underlay_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if document == null:
+		return rows
+	for record: Dictionary in document.underlays:
+		var words := RasterUnderlayScript.describe(record, document.units)
+		# A picture whose file has been moved is still on the drawing and cannot be drawn, and the row
+		# says so rather than reading as though everything were well.
+		var problem := RasterUnderlayScript.describe_problem(record)
+		rows.append({
+			"id": int(record.get("id", 0)),
+			"name": String(record.get("name", "picture")),
+			"text": words if problem.is_empty() else "%s - %s" % [words, problem],
+			"width_m": float(record.get("width_m", 0.0)),
+			"rotation_deg": float(record.get("rotation_deg", 0.0)),
+			"opacity": float(record.get("opacity", 1.0)),
+			"visible": bool(record.get("visible", true)),
+			"usable": problem.is_empty(),
+		})
+	return rows
+
+
+## One line saying what is under the drawing, for a panel to lead with.
+func underlay_summary() -> String:
+	var rows := underlay_rows()
+	if rows.is_empty():
+		return "nothing is under this drawing"
+	return "%d picture%s under the drawing" % [rows.size(), "" if rows.size() == 1 else "s"]
+
+
+## Where a picture lands when nobody says otherwise: the middle of the drawing's own extent. A scan of
+## a site and a design drawn on that site belong on top of each other, and the origin is the middle of
+## the site only when somebody has drawn it there.
+func _underlay_landing() -> Vector2:
+	if document == null:
+		return Vector2.ZERO
+	var box: Rect2 = document.bounds()
+	if box.size == Vector2.ZERO:
+		return Vector2.ZERO
+	return box.get_center()
 
 
 ## Write the planting's own labels onto the drawing.

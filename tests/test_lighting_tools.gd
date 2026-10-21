@@ -347,7 +347,7 @@ func test_the_circuits_travel_in_the_drawing_file() -> void:
 	controller.set_lighting_transformer(100.0, 12.0)
 	controller.light_area(_bed(9.0), Lighting.WELL)
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 8, "version 8 is the one that states the lighting")
+	assert(int(saved["version"]) == 9, "version 9 is the one that states the pictures under the drawing too")
 	assert(saved.has("lighting"), "and it is written out")
 	var loaded: DraftDocument = Document.from_dict(JSON.parse_string(JSON.stringify(saved)))
 	var circuits := Lighting.from_dict(loaded.lighting)

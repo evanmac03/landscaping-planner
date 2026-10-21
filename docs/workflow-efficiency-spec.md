@@ -398,6 +398,43 @@ is all keyboard is exactly what prose is for. The live check presses the real ke
 `Input.parse_input_event` rather than `Input.action_press`, which sets an action's state and sends
 no event at all - a check built on it would never have exercised the handler Ctrl+P lives in.
 
+## 8b. A picture under the drawing, to trace over - BUILT
+
+`scripts/draft/raster_underlay.gd` (`RasterUnderlay`), `scripts/underlay_window.gd`, and the joins in
+`scripts/hud.gd`, `scripts/draft/draft_controller.gd` and `scripts/plan_canvas.gd`. Held down by
+`tests/test_raster_underlay.gd` (20 tests), `tests/test_underlay_tools.gd` (12),
+`tests/test_underlay_window.gd` (9) and `tests/test_hud_underlay.gd` (9); looked at live by
+`tools/underlay_demo.gd`.
+
+The problem it answers is the one most redesigns start with: the thing you have to draw over already
+exists, and it arrived as a picture - a scan of a surveyor's plat, a marked-up print, an aerial
+photograph, the consultant's concept.
+
+* **The header, not the pixels.** Only the format and the pixel size are read before the picture is
+  drawn, and the decoder is only ever handed bytes whose header has already been understood. A
+  12000 x 9000 scan is 400 MB decoded, and Godot's own loaders print an error on anything that is not
+  an image: reading the header first makes both of those somebody else's problem.
+* **The picture is copied, not pointed at.** It is kept in `user://underlays`, because a drawing is a
+  document that gets sent to other people, and one pointing at `D:\scans\site-plan.png` is broken
+  everywhere but on the machine it was drawn on.
+* **It is placed by how far it lies across the ground**, in the drawing's own unit, and the picture's
+  own proportion supplies the other direction - so a plan cannot be stretched out of shape by a
+  mistyped number, and the second number never has to be typed at all.
+* **A picture is not geometry**, and the design follows from that one sentence: it never plots, never
+  snaps, is never measured and is never bought by the square metre, and it cannot drag the drawing's
+  extent - and so the plot scale - around with it.
+* **It lies over the ground and under every line**, which was a live finding rather than the drawing
+  order it was written with. It was written to draw before *everything*, which in this app hides it:
+  the 2D plan paints the yard's own lawn, house and paving as flat shapes after the paper, so the
+  picture was there, held by the canvas, and completely covered. What settled it was not reading the
+  code but reading the framebuffer - the same pixel with the picture drawn and with it put away. Two
+  numbers are worth more than an inspection.
+* **A gesture only when something changed.** Moving a picture, turning it and fading it are each one
+  named undoable step, and the change is worked out on a copy and compared first, so asking for the
+  turn it already has records nothing. Taking a picture off leaves its copy where it is, because undo
+  has to be able to put it back.
+
+
 ## 9. What I would build next, in this order
 
 1. ~~**The takeoff and the estimate (business phases 2 and 3, together).**~~ **Done.** Built as
@@ -422,9 +459,18 @@ no event at all - a check built on it would never have exercised the handler Ctr
    through File > Recover unsaved work with Recover / Discard it / Not now, and recovering is
    one undoable step. See the drafting subsystem spec, REQ 8.9.
 
+8. ~~**A picture to trace over.**~~ **Done.** Built as `RasterUnderlay`, `UnderlayWindow` and the
+   plan canvas's `_draw_underlays`, with four test files; see section 8b. It is the first thing in the
+   program that reads a file without making entities out of it, which is what made it cheap: no
+   editing, no takeoff, no plot, no sheet.
+
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
 phase table, where phases 0 to 11 are marked built.
 Section 8 was checked by reading the box in the running program rather than by reading the
 script that builds it: `tools/palette_demo.gd` presses Ctrl+P, types a word, presses Enter and
 presses Escape through the real input pipeline, and each of the four acts on the real controls.
+
+Section 8b was checked by reading the picture's own pixels back off the framebuffer in
+`tools/underlay_demo.gd`, once with the picture drawn and once with it put away, because the first
+version of it was held by the canvas and drawn nowhere.

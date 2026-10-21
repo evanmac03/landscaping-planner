@@ -20,6 +20,12 @@ const PLANTS := "Plants"
 const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
 const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
+const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+
+## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
+## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
+## so the disk is not asked for it again either.
+var _underlay_textures: Dictionary = {}
 
 ## The shapes a selection band caught, by id, handed over by the drafting controller.
 var _selected: Array[int] = []
@@ -213,6 +219,11 @@ func _draw() -> void:
 	for shape: Dictionary in _context:
 		_draw_context_shape(shape)
 	_draw_fence()
+	# The pictures lie **over the ground and under everything else**: the yard's own lawn, house and
+	# paving are scenery read off the 3D meshes and drawn flat, and a tracing aid has to be visible
+	# over them or there is nothing to trace; every plant standing on the ground and every line the
+	# designer draws stays on top of it.
+	_draw_underlays()
 	for node: Node3D in _placeables:
 		_draw_placeable(node)
 	_draw_document()
@@ -455,7 +466,58 @@ func _screen_to_local(screen: Vector2) -> Vector2:
 ## read, so all three show one design.
 func bind_document(doc) -> void:
 	document = doc
+	# A new drawing has its own pictures: whatever the last one had read stays cached only as long as
+	# the drawing that referred to it is the one on screen. Never a correctness problem - the cache is
+	# keyed by path - but a drawing that has been closed should not hold somebody else's scan in memory.
+	_underlay_textures.clear()
 	queue_redraw()
+
+
+## The pictures lying under the drawing: over the yard's own flat ground and structures, under every
+## plant standing on that ground and under every line the designer draws. A tracing aid you cannot see
+## through is not a tracing aid, which is why they start part-transparent and why one that has been put
+## away is not drawn at all.
+##
+## A picture is not linework, so nothing here plots, snaps or measures it: this is a picture on the
+## plan and the sheet exporter never sees it.
+func _draw_underlays() -> void:
+	if document == null:
+		return
+	for record: Dictionary in document.underlays:
+		if not bool(record.get("visible", true)):
+			continue
+		var width := float(record.get("width_m", 0.0))
+		if width <= 0.0:
+			continue
+		var texture := _underlay_texture(String(record.get("path", "")))
+		if texture == null:
+			continue
+		var height := RasterUnderlayScript.height_of(record)
+		# The picture is drawn in its own frame and turned about its own centre, so `width_m` and the
+		# picture's own proportion are the only two numbers its size needs.
+		draw_set_transform(
+			RasterUnderlayScript.centre_of(record),
+			deg_to_rad(float(record.get("rotation_deg", 0.0))),
+			Vector2.ONE,
+		)
+		draw_texture_rect(
+			texture,
+			Rect2(Vector2(-width * 0.5, -height * 0.5), Vector2(width, height)),
+			false,
+			Color(1.0, 1.0, 1.0, clampf(float(record.get("opacity", 1.0)), 0.0, 1.0)),
+		)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## The texture for a kept picture, read once and then remembered - including as nothing when the file
+## is gone or cannot be read, because a plan that repaints goes on asking.
+func _underlay_texture(path: String) -> Texture2D:
+	if _underlay_textures.has(path):
+		var read: Texture2D = _underlay_textures[path]
+		return read
+	var texture: Texture2D = RasterUnderlayScript.texture_of(path)
+	_underlay_textures[path] = texture
+	return texture
 
 
 func _draw_document() -> void:

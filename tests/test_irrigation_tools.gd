@@ -339,7 +339,7 @@ func test_the_zones_travel_in_the_drawing_file() -> void:
 	controller.set_irrigation_supply(120.0, 350.0)
 	controller.water_area(_bed(9.0), Irrigation.SPRAY)
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 8, "version 8 is the one that states the lighting too")
+	assert(int(saved["version"]) == 9, "version 9 is the one that states the pictures under the drawing too")
 	assert(saved.has("irrigation"), "and it is written out")
 	var loaded: DraftDocument = Document.from_dict(JSON.parse_string(JSON.stringify(saved)))
 	var zones := Irrigation.from_dict(loaded.irrigation)
