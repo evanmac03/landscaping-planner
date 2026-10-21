@@ -223,7 +223,7 @@ func test_a_drawing_from_before_sets_existed_opens_as_one_sheet() -> void:
 	# drawing's own size stands in rather than a set of none.
 	var controller = _controller()
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 6, "this build writes version 6")
+	assert(int(saved["version"]) == 7, "this build writes version 7")
 	saved["version"] = 5
 	saved.erase("sheets")
 	var legacy: DraftDocument = Document.from_dict(saved)

@@ -23,6 +23,7 @@ const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
@@ -1401,6 +1402,190 @@ func _entity_from_dxf(shape: Dictionary) -> DraftEntity:
 			line.bulges = bulges
 		return line
 	return null
+
+
+## The zones this drawing is watered by, as the irrigation module's own records. Reading is
+## defensive in one place and one place only: `Irrigation.from_dict` drops a record that is not a
+## zone, so a damaged file gives fewer zones rather than an error nobody can act on.
+func irrigation_zones() -> Array[Dictionary]:
+	if document == null:
+		return []
+	return IrrigationScript.from_dict(document.irrigation)
+
+
+## The water supply, as somebody stated it. A drawing with nothing stated gives an empty body, and
+## the flow check refuses on it - which is the point: the app never assumes forty litres a minute.
+func irrigation_supply() -> Dictionary:
+	if document == null:
+		return {}
+	var stated = document.irrigation.get("supply", null)
+	return stated if stated is Dictionary else {}
+
+
+## State the supply: a flow in litres per minute at a pressure in kilopascals. One undo step,
+## because it is a change to the drawing like any other.
+func set_irrigation_supply(flow: float, pressure: float) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to state a supply for"}
+	if flow <= 0.0 or pressure <= 0.0:
+		return {"ok": false, "reason": "a supply is a flow at a pressure, and neither can be nothing"}
+	document.begin_gesture()
+	document.irrigation["supply"] = IrrigationScript.make_supply(flow, pressure)
+	dirty = true
+	last_message = "the supply is %s" % IrrigationScript.supply_words(irrigation_supply())
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "supply": irrigation_supply()}
+
+
+## How many heads of a kind the stated supply can run, or 0 when nothing is stated. The panel shows
+## this beside the supply, so a designer sees the budget before laying anything out.
+func irrigation_head_budget(kind: String) -> int:
+	return IrrigationScript.head_budget(irrigation_supply(), kind)
+
+
+## The areas of the plan that can be watered. `hatch_regions`' own list, for the reason that list
+## gives: a bed has to be named the same way wherever a designer is offered one.
+func waterable_areas() -> Array[Dictionary]:
+	return hatch_regions()
+
+
+## Water an area: make a zone, lay its heads out, keep the zone with the drawing and put the heads
+## on the plan. **One undo step**, because watering a bed is one act.
+##
+## Refuses before it touches anything - an area the grid cannot be laid out in, or a zone that would
+## not run off the stated supply - and that is deliberate: laying out a valve that cannot be opened
+## and leaving it on the drawing for the next person to find is worse than saying so.
+##
+## Returns `{ok, reason, message, zone, number, placed, verdict, rows}`.
+func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
+		staggered: bool = false) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to water", "placed": 0}
+	if not IrrigationScript.is_kind(kind):
+		last_message = "that is not a kind of head"
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	var zones := irrigation_zones()
+	var zone := IrrigationScript.make_zone(IrrigationScript.next_number(zones), kind)
+	zone["valve"] = IrrigationScript.next_valve(zones)
+	IrrigationScript.set_area(zone, ring)
+	var report := IrrigationScript.lay_out(zone, kind, spacing, staggered)
+	if not bool(report["ok"]):
+		last_message = String(report["reason"])
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	var supply := irrigation_supply()
+	var verdict := IrrigationScript.check(zone, supply)
+	if not bool(verdict["ok"]):
+		last_message = IrrigationScript.verdict_words(zone, supply)
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "placed": 0}
+	document.begin_gesture()
+	zones.append(zone)
+	document.irrigation["zones"] = IrrigationScript.to_dict(zones)["zones"]
+	var placed := _stamp_heads(zone)
+	_rebind_snap()
+	dirty = true
+	last_message = "%s, and %s" % [IrrigationScript.verdict_words(zone, supply),
+		"1 head is on the plan" if placed == 1 else "%d heads are on the plan" % placed]
+	_refresh_canvas()
+	return {
+		"ok": true, "reason": "", "message": last_message, "zone": zone,
+		"number": int(zone["number"]), "placed": placed,
+		"verdict": IrrigationScript.verdict_words(zone, supply), "rows": irrigation_rows(),
+	}
+
+
+## Put a zone's heads on the drawing, one entity each, and say how many.
+func _stamp_heads(zone: Dictionary) -> int:
+	var placed := 0
+	for entry in IrrigationScript.heads_of(zone):
+		var head: Dictionary = entry
+		var entity := IrrigationScript.head_entity(head, int(zone.get("number", 0)), plot_scale)
+		if entity == null:
+			continue
+		document.add(entity, IrrigationScript.layer())
+		placed += 1
+	return placed
+
+
+## Take a zone off the drawing: its record with it, and the heads that belong to it, in one step. A
+## zone whose heads stayed behind would be a plan with unwatered circles on it and nothing to say
+## what they were for.
+func remove_zone(number: int) -> Dictionary:
+	if document == null:
+		return {"ok": false, "reason": "there is no drawing to change"}
+	var zones := irrigation_zones()
+	var kept: Array[Dictionary] = []
+	var found := false
+	for zone in zones:
+		if int(zone.get("number", 0)) == number:
+			found = true
+			continue
+		kept.append(zone)
+	if not found:
+		last_message = "there is no Zone %d" % number
+		_refresh_canvas()
+		return {"ok": false, "reason": last_message, "removed": 0}
+	document.begin_gesture()
+	var removed := 0
+	for entity in document.entities():
+		if IrrigationScript.zone_of_entity(entity) == number and document.remove(entity.id):
+			removed += 1
+	document.irrigation["zones"] = IrrigationScript.to_dict(kept)["zones"]
+	_rebind_snap()
+	dirty = true
+	last_message = "Zone %d is off the drawing, with %s" % [number,
+		"1 head" if removed == 1 else "%d heads" % removed]
+	_refresh_canvas()
+	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
+		"rows": irrigation_rows()}
+
+
+## The zones as a schedule reads them, one row each, checked against the stated supply.
+func irrigation_rows() -> Array[Dictionary]:
+	return IrrigationScript.schedule(irrigation_zones(), irrigation_supply())
+
+
+## The schedule as the lines a sheet or a status bar carries.
+func irrigation_lines() -> Array[String]:
+	return IrrigationScript.schedule_lines(irrigation_zones(), irrigation_supply())
+
+
+## One line saying what the drawing is watered by, for a panel to lead with.
+func irrigation_summary() -> String:
+	var zones := irrigation_zones()
+	if zones.is_empty():
+		return "nothing on this drawing is watered yet"
+	var heads := 0
+	var flow := 0.0
+	var area := 0.0
+	var wrong := ""
+	for zone in zones:
+		heads += IrrigationScript.head_count(zone)
+		flow += IrrigationScript.demand_of(zone)
+		area += IrrigationScript.area_m2(zone)
+		if wrong.is_empty():
+			var verdict := IrrigationScript.check(zone, irrigation_supply())
+			if not bool(verdict["ok"]):
+				wrong = IrrigationScript.verdict_words(zone, irrigation_supply())
+	if wrong.is_empty():
+		wrong = "every zone runs off the supply"
+	return "%s over %s m2, %s" % [_zone_count_words(zones.size(), heads, _quantity_words(flow)),
+		_quantity_words(area), wrong]
+
+
+## A measurement as one line writes it: whole where it is whole, one decimal otherwise.
+static func _quantity_words(value: float) -> String:
+	if is_equal_approx(value, round(value)):
+		return "%d" % int(round(value))
+	return "%.1f" % value
+
+
+static func _zone_count_words(zones: int, heads: int, flow: String) -> String:
+	var zone_part := "1 zone" if zones == 1 else "%d zones" % zones
+	var head_part := "1 head" if heads == 1 else "%d heads" % heads
+	return "%s, %s drawing %s L/min" % [zone_part, head_part, flow]
 
 
 ## Write the planting's own labels onto the drawing.

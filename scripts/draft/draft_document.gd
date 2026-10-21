@@ -55,6 +55,19 @@ var environment: ZoneMapScript
 ## of the linework.
 var sheets: DraftSheetSet = SheetSetScript.new()
 
+## What the drawing is watered by, as the irrigation module writes it: `{"zones": [...], "supply":
+## {...}}`, with each zone's own record shape owned by `Irrigation`.
+##
+## It is held as the plain body rather than as a class of its own because a zone is arithmetic rather
+## than an object with behaviour: `Irrigation` is static and does the sums, and the drawing only has
+## to keep the records. It lives on the drawing for the reason the ground and the sheets do - a zone
+## is a fact about *this* garden - and it is part of the undo snapshot, so watering a bed and taking
+## it back is one step.
+##
+## An empty body is not "a supply of nothing": it is *nothing stated*, which is what the flow check
+## refuses on, and what a file written before any of this existed gets.
+var irrigation: Dictionary = {}
+
 ## Where the site is, in degrees north. A latitude is a fact about the *site*, like the
 ## units are a fact about the practice, so it lives on the drawing rather than on the sun
 ## study or on the scene: a designer who works at one latitude sets it once and every
@@ -359,6 +372,7 @@ func snapshot() -> Dictionary:
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),
+		"irrigation": irrigation.duplicate(true),
 	}
 
 
@@ -403,6 +417,11 @@ func restore(state: Dictionary) -> void:
 	# The sheet set is the newest arrival: a file written before it existed gets one sheet at the
 	# drawing's own size and scale, which is the sheet this app plotted before sets existed.
 	sheets = SheetSetScript.from_dict(state.get("sheets", null))
+	# What the drawing is watered by is the newest arrival, and a file written before it existed gets
+	# no zones and no supply stated - which is a drawing nobody has worked the irrigation out for, and
+	# not a garden with mysterious forty-litres-a-minute water in it.
+	var irrigation_state: Variant = state.get("irrigation", null)
+	irrigation = irrigation_state.duplicate(true) if irrigation_state is Dictionary else {}
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -451,13 +470,18 @@ func to_dict() -> Dictionary:
 	#
 	# Version 6 states which sheets the drawing is plotted as, for the same reason: one sheet at the
 	# drawing's own size is not the same answer as "this file was written before sets existed".
+	#
+	# Version 7 states what the drawing is watered by. A file with no irrigation in it is not a garden
+	# with no water in it: it is a drawing nobody has worked the irrigation out for, and the flow
+	# check says so rather than blessing a zone against a supply nobody stated.
 	return {
-		"version": 6,
+		"version": 7,
 		"units": units_snapshot(),
 		"site": site(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),
+		"irrigation": irrigation.duplicate(true),
 		"layers": layer_list,
 		"order": order,
 		"entities": saved,

@@ -42,6 +42,7 @@ class_name Irrigation
 const Geom := preload("res://scripts/draft/geom2d.gd")
 const SpacingScript := preload("res://scripts/plant_spacing.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
+const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 
 ## The kinds of head. Strings rather than StringNames because these are keys in a constant
 ## dictionary, and a constant expression cannot hold a StringName key.
@@ -480,6 +481,87 @@ static func _refused(reason: String, spacing: float, clearance: float,
 	}
 
 
+# --- a zone on the plan -------------------------------------------------------------
+
+
+## How wide a head is drawn on the sheet, in millimetres. A head on a plan is a *symbol* rather than
+## a measurement: its circle is a fixed size on paper, so its model radius follows the plot scale - a
+## 3 mm circle is 0.3 m of ground at 1:100 and 0.6 m at 1:200. Drawing the head's real 15 cm body
+## instead would make it invisible on a garden plan and enormous on a detail.
+const HEAD_SYMBOL_MM := 3.0
+
+## The smallest model radius a head is ever drawn at, so a drawing whose plot scale has not been set
+## still shows something rather than nothing.
+const HEAD_MIN_RADIUS := 0.05
+
+## The metadata a placed head carries, so the drawing can say what a circle on the irrigation layer
+## is without a second model to keep in step.
+const META_ZONE := "irrigation_zone"
+const META_KIND := "irrigation_kind"
+const META_HEADING := "irrigation_heading"
+const META_ARC := "irrigation_arc"
+
+
+static func _metres_per_paper_mm(plot_scale: float) -> float:
+	if plot_scale <= TOLERANCE:
+		return 0.0
+	return plot_scale / 1000.0
+
+
+## A head as the drawing holds it: a circle on the irrigation layer, sized in paper millimetres,
+## carrying its kind, its zone, its heading and its nozzle in its own metadata - so the takeoff
+## counts it, the sheet keys it, and selecting it can say what it is.
+static func head_entity(head: Dictionary, zone_number: int, plot_scale: float) -> DraftEntity:
+	var radius := maxf(HEAD_MIN_RADIUS, HEAD_SYMBOL_MM * _metres_per_paper_mm(plot_scale))
+	var entity := EntityScript.make_circle(Vector2(head.get("at", Vector2.ZERO)), radius)
+	entity.layer = LayerSetScript.IRRIGATION
+	entity.meta[META_ZONE] = zone_number
+	entity.meta[META_KIND] = String(head.get("kind", ""))
+	entity.meta[META_HEADING] = float(head.get("heading", 0.0))
+	entity.meta[META_ARC] = arc_of_head(head)
+	return entity
+
+
+## A pipe run as the drawing holds it: a polyline on the irrigation layer. A run of one point is not
+## a run, so it produces nothing rather than a dot nobody can select.
+static func run_entity(points: PackedVector2Array) -> DraftEntity:
+	if points.size() < 2:
+		return null
+	var entity := EntityScript.make_polyline(points, false)
+	entity.layer = LayerSetScript.IRRIGATION
+	return entity
+
+
+## Whether an entity is a head this module placed.
+static func is_head_entity(entity: DraftEntity) -> bool:
+	return entity != null and entity.meta.has(META_KIND)
+
+
+## The zone an entity belongs to, or 0 for anything that is not a head. Used to take a zone's heads
+## back off the drawing when the zone goes.
+static func zone_of_entity(entity: DraftEntity) -> int:
+	if not is_head_entity(entity):
+		return 0
+	return int(entity.meta.get(META_ZONE, 0))
+
+
+## A nozzle as a person says it: "a quarter", "a half", "three quarters", "a full circle".
+static func nozzle_words(arc: float) -> String:
+	if arc >= ARC_FULL - TOLERANCE:
+		return "a full circle"
+	if arc >= 270.0 - TOLERANCE:
+		return "three quarters of a circle"
+	if arc >= 180.0 - TOLERANCE:
+		return "a half circle"
+	return "a quarter circle"
+
+
+## A head as a line on a status bar: "spray head, Zone 3, a half circle".
+static func head_words(head: Dictionary) -> String:
+	var kind := String(head.get("kind", ""))
+	return "%s, %s" % [kind_name(kind), nozzle_words(arc_of_head(head))]
+
+
 # --- the flow check -----------------------------------------------------------------
 
 
@@ -563,14 +645,16 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 			reasons.append("%s stand outside the area this zone waters"
 				% ("1 head" if outside_head_count == 1 else "%d heads" % outside_head_count))
 
-	var coverage := coverage(zone)
+	# Not `coverage`: that is the name of the function this asks, and a local may not shadow a method
+	# of its own class.
+	var covered := coverage(zone)
 	if not has_area(zone):
 		notes.append("no area is stated, so coverage and precipitation cannot be worked out")
-	elif not bool(coverage["ok"]):
-		notes.append(String(coverage["reason"]))
-	elif float(coverage["fraction"]) < 1.0 - TOLERANCE:
+	elif not bool(covered["ok"]):
+		notes.append(String(covered["reason"]))
+	elif float(covered["fraction"]) < 1.0 - TOLERANCE:
 		notes.append("%d%% of the area is beyond every head - worst at %s"
-			% [int(round((1.0 - float(coverage["fraction"])) * 100.0)), _point_words(coverage["worst"])])
+			% [int(round((1.0 - float(covered["fraction"])) * 100.0)), _point_words(covered["worst"])])
 
 	return {
 		"ok": reasons.is_empty(),
@@ -583,8 +667,8 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 		"budget": head_budget(supply, kind),
 		"area_m2": area_m2(zone),
 		"precipitation": precipitation_mm_hour(zone),
-		"coverage": coverage,
-		"worst": coverage.get("worst", null),
+		"coverage": covered,
+		"worst": covered.get("worst", null),
 	}
 
 
