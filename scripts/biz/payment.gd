@@ -36,8 +36,9 @@ var invoice: String = ""
 var received_at: String = ""
 var amount: Money = null
 var method: StringName = &"cheque"
-## A cheque number, a transfer reference, a receipt number: whatever the bank will show.
-var reference: String = ""
+## A cheque number, a transfer reference, a receipt number: whatever the bank will show. Named
+## `bank_reference` and not `reference`, because `Object.reference` is a method of every script here.
+var bank_reference: String = ""
 var note: String = ""
 
 
@@ -85,8 +86,8 @@ func describe() -> String:
 	parts.append("%s by %s" % [amount.format_with_currency(), method_name(method)])
 	if not received_at.strip_edges().is_empty():
 		parts.append("on %s" % received_at)
-	if not reference.strip_edges().is_empty():
-		parts.append("reference %s" % reference)
+	if not bank_reference.strip_edges().is_empty():
+		parts.append("reference %s" % bank_reference)
 	return ", ".join(parts)
 
 
@@ -97,7 +98,7 @@ func to_dict() -> Dictionary:
 		"received_at": received_at,
 		"amount": (amount if amount != null else MoneyScript.zero()).to_dict(),
 		"method": String(method),
-		"reference": reference,
+		"reference": bank_reference,
 		"note": note,
 	}
 
@@ -112,7 +113,7 @@ static func from_dict(data: Dictionary) -> Payment:
 	payment.received_at = String(data.get("received_at", ""))
 	payment.amount = MoneyScript.from_dict(data.get("amount", {}))
 	payment.method = StringName(data.get("method", "cheque"))
-	payment.reference = String(data.get("reference", ""))
+	payment.bank_reference = String(data.get("reference", ""))
 	payment.note = String(data.get("note", ""))
 	return payment
 

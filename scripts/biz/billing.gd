@@ -415,20 +415,23 @@ func release_retainage(at: String) -> Money:
 ## TIME_AND_MATERIALS for a period: hours x the billing rate, plus materials at their markup.
 ## Labour is billed at what it is worth, not at what it cost, which is why the markup is applied to
 ## the materials alone (spec §9.1).
-static func time_and_materials_amount(labour: Money, materials: Money, markup_ppm: int) -> Money:
+##
+## The parameter is `rate_ppm` and not `markup_ppm`, which is a member of this class: a parameter that
+## shadows one is a warning, and the analyser only reports it when the file is loaded afresh.
+static func time_and_materials_amount(labour: Money, materials: Money, rate_ppm: int) -> Money:
 	if labour == null or materials == null:
 		return MoneyScript.invalid(&"CAD")
-	var materials_billed: Money = materials.add(materials.scale_ppm(markup_ppm))
+	var materials_billed: Money = materials.add(materials.scale_ppm(rate_ppm))
 	if not materials_billed.is_valid():
 		return materials_billed
 	return labour.add(materials_billed)
 
 
 ## COST_PLUS for a period: the cost incurred, plus the fee.
-static func cost_plus_amount(cost: Money, fee_ppm: int) -> Money:
+static func cost_plus_amount(cost: Money, rate_ppm: int) -> Money:
 	if cost == null or not cost.is_valid():
 		return MoneyScript.invalid(&"CAD")
-	return cost.add(cost.scale_ppm(fee_ppm))
+	return cost.add(cost.scale_ppm(rate_ppm))
 
 
 # --- soundness ----------------------------------------------------------------------------------

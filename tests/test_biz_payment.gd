@@ -19,7 +19,7 @@ func _payment(amount_cents: int = 50000) -> PaymentScript:
 
 func test_a_stated_payment_is_sound_and_reads_as_one_line() -> void:
 	var payment := _payment()
-	payment.reference = "chq 1041"
+	payment.bank_reference = "chq 1041"
 	assert(payment.is_sound())
 	assert(payment.describe() == "$500.00 by cheque, on 2026-06-01, reference chq 1041", payment.describe())
 

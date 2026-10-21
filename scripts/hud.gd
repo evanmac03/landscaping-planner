@@ -245,6 +245,8 @@ const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
 const ScheduleBoardScript := preload("res://scripts/schedule_board.gd")
 const JobCostWindowScript := preload("res://scripts/job_cost_window.gd")
 const JobDeskScript := preload("res://scripts/biz/job_desk.gd")
+const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
+const BillingWindowScript := preload("res://scripts/billing_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
@@ -298,6 +300,11 @@ var _schedule_board: ScheduleBoard = null
 ## What a job has cost: the budget, what is committed and what has actually been spent. The third
 ## window onto the same desk, and the one that answers the question the desk's line only hints at.
 var _cost_window: JobCostWindow = null
+## What has been billed: the schedules a job is billed by, the invoices that went out and the money
+## that came in. The fourth window onto the same desk, and the one the cost report deliberately leaves
+## alone - §8.4's billed figure is a number somebody states, and §9's is a document (§9).
+var _billing_ledger: BillingDesk = null
+var _billing_window: BillingWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -352,6 +359,8 @@ func _ready() -> void:
 	_build_job_desk()
 	_build_schedule_board()
 	_build_cost_window()
+	_build_billing_ledger()
+	_build_billing_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1584,6 +1593,7 @@ static func jobs_items() -> Array[Dictionary]:
 	items.append(_separator())
 	items.append(_command(&"jobs.board", "Open the schedule board...", &"", &"_menu_schedule_board"))
 	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
+	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
 	return items
 
 
@@ -3689,11 +3699,22 @@ func is_schedule_board_open() -> bool:
 	return _schedule_board != null and _schedule_board.visible
 
 
-## What the Jobs menu says on itself: the desk's own words, including its count of the clashes.
+## What the Jobs menu says on itself: the desk's own words, including its count of the clashes, and -
+## once anything has actually been billed, or once the ledger has something wrong with it - what the
+## ledger says, because an outstanding balance is the one number an office should not have to open a
+## window to see.
+##
+## A schedule that has been started and has billed nothing yet says **nothing** here: "0 invoices,
+## $0.00 billed" is noise on the one line a person reads from across the room.
 func _jobs_text() -> String:
 	if _job_desk == null:
 		return "no crews and no jobs yet"
-	return _job_desk.describe()
+	var line: String = _job_desk.describe()
+	if _billing_ledger == null:
+		return line
+	if _billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0:
+		return line
+	return "%s, %s" % [line, _billing_ledger.describe()]
 
 
 ## A job was started from the estimate. The estimate window does not hold jobs; this is where the
@@ -3704,6 +3725,10 @@ func _on_job_started(estimate: Estimate) -> void:
 	_job_desk.make_job_from(estimate)
 	if _schedule_board != null:
 		_schedule_board.refresh()
+	if _cost_window != null:
+		_cost_window.refresh()
+	if _billing_window != null:
+		_billing_window.refresh()
 	_refresh_menus()
 
 
@@ -3758,6 +3783,62 @@ func _on_cost_changed() -> void:
 
 func _menu_cost_window(_entry: Dictionary) -> void:
 	open_cost_window()
+
+
+## What has been billed: the schedules, the invoices and the money received. Built by hand like the
+## other windows for the same reason - the ledger is pointed at the desk this file already wired to the
+## menus - and it needs no drawing, because what a job has been billed is not on the plan.
+func _build_billing_ledger() -> void:
+	if _billing_ledger != null:
+		return
+	if _job_desk == null:
+		_build_job_desk()
+	_billing_ledger = BillingDeskScript.new()
+	_billing_ledger.bind(_job_desk)
+
+
+func _build_billing_window() -> void:
+	if _billing_window != null:
+		return
+	if _billing_ledger == null:
+		_build_billing_ledger()
+	_billing_window = BillingWindowScript.new()
+	_billing_window.name = "BillingWindow"
+	add_child(_billing_window)
+	_billing_window.build()
+	_billing_window.bind(_billing_ledger)
+	_billing_window.billing_changed.connect(_on_billing_changed)
+	_billing_window.hide()
+
+
+func open_billing_window() -> void:
+	if _billing_window == null:
+		_build_billing_window()
+	if _billing_window == null:
+		return
+	_billing_window.bind(_billing_ledger)
+	_billing_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_billing_window() -> void:
+	if _billing_window != null:
+		_billing_window.hide()
+
+
+func is_billing_window_open() -> bool:
+	return _billing_window != null and _billing_window.visible
+
+
+## An invoice went out or was called back, a step was billed, or money arrived: the menu line about the
+## desk is stale. Nothing on the job desk has moved - §8.4's billed figure is a number somebody states
+## and this is a document - so the cost page is left where it is.
+func _on_billing_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_billing_window(_entry: Dictionary) -> void:
+	open_billing_window()
 
 
 func _menu_schedule_board(_entry: Dictionary) -> void:

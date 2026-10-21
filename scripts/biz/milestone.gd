@@ -192,10 +192,15 @@ func copy() -> Milestone:
 
 
 func to_dict() -> Dictionary:
+	# Built as a statement and not as `null if fixed_amount == null else fixed_amount.to_dict()`: a
+	# ternary whose arms are a null and a dictionary is not a ternary the analyser can type.
+	var fixed_in = null
+	if fixed_amount != null:
+		fixed_in = fixed_amount.to_dict()
 	return {
 		"name": name,
 		"percent_ppm": percent_ppm,
-		"fixed_amount": null if fixed_amount == null else fixed_amount.to_dict(),
+		"fixed_amount": fixed_in,
 		"trigger": _trigger_key(trigger),
 		"due_date": due_date,
 		"retainage_ppm": retainage_ppm,
@@ -222,8 +227,10 @@ static func from_dict(data: Dictionary) -> Milestone:
 	return step
 
 
-static func _trigger_key(trigger: int) -> String:
-	match trigger:
+## The key a trigger is written under. Its parameter is `candidate` and not `trigger`, which is the
+## member of this class the key describes.
+static func _trigger_key(candidate: int) -> String:
+	match candidate:
 		PHASE_COMPLETE: return "PHASE_COMPLETE"
 		APPROVED: return "APPROVED"
 	return "DATE"

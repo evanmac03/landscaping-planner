@@ -75,8 +75,8 @@ static func parse_percent(text: String) -> int:
 	var padded: String = fraction_text + "0".repeat(4 - fraction_text.length())
 	@warning_ignore("integer_division")
 	var whole: int = whole_text.to_int()
-	var fraction: int = padded.to_int() if not padded.is_empty() else 0
-	var ppm: int = whole * PER_PERCENT + fraction
+	var ten_thousandths: int = padded.to_int() if not padded.is_empty() else 0
+	var ppm: int = whole * PER_PERCENT + ten_thousandths
 	return -ppm if negative else ppm
 
 
