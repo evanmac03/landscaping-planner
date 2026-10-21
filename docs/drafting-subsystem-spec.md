@@ -995,6 +995,75 @@ followed (6.7.1 makes them optional); a bulge inside a `LWPOLYLINE` is kept as a
 but a `SPLINE` is not approximated; and the underlay mode is an addition to the
 specification rather than a part of it, which is why it is the default here.
 
+### 6.7b Site context from OpenStreetMap
+
+**REQ 6.7b.1** Site context MAY be fetched from OpenStreetMap's public Overpass API,
+or read from a saved Overpass response. A fetch MUST be centred on a stated latitude
+and longitude and bounded by a stated radius, and a radius over the stated cap MUST be
+refused rather than quietly reduced.
+
+**REQ 6.7b.2** Downloaded context is **not survey geometry**. It MUST land on the
+non-plotting underlay layer (AC-8) unless a person asks otherwise, exactly as a DXF
+underlay does, and it MUST NOT be measured, quoted or billed.
+
+**REQ 6.7b.3** The projection MUST be stated and local: one equirectangular frame about
+the stated centre, east +X and north -Y, which is the drawing's own sign convention
+(REQ 1.2.3, REQ 6.7.3).
+
+**REQ 6.7b.4** A feature whose **furthest** point reaches past twice the radius asked for
+MUST be left out and counted, because a way that runs off the extract is a line to the
+horizon rather than a fact about the site.
+
+**REQ 6.7b.5** A `relation` MUST be counted and named, never drawn: a multipolygon is a
+set of ways with roles and inner rings, and pretending it was read is the same failure as
+following a DXF block.
+
+**Built:** `scripts/draft/osm_file.gd` (`OsmFile`), `scripts/draft/osm_fetch.gd`
+(`OsmFetch`) and `scripts/osm_window.gd` (`OsmWindow`), with `import_osm` on the
+controller and File > Import a site map (OpenStreetMap)... in the HUD.
+
+* The reader turns an Overpass response - the same JSON overpass-turbo exports - into the
+  **same shape table `DxfFile` produces**, so `DraftController.import_osm` places it
+  through the same `_place_shapes` the DXF import uses: buildings and houses as closed
+  footprints, streets, paths and runs as open polylines, water and landuse as closed
+  outlines, walls and fences as lines, and a tree as a ring of the stated tree size
+  (`TREE_RING_M` 1.5). Nothing about OSM is special-cased downstream of the reader.
+* The tag table is explicit and a feature is one kind - the most specific tag wins
+  (`building=*` before `landuse=*`) - and a tag nothing here draws is not a feature at
+  all rather than an empty one.
+* The projection is the only arithmetic: metres per degree of latitude and of longitude at
+  the stated centre, and `to_model` returns `(east, -north)`. A degree of longitude shrinks
+  with the cosine of the latitude and is nothing at all at the pole; `tests/test_osm_file.gd`
+  holds both ends, and `tests/test_osm_import.gd` holds the handedness - a house east of the
+  site comes in east, with its south edge on the centre parallel.
+* What is asked for is a bounding rectangle built from the centre and the radius
+  (`OsmFetch.bounds_of`, Overpass's `(south,west,north,east)`), so the question is a fact the
+  response can be checked against rather than a radius the service is trusted with.
+  `DEFAULT_RADIUS_M` is 120 m, `MAX_RADIUS_M` 2000 m and `TIMEOUT_S` 25, against
+  `https://overpass-api.de/api/interpreter`.
+* The page is a **`Window`**, like the plant library and the sheet setup, because it has
+  latitude and longitude fields in it and a text field is the one thing this HUD may not own
+  outside a window; `_build_osm_window` hides it, because a map window that opened with the
+  program would be the drawing buried under a form nobody asked for. Fetching is a coroutine
+  and this is the only place the program reaches the network besides the sync transports and
+  the ledger adapters; a reader that is not in the scene tree says so rather than pretending
+  it can fetch, which is what lets the suite drive the whole page headless.
+* The window opens on the drawing's **own** site - `site_latitude` and `site_longitude`, the
+  same two numbers the sun study reads - and a saved response read through Open a saved map
+  file... is projected at the same centre, so a fetched map and a saved one land in the same
+  place.
+* An import is **one undo step** whatever it holds, inherited from `_place_shapes`; the
+  report reads the way the DXF report reads, and a map that reads but carries nothing
+  drawable is refused with a different sentence from one that could not be read at all.
+
+**Deviation, recorded deliberately.** OpenStreetMap is a map of the world and not a survey of
+this lot: a hedge drawn from its line work is a hedge that exists, at a position that is a
+few metres right rather than a dimension. Everything it brings in is therefore on the layer
+that does not plot (REQ 6.7b.2), to be traced over - and 6.7.4's mapping table is available
+to a person who would rather keep the context as conditions on the existing layers, which is
+`options["underlay"] = false` exactly as the DXF import offers it.
+
+
 ### 6.8 Tracing stance
 
 **REQ 6.8.1** Automatic raster vectorisation MUST NOT be offered as a
