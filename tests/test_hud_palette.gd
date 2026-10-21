@@ -271,3 +271,68 @@ func test_a_hud_with_no_box_at_all_says_nothing_rather_than_failing() -> void:
 	hud.toggle_command_palette()
 	assert(not hud.is_command_palette_open(), "and nothing was opened")
 	hud.free()
+
+
+# --- what was run last ------------------------------------------------------------------------
+
+
+func test_running_a_command_remembers_it() -> void:
+	# `run_entry` is the one door a menu line and a palette row both go through, so this is the only
+	# place the remembering could be wrong - and the only place it needs to be right.
+	var hud := _hud()
+	hud._recent_commands = []
+	assert(hud.recent_commands().is_empty(), "nothing has been run yet")
+	# Entries shaped the way the bar shapes them, naming methods this HUD has: what is being checked is
+	# the door - a command that runs is a command that was remembered.
+	assert(hud.run_entry({"id": "edit.undo", "method": &"_menu_undo"}), "a command that is there runs")
+	var once: Array[String] = ["edit.undo"]
+	assert(hud.recent_commands() == once, "and is remembered by id")
+	assert(hud.run_entry({"id": "file.plot", "method": &"_menu_plot"}))
+	var twice: Array[String] = ["file.plot", "edit.undo"]
+	assert(hud.recent_commands() == twice, "newest first")
+	hud.free()
+
+
+func test_a_command_run_again_moves_to_the_front_rather_than_being_listed_twice() -> void:
+	var hud := _hud()
+	hud._recent_commands = []
+	hud.run_entry({"id": "edit.undo", "method": &"_menu_undo"})
+	hud.run_entry({"id": "file.plot", "method": &"_menu_plot"})
+	hud.run_entry({"id": "edit.undo", "method": &"_menu_undo"})
+	var wanted: Array[String] = ["edit.undo", "file.plot"]
+	assert(hud.recent_commands() == wanted, str(hud.recent_commands()))
+	hud.free()
+
+
+func test_a_command_that_is_not_there_is_not_remembered() -> void:
+	# A method the HUD has not got is not a command: remembering it would put a row in the box that
+	# nothing can run.
+	var hud := _hud()
+	hud._recent_commands = []
+	assert(not hud.run_entry({"id": "nothing.at.all", "method": &"_menu_nothing_at_all"}))
+	assert(not hud.run_entry({"id": "nothing.at.all", "method": &""}))
+	assert(hud.recent_commands().is_empty(), "nothing was run, so nothing was remembered")
+	hud.free()
+
+
+func test_only_the_last_few_are_kept() -> void:
+	# It is a way back to what you just did, not a history: a list that grew would push the whole bar
+	# down for the sake of commands nobody is coming back to.
+	var hud := _hud()
+	hud._recent_commands = []
+	for index in HudScript.RECENT_COMMANDS + 4:
+		hud._remember_command("command-%d" % index)
+	assert(hud.recent_commands().size() == HudScript.RECENT_COMMANDS, str(hud.recent_commands().size()))
+	assert(hud.recent_commands()[0] == "command-11", "the newest is at the front")
+	assert(hud.recent_commands().has("command-4"), "and the last kept one is still there")
+	assert(not hud.recent_commands().has("command-3"), "while the oldest have fallen off")
+	hud.free()
+
+
+func test_the_box_is_handed_them_when_it_is_filled() -> void:
+	# The HUD keeps the order and the box is handed it, which is the whole of the join.
+	var hud := _hud()
+	hud.run_entry(_row_for(hud, "edit.undo"))
+	hud._fill_command_palette()
+	assert(hud._command_palette.shown_id(0) == "edit.undo", "the box offers it first")
+	hud.free()

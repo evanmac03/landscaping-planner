@@ -86,6 +86,21 @@ const DRAFTING_COMMANDS_PER_ROW := 4
 const EDIT_TOOLS_PER_ROW := 6
 const DRAFTING_ROW_GAP := "    "
 
+## The keys that are neither a drawing tool nor an edit: the two pages a plan is made for and the
+## ground's three tools.
+##
+## They are in the reference and not in the corner legend, and the reason is room rather than rank: the
+## legend has six lines and is full, while the reference is the page a person opens to look a key up.
+## Three across, so the five of them are two lines there.
+const ELSEWHERE_KEYS: Array = [
+	[&"plant_order", "order the plants"],
+	[&"present_sun_study", "the sun and the shadows"],
+	[&"grade_spot", "spot a level"],
+	[&"grade_contour", "draw a contour"],
+	[&"grade_slope", "draw a slope arrow"],
+]
+const ELSEWHERE_PER_ROW := 3
+
 ## The palette: three tools across, which is what makes it a palette rather than a
 ## list of nine, and a cell wide enough for the longest tool name on one line with
 ## its key underneath.
@@ -109,6 +124,7 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunWindowScript := preload("res://scripts/sun_window.gd")
+const StatusWindowScript := preload("res://scripts/status_window.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
@@ -283,6 +299,7 @@ const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
 const HelpWindowScript := preload("res://scripts/help_window.gd")
 const CommandPaletteScript := preload("res://scripts/command_palette.gd")
+const PageEscapeScript := preload("res://scripts/page_escape.gd")
 const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
@@ -292,6 +309,7 @@ const OsmWindowScript := preload("res://scripts/osm_window.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const UnderlayWindowScript := preload("res://scripts/underlay_window.gd")
 const GradingWindowScript := preload("res://scripts/grading_window.gd")
+const GradingScript := preload("res://scripts/draft/grading.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
@@ -413,6 +431,9 @@ var _sun_window: SunWindowScript = null
 ## study. The page holds the list, so a refresh that rebound it every frame would be the page arguing
 ## with the hand that is building it.
 var _sun_state: String = ""
+## What the drawing has said, kept: the page that reads back the answers the status line has moved on
+## from. It owns nothing - the history is the drawing's own, kept by the controller.
+var _status_window: StatusWindowScript = null
 ## The study being rendered, one still at a time: the moments, the name each still takes, and how far
 ## the walk has got. A small state machine rather than a loop that awaits, because the director renders
 ## in real frames and reports by signal, so the next moment is started by the previous one landing.
@@ -536,6 +557,9 @@ func _ready() -> void:
 	_build_analytics_window()
 	# The sun's study: a window, because the height it reports about is typed into it.
 	_build_sun_window()
+	# What the drawing has said: read-only, and built here so the page is in `pages_in_windows()`
+	# before the Escape pass runs over it.
+	_build_status_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -545,6 +569,10 @@ func _ready() -> void:
 	# What a session that ended without saving left behind, read once here rather than on every frame:
 	# the File menu reports on it, and the menu is built from a snapshot that has to stay cheap.
 	_refresh_pending_recovery()
+	# The pages that live in a `Window` take the keyboard into their own viewport, so the Escape ladder
+	# below cannot reach them: each one is given a node of its own that can. Built after every page, so
+	# the list is complete by the time it is read.
+	_let_escape_close_pages()
 	# Last, so it covers the buttons the palette and the presentation panel just
 	# built as well as the ones in the scene: a button that holds the keyboard takes
 	# the drawing keys with it.
@@ -563,6 +591,9 @@ func _process(delta: float) -> void:
 	# And the same for the sun: the study's own site lives on the drawing, and an undo can put another
 	# one back under a page that is open.
 	_tick_sun_window()
+	# And the same for what has been said: the page is a view of the drawing's own history, and it says
+	# it is showing the newest answer, so it has to be showing it.
+	_tick_status_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -1530,6 +1561,29 @@ func _unhandled_input(event: InputEvent) -> void:
 				open_plant_browser()
 			get_viewport().set_input_as_handled()
 			return
+		# The commands that had no key: the nursery order, the sun and the shadows, and the ground's
+		# three tools. Each one runs the menu entry that advertises it, so the key, the menu line and
+		# the page's own button are one act rather than three.
+		if event.is_action_pressed(&"plant_order"):
+			_menu_plant_order_window({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"present_sun_study"):
+			_menu_sun_window({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"grade_spot"):
+			_menu_grade_spot({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"grade_contour"):
+			_menu_grade_contour({})
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"grade_slope"):
+			_menu_grade_slope({})
+			get_viewport().set_input_as_handled()
+			return
 	if painted_plan == null:
 		return
 	if event.is_action_pressed(&"vis_painted"):
@@ -1572,6 +1626,47 @@ func escape_puts_away() -> bool:
 			(page[1] as Callable).call()
 			return true
 	return false
+
+
+## Every page this HUD opens that lives in a `Window`, in one place.
+##
+## A test reads this list against the `Window` members the HUD declares, so a page added to the HUD and
+## forgotten here - which would be a page Escape silently stopped working on - is caught by the suite
+## rather than by a person pressing a key that does nothing.
+func pages_in_windows() -> Array[Window]:
+	var pages: Array[Window] = [
+		_help_window,
+		_plant_window,
+		_command_palette,
+		_ground_window,
+		_sheet_window,
+		_revision_window,
+		_osm_window,
+		_underlay_window,
+		_grading_window,
+		_plant_order_window,
+		_sun_window,
+		_status_window,
+		_estimate_window,
+		_pipeline_board,
+		_schedule_board,
+		_cost_window,
+		_billing_window,
+		_ledger_window,
+		_analytics_window,
+	]
+	return pages
+
+
+## Give every page in a `Window` a node of its own that answers Escape.
+##
+## A page in a `Window` takes the keyboard into its own viewport: measured live in
+## `tools/page_escape_demo.gd`, where a real Escape reached a node put inside the page and reached a
+## node beside this HUD not at all. So the key has to be answered from inside each page, and the only
+## thing that can be put there is a node - one per page, made once, whether or not the page is up.
+func _let_escape_close_pages() -> void:
+	for page: Window in pages_in_windows():
+		PageEscapeScript.attach(page)
 
 
 # --- the menu bar ---------------------------------------------------------------------
@@ -1777,6 +1872,10 @@ static func edit_items() -> Array[Dictionary]:
 	# window that takes the keyboard.
 	items.append(_separator())
 	items.append(_command(&"edit.revisions", "Revisions...", &"", &"_menu_revisions"))
+	# And under that, what the drawing has *said*: the status line under the plan writes over itself, and
+	# this is the same answers kept. No key, for the same reason the history takes none - it is opened to
+	# be read, and it is the drawing's keys that must not be stolen by a stray press.
+	items.append(_command(&"edit.said", "What just happened...", &"", &"_menu_said"))
 	return items
 
 
@@ -1872,7 +1971,7 @@ static func present_items() -> Array[Dictionary]:
 	items.append(_submenu(&"present.still_size", "Still size", still_size_items()))
 	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
 	items.append(_command(
-		&"present.sun_study", "Sun and shadow study...", &"", &"_menu_sun_window", NEEDS_PRESENTATION
+		&"present.sun_study", "Sun and shadow study...", &"present_sun_study", &"_menu_sun_window", NEEDS_PRESENTATION
 	))
 	items.append(_separator())
 	items.append(_info(&"present.sun_info", "the sun"))
@@ -1929,6 +2028,19 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(
 		&"site.grade", "The ground's heights: levels, contours, slopes...", &"", &"_menu_grading_window",
 		NEEDS_DRAFT
+	))
+	# The three tools the page above holds, on their own lines: each is one key away and each is the
+	# same act as the button of that name on the page, so a level can be stamped without opening a page
+	# and then choosing a tool in it. The keys - Z, B and M - are the three free ones that read as a
+	# group, and `_unhandled_input` runs exactly these methods.
+	items.append(_command(
+		&"site.grade.spot", "Spot level here", &"grade_spot", &"_menu_grade_spot", NEEDS_DRAFT
+	))
+	items.append(_command(
+		&"site.grade.contour", "Draw a contour", &"grade_contour", &"_menu_grade_contour", NEEDS_DRAFT
+	))
+	items.append(_command(
+		&"site.grade.slope", "Draw a slope arrow", &"grade_slope", &"_menu_grade_slope", NEEDS_DRAFT
 	))
 	items.append(_command(&"site.grade.check", "Check the grading", &"", &"_menu_check_grading", NEEDS_DRAFT))
 	items.append(_separator())
@@ -2005,7 +2117,7 @@ static func plant_items() -> Array[Dictionary]:
 	items.append(_command(&"plant.label", "Label the planting", &"", &"_menu_label_plants"))
 	# The nursery order: the one thing a planting list is for besides being read. It needs the drawing
 	# because the plants are in the yard, which is a fact about the plan and not about the list.
-	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"",
+	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"plant_order",
 		&"_menu_plant_order_window", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
@@ -3177,6 +3289,8 @@ func keys_text() -> String:
 	rows.append("    " + HINTS_GROUND)
 	rows.append("Drawing")
 	rows.append_array(drafting_rows())
+	rows.append("Elsewhere")
+	rows.append_array(_wrap(_entries(ELSEWHERE_KEYS), ELSEWHERE_PER_ROW))
 	return "\n".join(PackedStringArray(rows))
 
 
@@ -3368,11 +3482,40 @@ func run_entry(entry: Dictionary) -> bool:
 	var method := StringName(entry.get("method", &""))
 	if method == &"" or not has_method(String(method)):
 		return false
+	_remember_command(String(entry.get("id", "")))
 	call(String(method), entry)
 	# Choosing a command can leave a Control holding the keyboard that the drawing keys belong to.
 	# This is the same release the HUD does at startup.
 	release_keyboard_focus(self)
 	return true
+
+
+## How many commands the palette offers first.
+const RECENT_COMMANDS := 8
+
+## The commands run most recently, newest first: what `Ctrl+P` and Enter repeats.
+##
+## Kept here rather than in the palette, which holds no list of its own - it is handed this order the
+## same way it is handed the bar. Recorded at `run_entry`, which is the one door every menu line and
+## every row of the palette goes through, so a command cannot be run without being remembered and there
+## is no second place for the two to disagree.
+var _recent_commands: Array[String] = []
+
+
+func _remember_command(id: String) -> void:
+	if id == "":
+		return
+	_recent_commands.erase(id)
+	_recent_commands.push_front(id)
+	if _recent_commands.size() > RECENT_COMMANDS:
+		_recent_commands.resize(RECENT_COMMANDS)
+
+
+## The commands run most recently, newest first.
+func recent_commands() -> Array[String]:
+	var out: Array[String] = []
+	out.assign(_recent_commands)
+	return out
 
 
 ## Show the palette, with the bar read again as it opens: a command that has appeared, gone or become
@@ -3381,6 +3524,7 @@ func open_command_palette() -> void:
 	if _command_palette == null:
 		return
 	_command_palette.set_commands(command_rows())
+	_command_palette.set_recents(recent_commands())
 	_command_palette.open()
 
 
@@ -3406,6 +3550,7 @@ func toggle_command_palette() -> void:
 func _fill_command_palette() -> void:
 	if _command_palette != null:
 		_command_palette.set_commands(command_rows())
+		_command_palette.set_recents(recent_commands())
 
 
 ## A command was chosen from the palette. Run through the bar's own door, and then let the bar catch
@@ -4549,6 +4694,23 @@ func _menu_grading_window(_entry: Dictionary) -> void:
 	open_grading_window()
 
 
+## The three ground tools, each on its own key as well as on its own button.
+##
+## They go through `arm_grading_tool`, which is what the page's buttons go through too, so the key and
+## the button cannot end up doing different things - and arming a tool closes the page, the same way it
+## does when the button is pressed.
+func _menu_grade_spot(_entry: Dictionary) -> void:
+	arm_grading_tool(GradingScript.SPOT)
+
+
+func _menu_grade_contour(_entry: Dictionary) -> void:
+	arm_grading_tool(GradingScript.CONTOUR)
+
+
+func _menu_grade_slope(_entry: Dictionary) -> void:
+	arm_grading_tool(GradingScript.SLOPE)
+
+
 ## Report on the drawing's own heights: whether the levels, the contours and the arrows agree with each
 ## other. The answer arrives on the page it belongs to, the way the planting's check arrives in the
 ## library - a report nobody can see is not a report.
@@ -4828,6 +4990,79 @@ func _menu_sun_window(_entry: Dictionary) -> void:
 
 func _on_sun_window_closed() -> void:
 	_refresh_menus()
+
+
+# --- what the drawing has said --------------------------------------------------------------
+#
+# The status line under the plan is one line: it says what the drawing just did, and the next thing
+# written over it is gone. Every one of those answers is kept by the drawing itself
+# (`DraftController.said`), fed by the one setter every message passes through; the page is the only
+# thing here, and it reads the history without writing anything back.
+
+
+## Build the page and wire its only intent.
+func _build_status_window() -> void:
+	if _status_window != null:
+		return
+	_status_window = StatusWindowScript.new()
+	_status_window.name = "StatusWindow"
+	_status_window.closed.connect(_on_status_window_closed)
+	add_child(_status_window)
+	_status_window.build()
+	_status_window.hide()
+
+
+func open_status_window() -> void:
+	_build_status_window()
+	if _status_window == null:
+		return
+	_fill_status_window()
+	_status_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_status_window() -> void:
+	if _status_window != null and _status_window.visible:
+		_status_window.hide()
+
+
+func is_status_window_open() -> bool:
+	return _status_window != null and _status_window.visible
+
+
+## Hand the page the drawing's own history and let it write its rows. Kept apart from *showing* the page
+## so the filling can be driven with no window server, which is how the suite checks it.
+func _fill_status_window() -> void:
+	_build_status_window()
+	if _status_window == null:
+		return
+	_status_window.set_history(_said_history())
+	_status_window.say(_status_window.opening_words())
+	_refresh_menus()
+
+
+## The drawing's history, or nothing when there is no drawing in the scene - a page opened in a scene
+## with no drawing says so rather than inventing one.
+func _said_history() -> StatusHistory:
+	if _draft == null:
+		return null
+	return _draft.said
+
+
+## The page while it is up: the drawing carries on saying things behind it, so it is rewritten whenever
+## the newest answer or the number of them has moved. Nothing is written to the drawing from here.
+func _tick_status_window() -> void:
+	if _status_window == null or not _status_window.visible:
+		return
+	_status_window.show_lines()
+
+
+func _on_status_window_closed() -> void:
+	_refresh_menus()
+
+
+func _menu_said(_entry: Dictionary) -> void:
+	open_status_window()
 
 
 # --- hatching a region ---------------------------------------------------------------------

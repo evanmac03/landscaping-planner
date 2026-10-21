@@ -635,6 +635,11 @@ func _on_tax_chosen(index: int) -> void:
 
 
 func _on_close_requested() -> void:
+	# Both halves, the way the other pages that draw their own frame do it: emitting `closed` tells the
+	# program the page is over, and the page is the one thing that actually takes itself off the screen.
+	# Only emitting it left the window up for good - the X, the Close button and Escape all went through
+	# here - because nothing else hides this page. Found live in `tools/page_escape_demo.gd`.
+	hide()
 	closed.emit()
 
 

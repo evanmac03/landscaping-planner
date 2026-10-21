@@ -55,7 +55,10 @@ func test_the_keys_are_the_ones_the_legend_promises() -> void:
 	assert(Hud._key_label(&"draft_redo") == "Ctrl+Y")
 	assert(Hud._key_label(&"draft_plot") == "P")
 	assert(Hud._key_label(&"draft_dimension_style") == "K")
-	assert(Hud._key_label(&"draft_mode") == "D")
+	# Mode moved off D: walking about on the ground is D, and two commands on one key means one of them
+	# silently never fires. It sits next to the tools it switches between instead - 0 is the key that
+	# puts the tools away.
+	assert(Hud._key_label(&"draft_mode") == "0")
 
 
 ## Ctrl is part of the key. Printing a bare Z would name a different command.

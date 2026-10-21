@@ -40,6 +40,7 @@ const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const GradingScript := preload("res://scripts/draft/grading.gd")
+const StatusHistoryScript := preload("res://scripts/draft/status_history.gd")
 
 ## The smallest area a fill will offer a region at, in square metres: a sliver nobody
 ## meant to draw is not a region.
@@ -165,7 +166,18 @@ var dirty: bool = false
 
 var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
-var last_message: String = ""
+## The last thing the drawing said about itself: what the status line under the plan is made of.
+##
+## Every message the drawing says is kept as it is said - see `said` - so a status line that has already
+## moved on can still be read back. The setter is what feeds it rather than a call at each of the twenty
+## places a message is set: a message is a message wherever it comes from, and this is the one place all
+## of them pass through.
+var last_message: String = "":
+	set(value):
+		last_message = value
+		said.note(value)
+## What the drawing has said, newest first, capped. Read by the HUD's "What just happened" page.
+var said: StatusHistory = StatusHistoryScript.new()
 
 ## The editing command in hand, if any. Held apart from the drawing tool because
 ## an edit picks whole entities rather than points.
@@ -2524,6 +2536,9 @@ func note(message: String) -> void:
 func new_drawing() -> void:
 	document.clear()
 	document.gestures.clear()
+	# Nothing was said about this drawing yet either, so the answers the last one gave go with its
+	# history. Without this the page would show the two drawings' answers as one run of events.
+	said.clear()
 	# A new drawing starts from one sheet. The set is not carried over from the drawing that was in hand:
 	# a new drawing is a new job on a new title block, and inheriting the last job's drawing numbers and
 	# revisions is how a set of sheets ends up describing somebody else's garden.
@@ -2619,8 +2634,10 @@ func _bind_document(opened) -> void:
 	document = opened
 	document.changed.connect(_on_document_changed)
 	# The history goes with the drawing it belonged to: an undo that reached across a file
-	# boundary would resurrect a drawing the file no longer holds.
+	# boundary would resurrect a drawing the file no longer holds. What the drawing *said* goes with it
+	# for the same reason: "shape added" is no longer something this drawing did.
 	document.gestures.clear()
+	said.clear()
 	_rebind_snap()
 	if canvas != null:
 		canvas.bind_document(document)

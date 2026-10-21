@@ -94,6 +94,7 @@ say what each menu is *for* rather than only listing its rows:
 | Sheets and plotting | the sheet set, sizes, scale, plotting |
 | Working with others | presence — a session started on purpose |
 | Undo, revisions and where your files are | the gesture history, revisions, the copy kept for unsaved work, `user://` |
+| What the drawing has said | the status-line history — the last sixty things the drawing said, newest first |
 | Keys | the key reference itself, derived from the input map |
 
 Every menu in the bar has something written about it: a test checks it.

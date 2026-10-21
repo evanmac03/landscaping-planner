@@ -49,6 +49,7 @@ const SUBJECTS: Array[String] = [
 	"Sheets and plotting",
 	"Working with others",
 	"Undo, revisions and where your files are",
+	"What the drawing has said",
 ]
 
 
@@ -82,7 +83,9 @@ static func topics() -> Array[Dictionary]:
 		+ "whatever page is in front - the key reference, the painted sheet, and every page that opens "
 		+ "over the drawing - so the one key that means \"not this\" means it everywhere. And closing "
 		+ "the window asks the same question File > Quit asks whenever there is work that has not been "
-		+ "written, rather than dropping it.",
+		+ "written, rather than dropping it. A page that has a box to type into takes the first Escape "
+		+ "for the box itself and the second to put the page away, because a box cannot be talked out of "
+		+ "the keyboard while somebody is typing into it.",
 	]))
 	out.append(_topic("Finding any command: the palette", [
 		"Help > Command palette opens a box holding every command the program has, with a field to type "
@@ -99,6 +102,10 @@ static func topics() -> Array[Dictionary]:
 		+ "its menu, and picking it says the same thing rather than doing nothing - the bar greys out "
 		+ "what the scene cannot do instead of hiding it, and this box keeps that rule. Nothing is ever "
 		+ "offered that is not in the menus, because the list is read out of the bar itself.",
+		"",
+		"The commands you used last are not forgotten when the box closes: before anything is typed the "
+		+ "list is the whole bar with those at the top, so Ctrl+P twice in a row is the shortest way back "
+		+ "to whatever you were just doing.",
 		"",
 		"The rest of this manual describes what each of those commands does; this is only the way in.",
 	]))
@@ -126,7 +133,7 @@ static func topics() -> Array[Dictionary]:
 		+ "back.",
 	]))
 	out.append(_topic("Drawing: the nine tools", [
-		"Turn the tools on with D (Draft > Drawing tools). Nothing can be drawn while they are away, "
+		"Turn the tools on with 0 (Draft > Drawing tools). Nothing can be drawn while they are away, "
 		+ "which is also what stops a stray key from putting a shape on the plan.",
 		"",
 		"Each tool is a small state machine: it takes the picks it needs and then commits one shape.",
@@ -235,6 +242,10 @@ static func topics() -> Array[Dictionary]:
 		+ "ground is at a point, a contour says where it reaches a height, and a slope arrow says which "
 		+ "way it falls and how steeply. Site > The ground's heights opens the page that states them.",
 		"",
+		"The three grading tools are on keys of their own once the drawing tools are on: Z takes a spot "
+		+ "level, B draws a contour and M draws a slope arrow, carrying the level or the fall already in "
+		+ "hand - so the ground can be stated without leaving the drawing for the page.",
+		"",
 		"A spot level is placed with one click: set the level on the page, then press Spot level here. "
 		+ "The level is a number in the drawing's own units.",
 		"",
@@ -325,7 +336,8 @@ static func topics() -> Array[Dictionary]:
 		+ "count, the size, the book's own item and the money.",
 		"",
 		"The page asks for the two things it cannot work out for itself - which job the plants are for, "
-		+ "and which nursery they come from. Everything else it already knows from the drawing.",
+		+ "and which nursery they come from. Everything else it already knows from the drawing. N opens the "
+		+ "same page, and the same key puts it away again.",
 		"",
 		"A plant the book cannot price is named rather than quietly left out, and in that case no order "
 		+ "is written at all: an order missing a species would look like a smaller garden than the plan "
@@ -463,7 +475,7 @@ static func topics() -> Array[Dictionary]:
 		+ "actually asks: will the patio be in shade by four, and will it be in shade in June. A "
 		+ "study is a list of moments rather than one moment, so the four buttons are a June day, a "
 		+ "December day, the equinoxes and the two solstices, and the day and hour fields add any "
-		+ "moment of your own.",
+		+ "moment of your own. H opens the same page from anywhere in the program.",
 		"",
 		"Each row says where the sun stands and how far the shadow of the height you type reaches, "
 		+ "in the drawing's own units. A moment after dark casts nothing and says so rather than "
@@ -534,6 +546,21 @@ static func topics() -> Array[Dictionary]:
 		+ "drawing beside it rather than among the drawings, so it is never offered as a drawing to open "
 		+ "or to save over. Plotted sheets, rendered stills and the business records have folders of "
 		+ "their own, which the keys reference names in full.",
+	]))
+	out.append(_topic("What the drawing has said", [
+		"Every line the status line shows is kept. Edit > What just happened... opens a page listing the "
+		+ "last sixty things the drawing has said, newest first, so a message that has already scrolled "
+		+ "away or been replaced can be read again.",
+		"",
+		"A history is not a log. It is capped rather than growing without bound, the newest answer is "
+		+ "tinted, and the page says how many it is holding rather than pretending to have everything. "
+		+ "The same words said twice are two answers, because they were said about two different things, "
+		+ "and a drawing that has only just been opened says it has said nothing rather than showing a "
+		+ "blank page.",
+		"",
+		"It is about the drawing and not the program: opening another drawing, or making a new one, "
+		+ "begins a fresh history, and the page keeps up while it is open by reading what the drawing has "
+		+ "said behind it.",
 	]))
 	return out
 

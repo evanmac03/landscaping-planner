@@ -280,3 +280,54 @@ func test_the_search_rule_reads_a_row_by_its_name_before_its_menu() -> void:
 	assert(PaletteScript.find_in(rows, "UNDO").size() == 2, "and the search is not case sensitive")
 	assert(PaletteScript.find_in(rows, "").size() == 2, "an empty search is the whole list")
 	assert(PaletteScript.find_in(rows, "zzz").is_empty(), "and a word nobody has finds nothing at all")
+
+
+# --- what was run last ------------------------------------------------------------------------
+
+
+func test_the_commands_run_last_come_first_when_nothing_is_being_searched() -> void:
+	var box: PaletteScript = PaletteScript.new()
+	box.set_commands(_rows())
+	assert(box.shown_id(0) == "edit.undo", "the bar's own order to begin with")
+	box.set_recents(["file.plot", "edit.redo"])
+	assert(box.shown_id(0) == "file.plot", "then the one run most recently")
+	assert(box.shown_id(1) == "edit.redo", "then the one before it")
+	assert(box.shown_id(2) == "edit.undo", "and the rest keep the bar's order")
+	# The bar is not reordered, only the list: a command that cannot run here still says so where it is.
+	assert(box.list_texts()[0].contains("no drawing open") or box.list_texts()[0].contains("Plot"),
+		box.list_texts()[0])
+	box.free()
+
+
+func test_a_word_puts_the_order_back() -> void:
+	# A search is a question about names, and where a command was run last is not part of the answer.
+	var box: PaletteScript = PaletteScript.new()
+	box.set_commands(_rows())
+	box.set_recents(["file.plot"])
+	box.type_search("undo")
+	assert(box.shown_count() == 1 and box.shown_id(0) == "edit.undo", "the search is what decides")
+	box.type_search("")
+	assert(box.shown_id(0) == "file.plot", "and clearing it brings the recents back")
+	box.free()
+
+
+func test_a_recent_command_that_nobody_has_is_not_a_row() -> void:
+	# The HUD is the one that remembers, so the box must not invent a command out of an id it cannot
+	# find: a stale id is not a row.
+	var box: PaletteScript = PaletteScript.new()
+	box.set_commands(_rows())
+	box.set_recents(["edit.from-a-drawing-that-is-closed"])
+	assert(box.shown_count() == box.command_count(), "every command is still shown")
+	assert(box.shown_id(0) == "edit.undo", "in the bar's order")
+	box.free()
+
+
+func test_the_status_line_says_why_the_order_is_what_it_is() -> void:
+	var box: PaletteScript = PaletteScript.new()
+	box.set_commands(_rows())
+	box.set_recents(["file.plot"])
+	assert(box.status_text().contains("ran last first"), box.status_text())
+	box.set_recents([])
+	assert(not box.status_text().contains("ran last"), box.status_text())
+	assert(box.status_text().contains("%d commands" % box.command_count()), box.status_text())
+	box.free()

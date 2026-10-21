@@ -39,6 +39,12 @@ var _rows: Array[Dictionary] = []
 ## Which of `_rows` the list is showing, in list order. A search narrows this rather than the rows, so
 ## emptying the box is the way back to the whole bar without rebuilding anything.
 var _shown: Array[int] = []
+## The commands run most recently, newest first, as the HUD has them.
+##
+## This box holds no opinion about which command is which - it is handed this order the same way it is
+## handed the bar - and it is only an order: a recent command that has become impossible since is
+## still shown where it belongs, saying what it is missing.
+var _recents: Array[String] = []
 
 var _search: LineEdit = null
 var _list: ItemList = null
@@ -147,6 +153,17 @@ func set_commands(rows: Array[Dictionary]) -> void:
 
 ## Show whatever the search box is asking for.
 func filter() -> void:
+	_apply_filter()
+
+
+## Be told which commands were run most recently, newest first.
+##
+## They come first while the box is not being searched, so `Ctrl+P` and Enter is the way back to what
+## you just did - which is the one thing anybody repeats. Any word at all goes back to the bar's own
+## order: a search is a question about names, and where a command was run last is not part of the
+## answer to it.
+func set_recents(ids: Array[String]) -> void:
+	_recents = ids.duplicate()
 	_apply_filter()
 
 
@@ -299,6 +316,8 @@ func _apply_filter() -> void:
 		return
 	var query := search_text()
 	_shown = find_in(_rows, query)
+	if query.strip_edges() == "":
+		_shown = _recents_first(_shown)
 	_list.clear()
 	for absolute: int in _shown:
 		_list.add_item(_row_text(_rows[absolute]))
@@ -314,6 +333,33 @@ func _apply_filter() -> void:
 		return
 	select(0)
 	say(_describe_shown(query))
+
+
+## The rows as the whole bar holds them, with the commands that were run last moved to the front in the
+## order they were run in. A command that is not recent keeps the bar's order among the others, which is
+## what makes this a nudge rather than a sort.
+func _recents_first(rows: Array[int]) -> Array[int]:
+	if _recents.is_empty():
+		return rows
+	var recent: Array[int] = []
+	var rest: Array[int] = []
+	for row: int in rows:
+		if _recents.has(String(_rows[row].get("id", ""))):
+			recent.append(row)
+		else:
+			rest.append(row)
+	recent.sort_custom(_earlier_recent)
+	var out: Array[int] = []
+	out.append_array(recent)
+	out.append_array(rest)
+	return out
+
+
+## Which of two rows was run more recently, as the HUD's own list says. Only ever asked of two rows that
+## are both in it.
+func _earlier_recent(a: int, b: int) -> bool:
+	return _recents.find(String(_rows[a].get("id", ""))) \
+		< _recents.find(String(_rows[b].get("id", "")))
 
 
 ## What one row says: what it is called, the key that also does it, and the menu it lives under. A
@@ -349,7 +395,11 @@ func _show_row(row: int) -> void:
 ## What the status line says about the search: how much of the bar is on the list, and why.
 func _describe_shown(query: String) -> String:
 	if query.strip_edges() == "":
-		return "%d commands. Type to narrow them, Enter to run the chosen one." % _shown.size()
+		if _recents.is_empty():
+			return "%d commands. Type to narrow them, Enter to run the chosen one." % _shown.size()
+		# Said out loud, because an order a person did not ask for is a thing they will look at twice.
+		return ("%d commands, the ones you ran last first. Type to narrow them, Enter to run the "
+			+ "chosen one.") % _shown.size()
 	return "%d of %d commands mention %s." % [_shown.size(), _rows.size(), _quoted(query)]
 
 

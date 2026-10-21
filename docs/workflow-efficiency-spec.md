@@ -488,6 +488,18 @@ photograph, the consultant's concept.
     one of them; and the window's own close button asks the question `File > Quit` asks instead of
     dropping a drawing nobody has written on the floor. See section 8e.
 
+13. ~~**A page inside a window, and four small things worth having.**~~ **Done.** The four
+    follow-ups left on the table after the Escape ladder above. A page this HUD draws inside a
+    `Window` now answers Escape from inside its own viewport rather than relying on the HUD's input
+    handler, which can never see a key while an embedded window holds the keyboard; one shared
+    `PageEscape` node is attached to all of them in a single loop. Five features that had no key
+    got one - N orders the plants, H opens the sun study, and Z, B and M take the three grading
+    tools - which moved `draft_mode` from D to 0 (0 sits beside the 1-9 tool row, and D was already
+    `move_right`, so the two had been sharing it). The drawing now keeps what it has said, the
+    `last_message` setter feeding a capped newest-first history, read back through Edit > What just
+    happened...; and the command palette ranks the commands you ran last first when nothing has
+    been typed into the box. See section 8f.
+
 
 Sections 1 to 5 above were checked by reading the scripts and their tests; section 6 by reading
 `presence.gd` and its own fifteen tests; section 7 against the business specification's own
@@ -518,3 +530,11 @@ with a line in it. The question came up holding `quit`, "Keep editing" left the 
 and armed nothing, closing again asked again, and "Discard" left the program, which is why that
 pass prints nothing after it. One page in the list has no door of its own: the survey page is the
 question a read file is answered with, so it only appears once a file has been read.
+
+Section 8f was checked in `tools/qol_followups_demo.gd`, which sends real keys through the running
+program's own input pipeline rather than calling a method: N and H each brought their page up and
+Escape put it away again, Z, B and M each put its own grading tool in hand, the drawing was read
+back with six answers newest-first, and Edit > What just happened... opened on them and was Escaped
+away in turn. The same pass ran two commands through the palette's one door and read them back out
+of `recent_commands()`, then opened the palette on an empty box and read its first three rows off
+the screen - which came back with those two commands at the top.
