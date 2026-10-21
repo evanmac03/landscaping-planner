@@ -14,6 +14,10 @@ const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const JobScript := preload("res://scripts/biz/job.gd")
 const FileLedgerScript := preload("res://scripts/biz/file_ledger.gd")
+const NinjaScript := preload("res://scripts/biz/invoice_ninja.gd")
+const AkauntingScript := preload("res://scripts/biz/akaunting.gd")
+const LedgerScript := preload("res://scripts/biz/ledger_adapter.gd")
+const PaymentScript := preload("res://scripts/biz/payment.gd")
 const LedgerPushScript := preload("res://scripts/biz/ledger_push.gd")
 
 
@@ -107,6 +111,38 @@ func _ready() -> void:
 		invoice.number, "a-third-key", built["request"], Time.get_date_string_from_system())
 	busy.record_response({"status": 503, "error": "connection reset"}, busy_read, Time.get_date_string_from_system())
 	print("busy: ", busy.describe())
+
+	print("--- the same document against a hosted ledger ---")
+	# The two hosted backends build a real request for the same invoice. Neither is claimed to do more
+	# than it does, and neither can be probed yet: a probe has to be sent, and the transport that sends
+	# arrives with sync. Each says so instead of a green light that verified nothing.
+	var payment = PaymentScript.new("PMT-0001")
+	payment.invoice = invoice.id
+	payment.received_at = "2026-06-20"
+	payment.amount = invoice.balance()
+	payment.bank_reference = "chq 1041"
+	for hosted in [
+		NinjaScript.new("https://invoicing.co", "a-token"),
+		AkauntingScript.new("https://books.example.test", "office@example.test", "a-password"),
+	]:
+		print("  ", hosted.describe())
+		print("    invoices: ", hosted.can(LedgerScript.INVOICES),
+			"  payments: ", hosted.can(LedgerScript.PAYMENTS),
+			"  credit notes: ", hosted.can(LedgerScript.CREDITS),
+			"  idempotency: ", hosted.can(LedgerScript.IDEMPOTENCY))
+		print("    ", hosted.cannot_text(LedgerScript.CREDITS))
+		var posting: Dictionary = hosted.build_invoice_push(invoice, hosted.key_for_invoice(invoice))
+		var what: String = ""
+		if bool(posting["ok"]):
+			what = "post to %s" % String(posting["request"]["url"])
+		else:
+			what = "refuse, saying: %s" % String(posting["reason"])
+		print("    it would ", what)
+		var orphan: Dictionary = hosted.build_payment_push(
+			payment, invoice, hosted.key_for_payment(payment, invoice)
+		)
+		print("    and each names the first thing a person has to record: ", orphan["reason"])
+		print("    its test button: ", hosted.self_test()["reason"])
 
 
 func _lines_in(path: String) -> int:

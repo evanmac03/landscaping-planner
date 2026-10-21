@@ -119,7 +119,8 @@ func invoice_request(invoice: Invoice, idempotency_key: String) -> Dictionary:
 	return asked(INVOICE_KIND, make_request(&"WRITE", path_for(invoice.number, JSON_EXT), headers, body))
 
 
-func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String) -> Dictionary:
+func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String,
+		_external_invoice_id: String = "") -> Dictionary:
 	var body: Dictionary = payment_body(payment, invoice, idempotency_key)
 	var headers: Dictionary = {KEY_HEADER: idempotency_key}
 	return asked(PAYMENT_KIND, make_request(&"WRITE", path_for(payment.id, JSON_EXT), headers, body))
@@ -308,28 +309,6 @@ func path_for(document_name: String, extension: String) -> String:
 	return folder.path_join("%s.%s" % [safe_name(document_name), extension])
 
 
-static func customer_name_of(document: Dictionary) -> String:
-	var customer_in: Variant = document.get("customer", {})
-	if not customer_in is Dictionary:
-		return ""
-	var customer: Dictionary = customer_in
-	for key: String in ["name", "company", "label"]:
-		var value: String = String(customer.get(key, "")).strip_edges()
-		if not value.is_empty():
-			return value
-	return ""
-
-
-static func lines_of(document: Dictionary) -> Array:
-	var out: Array = []
-	var lines_in: Variant = document.get("lines", [])
-	if lines_in is Array:
-		for entry in (lines_in as Array):
-			if entry is Dictionary:
-				out.append(entry)
-	return out
-
-
 ## The memo a tax split carries: the code names the invoice was charged under, because a bookkeeper
 ## reconciling the sales tax account needs to know which code put the money there.
 static func tax_label_of(document: Dictionary) -> String:
@@ -344,39 +323,6 @@ static func tax_label_of(document: Dictionary) -> String:
 	if codes.is_empty():
 		return "Sales tax"
 	return "Sales tax: " + ", ".join(codes)
-
-
-## A quantity as a number rather than a formatted one: `1`, `1.5`, `1000`. The invoice counts in
-## thousandths, so this is where the thousandths go away and nowhere else.
-static func plain_quantity(quantity_milli: int) -> String:
-	if quantity_milli <= 0:
-		return ""
-	var whole: int = floori(float(quantity_milli) / float(InvoiceScript.QUANTITY_MILLI))
-	var remainder: int = quantity_milli - whole * InvoiceScript.QUANTITY_MILLI
-	if remainder == 0:
-		return str(whole)
-	var fraction: String = str(remainder).lpad(3, "0").rstrip("0")
-	return "%d.%s" % [whole, fraction]
-
-
-## An amount as a machine reads it: no currency symbol, no thousands separator, `-` for a credit.
-## `Money.format()` groups for a person and prints an em dash for an unreadable amount; neither belongs
-## in a file another program parses, so this is separate and deliberate.
-static func plain_amount(amount: Money) -> String:
-	if amount == null or not amount.is_valid():
-		return ""
-	var exponent: int = MoneyScript.exponent_of(amount.currency)
-	var unit: int = 1
-	for _step in range(exponent):
-		unit *= 10
-	var magnitude: int = absi(amount.cents)
-	@warning_ignore("integer_division")
-	var whole: int = magnitude / unit
-	var fraction: int = magnitude % unit
-	var text: String = str(whole)
-	if exponent > 0:
-		text += "." + str(fraction).lpad(exponent, "0")
-	return ("-" if amount.cents < 0 else "") + text
 
 
 ## A field for a CSV: quoted when it has to be, with the quotes inside doubled. A description with a

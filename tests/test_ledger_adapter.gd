@@ -270,3 +270,76 @@ func test_a_base_adapter_has_no_transport_and_says_so_rather_than_pretending() -
 	var tested: Dictionary = adapter.self_test()
 	assert(not bool(tested["ok"]))
 	assert(String(tested["reason"]).contains("cannot test itself"), String(tested["reason"]))
+
+
+# --- reading the document every backend is built from -------------------------------------------
+
+
+func test_a_document_is_read_the_same_way_by_every_backend() -> void:
+	var document: Dictionary = {
+		"customer": {"name": "Smith", "external_id": "  42  "},
+		"lines": [{"amount": {"cents": 100, "currency": "CAD"}}, "not a line", 7],
+	}
+	# A line that is not a line is left out rather than crashing a builder three call frames down.
+	assert(LedgerScript.lines_of(document).size() == 1)
+	assert(LedgerScript.lines_of({}).is_empty())
+	assert(LedgerScript.customer_name_of(document) == "Smith")
+	assert(LedgerScript.customer_name_of({"customer": {"company": "Smith Landscaping"}}) == "Smith Landscaping")
+	assert(LedgerScript.customer_name_of({}) == "")
+	# The id in the backend being posted to is trimmed: an id with a space in it is an id nobody pasted
+	# on purpose.
+	assert(LedgerScript.party_id_of(document) == "42")
+	assert(LedgerScript.party_id_of({"customer": {}}) == "")
+	assert(LedgerScript.party_id_of({}) == "")
+
+
+func test_a_line_states_its_quantity_when_there_is_more_than_one_of_them() -> void:
+	var one: Dictionary = {"description": "Deposit", "quantity_milli": 1000, "unit": "EACH"}
+	var many: Dictionary = {"description": "Sod", "quantity_milli": 3500, "unit": "SQ_FT"}
+	assert(LedgerScript.line_notes(one) == "Deposit")
+	assert(LedgerScript.line_notes(many) == "Sod, 3.5 SQ_FT")
+	# A line with no quantity at all still reads as its description rather than as a stray comma.
+	assert(LedgerScript.line_notes({"description": "Deposit"}) == "Deposit")
+
+
+func test_a_machines_amount_is_a_number_and_not_a_persons_amount() -> void:
+	assert(absf(LedgerScript.major_units(MoneyScript.of(53550)) - 535.5) < 0.000001)
+	assert(absf(LedgerScript.major_units(MoneyScript.of(-53550)) + 535.5) < 0.000001)
+	assert(absf(LedgerScript.major_units(MoneyScript.of(0)) - 0.0) < 0.000001)
+	# An amount that cannot be read is not a number either, and zero is the only thing a float can
+	# honestly say - which is why every builder reads `is_valid` before it reads the figures.
+	assert(absf(LedgerScript.major_units(MoneyScript.invalid())) < 0.000001)
+	# A currency with no decimals has no decimal point to lose.
+	assert(absf(LedgerScript.major_units(MoneyScript.of(535, &"JPY")) - 535.0) < 0.000001)
+	assert(LedgerScript.plain_quantity(3500) == "3.5")
+	assert(LedgerScript.plain_quantity(0) == "")
+
+
+func test_the_tax_rate_told_to_an_api_is_read_off_the_published_table() -> void:
+	# Not worked out here: 13% is the table's own figure for HST-ON, and 12% is GST and PST added up.
+	assert(absf(LedgerScript.tax_percent(&"HST-ON") - 13.0) < 0.000001)
+	assert(absf(LedgerScript.tax_percent(&"GST-PST-BC") - 12.0) < 0.000001)
+	assert(absf(LedgerScript.tax_percent(&"NONE")) < 0.000001)
+	# A code the table does not have comes back as zero, and the invoice's own `tax_lines` are what say
+	# whether it could be charged at all - which is what `document_refusal` reads.
+	assert(absf(LedgerScript.tax_percent(&"NO-SUCH-CODE")) < 0.000001)
+
+
+func test_a_document_that_says_what_is_wrong_with_it_is_refused_in_those_words() -> void:
+	var clean: Dictionary = {
+		"total": {"cents": 100, "currency": "CAD"},
+		"tax_lines": [{"tax_code": "NONE", "ok": true, "reason": ""}],
+	}
+	assert(LedgerScript.document_refusal(clean) == "")
+	var taxed: Dictionary = {
+		"total": {"cents": 100, "currency": "CAD"},
+		"tax_lines": [{"tax_code": "GONE", "ok": false, "reason": "unknown tax code 'GONE'"}],
+	}
+	assert(LedgerScript.document_refusal(taxed) == "unknown tax code 'GONE'",
+		LedgerScript.document_refusal(taxed))
+	var unreadable: Dictionary = {
+		"total": MoneyScript.invalid().to_dict(),
+		"tax_lines": [],
+	}
+	assert(LedgerScript.document_refusal(unreadable) == "the invoice's total cannot be read",
+		LedgerScript.document_refusal(unreadable))

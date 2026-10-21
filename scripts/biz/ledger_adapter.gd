@@ -30,6 +30,8 @@ const InvoiceScript := preload("res://scripts/biz/invoice.gd")
 const PaymentScript := preload("res://scripts/biz/payment.gd")
 const CreditScript := preload("res://scripts/biz/credit_note.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
+const RateScript := preload("res://scripts/biz/rate.gd")
+const TaxScript := preload("res://scripts/biz/tax.gd")
 
 ## The six things a backend either can or cannot do. Every key of `CAPABILITY_NAMES` is always present
 ## in `capabilities()`, so a caller never has to work out whether a missing key means "no" or "not
@@ -186,14 +188,19 @@ func build_invoice_push(invoice: Invoice, idempotency_key: String) -> Dictionary
 
 
 ## The request that posts a payment against an invoice, or a refusal. **Pure.**
-func build_payment_push(payment: Payment, invoice: Invoice, idempotency_key: String) -> Dictionary:
+##
+## `external_invoice_id` is the invoice's id **in the backend being posted to** - the mapping the
+## office established when the invoice was first pushed - and a backend that needs it refuses when it
+## is empty, rather than posting a payment against an invoice the ledger cannot identify.
+func build_payment_push(payment: Payment, invoice: Invoice, idempotency_key: String,
+		external_invoice_id: String = "") -> Dictionary:
 	if not can(PAYMENTS):
 		return refused(cannot_text(PAYMENTS))
 	if payment == null or invoice == null:
 		return refused("there is no payment to post")
 	if idempotency_key.strip_edges().is_empty():
 		return refused("a push with no idempotency key")
-	return payment_request(payment, invoice, idempotency_key)
+	return payment_request(payment, invoice, idempotency_key, external_invoice_id)
 
 
 ## The request that posts a credit note, or a refusal. **Pure.** This is the path AC-B14 is about: a
@@ -216,7 +223,8 @@ func invoice_request(_invoice: Invoice, _idempotency_key: String) -> Dictionary:
 	return refused("%s has no invoice path" % describe())
 
 
-func payment_request(_payment: Payment, _invoice: Invoice, _idempotency_key: String) -> Dictionary:
+func payment_request(_payment: Payment, _invoice: Invoice, _idempotency_key: String,
+		_external_invoice_id: String = "") -> Dictionary:
 	return refused("%s has no payment path" % describe())
 
 
@@ -271,6 +279,10 @@ func payment_body(payment: Payment, invoice: Invoice, idempotency_key: String) -
 	body["client_key"] = idempotency_key
 	body["invoice_number"] = invoice.number
 	body["currency_iso"] = String(invoice.currency)
+	# A payment is posted against the same customer the invoice was, so the customer travels with it.
+	# Without this a payment body names no customer at all, and a backend that needs the customer's own
+	# id there has nothing to read - which is the refusal these two hosted backends make.
+	body["customer"] = invoice.customer
 	return body
 
 
@@ -280,6 +292,128 @@ func credit_body(credit: CreditNote, idempotency_key: String) -> Dictionary:
 	body["client_key"] = idempotency_key
 	body["currency_iso"] = String(credit.currency)
 	return body
+
+
+# --- reading the document every backend is built from -------------------------------------------
+
+
+## What the document itself says is wrong with it, in the document's own words. The invoice is the
+## authority on whether it can be posted at all: a tax code it could not charge, or a total that does
+## not read, is a reason not to hand the document to a ledger rather than a formatting detail.
+static func document_refusal(document: Dictionary) -> String:
+	var rows: Variant = document.get("tax_lines", [])
+	if rows is Array:
+		for entry in (rows as Array):
+			if entry is Dictionary and not bool(entry.get("ok", true)):
+				return String(entry.get("reason", "the invoice's tax does not read"))
+	if not MoneyScript.from_dict(document.get("total", {})).is_valid():
+		return "the invoice's total cannot be read"
+	return ""
+
+
+## The lines of a document, with anything that is not a line left out. Every backend reads the same
+## document, so this cross-checks in one place rather than once per backend.
+static func lines_of(document: Dictionary) -> Array:
+	var out: Array = []
+	var lines_in: Variant = document.get("lines", [])
+	if lines_in is Array:
+		for entry in (lines_in as Array):
+			if entry is Dictionary:
+				out.append(entry)
+	return out
+
+
+## The customer's name, which every backend needs and none of them should guess at.
+static func customer_name_of(document: Dictionary) -> String:
+	var customer_in: Variant = document.get("customer", {})
+	if not customer_in is Dictionary:
+		return ""
+	var customer: Dictionary = customer_in
+	for key: String in ["name", "company", "label"]:
+		var value: String = String(customer.get(key, "")).strip_edges()
+		if not value.is_empty():
+			return value
+	return ""
+
+
+## The customer's id **in the backend being posted to**. Stated by the office - it is the id the
+## ledger handed out when the customer was created there - and carried on the document's own customer
+## block under `external_id`. A backend that cannot find one refuses the push rather than posting
+## against a customer this program invented (AC-B14's rule, applied to a mapping).
+static func party_id_of(document: Dictionary, field: StringName = &"external_id") -> String:
+	var customer_in: Variant = document.get("customer", {})
+	if not customer_in is Dictionary:
+		return ""
+	return String((customer_in as Dictionary).get(String(field), "")).strip_edges()
+
+
+## A line's description as a person reads it on a ledger, with the quantity and its unit when there is
+## more to say than "one of one". A hosted ledger that prices a line as quantity times cost would
+## round a fractional quantity its own way, so the quantity is stated here instead and the money
+## travels as the invoice's own amount.
+static func line_notes(entry: Dictionary) -> String:
+	var description: String = String(entry.get("description", "")).strip_edges()
+	var quantity: String = plain_quantity(int(entry.get("quantity_milli", 0)))
+	var unit: String = String(entry.get("unit", "")).strip_edges()
+	if quantity.is_empty() or quantity == "1":
+		return description
+	return "%s, %s %s" % [description, quantity, unit]
+
+
+## An amount as a machine reads it: no currency symbol, no thousands separator, `-` for a credit.
+## `Money.format()` groups for a person and prints an em dash for an unreadable amount; neither belongs
+## in a file or a request body another program parses, so this is separate and deliberate.
+static func plain_amount(amount: Money) -> String:
+	if amount == null or not amount.is_valid():
+		return ""
+	return _un_grouped(amount)
+
+
+## An amount as a number instead of a string, which is what a JSON API wants. Exact for every currency
+## whose exponent these cents can hold, and `Money` counted them in the first place so nothing drifts.
+static func major_units(amount: Money) -> float:
+	if amount == null or not amount.is_valid():
+		return 0.0
+	return float(amount.cents) / float(_unit_of(amount.currency))
+
+
+## A quantity as a number rather than a formatted one: `1`, `1.5`, `1000`. An invoice counts in
+## thousandths, so this is where the thousandths go away and nowhere else.
+static func plain_quantity(quantity_milli: int) -> String:
+	if quantity_milli <= 0:
+		return ""
+	var whole: int = floori(float(quantity_milli) / float(InvoiceScript.QUANTITY_MILLI))
+	var remainder: int = quantity_milli - whole * InvoiceScript.QUANTITY_MILLI
+	if remainder == 0:
+		return str(whole)
+	var fraction: String = str(remainder).lpad(3, "0").rstrip("0")
+	return "%d.%s" % [whole, fraction]
+
+
+## A tax code's **nominal rate as a percent**, for an API that wants to be told the rate rather than
+## the amount. It is read off the published table, not worked out: a code this build does not have
+## comes back as 0, and the invoice's own `tax_lines` are what say whether it could be charged at all.
+static func tax_percent(code: StringName) -> float:
+	return RateScript.fraction(TaxScript.rate_ppm(code)) * 100.0
+
+
+static func _unit_of(code: StringName) -> int:
+	var unit: int = 1
+	for _step in range(MoneyScript.exponent_of(code)):
+		unit *= 10
+	return unit
+
+
+static func _un_grouped(amount: Money) -> String:
+	var unit: int = _unit_of(amount.currency)
+	var magnitude: int = absi(amount.cents)
+	@warning_ignore("integer_division")
+	var whole: int = magnitude / unit
+	var fraction: int = magnitude % unit
+	var text: String = str(whole)
+	if unit > 1:
+		text += "." + str(fraction).lpad(MoneyScript.exponent_of(amount.currency), "0")
+	return ("-" if amount.cents < 0 else "") + text
 
 
 # --- reading what came back ---------------------------------------------------------------------
