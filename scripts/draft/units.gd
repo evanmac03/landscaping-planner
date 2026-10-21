@@ -310,6 +310,23 @@ static func area_words(square_metres: float) -> String:
 	return (new() as DraftUnits).format_area(square_metres)
 
 
+## A length in words for a caller with no document in hand. `format_length` is the one place a length
+## is turned into words, so a length printed by a module that was handed metres reads the way every
+## dimension on the same sheet reads - including the unit itself, which a bare number does not carry.
+static func length_words(metres: float) -> String:
+	return (new() as DraftUnits).format_length(metres)
+
+
+## The units to word something in: the ones a caller has in hand, or the metre default when it has no
+## drawing to look at. A module that takes an optional `units` parameter resolves it here rather than
+## spelling the default again, so "an imperial drawing must never claim square metres" is one rule
+## with one fallback instead of one rule per module.
+static func or_default(units: DraftUnits) -> DraftUnits:
+	if units != null:
+		return units
+	return new() as DraftUnits
+
+
 ## Whether an area is a whole number of units, so 18.0 reads "18" and 18.4 reads "18.4".
 static func is_whole(value: float) -> bool:
 	return is_equal_approx(value, roundf(value))

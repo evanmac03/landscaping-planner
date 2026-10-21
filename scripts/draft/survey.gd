@@ -347,23 +347,36 @@ static func check_closure(result: Dictionary, ratio_warn: float = CLOSURE_RATIO_
 
 ## The strongest independent verification of scale available: what the geometry
 ## computes against what the plat states (REQ 6.5.3).
+##
+## `units` is the drawing's own units, because the areas in the sentence are the drawing's: a parcel
+## of 557.42 m2 on a sheet dimensioned in feet is 6000 ft2, and the check that says "computed 557.42
+## m2 vs stated 557.42 m2" on an imperial plan says square metres twice about a drawing that has none.
+## The default is the metre, so a caller with no drawing in hand - and every hand-built test row -
+## keeps the words it had. The numbers the sentence was made from travel with the record, so nothing
+## downstream has to parse it back out.
 static func check_area(
 	computed_m2: float,
 	stated_m2: float,
-	tolerance: float = AREA_TOLERANCE
+	tolerance: float = AREA_TOLERANCE,
+	units: DraftUnits = null
 ) -> Dictionary:
+	var words := UnitsScript.or_default(units)
 	if stated_m2 <= 0.0:
 		return {
 			"name": "Area cross-check", "value": computed_m2, "tolerance": tolerance,
-			"status": "pass", "unit": "m2", "message": "no stated area to compare",
+			"status": "pass", "unit": "m2", "area_text": words.format_area(computed_m2),
+			"message": "no stated area to compare",
 		}
 	var difference := absf(computed_m2 / stated_m2 - 1.0)
 	return {
 		"name": "Area cross-check", "value": difference, "tolerance": tolerance,
 		"status": "pass" if difference <= tolerance else "warn",
 		"unit": "ratio",
-		"message": "computed " + String.num(computed_m2, 2) + " m2 vs stated "
-			+ String.num(stated_m2, 2) + " m2",
+		"computed_text": words.format_area(computed_m2),
+		"stated_text": words.format_area(stated_m2),
+		"area_text": words.format_area(computed_m2),
+		"message": "computed " + words.format_area(computed_m2) + " vs stated "
+			+ words.format_area(stated_m2),
 	}
 
 
@@ -378,17 +391,22 @@ static func check_simple(polygon: PackedVector2Array) -> Dictionary:
 	}
 
 
+## How big the parcel is, against the bounds a lot plausibly falls between. The minimum and maximum
+## are model areas in square metres - thresholds, not words - but the sentence a person reads is
+## worded in the drawing's own units, for the reason `check_area` records.
 static func check_extent(
 	bounds: Rect2,
 	minimum: float = MIN_LOT_AREA_M2,
-	maximum: float = MAX_LOT_AREA_M2
+	maximum: float = MAX_LOT_AREA_M2,
+	units: DraftUnits = null
 ) -> Dictionary:
 	var area := absf(bounds.size.x * bounds.size.y)
+	var words := UnitsScript.or_default(units)
 	return {
 		"name": "Parcel extent", "value": area, "tolerance": maximum,
 		"status": "pass" if area >= minimum and area <= maximum else "warn",
-		"unit": "m2",
-		"message": "parcel covers about " + String.num(area, 0) + " m2",
+		"unit": "m2", "area_text": words.format_area(area),
+		"message": "parcel covers about " + words.format_area(area),
 	}
 
 

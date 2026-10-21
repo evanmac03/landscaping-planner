@@ -65,13 +65,17 @@ const AREA_UNITS := {
 
 # --- reading ------------------------------------------------------------------------
 ## Read survey text. `options` may carry "units" (a unit name every distance
-## without one of its own is read in).
+## without one of its own is read in) and "display_units" (the drawing's own `DraftUnits`, which the
+## checks' sentences about areas are worded in). The two are different questions: the first is what
+## the file's numbers are *in*, the second is what the drawing *says* them in, and a plat in feet read
+## onto a metric drawing is one of each.
 ##
 ## The result is a dictionary rather than a class because the survey engine it
 ## feeds is a table of numbers and its report is a table of records, and a class
 ## here would only be a second set of field names for the same thing.
 static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 	var default_units := _unit_name(String(options.get("units", "")))
+	var display_units: DraftUnits = options.get("display_units") as DraftUnits
 	var forced_kind := ""
 	var stated_area := 0.0
 	var kind := ""
@@ -193,7 +197,10 @@ static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 		unit_text = points_unit
 	elif kind == METES and not leg_units.is_empty():
 		unit_text = leg_units[0] if leg_units.size() == 1 else "mixed"
-	return _assemble(kind, legs, raw_points, unit_text, default_units, stated_area, notes, header_name)
+	return _assemble(
+		kind, legs, raw_points, unit_text, default_units, stated_area, notes, header_name,
+		display_units
+	)
 
 
 ## Read a survey file from disk. A missing or unreadable file is refused with a
@@ -217,6 +224,11 @@ static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
 ## Build the geometry and the report from whatever was read. Shared with
 ## `from_dict`, so a survey that came back out of a file is validated by exactly
 ## the code that validated it the first time.
+##
+## `display_units` is the drawing's own units, handed to the two checks that say an area in words, so
+## the report is worded in the units the plan is dimensioned in. It is also remembered on the result,
+## because the checks make their sentences here rather than when they are shown: a survey read once
+## and looked at twice is worded the same way twice.
 static func _assemble(
 	kind: String,
 	legs: Array,
@@ -225,7 +237,8 @@ static func _assemble(
 	default_units: String,
 	stated_area: float,
 	notes: Array[String],
-	header_name: String
+	header_name: String,
+	display_units: DraftUnits = null
 ) -> Dictionary:
 	var points := PackedVector2Array()
 	var ring := PackedVector2Array()
@@ -250,8 +263,10 @@ static func _assemble(
 	checks.append(SurveyScript.check_simple(ring))
 	if kind == METES:
 		checks.append(SurveyScript.check_closure(traverse))
-	checks.append(SurveyScript.check_extent(Geom.points_aabb(ring)))
-	checks.append(SurveyScript.check_area(area_m2, stated_area))
+	checks.append(SurveyScript.check_extent(Geom.points_aabb(ring), SurveyScript.MIN_LOT_AREA_M2,
+		SurveyScript.MAX_LOT_AREA_M2, display_units))
+	checks.append(SurveyScript.check_area(area_m2, stated_area, SurveyScript.AREA_TOLERANCE,
+		display_units))
 
 	return {
 		"ok": true,
@@ -272,6 +287,10 @@ static func _assemble(
 		"notes": notes,
 		"title": header_name,
 		"source": "",
+		# The units the checks worded themselves in, remembered so `describe` says the same thing the
+		# report says. It is not for `to_dict`: a units object is a live default, not a source row, and
+		# a survey read back out of a file is worded in whatever units that read was given.
+		"display_units": display_units,
 	}
 
 
@@ -430,22 +449,36 @@ static func _area_m2(text: String) -> float:
 
 ## One line describing what was read. The report lines say whether it is sound;
 ## this says what it is, which is the other half of a person's question.
-static func describe(parsed: Dictionary) -> String:
+##
+## The perimeter and the area are turned into words by `DraftUnits`, which is the one place either is
+## turned into words: a bare number carries no unit, so the perimeter used to read as though the
+## drawing were the thing that was unitless, and an imperial parcel of six thousand square feet used
+## to be reported as square metres. `units` is for a caller with the drawing in hand; with none, the
+## units the survey was read in are used, so this line and the report beside it cannot disagree.
+static func describe(parsed: Dictionary, units: DraftUnits = null) -> String:
 	if not bool(parsed.get("ok", false)):
 		return String(parsed.get("reason", "the survey could not be read"))
+	var in_force: DraftUnits = units
+	if in_force == null:
+		in_force = parsed.get("display_units") as DraftUnits
+	var words := UnitsScript.or_default(in_force)
 	var kind := String(parsed["kind"])
 	var count: int = (parsed["legs"] as Array).size() if kind == METES \
 		else (parsed["raw_points"] as Array).size()
 	var noun := "leg" if kind == METES else "point"
-	var words := "%d %s%s, %s around, %s" % [
+	return "%d %s%s, %s around, %s" % [
 		count, noun, "" if count == 1 else "s",
-		String.num(float(parsed.get("perimeter_m", 0.0)), 3),
-		String.num(float(parsed.get("area_m2", 0.0)), 2),
+		words.format_length(float(parsed.get("perimeter_m", 0.0))),
+		words.format_area(float(parsed.get("area_m2", 0.0))),
 	]
-	return words + " m2"
 
 
 ## Every check the survey engine made, as lines a person reads.
+##
+## There is deliberately no units parameter here, unlike `describe`. Each record carries the sentence
+## it was made with, and those sentences were worded by the units `read_text` was given - so passing
+## units in would be a lie about what these lines can do, and re-wording them here would make a second
+## writer of the same sentence. The units reach the report by reaching the read.
 static func report_lines(parsed: Dictionary) -> Array[String]:
 	var out: Array[String] = []
 	if not bool(parsed.get("ok", false)):
@@ -477,6 +510,9 @@ static func is_sound(parsed: Dictionary) -> bool:
 ## What has to survive a file for the survey to be re-read: the source rows, and
 ## nothing derived. The geometry and the report are recomputed on the way back in,
 ## so a file cannot carry a stale area or a check that no longer holds.
+##
+## The units the checks were worded in are not written either: they are the *drawing's* units rather
+## than the survey's, and a file that carried them would claim a drawing it knows nothing about.
 static func to_dict(parsed: Dictionary) -> Dictionary:
 	return {
 		"kind": String(parsed.get("kind", "")),
@@ -490,7 +526,10 @@ static func to_dict(parsed: Dictionary) -> Dictionary:
 	}
 
 
-static func from_dict(data: Dictionary) -> Dictionary:
+## Read a survey back out of a file. `options` takes the same "display_units" `read_text` does, for
+## the reason `to_dict` gives above: the units were never in the file, so whoever re-reads it has to
+## say which drawing it is going on this time. With none, the checks are worded in metres.
+static func from_dict(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var kind := String(data.get("kind", ""))
 	var legs: Array = []
 	for entry: Dictionary in data.get("legs", []):
@@ -515,7 +554,8 @@ static func from_dict(data: Dictionary) -> Dictionary:
 	var parsed := _assemble(
 		kind, legs, raw_points, String(data.get("units", "")),
 		String(data.get("units", "")), float(data.get("stated_area_m2", 0.0)),
-		notes, String(data.get("title", ""))
+		notes, String(data.get("title", "")),
+		options.get("display_units") as DraftUnits
 	)
 	parsed["source"] = String(data.get("source", ""))
 	return parsed

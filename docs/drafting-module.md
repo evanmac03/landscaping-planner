@@ -607,6 +607,23 @@ the drawing reads `ZoneMap.area_words(document, m2)`. The module functions that 
 `units: DraftUnits = null` that defaults to the metre default, so a caller with no document - a
 test, a hand-built row - keeps working and keeps saying metres.
 
+A **reader that words what it read** obeys the same rule. `SurveyFile.read_text(text, options)`
+takes `options["display_units"]`, the drawing's own `DraftUnits` - a different question from
+`options["units"]`, which is what the file's numbers are *in* - and threads it into
+`Survey.check_area` and `Survey.check_extent`, the two checks that say an area in words.
+`SurveyFile.describe(parsed, units)` words the parcel's perimeter through
+`DraftUnits.format_length` and its area through `format_area`, so the line carries its units: a
+bare number does not, and a plat read onto an imperial drawing used to be told about 557.42 m2.
+`DraftUnits.or_default(units)` resolves the metre default once, and `DraftUnits.length_words(m)`
+is `format_length` for a caller with no document.
+
+The units the read was given are remembered on the result (`parsed["display_units"]`), so the
+report the panel shows and the description beside it are worded the same way, and
+`Hud._on_survey_chosen` passes the drawing's units at the moment the file is read; they are not in
+`to_dict`, because they are the drawing's units rather than the survey's. `SurveyFile.report_lines`
+deliberately takes no units parameter: each check record carries the sentence it was made with, and
+re-wording it there would make a second writer of the same sentence.
+
 ### Scale bar (both systems)
 
 `HudOverlay` currently picks a round metre value from

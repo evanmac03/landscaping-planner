@@ -3302,14 +3302,27 @@ func open_survey_dialog() -> void:
 
 ## A survey file was chosen: read it, then show what was read. Nothing reaches the drawing until
 ## the report has been shown and accepted (docs/drafting-subsystem-spec.md REQ 6.2.1).
+##
+## The file is read in the drawing's own units, because the checks word the parcel's area as they are
+## made and a report is a thing about *this* sheet: reading a plat of six thousand square feet onto an
+## imperial drawing and being told about 557.42 m2 is a sentence about a drawing nobody is looking at.
 func _on_survey_chosen(path: String) -> void:
 	release_keyboard_focus(self)
-	var parsed := SurveyFileScript.of_file(path)
+	var parsed := SurveyFileScript.of_file(path, _survey_read_options())
 	if not bool(parsed.get("ok", false)):
 		if _draft != null:
 			_draft.note(String(parsed.get("reason", "the survey could not be read")))
 		return
 	open_survey_panel(parsed)
+
+
+## The units a survey's report is worded in: the drawing's own. A survey read with no drawing to hang
+## it on - which the File menu does not offer, since importing one needs a drawing - is read in metres
+## by the reader's own default.
+func _survey_read_options() -> Dictionary:
+	if _draft == null or _draft.document == null:
+		return {}
+	return {"display_units": _draft.document.units}
 
 
 ## Show the line of hints or not, remembering that a presentation and the painted sheet take them away
