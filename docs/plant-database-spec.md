@@ -10,7 +10,7 @@ section, the ground under a plant with the ring that reads it, and the fill that
 bed at a spacing (§5a). The starter list is **130 species**: the 17 it began with and the
 expansion of §2a. 45 tests in `test_plants.gd` (20), `test_plant_placement.gd` (11) and
 `test_plant_browser.gd` (14), plus the fill in `test_plant_spacing.gd` (18), the Plant menu in
-`test_hud_menu.gd`, the palette in `test_plant_panel.gd` (17) and the expansion in
+`test_hud_menu.gd`, the palette in `test_plant_panel.gd` (18) and the expansion in
 `test_plant_expansion.gd` (7).
 
 ## 1. JSON, not one `.tres` per species
@@ -294,6 +294,23 @@ Same list as section 4b.1, now with a rule of thumb: take a pack whose **models 
 megabytes. Kenney and Quaternius build the first kind; Poly Haven and ambientCG build the second, and are
 for rendering a picture rather than drawing a plan.
 
+### 4b.4 The check that runs the scene
+
+The asset tests measure the files and the mapping tests read the catalogue, and both can pass while
+the *scene* does something else: what lands on the plan is whatever `ViewController` instantiated from
+the species the `Hud` armed, and nothing in either test drives that pair. `tools/plant_scene_check.gd`
+(`.tscn`) does, and it is a check rather than a printout - each row is held up against the species' own
+`model_scene`, the scale `spread / declared footprint` works out to, the symbol `PlanStyle` gives the
+planted node, and the `placeable` group the views read:
+
+    res://tools/plant_scene_check.tscn        # run_scene it, then read the console
+
+It instances `scenes/main.tscn`, arms one species in each of the ten `PlantSpecies.category` values
+through the HUD's own `_arm_planting`, plants each one through `ViewController.plant_at`, puts it away
+between species so the next arm is the only plant in hand, and ends with a verdict line. One bad row is
+one wrong plant in every garden, so this is the one place where the catalogue, the pack, the `PlanStyle`
+table and the running game are held up together.
+
 ## 5. Planting: what the catalogue does to the plan
 
 A species is not a thing on the plan; it is a description of one. What stands on the plan is an
@@ -432,6 +449,18 @@ plant and stays, so a bed is a run of clicks. The plant in hand is shown as the 
 status line names it - "Planting Common boxwood. 31 standing. Escape puts it away." - so the panel
 always says what the next click would put down.
 
+A row is also how the plant in hand is *changed*. The panel re-selects what is in hand on every
+refresh - the HUD calls `refresh()` each frame, which is what keeps the palette saying what the next
+click would put down - so a click on another row would be undone before the next frame and the list
+would look broken. A click that lands on a different plant while one is already in hand is therefore
+taken as a change of mind: the panel emits the same `plant_chosen` the Place button and the library
+emit, the HUD arms it, and the panel then shows the new row. A click on the plant already in hand asks
+for nothing, so putting down a bed of one shrub is a run of clicks rather than a re-arm each time.
+With nothing in hand a row is only a *choice* - the Place button is the door to what is in hand - and
+`test_choosing_another_plant_while_one_is_in_hand_replaces_what_is_in_hand` holds both halves of that
+down, as does a live run of `scenes/main.tscn` that plants one species, clicks the next row and plants
+that one without pressing Stop.
+
 The panel owns no design state: it has no yard and no plan, it emits `plant_chosen`, and the HUD does
 the planting. That is what keeps a palette section out of the file layer, the document and the view.
 
@@ -455,8 +484,9 @@ The third way in is the **Site** menu (§7a.8), which does not place a plant but
 ground is like where it would go.
 
 Choosing a plant arms it and closes the library, so the very next click is on the plan. It stays armed
-afterwards: a bed is a dozen clicks, not a dozen trips back. Escape puts it away. Planting and the
-drawing tools never both own the left button - arming a plant puts the tools away.
+afterwards: a bed is a dozen clicks, not a dozen trips back. Escape puts it away, and a click on
+another row of the palette changes it (section 6a), so a change of mind is one click and not two.
+Planting and the drawing tools never both own the left button - arming a plant puts the tools away.
 
 ## 7a. Suitability: whether the plant belongs where it is going
 
@@ -675,6 +705,8 @@ drawing encloses (§7a.8), and stated for ground the drawing does not enclose by
 * a catalogue bigger than the panel lists is capped, and says how much of itself it is not showing
 * a plant that is not on the list cannot be chosen, and choosing it does not silently pick another
 * a tag the catalogue no longer carries falls back to every plant rather than to an empty panel
+* a row clicked while a plant is in hand replaces it, a row clicked with nothing in hand asks for
+  nothing, and clicking the plant already in hand is not a change (`test_plant_panel.gd`)
 * a bigger starter list is added through the module's own importer, and running it twice adds nothing
   the second time: every addition is in the shipped list, an id already there is refused rather than
   replaced, and an entry already in the list is left alone (`test_plant_expansion.gd`)
