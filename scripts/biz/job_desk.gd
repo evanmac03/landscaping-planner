@@ -28,10 +28,19 @@ const ScheduleScript := preload("res://scripts/biz/schedule.gd")
 const RouteScript := preload("res://scripts/biz/route.gd")
 const EntryScript := preload("res://scripts/biz/time_entry.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
+const OrderScript := preload("res://scripts/biz/purchase_order.gd")
+const ChangeScript := preload("res://scripts/biz/change_order.gd")
+const CostScript := preload("res://scripts/biz/job_cost.gd")
+const LineScript := preload("res://scripts/biz/estimate_line.gd")
+const ItemScript := preload("res://scripts/biz/cost_item.gd")
 
 const DEFAULT_CURRENCY := &"CAD"
 ## The hour a crew's day begins when nobody has said otherwise: 8:00, as minutes from midnight.
 const DEFAULT_DAY_START := 480
+## The prefixes the desk hands numbers out under. A number is a thing an office keeps a register of,
+## and two purchase orders with one number is the failure numbering exists to prevent (§8.3).
+const PO_PREFIX := "PO-"
+const CO_PREFIX := "CO-"
 
 var currency: StringName = DEFAULT_CURRENCY
 ## The people who do the work. A crew member is not a user account (§7.1).
@@ -43,6 +52,15 @@ var schedule: Schedule = null
 var time_entries: Array[TimeEntry] = []
 ## Where each job is, in the drawing's model metres, keyed by job id. Stated, not guessed.
 var job_places: Dictionary = {}
+## What has been ordered for a job, and what has arrived against it (phase 6, §8.3).
+var purchase_orders: Array[PurchaseOrder] = []
+## What a customer has been asked to agree to on top of the contract, and whether they have (phase 6,
+## §8.2).
+var change_orders: Array[ChangeOrder] = []
+## What has been invoiced and what has been collected, keyed by job id. **Said, never assumed**: a job
+## with no entry here reports billed as unknown rather than as nothing (§8.4).
+var invoiced: Dictionary = {}
+var collected: Dictionary = {}
 
 
 func _init() -> void:
@@ -438,23 +456,431 @@ func time_rows(job_id: String) -> Array[Dictionary]:
 	return out
 
 
+# --- what was ordered, and what was agreed to on top ------------------------------------------
+
+
+## The next number in a series the desk hands out, so that two orders cannot be given the same one.
+## The highest number already taken wins rather than the count: an order that was voided leaves its
+## number taken, which is what a register of numbered paper does.
+static func next_number(prefix: String, taken: Array[String]) -> String:
+	var highest := 0
+	for text in taken:
+		if not text.begins_with(prefix):
+			continue
+		var tail := text.substr(prefix.length())
+		if tail.is_valid_int() and int(tail) > highest:
+			highest = int(tail)
+	return "%s%03d" % [prefix, highest + 1]
+
+
+## An order for one thing, ready to be issued. Refused for a job this desk does not have, and for a
+## line `PurchaseOrder.add_line` refuses - nothing to order, no quantity, no readable rate.
+##
+## The order is **not** issued here: ordering and issuing are two acts, and §8.4 wants the office to
+## see what an order would commit it to before it goes out.
+func make_purchase_order(job_id: String, cost_code: StringName, description: String,
+		quantity_milli: int, unit_cost: Money, supplier: String,
+		unit: StringName = &"EACH") -> PurchaseOrder:
+	if job(job_id) == null:
+		return null
+	var taken: Array[String] = []
+	for held in purchase_orders:
+		taken.append(held.number)
+	var number := next_number(PO_PREFIX, taken)
+	var order: PurchaseOrder = OrderScript.new(number)
+	order.number = number
+	order.job = job_id
+	order.cost_code = cost_code
+	order.supplier = supplier
+	order.currency = currency
+	if not order.add_line(description, unit, quantity_milli, unit_cost):
+		return null
+	if not add_purchase_order(order):
+		return null
+	return order
+
+
+func add_purchase_order(order: PurchaseOrder) -> bool:
+	if order == null or order.id.strip_edges().is_empty():
+		return false
+	if purchase_order(order.id) != null:
+		return false
+	purchase_orders.append(order)
+	return true
+
+
+func purchase_order(order_id: String) -> PurchaseOrder:
+	for held in purchase_orders:
+		if held.id == order_id:
+			return held
+	return null
+
+
+func purchase_orders_for(job_id: String) -> Array[PurchaseOrder]:
+	var out: Array[PurchaseOrder] = []
+	for held in purchase_orders:
+		if held.job == job_id:
+			out.append(held)
+	return out
+
+
+## What an order of `quantity_milli` at `unit_cost` for a cost code would do to that code's budget,
+## asked **before** the order is issued. This is the flag §8.4 wants raised at the moment the
+## commitment is made: the one moment the office can still change its mind.
+## Returns `{over, remaining, reason}`.
+func order_would_commit(job_id: String, cost_code: StringName, quantity_milli: int,
+		unit_cost: Money) -> Dictionary:
+	var held: Job = job(job_id)
+	if held == null:
+		return {"over": false, "remaining": MoneyScript.zero(currency),
+			"reason": "there is no job %s on the desk" % job_id}
+	var amount: Money = MoneyScript.round_div(
+		unit_cost.cents * quantity_milli, OrderScript.QUANTITY_MILLI, currency
+	) if unit_cost != null and unit_cost.is_valid() else MoneyScript.invalid(currency)
+	return CostScript.over_commitment(held, purchase_orders_for(job_id), cost_code, amount)
+
+
+## Order it. Refused for everything `PurchaseOrder.issue` refuses, and refused for an order whose
+## cost code **this job has no budget for at all**: a commitment against a code the contract never
+## sold is how a job is committed past its own agreement without anybody noticing. The warning is
+## returned either way, so a caller can show it.
+## Returns `{ok, reason, warning}`.
+func issue_purchase_order(order_id: String, at: String) -> Dictionary:
+	var order: PurchaseOrder = purchase_order(order_id)
+	if order == null:
+		return {"ok": false, "reason": "there is no order %s on the desk" % order_id, "warning": ""}
+	var held: Job = job(order.job)
+	if held == null:
+		return {"ok": false, "reason": "the order is for a job this desk does not have",
+			"warning": ""}
+	if held.phase(String(order.cost_code)).is_empty():
+		return {"ok": false, "reason": "the job %s has no %s in it to charge this to" % [
+			job_label(order.job), String(order.cost_code),
+		], "warning": ""}
+	var issued: Dictionary = order.issue(at)
+	if not bool(issued["ok"]):
+		return {"ok": false, "reason": String(issued["reason"]), "warning": ""}
+	# The warning is computed **after** the order has gone out, from the orders that are now live -
+	# which is the commitment the office can still act on. The order's own figure is one of the live
+	# ones being summed, so nothing is counted twice.
+	var warning := ""
+	if order.committed().cents > 0:
+		var asked: Dictionary = CostScript.over_commitment(
+			held, purchase_orders_for(order.job), order.cost_code, MoneyScript.zero(currency)
+		)
+		if bool(asked["over"]):
+			warning = String(asked["reason"])
+	return {"ok": true, "reason": "", "warning": warning}
+
+
+## Record a delivery against a line of an order.
+func receive_order_line(order_id: String, line_index: int, quantity_milli: int, at: String,
+		note: String = "") -> Dictionary:
+	var order: PurchaseOrder = purchase_order(order_id)
+	if order == null:
+		return {"ok": false, "reason": "there is no order %s on the desk" % order_id}
+	return order.receive(at, line_index, quantity_milli, note)
+
+
+## What arrived, recorded as what is still outstanding: the ordinary case where the truck brings what
+## was ordered. A short or long delivery is recorded line by line instead.
+## Returns `{ok, reason}`.
+func receive_what_was_ordered(order_id: String, at: String) -> Dictionary:
+	var order: PurchaseOrder = purchase_order(order_id)
+	if order == null:
+		return {"ok": false, "reason": "there is no order %s on the desk" % order_id}
+	var anything := false
+	for index in order.line_count():
+		var outstanding := order.ordered_milli(index) - order.received_milli(index)
+		if outstanding <= 0:
+			continue
+		var taken: Dictionary = order.receive(at, index, outstanding)
+		if bool(taken["ok"]):
+			anything = true
+	return {"ok": anything,
+		"reason": "" if anything else "there is nothing outstanding on it"}
+
+
+## Close an order once it has been invoiced and reconciled.
+func close_order(order_id: String, at: String, why: String = "") -> bool:
+	var order: PurchaseOrder = purchase_order(order_id)
+	if order == null:
+		return false
+	return order.mark_closed(at, why)
+
+
+## One row per order on a job, as a list draws it. `committed` is the order's own figure - the desk
+## recomputes nothing (§8.3).
+func order_rows(job_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for held in purchase_orders_for(job_id):
+		out.append({
+			"id": held.id,
+			"number": held.number,
+			"cost_code": String(held.cost_code),
+			"supplier": held.supplier,
+			"state": String(held.state()),
+			"state_name": held.state_name(),
+			"ordered": held.ordered_total(),
+			"received": held.received_total(),
+			"committed": held.committed(),
+			"actual": held.actual(),
+			"issued_at": held.issued_at,
+			"problems": held.problems(),
+			"describe": held.describe(),
+		})
+	return out
+
+
+# --- change orders -----------------------------------------------------------------------------
+
+
+## A change order for a job, priced as one line: what the extra work is sold for. The reason is
+## required and comes from §8.2's short list.
+##
+## One line is a deliberate limit of this door, not of the model: `ChangeOrder` holds a whole
+## `Estimate`, so a change with twenty lines is made from an estimate (`change_order_from`), and this
+## is the case where somebody at a desk knows the number.
+func make_change_order(job_id: String, reason_key: StringName, description: String,
+		amount: Money, cost_code: StringName, unit_cost: Money = null) -> ChangeOrder:
+	if job(job_id) == null or not ChangeScript.is_reason(reason_key):
+		return null
+	if amount == null or not amount.is_valid() or amount.cents == 0:
+		return null
+	var taken: Array[String] = []
+	for held in change_orders:
+		taken.append(held.number)
+	var number := next_number(CO_PREFIX, taken)
+	var change: ChangeOrder = ChangeScript.new(number)
+	change.number = number
+	change.job = job_id
+	change.reason = reason_key
+	var line: EstimateLine = LineScript.new()
+	line.description = description if not description.strip_edges().is_empty() \
+		else "change: %s" % ChangeScript.reason_name(reason_key)
+	line.cost_code = cost_code
+	line.kind = ItemScript.MATERIAL
+	line.quantity_milli = 1000
+	line.unit = &"EACH"
+	line.unit_cost = unit_cost if unit_cost != null and unit_cost.is_valid() \
+		else MoneyScript.zero(currency)
+	line.unit_price = amount
+	if not change.add_line(line):
+		return null
+	if not add_change_order(change):
+		return null
+	return change
+
+
+## A change order from the estimate it was priced as: §8.2's own shape, where the change is a small
+## estimate and reuses §5's engine. The lines are **copied** line by line, so the change order and the
+## estimate it came from cannot move each other.
+func change_order_from(estimate: Estimate, job_id: String, reason_key: StringName) -> ChangeOrder:
+	if estimate == null or job(job_id) == null or not ChangeScript.is_reason(reason_key):
+		return null
+	if estimate.line_count() == 0:
+		return null
+	var taken: Array[String] = []
+	for held in change_orders:
+		taken.append(held.number)
+	var number := next_number(CO_PREFIX, taken)
+	var change: ChangeOrder = ChangeScript.new(number)
+	change.number = number
+	change.job = job_id
+	change.reason = reason_key
+	for each: EstimateLine in estimate.lines:
+		change.estimate.lines.append(each.copy())
+	return change if add_change_order(change) else null
+
+
+func add_change_order(change: ChangeOrder) -> bool:
+	if change == null or change.id.strip_edges().is_empty():
+		return false
+	if change_order(change.id) != null:
+		return false
+	change_orders.append(change)
+	return true
+
+
+func change_order(order_id: String) -> ChangeOrder:
+	for held in change_orders:
+		if held.id == order_id:
+			return held
+	return null
+
+
+func change_orders_for(job_id: String) -> Array[ChangeOrder]:
+	var out: Array[ChangeOrder] = []
+	for held in change_orders:
+		if held.job == job_id:
+			out.append(held)
+	return out
+
+
+func propose_change(order_id: String, at: String) -> bool:
+	var held: ChangeOrder = change_order(order_id)
+	return false if held == null else held.propose(at)
+
+
+func send_change(order_id: String, at: String) -> bool:
+	var held: ChangeOrder = change_order(order_id)
+	return false if held == null else held.send(at)
+
+
+func approve_change(order_id: String, by: String, at: String, how: String,
+		signature: String = "") -> Dictionary:
+	var held: ChangeOrder = change_order(order_id)
+	if held == null:
+		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+	return held.approve(by, at, how, signature)
+
+
+func decline_change(order_id: String, by: String, at: String, why: String) -> Dictionary:
+	var held: ChangeOrder = change_order(order_id)
+	if held == null:
+		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+	return held.decline(by, at, why)
+
+
+func void_change(order_id: String, at: String, why: String) -> Dictionary:
+	var held: ChangeOrder = change_order(order_id)
+	if held == null:
+		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+	return held.mark_void(at, why)
+
+
+func change_rows(job_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for held in change_orders_for(job_id):
+		out.append({
+			"id": held.id,
+			"number": held.number,
+			"reason": String(held.reason),
+			"reason_name": ChangeScript.reason_name(held.reason),
+			"state": String(held.state()),
+			"state_name": held.state_name(),
+			"amount": held.amount(),
+			"amount_text": held.amount_text(),
+			"pending": held.is_pending(),
+			"enters_contract_sum": held.enters_contract_sum(),
+			"line_count": held.line_count(),
+			"approval_text": held.approval_text(),
+			"describe": held.describe(),
+		})
+	return out
+
+
+# --- what it has cost, and what it has been billed ---------------------------------------------
+
+
+## Say what a job has been invoiced, and what has been collected against it. Both are **stated**:
+## phase 6 has no invoicing of its own, and a report that showed nothing billed because nobody had
+## told it would be a report that lies quietly (§8.4).
+func set_invoiced(job_id: String, amount: Money) -> bool:
+	if job(job_id) == null or amount == null or not amount.is_valid():
+		return false
+	invoiced[job_id] = amount
+	return true
+
+
+func set_collected(job_id: String, amount: Money) -> bool:
+	if job(job_id) == null or amount == null or not amount.is_valid():
+		return false
+	collected[job_id] = amount
+	return true
+
+
+## What a job has been invoiced, or **null** when nobody has said - which is not the same as nothing.
+func invoiced_for(job_id: String) -> Money:
+	var held = invoiced.get(job_id, null)
+	return held if held is Money else null
+
+
+func collected_for(job_id: String) -> Money:
+	var held = collected.get(job_id, null)
+	return held if held is Money else null
+
+
+## The report, built from the records every time it is asked for. Nothing is cached, so a receipt
+## entered a second ago is in it. Null for a job this desk does not have.
+func cost_report(job_id: String) -> JobCost:
+	var held: Job = job(job_id)
+	if held == null:
+		return null
+	return CostScript.of(held, purchase_orders_for(job_id), change_orders_for(job_id),
+		entries_for(job_id), invoiced_for(job_id), collected_for(job_id))
+
+
+func cost_rows(job_id: String) -> Array[Dictionary]:
+	var report: JobCost = cost_report(job_id)
+	return [] if report == null else report.rows
+
+
+func cost_totals_text(job_id: String) -> String:
+	var report: JobCost = cost_report(job_id)
+	return "" if report == null else report.totals_text()
+
+
+func cost_problems(job_id: String) -> Array[String]:
+	var report: JobCost = cost_report(job_id)
+	return [] if report == null else report.problems()
+
+
 # --- what it says ------------------------------------------------------------------------------
 
 
 ## One line for the menu: what the desk holds, and whether the board is clear. A board with something
 ## wrong on it says so here rather than only inside the window.
 func describe() -> String:
-	if jobs.is_empty() and crews.is_empty() and schedule.count() == 0:
+	var money := _money_lines()
+	if jobs.is_empty() and crews.is_empty() and schedule.count() == 0 and money.is_empty():
 		return "no crews and no jobs yet"
-	var line := "%d crew%s, %d job%s, %d block%s on the board" % [
-		crews.size(), _plural(crews.size()),
-		jobs.size(), _plural(jobs.size()),
-		schedule.count(), _plural(schedule.count()),
-	]
+	var parts := PackedStringArray()
+	if not crews.is_empty():
+		parts.append("%d crew%s" % [crews.size(), _plural(crews.size())])
+	if not jobs.is_empty():
+		parts.append("%d job%s" % [jobs.size(), _plural(jobs.size())])
+	parts.append("%d block%s on the board" % [schedule.count(), _plural(schedule.count())])
 	var problems := conflict_count()
 	if problems > 0:
-		line += ", %d conflict%s" % [problems, _plural(problems)]
-	return line
+		parts.append("%d conflict%s" % [problems, _plural(problems)])
+	for line in money:
+		parts.append(line)
+	return ", ".join(parts)
+
+
+## What the orders and the agreed change orders come to, in words, for the one line the menu shows.
+## Nothing is said about a desk that has neither.
+func _money_lines() -> Array[String]:
+	var out: Array[String] = []
+	if not purchase_orders.is_empty():
+		var committed: Array = []
+		for held in purchase_orders:
+			committed.append(held.committed())
+		out.append("%d purchase order%s (%s committed)" % [
+			purchase_orders.size(), _plural(purchase_orders.size()),
+			MoneyScript.sum(committed, currency).format_with_currency(),
+		])
+	var agreed: Array = []
+	var waiting := 0
+	for held in change_orders:
+		if held.enters_contract_sum():
+			agreed.append(held.amount())
+		elif held.is_pending():
+			waiting += 1
+	if not change_orders.is_empty():
+		var line := "%d change order%s (%s agreed" % [
+			change_orders.size(), _plural(change_orders.size()),
+			MoneyScript.sum(agreed, currency).format_with_currency(),
+		]
+		# Written as a statement and not as `line += ... if ... else ...`: a ternary swallows the
+		# `+=` into its condition arm, so the assignment simply never happens on the false branch.
+		if waiting > 0:
+			line += ", %d pending)" % waiting
+		else:
+			line += ")"
+		out.append(line)
+	return out
 
 
 ## Everything the board's own rows say, in words.
@@ -482,6 +908,22 @@ func to_dict() -> Dictionary:
 	for key in job_places.keys():
 		var at: Vector2 = job_place(String(key))
 		places[String(key)] = [at.x, at.y]
+	var orders: Array = []
+	for held in purchase_orders:
+		orders.append(held.to_dict())
+	var changes: Array = []
+	for held in change_orders:
+		changes.append(held.to_dict())
+	var billed: Dictionary = {}
+	for key in invoiced.keys():
+		var said: Money = invoiced_for(String(key))
+		if said != null and said.is_valid():
+			billed[String(key)] = said.to_dict()
+	var paid: Dictionary = {}
+	for key in collected.keys():
+		var said: Money = collected_for(String(key))
+		if said != null and said.is_valid():
+			paid[String(key)] = said.to_dict()
 	return {
 		"currency": String(currency),
 		"crews": crew_list,
@@ -489,6 +931,10 @@ func to_dict() -> Dictionary:
 		"schedule": schedule.to_dict(),
 		"time_entries": entry_list,
 		"job_places": places,
+		"purchase_orders": orders,
+		"change_orders": changes,
+		"invoiced": billed,
+		"collected": paid,
 	}
 
 
@@ -532,7 +978,44 @@ static func from_dict(data: Dictionary) -> JobDesk:
 				var job_id := String(key)
 				if desk.job(job_id) != null:
 					desk.job_places[job_id] = Vector2(float(at[0]), float(at[1]))
+	# An order or a change order whose job is not on the desk is dropped for the same reason a block
+	# is: it would be a cost against nothing, and the report would carry money no job can explain.
+	var order_list = data.get("purchase_orders", [])
+	if order_list is Array:
+		for entry in (order_list as Array):
+			if entry is Dictionary:
+				var read: PurchaseOrder = OrderScript.from_dict(entry)
+				if read != null and desk.job(read.job) != null:
+					desk.add_purchase_order(read)
+	var change_list = data.get("change_orders", [])
+	if change_list is Array:
+		for entry in (change_list as Array):
+			if entry is Dictionary:
+				var raised: ChangeOrder = ChangeScript.from_dict(entry)
+				if raised != null and desk.job(raised.job) != null:
+					desk.add_change_order(raised)
+	for key in _billed_keys(data):
+		var job_id := String(key)
+		if desk.job(job_id) == null:
+			continue
+		var paid: Money = MoneyScript.from_dict((data["invoiced"] as Dictionary)[key])
+		if paid.is_valid():
+			desk.invoiced[job_id] = paid
+		var got = (data["collected"] as Dictionary).get(key, null)
+		if got is Dictionary:
+			var received: Money = MoneyScript.from_dict(got)
+			if received.is_valid():
+				desk.collected[job_id] = received
 	return desk
+
+
+## The job ids that have a billed figure recorded. Kept apart so that a file with one and not the other
+## is read as what it says rather than as a fault.
+static func _billed_keys(data: Dictionary) -> Array:
+	var held = data.get("invoiced", null)
+	if held is Dictionary:
+		return (held as Dictionary).keys()
+	return []
 
 
 # --- the small joins --------------------------------------------------------------------------
