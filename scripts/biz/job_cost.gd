@@ -26,6 +26,14 @@ extends RefCounted
 ## cost does - through the purchase orders and the hours that carry that cost code - so the report does
 ## not need a rule about change orders to be right, and a change whose work costs more than it was sold
 ## for shows up as a variance instead of hiding inside an adjusted budget.
+##
+## ## Earned, and the margin on it
+##
+## `gross margin to date` is what has been **earned** at the percent complete, less what the job has
+## cost; the earned figure is the agreed sum scaled by that percent, which is the ordinary
+## percentage-of-completion reading. It is deliberately **not capped at the contract sum**: a job that
+## has spent more than its budget then shows a percent above 100 and a margin that has to be explained,
+## rather than a cap quietly making a loss look like a job on plan (§8.4, REQ-B20).
 
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const JobScript := preload("res://scripts/biz/job.gd")
@@ -402,16 +410,21 @@ func totals_text() -> String:
 	var figures := totals()
 	var lines := PackedStringArray()
 	lines.append("%-22s %s" % ["contract sum", (figures["contract_sum"] as Money).format_with_currency()])
-	if (figures["changes_pending"] as Money).cents != 0:
-		lines.append("%-22s %s  (%d pending)" % [
+	if (figures["changes_approved"] as Money).cents != 0 \
+			or (figures["changes_pending"] as Money).cents != 0:
+		lines.append("%-22s %s" % [
 			"change orders agreed", (figures["changes_approved"] as Money).format_with_currency(),
-			int(figures["pending_count"]),
 		])
+		if int(figures["pending_count"]) > 0:
+			lines.append("%-22s %s  (%d pending, not agreed)" % [
+				"change orders pending", (figures["changes_pending"] as Money).format_with_currency(),
+				int(figures["pending_count"]),
+			])
 	lines.append("%-22s %s" % ["cost incurred", (figures["cost"] as Money).format_with_currency()])
 	if bool(figures["margin_known"]):
-		lines.append("%-22s %s  (earned %s)" % [
+		lines.append("%-22s %s  (earned %s at percent complete, %s)" % [
 			"gross margin to date", (figures["margin_to_date"] as Money).format_with_currency(),
-			(figures["earned"] as Money).format_with_currency(),
+			(figures["earned"] as Money).format_with_currency(), percent_basis,
 		])
 	else:
 		lines.append("%-22s not known: %s" % ["gross margin", "no budget to measure it against"])

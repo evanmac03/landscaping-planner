@@ -243,6 +243,7 @@ const DXF_UNIT_CHOICES: Array[String] = [
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
 const ScheduleBoardScript := preload("res://scripts/schedule_board.gd")
+const JobCostWindowScript := preload("res://scripts/job_cost_window.gd")
 const JobDeskScript := preload("res://scripts/biz/job_desk.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
@@ -294,6 +295,9 @@ var _pipeline_board: PipelineBoard = null
 ## estimate - which is why the estimate window is the door to it.
 var _job_desk: JobDesk = null
 var _schedule_board: ScheduleBoard = null
+## What a job has cost: the budget, what is committed and what has actually been spent. The third
+## window onto the same desk, and the one that answers the question the desk's line only hints at.
+var _cost_window: JobCostWindow = null
 ## The species the last choice armed, so "place it again" has something to place.
 var _plant_chosen: StringName = &""
 ## The plants section of the palette, thrown in under the drawing tools. The library is where a
@@ -347,6 +351,7 @@ func _ready() -> void:
 	_build_pipeline_board()
 	_build_job_desk()
 	_build_schedule_board()
+	_build_cost_window()
 	# The painted plan reports by signal, so the panel is a caption rather than a
 	# function that blocks the frame the key was pressed in.
 	if painted_plan != null:
@@ -1566,16 +1571,19 @@ static func pipeline_items() -> Array[Dictionary]:
 	return items
 
 
-## The jobs and the crews: who works when, and what clashes.
+## The jobs and the crews: who works when, what clashes, and what it has cost.
 ##
 ## Like the pipeline this is business data rather than drawing data, so the menu is here whatever
-## scene is open. The line at the top is the desk's own words - including a count of the clashes,
-## because a board with something wrong on it should say so without being opened.
+## scene is open. The line at the top is the desk's own words - including a count of the clashes and
+## what the orders have committed, because a board with something wrong on it should say so without
+## being opened. The two entries are the two questions about a job: when is it being built, and what
+## has it cost.
 static func jobs_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	items.append(_info(&"jobs.info", "no crews and no jobs yet"))
 	items.append(_separator())
 	items.append(_command(&"jobs.board", "Open the schedule board...", &"", &"_menu_schedule_board"))
+	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
 	return items
 
 
@@ -3702,6 +3710,54 @@ func _on_job_started(estimate: Estimate) -> void:
 ## A block was booked, moved or taken off: the menu line about the desk is stale.
 func _on_schedule_changed() -> void:
 	_refresh_menus()
+
+
+## What a job has cost: the report, the orders and the change orders. Built by hand like the other two
+## for the same reason - the desk the window is pointed at is the desk this file already wired to the
+## menus - and it needs no drawing, because what a job has cost is not on the plan.
+func _build_cost_window() -> void:
+	if _cost_window != null:
+		return
+	if _job_desk == null:
+		_build_job_desk()
+	_cost_window = JobCostWindowScript.new()
+	_cost_window.name = "CostWindow"
+	add_child(_cost_window)
+	_cost_window.build()
+	_cost_window.bind(_job_desk)
+	_cost_window.cost_changed.connect(_on_cost_changed)
+	_cost_window.hide()
+
+
+func open_cost_window() -> void:
+	if _cost_window == null:
+		_build_cost_window()
+	if _cost_window == null:
+		return
+	_cost_window.bind(_job_desk)
+	_cost_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_cost_window() -> void:
+	if _cost_window != null:
+		_cost_window.hide()
+
+
+func is_cost_window_open() -> bool:
+	return _cost_window != null and _cost_window.visible
+
+
+## An order was issued, received or closed, or a change order was answered: the menu line about the
+## desk is stale, and so is the schedule board's summary if a job's money has moved under it.
+func _on_cost_changed() -> void:
+	if _schedule_board != null:
+		_schedule_board.refresh()
+	_refresh_menus()
+
+
+func _menu_cost_window(_entry: Dictionary) -> void:
+	open_cost_window()
 
 
 func _menu_schedule_board(_entry: Dictionary) -> void:

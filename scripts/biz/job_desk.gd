@@ -765,7 +765,7 @@ func change_rows(job_id: String) -> Array[Dictionary]:
 			"enters_contract_sum": held.enters_contract_sum(),
 			"line_count": held.line_count(),
 			"approval_text": held.approval_text(),
-			"describe": held.describe(),
+			"describe": held.describe(job_label(held.job)),
 		})
 	return out
 
@@ -833,20 +833,19 @@ func cost_problems(job_id: String) -> Array[String]:
 ## wrong on it says so here rather than only inside the window.
 func describe() -> String:
 	var money := _money_lines()
-	if jobs.is_empty() and crews.is_empty() and schedule.count() == 0 and money.is_empty():
+	if crews.is_empty() and jobs.is_empty() and schedule.count() == 0 and money.is_empty():
 		return "no crews and no jobs yet"
-	var parts := PackedStringArray()
-	if not crews.is_empty():
-		parts.append("%d crew%s" % [crews.size(), _plural(crews.size())])
-	if not jobs.is_empty():
-		parts.append("%d job%s" % [jobs.size(), _plural(jobs.size())])
-	parts.append("%d block%s on the board" % [schedule.count(), _plural(schedule.count())])
+	var line := "%d crew%s, %d job%s, %d block%s on the board" % [
+		crews.size(), _plural(crews.size()),
+		jobs.size(), _plural(jobs.size()),
+		schedule.count(), _plural(schedule.count()),
+	]
 	var problems := conflict_count()
 	if problems > 0:
-		parts.append("%d conflict%s" % [problems, _plural(problems)])
-	for line in money:
-		parts.append(line)
-	return ", ".join(parts)
+		line += ", %d conflict%s" % [problems, _plural(problems)]
+	for extra in money:
+		line += ", %s" % extra
+	return line
 
 
 ## What the orders and the agreed change orders come to, in words, for the one line the menu shows.

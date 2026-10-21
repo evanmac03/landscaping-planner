@@ -1052,7 +1052,7 @@ before anything depends on it.
 | 3 | **Takeoff** | `takeoff.gd`; entity selection → measurement → line, with lineage and re-takeoff diffs | **built** - 18 tests |
 | 4 | **Pipeline** | `lead.gd`, `pipeline.gd`, `scripts/pipeline_board.gd`; stages as events, funnel and conversion metrics, the board | **built** - 48 tests (`test_biz_pipeline` 24, `test_pipeline_board` 18, `test_hud_pipeline` 6); leads are held in memory until the store of phase 10 |
 | 5 | **Jobs and crews** | `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `scripts/biz/job_desk.gd`, `scripts/schedule_board.gd`; scheduling, routing, offline time, the board | **built** - 109 tests (`test_biz_crew` 9, `test_biz_job` 10, `test_biz_schedule` 8, `test_biz_route` 11, `test_biz_time_entry` 13, `test_biz_job_desk` 31, `test_schedule_board` 18, `test_hud_jobs` 7, and 2 more in `test_estimate_window`); crews and jobs are held in memory until the store of phase 10 |
-| 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`; committed vs actual, variance, WIP | specified |
+| 6 | **Job costing** | `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `scripts/biz/job_desk.gd`, `scripts/job_cost_window.gd`; committed vs actual, variance, WIP | **built** - 121 tests (`test_biz_purchase_order` 22, `test_biz_change_order` 22, `test_biz_job_cost` 23, `test_biz_job_costing` 30, `test_job_cost_window` 18, `test_hud_costing` 6); orders, changes and the billed figures are held in memory until the store of phase 10 |
 | 7 | **Billing and invoices** | `billing.gd`, `invoice.gd`, `invoice_sheet.gd`; milestones, percentage completion, the page, the JSON | specified |
 | 8 | **Ledger adapters** | `ledger/*`; file/CSV/IIF, Invoice Ninja, Akaunting, idempotency, reconciliation | specified |
 | 9 | **Analytics** | `analytics.gd`; the figures in §10, each with its basis | specified |
@@ -1187,6 +1187,55 @@ move shall carry the job's own copy with it.
 
 REQ-B28 A route shall refuse a job whose place nobody has stated, naming the job, rather
 than compute from the drawing's origin.
+
+---
+
+## 14c. The way in to the cost report
+
+Phase 6's three engines are `PurchaseOrder` (committed vs actual), `ChangeOrder` (the contract
+sum that moves) and `JobCost` (the report). Their door is two files, and - like the desks before
+them - neither holds an arithmetic of its own.
+
+**`scripts/biz/job_desk.gd`** gains the orders, the changes and the billed figures, and answers
+about them. Three decisions:
+
+* **A number is taken, not counted.** `next_number("PO-", taken)` returns the highest taken
+  number plus one. A count would hand two offices the same number the day an order is voided,
+  and an invoice number reused is the one error a tax authority does not forgive.
+* **An order is written before it is issued.** `make_purchase_order` writes a draft; only
+  `issue_purchase_order` commits the job to the money, and it refuses an order whose cost code
+  the job was never sold, in the words the desk uses: the job "has no EXTRAS in it to charge
+  this to". It returns the over-commitment warning rather than blocking, because a foreman who
+  has to order 120% of a budget sometimes has a reason, and the office's job is to be told.
+* **A change order copies its lines out of the estimate.** `change_order_from(estimate, job_id,
+  reason)` deep-copies, so a change and the estimate it came from can never move each other.
+
+The billed figures are *stated*: `set_invoiced`/`set_collected` record what the office says, and
+`invoiced_for` returns **null** when nobody has said, never zero. The cost report already takes
+billed and paid as inputs and prints "not known" for them; phase 7 replaces the stating with an
+invoice.
+
+**`scripts/job_cost_window.gd`** (`JobCostWindow`) is the panel: a `Window` like the pipeline
+board and the schedule board, every button `FOCUS_NONE`, the typed fields the only keyboard. The
+job picker comes first, because every figure here is a fact about one job. Three decisions:
+
+* **A row's button defers the entry point it calls.** Receiving an order refreshes the table, and
+  the refresh frees the very button being pressed; deferring the *action* rather than the rebuild
+  keeps the public call synchronous and testable.
+* **The order row says the commitment before the button is pressed.** `order_hint()` answers
+  "what would this order commit the job to" in words, which is §8.4's one moment - the moment
+  before the money is committed - made visible rather than reported afterwards.
+* **A closed order offers no receive, and a settled change offers no decision.** A control that
+  can only fail is not drawn.
+
+Reached from the **Jobs** menu, under it with the board, because what a job has cost is a fact
+about a job. Its own line is the desk's `describe()`, extended with the orders and the changes, so
+a job with an order on it says so without being opened.
+
+REQ-B29 A document's number shall be the highest number already taken plus one, so a voided or
+deleted document never frees its number for reuse.
+
+REQ-B30 A cost figure nobody has stated shall be reported as not known, and never as zero.
 
 ---
 

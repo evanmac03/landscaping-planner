@@ -395,13 +395,13 @@ func test_what_has_been_billed_is_unknown_until_somebody_says() -> void:
 func test_the_menu_line_counts_the_orders_the_commitment_and_the_changes() -> void:
 	var desk := _desk()
 	var plain: String = desk.describe()
-	assert(plain == "1 job, 0 blocks on the board", plain)
+	assert(plain == "0 crews, 1 job, 0 blocks on the board", plain)
 	desk.make_purchase_order("E1", &"PLANTING", "Buxus", 10000, MoneyScript.of(1000), "Greenline")
 	desk.issue_purchase_order("PO-001", "2026-06-01")
 	desk.make_change_order("E1", &"SITE_CONDITION", "A wall", MoneyScript.of(50000), &"HARDSCAPE")
 	desk.propose_change("CO-001", "2026-06-20")
 	var line: String = desk.describe()
-	assert(line == "1 job, 0 blocks on the board, 1 purchase order ($100.00 committed), "
+	assert(line == "0 crews, 1 job, 0 blocks on the board, 1 purchase order ($100.00 committed), "
 		+ "1 change order ($0.00 agreed, 1 pending)", line)
 	desk.approve_change("CO-001", "Dana", "2026-07-01", "in-app")
 	assert(desk.describe().contains("1 change order ($500.00 agreed)"), desk.describe())

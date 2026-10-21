@@ -74,17 +74,20 @@ func _init(order_id: String = "") -> void:
 
 ## Add a line. Refused for nothing to order, for a quantity of nothing, and for an unreadable rate:
 ## a line the cost report cannot price is a line that disappears from the commitment.
-func add_line(description: String, unit: StringName, ordered_milli: int, unit_cost: Money) -> bool:
+##
+## The parameter is not called `ordered_milli`: a parameter that shadows a method of its own class is
+## a warning in this language, and `ordered_milli(index)` is a method here.
+func add_line(description: String, unit: StringName, quantity_milli: int, unit_cost: Money) -> bool:
 	if description.strip_edges().is_empty():
 		return false
-	if ordered_milli <= 0:
+	if quantity_milli <= 0:
 		return false
 	if unit_cost == null or not unit_cost.is_valid():
 		return false
 	lines.append({
 		"description": description,
 		"unit": String(unit),
-		"ordered_milli": ordered_milli,
+		"ordered_milli": quantity_milli,
 		"unit_cost": unit_cost,
 	})
 	return true

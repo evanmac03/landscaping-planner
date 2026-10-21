@@ -248,7 +248,7 @@ The first step is genuinely small and worth taking: provision the relay, then on
 only, no geometry. It buys a team the thing teams ask for first - knowing who is where - and it puts
 no merge problem on the table.
 
-## 7. Integration between the modules - SPEC'D; PHASES 0 AND 1 OF 12 ARE BUILT
+## 7. Integration between the modules - SPEC'D; PHASES 0-6 OF 12 ARE BUILT
 
 The chain, what each link is made of, and where it stands:
 
@@ -258,7 +258,7 @@ The chain, what each link is made of, and where it stands:
 | estimate | takeoff lines x rates, money per line, tax per code | **built** - `estimate_line.gd`, `estimate.gd`, 29 tests |
 | pipeline | prospect, quoted, approved, scheduled | **built** - `lead.gd`, `pipeline.gd`, `pipeline_board.gd`, 48 tests |
 | jobs and crews | the estimate becomes a job, with crews and dates | **built** - `job.gd`, `crew.gd`, `schedule.gd`, `route.gd`, `time_entry.gd`, `job_desk.gd`, `schedule_board.gd`, 109 tests |
-| job costing | actuals against the estimate | phase 6, specified |
+| job costing | actuals against the estimate | **built** - `purchase_order.gd`, `change_order.gd`, `job_cost.gd`, `job_cost_window.gd`, 121 tests |
 | billing | invoices off the job, `Tax` per component | phase 7, specified |
 | store and sync | per-record revisions, append-only journal, HTTP | phase 10, specified |
 

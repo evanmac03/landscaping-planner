@@ -287,7 +287,11 @@ func amount_text() -> String:
 	return "%s%s" % [sign_text, money.abs().format_with_currency()]
 
 
-func describe() -> String:
+## What a change order adds to a job, and what stood behind it. `job_name` is the label the caller
+## knows the job by - a list says "Smith, back garden" where a file says a uuid, and the model has no
+## way of knowing which of the two a person is looking at.
+func describe(job_name: String = "") -> String:
+	var called := job_name if not job_name.strip_edges().is_empty() else job
 	var parts := PackedStringArray()
 	parts.append("%s %s" % [_label(), reason_name(reason)])
 	parts.append(amount_text())
@@ -297,7 +301,7 @@ func describe() -> String:
 		parts.append(state_name())
 	if not affects_contract_sum:
 		parts.append("does not change the contract sum")
-	return "%s (%s)" % [", ".join(parts), job if not job.is_empty() else "no job"]
+	return "%s (%s)" % [", ".join(parts), called if not called.is_empty() else "no job"]
 
 
 func _label() -> String:
