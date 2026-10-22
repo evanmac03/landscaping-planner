@@ -130,6 +130,9 @@ const PALETTE_EDIT_CELL_WIDTH := 50.0
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
+## The garden as a model file. A picture of the yard is one thing and the yard is another: what a
+## builder, a contractor or the next designer wants is the thing itself, and this is what writes it out.
+const YardExporterScript := preload("res://scripts/vis/yard_exporter.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## The study of the sun rather than the sun itself: `SunStudy` says where the sun is at one moment,
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
@@ -397,6 +400,10 @@ var _pending_dxf: Dictionary = {}
 ## commands are opposites - reading a file in and writing the drawing out - and a person who reached
 ## for the wrong one should not have to work it out from the file mode.
 var _dxf_export_dialog: FileDialog = null
+## Where the yard goes out as a model. A dialog of its own for the same reason the DXF's is: this is
+## the other thing that leaves the program for somebody else's software, and it is a save rather than
+## an import like every dialog above it.
+var _model_export_dialog: FileDialog = null
 ## The LandXML import: the same three pieces the DXF import has, because it is the same act - somebody
 ## else's file, read into something to trace over, with the one question a file that does not say its
 ## units has to be asked.
@@ -1807,6 +1814,13 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(
 		&"file.dxf_out", "Save the drawing as a DXF...", &"", &"_menu_save_dxf", NEEDS_DRAFT
 	))
+	# And the other way out, and the one that leaves the drawing behind: a DXF is the design in two
+	# dimensions for another drafting program, and a model is the garden in three for a person who
+	# wants to build from it or light it. It needs nothing of the drawing to exist - the yard stands
+	# whatever is on the plan - but it stands *next to* the DXF, because they are the same act.
+	items.append(_command(
+		&"file.model_out", "Save the yard as a 3D model...", &"", &"_menu_save_model"
+	))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -2703,6 +2717,23 @@ func _build_file_dialogs() -> void:
 	_dxf_export_dialog.filters = PackedStringArray(["*.dxf ; DXF drawings"])
 	_dxf_export_dialog.file_selected.connect(_on_dxf_export_chosen)
 	add_child(_dxf_export_dialog)
+
+	# And the yard as a model. Two formats rather than one, and the dialog says what the difference is
+	# where the choice is made: a filter is the closest thing a file dialog has to a sentence, and "one
+	# file" against "pictures named rather than carried" is the whole of what a person needs to decide.
+	# The binary one comes first, and is the one a name without an extension gets.
+	_model_export_dialog = FileDialog.new()
+	_model_export_dialog.name = "ExportModel"
+	_model_export_dialog.title = "Save the yard as a 3D model"
+	_model_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_model_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_model_export_dialog.current_file = "yard.glb"
+	_model_export_dialog.filters = PackedStringArray([
+		"*.glb ; Binary glTF, one file with its pictures inside it",
+		"*.gltf ; glTF text, with its pictures named rather than carried",
+	])
+	_model_export_dialog.file_selected.connect(_on_model_export_chosen)
+	add_child(_model_export_dialog)
 
 	# And a LandXML plat is the third shape of the same thing: a file somebody else's software wrote,
 	# holding the site rather than a drawing of it. It reads the whole filesystem for the same reason.
@@ -4011,6 +4042,34 @@ func _on_dxf_export_chosen(path: String) -> void:
 		return
 	var target: String = path if path.ends_with(".dxf") else path + ".dxf"
 	_draft.export_dxf(target)
+	release_keyboard_focus(self)
+
+
+## Writing the yard out as a model, from the File menu.
+##
+## The menu only opens the door and the exporter writes the file. The reporting goes on the drawing's
+## status line rather than onto a page of its own, because that is where every other thing this
+## program says about what it has just done goes - a DXF, a plot, an import - and the yard is the
+## drawing in three dimensions, so it is the same sentence in the same place. `last_message` is also
+## what `Edit > What just happened...` keeps, so a model that went out is still findable afterwards.
+func _menu_save_model(_entry: Dictionary) -> void:
+	if _model_export_dialog != null:
+		_model_export_dialog.popup_centered_ratio(0.7)
+
+
+## The file a person chose to write to.
+##
+## The extension is added rather than trusted to the dialog's filter, and the one that is added is the
+## **binary** one: a `.gltf` names its pictures instead of carrying them (see `YardExporter`), so a
+## name typed with no extension gets the format that takes everything with it. A person who wants the
+## text file says so by typing `.gltf`, which is a decision rather than a default.
+func _on_model_export_chosen(path: String) -> void:
+	var target: String = path
+	if YardExporterScript.format_for(target).is_empty():
+		target += "." + YardExporterScript.GLB
+	var report: Dictionary = YardExporterScript.export_scene(self, target)
+	if _draft != null:
+		_draft.last_message = YardExporterScript.describe(report)
 	release_keyboard_focus(self)
 
 

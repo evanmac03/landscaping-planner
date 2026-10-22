@@ -2553,6 +2553,76 @@ still path only.
 REQ-V10.8 Any effect requiring more than one render pass shall be available in the
 still path only, and shall never be attempted interactively.
 
+### 10.7 The garden as a model file, for somebody else's program
+
+Everything above this subsection is a thing a person **looks at**: a still, a
+proposal sheet, a video. The garden itself is a thing other people *use*. The
+builder setting the new paving into their own site drawing, the lighting
+contractor working out a run from the planting, and the designer who takes the
+garden on next season all want the model itself - and it already exists, because
+it is what this program draws every frame.
+
+`scripts/vis/yard_exporter.gd` writes it as glTF, through the `GLTFDocument` and
+`GLTFState` the engine ships, reached from **File > Save the yard as a 3D
+model...**.
+
+REQ-V10.9 The model shall hold the design and nothing else: the yard and the
+derived solids, found by **type** rather than by name, and neither the player,
+nor the cameras, nor the sun, nor the HUD. A model of somebody's garden has no
+business carrying the person who was walking round it.
+
+REQ-V10.10 The model shall be written under **one root node**. glTF's scene holds
+a list of roots, and a reader may instantiate the first and no more - Godot's own
+reader does exactly that - so a file written as the yard *beside* the derived
+builder opens as the garden without the paving, the deck and the beds the drawing
+implies. Both halves going into the file is not the same claim as both halves
+being reachable, and only the second one is worth making. See `_one_root`.
+
+REQ-V10.11 Both formats shall be offered, and the extension shall be the only
+thing that decides which. A `.glb` is one file with its pictures inside it and is
+the default, because a model going to somebody else should be one file; a
+`.gltf` is a text file, which is the one a person can diff.
+
+REQ-V10.12 What a `.gltf` cannot carry shall be **counted and named** in the
+report rather than left to be discovered. Godot writes each picture as a `uri`
+derived from where it lives *inside this project*, which is not a path that
+resolves beside the written file, so a `.gltf` opens elsewhere with its geometry
+and its colours and none of its textures. A picture Godot cannot get an image out
+of - this project's lawn, ground and timber are `NoiseTexture2D`s, generated on a
+thread - is written as no picture at all, in **either** format, and is counted
+too.
+
+REQ-V10.13 An export shall not be an edit: the drawing and the yard are read and a
+file is written, with no gesture and no undo step - the same rule as plotting a
+sheet or writing a DXF.
+
+REQ-V10.14 The report shall name every file the model is **made of**, not only
+those this pass created. A `.gltf` keeps its buffer beside itself, and writing
+over yesterday's model leaves that buffer exactly where it was, so a sweep for
+what appeared names one file out of two and sends a person away with half of what
+they are handing over.
+
+**Two things the build corrected**, both found by running the demo rather than by
+reading the code, and both of them a claim that had not been made true:
+
+1. **One root, not two** (REQ-V10.10). The first version appended each design node
+   to the same `GLTFState`, which is the obvious reading of the API and leaves a
+   file whose single scene lists two root nodes: valid glTF, and half of it
+   invisible to Godot. The test that should have caught it counted the meshes in
+   the *nodes* rather than in the written file, so it passed - the count was of the
+   design, the claim was about the file.
+2. **The files a model is made of** (REQ-V10.14). The first version diffed the
+   folder before and after the write, which is exact on a first export and wrong on
+   every one after it. The fix reads the buffer's name out of the model's own
+   `buffers` list rather than guessing it from the file name.
+
+**One thing that is not a loss**, though it reads like one in a list of them:
+**collision travels**. glTF has no physics of its own, but Godot writes what the
+player walks on as `OMI_physics_body`/`OMI_physics_shape`, so the paving's collider
+is in the file. An extension is exactly that, and a program that does not know it
+will ignore it - which is a fact about the format, stated here rather than counted
+once per export.
+
 ---
 
 ## 11. The editor plugin
@@ -2805,6 +2875,7 @@ project's tests is a promise.
 | `scripts/vis/walk_route.gd` | Walk-through stops (§9.2) |
 | `scripts/vis/still_exporter.gd` | High-resolution stills (§10.2) |
 | `scripts/vis/still_sidecar.gd` | The render record (§10.4) |
+| `scripts/vis/yard_exporter.gd` | The garden as a model (§10.7) |
 | `tools/sun_demo.gd` + `scenes/sun_demo.tscn` | A sun path: a day in one picture (§7.3) |
 | `resources/shaders/sketch_paper.gdshader` | The compositor (§3.5) |
 | `resources/shaders/stylised_surface.gdshader` | Banded diffuse for the preview (§5.3) |
@@ -2913,8 +2984,11 @@ coexist without either of them being a code change.
 | AC-V29 | A site is a latitude, a longitude and a zone offset together: saved with the drawing, restored from an older file that carries only a latitude, carried through an undo, and returned by `DraftDocument.site()` in the shape the study takes. | test |
 | AC-V30 | A moment whose sun never rises reports a polar day or night rather than a time, and refraction is reported beside the geometric altitude rather than in it. | test |
 | AC-V31 | A tier's shadow range covers the framed garden and is never less than the tier's own budget, whichever order the tier and the framing arrive in. | test |
+| AC-V32 | A model written from a scene whose design nodes are siblings, as they are in `main.tscn`, reads back through Godot's own reader with every mesh of the design in it. | test |
+| AC-V33 | A `.glb` is one file whose pictures are embedded; a `.gltf` brings a `.bin` beside itself, names its pictures as URIs, and the report states that loss. | test |
+| AC-V34 | A report names every file the model is made of, including one that was already on disk before the export. | test |
 
-REQ-V14.1 AC-V1 to AC-V31 shall be automated tests in `tests/test_vis_*.gd`,
+REQ-V14.1 AC-V1 to AC-V34 shall be automated tests in `tests/test_vis_*.gd`,
 following this project's existing test convention, and shall run in the existing
 suite, except AC-V25, which needs a running editor and is manual. The numbers a
 sun study is held to are published ones - Meeus's worked example, the dates the
@@ -2968,6 +3042,13 @@ the file exists, has tests, and is reachable from the running game.
 | **6. Still** | **built** | `still_exporter.gd` and `still_sidecar.gd` write real PNGs with sidecar records, from the presentation camera and from the painted plan. `still_preset.gd` holds the four output sizes with the proposal default at A3-at-300-dpi; `render_batch.gd` is the batch as a *ledger* (`next_job`/`record`, not a loop); `proposal_page.gd` places a still on a sheet and reads the sheet's own title block rather than inventing a second one; and `pdf_writer.gd` gained image XObjects, byte-identical when there are no images. §10.5's Movie Maker remains the documented route for video, not a built feature. `tests/test_vis_still_preset.gd`, `test_vis_render_batch.gd`, `test_vis_proposal_page.gd`. |
 | **7. Walk-through** | **built** | `walk_route.gd` (the stops, and the route as its own clock: `duration`, `position_at`, `look_at`, `stage_at`) and `walk_director.gd` (the camera that follows it). A route of fewer than two stops is refused by name (REQ-V9.5); a stalled frame is clamped and cannot teleport the camera; a camera standing exactly on what it looks at keeps its own orientation. Movie Maker stays the documented recorder (`OS.has_feature("movie")`). `tests/test_vis_walk.gd`, 30 tests; `tools/walk_demo.gd` + `scenes/walk_demo.tscn` take a still at each stop. |
 | **8. Plugin** | **built** | `addons/vis_tools/` — `plugin.gd` (`@tool EditorPlugin`, an `EditorDock` on `DOCK_SLOT_RIGHT_BL`), `presentation_dock.gd` (a plain `Control` with no editor API, so it is testable off-tree) and `scripts/vis/vis_diagnostics.gd`. The dock holds no arithmetic and does no rendering: findings from `VisDiagnostics`, jobs from `VisRenderBatch`, and `render_requested` answered by the plugin through the project's own `StillExporter` (REQ-V11.1). `tests/test_vis_diagnostics.gd` (18) and `test_vis_presentation_dock.gd` (19). |
+
+**One addition outside the phase order**: §10.7's model export
+(`scripts/vis/yard_exporter.gd`, the File-menu door, `tests/test_vis_yard_export.gd`)
+was built after phase 8, on the argument §10.7 makes - everything above is a thing a
+person *looks at*, and the garden is a thing other people *use*. It needs the derived
+solids (§8) and nothing else, and it is a snapshot of the same yard the still is a
+snapshot of, under the same rule.
 
 **Two design corrections the build forced**, both recorded in §4.2 and §4.4: the wash
 table's layer names, and where a prop's wash colour comes from. Neither was visible
