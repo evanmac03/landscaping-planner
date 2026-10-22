@@ -486,7 +486,16 @@ static func _finish(plan: Dictionary, raw: Array) -> void:
 			"words": String(raw_shape["words"]),
 			"height": float(raw_shape["dxf_height"]) * factor,
 			"arc": Vector2.ZERO,
+			"radius": 0.0,
 		}
+		# A circle's and an arc's radius is stated rather than left to be recovered from the second
+		# point. That point is placed by the same reflection, scaling, rotation and offset as the
+		# centre is, so its distance from the centre is *not* the radius once a file has been
+		# registered anywhere but the origin - it is the radius measured from the origin. Saying the
+		# radius is the difference between a writer that can reproduce a circle and one that can only
+		# reproduce a circle that happened to be drawn at the origin.
+		if kind == "CIRCLE" or kind == "ARC":
+			shape["radius"] = float((raw_shape["points"] as PackedVector2Array)[1].x) * factor
 		# An arc's angles, in the model's own frame. A DXF arc runs counterclockwise from 50 to 51,
 		# and the reflection that sends north to -Y reverses handedness: a point at angle t lands at
 		# -t, so the run from `a` up to `b` is the run from `-a` *down* to `-b`. Written as a start

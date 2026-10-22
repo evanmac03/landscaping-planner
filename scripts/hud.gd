@@ -393,6 +393,10 @@ var _dxf_text: String = ""
 var _dxf_name: String = ""
 var _dxf_units: String = ""
 var _pending_dxf: Dictionary = {}
+## Where the drawing goes out as a DXF. A dialog of its own rather than the import's, because the two
+## commands are opposites - reading a file in and writing the drawing out - and a person who reached
+## for the wrong one should not have to work it out from the file mode.
+var _dxf_export_dialog: FileDialog = null
 ## The LandXML import: the same three pieces the DXF import has, because it is the same act - somebody
 ## else's file, read into something to trace over, with the one question a file that does not say its
 ## units has to be asked.
@@ -1798,6 +1802,11 @@ static func file_items() -> Array[Dictionary]:
 	items.append(_command(
 		&"file.picture", "Put a picture under the drawing...", &"", &"_menu_import_picture", NEEDS_DRAFT
 	))
+	# And the way out. It stands with the imports rather than beside Save, because what it produces is
+	# an interchange file for somebody else's program and not this drawing's own saved form.
+	items.append(_command(
+		&"file.dxf_out", "Save the drawing as a DXF...", &"", &"_menu_save_dxf", NEEDS_DRAFT
+	))
 	items.append(_separator())
 	items.append(_command(
 		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
@@ -2681,6 +2690,19 @@ func _build_file_dialogs() -> void:
 	_dxf_dialog.filters = PackedStringArray(["*.dxf ; DXF drawings"])
 	_dxf_dialog.file_selected.connect(_on_dxf_chosen)
 	add_child(_dxf_dialog)
+
+	# The way out, where the imports are the ways in. It reaches the filesystem rather than `user://`
+	# because the whole point of a DXF is that somebody else's program opens it, and that program is
+	# not looking inside this one's data folder.
+	_dxf_export_dialog = FileDialog.new()
+	_dxf_export_dialog.name = "ExportDxf"
+	_dxf_export_dialog.title = "Save the drawing as a DXF"
+	_dxf_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_dxf_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_dxf_export_dialog.current_file = "drawing.dxf"
+	_dxf_export_dialog.filters = PackedStringArray(["*.dxf ; DXF drawings"])
+	_dxf_export_dialog.file_selected.connect(_on_dxf_export_chosen)
+	add_child(_dxf_export_dialog)
 
 	# And a LandXML plat is the third shape of the same thing: a file somebody else's software wrote,
 	# holding the site rather than a drawing of it. It reads the whole filesystem for the same reason.
@@ -3967,6 +3989,29 @@ func _on_dxf_chosen(path: String) -> void:
 
 func _menu_import_dxf(_entry: Dictionary) -> void:
 	open_dxf_dialog()
+
+
+## Writing the drawing out as a DXF, from the File menu.
+##
+## The menu only opens the door and the controller writes the file, so the reporting happens in one
+## place: `last_message` is the status line a person reads and the sentence `Edit > What just
+## happened...` keeps, and `DxfWriter.describe` already names anything the export had to leave out.
+func _menu_save_dxf(_entry: Dictionary) -> void:
+	if _dxf_export_dialog != null:
+		_dxf_export_dialog.popup_centered_ratio(0.7)
+
+
+## The file a person chose to write to.
+##
+## The extension is added rather than trusted to the dialog's filter, because a name typed as
+## `garden-plan` is a DXF written to a file nothing on the machine will open, and the person who typed
+## it has no way to tell that from one that worked.
+func _on_dxf_export_chosen(path: String) -> void:
+	if _draft == null:
+		return
+	var target: String = path if path.ends_with(".dxf") else path + ".dxf"
+	_draft.export_dxf(target)
+	release_keyboard_focus(self)
 
 
 # --- the LandXML plat ------------------------------------------------------------------

@@ -344,7 +344,7 @@ static func _shape(
 	return {
 		"kind": kind, "layer": layer, "feature": feature,
 		"points": points, "bulges": PackedFloat64Array(), "closed": closed,
-		"words": words, "height": 0.0, "arc": Vector2.ZERO,
+		"words": words, "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
 	}
 
 
@@ -352,7 +352,7 @@ static func _no_points(reason: String) -> Dictionary:
 	return {
 		"kind": "", "layer": LayerSetScript.UNDERLAY, "feature": "",
 		"points": PackedVector2Array(), "bulges": PackedFloat64Array(), "closed": false,
-		"words": "", "height": 0.0, "arc": Vector2.ZERO,
+		"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
 		"reason": reason,
 	}
 

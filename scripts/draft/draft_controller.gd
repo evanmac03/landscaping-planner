@@ -23,6 +23,8 @@ const EditScript := preload("res://scripts/draft/draft_edit.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
+const DxfWriterScript := preload("res://scripts/draft/dxf_writer.gd")
+const UnitsScript := preload("res://scripts/draft/units.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
@@ -1366,6 +1368,50 @@ func plot(schedule: Array = [], options_override: Dictionary = {}) -> String:
 	last_message = "plotted %d entities, %d bytes" % [document.count(), bytes.size()]
 	_refresh_canvas()
 	return plot_path
+
+
+## Writing the drawing out as a DXF for somebody else to open.
+##
+## The mirror of the DXF import and deliberately not the same command: an import *places* geometry that
+## came from somewhere else, while this sends the drawing out as it stands. So it touches the drawing
+## not at all - no undo step, no selection, no layer - and the only things it decides are what the file
+## says its numbers mean and how big its text is.
+##
+## The unit is the drawing's own, because that is what its numbers already are: a drawing set up in
+## feet is one whose dimensions read in feet, and a file that went out in metres would contradict the
+## sheet plotted from it.
+##
+## The plot scale is passed because **text height is a paper property**. A `TEXT` entity carries a
+## position and some words and nothing that says how tall it is - the height comes from the drawing's
+## standard at a scale - so the file is written at the size this drawing would go out at, and the
+## report says which scale that was.
+##
+## Returns the writer's own report, so a caller can show the lines
+## (`DxfWriter.report_lines`) rather than a summary of them.
+func export_dxf(path: String) -> Dictionary:
+	var unit_name := "metres" if document.units.system == UnitsScript.System.METRIC else "feet"
+	var made := DxfWriterScript.shapes_from_document(document, {"scale": plot_scale})
+	if not bool(made["ok"]):
+		last_message = String(made["reason"])
+		_refresh_canvas()
+		return made
+	if (made["shapes"] as Array).is_empty():
+		# Said rather than written: a file with no records in it is not an export, and a person who
+		# asked for one and got an empty file would think it had failed silently.
+		last_message = "nothing on this drawing plots, so there is nothing to export"
+		_refresh_canvas()
+		return {"ok": false, "reason": String(last_message)}
+	var written := DxfWriterScript.write_file(
+		path, made["shapes"], {"units": unit_name, "scale": plot_scale}
+	)
+	if not bool(written["ok"]):
+		last_message = String(written["reason"])
+		_refresh_canvas()
+		return written
+	written["not_written"] = made["not_written"]
+	last_message = "exported %s" % DxfWriterScript.describe(written)
+	_refresh_canvas()
+	return written
 
 
 # --- the sheet set -------------------------------------------------------------------

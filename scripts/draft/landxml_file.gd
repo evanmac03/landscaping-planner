@@ -634,7 +634,7 @@ static func _add(
 		"kind": "LWPOLYLINE", "layer": row["layer"], "feature": String(row["kind"]),
 		"name": String(owner.get("name", "")),
 		"points": points, "bulges": bulges, "closed": closed,
-		"words": "", "height": 0.0, "arc": Vector2.ZERO, "reason": "",
+		"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0, "reason": "",
 	})
 
 
@@ -673,7 +673,7 @@ static func _finish(plan: Dictionary) -> void:
 			"kind": String(entry["kind"]), "layer": layer,
 			"feature": String(entry["feature"]), "name": String(entry.get("name", "")),
 			"points": points, "bulges": bulges, "closed": bool(entry["closed"]),
-			"words": "", "height": 0.0, "arc": Vector2.ZERO,
+			"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
 		}
 		shapes.append(shape)
 		if not layers.has(String(layer)):

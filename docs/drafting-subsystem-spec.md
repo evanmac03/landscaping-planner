@@ -1046,6 +1046,27 @@ georeferencing, and MUST run the validation checks in 6.5.
   carries nothing drawable is refused with a different sentence from a file that could
   not be read at all.
 
+**Built (the other direction):** `scripts/draft/dxf_writer.gd` (`DxfWriter`), with
+`export_dxf` on the controller and File > Save the drawing as a DXF... in the HUD. It is
+the reader's inverse rather than a second dialect: the two share one shape table, so the
+strongest test available is to read a file, write it out, read it again and compare
+(`tests/test_dxf_writer.gd`).
+
+* The three coordinate changes are undone in one place each: the reflection, the
+  handedness (a bulge's sign, and a model arc's start-and-sweep back into the file's
+  start-and-end run), and the unit factor. A DXF arc always runs counterclockwise, so
+  after the reflection every arc the reader produces sweeps non-positively in the model;
+  an arc drawn the other way round is written from its other end, which is the same arc.
+* The file states its units in `$INSUNITS` - the drawing's own, metres or feet - because a
+  file that does not say is one the reader has to stop and ask about.
+* **A dimension is counted and named, not written.** Its text height and arrow size are
+  *paper* properties, so it has no size until a plot scale is given it, and sampling its
+  linework would leave a reader with disconnected strokes and the measurement baked into
+  them. Text *is* written, at the height the drawing's plot scale gives it, and the report
+  says which scale that was assumed to be.
+* It is not an edit: no undo step, no selection, and the drawing is left exactly as it
+  was found.
+
 **Deviations from 6.7, recorded deliberately.** `INSERT`/blocks are counted and not
 followed (6.7.1 makes them optional); a bulge inside a `LWPOLYLINE` is kept as a bulge,
 but a `SPLINE` is not approximated; and the underlay mode is an addition to the

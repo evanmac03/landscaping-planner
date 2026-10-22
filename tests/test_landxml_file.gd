@@ -14,9 +14,9 @@ const LayerSet := preload("res://scripts/draft/layer_set.gd")
 ## The keys every reader in this program fills, whichever format it read: the table
 ## `DraftController._entity_from_shape` draws from. A reader may add its own words beside them - the
 ## DXF reader names the layer a shape came from, this one and the OSM reader name the *feature* - but
-## these eight are what makes a shape a shape.
+## these are what makes a shape a shape.
 const SHARED: Array[String] = [
-	"kind", "layer", "points", "bulges", "closed", "words", "height", "arc",
+	"kind", "layer", "points", "bulges", "closed", "words", "height", "arc", "radius",
 ]
 
 ## A plat with a parcel of four corners, an alignment with a quarter-turn curve in it, a fence written

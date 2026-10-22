@@ -17,12 +17,13 @@ const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 
-## The keys a shape has whichever reader made it: the ones `_entity_from_shape` reads. A reader may
+## The keys a shape has whichever reader made it: what `_entity_from_shape` reads, plus the two facts a
+## shape states about itself that no builder needs but a writer does (`arc` and `radius`). A reader may
 ## add words of its own beside them - and both the OSM reader and the LandXML reader do, naming the
 ## feature a shape came from, as the DXF reader names the layer the file had - but these are what makes
 ## a shape a shape.
 const SHARED: Array[String] = [
-	"kind", "layer", "points", "bulges", "closed", "words", "height", "arc",
+	"kind", "layer", "points", "bulges", "closed", "words", "height", "arc", "radius",
 ]
 
 ## The kinds a shape may be: what the builder knows how to draw. A reader that invents a kind has
