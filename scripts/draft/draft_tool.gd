@@ -35,6 +35,10 @@ enum Kind {
 	GRADE_SPOT,
 	GRADE_CONTOUR,
 	GRADE_SLOPE,
+	# The fourth dimension command, appended after everything rather than slotted in beside the other
+	# three for the reason given above: it arrived later, and moving the three values above it to make
+	# the dimension commands a tidy run would be renumbering shipped values to please the eye.
+	DIMENSION_ANGULAR,
 }
 
 ## Smallest shape that is still a shape. Two points closer than this describe
@@ -93,6 +97,11 @@ func needed_points() -> int:
 	# two points to measure and somewhere to put the line that measures them.
 	if kind == Kind.ARC or kind == Kind.DIMENSION or kind == Kind.DIMENSION_LINEAR:
 		return 3
+	if kind == Kind.DIMENSION_ANGULAR:
+		# A corner, a point along each of its two sides, and somewhere for the arc to stand. One more
+		# pick than any other command here, which is not an accident: an angle has two directions in it
+		# rather than one, so a gesture that named only one of them would not describe an angle.
+		return 4
 	return 0
 
 
@@ -106,7 +115,8 @@ func is_measure() -> bool:
 static func is_dimension(tool_kind: Kind) -> bool:
 	return tool_kind == Kind.DIMENSION \
 		or tool_kind == Kind.DIMENSION_LINEAR \
-		or tool_kind == Kind.DIMENSION_RADIUS
+		or tool_kind == Kind.DIMENSION_RADIUS \
+		or tool_kind == Kind.DIMENSION_ANGULAR
 
 
 ## Whether a tool states something about the ground's heights rather than drawing a shape: the spot
@@ -283,6 +293,8 @@ func _build() -> Dictionary:
 		return _linear_dimension_between(_points[0], _points[1], _points[2])
 	if kind == Kind.DIMENSION_RADIUS:
 		return _radius_dimension(_points[0], _points[1])
+	if kind == Kind.DIMENSION_ANGULAR:
+		return _angular_dimension(_points[0], _points[1], _points[2], _points[3])
 	if kind == Kind.MEASURE:
 		return {"ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1])}
 	if kind == Kind.GRADE_SPOT:
@@ -385,6 +397,37 @@ func _radius_dimension(centre: Vector2, edge: Vector2) -> Dictionary:
 	}
 
 
+## An angular dimension: the corner, a point along each of the two sides, and somewhere for the arc to
+## stand.
+##
+## The angle is measured between the two *directions* out of the corner, and the fourth pick decides one
+## thing only: how far out the arc sits, since its distance from the corner is the radius. Its direction
+## is not stored at all, and that is the honest division rather than a gap. Which of the two angles at a
+## corner a person meant is settled by which sides they picked, and the arc is then always drawn on the
+## side the corner opens onto - so nothing about the reading depends on a value the file would have to
+## remember, and reopening the drawing cannot change what the angle says.
+func _angular_dimension(
+	corner: Vector2, along_a: Vector2, along_b: Vector2, placed: Vector2
+) -> Dictionary:
+	var reason := _measured_pair_reason(corner, along_a)
+	if reason != "":
+		return {"ok": false, "reason": reason}
+	if corner.distance_to(along_b) <= MIN_SIZE:
+		return {"ok": false, "reason": "the second side needs a direction"}
+	var radius := corner.distance_to(placed)
+	if radius <= MIN_SIZE:
+		return {"ok": false, "reason": "the arc needs to stand off the corner"}
+	# Two sides in the same direction enclose nothing, so there is no angle to write.
+	var sweep := wrapf((along_b - corner).angle() - (along_a - corner).angle(), -PI, PI)
+	if absf(sweep) <= MIN_SIZE:
+		return {"ok": false, "reason": "those two sides are the same direction"}
+	return {
+		"ok": true,
+		"entity": EntityScript.make_angular_dimension(corner, along_a, along_b, radius),
+		"measure": null,
+	}
+
+
 ## Centre, a point on the radius, and where the sweep ends.
 func _arc_from(centre: Vector2, through: Vector2, finish_point: Vector2) -> Dictionary:
 	var radius := centre.distance_to(through)
@@ -473,6 +516,13 @@ func preview(cursor: Vector2):
 		# can show the measurement it is about to make, value and all.
 		var ghost: Dictionary = _radius_dimension(_points[0], cursor)
 		return ghost["entity"] if ghost.get("ok", false) else null
+	if kind == Kind.DIMENSION_ANGULAR:
+		# Until both sides are down there is no angle to show, so the ghost is the plain rubber band the
+		# line tool shows and the picks made so far stay visible.
+		if count < 3:
+			return EntityScript.make_line(_points[0], cursor)
+		var angle: Dictionary = _angular_dimension(_points[0], _points[1], _points[2], cursor)
+		return angle["entity"] if angle.get("ok", false) else null
 	return null
 
 
@@ -518,6 +568,14 @@ func status() -> String:
 	if kind == Kind.DIMENSION_RADIUS:
 		return "Specify the centre" if _points.is_empty() \
 			else "Specify a point on the circle"
+	if kind == Kind.DIMENSION_ANGULAR:
+		if _points.is_empty():
+			return "Specify the corner of the angle"
+		if _points.size() == 1:
+			return "Specify a point along the first side"
+		if _points.size() == 2:
+			return "Specify a point along the second side"
+		return "Where the arc goes"
 	return ""
 
 
@@ -542,6 +600,8 @@ static func label_for(tool_kind: Kind) -> String:
 		return "Linear dimension"
 	if tool_kind == Kind.DIMENSION_RADIUS:
 		return "Radial dimension"
+	if tool_kind == Kind.DIMENSION_ANGULAR:
+		return "Angular dimension"
 	if tool_kind == Kind.GRADE_SPOT:
 		return "Spot level"
 	if tool_kind == Kind.GRADE_CONTOUR:

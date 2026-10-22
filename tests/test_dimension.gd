@@ -69,9 +69,10 @@ func test_an_aligned_dimension_measures_the_true_distance() -> void:
 	assert(absf(along.length() - 5.0) < 0.001)
 
 
-## ANGULAR needs a vertex and two arms, which two points cannot express. It is
-## set out as an aligned dimension rather than dropped, so the measurement is
-## still on the sheet and visibly a straight one.
+## An angular dimension with only the two points every other kind has - no second side - cannot be
+## drawn as an angle at all. It is set out as an aligned dimension rather than dropped, so the
+## measurement is still on the sheet and visibly a straight one. A *real* angular dimension carries its
+## second side in the two slots past the kind, and is tested in the section below.
 func test_an_angular_dimension_falls_back_to_aligned() -> void:
 	var entity = Entity.make_dimension(Vector2(0, 0), Vector2(4, 0), 1.0, Entity.DimensionKind.ANGULAR)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
@@ -98,6 +99,90 @@ func test_a_radius_dimension_is_a_leader_with_the_value() -> void:
 	assert(layout["marks"][0]["tip"].is_equal_approx(Vector2(5, 0)))
 	assert(layout["marks"][0]["direction"].is_equal_approx(Vector2(1, 0)))
 	assert(_label(layout)["text"] == "R5.00 m")
+
+
+# --- angular ------------------------------------------------------------------------
+
+
+func test_an_angular_dimension_draws_the_angle_between_its_two_sides() -> void:
+	var entity = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, 4), 2.0)
+	var layout: Dictionary = Dimension.layout(entity, 100.0)
+	assert(layout["labels"].size() == 1, "an angle is one value")
+	assert(_label(layout)["text"] == "90.00°", _label(layout)["text"])
+	assert(layout["marks"].size() == 2, "with a mark at each end of the arc")
+	# The two sides and then the arc, rather than a dimension line and two extension lines.
+	assert(layout["lines"].size() == 3)
+	var arc: PackedVector2Array = layout["lines"][2]
+	assert(arc.size() > 2, "the third piece is an arc rather than a straight line")
+	assert(arc[0].is_equal_approx(Vector2(2, 0)), "starting on the first side, the radius out")
+	assert(arc[arc.size() - 1].distance_to(Vector2(0, 2)) < 0.01, "and finishing on the second")
+	# And it is really curved: its middle stands off the chord by a good margin.
+	var middle: Vector2 = arc[arc.size() / 2]
+	assert(absf(middle.distance_to(Vector2.ZERO) - 2.0) < 0.01, "every point of it is the radius out")
+	assert(middle.distance_to((arc[0] + arc[arc.size() - 1]) * 0.5) > 0.4,
+		"so it bows away from the straight line between its ends")
+
+
+## The **smaller** angle is the one measured, whichever way round the two sides were picked, so picking
+## the arms in the other order - or on the other side of the corner - gives the same number rather than
+## its complement.
+func test_an_angular_dimension_measures_the_smaller_angle() -> void:
+	var clockwise = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, -4), 2.0)
+	assert(_label(Dimension.layout(clockwise, 100.0))["text"] == "90.00°",
+		"a quarter turn the other way round is still a quarter turn")
+	# Two sides a tenth of a turn apart, with the sweep spanning the wrap: 30 degrees, not 330.
+	var wrapped = Entity.make_angular_dimension(
+		Vector2(0, 0),
+		Vector2.from_angle(deg_to_rad(350.0)) * 3.0,
+		Vector2.from_angle(deg_to_rad(20.0)) * 3.0,
+		1.0
+	)
+	var text: String = _label(Dimension.layout(wrapped, 100.0))["text"]
+	assert(text == "30.00°", "not the three hundred and thirty the other way: %s" % text)
+
+
+## The placement pick sets the radius, which lands in the same slot every other dimension keeps its
+## set-out distance in.
+func test_an_angular_dimension_sets_its_arc_out_by_the_radius() -> void:
+	var near = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, 4), 1.0)
+	var far = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, 4), 3.0)
+	assert(Dimension.layout(near, 100.0)["lines"][2][0].is_equal_approx(Vector2(1, 0)))
+	assert(Dimension.layout(far, 100.0)["lines"][2][0].is_equal_approx(Vector2(3, 0)))
+
+
+## An angle is written in decimal degrees whatever the drawing measures lengths in: degrees are not feet
+## and not metres, so there is no imperial reading to fall back to.
+func test_an_angle_is_in_degrees_even_on_an_imperial_drawing() -> void:
+	var entity = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(4, 4), 2.0)
+	var units = UnitsScript.new()
+	units.system = UnitsScript.System.IMPERIAL
+	var text: String = _label(Dimension.layout(entity, 100.0, units))["text"]
+	assert(text == "45.00°", text)
+
+
+## An angle's precision is the sheet's, the way a length's is: a coarser sheet buys fewer decimals.
+func test_an_angle_is_written_to_the_sheets_precision() -> void:
+	# The second side rises three for every four it runs, so the angle is atan(3/4) = 36.8699 degrees.
+	var entity = Entity.make_angular_dimension(Vector2(0, 0), Vector2(6, 0), Vector2(4, 3), 2.0)
+	assert(_label(Dimension.layout(entity, 100.0))["text"] == "36.87°",
+		_label(Dimension.layout(entity, 100.0))["text"])
+	assert(_label(Dimension.layout(entity, 500.0))["text"] == "36.9°",
+		_label(Dimension.layout(entity, 500.0))["text"])
+
+
+## A corner with no radius, a side of no length, or two sides in the same direction is not an angle:
+## nothing is drawn rather than something wrong being drawn.
+func test_a_degenerate_angular_dimension_draws_nothing() -> void:
+	var cases: Array = [
+		Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, 4), 0.0),
+		Entity.make_angular_dimension(Vector2(0, 0), Vector2(0, 0), Vector2(0, 4), 2.0),
+		Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(9, 0), 2.0),
+	]
+	for entity in cases:
+		var layout: Dictionary = Dimension.layout(entity, 100.0)
+		assert(layout["lines"].is_empty(), "nothing to draw")
+		assert(layout["marks"].is_empty(), "no marks")
+		assert(layout["labels"].is_empty(), "and no number to read")
 
 
 # --- paper sizing -------------------------------------------------------------------

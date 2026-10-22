@@ -180,6 +180,54 @@ static func rotate(entity, centre: Vector2, angle: float) -> Dictionary:
 	return _ok([turned])
 
 
+# --- move and copy --------------------------------------------------------------------
+
+## Move one entity by a displacement, returning the replacement.
+##
+## The displacement is named `delta` rather than `offset` because `offset()` is already a function in
+## this class, and a parameter that shadows it is a warning the loader reports rather than a style
+## choice - the same name meaning the distance an offset is *by* would be a trap for the next reader.
+##
+## A copy rather than a change to the entity handed in, for the reason the whole module gives:
+## editing is a replacement, and the caller decides how the replacement is recorded. The
+## controller puts the result back in the original's place, so the shape keeps its id and its
+## position in the draw order - which is what makes a move a move rather than a new shape that
+## happens to stand where the old one went.
+##
+## A move of nothing is refused rather than returned as an unchanged copy: picking a base point
+## and then clicking it again is not an act, and recording it would put a gesture in the history
+## that undid nothing.
+static func move(entity, delta: Vector2) -> Dictionary:
+	if entity == null:
+		return _failed("there is nothing to move")
+	if delta.length() <= MIN_DISTANCE:
+		return _failed("moving by nothing is nothing")
+	var moved = entity.copy()
+	moved.translate(delta)
+	return _ok([moved])
+
+
+## Copy one entity to a displacement, returning the new shape.
+##
+## The original is deliberately not touched, and not merely as a matter of taste: this function
+## has no document and nothing here can remove anything, which is exactly what leaves both halves
+## of a copy to the caller. The controller adds the result and leaves the source alone; a caller
+## that wanted a move would be calling `move()`.
+##
+## A copy placed on top of its own original is refused for the same reason a move of nothing is,
+## and it is the more likely mistake of the two - clicking the destination by accident lands
+## exactly where the pick started. A second shape perfectly under the first is invisible,
+## unselectable and a puzzle rather than a drawing, so it is named rather than drawn.
+static func copy(entity, delta: Vector2) -> Dictionary:
+	if entity == null:
+		return _failed("there is nothing to copy")
+	if delta.length() <= MIN_DISTANCE:
+		return _failed("copying onto itself is nothing")
+	var duplicated = entity.copy()
+	duplicated.translate(delta)
+	return _ok([duplicated])
+
+
 # --- trim and extend ------------------------------------------------------------------
 
 

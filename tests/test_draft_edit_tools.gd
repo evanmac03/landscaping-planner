@@ -1,6 +1,7 @@
 extends Node
 ## Tests for the editing commands as the controller runs them: picking a shape,
-## trimming it, extending it, offsetting it, rounding it, erasing it.
+## trimming it, extending it, offsetting it, rounding it, erasing it, turning it,
+## moving it and copying it.
 ##
 ## The controller is built with its parts but no scene tree, and the commands are
 ## driven through `edit_at()`, which takes a model point rather than a screen
@@ -328,6 +329,16 @@ func test_a_locked_shape_is_not_picked_by_any_edit_command() -> void:
 	controller.edit_at(Vector2(5, 0.0))
 	assert(controller.document.count() == 1, "and it is not offset either")
 	assert(controller.last_message.contains("nothing"))
+
+	# So do the two that only move a shape rather than change it, which is the pair it would be
+	# easiest to forget: neither of them writes to the drawing until the third pick lands.
+	controller.arm_edit(EditKind.MOVE)
+	controller.edit_at(Vector2(5, 0.0))
+	assert(controller.last_message.contains("nothing"), "and it is not moved either")
+	controller.arm_edit(EditKind.COPY)
+	controller.edit_at(Vector2(5, 0.0))
+	assert(controller.document.count() == 1, "and it is not copied either")
+	assert(controller.last_message.contains("nothing"))
 	controller.free()
 
 
@@ -375,4 +386,106 @@ func test_an_editing_command_does_nothing_with_no_command_in_hand() -> void:
 	# edit_at with no command armed is a no-op rather than a crash.
 	controller.edit_at(Vector2(5, 0))
 	assert(controller.document.count() == 1)
+	controller.free()
+
+
+# --- move and copy ------------------------------------------------------------------
+
+
+## The whole of what tells a move from a copy is how many shapes are left afterwards. A move replaces
+## the one that was picked and keeps its id, so anything else that refers to the shape - a fill, a
+## zone, the undo stack's idea of what is on the sheet - still finds it. A copy adds a second shape
+## with an id of its own and leaves the first exactly where it was.
+func test_moving_replaces_the_shape_and_copying_leaves_both() -> void:
+	var controller = _controller()
+	var id: int = controller.document.add(_line(0, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+
+	controller.arm_edit(EditKind.COPY)
+	controller.edit_at(Vector2(1, 0))
+	assert(controller.document.count() == 1, "the first pick only chooses the shape")
+	controller.edit_at(Vector2(0, 0))
+	assert(controller.document.count() == 1, "the second only sets the point to copy from")
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.document.count() == 2, "and the third lands a second shape")
+	var original = controller.document.get_entity(id)
+	assert(original != null, "the shape that was copied is still there, under its own id")
+	assert(original.point(1).is_equal_approx(Vector2(2, 0)), "and it did not move")
+	var added := -1
+	for entity in controller.document.entities():
+		if entity.id != id:
+			added = entity.id
+	assert(added > 0, "the copy is its own shape on the sheet")
+	assert(controller.document.get_entity(added).point(1).is_equal_approx(Vector2(2, 5)),
+		"standing the whole offset away")
+
+	# A move is the same three picks with the other ending: still two shapes afterwards, but the one
+	# that was picked is the one that went somewhere.
+	controller.arm_edit(EditKind.MOVE)
+	controller.edit_at(Vector2(1, 0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(0, -4))
+	assert(controller.document.count() == 2, "a move leaves the count alone")
+	assert(controller.document.get_entity(id).point(1).is_equal_approx(Vector2(2, -4)),
+		"and the shape it picked is the one that moved")
+	controller.free()
+
+
+func test_a_move_is_one_undoable_step() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.MOVE)
+	controller.edit_at(Vector2(1, 0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.document.entities()[0].point(0).is_equal_approx(Vector2(0, 5)), "it moved")
+	assert(controller.document.undo_last(), "and a move can be taken back in one step")
+	assert(controller.document.entities()[0].point(0).is_equal_approx(Vector2(0, 0)), "put back whole")
+	controller.free()
+
+
+## Picking a base point and then clicking it again is a move of nothing, and it is refused rather than
+## recorded so the history gets no step that changed nothing. A copy is refused for the same reason,
+## where the mistake is easier to make - the destination click landing where the pick started - and the
+## result is worse, because a shape exactly under another cannot be seen or picked.
+func test_a_click_on_the_base_point_is_a_move_of_nothing_and_is_refused() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	for kind: int in [EditKind.MOVE, EditKind.COPY]:
+		controller.arm_edit(kind)
+		controller.edit_at(Vector2(1, 0))
+		controller.edit_at(Vector2(0, 0))
+		controller.edit_at(Vector2(0, 0))
+		assert(controller.last_message.contains("nothing"),
+			"a move or copy of nothing is refused, kind %d" % kind)
+		assert(controller.document.count() == 1, "and nothing was added")
+	controller.free()
+
+
+func test_moving_or_copying_nothing_says_so() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 10, 0), LayerSet.NEW_HARDSCAPE)
+	for kind: int in [EditKind.MOVE, EditKind.COPY]:
+		controller.arm_edit(kind)
+		controller.edit_at(Vector2(5, 5))
+		assert(controller.document.count() == 1, "nothing was picked, kind %d" % kind)
+		assert(controller.last_message.contains("nothing"), "and it said so")
+	controller.free()
+
+
+func test_the_status_line_prompts_each_of_a_moves_three_picks() -> void:
+	var controller = _controller()
+	controller.document.add(_line(0, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.MOVE)
+	assert(controller.status().contains("shape to move"))
+	controller.edit_at(Vector2(1, 0))
+	assert(controller.status().contains("point to move it from"))
+	controller.edit_at(Vector2(0, 0))
+	assert(controller.status().contains("where it should go"))
+	controller.edit_at(Vector2(3, 0))
+	assert(controller.last_message.contains("moved by"),
+		"and it reports how far it went: %s" % controller.last_message)
+	controller.arm_edit(EditKind.COPY)
+	assert(controller.status().contains("shape to copy"))
+	controller.edit_at(Vector2(4, 0))
+	assert(controller.status().contains("point to copy from"))
 	controller.free()

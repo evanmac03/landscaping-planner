@@ -63,6 +63,8 @@ enum EditKind {
 	FILLET,
 	ERASE,
 	ROTATE,
+	MOVE,
+	COPY,
 }
 
 ## The words each edit command is introduced by, so the status line, the menu and
@@ -74,6 +76,8 @@ const EDIT_LABELS: Dictionary = {
 	EditKind.FILLET: "Fillet",
 	EditKind.ERASE: "Erase",
 	EditKind.ROTATE: "Rotate",
+	EditKind.MOVE: "Move",
+	EditKind.COPY: "Copy",
 }
 
 ## How near the cursor has to come to a shape, in screen pixels, before a pick
@@ -482,6 +486,20 @@ func _edit_status() -> String:
 				hint = "pick the point to turn it about"
 			else:
 				hint = "click the direction to turn it to"
+		EditKind.MOVE:
+			if _edit_picked.is_empty():
+				hint = "pick the shape to move"
+			elif _edit_points.is_empty():
+				hint = "pick the point to move it from"
+			else:
+				hint = "click where it should go"
+		EditKind.COPY:
+			if _edit_picked.is_empty():
+				hint = "pick the shape to copy"
+			elif _edit_points.is_empty():
+				hint = "pick the point to copy from"
+			else:
+				hint = "click where the copy should go"
 	var text := "%s  ·  %s" % [edit_label(edit_kind), hint]
 	if edit_kind == EditKind.FILLET:
 		text += "  ·  radius %s" % document.units.format_length(fillet_radius)
@@ -943,6 +961,10 @@ func edit_at(world: Vector2) -> void:
 			_edit_erase(world)
 		EditKind.ROTATE:
 			_edit_rotate(world)
+		EditKind.MOVE:
+			_edit_move(world)
+		EditKind.COPY:
+			_edit_copy(world)
 
 
 ## Trim: cut the picked piece of a line out against every other editable shape.
@@ -1041,6 +1063,78 @@ static func _turn_words(angle: float) -> String:
 	return String.num(rad_to_deg(angle), 1) + "°"
 
 
+## Move: pick a shape, pick the point to move it from, then click where it should go.
+##
+## The displacement is the difference between the two picks, which is the CAD convention for
+## "specify a base point and a destination" and the reason a move can be aimed at something
+## already on the plan rather than worked out as a distance and a bearing: the point clicked *is*
+## the destination, and a snap makes it an exact one.
+##
+## The shape is **replaced**, not duplicated - it keeps its id and its place in the draw order.
+## Copying is the separate command, and offset is the third of the three that makes a new shape
+## and leaves the old one, which is why each is its own word rather than a setting on one.
+##
+## The key is J because every letter that spells the command is spoken for - M draws a slope
+## arrow, O is offset - and J and Y were the only letters left free; of the two, J is the one
+## nearer the drafting run. Copy takes Y.
+func _edit_move(world: Vector2) -> void:
+	if _edit_picked.is_empty():
+		var target = _pick_world(world)
+		if target == null:
+			last_message = "nothing there to move"
+			return
+		_edit_picked = [target]
+		last_message = "pick the point to move it from"
+		return
+	if _edit_points.is_empty():
+		_edit_points = [world]
+		last_message = "click where it should go"
+		return
+	var source = _edit_picked[0]
+	var offset: Vector2 = world - Vector2(_edit_points[0])
+	_edit_picked = []
+	_edit_points = []
+	var result: Dictionary = EditScript.move(source, offset)
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	document.begin_gesture("moving a shape")
+	document.replace(source.id, result["entities"][0])
+	last_message = "moved by %s" % document.units.format_length(offset.length())
+
+
+## Copy: the same three picks as a move, and the one difference that matters - the shape that was
+## picked stays where it was and the copy lands at the destination.
+##
+## The copy is added rather than replacing anything, so it is a new shape with a new id and it
+## goes to the end of its layer's draw order. That is the whole of what tells a copy from a move:
+## one shape afterwards or two.
+func _edit_copy(world: Vector2) -> void:
+	if _edit_picked.is_empty():
+		var target = _pick_world(world)
+		if target == null:
+			last_message = "nothing there to copy"
+			return
+		_edit_picked = [target]
+		last_message = "pick the point to copy from"
+		return
+	if _edit_points.is_empty():
+		_edit_points = [world]
+		last_message = "click where the copy should go"
+		return
+	var source = _edit_picked[0]
+	var offset: Vector2 = world - Vector2(_edit_points[0])
+	_edit_picked = []
+	_edit_points = []
+	var result: Dictionary = EditScript.copy(source, offset)
+	if not bool(result["ok"]):
+		last_message = String(result["reason"])
+		return
+	document.begin_gesture("copying a shape")
+	document.add(result["entities"][0], source.layer)
+	last_message = "copied %s away" % document.units.format_length(offset.length())
+
+
 ## Offset: pick a shape, then the side and distance. The offset is a new shape; the
 ## one it came from stays, which is what makes offset a drawing aid rather than an
 ## edit to one outline.
@@ -1116,7 +1210,8 @@ func _pick_world(world: Vector2):
 	var best_distance := aperture
 	# `editable_entities` is what leaves a locked layer out: its shapes stay on the sheet and
 	# still plot, they simply cannot be picked (REQ 5.2.2). Every editing command reaches its
-	# shape through here, so one filter covers offset, trim, extend, fillet, erase and rotate.
+	# shape through here, so one filter covers offset, trim, extend, fillet, erase, rotate, move
+	# and copy.
 	for entity in document.editable_entities():
 		if is_annotation_layer(entity.layer):
 			continue

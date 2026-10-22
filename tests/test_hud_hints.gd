@@ -41,8 +41,13 @@ func _polyline_status() -> String:
 ## The keys a draughtsman is promised, stated here rather than read back out of
 ## the legend. This is the assertion that catches a mis-read binding; the tests
 ## below only catch a legend that disagrees with the key reader.
+##
+## The nine number keys belong to the nine tools that were there first. The angular dimension is the
+## tenth command and there is no digit left for it, so it takes the free key beside the digit row - which
+## is also the key a decimal degree is written with, so the letter it carries is at least the letter of
+## the thing it makes.
 func test_the_keys_are_the_ones_the_legend_promises() -> void:
-	var numbers: Array[String] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+	var numbers: Array[String] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "."]
 	var tool_keys: Array[String] = []
 	for pair: Array in Hud.DRAFTING_TOOLS:
 		tool_keys.append(Hud._key_label(pair[0]))
@@ -115,7 +120,7 @@ func test_every_edit_command_is_named_with_its_own_key() -> void:
 		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s" % key)
 		assert(not keys.has(key), "%s is not shared with another command" % key)
 		keys.append(key)
-	assert(keys == ["O", "T", "X", "I", "E", "U"], "the edit keys are the ones promised")
+	assert(keys == ["O", "T", "X", "I", "E", "U", "J", "Y"], "the edit keys are the ones promised")
 
 
 ## The edit commands are exactly the controller's own set, so a command cannot

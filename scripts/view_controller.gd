@@ -713,6 +713,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("edit_rotate"):
 		_arm_edit(DraftControllerScript.EditKind.ROTATE)
 		return
+	if event.is_action_pressed("edit_move"):
+		_arm_edit(DraftControllerScript.EditKind.MOVE)
+		return
+	if event.is_action_pressed("edit_copy"):
+		_arm_edit(DraftControllerScript.EditKind.COPY)
+		return
 
 	if event.is_action_pressed("fit_view"):
 		fit_plan_to_yard()
@@ -1031,6 +1037,7 @@ func _select_draft_tool(event: InputEvent) -> bool:
 		["draft_dimension", DraftToolScript.Kind.DIMENSION],
 		["draft_dimension_linear", DraftToolScript.Kind.DIMENSION_LINEAR],
 		["draft_dimension_radius", DraftToolScript.Kind.DIMENSION_RADIUS],
+		["draft_dimension_angular", DraftToolScript.Kind.DIMENSION_ANGULAR],
 	]
 	for entry in tools:
 		if event.is_action_pressed(entry[0]):

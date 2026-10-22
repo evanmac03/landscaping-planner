@@ -89,6 +89,8 @@ func test_every_drawing_tool_reads_as_a_sentence() -> void:
 		== "drawing a new aligned dimension")
 	assert("drawing a new %s" % Tool.label_for(Tool.Kind.DIMENSION_RADIUS).to_lower()
 		== "drawing a new radial dimension")
+	assert("drawing a new %s" % Tool.label_for(Tool.Kind.DIMENSION_ANGULAR).to_lower()
+		== "drawing a new angular dimension")
 	controller.free()
 
 
@@ -110,6 +112,25 @@ func test_turning_a_shape_names_the_gesture() -> void:
 	controller.edit_at(Vector2(0.0, 0.0))
 	controller.edit_at(Vector2(0.0, 5.0))
 	assert(controller.document.undo_label() == "turning a shape")
+	controller.free()
+
+
+func test_moving_and_copying_name_their_gestures() -> void:
+	var controller = _controller()
+	controller.document.add(_line(1, 0, 2, 0), LayerSet.NEW_HARDSCAPE)
+	controller.arm_edit(EditKind.MOVE)
+	controller.edit_at(Vector2(1.5, 0.0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(0, 5))
+	assert(controller.document.undo_label() == "moving a shape",
+		"a move says so: %s" % controller.document.undo_label())
+	controller.arm_edit(EditKind.COPY)
+	controller.edit_at(Vector2(1.5, 5.0))
+	controller.edit_at(Vector2(0, 0))
+	controller.edit_at(Vector2(5, 0))
+	assert(controller.document.undo_label() == "copying a shape",
+		"and so does a copy: %s" % controller.document.undo_label())
+	assert(controller.document.count() == 2, "which leaves two shapes rather than one")
 	controller.free()
 
 

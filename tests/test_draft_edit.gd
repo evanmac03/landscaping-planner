@@ -1,6 +1,6 @@
 extends Node
-## Tests for the editing operations on existing geometry: offset, trim, extend and
-## fillet. Pure functions on entities, so no scene is needed.
+## Tests for the editing operations on existing geometry: offset, trim, extend,
+## fillet, rotate, move and copy. Pure functions on entities, so no scene is needed.
 
 const Edit := preload("res://scripts/draft/draft_edit.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -256,3 +256,83 @@ func test_turning_by_nothing_is_refused() -> void:
 	assert(still["reason"].contains("nothing"), "and the reason says as much")
 	assert(Edit.rotate(null, Vector2(5, 5), 1.0)["reason"].contains("nothing"),
 		"as is asking to turn nothing at all")
+
+
+# --- move and copy --------------------------------------------------------------------
+
+## A move hands back a copy and the shape it was asked about does not move - the same contract a turn
+## makes, and for the same reason: the caller decides how the replacement is recorded.
+func test_a_move_hands_back_a_copy_and_leaves_the_original_alone() -> void:
+	var line := Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var result := Edit.move(line, Vector2(3, 4))
+	assert(result["ok"], "a line moves")
+	assert(result["entities"].size() == 1, "into one shape")
+	var moved = result["entities"][0]
+	assert(moved != line, "it is a copy")
+	assert(_near(line.point(0), Vector2(0, 0)), "the original did not move")
+	assert(_near(line.point(1), Vector2(10, 0)), "either end")
+	assert(_near(moved.point(0), Vector2(3, 4)), "the copy is the whole offset away")
+	assert(_near(moved.point(1), Vector2(13, 4)), "at both ends")
+
+
+## A circle, a rectangle and an arc store a *centre* rather than two points, so a move has to carry the
+## centre and leave the size alone. This is the case where "shift every stored number" is right for a
+## line and wrong for a shape whose radius or width is also a stored number.
+func test_a_move_carries_a_centre_and_leaves_the_size_alone() -> void:
+	var circle := Entity.make_circle(Vector2(1, 1), 2.5)
+	var moved_circle = Edit.move(circle, Vector2(4, -1))["entities"][0]
+	assert(_near(moved_circle.point(0), Vector2(5, 0)), "a circle's centre moves")
+	assert(is_equal_approx(moved_circle.params[2], 2.5), "and its radius does not")
+	var rect := Entity.make_rectangle(Vector2(0, 0), Vector2(4, 6), 0.3)
+	var moved_rect = Edit.move(rect, Vector2(1, 1))["entities"][0]
+	assert(is_equal_approx(moved_rect.params[2], 4.0), "a rectangle keeps its width")
+	assert(is_equal_approx(moved_rect.params[3], 6.0), "and its height")
+	assert(is_equal_approx(moved_rect.params[4], 0.3), "and its turn")
+	var arc := Entity.make_arc(Vector2(0, 0), 3.0, 0.0, PI * 0.5)
+	var moved_arc = Edit.move(arc, Vector2(2, 2))["entities"][0]
+	assert(is_equal_approx(moved_arc.params[2], 3.0), "an arc keeps its radius")
+	assert(is_equal_approx(moved_arc.params[4], PI * 0.5), "and its sweep")
+
+
+## A copy is the same shape at an offset, and the original is not merely allowed to stay: this module
+## has no document and nothing here can remove anything, which is what leaves both halves of a copy to
+## the caller. Two shapes afterwards is the whole of what tells a copy from a move.
+func test_a_copy_is_a_second_shape_and_the_first_is_untouched() -> void:
+	var line := Entity.make_line(Vector2(0, 0), Vector2(2, 0))
+	var result := Edit.copy(line, Vector2(0, 5))
+	assert(result["ok"], "a line copies")
+	assert(result["entities"].size() == 1, "to one new shape")
+	var duplicated = result["entities"][0]
+	assert(duplicated != line, "the copy is its own object")
+	assert(_near(line.point(1), Vector2(2, 0)), "the original is where it was")
+	assert(_near(duplicated.point(1), Vector2(2, 5)), "and the copy is the offset away")
+
+
+## A copy carries what a shape is *made of*, not only where it stands: a label keeps its words and a
+## bulged polyline keeps its bulges, or a copied annotation would come out blank and a copied curved bed
+## would come out straight.
+func test_a_copy_carries_the_words_and_the_bulges() -> void:
+	var label := Entity.make_text(Vector2(1, 1), "Hosta", 0.0)
+	var copied_label = Edit.copy(label, Vector2(2, 0))["entities"][0]
+	assert(String(copied_label.meta.get("text", "")) == "Hosta", "a copied label says what it said")
+	var curved := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(4, 0)]), false)
+	curved.bulges = PackedFloat64Array([0.5, 0.0])
+	var copied_curve = Edit.copy(curved, Vector2(0, 1))["entities"][0]
+	assert(copied_curve.bulges.size() == 2, "a copied polyline keeps one bulge per vertex")
+	assert(is_equal_approx(copied_curve.bulges[0], 0.5), "and the bulge is the same one")
+
+
+## A move or a copy of nothing is refused rather than recorded, the way a turn of nothing is. A copy
+## placed exactly on its original is the likelier of the two mistakes - the destination click landing
+## where the pick started - and an invisible shape stacked on another is worse than being told.
+func test_moving_or_copying_by_nothing_is_refused() -> void:
+	var line := Entity.make_line(Vector2(0, 0), Vector2(10, 0))
+	var refusals: Array[Dictionary] = [
+		Edit.move(line, Vector2.ZERO),
+		Edit.copy(line, Vector2.ZERO),
+		Edit.move(null, Vector2(1, 1)),
+		Edit.copy(null, Vector2(1, 1)),
+	]
+	for result: Dictionary in refusals:
+		assert(not result["ok"], "nothing in, nothing out: %s" % str(result))
+		assert(String(result["reason"]).contains("nothing"), "and the reason says so")

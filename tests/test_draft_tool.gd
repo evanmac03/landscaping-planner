@@ -540,11 +540,12 @@ func test_the_radial_ghost_shows_the_radius_before_it_is_committed() -> void:
 	assert(tool.point_count() == 1)
 
 
-## All three dimension commands are annotations rather than site features, so all
-## three draw on the dimension layer whatever was selected.
+## All four dimension commands are annotations rather than site features, so all
+## four draw on the dimension layer whatever was selected.
 func test_every_dimension_command_is_an_annotation() -> void:
 	var dimensions: Array = [
 		Tool.Kind.DIMENSION, Tool.Kind.DIMENSION_LINEAR, Tool.Kind.DIMENSION_RADIUS,
+		Tool.Kind.DIMENSION_ANGULAR,
 	]
 	for kind: Tool.Kind in dimensions:
 		assert(Tool.is_dimension(kind))
@@ -557,3 +558,59 @@ func test_every_dimension_command_is_an_annotation() -> void:
 		assert(controller._layer_for(kind) == LayerSet.DIMENSION)
 	assert(controller._layer_for(Tool.Kind.ARC) == LayerSet.NEW_PLANTING)
 	controller.free()
+
+
+## An angular dimension is a corner, a point along each of its two sides, and then somewhere for the arc
+## to stand. Four picks - one more than any other command - and the fourth decides only the radius.
+func test_an_angular_dimension_is_a_corner_and_two_sides_and_an_arc() -> void:
+	var tool = _tool(Tool.Kind.DIMENSION_ANGULAR, LayerSet.DIMENSION)
+	assert(Tool.label_for(Tool.Kind.DIMENSION_ANGULAR) == "Angular dimension")
+	assert(tool.needed_points() == 4)
+	# One pick at a time, and nothing commits until the fourth.
+	assert(not (tool.click(Vector2(0, 0))["committed"]))
+	assert(not (tool.click(Vector2(4, 0))["committed"]))
+	assert(not (tool.click(Vector2(0, 4))["committed"]))
+	var fourth: Dictionary = tool.click(Vector2(2, 0))
+	assert(fourth["committed"], "it completes on the pick that puts the arc somewhere")
+	var angle = fourth["entity"]
+	assert(angle.kind == Entity.Kind.DIMENSION)
+	assert(int(angle.params[5]) == Entity.DimensionKind.ANGULAR)
+	assert(angle.point(0).is_equal_approx(Vector2(0, 0)), "the corner")
+	assert(angle.point(1).is_equal_approx(Vector2(4, 0)), "a point along the first side")
+	assert(is_equal_approx(angle.params[4], 2.0), "and the radius is how far the arc was put out")
+	# Read back through the shared layout, so the tool and the drawing agree about the number.
+	assert(_dimension_text(angle) == "90.00°", _dimension_text(angle))
+	assert(not tool.is_active())
+
+
+## What is not an angle is refused on the pick that made it, and the pick is handed back so the tool
+## stays where the drawer thinks it is.
+func test_an_angular_dimension_refuses_what_is_not_an_angle() -> void:
+	# Two sides in one direction enclose nothing. The refusal comes when the shape is finished, which for
+	# this command is the fourth pick - the shared machine builds at `needed_points`, and only the pair
+	# of points is checked as it is completed.
+	var same_way = _tool(Tool.Kind.DIMENSION_ANGULAR)
+	same_way.click(Vector2(0, 0))
+	same_way.click(Vector2(4, 0))
+	same_way.click(Vector2(9, 0))
+	var collinear: Dictionary = same_way.click(Vector2(3, 0))
+	assert(not collinear["committed"], "a straight line is not an angle")
+	assert(same_way.last_reason().contains("same direction"), same_way.last_reason())
+	assert(same_way.point_count() == 3, "and the pick that failed was given back")
+
+	# A second pick on the corner itself is a side of no length, refused as the pair it completes.
+	var flat = _tool(Tool.Kind.DIMENSION_ANGULAR)
+	flat.click(Vector2(0, 0))
+	var on_the_corner: Dictionary = flat.click(Vector2(0, 0))
+	assert(not on_the_corner["committed"])
+	assert(flat.last_reason().contains("distinct"), flat.last_reason())
+	assert(flat.point_count() == 1)
+
+	# And an arc put out on the corner itself has no radius.
+	var no_radius = _tool(Tool.Kind.DIMENSION_ANGULAR)
+	no_radius.click(Vector2(0, 0))
+	no_radius.click(Vector2(4, 0))
+	no_radius.click(Vector2(0, 4))
+	var at_the_corner: Dictionary = no_radius.click(Vector2(0, 0))
+	assert(not at_the_corner["committed"], "an arc with no radius is not an arc")
+	assert(no_radius.last_reason().contains("stand off"), no_radius.last_reason())

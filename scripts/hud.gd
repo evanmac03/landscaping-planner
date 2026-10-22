@@ -39,6 +39,7 @@ const DRAFTING_TOOLS: Array = [
 	[&"draft_dimension", "aligned dim", DraftToolScript.Kind.DIMENSION],
 	[&"draft_dimension_linear", "linear dim", DraftToolScript.Kind.DIMENSION_LINEAR],
 	[&"draft_dimension_radius", "radial dim", DraftToolScript.Kind.DIMENSION_RADIUS],
+	[&"draft_dimension_angular", "angular dim", DraftToolScript.Kind.DIMENSION_ANGULAR],
 ]
 
 ## The keys that are not a tool, in the order a hand meets them: what to do when
@@ -55,7 +56,11 @@ const DRAFTING_COMMANDS: Array = [
 ]
 
 ## Key names worth shortening so a legend line stays a line.
-const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter"}
+##
+## `Period` is here because the angular dimension is bound to that key and Godot reads it back as the
+## word rather than as the character: a legend row saying "Period angular dim" is both wider and harder
+## to read than the key a person actually presses, which is a full stop.
+const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter", "Period": "."}
 
 ## The editing commands: what is done to geometry that already exists.
 ##
@@ -75,15 +80,21 @@ const EDIT_TOOLS: Array = [
 		"Take the picked shape off the drawing"],
 	[&"edit_rotate", "rotate", DraftControllerScript.EditKind.ROTATE,
 		"Turn the picked shape about a point you pick, to the direction you click"],
+	[&"edit_move", "move", DraftControllerScript.EditKind.MOVE,
+		"Move the picked shape: pick a point on it, then click where it should go"],
+	[&"edit_copy", "copy", DraftControllerScript.EditKind.COPY,
+		"Copy the picked shape: pick a point on it, then click where the copy should go"],
 ]
 
 ## How many entries share a line before the legend wraps.
 const DRAFTING_TOOLS_PER_ROW := 5
 const DRAFTING_COMMANDS_PER_ROW := 4
-## The editing commands get their own line count. Six of them still share one legend
-## line, which is what the panel has room for; the drawing tools' five across would
-## have pushed them onto a seventh line and off the panel.
-const EDIT_TOOLS_PER_ROW := 6
+## The editing commands get their own line count. Eight of them still share one legend
+## line, which is what the panel has room for: the panel is sized for six lines of text and
+## a seventh would run off it, so a wider line is the cheaper of the two ways to say the
+## same thing. The drawing tools' five across would have pushed the edits onto that seventh
+## line, which is why the edits carry their own count rather than reusing the tools'.
+const EDIT_TOOLS_PER_ROW := 8
 const DRAFTING_ROW_GAP := "    "
 
 ## The keys that are neither a drawing tool nor an edit: the two pages a plan is made for and the

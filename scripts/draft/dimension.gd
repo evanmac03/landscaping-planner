@@ -3,12 +3,18 @@ extends RefCounted
 ## Sets a dimension out into the linework, the marks at its ends and the text a
 ## view must draw.
 ##
-## A dimension is stored as two measured points, an offset and a kind, which is
-## the minimum anyone actually picks. Everything that then appears on the paper
-## - the extension lines, the dimension line set out from the measured points,
-## the marks at its ends and the measurement text - is derived here, once, so the
-## flat plan, the 3D overlay and the plotted sheet cannot disagree about what a
-## dimension looks like.
+## A dimension is stored as the points it measures, a set-out distance and a kind,
+## which is the minimum anyone actually picks. Everything that then appears on the
+## paper - the extension lines, the dimension line set out from the measured
+## points, the marks at its ends and the measurement text - is derived here, once,
+## so the flat plan, the 3D overlay and the plotted sheet cannot disagree about
+## what a dimension looks like.
+##
+## The four kinds are not four shapes: linear, aligned and radial all set a line or
+## a leader out from geometry that is straight or round, and an angular dimension
+## is the one that sets an *arc* out from a corner between two directions. So the
+## angular case is a sibling of the other three here rather than a special case
+## bolted on by the caller.
 ##
 ## Sizes come from a DraftDimensionStyle and are paper properties, so an
 ## arrowhead is 2.5 mm on the paper whatever the plot scale, exactly as a line
@@ -19,6 +25,7 @@ const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const LineStyleScript := preload("res://scripts/draft/line_style.gd")
 const DimensionStyleScript := preload("res://scripts/draft/dimension_style.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
+const Geom := preload("res://scripts/draft/geom2d.gd")
 
 ## A linear dimension measures along an axis, so its direction is snapped to one.
 const AXIS_EPSILON := 1e-9
@@ -49,6 +56,9 @@ static func layout(
 	if kind == EntityScript.DimensionKind.RADIUS:
 		return _radius(from, to, plot_scale, units, looks)
 
+	if kind == EntityScript.DimensionKind.ANGULAR and entity.params.size() > 7:
+		return _angular(entity, from, to, plot_scale, looks)
+
 	if kind == EntityScript.DimensionKind.LINEAR:
 		var delta := to - from
 		if absf(delta.x) >= absf(delta.y):
@@ -66,6 +76,12 @@ static func layout(
 		)
 
 	# Aligned: the dimension line runs parallel to the measured points.
+	#
+	# The tail is also where an angular dimension that carries no second side lands, and it lands here
+	# on purpose. An angle needs a corner and two arms, so an entity claiming to be angular with only
+	# the two points every other kind has cannot be drawn as an angle at all - and of the two ways to
+	# answer that, setting its two points out as a straight measurement puts the number on the sheet
+	# where a person can still read it, while drawing nothing takes it away. The measurement wins.
 	var along := (to - from).normalized()
 	var sideways := Vector2(along.y, -along.x)
 	return _assemble(
@@ -105,6 +121,93 @@ static func _radius(from: Vector2, to: Vector2, plot_scale: float, units, looks)
 			"position": (from + to) * 0.5 \
 				+ normal * side * (_model(looks.text_gap_mm, plot_scale) + height),
 			"angle": direction.angle(),
+			"height": height,
+		}],
+	}
+
+
+## An angular dimension: an arc set out at the radius the placement pick chose, spanning the angle
+## between the two sides, with the value written in degrees beside it.
+##
+## The angle measured is the **smaller** of the two between the sides. That is what a plan means by
+## "the angle at this corner", and it is the reading an arc drawn inside the corner shows. A reflex
+## angle is deliberately not offered: which of the two a drawer meant is carried by the placement pick,
+## and the placement pick's *side* is not something the model stores - only its distance, which is the
+## radius. So a reflex reading would have to be invented at load time, and a dimension that changed its
+## mind when the drawing was reopened is worse than one that always answers the smaller question.
+##
+## The two sides run out past the arc, so the angle reads as one object rather than as an arc floating
+## between two strokes, and the marks at the arc's ends point outward along the arc the way a linear
+## dimension's arrowheads point outward along its line.
+##
+## The value is written in **decimal degrees whatever the drawing measures lengths in**: degrees are
+## neither feet nor metres, so there is no imperial reading to fall back to. The style's own decimal
+## count still decides how finely it is said, and the text stays upright for the reason every other
+## dimension's does.
+##
+## `layout()` sends only an entity that carries a second side here (`params.size() > 7`), so the two
+## spare slots below are known to be present and the entity always describes a real corner.
+##
+## This is the one dimension that takes no `units`, for the reason above: a degree is a degree, so
+## there is nothing for the drawing's system to decide.
+static func _angular(entity, corner: Vector2, along_a: Vector2, plot_scale: float, looks) -> Dictionary:
+	var along_b := Vector2(entity.params[6], entity.params[7])
+	var radius: float = entity.params[4]
+	var side_a := along_a - corner
+	var side_b := along_b - corner
+	if side_a.length() <= AXIS_EPSILON or side_b.length() <= AXIS_EPSILON \
+		or radius <= AXIS_EPSILON:
+		return empty_layout()
+	var from_angle := side_a.angle()
+	# `wrapf` folds the difference into (-pi, pi], which is exactly "the way round that is at most half
+	# a turn" - so the sweep is the smaller angle, signed, and the arc lands on the side the corner
+	# opens onto.
+	var sweep := wrapf(side_b.angle() - from_angle, -PI, PI)
+	if is_zero_approx(sweep):
+		return empty_layout()
+	var turn := signf(sweep)
+
+	var lines: Array[PackedVector2Array] = []
+	var marks: Array[Dictionary] = []
+	var gap := _model(looks.extension_gap_mm, plot_scale)
+	var overshoot := _model(looks.extension_overshoot_mm, plot_scale)
+
+	# Each side drawn from a gap off the corner out past the arc - and at least as far as the point that
+	# was picked along it, so the pick is visibly attached to the thing it measured.
+	for side: Vector2 in [side_a, side_b]:
+		var reach := maxf(side.length(), radius + overshoot)
+		lines.append(PackedVector2Array([
+			corner + side.normalized() * gap,
+			corner + side.normalized() * reach,
+		]))
+
+	var arc := Geom.arc_points(corner, radius, from_angle, sweep, EntityScript.DEFAULT_TOLERANCE)
+	if arc.size() < 2:
+		return empty_layout()
+	lines.append(arc)
+
+	# The marks, tangent to the arc and pointing away from the arc's own middle: at the start that is
+	# back along the sweep, at the end it is on along it.
+	var start_radial := Vector2.from_angle(from_angle)
+	var end_radial := Vector2.from_angle(from_angle + sweep)
+	var start_tangent := start_radial.rotated(turn * PI * 0.5)
+	var end_tangent := end_radial.rotated(turn * PI * 0.5)
+	_append_mark(
+		lines, marks, corner + start_radial * radius, -start_tangent, start_tangent, looks, plot_scale
+	)
+	_append_mark(
+		lines, marks, corner + end_radial * radius, end_tangent, end_tangent, looks, plot_scale
+	)
+
+	var height := _model(looks.text_height_mm, plot_scale)
+	var outward := Vector2.from_angle(from_angle + sweep * 0.5)
+	return {
+		"lines": lines,
+		"marks": marks,
+		"labels": [{
+			"text": "%s°" % _fixed(rad_to_deg(absf(sweep)), maxi(looks.decimals_at(plot_scale), 0)),
+			"position": corner + outward * (radius + _model(looks.text_gap_mm, plot_scale) + height),
+			"angle": 0.0,
 			"height": height,
 		}],
 	}
@@ -266,5 +369,8 @@ static func _format(metres: float, units, looks, plot_scale: float) -> String:
 
 ## A number written to an exact number of decimals. The format string is built
 ## rather than written out, because the count is the style's to choose.
-static func _fixed(metres: float, decimals: int) -> String:
-	return ("%." + str(maxi(decimals, 0)) + "f") % metres
+##
+## `value` rather than `metres`: a length and an angle are both written this way, and the one thing this
+## function must not do is imply that the number it was handed is a distance.
+static func _fixed(value: float, decimals: int) -> String:
+	return ("%." + str(maxi(decimals, 0)) + "f") % value

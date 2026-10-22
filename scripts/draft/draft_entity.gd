@@ -19,6 +19,8 @@ extends RefCounted
 ##     RECT          cx, cy, w, h, rotation
 ##     REGULAR_POLY  cx, cy, circumradius, n, rotation
 ##     DIMENSION     x0, y0, x1, y1, offset, dimension_kind
+##                   (an ANGULAR one carries the second side past the kind: x0, y0, x1, y1,
+##                    radius, dimension_kind, x2, y2 - see `make_angular_dimension`)
 ##     TEXT          x, y, rotation           (the string lives in meta)
 ##
 ## Sibling modules are reached by preload rather than by global class name: the
@@ -137,6 +139,27 @@ static func make_text(at: Vector2, text: String, rotation: float = 0.0) -> Draft
 	entity.kind = Kind.TEXT
 	entity.params = PackedFloat64Array([at.x, at.y, rotation])
 	entity.meta = {"text": text}
+	return entity
+
+
+## An angular dimension: the angle at `corner` between the directions to `along_a` and `along_b`,
+## drawn as an arc set out at `radius`.
+##
+## The params layout is `[cx, cy, ax, ay, radius, kind, bx, by]`. That shape is not arbitrary: the kind
+## stays in the slot every other dimension keeps it in, the radius takes the slot an offset takes (both
+## answer "how far does the dimension's own line sit out from the geometry it measures"), and the second
+## side takes the two spare slots past it. So `point()`, the reader of `params[5]`, and every file
+## written before this existed all keep working, and an angular dimension is simply the one kind that
+## fills more of the array.
+static func make_angular_dimension(
+	corner: Vector2, along_a: Vector2, along_b: Vector2, radius: float
+) -> DraftEntity:
+	var entity := _new()
+	entity.kind = Kind.DIMENSION
+	entity.params = PackedFloat64Array([
+		corner.x, corner.y, along_a.x, along_a.y, radius,
+		float(DimensionKind.ANGULAR), along_b.x, along_b.y,
+	])
 	return entity
 
 
