@@ -116,6 +116,7 @@ func _ready() -> void:
 	hud._billing_ledger.company.append("Greenline Landscapes")
 	hud._billing_ledger.company.append("12 Mill Road, Annandale")
 	hud._billing_ledger.contact.append("HST 12345 6789")
+	print("taking the company logo: ", hud._billing_ledger.keep_logo(_make_logo()))
 	print("printing it: ", hud._billing_window.print_invoice())
 	print("the page says: ", hud._billing_window.status_text())
 
@@ -126,3 +127,21 @@ func _ready() -> void:
 
 	print("--- what is left on screen ---")
 	print("the page is up: ", hud.is_billing_window_open(), ", the Jobs menu reads: ", hud._jobs_text())
+
+
+## A stand-in company logo, drawn to a file rather than shipped as an asset: a teal block inset in a
+## transparent margin, with a red mark in its top-left corner. The transparent margin is the case that
+## matters - a naive conversion to the writer's raw RGB8 would print it black - and the red corner says
+## which way up the picture landed.
+func _make_logo() -> String:
+	var image := Image.create_empty(160, 80, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(8, 72):
+		for x in range(8, 152):
+			image.set_pixel(x, y, Color(0.05, 0.35, 0.30, 1.0))
+	for y in range(8, 26):
+		for x in range(8, 26):
+			image.set_pixel(x, y, Color(0.85, 0.15, 0.12, 1.0))
+	var path := "user://logo-demo.png"
+	image.save_png(path)
+	return path

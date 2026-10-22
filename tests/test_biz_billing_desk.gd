@@ -813,3 +813,82 @@ func test_a_ledger_read_without_its_jobs_says_what_it_cannot_find() -> void:
 
 
 const SheetScript := preload("res://scripts/invoice_sheet.gd")
+const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+
+## Everything a logo test writes goes under this name, swept away first and last, so a test that
+## throws half-way leaves nothing behind and a leftover cannot be the reason a later one passes.
+const LOGO_PREFIX := "test-ledger-logo-"
+
+
+func _logo_file(name: String) -> String:
+	UnderlayScript.ensure_dir()
+	var path: String = UnderlayScript.DIR.path_join(LOGO_PREFIX + name + ".png")
+	var image := Image.create_empty(48, 24, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.1, 0.3, 0.5, 1.0))
+	image.save_png(path)
+	return path
+
+
+func _forget_logos() -> void:
+	for path: String in UnderlayScript.list():
+		if path.get_file().begins_with(LOGO_PREFIX):
+			DirAccess.remove_absolute(path)
+
+
+# --- the letterhead's picture --------------------------------------------------------------------
+
+
+func test_the_company_logo_is_taken_and_kept_where_the_app_keeps_pictures() -> void:
+	_forget_logos()
+	var ledger := _ledger()
+	var source := _logo_file("brand")
+	var taken: Dictionary = ledger.keep_logo(source)
+	assert(taken["ok"] == true, String(taken["reason"]))
+	assert(ledger.logo.begins_with(UnderlayScript.DIR), ledger.logo)
+	assert(FileAccess.file_exists(ledger.logo), "a copy is kept")
+	assert(ledger.logo != source, "and it is the app's own copy rather than the file somebody found")
+	_forget_logos()
+
+
+func test_a_file_that_is_not_a_picture_is_refused_as_a_logo() -> void:
+	_forget_logos()
+	var ledger := _ledger()
+	UnderlayScript.ensure_dir()
+	var path: String = UnderlayScript.DIR.path_join(LOGO_PREFIX + "notes.png")
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("an address book")
+	file.close()
+	var taken: Dictionary = ledger.keep_logo(path)
+	assert(taken["ok"] == false, "a text file renamed .png is not a logo")
+	assert(not String(taken["reason"]).is_empty(), "and it says why")
+	assert(ledger.logo.is_empty(), "and nothing was taken")
+	_forget_logos()
+
+
+func test_the_logo_survives_the_file() -> void:
+	_forget_logos()
+	var jobs := _jobs()
+	var ledger := _ledger_on(jobs)
+	ledger.keep_logo(_logo_file("brand"))
+	assert(not ledger.logo.is_empty())
+	var read: LedgerScript = LedgerScript.from_dict(ledger.to_dict(), jobs)
+	assert(read.logo == ledger.logo, read.logo)
+	assert(LedgerScript.from_dict({}).logo == "", "a ledger from before logos has none")
+	_forget_logos()
+
+
+func test_the_invoice_carries_the_companys_logo_when_it_has_one() -> void:
+	_forget_logos()
+	var ledger := _ledger()
+	_full_schedule(ledger)
+	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
+	ledger.company.append("Greenline Landscapes")
+	var plain: PackedByteArray = ledger.invoice_pdf(invoice.id)
+	assert(not plain.get_string_from_utf8().contains("/Subtype /Image"), "no logo, no picture")
+	ledger.keep_logo(_logo_file("brand"))
+	var with_logo: PackedByteArray = ledger.invoice_pdf(invoice.id)
+	var text := with_logo.get_string_from_utf8()
+	assert(text.contains("/Subtype /Image"), "the desk's logo reaches the page")
+	assert(text.contains("/XObject"), "and the page's resources name it")
+	assert(with_logo.size() > plain.size(), "the page is bigger for carrying it")
+	_forget_logos()

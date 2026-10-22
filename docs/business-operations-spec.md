@@ -151,7 +151,7 @@ Godot as a client. Which is also how every other business tool the user has ever
 it: title blocks, rules, a scale bar, text at true paper millimetres. An invoice is a simpler page
 than a landscape plan. So the invoice sheet is the **same writer**, the same paper conventions, and
 the same "a plotted document is a real A4/Letter page" discipline - not a second PDF dependency.
-(The one thing it lacks is an image XObject, so a company *logo* is deferred and named in §15.)
+(An invoice is a plainer page than a plan, and the one thing it adds is the company *logo*, an image XObject set out in §9.5.)
 
 And an invoice also exports as **JSON** (§9), which is the form the ledger adapter posts and the
 form another tool can read. PDF is for the customer; JSON is for the machines.
@@ -838,9 +838,9 @@ API-neutral document. PDF is for the customer and the file; JSON is what the ada
 another system reads. Both come from the same `Invoice`, so they cannot disagree.
 
 An invoice page is a *simpler* page than a landscape plan: header with the company and the
-customer, a line grid, a totals block, terms, and a page number. The one thing the writer cannot do
-yet is an image XObject, so a **company logo is deferred and named** (§15) rather than faked with
-text art.
+customer, a line grid, a totals block, terms, and a page number. The one picture it carries is
+the **company logo**, if the business has one: a real image XObject at the top-left of the
+letterhead, with the name and the address stepped over to clear it.
 
 Two things the build decided that the specification did not say: a row that does not fit on the page
 is **counted** rather than run off it, and a zero-rated tax code gets no row at all while **EXEMPT**
@@ -1778,8 +1778,8 @@ corrections, every one of them found by building rather than by reading, and two
 looking at a render. This section is where the same thing happens here: the changes are recorded as
 they are found, with the reason, and not written after the fact to look inevitable.
 
-**Named before the fact, and deferred consciously:** a company logo on an invoice (the PDF writer
-draws text and vector paths, not images - an image XObject is a real addition); a live routing
-service (the heuristic and its stated assumption stand in); a payroll export (payroll is a
-different discipline); and the presence synchronizer (§11.7), which needs a transport decision of
-its own.
+**Named before the fact, and deferred consciously:** a live routing service (the heuristic and its
+stated assumption stand in); a payroll export (payroll is a different discipline); and the presence
+synchronizer (§11.7), which needs a transport decision of its own. **One thing named here has since
+been built:** the company logo on an invoice - the writer gained an image XObject, and the picture is
+flattened onto paper so a transparent background prints as the page rather than as a black box.

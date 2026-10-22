@@ -16,13 +16,20 @@ extends RefCounted
 ##   "above" its value is at the larger y (the same convention the sheet furniture uses).
 ## * **A row that does not fit is counted, not run on.** The page is one page; lines beyond what it
 ##   holds are left off and the number left off is printed, which is a thing to notice rather than a
-##   thing to hide. (A company logo is deferred and named, §15: the writer cannot yet place an image.)
+##   thing to hide.
+## * **The company's own picture sits where a letterhead has one, and the name moves over to clear
+##   it.** A business that has a logo gets its logo; a business that has none gets the same page it
+##   has always got, down to the last byte, because the shift is zero rather than a second layout.
 ##
 ## `plan_page` is the layout as **data** - every row, every figure and every y - so the layout can be
 ## checked without opening a PDF, and `export_pdf` is then a dumb drawer.
 
 const PdfWriterScript := preload("res://scripts/draft/pdf_writer.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
+## The company logo is a picture, and this is where a picture's format and pixel size are read. The
+## same reader an underlay uses, for the same reason: it establishes what a file is from its header
+## rather than handing Godot's loader a file that might not be an image at all.
+const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const TaxScript := preload("res://scripts/biz/tax.gd")
 const InvoiceScript := preload("res://scripts/biz/invoice.gd")
@@ -67,6 +74,19 @@ const ADDRESS_STEP_MM := 4.4
 ## a tax registration. Lines beyond that are counted rather than drawn over the rule, and the count
 ## says so at the foot of the page.
 const MAX_ADDRESS_LINES := 7
+
+## The company logo: a picture the business supplies, drawn at the top-left of the letterhead. A
+## height **on paper** rather than a size in pixels, because a logo is furniture on a page like
+## everything else here - the width follows from the picture's own proportion. It is capped, so a
+## very wide logo cannot shove the name and the address off the page, and when it is capped the
+## height comes down with it so the picture keeps its shape.
+const LOGO_TOP_MM := 16.0
+const LOGO_HEIGHT_MM := 16.0
+## How far the name and the address move right to clear the logo. Zero-width when there is no logo,
+## so a page with no picture is the page it has always been.
+const LOGO_GAP_MM := 3.0
+const LOGO_MAX_WIDTH_FRACTION := 0.28
+
 const HEAD_RULE_MM := 64.0
 const BILLED_BLOCK_MM := 70.0
 const BLOCK_FIRST_MM := 76.0
@@ -154,6 +174,13 @@ static func plan_page(invoice: InvoiceScript, options: Dictionary = {}) -> Dicti
 
 	var company: Array[String] = _lines(options.get("company", []))
 	var contact: Array[String] = _lines(options.get("contact", []))
+	# The company's own picture, if the business has one, and how far the name and the address have to
+	# move right to clear it. With no logo the shift is nothing, so the page is byte-for-byte the page
+	# it has always been - which is the reason the header's x is a field rather than the margin const.
+	var logo: Dictionary = logo_placement(String(options.get("logo", "")), printable_mm)
+	var name_x_mm: float = left_mm
+	if not logo.is_empty():
+		name_x_mm = left_mm + float((logo["rect_mm"] as Rect2).size.x) + LOGO_GAP_MM
 	# Every line a business gives is printed: the name, then its own address lines, then whatever it
 	# put in `contact`. Dropping the tail of the company list when a contact list is also given would
 	# silently lose a tax registration number, which is a line an invoice is expected to carry.
@@ -182,6 +209,8 @@ static func plan_page(invoice: InvoiceScript, options: Dictionary = {}) -> Dicti
 		},
 		"header": {
 			"name": company[0] if not company.is_empty() else "",
+			"name_x_mm": name_x_mm,
+			"logo": logo,
 			"address": address["lines"],
 			"address_y": ADDRESS_MM,
 			"address_step": ADDRESS_STEP_MM,
@@ -329,15 +358,19 @@ static func _emit_header(writer, plan: Dictionary) -> void:
 	var left: float = _pt(plan["left_mm"])
 	var right: float = _pt(plan["right_mm"])
 
+	_emit_logo(writer, plan)
+	# The letterhead's own column, which is the margin when there is no logo and the margin shifted
+	# right of the picture when there is one.
+	var name_x: float = _pt(float(header["name_x_mm"]))
 	writer.set_fill_colour(Color.BLACK)
-	writer.draw_text(Vector2(left, _baseline(plan, TOP_MM, TITLE_TEXT_MM)), String(header["name"]),
+	writer.draw_text(Vector2(name_x, _baseline(plan, TOP_MM, TITLE_TEXT_MM)), String(header["name"]),
 		_pt(TITLE_TEXT_MM))
 	writer.set_fill_colour(CAPTION_COLOUR)
 	var y_mm: float = float(header["address_y"])
 	var step_mm: float = float(header["address_step"])
 	for entry in (header["address"] as Array):
 		var text: String = String(entry)
-		writer.draw_text(Vector2(left, _baseline(plan, y_mm, BODY_TEXT_MM)), text, _pt(SMALL_TEXT_MM))
+		writer.draw_text(Vector2(name_x, _baseline(plan, y_mm, BODY_TEXT_MM)), text, _pt(SMALL_TEXT_MM))
 		y_mm += step_mm
 
 	writer.set_fill_colour(Color.BLACK)
@@ -364,6 +397,31 @@ static func _emit_header(writer, plan: Dictionary) -> void:
 	var dates: String = String(header["dates_text"])
 	writer.draw_text(Vector2(left, _baseline(plan, float(plan["dates_y"]), BODY_TEXT_MM)), dates, _pt(BODY_TEXT_MM))
 	_rule(writer, plan, HEAD_RULE_TWO_MM, left, right)
+
+
+## The company's picture, if the page has one. The image is loaded here, at the one moment a page is
+## actually drawn - `plan_page` read only the file's header to place it - so a layout can be checked
+## without decoding anything and the file is still opened exactly once per page.
+##
+## **This is the one place a logo's rectangle crosses from paper axes to the writer's.** The layout
+## measures millimetres down from the top edge; the writer draws with y running up from the bottom, so
+## the rectangle's foot is `page_height - (top + height)`. Passing the from-the-top number straight
+## through is the fault that put every rule on this page at its mirror height (see `_rule`).
+static func _emit_logo(writer, plan: Dictionary) -> void:
+	var logo: Dictionary = (plan["header"] as Dictionary).get("logo", {})
+	if logo.is_empty():
+		return
+	var image: Image = logo_image(String(logo.get("path", "")))
+	if image == null:
+		return
+	var page_mm: Vector2 = plan["page_mm"]
+	var rect_mm: Rect2 = logo["rect_mm"]
+	writer.place_image(image, Rect2(
+		_pt(rect_mm.position.x),
+		(page_mm.y - rect_mm.end.y) * POINTS_PER_MM,
+		_pt(rect_mm.size.x),
+		_pt(rect_mm.size.y)
+	))
 
 
 ## A party's lines: the first is the name and the rest are its address, so only the name is drawn in
@@ -475,6 +533,61 @@ static func _emit_footer(writer, plan: Dictionary) -> void:
 			clipped_text(writer, note, _pt(SMALL_TEXT_MM), _pt(float(plan["printable_mm"]))),
 			_pt(SMALL_TEXT_MM))
 	writer.set_fill_colour(Color.BLACK)
+
+
+# --- the company logo -------------------------------------------------------------------------
+
+
+## Where the company's picture goes on the page, in millimetres from the top edge, as
+## `{path, rect_mm}` - or an empty Dictionary when there is no logo, or the file cannot be a logo.
+##
+## The size comes from the picture's **header** rather than from decoding it, so laying a page out
+## stays cheap and a file that is not a picture is a page with no logo rather than a page that fails.
+## The height is the stated one and the width follows from the proportion, capped to the fraction of
+## the page a letterhead may use; when it is capped the height falls with it, so a wide banner ends up
+## shorter rather than squashed.
+static func logo_placement(path: String, printable_mm: float) -> Dictionary:
+	if path.strip_edges().is_empty():
+		return {}
+	var info: Dictionary = UnderlayScript.sniff(path)
+	if not bool(info.get("ok", false)):
+		return {}
+	var width_px := int(info.get("width_px", 0))
+	var height_px := int(info.get("height_px", 0))
+	if width_px <= 0 or height_px <= 0:
+		return {}
+	var width_mm: float = LOGO_HEIGHT_MM * float(width_px) / float(height_px)
+	var height_mm: float = LOGO_HEIGHT_MM
+	var cap_mm: float = printable_mm * LOGO_MAX_WIDTH_FRACTION
+	if width_mm > cap_mm:
+		width_mm = cap_mm
+		height_mm = width_mm * float(height_px) / float(width_px)
+	return {
+		"path": path,
+		"rect_mm": Rect2(MARGIN_MM, LOGO_TOP_MM, width_mm, height_mm),
+	}
+
+
+## The picture at `path` as an Image, at the one moment a page is drawn, or null. It is **flattened
+## onto paper white**: a logo is normally a PNG with a transparent background, and the writer's image
+## object is raw RGB8 with no alpha channel, so a transparent pixel would otherwise print whatever
+## colour sits under its transparency - black, as often as not, which is a black box round the
+## letterhead. Blending it onto white first is what makes the picture sit on the page rather than in
+## a frame.
+static func logo_image(path: String) -> Image:
+	var info: Dictionary = UnderlayScript.sniff(path)
+	if not bool(info.get("ok", false)):
+		return null
+	var decoded: Image = UnderlayScript.decode(FileAccess.get_file_as_bytes(path), String(info["format"]))
+	if decoded == null:
+		return null
+	if not decoded.detect_alpha():
+		return decoded
+	var flattened: Image = Image.create_empty(decoded.get_width(), decoded.get_height(), false, Image.FORMAT_RGBA8)
+	flattened.fill(Color.WHITE)
+	flattened.blend_rect(decoded, Rect2i(Vector2i.ZERO, decoded.get_size()), Vector2i.ZERO)
+	flattened.convert(Image.FORMAT_RGB8)
+	return flattened
 
 
 # --- small shared pieces -----------------------------------------------------------------------

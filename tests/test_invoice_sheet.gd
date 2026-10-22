@@ -13,6 +13,12 @@ const PageScript := preload("res://scripts/invoice_sheet.gd")
 const InvoiceScript := preload("res://scripts/biz/invoice.gd")
 const PaymentScript := preload("res://scripts/biz/payment.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
+const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+
+## Everything a logo test writes goes under this name, and every logo test sweeps it away first and
+## last, so a test that throws half-way leaves nothing for the next person to find and a leftover
+## from an earlier run cannot be the reason a later one passes.
+const LOGO_PREFIX := "test-invoice-logo-"
 
 const POINTS_PER_MM := 72.0 / 25.4
 const ROW_STEP_MM := 6.0
@@ -101,6 +107,43 @@ func _y_of(rows: Array[Dictionary], wanted: String) -> float:
 
 func _drawn_rows(invoice: InvoiceScript, options: Dictionary = {}) -> Array[Dictionary]:
 	return _drawn_text(PageScript.export_pdf(invoice, options).get_string_from_utf8())
+
+
+## A logo file, which is a picture with a transparent background when `transparent` is set - the way
+## a real logo file arrives, and the case a naive RGB conversion gets wrong.
+func _logo(name: String, width: int, height: int, transparent: bool = false) -> String:
+	UnderlayScript.ensure_dir()
+	var path: String = UnderlayScript.DIR.path_join(LOGO_PREFIX + name + ".png")
+	var image := Image.create_empty(width, height, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.2, 0.4, 0.6, 0.0 if transparent else 1.0))
+	if transparent:
+		image.set_pixel(0, 0, Color(0.0, 1.0, 0.0, 1.0))
+	image.save_png(path)
+	return path
+
+
+func _forget_logos() -> void:
+	for path: String in UnderlayScript.list():
+		if path.get_file().begins_with(LOGO_PREFIX):
+			DirAccess.remove_absolute(path)
+
+
+## Every place the page placed an image, as `{name, rect}` in points, read out of the content stream.
+## `place_image` writes `q w 0 0 h x y cm /ImN Do Q`.
+func _placed_images(text: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for line in text.split("\n"):
+		var drawn := line.strip_edges()
+		if not drawn.contains(" cm ") or not drawn.contains(" Do "):
+			continue
+		var head := drawn.split(" ", false)
+		if head.size() != 11:
+			continue
+		out.append({
+			"name": String(head[8]),
+			"rect": Rect2(float(head[5]), float(head[6]), float(head[1]), float(head[4])),
+		})
+	return out
 
 
 # --- the paper ---------------------------------------------------------------------------------
@@ -397,3 +440,100 @@ func test_a_name_with_brackets_survives_the_page() -> void:
 	assert(invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Mulch (2 yd)", MoneyScript.of(10000), &"PLANTING", &"NONE"))
 	var text := PageScript.export_pdf(invoice).get_string_from_utf8()
 	assert(text.contains("Mulch \\(2 yd\\)"), "brackets are escaped in a PDF string")
+
+
+# --- the company logo ---------------------------------------------------------------------------
+
+
+func test_a_page_with_no_logo_is_the_page_it_has_always_been() -> void:
+	var plan: Dictionary = PageScript.plan_page(_invoice())
+	var header: Dictionary = plan["header"]
+	assert((header["logo"] as Dictionary).is_empty(), "no logo, no placement")
+	assert(is_equal_approx(float(header["name_x_mm"]), PageScript.MARGIN_MM),
+		"the letterhead stays on the margin")
+	assert(_placed_images(PageScript.export_pdf(_invoice()).get_string_from_utf8()).is_empty(),
+		"and nothing is placed on the page")
+
+
+func test_the_logo_keeps_its_proportion_and_the_name_moves_over_to_clear_it() -> void:
+	_forget_logos()
+	var plan: Dictionary = PageScript.plan_page(_invoice(), {"logo": _logo("proportioned", 64, 32)})
+	var logo: Dictionary = plan["header"]["logo"]
+	assert(not logo.is_empty(), "the picture is placed")
+	var rect: Rect2 = logo["rect_mm"]
+	assert(is_equal_approx(rect.size.x, 32.0), "twice as wide as it is tall: %s" % str(rect.size.x))
+	assert(is_equal_approx(rect.size.y, PageScript.LOGO_HEIGHT_MM), str(rect.size.y))
+	assert(is_equal_approx(rect.position.x, PageScript.MARGIN_MM), str(rect.position.x))
+	assert(is_equal_approx(rect.position.y, PageScript.LOGO_TOP_MM), str(rect.position.y))
+	assert(is_equal_approx(float(plan["header"]["name_x_mm"]),
+		PageScript.MARGIN_MM + 32.0 + PageScript.LOGO_GAP_MM),
+		"the name clears the picture by the gap")
+	_forget_logos()
+
+
+func test_a_very_wide_logo_is_capped_and_comes_down_in_height() -> void:
+	_forget_logos()
+	var path := _logo("banner", 1000, 40)
+	var printable: float = PageScript.page_size_mm("LETTER", true).x - 2.0 * PageScript.MARGIN_MM
+	var rect: Rect2 = PageScript.plan_page(_invoice(), {"logo": path})["header"]["logo"]["rect_mm"]
+	assert(is_equal_approx(rect.size.x, printable * PageScript.LOGO_MAX_WIDTH_FRACTION),
+		"the width is capped: %s" % str(rect.size.x))
+	assert(rect.size.y < PageScript.LOGO_HEIGHT_MM, "so the height comes down with it: %s" % str(rect.size.y))
+	assert(is_equal_approx(rect.size.x / rect.size.y, 1000.0 / 40.0),
+		"and the picture keeps its own shape: %s" % str(rect.size.x / rect.size.y))
+	_forget_logos()
+
+
+func test_a_file_that_is_not_a_picture_is_a_page_with_no_logo() -> void:
+	var plan: Dictionary = PageScript.plan_page(_invoice(), {"logo": "user://there-is-no-such-logo.png"})
+	assert((plan["header"]["logo"] as Dictionary).is_empty(), "a file that is not there is no logo")
+	assert(is_equal_approx(float(plan["header"]["name_x_mm"]), PageScript.MARGIN_MM),
+		"and the letterhead does not move for it")
+
+
+func test_a_file_that_is_not_a_picture_is_not_an_image() -> void:
+	UnderlayScript.ensure_dir()
+	var path: String = UnderlayScript.DIR.path_join(LOGO_PREFIX + "notes.png")
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("an address book")
+	file.close()
+	assert(PageScript.logo_image(path) == null, "a text file named .png is not a logo")
+	assert(PageScript.logo_image("user://no-such-file.png") == null, "and neither is nothing at all")
+	DirAccess.remove_absolute(path)
+
+
+func test_the_logo_lands_on_the_page_above_the_letterhead_rule() -> void:
+	_forget_logos()
+	var text := PageScript.export_pdf(_invoice(), {"logo": _logo("landing", 64, 32)}).get_string_from_utf8()
+	assert(text.contains("/Subtype /Image"), "the picture is a real image object")
+	assert(text.contains("/XObject << /Im1 "), "and the page's resources name it")
+	var placed: Array[Dictionary] = _placed_images(text)
+	assert(placed.size() == 1, "one picture, placed once: %s" % str(placed))
+	assert(String(placed[0]["name"]) == "/Im1", String(placed[0]["name"]))
+	var rect: Rect2 = placed[0]["rect"]
+	var page_mm: Vector2 = PageScript.page_size_mm("LETTER", true)
+	# The layout measures down from the paper's top and the writer draws up from the foot, so the
+	# logo's foot is the page height less its own top and height. Passing the from-the-top number
+	# straight through is what put every rule on this page at its mirror height.
+	var expected_y: float = (page_mm.y - (PageScript.LOGO_TOP_MM + PageScript.LOGO_HEIGHT_MM)) * POINTS_PER_MM
+	assert(is_equal_approx(rect.position.x, PageScript.MARGIN_MM * POINTS_PER_MM), str(rect.position.x))
+	assert(is_equal_approx(rect.position.y, expected_y), "%s vs %s" % [str(rect.position.y), str(expected_y)])
+	assert(is_equal_approx(rect.size.x, 32.0 * POINTS_PER_MM), str(rect.size.x))
+	var rule_y: float = (page_mm.y - PageScript.HEAD_RULE_MM) * POINTS_PER_MM
+	assert(rect.position.y > rule_y, "the picture sits above the rule under the letterhead")
+	assert(rect.position.y + rect.size.y < page_mm.y * POINTS_PER_MM, "and inside the paper")
+	_forget_logos()
+
+
+func test_a_transparent_logo_is_flattened_onto_the_paper() -> void:
+	_forget_logos()
+	var image: Image = PageScript.logo_image(_logo("transparent", 8, 8, true))
+	assert(image != null, "a transparent PNG is still a logo")
+	assert(image.get_format() == Image.FORMAT_RGB8, "the writer's image object is raw RGB8")
+	# The background was fully transparent, so on paper it is paper - rather than whatever colour sits
+	# under the alpha, which for a black-backed PNG is a black box round the letterhead.
+	var paper: Color = image.get_pixel(4, 4)
+	assert(paper.r > 0.99 and paper.g > 0.99 and paper.b > 0.99, "the background is paper: %s" % str(paper))
+	var ink: Color = image.get_pixel(0, 0)
+	assert(ink.g > 0.99 and ink.r < 0.01 and ink.b < 0.01, "the opaque pixel is untouched: %s" % str(ink))
+	_forget_logos()

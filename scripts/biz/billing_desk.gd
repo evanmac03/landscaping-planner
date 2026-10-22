@@ -36,6 +36,10 @@ const PaymentScript := preload("res://scripts/biz/payment.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const RateScript := preload("res://scripts/biz/rate.gd")
 const SheetScript := preload("res://scripts/invoice_sheet.gd")
+## A logo is a picture, so it is read and kept the way the app reads and keeps every picture: this is
+## the one place a file's format and pixel size are established from its header rather than handed to
+## Godot's loader on trust.
+const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 
 ## Net 30: what a landscape contract usually says when nobody says otherwise. A term is a property of
 ## the agreement, so the desk states one and every invoice the desk raises uses it.
@@ -51,6 +55,9 @@ const PAYMENT_PREFIX := "PMT-"
 ## above the rule. Held here rather than typed on the page for the reason a letterhead is printed once.
 var company: Array[String] = []
 var contact: Array[String] = []
+## The company's picture, as the path of a copy the app keeps - not where somebody found it, for the
+## reason `keep_logo` gives. Empty means the business has no logo and the letterhead prints without one.
+var logo: String = ""
 ## The paper an invoice is printed on, by `InvoiceSheet`'s own name for it.
 var sheet: String = DEFAULT_SHEET
 
@@ -763,6 +770,22 @@ func write_invoice(invoice_id: String, options: Dictionary = {}) -> Dictionary:
 	return {"ok": true, "path": path, "reason": ""}
 
 
+## Take the company's picture: copy it somewhere the app keeps it and hold the copy's path.
+## Returns `{ok, reason, path}`.
+##
+## A letterhead is a document that gets sent, and a letterhead pointing at `D:\brand\logo.png` is a
+## letterhead that is broken on every other machine - the same reason a tracing aid is copied rather
+## than referred to (`RasterUnderlay.keep`). The copy goes where the app keeps its pictures. A file
+## that is not a picture is refused **before** anything is copied, so a business that names a text
+## file by mistake gets the reason rather than a broken letterhead.
+func keep_logo(source: String, wanted_name: String = "logo") -> Dictionary:
+	var kept: Dictionary = UnderlayScript.keep(source, wanted_name)
+	if not bool(kept.get("ok", false)):
+		return {"ok": false, "reason": String(kept.get("reason", "")), "path": ""}
+	logo = String(kept.get("path", ""))
+	return {"ok": true, "reason": "", "path": logo}
+
+
 ## The letterhead the desk holds, unless a caller brought its own.
 func _page_options(options: Dictionary) -> Dictionary:
 	var asked: Dictionary = options.duplicate(true)
@@ -772,6 +795,8 @@ func _page_options(options: Dictionary) -> Dictionary:
 		asked["company"] = company.duplicate()
 	if not asked.has("contact"):
 		asked["contact"] = contact.duplicate()
+	if not asked.has("logo"):
+		asked["logo"] = logo
 	return asked
 
 
@@ -901,6 +926,7 @@ func to_dict() -> Dictionary:
 		"sheet": sheet,
 		"company": company.duplicate(),
 		"contact": contact.duplicate(),
+		"logo": logo,
 		"billings": schedules,
 		"invoices": papers,
 	}
@@ -920,6 +946,7 @@ static func from_dict(data: Dictionary, job_desk: JobDesk = null) -> BillingDesk
 	ledger.terms_days = int(data.get("terms_days", DEFAULT_TERMS_DAYS))
 	ledger.fiscal_start_month = int(data.get("fiscal_start_month", 1))
 	ledger.sheet = String(data.get("sheet", DEFAULT_SHEET))
+	ledger.logo = String(data.get("logo", ""))
 	for entry in _texts(data.get("company", [])):
 		ledger.company.append(entry)
 	for entry in _texts(data.get("contact", [])):
