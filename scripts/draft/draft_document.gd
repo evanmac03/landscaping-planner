@@ -125,6 +125,17 @@ const DEFAULT_SITE_LONGITUDE := -75.0
 ## reads is a fact about the site, and the person who lives there knows it.
 const DEFAULT_SITE_UTC_OFFSET_HOURS := -5.0
 
+## The growing season: the window between the last frost of spring and the first frost of autumn,
+## stated as days of the year. Zero means "not stated", which is a different answer from any date:
+## a drawing nobody has looked the frost dates up for has no season, and the season check says so
+## rather than reading it as a season of no days.
+##
+## It lives on the drawing beside the site, because it is the same kind of fact - what the climate
+## does where the garden is - and it is the one thing that turns a crop's days-to-maturity into an
+## answer you can act on.
+const DEFAULT_SEASON_LAST_FROST := 0
+const DEFAULT_SEASON_FIRST_FROST := 0
+
 ## Where the garden is. A latitude, a longitude and a zone offset travel together, because a
 ## sun study is a question about a place and any two of the three is not an answer to it
 ## (visualization spec §16). The same keys as `SunStudy.site()`, so this dictionary can be
@@ -132,6 +143,11 @@ const DEFAULT_SITE_UTC_OFFSET_HOURS := -5.0
 var site_latitude: float = DEFAULT_SITE_LATITUDE
 var site_longitude: float = DEFAULT_SITE_LONGITUDE
 var site_utc_offset_hours: float = DEFAULT_SITE_UTC_OFFSET_HOURS
+
+## The day of the year the last spring frost is expected, and the day of the year the first autumn
+## frost is expected. Together they bound the growing season. Zero means it is not stated.
+var season_last_frost: int = DEFAULT_SEASON_LAST_FROST
+var season_first_frost: int = DEFAULT_SEASON_FIRST_FROST
 
 var _entities: Dictionary[int, EntityScript] = {}
 ## Insertion order, which is the tie-break inside a layer's plotting band.
@@ -425,6 +441,40 @@ func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: f
 	return true
 
 
+## The growing season, as the pair of frost dates that bound it.
+func season() -> Dictionary:
+	return {
+		"last_frost": season_last_frost,
+		"first_frost": season_first_frost,
+	}
+
+
+## State the growing season. One act and one undo step, the same promise `set_site` makes: a
+## designer who typed the wrong frost date wants Ctrl+Z to put it back.
+##
+## Each date is a day of the year, or 0 for "not stated" - which is what a person who has not looked
+## their own frost dates up states, and it is a real answer rather than a missing one. A day outside
+## the year is not a day of any year, so it is stored as not stated rather than wrapped into another
+## month. Returns false when the season is already so, so a caller can tell "saved" from "nothing to
+## save".
+func set_season(new_last_frost: int, new_first_frost: int) -> bool:
+	var last: int = _season_day(new_last_frost)
+	var first: int = _season_day(new_first_frost)
+	if last == season_last_frost and first == season_first_frost:
+		return false
+	begin_gesture("stating the growing season")
+	season_last_frost = last
+	season_first_frost = first
+	changed.emit()
+	return true
+
+
+## A frost date as it is stored: a day of the year, or 0 for "not stated". A number outside the year
+## is not a day of it, so it becomes "not stated" rather than another month's date.
+static func _season_day(day: int) -> int:
+	return day if day >= 1 and day <= 366 else 0
+
+
 # --- undo ---------------------------------------------------------------------------
 
 
@@ -493,6 +543,7 @@ func snapshot() -> Dictionary:
 		"layers": layers.copy(),
 		"units": units_snapshot(),
 		"site": site(),
+		"season": season(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),
@@ -537,6 +588,15 @@ func restore(state: Dictionary) -> void:
 	site_latitude = float(site_state.get("latitude", state.get("site_latitude", DEFAULT_SITE_LATITUDE)))
 	site_longitude = float(site_state.get("longitude", DEFAULT_SITE_LONGITUDE))
 	site_utc_offset_hours = float(site_state.get("utc_offset_hours", DEFAULT_SITE_UTC_OFFSET_HOURS))
+	# The growing season is the newest arrival, and reads the way the others do: a file written before
+	# it existed gets no frost dates, which is a drawing nobody has looked the season up for - not a
+	# garden with a season of no days.
+	var season_state: Variant = state.get("season", null)
+	season_last_frost = DEFAULT_SEASON_LAST_FROST
+	season_first_frost = DEFAULT_SEASON_FIRST_FROST
+	if season_state is Dictionary:
+		season_last_frost = _season_day(int((season_state as Dictionary).get("last_frost", 0)))
+		season_first_frost = _season_day(int((season_state as Dictionary).get("first_frost", 0)))
 	# What the ground is like is a recent arrival too, so a file written before it existed gets an
 	# empty map - which is not "average ground" but "nothing stated", and a suitability check on it
 	# says so rather than handing out verdicts about a garden it knows nothing about.
@@ -632,10 +692,16 @@ func to_dict() -> Dictionary:
 	# Version 10 states the ground's own heights - the spot levels, the contours and the slope arrows.
 	# The same shape a fifth time: a file with no grading in it is a drawing nobody has graded, and
 	# the check has nothing to say about it rather than finding it flat.
+	#
+	# Version 11 states the growing season - the last frost of spring and the first frost of autumn.
+	# The same shape a sixth time: a file with no season in it is a drawing nobody has looked the
+	# frost dates up for, and the season check has nothing to say about it rather than finding it
+	# seasonless.
 	return {
-		"version": 10,
+		"version": 11,
 		"units": units_snapshot(),
 		"site": site(),
+		"season": season(),
 		"dimension_style": dimension_style.to_dict(),
 		"environment": environment.to_dict(),
 		"sheets": sheets.to_dict(),

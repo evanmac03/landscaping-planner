@@ -118,6 +118,67 @@ const MONTH_NAMES := [
 ## The longest name worth storing. A nursery list with a 4,000-character "name" is a paste accident.
 const MAX_NAME := 120
 
+## Which parts of a plant are eaten, as **bits**, because a plant is very often more than one of these
+## at once: chives are a leaf *and* a flower, a beet is a root and its own leaves. Zero means the
+## catalogue does not say this is an edible plant, which is the same "a question nobody answered"
+## rule `soils` keeps - an ornamental is not claiming to be inedible, it is simply not claiming.
+##
+## The names carry `EAT_` rather than the bare part, because `BULB` is already the eighth **category**
+## and a bulb of garlic and a bulb of tulip are not the same kind of fact.
+const EAT_LEAF := 1
+const EAT_FRUIT := 2
+const EAT_ROOT := 4
+const EAT_BULB := 8
+const EAT_STEM := 16
+const EAT_FLOWER := 32
+const EAT_SEED := 64
+## Every part there is, so a validation can refuse a bit that is not one of them.
+const EDIBLE_ANY := EAT_LEAF | EAT_FRUIT | EAT_ROOT | EAT_BULB | EAT_STEM | EAT_FLOWER | EAT_SEED
+const EDIBLE_NAMES := {
+	EAT_LEAF: "leaf",
+	EAT_FRUIT: "fruit",
+	EAT_ROOT: "root",
+	EAT_BULB: "bulb",
+	EAT_STEM: "stem",
+	EAT_FLOWER: "flower",
+	EAT_SEED: "seed",
+}
+
+## The family a food crop rotates with. A **name**, not a category, and empty for a plant nobody
+## rotates - a fruit tree, a shrub, an ornamental. It exists for one question and one question only:
+## *the same family shall not follow itself in the same bed*, which is the whole of crop rotation.
+##
+## The names are the groups a kitchen gardener actually rotates by, and `HERB_FAMILY` is deliberately
+## spelled that way: `HERB` is already the ninth **category**, and a second meaning for one word is
+## how two tables come to disagree about it.
+const FAMILY_NONE := &""
+const BRASSICA := &"BRASSICA"
+const NIGHTSHADE := &"NIGHTSHADE"
+const LEGUME := &"LEGUME"
+const ALLIUM := &"ALLIUM"
+const ROOT_CROP := &"ROOT"
+const CUCURBIT := &"CUCURBIT"
+const LEAFY := &"LEAFY"
+const FRUITING := &"FRUITING"
+const HERB_FAMILY := &"HERB"
+const FAMILY_NAMES := {
+	BRASSICA: "brassica",
+	NIGHTSHADE: "nightshade",
+	LEGUME: "legume",
+	ALLIUM: "allium",
+	ROOT_CROP: "root",
+	CUCURBIT: "cucurbit",
+	LEAFY: "leafy",
+	FRUITING: "fruiting",
+	HERB_FAMILY: "herb",
+}
+
+## The most tenths of an hour a day has: a crop cannot be asked for more sun than there is.
+const MAX_SUN_HOURS_TENTHS := 240
+## The heaviest a seasonal amount a plant is stated with can be: a tonne. A yield or a need beyond that
+## is not a fine number but a mistyped one, and the catalogue refuses it rather than storing it.
+const MAX_SEASON_GRAMS := 1000000
+
 var id: StringName = &""
 var botanical_name: String = ""
 var common_name: String = ""
@@ -147,6 +208,36 @@ var model_scene: String = ""
 var thumbnail: String = ""
 var tags: Array[String] = []
 var note: String = ""
+## What of it is eaten, as bits from `EAT_LEAF`..`EAT_SEED`. Zero means the catalogue does not say
+## this is an edible plant.
+var edible_parts: int = 0
+## The months it is harvested in, as bits, bit `month - 1`. Zero means it is not stated. The same
+## **circular** set as `bloom_months`, and for the same reason: a leek stands through the winter and a
+## winter kale is cut from November to March, which is one run of months across the new year.
+var harvest_months: int = 0
+## The family it rotates with, or `FAMILY_NONE`. See the family constants.
+var family: StringName = FAMILY_NONE
+## Days from sowing to the first harvest. Zero means it is not stated.
+var maturity_days: int = 0
+## The direct sun it needs to crop, in **tenths of an hour** (60 = 6.0 h). Zero means it is not
+## stated.
+##
+## Tenths rather than a float, for the reason the sizes are whole centimetres: a requirement is
+## compared and round-tripped, and a value that came back 6.0000000001 would not compare equal to the
+## six it was stated as - which is a check that quietly never fires.
+var sun_hours_tenths: int = 0
+## How much one plant gives in a season, in **grams**. Zero means it is not stated.
+##
+## A yield is a rule of thumb a kitchen-garden book prints - "about two kilos of tomatoes a plant" - and
+## not a measurement, and the catalogue states it or does not. It is the thing that turns "I want to
+## feed four people" from a wish into a number of plants, beside the amount a person eats.
+var yield_per_plant_g: int = 0
+## How much of it one person eats in a season, in **grams**. Zero means it is not stated.
+##
+## The other half of the same rule of thumb, and stated **per crop** rather than guessed at, because a
+## person eats a great deal more tomato than thyme and a single figure for "vegetables" would be a
+## number nobody could act on.
+var need_per_person_g: int = 0
 
 
 func _init(species_id: StringName = &"", botanical: String = "", common: String = "") -> void:
@@ -221,15 +312,22 @@ func planting_scale(base_size_m: float) -> float:
 ## The bloom months as a person would say them, with the new year handled: November to March is one
 ## run of five months, not two disconnected runs. Empty when the plant is grown for its foliage.
 func bloom_text() -> String:
-	if bloom_months == 0:
+	return months_run_text(bloom_months)
+
+
+## A set of months, as a person would say them: "November-March", or two runs, and "all year" for the
+## whole set. The one place the circular-run wording is written, so the months a plant **blooms** and
+## the months a crop is **harvested** cannot come out said two different ways.
+static func months_run_text(bits: int) -> String:
+	if bits == 0:
 		return ""
-	if bloom_months == 0xFFF:
+	if bits == 0xFFF:
 		return "all year"
-	# Start at a month that blooms and whose predecessor does not, so a run that crosses December
+	# Start at a month that is set and whose predecessor is not, so a run that crosses December
 	# begins in November rather than in January.
 	var start: int = 0
 	for month in range(1, 13):
-		if blooms_in(month) and not blooms_in(((month - 2 + 12) % 12) + 1):
+		if _month_set(bits, month) and not _month_set(bits, ((month - 2 + 12) % 12) + 1):
 			start = month
 			break
 	var runs: PackedStringArray = PackedStringArray()
@@ -239,7 +337,7 @@ func bloom_text() -> String:
 	# had just written and print it again - forever.
 	var traversed: int = 0
 	while traversed < 12:
-		if not blooms_in(month):
+		if not _month_set(bits, month):
 			month = (month % 12) + 1
 			traversed += 1
 			continue
@@ -247,7 +345,7 @@ func bloom_text() -> String:
 		var last: int = month
 		for step in 12:
 			var next: int = (month % 12) + 1
-			if not blooms_in(next):
+			if not _month_set(bits, next):
 				break
 			last = next
 			month = next
@@ -255,6 +353,13 @@ func bloom_text() -> String:
 		traversed += 1 + ((last - run_start + 12) % 12)
 		month = (last % 12) + 1
 	return ", ".join(runs)
+
+
+## Whether one month (1..12) is in a set of month bits.
+static func _month_set(bits: int, month: int) -> bool:
+	if month < 1 or month > 12:
+		return false
+	return (bits & (1 << (month - 1))) != 0
 
 
 static func _run_text(first: int, last: int) -> String:
@@ -302,6 +407,124 @@ func category_name() -> String:
 	return String(CATEGORY_NAMES.get(category, "?"))
 
 
+# --- food ---------------------------------------------------------------------------------
+
+
+## Whether the catalogue says this is something you eat. Not a guess from a tag and not a guess from
+## the category: a plant is food when it names a part of itself that is eaten.
+func is_edible() -> bool:
+	return edible_parts != 0
+
+
+## The parts that are eaten, as a person would say them: "leaf, flower". Empty when the catalogue does
+## not say it is edible.
+func edible_parts_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for bit: int in [EAT_LEAF, EAT_FRUIT, EAT_ROOT, EAT_BULB, EAT_STEM, EAT_FLOWER, EAT_SEED]:
+		if (edible_parts & bit) != 0:
+			parts.append(String(EDIBLE_NAMES[bit]))
+	return ", ".join(parts)
+
+
+func harvests_in(month: int) -> bool:
+	return _month_set(harvest_months, month)
+
+
+func set_harvests_in(month: int, harvesting: bool) -> void:
+	if month < 1 or month > 12:
+		return
+	var bit: int = 1 << (month - 1)
+	harvest_months = (harvest_months | bit) if harvesting else (harvest_months & ~bit)
+
+
+## The harvest window as a person would say it: "July-October", with the new year handled the way a
+## bloom is. Empty when it is not stated.
+func harvest_text() -> String:
+	return months_run_text(harvest_months)
+
+
+## The family it rotates with, in words, or "" when it is not stated.
+func family_name() -> String:
+	return String(FAMILY_NAMES.get(family, ""))
+
+
+## The direct sun it needs, in hours.
+func sun_hours() -> float:
+	return float(sun_hours_tenths) / 10.0
+
+
+## The sun it needs, in hours, as a person would say it: "6 hours" or "6.5 hours". Empty when it is
+## not stated.
+func sun_hours_text() -> String:
+	if sun_hours_tenths <= 0:
+		return ""
+	var hours: float = sun_hours()
+	if is_equal_approx(hours, roundf(hours)):
+		var whole: int = int(roundf(hours))
+		return "%d hour%s" % [whole, "" if whole == 1 else "s"]
+	return "%.1f hours" % hours
+
+
+## Days to the first harvest, in words, or "" when it is not stated.
+func maturity_text() -> String:
+	if maturity_days <= 0:
+		return ""
+	return "%d day%s" % [maturity_days, "" if maturity_days == 1 else "s"]
+
+
+## Whether the catalogue says enough to work out how many plants feed somebody: how much one gives and
+## how much one person eats. Both, or there is nothing to divide.
+func can_yield() -> bool:
+	return yield_per_plant_g > 0 and need_per_person_g > 0
+
+
+## How much one plant gives in a season, in words: "2 kg" or "450 g". Empty when it is not stated.
+func yield_text() -> String:
+	return weight_text(yield_per_plant_g)
+
+
+## How much one person eats of it in a season, in words. Empty when it is not stated.
+func need_text() -> String:
+	return weight_text(need_per_person_g)
+
+
+## A weight in grams as a person writes it: "2 kg", "1.5 kg" or "450 g". Empty for nothing stated.
+##
+## The one place a food weight is turned into words, so a yield and a need cannot come out said two
+## different ways - the same rule the one area conversion keeps.
+static func weight_text(grams: int) -> String:
+	if grams <= 0:
+		return ""
+	if grams < 1000:
+		return "%d g" % grams
+	var kilos: float = float(grams) / 1000.0
+	if is_equal_approx(kilos, roundf(kilos)):
+		return "%d kg" % int(roundf(kilos))
+	return "%.1f kg" % kilos
+
+
+## Everything the catalogue says about it as food, in one line: "leaf, flower; harvested May-June;
+## allium; 6 hours of sun". Empty for a plant the catalogue does not call edible.
+func crop_text() -> String:
+	if not is_edible():
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append(edible_parts_text())
+	var harvest: String = harvest_text()
+	if not harvest.is_empty():
+		parts.append("harvested %s" % harvest)
+	var kin: String = family_name()
+	if not kin.is_empty():
+		parts.append(kin)
+	var hours: String = sun_hours_text()
+	if not hours.is_empty():
+		parts.append("%s of sun" % hours)
+	var days: String = maturity_text()
+	if not days.is_empty():
+		parts.append("%s to maturity" % days)
+	return "; ".join(parts)
+
+
 # --- what it is drawn as -----------------------------------------------------------------
 
 
@@ -331,7 +554,8 @@ func display_name() -> String:
 ## Everything a person might type into a search box for this plant, lowercased.
 func search_text() -> String:
 	var parts: PackedStringArray = PackedStringArray([
-		String(id), botanical_name, common_name, cultivar, category_name()
+		String(id), botanical_name, common_name, cultivar, category_name(),
+		edible_parts_text(), family_name(),
 	])
 	parts.append_array(PackedStringArray(tags))
 	return " ".join(parts).to_lower()
@@ -370,6 +594,24 @@ func problem() -> String:
 		return "plant %s has drainage %d, which is not a set of drainages" % [id, drainage]
 	if (bloom_months & ~0xFFF) != 0:
 		return "plant %s blooms in months outside January..December (bits %d)" % [id, bloom_months]
+	if (edible_parts & ~EDIBLE_ANY) != 0:
+		return "plant %s is eaten as %d, which is not a set of edible parts" % [id, edible_parts]
+	if (harvest_months & ~0xFFF) != 0:
+		return "plant %s is harvested in months outside January..December (bits %d)" % [id, harvest_months]
+	if not family.is_empty() and not FAMILY_NAMES.has(family):
+		return "plant %s rotates with \"%s\", which is not a crop family" % [id, String(family)]
+	if maturity_days < 0:
+		return "plant %s has a negative time to maturity" % id
+	if sun_hours_tenths < 0 or sun_hours_tenths > MAX_SUN_HOURS_TENTHS:
+		return "plant %s needs %d tenths of an hour of sun in a day, which is not a day" % [
+			id, sun_hours_tenths
+		]
+	if yield_per_plant_g < 0 or yield_per_plant_g > MAX_SEASON_GRAMS:
+		return "plant %s gives %d grams in a season, which is not a yield" % [id, yield_per_plant_g]
+	if need_per_person_g < 0 or need_per_person_g > MAX_SEASON_GRAMS:
+		return "plant %s feeds a person %d grams in a season, which is not an amount" % [
+			id, need_per_person_g
+		]
 	if form.strip_edges().is_empty():
 		return "plant %s does not say what it is drawn as" % id
 	return ""
@@ -419,6 +661,18 @@ func to_dict() -> Dictionary:
 		"thumbnail": thumbnail,
 		"tags": tags.duplicate(),
 		"note": note,
+		# Food, and only what is stated: a part eaten, a harvest window, a rotation family, days to
+		# maturity and the sun it needs. Left out meanings are zero/empty, which the reader treats as
+		# "not stated" - an ornamental is not claiming to be inedible.
+		"edible_parts": edible_parts,
+		"harvest_months": harvest_months,
+		"family": String(family),
+		"maturity_days": maturity_days,
+		"sun_hours_tenths": sun_hours_tenths,
+		# How much to plant: how much one gives in a season and how much one person eats of it. Both
+		# left out when not stated - a plant nobody has said this about is not claiming a yield of zero.
+		"yield_per_plant_g": yield_per_plant_g,
+		"need_per_person_g": need_per_person_g,
 	}
 
 
@@ -457,4 +711,11 @@ static func from_dict(data: Dictionary) -> PlantSpecies:
 			if not text.is_empty() and not species.tags.has(text):
 				species.tags.append(text)
 	species.note = String(data.get("note", ""))
+	species.edible_parts = int(data.get("edible_parts", 0))
+	species.harvest_months = int(data.get("harvest_months", 0))
+	species.family = StringName(data.get("family", ""))
+	species.maturity_days = int(data.get("maturity_days", 0))
+	species.sun_hours_tenths = int(data.get("sun_hours_tenths", 0))
+	species.yield_per_plant_g = int(data.get("yield_per_plant_g", 0))
+	species.need_per_person_g = int(data.get("need_per_person_g", 0))
 	return species

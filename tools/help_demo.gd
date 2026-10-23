@@ -15,6 +15,7 @@ extends Node2D
 ## Run `res://scenes/help_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
+const HelpDocScript := preload("res://scripts/help_doc.gd")
 
 
 func _ready() -> void:
@@ -45,7 +46,9 @@ func _ready() -> void:
 	print("the status line: \"", window.said(), "\"")
 
 	print("--- the key reference is the HUD's own, not a second copy ---")
-	var keys_at := window.list_texts().find("Keys")
+	# The row, not the position in the list of subjects: the contents is drawn with section headings,
+	# which are rows a person cannot choose, so a topic's place in `list_texts()` is not its row.
+	var keys_at := window.row_of("Keys")
 	print("the key reference is listed at row ", keys_at)
 	window.select(keys_at)
 	await _settle()
@@ -55,6 +58,21 @@ func _ready() -> void:
 	print("it is the key reference itself, character for character: ", window.shown_body() == hud.keys_text())
 	print("it quotes the undo key: ", window.shown_body().contains("Ctrl+Z"))
 
+	print("--- the contents is grouped under headings ---")
+	for row in window.list_rows():
+		if row in HelpDocScript.section_titles():
+			print("  [", row, "]")
+
+	print("--- the subjects that point at others ---")
+	window.select_topic("Plants")
+	await _settle()
+	print("\"Plants\" points at: ", window.see_links())
+	print("pressing the first one: ", window.follow(window.see_links()[0]))
+	await _settle()
+	print("and the page is now on: \"", window.shown_title(), "\"")
+	print("walking back: ", window.back(), " -> \"", window.shown_title(), "\"")
+	print("and forward again: ", window.forward(), " -> \"", window.shown_title(), "\"")
+
 	print("--- searching the whole manual ---")
 	window.type_search("mulch")
 	await _settle()
@@ -62,6 +80,27 @@ func _ready() -> void:
 	print("the rows it found: ", window.list_texts())
 	print("and it turned to: \"", window.shown_title(), "\"")
 	print("the status line: \"", window.said(), "\"")
+
+	# The same rule the command palette searches its rows by, with the section in the menu's place: a
+	# subject named for the word, then one whose prose discusses it, then one only filed where the word
+	# is written. "water" used to come back in reading order, with the subject called Water: irrigation
+	# last of the four.
+	print("--- a subject is read by the word it is named for first ---")
+	for ranked: String in ["water", "food", "business"]:
+		window.type_search(ranked)
+		await _settle()
+		print("  \"%s\" -> %s" % [ranked, window.list_texts()])
+		print("      opens on \"%s\"" % window.shown_title())
+		print("      the status line: \"", window.said(), "\"")
+
+	# The word the food pages are actually about. It used to find nothing at all: the sowing, the
+	# rotation and the yield were all prose inside one subject, so a person searching for the thing
+	# they wanted was told the manual does not mention it.
+	print("--- a word that has to find something ---")
+	for word: String in ["yield", "succession", "companion"]:
+		window.type_search(word)
+		await _settle()
+		print("  \"%s\" -> %s" % [word, window.list_texts()])
 
 	print("--- searching for nothing real says so rather than showing a near miss ---")
 	window.type_search("zzzznothing")
@@ -76,6 +115,20 @@ func _ready() -> void:
 	print("the list is showing ", window.shown_count(), " rows again")
 	print("back on: \"", window.shown_title(), "\"")
 
+	print("--- the arrow keys walk the contents, stepping over the headings ---")
+	window.select_topic("Plants")
+	await _settle()
+	print("on \"", window.shown_title(), "\"")
+	for _step in 2:
+		window.move_selection(1)
+		print("  down -> \"", window.shown_title(), "\"")
+	window.move_selection(-1)
+	print("  up   -> \"", window.shown_title(), "\"")
+	var walked := 0
+	while window.move_selection(1):
+		walked += 1
+	print("  walking to the foot visits ", walked, " more subjects, stopping on \"", window.shown_title(), "\"")
+
 	print("--- closing it takes it off the screen ---")
 	hud.close_help_window()
 	await _settle()
@@ -83,10 +136,13 @@ func _ready() -> void:
 
 	print("--- opened once more, so the captured frame is the page itself ---")
 	hud.open_help_window()
-	window.select_topic("What this program is")
+	# Left on a subject that points at others, so the captured frame carries the "Read next:" row as
+	# well as the grouped contents. A subject with no links is the exception, not the picture.
+	window.select_topic("Plants")
 	await _settle()
 	print("the window is up: ", hud.is_help_window_open())
 	print("showing \"", window.shown_title(), "\", ", window.shown_count(), " topics in the contents")
+	print("offering to read next: ", window.see_links())
 
 
 ## Let the running scene take a couple of frames, which is where the HUD settles.

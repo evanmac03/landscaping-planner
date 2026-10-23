@@ -180,7 +180,7 @@ func test_the_level_in_hand_is_not_written_into_the_file() -> void:
 	var controller := _controller()
 	_spot_at(controller, Vector2.ZERO, 102.35)
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 10, "the file version: " + str(saved["version"]))
+	assert(int(saved["version"]) == 11, "the file version: " + str(saved["version"]))
 	assert(saved.has("grading"), "the records are in it")
 	assert(not saved.has("grading_level"), "and the level in hand is not")
 	assert(not saved.has("grading_fall_percent"), "nor is the fall in hand")

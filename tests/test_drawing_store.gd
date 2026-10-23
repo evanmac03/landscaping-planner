@@ -85,11 +85,11 @@ func test_the_file_is_json_a_person_can_read() -> void:
 	var file := FileAccess.open(SCRATCH, FileAccess.READ)
 	var text := file.get_as_text()
 	file.close()
-	# Version 10 is the one that states the ground's own heights, on top of version 9's pictures under
-	# the drawing, 8's lighting and 7's irrigation: a reader has to be able to tell "this file has no
-	# level in it" from "this file's level list is empty", and that is the same question the ground and
-	# the sheets ask.
-	assert(text.contains("\"version\": 10"), "the file says what it is")
+	# Version 11 is the one that states how long the growing season is, on top of version 10's ground
+	# heights, 9's pictures under the drawing, 8's lighting and 7's irrigation: a reader has to be able
+	# to tell "this file states no season" from "this file's season is January", and that is the same
+	# question the ground and the sheets ask.
+	assert(text.contains("\"version\": 11"), "the file says what it is")
 	assert(text.contains("\"sheets\""), "and which sheets the drawing goes out as")
 	assert(text.contains("\"irrigation\""), "and what irrigation it carries")
 	assert(text.contains("\"underlays\""), "and what pictures are under it")

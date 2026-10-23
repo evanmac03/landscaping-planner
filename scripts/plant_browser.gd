@@ -63,6 +63,8 @@ var _light_option: OptionButton = null
 var _water_option: OptionButton = null
 var _zone_option: OptionButton = null
 var _bloom_option: OptionButton = null
+## The Food check: narrow the list to what the catalogue says is edible.
+var _edible_chip: CheckBox = null
 var _collection_option: OptionButton = null
 var _tags_row: HFlowContainer = null
 var _body: HSplitContainer = null
@@ -181,6 +183,18 @@ func _build_search_row() -> void:
 	for month: int in range(1, 13):
 		_add_choice(_bloom_option, String(PlantSpecies.MONTH_NAMES[month - 1]), month)
 	_bloom_option.item_selected.connect(func(_index: int) -> void: refresh())
+
+	# Food is a check rather than a drop-down because it is one question with one answer: either you
+	# want only what you can eat, or you do not. It reads the catalogue's own `is_edible` - the parts
+	# a plant says are eaten - rather than the `"edible"` tag, because a tag is free text a nursery
+	# writes and this is a fact the model carries.
+	_edible_chip = CheckBox.new()
+	_edible_chip.name = "Edible"
+	_edible_chip.text = "Food"
+	_edible_chip.focus_mode = Control.FOCUS_NONE
+	_edible_chip.tooltip_text = "Only plants the catalogue says you can eat"
+	_edible_chip.toggled.connect(func(_pressed: bool) -> void: refresh())
+	_filter_row.add_child(_edible_chip)
 
 
 ## One filter as a labelled drop-down. Every one of them is built the same way, because they differ
@@ -456,6 +470,8 @@ func criteria() -> Dictionary:
 		out["zone"] = int(_choice_value(_zone_option))
 	if _choice_value(_bloom_option) != null:
 		out["bloom_month"] = int(_choice_value(_bloom_option))
+	if edible_filter_on():
+		out["edible"] = true
 	var wanted: Array = ticked_tags()
 	if not wanted.is_empty():
 		out["tags"] = wanted
@@ -699,6 +715,21 @@ func set_bloom_filter(month: int) -> bool:
 	return _set_filter(_bloom_option, month)
 
 
+func set_edible_filter(on: bool) -> bool:
+	build()
+	if _edible_chip == null:
+		return false
+	_edible_chip.set_pressed_no_signal(on)
+	refresh()
+	return true
+
+
+## Whether the browser is narrowed to food. Read by `criteria`, so the chip and the filter it drives
+## cannot disagree.
+func edible_filter_on() -> bool:
+	return _edible_chip != null and _edible_chip.button_pressed
+
+
 func set_collection_filter(collection_name: String) -> bool:
 	return _set_filter(_collection_option, collection_name)
 
@@ -782,6 +813,19 @@ func detail_text() -> String:
 	lines.append("Water:     %s" % species.water_text())
 	var bloom: String = species.bloom_text()
 	lines.append("Bloom:     %s" % (bloom if not bloom.is_empty() else "nothing - grown for its foliage"))
+	var crop: String = species.crop_text()
+	if not crop.is_empty():
+		lines.append("Food:      %s" % crop)
+	# The two figures a plan is worked out from, said the way the yield page works them out: how much
+	# one plant gives a season, and how much of it one person eats. Shown here because this is where a
+	# species' own facts live - the page that turns them into a number of plants reads the catalogue,
+	# so the catalogue is where a person checks them.
+	var gives: String = species.yield_text()
+	if not gives.is_empty():
+		lines.append("Gives:     %s a plant" % gives)
+	var eats: String = species.need_text()
+	if not eats.is_empty():
+		lines.append("Eats:      %s a person" % eats)
 	lines.append("Drawn as:  %s" % _drawn_as(species))
 	if not species.tags.is_empty():
 		lines.append("Tags:      %s" % ", ".join(species.tags))

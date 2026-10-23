@@ -18,6 +18,13 @@ extends RefCounted
 ## The **keys**. Every key is already in one place - the input map and the tool tables - and the
 ## reference built from them is a view of those tables rather than a fourth copy of them. The HUD
 ## appends that reference as the last topic, so the manual cannot name a key that does nothing.
+##
+## ## The three claims about the manual
+##
+## Which subjects it covers (`SUBJECTS`), how they are grouped (`SECTIONS`), and which ones point at
+## which (`SEE_ALSO`). Each is a table, and each has a test that holds it against the written topics -
+## "the manual covers everything" and "the contents is grouped" are only claims if something reads
+## them.
 
 ## The subjects the manual has to cover, in the order they are shown.
 ##
@@ -28,7 +35,7 @@ const SUBJECTS: Array[String] = [
 	"What this program is",
 	"Finding any command: the palette",
 	"The three views",
-	"Drawing: the nine tools",
+	"Drawing: the tools",
 	"Snapping and precision",
 	"Editing shapes",
 	"Layers, units and the site",
@@ -37,6 +44,11 @@ const SUBJECTS: Array[String] = [
 	"Importing somebody else's file",
 	"Tracing over a picture",
 	"Plants",
+	"Food: what will crop here",
+	"Food: what to grow here next",
+	"Food: what's ready when",
+	"Food: when to sow",
+	"Food: how much to plant",
 	"Ordering the plants from a nursery",
 	"Water: irrigation",
 	"Light: garden lighting",
@@ -47,17 +59,123 @@ const SUBJECTS: Array[String] = [
 	"Presenting the garden",
 	"The sun and the shadows",
 	"Sheets and plotting",
+	"Sending the drawing out",
 	"Working with others",
 	"Undo, revisions and where your files are",
 	"What the drawing has said",
 ]
 
 
+# --- the shape of the manual ------------------------------------------------------------------
+#
+# Three things about the manual are *structure* rather than prose: the order of the subjects
+# (`SUBJECTS`), the sections the subjects are grouped into (`SECTIONS`), and the subjects that point at
+# each other (`SEE_ALSO`). Each is a table, and each has a test that holds it against the manual, for
+# the reason `SUBJECTS` has one: a claim about the manual is only a claim if something reads it.
+
+## The sections the contents is grouped into, in the order they are read.
+##
+## The list of subjects is flat - one entry per thing to know - but thirty-one flat rows is a wall to
+## look at, so the same subjects arrive under eight headings. A section names the subjects in it and
+## nothing else: the *order* of the subjects is still `SUBJECTS`, and a test checks that the sections
+## are exactly that list, in that order, split up and not rearranged.
+##
+## Written here rather than on each `_topic(...)` call so a section is one edit and a whole group of
+## subjects cannot be half-moved.
+const SECTIONS: Array[Dictionary] = [
+	{"title": "Getting started", "topics": [
+		"What this program is",
+		"Finding any command: the palette",
+		"The three views",
+	]},
+	{"title": "Drawing", "topics": [
+		"Drawing: the tools",
+		"Snapping and precision",
+		"Editing shapes",
+	]},
+	{"title": "The site", "topics": [
+		"Layers, units and the site",
+		"The ground under the garden",
+		"Stating levels and falls",
+		"Importing somebody else's file",
+		"Tracing over a picture",
+	]},
+	{"title": "Plants and food", "topics": [
+		"Plants",
+		"Food: what will crop here",
+		"Food: what to grow here next",
+		"Food: what's ready when",
+		"Food: when to sow",
+		"Food: how much to plant",
+		"Ordering the plants from a nursery",
+	]},
+	{"title": "Water and light", "topics": [
+		"Water: irrigation",
+		"Light: garden lighting",
+	]},
+	{"title": "The business", "topics": [
+		"What it costs: takeoff and estimate",
+		"Leads and the pipeline",
+		"Jobs, crews and the schedule",
+		"Billing and the books",
+	]},
+	{"title": "Presenting and output", "topics": [
+		"Presenting the garden",
+		"The sun and the shadows",
+		"Sheets and plotting",
+		"Sending the drawing out",
+	]},
+	{"title": "History and other people", "topics": [
+		"Working with others",
+		"Undo, revisions and where your files are",
+		"What the drawing has said",
+	]},
+]
+
+## Subjects that point at other subjects: the ones a reader of that subject most often wants next.
+##
+## A cross-reference rather than a mention: a body can name another part of the program in prose, but a
+## person who is standing in the wrong topic needs a way *out* of it. The page draws one button per
+## entry, and a test checks that every subject named here is a subject the manual actually has and that
+## nothing is left pointing at itself.
+##
+## Deliberately short. A topic that links to everything links to nothing.
+##
+## The food subjects read as a chain - what will crop, what to grow next, what is ready when, when to
+## sow, how much to plant, and the order that comes out of it - so each points at the next, and a reader
+## who came in at the middle can walk it either way.
+const SEE_ALSO: Dictionary = {
+	"The three views": ["Presenting the garden", "The sun and the shadows"],
+	"Drawing: the tools": ["Snapping and precision", "Editing shapes"],
+	"The ground under the garden": ["Stating levels and falls", "Plants"],
+	"Plants": ["Food: what will crop here", "Ordering the plants from a nursery"],
+	"Food: what will crop here": ["Food: what to grow here next", "The sun and the shadows"],
+	"Food: what to grow here next": ["Food: what will crop here", "Food: when to sow"],
+	"Food: what's ready when": ["Food: when to sow", "Plants"],
+	"Food: when to sow": ["Food: what's ready when", "Food: how much to plant"],
+	"Food: how much to plant": ["Ordering the plants from a nursery", "Food: what will crop here"],
+	"What it costs: takeoff and estimate": ["Jobs, crews and the schedule", "Billing and the books"],
+	"Presenting the garden": ["The sun and the shadows", "Sending the drawing out"],
+	"Sheets and plotting": ["Sending the drawing out"],
+	"Undo, revisions and where your files are": ["What the drawing has said", "Working with others"],
+}
+
+
 # --- reading the manual ----------------------------------------------------------------------
 
 
-## Every topic, in the order they are read.
+## Every topic, in the order they are read, each stamped with the section it sits in and the subjects
+## it points at.
+##
+## A topic is handed to the page as one dictionary, so the section and the cross-references travel with
+## it: a page that had to look them up in a second table would be a page that knows where the manual
+## keeps its structure, and the manual's structure is `HelpDoc`'s business.
 static func topics() -> Array[Dictionary]:
+	return _annotate(_topics())
+
+
+## The topics as they are written: a title and its prose, and nothing about where they are filed.
+static func _topics() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	out.append(_topic("What this program is", [
 		"A design studio for a garden: it draws the plan, plants it, waters it, lights it, prices the "
@@ -77,6 +195,8 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"Help > Landscaping Planner help opens this manual, Help > Drawing keys opens the key "
 		+ "reference, and Help > Command palette opens one box that reaches every command there is. "
+		+ "In the manual, typing a word into the box at the top narrows the contents to the subjects "
+		+ "that match it, best first, and the up and down arrows step from one subject to the next. "
 		+ "Everything the bar offers is described in here.",
 		"",
 		"There are two ways out of the program and they agree with each other. Escape puts away "
@@ -132,7 +252,7 @@ static func topics() -> Array[Dictionary]:
 		"View > Control hints switches the corner hints off once you know the keys and want the screen "
 		+ "back.",
 	]))
-	out.append(_topic("Drawing: the nine tools", [
+	out.append(_topic("Drawing: the tools", [
 		"Turn the tools on with 0 (Draft > Drawing tools). Nothing can be drawn while they are away, "
 		+ "which is also what stops a stray key from putting a shape on the plan.",
 		"",
@@ -147,15 +267,27 @@ static func topics() -> Array[Dictionary]:
 		"7  aligned dim  two points to measure and somewhere to put the line",
 		"8  linear dim   the same, measured along the axis the picks lie along",
 		"9  radial dim   the centre and a point on the circle, with a leader",
+		".  angular dim  the corner, a point along each of its two sides, and where the arc stands",
 		"",
 		"Enter finishes a polyline, C closes it into a polygon, Backspace drops the last point picked, "
-		+ "and Escape cancels the shape in hand without putting the tool away.",
+		+ "and Escape cancels the shape in hand without putting the tool away. The angular dimension is "
+		+ "the one tool that is not on a digit: the nine number keys are already spoken for, so it takes "
+		+ "the full stop.",
 		"",
-		"The measure tool is a check rather than a drawing: it never commits anything. The three "
+		"The measure tool is a check rather than a drawing: it never commits anything. The four "
 		+ "dimension commands are annotations - they are drawn on the dimension layer, they are kept out "
 		+ "of the 3D views, and they are never counted as work to be priced.",
 		"",
 		"Everything is drawn on the layer in hand, and nothing can be drawn onto a locked layer.",
+		"",
+		"The four dimension commands share one standard - the marks at their ends, the lines that set "
+		+ "them out, which side the text sits on, and how finely it is written. K steps to the next "
+		+ "standard, and Edit > Dimension standard picks one; the shipped ones are architectural, "
+		+ "engineering and minimal.",
+		"",
+		"Draft > Hatch a region... is the one drafting act that is not a tool in hand: it asks which "
+		+ "closed shape to fill and with what, and lays a hatch, a crosshatch, dots or a solid on the "
+		+ "hatch layer.",
 	]))
 	out.append(_topic("Snapping and precision", [
 		"The cursor is snapped by priority rather than by closeness, so a snap that is merely the "
@@ -175,7 +307,7 @@ static func topics() -> Array[Dictionary]:
 		+ "committed.",
 	]))
 	out.append(_topic("Editing shapes", [
-		"Six commands, on letters, for geometry that already exists. Arm one and it prompts for its own "
+		"Eight commands, on letters, for geometry that already exists. Arm one and it prompts for its own "
 		+ "picks.",
 		"",
 		"O  offset   draw a new shape a fixed distance out from the one you pick",
@@ -184,6 +316,8 @@ static func topics() -> Array[Dictionary]:
 		"I  fillet   round the corner where two lines meet, to a radius",
 		"E  erase    take the picked shape off the drawing",
 		"U  rotate   turn the picked shape about a point you pick, to the direction you click",
+		"J  move     pick a point on the shape, then click where it should go",
+		"Y  copy     the same, leaving the original where it was",
 		"",
 		"A turn is rigid and spelled out for every kind of shape, so a turned bed is the same bed and a "
 		+ "circle's centre moves while its radius does not.",
@@ -236,6 +370,17 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"Site > Check the planting reports what is planted in the wrong place, and Site > Site statistics "
 		+ "reports what the drawing covers, measured by layer.",
+		"",
+		"Site > How long the season is states the growing season - the last frost of spring and the "
+		+ "first frost of autumn - for the whole site. It is kept with the drawing beside the latitude, "
+		+ "because it is the same kind of fact, and it is the one thing about the site that no drawing "
+		+ "can supply.",
+		"",
+		"With a season stated, every food crop in the plant list is measured against its length: a crop "
+		+ "that takes longer to ripen than the season lasts will not finish before the frost comes back, "
+		+ "and one that finishes only just in time is shown as a narrow fit rather than a comfortable "
+		+ "one. A season nobody has stated checks nothing, which is not the same as finding that "
+		+ "everything fits.",
 	]))
 	out.append(_topic("Stating levels and falls", [
 		"Ground levels are facts about the plan rather than decoration: a spot level says how high the "
@@ -330,6 +475,83 @@ static func topics() -> Array[Dictionary]:
 		"A plant list can be imported and exported, so a nursery's list can be brought in without "
 		+ "retyping it.",
 	]))
+	out.append(_topic("Food: what will crop here", [
+		"The food garden answers the question a vegetable bed is really for: will this crop get the sun "
+		+ "it needs where I am putting it? Plant > What will crop here... asks it of one bed at a time.",
+		"",
+		"Choose a bed and a crop. A bed's light is the one stated for that ground - full sun, part shade "
+		+ "or full shade - and those words stand for a span of hours: full sun is six or more, part shade "
+		+ "three to six, shade under three. A crop carries its own number of hours, taken from the plant "
+		+ "list rather than guessed, and the two are put side by side.",
+		"",
+		"The site's own longest day is the ceiling. No bed is outdoors after the sun has set, so a crop "
+		+ "wanting more hours than midsummer can give is refused however sunny the corner: the answer "
+		+ "there is a different crop and not a better bed.",
+		"",
+		"The page reads what the ground is *stated* to be and never measures the shade of a wall or a "
+		+ "tree; the sun and shadow study is the tool for that, and it says as much itself. A bed nobody "
+		+ "has described comes back unknown rather than green, because a crop that was never checked is "
+		+ "not the same as one that will crop.",
+		"",
+		"The list beside the check shows every food plant in the plant list against the bed in hand, best "
+		+ "first, so you can see what the ground would carry rather than only whether one crop fits.",
+		]))
+	out.append(_topic("Food: what to grow here next", [
+		"Plant > What to grow here next... asks the other half of the question: not what will crop, but "
+		+ "what should follow what. A food crop belongs to a family - a brassica, a nightshade, a legume - and "
+		+ "the one law of crop rotation is that the same family shall not follow itself, because a "
+		+ "brassica after a brassica shares its pests and its diseases year on year. A legume in front of "
+		+ "it is a gift: beans and peas are grown in a rotation because they leave the ground richer than "
+		+ "they found it.",
+		"",
+		"Say what grew in the bed last - the page asks, because a drawing was never told a season it was "
+		+ "never in - choose a crop, and the page says whether it follows on well. It also says what each "
+		+ "crop grows well beside and what to keep it from: that is companion planting, and it is mostly "
+		+ "tradition rather than science, so the page holds the pairings a kitchen gardener would "
+		+ "recognise and claims no more than that. A bed whose history nobody has stated comes back "
+		+ "unknown rather than green.",
+		]))
+	out.append(_topic("Food: what's ready when", [
+		"Plant > What's ready when... is the calendar. Pick a month and read every crop the plant list "
+		+ "records as ready then, with what of each one is cut - the leaves, the fruit, the root.",
+		"",
+		"It reads the plant list alone, because when a crop is ready is a fact about the crop and not "
+		+ "about the ground, so it needs no drawing at all. It opens on the month with the most in it "
+		+ "rather than on a blank January. A crop the list says nothing about is counted apart rather "
+		+ "than shown on a month it was never given, and a month with nothing ready simply says so.",
+		]))
+	out.append(_topic("Food: when to sow", [
+		"Plant > When to sow... is the season spent rather than stated: a day to sow on, a crop to sow, "
+		+ "and what the two come to together. A crop takes a stated number of days from sowing to its first "
+		+ "harvest, so sown on a given day it is ready on a day you can count - and that day either comes "
+		+ "before the first frost or it does not. Sowing before the last frost is a gamble the page calls "
+		+ "tolerated rather than right or wrong, because a hardy crop shrugs it off and a tender one does "
+		+ "not.",
+		"",
+		"Sow the same crop again every few weeks and its harvest moves on rather than ripening all at "
+		+ "once: that is a succession, and the page works out how many sowings fit before the frost and "
+		+ "when the last one is. It reads the season the Site menu holds and never touches the drawing - "
+		+ "it works out the day a crop would be ready, not that the ground is warm - so a sowing it calls "
+		+ "in time still needs the weather to agree. A crop the list gives no time to maturity is counted "
+		+ "as unknown rather than assumed to fit.",
+		]))
+	out.append(_topic("Food: how much to plant", [
+		"Plant > How much to plant... asks a household's question rather than the ground's: how many of a "
+		+ "crop it takes to feed a given number of people. One plant gives so many grams in a season - "
+		+ "that is its yield - and one person eats so many, so the amount eaten divided by the yield is "
+		+ "how many plants are wanted. That is rounded up, because half a plant is not a plant, and then "
+		+ "lifted by a spare, because no garden brings every plant in whole.",
+		"",
+		"It reads the plant list alone, like the calendar, and gives a count rather than a verdict: a "
+		+ "count is a fact, not a judgement. A crop that states neither its yield nor how much a person "
+		+ "eats is counted apart, naming the fact that is missing, rather than given a number nobody "
+		+ "stated.",
+		"",
+		"The count is what a nursery order is written from: Order these plants on this page hands the "
+		+ "crops straight to Plant > Order the plants for this drawing..., which prices them from the "
+		+ "cost book, while this page says what you would need to plant. Working the number out plants "
+		+ "nothing - it is a plan, and the plants still have to go in the ground.",
+	]))
 	out.append(_topic("Ordering the plants from a nursery", [
 		"Plant > Order the plants for this drawing... prices everything standing in the drawing from the "
 		+ "cost book and writes it out as a nursery order: one line per kind of plant, carrying the "
@@ -382,9 +604,9 @@ static func topics() -> Array[Dictionary]:
 		+ "lighting schedule with each circuit's load.",
 	]))
 	out.append(_topic("What it costs: takeoff and estimate", [
-		"Estimate > Take off the plan measures the drawing: the areas, the lengths and the counts, by "
-		+ "layer, from the same linework the plan is drawn with. Nothing is measured twice, because the "
-		+ "drawing was measured as it was drawn.",
+		"Estimate > Takeoff and estimate... is the page this all happens on. Take off the plan measures "
+		+ "the drawing: the areas, the lengths and the counts, by layer, from the same linework the plan "
+		+ "is drawn with. Nothing is measured twice, because the drawing was measured as it was drawn.",
 		"",
 		"The takeoff is priced from the cost book: a list of items with their unit, their cost, their "
 		+ "waste and their markup, and the kits that expand into their own lines. A line the book cannot "
@@ -431,6 +653,13 @@ static func topics() -> Array[Dictionary]:
 		+ "cost as what arrives is recorded. A change order is proposed, sent and approved, and only an "
 		+ "approved one joins the contract sum - a declined or withdrawn one is neither agreed nor "
 		+ "pending.",
+		"",
+		"Jobs > Finishing the job is the punch list walked at the end: each item is raised with where "
+		+ "it is and what is wrong, put right, and then checked - an item nobody checked is not "
+		+ "finished. Stating the day the garden was handed over starts the warranty, which covers "
+		+ "plant material, hardscape, irrigation and lighting for a stated term; a claim against it has "
+		+ "to be answered, covered or not, before it can be done. Moving the hand-over date needs a "
+		+ "reason, because the warranty runs from it.",
 	]))
 	out.append(_topic("Billing and the books", [
 		"Jobs > What has been billed is the billing desk: the schedule a job is billed by, the invoices "
@@ -454,15 +683,16 @@ static func topics() -> Array[Dictionary]:
 	]))
 	out.append(_topic("Presenting the garden", [
 		"Present > Client presentation turns the client presentation on: the camera, the sun and the "
-		+ "rendering budget. A better tier costs more and buys sharper shadows; no tier ever takes the "
-		+ "shadows off the garden.",
+		+ "rendering budget. Present > Quality chooses that budget - a better tier costs more and buys "
+		+ "sharper shadows, and no tier ever takes the shadows off the garden.",
 		"",
 		"Frame the garden puts the camera above the design looking down at it. The sun is the drawing's "
 		+ "own site at a moment you choose, aimed by the clock - so a still of a summer afternoon is the "
 		+ "afternoon that place really has.",
 		"",
-		"Render a still writes a picture at the size chosen above it, into the proposals folder, and a "
-		+ "still is two files: the picture and the record of how it was taken, so it can be taken again.",
+		"Render a still writes a picture at the size Still size has chosen above it, into the proposals "
+		+ "folder, and a still is two files: the picture and the record of how it was taken, so it can be "
+		+ "taken again.",
 		"",
 		"Present > Save the site to the drawing keeps the camera and the sun with the drawing rather "
 		+ "than with this session.",
@@ -509,6 +739,25 @@ static func topics() -> Array[Dictionary]:
 		"",
 		"Sheets are written as PDFs where the program can write files, so a plan can be sent to a "
 		+ "printer or a client from here.",
+	]))
+	out.append(_topic("Sending the drawing out", [
+		"The drawing leaves the program as more than a sheet. Two of the ways out are files another "
+		+ "program can open, and one is a picture for a proposal.",
+		"",
+		"File > Save the drawing as a DXF... writes the design as two-dimensional linework, on the layers "
+		+ "it was drawn on and in the drawing's own units, at a scale the file states. It is what hands a "
+		+ "plan to somebody else's CAD program, and what this program can read back in as an underlay.",
+		"",
+		"File > Save the yard as a 3D model... writes the garden itself - the ground, the built elements "
+		+ "and the plants - as a model file a builder, a lighting designer or the next program can open. "
+		+ "It is the one export here that carries the third dimension rather than a projection of it.",
+		"",
+		"File > Render a proposal still, and Present > Render a still, write a picture of the garden from "
+		+ "the client presentation - the same act from two places, and the topic on presenting says what "
+		+ "the picture comes to.",
+		"",
+		"Writing a drawing out changes nothing about it. Each door says where the file went, and the two "
+		+ "that ask for a name will take the extension it needs.",
 	]))
 	out.append(_topic("Working with others", [
 		"Team > Share this drawing opens a session: whoever is in it sees who else is there, and the "
@@ -565,6 +814,30 @@ static func topics() -> Array[Dictionary]:
 	return out
 
 
+## Each topic with the section it sits in and the subjects it points at, read off `SECTIONS` and
+## `SEE_ALSO`.
+##
+## A subject in neither table gets an empty section and no links, which is what the keys topic the HUD
+## appends would get if the HUD did not name a section for it: a topic with no section is simply not
+## under a heading, rather than broken. That is the honest reading of a topic that has not been filed.
+##
+## The parameter is not called `topics`, because that is this class's own function and a parameter of
+## that name shadows it.
+static func _annotate(entries: Array[Dictionary]) -> Array[Dictionary]:
+	var filed := {}
+	for section: Dictionary in SECTIONS:
+		for title: String in section["topics"]:
+			filed[title] = String(section["title"])
+	for topic: Dictionary in entries:
+		var title := String(topic.get("title", ""))
+		topic["section"] = String(filed.get(title, ""))
+		var links: Array[String] = []
+		for target: Variant in (SEE_ALSO.get(title, []) as Array):
+			links.append(String(target))
+		topic["see"] = links
+	return entries
+
+
 ## The subjects, so a test can compare the manual against what it claims to cover.
 static func titles() -> Array[String]:
 	var all: Array[Dictionary] = topics()
@@ -606,29 +879,86 @@ static func body_for(title: String) -> String:
 	return String(topics()[at]["body"])
 
 
-## The topics a search finds, in the order they are read. An empty search finds every topic, which
-## is what makes emptying the search box the way back to the whole manual.
+## The sections, in the order a person reads them. The headings the contents is grouped under.
+static func section_titles() -> Array[String]:
+	var out: Array[String] = []
+	for section: Dictionary in SECTIONS:
+		out.append(String(section["title"]))
+	return out
+
+
+## The section a subject sits in, or "" when no section names it.
+static func section_of(title: String) -> String:
+	var at: int = index_of(title)
+	if at < 0:
+		return ""
+	return String(topics()[at].get("section", ""))
+
+
+## The subjects a subject points at - its "read next", empty when it points at none.
+static func see_for(title: String) -> Array[String]:
+	var out: Array[String] = []
+	var at: int = index_of(title)
+	if at < 0:
+		return out
+	for target: Variant in topics()[at].get("see", []):
+		out.append(String(target))
+	return out
+
+
+## The topics a search finds, best first. An empty search finds every topic, which is what makes
+## emptying the search box the way back to the whole manual.
 ##
-## The words are matched lowercased, so a search is not case-sensitive, and the title counts as well
-## as the body - somebody typing "invoice" is asking about a subject, not about a mention.
+## The words are matched lowercased over the title, the body and the section, so a search is not
+## case-sensitive and a subject is found by its own name as readily as by a word in its prose -
+## somebody typing "invoice" is asking about a subject, not about a mention.
+##
+## The order is the **command palette's rule**, with this manual's own third field in the middle of it.
+## A palette row is read by its own name first and by the menu it is filed under last; a subject is
+## read by its title first and by the section it is filed under last, and it has a third thing a
+## command in a bar has not got, which is prose. So: a title that *starts* with the word beats one that
+## merely contains it, either beats a body that discusses it, and any of those beats a subject that is
+## only *filed* somewhere the word is written. Ties keep the reading order, so the same search gives the
+## same list every time - and a manual is read in order, so its order is the one to keep them in.
+##
+## The last tier is the one to be careful of talking up: a subject that comes back because its section
+## is named for the word need not itself contain the word. That is why the page says the search
+## *matches* rather than that every subject it found *mentions* it.
 static func find_in(among: Array[Dictionary], query: String) -> Array[int]:
-	var out: Array[int] = []
-	var needle := query.strip_edges().to_lower()
+	var wanted := query.strip_edges().to_lower()
+	if wanted == "":
+		var everything: Array[int] = []
+		for index in among.size():
+			everything.append(index)
+		return everything
+	# One list per way of matching, each filled in the order the topics are given - so every tier is
+	# already in reading order and only the tiers have to be joined.
+	var named_for_it: Array[int] = []
+	var in_the_name: Array[int] = []
+	var in_the_prose: Array[int] = []
+	var filed_under_it: Array[int] = []
 	for index in among.size():
-		if needle == "" or _mentions(among[index], needle):
-			out.append(index)
+		var topic: Dictionary = among[index]
+		var title := String(topic.get("title", "")).to_lower()
+		if title.begins_with(wanted):
+			named_for_it.append(index)
+		elif title.contains(wanted):
+			in_the_name.append(index)
+		elif String(topic.get("body", "")).to_lower().contains(wanted):
+			in_the_prose.append(index)
+		elif String(topic.get("section", "")).to_lower().contains(wanted):
+			filed_under_it.append(index)
+	var out: Array[int] = []
+	out.append_array(named_for_it)
+	out.append_array(in_the_name)
+	out.append_array(in_the_prose)
+	out.append_array(filed_under_it)
 	return out
 
 
 ## The same search over the manual itself.
 static func find(query: String) -> Array[int]:
 	return find_in(topics(), query)
-
-
-static func _mentions(topic: Dictionary, needle: String) -> bool:
-	if String(topic.get("title", "")).to_lower().contains(needle):
-		return true
-	return String(topic.get("body", "")).to_lower().contains(needle)
 
 
 ## One line about the manual, for a status line or a log.

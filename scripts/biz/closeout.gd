@@ -185,6 +185,8 @@ func describe() -> String:
 			if want == 0
 			else "%d claim%s wanting somebody" % [want, "" if want == 1 else "s"]
 		)
+	if parts.size() == 1:
+		return parts[0]
 	return "%s (%s)" % [parts[0], ", ".join(parts.slice(1))]
 
 

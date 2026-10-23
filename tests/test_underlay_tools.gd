@@ -300,7 +300,7 @@ func test_what_is_under_the_drawing_is_written_down_and_read_back() -> void:
 	var id := int(controller.place_underlay(_source("saved"), 12.0)["id"])
 	controller.change_underlay(id, {"rotation_deg": 30.0, "opacity": 0.5})
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 10, "version 10 is the one that states the ground's heights too: %d" % int(saved["version"]))
+	assert(int(saved["version"]) == 11, "version 11 is the one that states the growing season too: %d" % int(saved["version"]))
 	assert(saved.has("underlays"), "and they are written out")
 	var loaded: DraftDocument = DocumentScript.from_dict(JSON.parse_string(JSON.stringify(saved)))
 	assert(loaded.underlays.size() == 1, str(loaded.underlays.size()))

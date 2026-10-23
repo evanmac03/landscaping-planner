@@ -25,6 +25,38 @@ extends Window
 
 ## The palette was closed, by Escape, by its own button, or by its own frame.
 signal closed()
+func _on_close_requested() -> void:
+	hide()
+	closed.emit()
+
+
+## The floor the window opens at, brought down to what a screen actually has room for.
+## A palette is shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
+## that screen would fight the clamp and push the page's own controls off the edge - so the floor comes
+## down to fit as well, and is never wider or taller than the page asked for in the first place.
+static func clamped_minimum(available: Vector2i) -> Vector2i:
+	if available.x <= 0 or available.y <= 0:
+		return SIZE
+	return Vector2i(mini(SIZE.x, available.x), mini(SIZE.y, available.y))
+
+
+## Bring the palette's floor down to what the screen it will land on can hold.
+func clamp_to_screen() -> Vector2i:
+	var screen := DisplayServer.window_get_current_screen()
+	var available := DisplayServer.screen_get_usable_rect(screen).size
+	min_size = clamped_minimum(available)
+	return min_size
+
+
+## Put the palette on the screen, with the keyboard already in the field - the whole point of the box
+## is that a word can be typed into it without reaching for it first.
+## Now with a floor clamped to the screen so controls do not run off the edges on small displays.
+func open() -> void:
+	build()
+	clamp_to_screen()
+	popup_centered_clamped()
+	if _search != null:
+		_search.grab_focus()
 ## A row was chosen. The row is carried whole, because the method it names and the entry that
 ## describes it are what runs it: the palette knows nothing about what any command does.
 signal chosen(row: Dictionary)
@@ -290,16 +322,7 @@ func search_field() -> LineEdit:
 # --- showing it --------------------------------------------------------------------------------
 
 
-## Put the palette on the screen, with the keyboard already in the field - the whole point of the box
-## is that a word can be typed into it without reaching for it first.
-func open() -> void:
-	build()
-	popup_centered()
-	if _search != null:
-		_search.grab_focus()
 
-
-## Take it off the screen. Says so once, however it was closed.
 func close_palette() -> void:
 	if not visible:
 		return
@@ -467,16 +490,20 @@ static func _quoted(words: String) -> String:
 # --- what it does -----------------------------------------------------------------------------
 
 
-## Move the cursor up or down the list, wrapping round, so the arrows are a way through the list
-## without reaching for the mouse.
+## Move the cursor up or down the list, stopping at ends and skipping non-selectable items (headings),
+## so the arrows walk the command list subject to subject rather than furniture.
 func _move_selection(step: int) -> void:
 	var count := _list.item_count if _list != null else 0
 	if count == 0:
 		return
 	var picked: PackedInt32Array = _list.get_selected_items()
 	var current: int = picked[0] if not picked.is_empty() else -1
-	var next: int = 0 if current < 0 else posmod(current + step, count)
-	select(next)
+	var at := current + step
+	while at >= 0 and at < count:
+		if _list.is_item_selectable(at):
+			select(at)
+			return
+		at += step
 
 
 func _on_row_selected(index: int) -> void:
@@ -522,5 +549,3 @@ func _on_search_gui_input(event: InputEvent) -> void:
 			_search.accept_event()
 
 
-func _on_close_requested() -> void:
-	close_palette()

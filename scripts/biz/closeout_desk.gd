@@ -75,54 +75,54 @@ func raise_item(job_id: String, where: String, what: String, by: String, at: Str
 	var no_job: String = _job_problem(job_id)
 	if not no_job.is_empty():
 		return {"ok": false, "reason": no_job, "id": ""}
-	var item: PunchItem = ItemScript.make(next_item_id(), job_id, at, where, what, by)
-	if item == null:
+	var held_item: PunchItem = ItemScript.make(next_item_id(), job_id, at, where, what, by)
+	if held_item == null:
 		return {"ok": false, "reason": _item_refusal(where, what, by, at), "id": ""}
-	item.who = who.strip_edges()
-	items.append(item)
-	return {"ok": true, "reason": "", "id": item.id}
+	held_item.who = who.strip_edges()
+	items.append(held_item)
+	return {"ok": true, "reason": "", "id": held_item.id}
 
 
 func fix_item(item_id: String, at: String, note: String = "") -> Dictionary:
-	var item: PunchItem = item(item_id)
-	if item == null:
+	var held_item: PunchItem = item(item_id)
+	if held_item == null:
 		return {"ok": false, "reason": "there is no item %s" % item_id}
-	if not item.mark_fixed(at, note):
-		return {"ok": false, "reason": _act_refusal(item, "fixed", at)}
+	if not held_item.mark_fixed(at, note):
+		return {"ok": false, "reason": _act_refusal(held_item, "fixed", at)}
 	return {"ok": true, "reason": ""}
 
 
 func accept_item(item_id: String, by: String, at: String) -> Dictionary:
-	var item: PunchItem = item(item_id)
-	if item == null:
+	var held_item: PunchItem = item(item_id)
+	if held_item == null:
 		return {"ok": false, "reason": "there is no item %s" % item_id}
-	if not item.mark_accepted(by, at):
-		if item.is_fixed():
+	if not held_item.mark_accepted(by, at):
+		if held_item.is_fixed():
 			return {"ok": false, "reason": _nobody_or_moment("checking", by, at)}
-		return {"ok": false, "reason": "'%s' is %s, so there is nothing to check" % [item_id, item.state_name()]}
+		return {"ok": false, "reason": "'%s' is %s, so there is nothing to check" % [item_id, held_item.state_name()]}
 	return {"ok": true, "reason": ""}
 
 
 func reject_item(item_id: String, by: String, at: String, why: String) -> Dictionary:
-	var item: PunchItem = item(item_id)
-	if item == null:
+	var held_item: PunchItem = item(item_id)
+	if held_item == null:
 		return {"ok": false, "reason": "there is no item %s" % item_id}
-	if not item.mark_rejected(by, at, why):
-		if item.is_fixed():
+	if not held_item.mark_rejected(by, at, why):
+		if held_item.is_fixed():
 			return {"ok": false, "reason": _nobody_or_reason("rejecting", by, why, at)}
-		return {"ok": false, "reason": "'%s' is %s, so there is nothing to reject" % [item_id, item.state_name()]}
+		return {"ok": false, "reason": "'%s' is %s, so there is nothing to reject" % [item_id, held_item.state_name()]}
 	return {"ok": true, "reason": ""}
 
 
 ## Take an item off the list: raised in error, or agreed with the client to be left as it is. It
 ## keeps its record, so the list still says it was there.
 func withdraw_item(item_id: String, by: String, at: String, why: String) -> Dictionary:
-	var item: PunchItem = item(item_id)
-	if item == null:
+	var held_item: PunchItem = item(item_id)
+	if held_item == null:
 		return {"ok": false, "reason": "there is no item %s" % item_id}
-	if not item.mark_withdrawn(by, at, why):
-		if item.is_closed() or item.is_withdrawn():
-			return {"ok": false, "reason": "'%s' is %s, and it cannot be taken off again" % [item_id, item.state_name()]}
+	if not held_item.mark_withdrawn(by, at, why):
+		if held_item.is_closed() or held_item.is_withdrawn():
+			return {"ok": false, "reason": "'%s' is %s, and it cannot be taken off again" % [item_id, held_item.state_name()]}
 		return {"ok": false, "reason": _nobody_or_reason("withdrawing", by, why, at)}
 	return {"ok": true, "reason": ""}
 
@@ -255,10 +255,10 @@ func file_claim(job_id: String, at: String, what: String, by: String) -> Diction
 		return {"ok": false, "reason": "%s has no warranty yet, so there is nothing to claim against" % _job_words(job_id), "id": ""}
 	if not RateScript.is_date(at) or what.strip_edges().is_empty() or by.strip_edges().is_empty():
 		return {"ok": false, "reason": _claim_refusal(at, what, by), "id": ""}
-	var claim: WarrantyClaim = record.file_claim(at, what, by)
-	if claim == null:
+	var filed: WarrantyClaim = record.file_claim(at, what, by)
+	if filed == null:
 		return {"ok": false, "reason": "%s's warranty cannot be read, so a claim cannot be judged against it" % _job_words(job_id), "id": ""}
-	return {"ok": true, "reason": "", "id": claim.id}
+	return {"ok": true, "reason": "", "id": filed.id}
 
 
 ## Answer a claim: covered or not, with the reason either way.
@@ -280,10 +280,10 @@ func finish_claim(job_id: String, claim_id: String, at: String, note: String = "
 	if record == null or record.claim(claim_id) == null:
 		return {"ok": false, "reason": "there is no claim %s against %s" % [claim_id, _job_words(job_id)]}
 	if not record.finish_claim(claim_id, at, note):
-		var claim: WarrantyClaim = record.claim(claim_id)
-		if not claim.is_answered():
+		var held_claim: WarrantyClaim = record.claim(claim_id)
+		if not held_claim.is_answered():
 			return {"ok": false, "reason": "claim %s has not been answered yet" % claim_id}
-		if not claim.covered:
+		if not held_claim.covered:
 			return {"ok": false, "reason": "claim %s is not covered, so there is nothing to do" % claim_id}
 		return {"ok": false, "reason": "claim %s wants a date it was done on" % claim_id}
 	return {"ok": true, "reason": ""}
@@ -291,7 +291,10 @@ func finish_claim(job_id: String, claim_id: String, at: String, note: String = "
 
 func claim_rows(job_id: String) -> Array[Dictionary]:
 	var record: Warranty = warranty_for(job_id)
-	return [] as Array[Dictionary] if record == null else record.claim_rows()
+	var empty: Array[Dictionary] = []
+	if record == null:
+		return empty
+	return record.claim_rows()
 
 
 # --- the answer a page asks for ---------------------------------------------------------------
@@ -492,9 +495,9 @@ func _term_refusal(parts: Array, months: int, starts_on: String) -> String:
 
 ## The one thing wrong with an act that a record has already refused, in the record's own terms: the
 ## state it is in, or the person or the moment it is missing.
-func _act_refusal(item: PunchItem, doing: String, at: String) -> String:
-	if not item.is_open():
-		return "'%s' is %s, so it cannot be %s" % [item.id, item.state_name(), doing]
+func _act_refusal(held_item: PunchItem, doing: String, at: String) -> String:
+	if not held_item.is_open():
+		return "'%s' is %s, so it cannot be %s" % [held_item.id, held_item.state_name(), doing]
 	return "'%s' is not a date this program writes" % at
 
 

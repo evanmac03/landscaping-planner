@@ -148,6 +148,9 @@ static func months_after(date: String, how_many_months: int) -> String:
 	var month: int = date.substr(5, 2).to_int()
 	var day: int = date.substr(8, 2).to_int()
 	var counted: int = year * 12 + (month - 1) + how_many_months
+	# Whole years and the leftover month are exact here: counted is never negative (year and
+	# how_many_months are both >= 1), so the truncating division is the intended one.
+	@warning_ignore("integer_division")
 	var target_year: int = counted / 12
 	var target_month: int = counted % 12 + 1
 	while day > 0:
@@ -167,11 +170,11 @@ static func months_after(date: String, how_many_months: int) -> String:
 func file_claim(at: String, about: String, by: String) -> WarrantyClaim:
 	if not is_sound():
 		return null
-	var claim: WarrantyClaim = ClaimScript.make(next_claim_id(), job_id, at, about, by)
-	if claim == null:
+	var filed: WarrantyClaim = ClaimScript.make(next_claim_id(), job_id, at, about, by)
+	if filed == null:
 		return null
-	claims.append(claim)
-	return claim
+	claims.append(filed)
+	return filed
 
 
 func claim(claim_id: String) -> WarrantyClaim:

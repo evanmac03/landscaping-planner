@@ -57,7 +57,7 @@ func test_the_page_opens_saying_what_to_do_with_it() -> void:
 	assert(page.selected_job() == "J1", "the only job is the one in hand")
 	assert(page.status_text().contains("Walk the job"), page.status_text())
 	assert(page.hint_text().contains("substantial completion has not been stated"), page.hint_text())
-	assert(page.summary_text().contains("the punch list is done: 0 items closed"), page.summary_text())
+	assert(page.summary_text().contains("nothing on the punch list"), page.summary_text())
 	assert(page.warranty_text() == "no warranty has been stated for this job", page.warranty_text())
 	_free(page)
 
@@ -180,7 +180,10 @@ func test_taking_an_item_off_the_list_through_the_page() -> void:
 	page._on_withdraw("PL-1")
 	assert(desk.item("PL-1").is_withdrawn())
 	assert(page.status_text().contains("off the list"), page.status_text())
-	assert(page.summary_text().contains("0 outstanding"), "and it stops counting: %s" % page.summary_text())
+	assert(
+		page.summary_text().contains("the punch list is done: 1 item closed (1 withdrawn)"),
+		"and it stops counting: %s" % page.summary_text()
+	)
 	_free(page)
 
 

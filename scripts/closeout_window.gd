@@ -152,6 +152,7 @@ func _build_job_row() -> HBoxContainer:
 	_job_option.name = "JobOption"
 	_job_option.custom_minimum_size = Vector2(320, 0)
 	_job_option.focus_mode = Control.FOCUS_NONE
+	_job_option.item_selected.connect(_on_job_selected)
 	row.add_child(_job_option)
 	_why_field = _field("WhyField", "why: needed to reject or take an item off, or to move the date", 420)
 	row.add_child(_why_field)
@@ -320,7 +321,7 @@ func hint_text() -> String:
 	var problems: Array[String] = report.problems()
 	if problems.is_empty():
 		return "Nothing is left: the punch list is done and the garden has been handed over."
-	return problems[0]
+	return "; ".join(PackedStringArray(problems))
 
 
 func summary_text() -> String:
@@ -329,7 +330,7 @@ func summary_text() -> String:
 	var report: Closeout = _report()
 	if report == null:
 		return "That job is not on the desk any more."
-	return report.describe()
+	return "%s — %s" % [desk.describe(), report.describe()]
 
 
 func punch_text() -> String:
@@ -362,8 +363,9 @@ func _fill_pickers() -> void:
 			for held: Job in desk.job_desk.jobs:
 				_job_ids.append(held.id)
 				_job_option.add_item(desk.job_desk.job_label(held.id))
-		if not keep.is_empty():
-			choose_job(keep)
+		var index := _job_ids.find(keep)
+		if index >= 0:
+			_job_option.select(index)
 
 
 ## The punch list: one row per item, with the acts it is ready for live and the rest dead. A dead
@@ -438,11 +440,13 @@ func _fill_claims() -> void:
 ## correcting rather than guessing at four unchecked boxes.
 func _fill_part_boxes() -> void:
 	var report: Closeout = _report()
-	var held: Warranty = null if report == null else report.warranty
+	if report == null or report.warranty == null:
+		return
+	var held: Warranty = report.warranty
 	for part: String in _part_boxes:
 		var box: CheckBox = _part_boxes[part]
-		box.button_pressed = held != null and held.covers(part)
-	if held != null and _months_field != null:
+		box.button_pressed = held.covers(part)
+	if _months_field != null:
 		_months_field.text = str(held.months)
 		_starts_field.text = held.starts_on
 		_excludes_field.text = "; ".join(PackedStringArray(held.excludes))
@@ -507,6 +511,10 @@ func choose_job(job_id: String) -> bool:
 	_job_option.select(index)
 	refresh()
 	return true
+
+
+func _on_job_selected(_index: int) -> void:
+	refresh()
 
 
 func item_texts() -> Array[String]:

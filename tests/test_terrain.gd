@@ -209,11 +209,11 @@ func test_the_ground_travels_in_the_file_and_moves_with_undo() -> void:
 	assert(document.set_environment(stated), "stating the ground is a change")
 	assert(not document.set_environment(stated.copy()), "and stating the same thing again is not")
 	# A version 5 file carries it, and the version is what says so: 6 states the sheets as well, 7 the
-	# irrigation, 8 the lighting, 9 the pictures under the drawing and 10 the ground's own heights, and
-	# the number is what a reader tells "no ground in this file" by, so it moves whenever the meaning
-	# of the file does.
+	# irrigation, 8 the lighting, 9 the pictures under the drawing, 10 the ground's own heights and 11
+	# the growing season, and the number is what a reader tells "no ground in this file" by, so it
+	# moves whenever the meaning of the file does.
 	var saved: Dictionary = document.to_dict()
-	assert(int(saved["version"]) == 10, "the file states what the ground is like: version %d" % int(saved["version"]))
+	assert(int(saved["version"]) == 11, "the file states what the ground is like: version %d" % int(saved["version"]))
 	assert(saved.has("environment"), "and it is written out")
 	var loaded: DraftDocument = Document.from_dict(saved)
 	assert(loaded.environment.base.soil_name() == Profile.SAND, "and read back")

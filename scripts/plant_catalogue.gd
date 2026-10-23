@@ -173,6 +173,7 @@ static func _by_rank(first: Dictionary, second: Dictionary) -> bool:
 ## `water_max`, `water_min` - water need as a scale
 ## `height_max_cm`, `height_min_cm`, `spread_max_cm`
 ## `tag` - one required tag; `tags` - an Array of tags, all required
+## `edible` - true for a plant the catalogue says is food (see `PlantSpecies.is_edible`)
 ## `form` - drawn as that prop scene
 ## `sort` - `botanical` (default), `common`, `height`, `spread`, `bloom`, `zone`; `descending`
 ##
@@ -194,7 +195,7 @@ func filter(criteria: Dictionary) -> Array[PlantSpecies]:
 static func unknown_criterion(criteria: Dictionary) -> String:
 	const KNOWN := [
 		"text", "category", "sun", "bloom_month", "zone", "water_max", "water_min",
-		"height_max_cm", "height_min_cm", "spread_max_cm", "tag", "tags", "form",
+		"height_max_cm", "height_min_cm", "spread_max_cm", "tag", "tags", "edible", "form",
 		"sort", "descending",
 	]
 	for key: Variant in criteria.keys():
@@ -233,6 +234,8 @@ static func matches(plant: PlantSpecies, criteria: Dictionary) -> bool:
 				if not plant.tags.has(String(tag)):
 					return false
 	if criteria.has("form") and plant.form != String(criteria["form"]):
+		return false
+	if criteria.has("edible") and bool(criteria["edible"]) and not plant.is_edible():
 		return false
 	return true
 

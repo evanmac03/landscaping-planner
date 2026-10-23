@@ -344,6 +344,8 @@ const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
 const BillingWindowScript := preload("res://scripts/billing_window.gd")
 const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
 const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
+const CloseoutDeskScript := preload("res://scripts/biz/closeout_desk.gd")
+const CloseoutWindowScript := preload("res://scripts/closeout_window.gd")
 const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
 const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
 const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
@@ -353,6 +355,13 @@ const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
 ## is a screen, so it does not.
 const PlantOrderScript := preload("res://scripts/biz/plant_order.gd")
 const PlantOrderWindowScript := preload("res://scripts/plant_order_window.gd")
+const FoodWindowScript := preload("res://scripts/food_window.gd")
+const RotationWindowScript := preload("res://scripts/rotation_window.gd")
+const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
+const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
+const SeasonWindowScript := preload("res://scripts/season_window.gd")
+const SowingWindowScript := preload("res://scripts/sowing_window.gd")
+const YieldWindowScript := preload("res://scripts/yield_window.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -446,6 +455,43 @@ var _plant_order_window: PlantOrderWindowScript = null
 ## What the last refresh of that page was drawn from: the planting rows and the desk's own counts. The
 ## page is about the yard and about the jobs, and either can move while it is open.
 var _plant_order_state: String = ""
+## When the yield page hands its household's count over, this is the plan the order page is about instead
+## of the drawing's planting. Empty means the order is the drawing's own planting.
+var _plant_order_plan_override: Dictionary = {}
+## The food garden: what will crop in a bed, and which beds suit which crops. A window, because the
+## question is what a *bed* and a *crop* come to together and a menu can hold neither.
+var _food_window: FoodWindow = null
+## What the last refresh of that page was drawn from: the ground's own beds and the site. Both can move
+## under the page, so both are in the signature.
+var _food_state: String = ""
+## What to grow here next, and what grows well beside: the kitchen gardener's other question, and the
+## one thing beside it that a drawing cannot answer - what grew in a bed last, which the page holds.
+var _rotation_window: RotationWindow = null
+## What the last refresh of that page was drawn from: the ground's own beds, by name.
+var _rotation_state: String = ""
+## What is ready when: the year as twelve lists of crops, one month at a time - the most direct reading
+## of the one food fact the catalogue always has, a crop's harvest window.
+var _harvest_window: HarvestWindow = null
+## What the last refresh of that page was drawn from: the plant list's own crops and their windows.
+var _harvest_state: String = ""
+## How long the season is: the site's own frost dates and which food crops have time to finish
+## between them. A window, because the dates are typed; and the one food page that *writes* to the
+## drawing, because a frost date is a fact about the site that no drawing can supply.
+var _season_window: SeasonWindow = null
+## What the last refresh of that page was drawn from: which drawing is open and the season it states.
+var _season_state: String = ""
+## When to sow and how to keep it coming: the growing season read as a sowing calendar - a day to sow, a
+## crop to sow, and the succession that repeats it. A window, because the day and the interval are
+## typed; it reads the drawing's season but writes nothing, so it is the season page's reading half.
+var _sowing_window: SowingWindow = null
+## What the last refresh of that page was drawn from: the drawing's season and the plant list's crops.
+var _sowing_state: String = ""
+## How much to plant: the same plant list asked a household's question - how many plants it takes to feed
+## a given number of people. A window, because the people and the spare are typed; it reads the list and
+## nothing else, so it needs no drawing at all.
+var _yield_window: YieldWindow = null
+## What the last refresh of that page was drawn from: every crop's yield and share of one person.
+var _yield_state: String = ""
 ## The study of the sun: a list of moments, and what the height in hand casts at each. A window,
 ## because the height is typed and the study is built out of the fields.
 var _sun_window: SunWindowScript = null
@@ -490,6 +536,11 @@ var _billing_window: BillingWindow = null
 ## billing desk, because what an office hands over is the documents that desk holds.
 var _ledger_desk: LedgerDesk = null
 var _ledger_window: LedgerWindow = null
+## Finishing the job: the punch list, the day the garden was handed over and the warranty that runs
+## from it. The fifth window onto the same desk - and the last thing about a job, which is why it is
+## the last entry in the Jobs menu.
+var _closeout_desk: CloseoutDesk = null
+var _closeout_window: CloseoutWindow = null
 ## The report: the figures of §10 over the three desks above. It holds nothing of its own - every
 ## figure is recomputed from the records for the window and the moment it is asked about - so there is
 ## nothing here to keep in step with the desks, only a page that reads it again.
@@ -566,6 +617,14 @@ func _ready() -> void:
 	_build_underlay_window()
 	_build_grading_window()
 	_build_plant_order_window()
+	# The food garden: the same drawing and the same list as the menu above, asked the other question
+	# a garden is for - where the food will actually crop.
+	_build_food_window()
+	_build_rotation_window()
+	_build_harvest_window()
+	_build_season_window()
+	_build_sowing_window()
+	_build_yield_window()
 	_build_estimate_window()
 	_build_pipeline_board()
 	_build_job_desk()
@@ -575,6 +634,8 @@ func _ready() -> void:
 	_build_billing_window()
 	_build_ledger_desk()
 	_build_ledger_window()
+	_build_closeout_desk()
+	_build_closeout_window()
 	_build_analytics_report()
 	_build_analytics_window()
 	# The sun's study: a window, because the height it reports about is typed into it.
@@ -610,6 +671,24 @@ func _process(delta: float) -> void:
 	_tick_grading_window()
 	# And the same for the plants to buy: the yard and the job desk both move under that page.
 	_tick_plant_order_window()
+	# And the same for the food garden: a bed's light is stated on the drawing, and the site a crop is
+	# checked against moves with the presentation.
+	_tick_food_window()
+	# And the beds the rotation page offers: a bed stated on the drawing while that page is up is a bed
+	# it should offer.
+	_tick_rotation_window()
+	# And the harvest calendar: it reads the plant list, which does not change under an open page except
+	# when a list is imported, so its tick is almost always a no-op and costs almost nothing.
+	_tick_harvest_window()
+	# And the growing season: it lives on the drawing, so a drawing opened behind the page, or an undo
+	# that puts older frost dates back, has to reach it.
+	_tick_season_window()
+	# And when to sow: it reads the same drawing's season, so the same move - a drawing opened or an
+	# undo - has to reach it too.
+	_tick_sowing_window()
+	# And how much to plant: it reads the plant list, which does not change under an open page except when
+	# a list is imported, so its tick is almost always a no-op and costs almost nothing.
+	_tick_yield_window()
 	# And the same for the sun: the study's own site lives on the drawing, and an undo can put another
 	# one back under a page that is open.
 	_tick_sun_window()
@@ -1667,6 +1746,12 @@ func pages_in_windows() -> Array[Window]:
 		_underlay_window,
 		_grading_window,
 		_plant_order_window,
+		_food_window,
+		_rotation_window,
+		_harvest_window,
+		_season_window,
+		_sowing_window,
+		_yield_window,
 		_sun_window,
 		_status_window,
 		_estimate_window,
@@ -1675,6 +1760,7 @@ func pages_in_windows() -> Array[Window]:
 		_cost_window,
 		_billing_window,
 		_ledger_window,
+		_closeout_window,
 		_analytics_window,
 	]
 	return pages
@@ -2054,6 +2140,13 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(&"site.window", "What the ground is like...", &"", &"_menu_ground_window"))
 	items.append(_command(&"site.zone", "Draw a ground zone...", &"", &"_menu_draw_ground_zone"))
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
+	# The growing season: two frost dates that no drawing can supply, stated once for the site and kept
+	# with it. Every food crop's "days to maturity" is measured against the season they bound, so this
+	# is the one site fact the kitchen garden rests on.
+	items.append(_info(&"site.season", "the growing season is not stated"))
+	items.append(_command(
+		&"site.season.window", "How long the season is...", &"", &"_menu_season_window", NEEDS_DRAFT
+	))
 	items.append(_separator())
 	# The ground's own heights. Apart from the conditions above, because a level is a fact about the
 	# shape of the land while a condition is a fact about what will grow on it - and a plan can be
@@ -2113,6 +2206,9 @@ static func jobs_items() -> Array[Dictionary]:
 	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
 	items.append(_command(&"jobs.outbox", "What has been handed to a ledger...", &"", &"_menu_ledger_window"))
 	items.append(_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window"))
+	# Finishing the job: the punch list walked at the end, the day the garden was handed over, and the
+	# warranty that runs from it. Business data like the rest of this menu, so it needs no drawing.
+	items.append(_command(&"jobs.closeout", "Finishing the job...", &"", &"_menu_closeout_window"))
 	return items
 
 
@@ -2153,6 +2249,30 @@ static func plant_items() -> Array[Dictionary]:
 	# because the plants are in the yard, which is a fact about the plan and not about the list.
 	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"plant_order",
 		&"_menu_plant_order_window", NEEDS_DRAFT))
+	# The food garden: the same drawing and the same list, asked the other question a garden is for -
+	# where the food will actually crop. It needs the drawing because a bed's light is stated on the
+	# plan, and a crop's hours are checked against the bed rather than against the list.
+	items.append(_command(&"plant.food", "What will crop here...", &"", &"_menu_food_window",
+		NEEDS_DRAFT))
+	# What to grow here next: the kitchen gardener's other question - what should follow what, and what
+	# grows well together. It needs the drawing for the bed names, and states the bed's history itself,
+	# because no drawing was ever told what grew there last season.
+	items.append(_command(&"plant.rotation", "What to grow here next...", &"",
+		&"_menu_rotation_window", NEEDS_DRAFT))
+	# What is ready when: the same plant list read as a calendar - pick a month and see every crop
+	# recorded as ready then. It needs nothing but the list, so it needs no drawing; the entry sits here
+	# among its food neighbours rather than in a menu of its own.
+	items.append(_command(&"plant.harvest", "What's ready when...", &"",
+		&"_menu_harvest_window", NEEDS_NOTHING))
+	# When to sow: the season read as a sowing calendar - a day to sow on and how long a crop can be kept
+	# coming. It needs the drawing because the season lives there, and the list because a crop's days to
+	# maturity do; what it does not do is write either.
+	items.append(_command(&"plant.sow", "When to sow...", &"", &"_menu_sowing_window", NEEDS_DRAFT))
+	# How much to plant: the same list asked a household's question - how many plants it takes to feed a
+	# given number of people. It needs nothing but the list, so it needs no drawing, and the entry sits
+	# here among its food neighbours rather than in a menu of its own.
+	items.append(_command(&"plant.yield", "How much to plant...", &"", &"_menu_yield_window",
+		NEEDS_NOTHING))
 	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
 	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
@@ -3392,6 +3512,10 @@ func close_keys() -> void:
 
 ## The subject the keys live under, appended to the manual's own topics.
 const KEYS_TOPIC := "Keys"
+## The heading the keys are listed under. The manual's own sections come from `HelpDoc`; this one is
+## the HUD's, because the keys topic is the HUD's - it is derived from the key tables, not written out
+## as prose, so it is not a subject of the manual and has no section in the manual's own table.
+const KEYS_SECTION := "Reference"
 
 
 ## Build the manual's window by hand, so the window the designer opens is the window this file has
@@ -3410,7 +3534,9 @@ func _build_help_window() -> void:
 ## written into it, because the keys come from the tables that actually drive the program.
 func help_topics() -> Array[Dictionary]:
 	var topics: Array[Dictionary] = HelpDocScript.topics()
-	topics.append({"title": KEYS_TOPIC, "body": keys_text()})
+	# Filed under its own heading: the keys are the one subject the manual does not carry as prose, and
+	# left unsectioned they would sit under the last section of the manual and read as part of it.
+	topics.append({"title": KEYS_TOPIC, "body": keys_text(), "section": KEYS_SECTION})
 	return topics
 
 
@@ -3426,7 +3552,9 @@ func open_help_window() -> void:
 	if _help_window == null:
 		return
 	_fill_help_window()
-	_help_window.popup_centered()
+	# Opening is the page's own business: it fits its floor to the screen it lands on and puts the
+	# keyboard in the search box, so a word can be typed without reaching for the box first.
+	_help_window.open()
 	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
 	# the drawing keys belong to the drawing again.
 	release_keyboard_focus(self)
@@ -5753,7 +5881,21 @@ func _build_plant_order_window() -> void:
 	_plant_order_window.hide()
 
 
+## The menu's door: the drawing's own planting. It forgets anything the yield page handed over, because
+## "order the plants for this drawing" is a question about the drawing and not about a household.
 func open_plant_order_window() -> void:
+	_forget_handed_plan()
+	_show_plant_order_window()
+
+
+## Forget a plan a household handed over, so the order page is about the drawing's planting again.
+func _forget_handed_plan() -> void:
+	_plant_order_plan_override = {}
+
+
+## Show the order page on the plan it is pointed at, whether that is the drawing's planting or a count a
+## household worked out. Built and filled without a screen, so the suite drives the same page.
+func _show_plant_order_window() -> void:
 	_build_plant_order_window()
 	if _plant_order_window == null:
 		return
@@ -5806,11 +5948,20 @@ func _plant_order_signature() -> String:
 	if _job_desk != null:
 		jobs = _job_desk.jobs.size()
 		orders = _job_desk.purchase_orders.size()
-	return "%d|%d|%d" % [hash(_planting_rows()), jobs, orders]
+	# A plan handed over by the yield page is a fixed number of plants until it is handed over again, so its
+	# size is enough to notice a re-hand-off - and the drawing's planting is what the page keeps up with the
+	# rest of the time.
+	if not _plant_order_plan_override.is_empty():
+		var handed: int = (_plant_order_plan_override.get("lines", []) as Array).size()
+		return "handed|%d|%d|%d" % [handed, jobs, orders]
+	return "drawing|%d|%d|%d" % [hash(_planting_rows()), jobs, orders]
 
 
-## The plan: the drawing's planting, priced from the price list, one line per kind of plant.
+## The plan: the drawing's planting, priced from the price list, one line per kind of plant - or the count
+## the yield page handed over, already priced, if there is one.
 func plant_order_plan() -> Dictionary:
+	if not _plant_order_plan_override.is_empty():
+		return _plant_order_plan_override
 	return PlantOrderScript.plan(_planting_rows(), _plant_order_book())
 
 
@@ -5857,6 +6008,582 @@ func _on_plant_order_requested(job_id: String, supplier: String) -> void:
 
 func _menu_plant_order_window(_entry: Dictionary) -> void:
 	open_plant_order_window()
+
+
+## The yield page handed its household's count over: price those rows from the same book the drawing's
+## planting is priced from, point the order page at the result, and show it. Everything up to the screen
+## is `_show_yield_order`, which needs no window server, so the suite can drive the join.
+func _on_yield_order_requested(rows: Array) -> void:
+	_show_yield_order(rows)
+	if _plant_order_window != null:
+		_plant_order_window.popup_centered()
+	release_keyboard_focus(self)
+	if _yield_window != null:
+		_yield_window.say("handed %d kind%s to the nursery order"
+			% [rows.size(), "" if rows.size() == 1 else "s"])
+
+
+## Point the order page at the rows a household's count comes to, priced, and fill it - without showing
+## it. Returns the plan handed over, so the join can be checked with no screen.
+func _show_yield_order(rows: Array) -> Dictionary:
+	_plant_order_plan_override = PlantOrderScript.plan(rows, _plant_order_book())
+	_fill_plant_order_window()
+	return _plant_order_plan_override
+
+
+# --- the food garden -------------------------------------------------------------------------
+#
+# The other question the same drawing and the same plant list are for: not what a plant wants, but
+# whether the food a person means to eat will actually crop where they mean to put it. It owns nothing
+# - `CropSun` is the arithmetic, the ground map is the document's, the site is the presentation's, and
+# the plant list is the one the Plant menu already counts - so all this file does is hand each of the
+# three to the page.
+
+
+func _build_food_window() -> void:
+	if _food_window != null:
+		return
+	_food_window = FoodWindowScript.new()
+	_food_window.name = "FoodWindow"
+	add_child(_food_window)
+	_food_window.build()
+	_food_window.closed.connect(_on_food_window_closed)
+	_food_window.hide()
+
+
+func open_food_window() -> void:
+	_build_food_window()
+	if _food_window == null:
+		return
+	_fill_food_window()
+	_food_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_food_window() -> void:
+	if _food_window != null:
+		_food_window.hide()
+
+
+func is_food_window_open() -> bool:
+	return _food_window != null and _food_window.visible
+
+
+## Point the page at the plant list, the drawing's own beds and the site. Built and filled without a
+## screen, so the suite drives the same page the program shows - `popup_centered` needs a screen and a
+## test has none.
+func _fill_food_window() -> void:
+	_build_food_window()
+	if _food_window == null:
+		return
+	_food_window.bind(plant_list(), food_places(), _sun_site())
+	_food_state = _food_signature()
+	_refresh_menus()
+
+
+## The beds the page offers: the site's own conditions, then every area the ground map knows, each
+## merged over the site's - so a bed stated part shade in a full-sun garden reads as part shade, and
+## the keys it does not state follow the garden rather than reading as unstated.
+##
+## A scene with no drawing has no ground, and the page is told so rather than handed a bed nobody
+## stated. The *rows* are not read here: `ZoneMap.zones` holds one entry per area, and the page lists
+## the crops, not the ground.
+func food_places() -> Array:
+	var places: Array = []
+	var map: ZoneMapScript = _ground_map()
+	if map == null:
+		return places
+	places.append({
+		"name": "the whole site",
+		"profile": map.base.copy(),
+		"summary": map.base.describe(),
+	})
+	for raw: Variant in map.zones:
+		var zone: Variant = raw
+		var stated: TerrainProfile = zone.profile
+		var profile: TerrainProfile = stated.merged_over(map.base)
+		places.append({
+			"name": String(zone.name),
+			"profile": profile,
+			"summary": profile.describe(),
+		})
+	return places
+
+
+## The page while it is up: the ground and the site can both move under it - a bed restated in the
+## ground window, a drawing loaded with another site - so it is read again whenever either has. The
+## *plant list* is deliberately not read again: it is a file, and a page left open does not have to
+## keep up with a list somebody is editing on another screen.
+func _tick_food_window() -> void:
+	if _food_window == null or not _food_window.visible:
+		return
+	var state := _food_signature()
+	if state == _food_state:
+		return
+	_food_state = state
+	_fill_food_window()
+
+
+## What the last refresh was drawn from: the beds, each described in its own words, and the site. The
+## beds are compared by the words the page shows rather than by their geometry, because the words are
+## what a restated bed changes.
+func _food_signature() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for place: Dictionary in food_places():
+		parts.append("%s=%s" % [String(place.get("name", "")), String(place.get("summary", ""))])
+	parts.append(str(_sun_site()))
+	return "|".join(parts)
+
+
+func _menu_food_window(_entry: Dictionary) -> void:
+	open_food_window()
+
+
+func _on_food_window_closed() -> void:
+	_refresh_menus()
+
+
+# --- what to grow here next -------------------------------------------------------------------
+#
+# The kitchen gardener's other question, asked of the same beds: not what will crop, but what should
+# follow what and what grows well beside. It owns nothing either - `CropRotation` is the arithmetic,
+# the beds are the drawing's ground, the plant list is the Plant menu's - and the one thing it keeps
+# that nothing else can is *what grew in a bed last*, which the document was never told and which the
+# page holds while it is up.
+
+
+func _build_rotation_window() -> void:
+	if _rotation_window != null:
+		return
+	_rotation_window = RotationWindowScript.new()
+	_rotation_window.name = "RotationWindow"
+	add_child(_rotation_window)
+	_rotation_window.build()
+	_rotation_window.closed.connect(_on_rotation_window_closed)
+	_rotation_window.hide()
+
+
+func open_rotation_window() -> void:
+	_build_rotation_window()
+	if _rotation_window == null:
+		return
+	_fill_rotation_window()
+	_rotation_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_rotation_window() -> void:
+	if _rotation_window != null:
+		_rotation_window.hide()
+
+
+func is_rotation_window_open() -> bool:
+	return _rotation_window != null and _rotation_window.visible
+
+
+## Point the page at the plant list and the ground's own beds. Built and filled without a screen, so
+## the suite drives the same page the program shows. The stated history starts empty, which is right:
+## the beds it was about are being replaced.
+func _fill_rotation_window() -> void:
+	_build_rotation_window()
+	if _rotation_window == null:
+		return
+	_rotation_window.bind(plant_list(), rotation_places())
+	_rotation_state = _rotation_signature()
+	_refresh_menus()
+
+
+## The beds the rotation page offers: the ground's own areas, by name and by what they are. A bed is a
+## bed whether it is being checked for sun or for rotation, so these are the same places the food page
+## is handed - it is only that this page needs a bed to have an identity, not a light level.
+func rotation_places() -> Array:
+	var places: Array = []
+	var map: ZoneMapScript = _ground_map()
+	if map == null:
+		return places
+	places.append({"name": "the whole site", "summary": map.base.describe()})
+	for raw: Variant in map.zones:
+		var zone: Variant = raw
+		var profile: TerrainProfile = zone.profile.merged_over(map.base)
+		places.append({"name": String(zone.name), "summary": profile.describe()})
+	return places
+
+
+## The page while it is up: a bed stated on the drawing behind it is a bed it should offer, so the bed
+## set is read again whenever it has changed. Only the beds are handed over - the history the page
+## holds is kept, because a bed being added elsewhere does not unstate what grew in another.
+func _tick_rotation_window() -> void:
+	if _rotation_window == null or not _rotation_window.visible:
+		return
+	var state := _rotation_signature()
+	if state == _rotation_state:
+		return
+	_rotation_state = state
+	_rotation_window.set_places(rotation_places())
+
+
+## What the last refresh was drawn from: the beds by name. A bed restated in the ground window has the
+## same name, which is the point - rotation is about a bed and its history, not about its light.
+func _rotation_signature() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for place: Dictionary in rotation_places():
+		parts.append(String(place.get("name", "")))
+	return "|".join(parts)
+
+
+func _menu_rotation_window(_entry: Dictionary) -> void:
+	open_rotation_window()
+
+
+func _on_rotation_window_closed() -> void:
+	_refresh_menus()
+
+
+# --- what is ready when -----------------------------------------------------------------------
+#
+# The third reading of the same kitchen garden, and the plainest: not where a crop will grow or what
+# should follow it, but *when* it is cut. It reads one thing - the plant list's own harvest windows -
+# and owns nothing, not even a bed: a harvest time is a fact about the crop, not about the ground, so
+# the page needs no drawing. An import that changes the list is the only thing it ever has to keep up
+# with, which is why its tick is a no-op the rest of the time.
+
+
+func _build_harvest_window() -> void:
+	if _harvest_window != null:
+		return
+	_harvest_window = HarvestWindowScript.new()
+	_harvest_window.name = "HarvestWindow"
+	add_child(_harvest_window)
+	_harvest_window.build()
+	_harvest_window.closed.connect(_on_harvest_window_closed)
+	_harvest_window.hide()
+
+
+func open_harvest_window() -> void:
+	_build_harvest_window()
+	if _harvest_window == null:
+		return
+	_fill_harvest_window()
+	_harvest_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_harvest_window() -> void:
+	if _harvest_window != null:
+		_harvest_window.hide()
+
+
+func is_harvest_window_open() -> bool:
+	return _harvest_window != null and _harvest_window.visible
+
+
+## Point the page at the plant list. Built and filled without a screen, so the suite drives the same
+## page the program shows - `popup_centered` needs a screen and a test has none.
+func _fill_harvest_window() -> void:
+	_build_harvest_window()
+	if _harvest_window == null:
+		return
+	_harvest_window.bind(plant_list())
+	_harvest_state = _harvest_signature()
+	_refresh_menus()
+
+
+## The page while it is up. Unlike the food and rotation pages, nothing on the drawing can change what
+## it shows: it reads the plant list and nothing else, so it is read again only when that list does.
+func _tick_harvest_window() -> void:
+	if _harvest_window == null or not _harvest_window.visible:
+		return
+	var state := _harvest_signature()
+	if state == _harvest_state:
+		return
+	_harvest_state = state
+	_harvest_window.bind(plant_list())
+
+
+## What the last refresh was drawn from: every crop and the window it is ready in. The list is a file
+## read once and held, so this walks what is already in memory; two lists with the same crops and the
+## same windows show the same calendar, which is exactly when a refresh is not needed.
+func _harvest_signature() -> String:
+	var catalogue: PlantCatalogue = plant_list()
+	if catalogue == null:
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	for plant: PlantSpecies in catalogue.all():
+		parts.append("%s:%d" % [String(plant.id), plant.harvest_months])
+	return "|".join(parts)
+
+
+func _menu_harvest_window(_entry: Dictionary) -> void:
+	open_harvest_window()
+
+
+func _on_harvest_window_closed() -> void:
+	_refresh_menus()
+
+
+# --- when to sow -------------------------------------------------------------------------------
+#
+# The growing season read as a calendar: a day to sow on, a crop to sow, and the succession of sowings
+# that keeps it coming. It reads two things - the drawing's frost dates and the plant list's times to
+# maturity - and writes nothing, so it is the season page's reading half: the season page states the
+# season, and this spends it. It needs the drawing because the season lives there.
+
+
+func _build_sowing_window() -> void:
+	if _sowing_window != null:
+		return
+	_sowing_window = SowingWindowScript.new()
+	_sowing_window.name = "SowingWindow"
+	add_child(_sowing_window)
+	_sowing_window.build()
+	_sowing_window.closed.connect(_on_sowing_window_closed)
+	_sowing_window.hide()
+
+
+func open_sowing_window() -> void:
+	_build_sowing_window()
+	if _sowing_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_fill_sowing_window()
+	_sowing_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_sowing_window() -> void:
+	if _sowing_window != null:
+		_sowing_window.hide()
+
+
+func is_sowing_window_open() -> bool:
+	return _sowing_window != null and _sowing_window.visible
+
+
+## Point the page at the drawing's season and the plant list. Built and filled without a screen, so the
+## suite drives the same page the program shows - `popup_centered` needs a screen and a test has none.
+func _fill_sowing_window() -> void:
+	_build_sowing_window()
+	if _sowing_window == null:
+		return
+	_sowing_window.bind(plant_list(), _draft.document if _draft != null else null)
+	_sowing_state = _sowing_signature()
+	_refresh_menus()
+
+
+## The page while it is up: the drawing's season can move behind it - another window, or an undo that
+## puts older frost dates back - so the season it sows into is read again whenever the drawing or its
+## dates move, or the plant list is imported again. The day in hand is not touched: it is the person's.
+func _tick_sowing_window() -> void:
+	if _sowing_window == null or not _sowing_window.visible:
+		return
+	var state := _sowing_signature()
+	if state == _sowing_state:
+		return
+	_sowing_state = state
+	_sowing_window.set_document(_draft.document if _draft != null else null)
+	_sowing_window.set_catalogue(plant_list())
+
+
+## What the last refresh was drawn from: the drawing's season and the plant list's crops. Both the
+## drawing's own identity and the list's crops are in it, because a *different* drawing that states the
+## same season is still a different season to sow into, and an imported list changes what will ripen.
+func _sowing_signature() -> String:
+	return "%s|%s" % [_season_signature(), _harvest_signature()]
+
+
+func _menu_sowing_window(_entry: Dictionary) -> void:
+	open_sowing_window()
+
+
+func _on_sowing_window_closed() -> void:
+	_refresh_menus()
+
+
+# --- how much to plant -------------------------------------------------------------------------
+#
+# The kitchen garden's last reading: not where a crop will grow or when it ripens, but how many of it a
+# household needs. It reads the plant list and nothing else - how much a plant gives is a fact about the
+# plant and how many people are eating is a fact about a household, neither of which was ever told to a
+# drawing - so it needs no drawing, like the harvest calendar.
+
+
+func _build_yield_window() -> void:
+	if _yield_window != null:
+		return
+	_yield_window = YieldWindowScript.new()
+	_yield_window.name = "YieldWindow"
+	add_child(_yield_window)
+	_yield_window.build()
+	_yield_window.closed.connect(_on_yield_window_closed)
+	# The page works out a count and hands it over; turning that count into a nursery order is this file's
+	# errand, because the plant list, the price list and the job desk are all here.
+	_yield_window.order_requested.connect(_on_yield_order_requested)
+	_yield_window.hide()
+
+
+func open_yield_window() -> void:
+	_build_yield_window()
+	if _yield_window == null:
+		return
+	_fill_yield_window()
+	_yield_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_yield_window() -> void:
+	if _yield_window != null:
+		_yield_window.hide()
+
+
+func is_yield_window_open() -> bool:
+	return _yield_window != null and _yield_window.visible
+
+
+## Point the page at the plant list. Built and filled without a screen, so the suite drives the same page
+## the program shows - `popup_centered` needs a screen and a test has none.
+func _fill_yield_window() -> void:
+	_build_yield_window()
+	if _yield_window == null:
+		return
+	_yield_window.bind(plant_list())
+	_yield_state = _yield_signature()
+	_refresh_menus()
+
+
+## The page while it is up: the plant list is the only thing that can change what it shows, so it is read
+## again only when an import changes the list - its tick is a no-op the rest of the time.
+func _tick_yield_window() -> void:
+	if _yield_window == null or not _yield_window.visible:
+		return
+	var state := _yield_signature()
+	if state == _yield_state:
+		return
+	_yield_state = state
+	_yield_window.set_catalogue(plant_list())
+
+
+## What the last refresh was drawn from: every crop and the two facts the plan needs. A list that changed
+## a yield or a share shows a different plan, which is exactly when a refresh is needed.
+func _yield_signature() -> String:
+	var catalogue: PlantCatalogue = plant_list()
+	if catalogue == null:
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	for plant: PlantSpecies in catalogue.all():
+		parts.append("%s:%d:%d" % [String(plant.id), plant.yield_per_plant_g, plant.need_per_person_g])
+	return "|".join(parts)
+
+
+func _menu_yield_window(_entry: Dictionary) -> void:
+	open_yield_window()
+
+
+func _on_yield_window_closed() -> void:
+	_refresh_menus()
+
+
+# --- the growing season -------------------------------------------------------------------------
+#
+# The site's own frost dates, and what they mean for the food list. Every other food page reads the
+# drawing; this one writes to it, because a frost date is the one input the drawing cannot supply -
+# the same shape the sun study has with its casting height, except this one is a fact about the site
+# and so is kept on the drawing rather than on a page.
+
+
+func _build_season_window() -> void:
+	if _season_window != null:
+		return
+	_season_window = SeasonWindowScript.new()
+	_season_window.name = "SeasonWindow"
+	add_child(_season_window)
+	_season_window.build()
+	_season_window.season_changed.connect(_on_season_changed)
+	_season_window.closed.connect(_on_season_window_closed)
+	_season_window.hide()
+
+
+func open_season_window() -> void:
+	_build_season_window()
+	if _season_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_fill_season_window()
+	_season_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_season_window() -> void:
+	if _season_window != null:
+		_season_window.hide()
+
+
+func is_season_window_open() -> bool:
+	return _season_window != null and _season_window.visible
+
+
+## Point the page at the drawing and the plant list. Built and filled without a screen, so the suite
+## drives the same page the program shows - `popup_centered` needs a screen and a test has none.
+func _fill_season_window() -> void:
+	_build_season_window()
+	if _season_window == null:
+		return
+	_season_window.set_document(_draft.document if _draft != null else null)
+	_season_window.set_catalogue(plant_list())
+	_season_state = _season_signature()
+	_refresh_menus()
+
+
+## The page while it is up: the drawing can be replaced behind it - a file opened, an undo that puts
+## an older state back - so the season it shows is read again whenever the drawing or its dates move.
+## The *fields* are not touched: what a person is about to fill in is theirs, and the page keeps it.
+func _tick_season_window() -> void:
+	if _season_window == null or not _season_window.visible:
+		return
+	var state := _season_signature()
+	if state == _season_state:
+		return
+	_season_state = state
+	_season_window.set_document(_draft.document if _draft != null else null)
+	_season_window.set_catalogue(plant_list())
+
+
+## What the last refresh was drawn from: which drawing is open and the season it states. The drawing
+## is named by its instance rather than by its site, so a *different* drawing that happens to state
+## the same season is still read again - the page is about a drawing, not about a pair of numbers.
+func _season_signature() -> String:
+	if _draft == null or _draft.document == null:
+		return "no drawing"
+	var document: DraftDocument = _draft.document
+	return "%d:%d:%d" % [
+		document.get_instance_id(), document.season_last_frost, document.season_first_frost
+	]
+
+
+## What the Site menu says about the season, in one line. Lower-cased at the front because a menu
+## entry is a line of a menu and not a sentence paragraph.
+func _season_text() -> String:
+	var document: DraftDocument = _draft.document if _draft != null else null
+	if document == null:
+		return "there is no drawing to state a growing season on"
+	var words := GrowingSeasonScript.season_text(document.season_last_frost, document.season_first_frost)
+	if words.is_empty():
+		return "the growing season is not stated"
+	return words.substr(0, 1).to_lower() + words.substr(1)
+
+
+func _menu_season_window(_entry: Dictionary) -> void:
+	open_season_window()
+
+
+## The season changed on the drawing: the Site menu's line about it is stale.
+func _on_season_changed() -> void:
+	_refresh_menus()
+
+
+func _on_season_window_closed() -> void:
+	_refresh_menus()
 
 
 ## The takeoff and the estimate: the window, and what the menu says about it.
@@ -6062,6 +6789,10 @@ func _jobs_text() -> String:
 		line = "%s, %s" % [line, _billing_ledger.describe()]
 	if _ledger_desk != null and (_ledger_desk.count() > 0 or _ledger_desk.issues() > 0):
 		line = "%s, %s" % [line, _ledger_desk.describe()]
+	# A punch list and a warranty, once a job has either. A job nobody has started finishing says
+	# nothing here, for the same reason a schedule with no invoices does.
+	if _closeout_desk != null and not _closeout_desk.jobs_in_closeout().is_empty():
+		line = "%s, %s" % [line, _closeout_desk.describe()]
 	return line
 
 
@@ -6077,6 +6808,8 @@ func _on_job_started(estimate: Estimate) -> void:
 		_cost_window.refresh()
 	if _billing_window != null:
 		_billing_window.refresh()
+	if _closeout_window != null:
+		_closeout_window.refresh()
 	_refresh_analytics()
 	_refresh_menus()
 
@@ -6255,6 +6988,62 @@ func _on_ledger_changed() -> void:
 
 func _menu_ledger_window(_entry: Dictionary) -> void:
 	open_ledger_window()
+
+
+## Finishing the job: the punch list, the hand-over date and the warranty on one page. Built by hand
+## like the other pages for the same reason - the desk the window is pointed at is the desk this file
+## already wired to the Jobs menu - and it needs no drawing, because a punch list is not on the plan.
+func _build_closeout_desk() -> void:
+	if _closeout_desk != null:
+		return
+	if _job_desk == null:
+		_build_job_desk()
+	_closeout_desk = CloseoutDeskScript.new()
+	_closeout_desk.bind(_job_desk)
+
+
+func _build_closeout_window() -> void:
+	if _closeout_window != null:
+		return
+	if _closeout_desk == null:
+		_build_closeout_desk()
+	_closeout_window = CloseoutWindowScript.new()
+	_closeout_window.name = "CloseoutWindow"
+	add_child(_closeout_window)
+	_closeout_window.build()
+	_closeout_window.bind(_closeout_desk)
+	_closeout_window.closeout_changed.connect(_on_closeout_changed)
+	_closeout_window.hide()
+
+
+func open_closeout_window() -> void:
+	if _closeout_window == null:
+		_build_closeout_window()
+	if _closeout_window == null:
+		return
+	_closeout_window.bind(_closeout_desk)
+	_closeout_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_closeout_window() -> void:
+	if _closeout_window != null:
+		_closeout_window.hide()
+
+
+func is_closeout_window_open() -> bool:
+	return _closeout_window != null and _closeout_window.visible
+
+
+## An item was raised, checked, taken off, stated or answered, or the hand-over date or the warranty
+## changed: the menu line about the desk is stale. Nothing on the other pages has moved - a punch item
+## is not money - so the four pages above this one are left where they are.
+func _on_closeout_changed() -> void:
+	_refresh_menus()
+
+
+func _menu_closeout_window(_entry: Dictionary) -> void:
+	open_closeout_window()
 
 
 ## The figures: the pipeline's win rate, the jobs' profitability, what is owed and how busy the crew is
@@ -6901,6 +7690,10 @@ func _refresh_site_menu() -> void:
 	if not graded.is_empty():
 		var graded_popup: PopupMenu = graded[0]
 		graded_popup.set_item_text(int(graded[1]), _grading_text())
+	var season := _find_item(&"site.season")
+	if not season.is_empty():
+		var season_popup: PopupMenu = season[0]
+		season_popup.set_item_text(int(season[1]), _season_text())
 
 
 ## The live part of the Water menu: the line saying what this drawing is watered by.
