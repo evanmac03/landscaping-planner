@@ -3,7 +3,7 @@ param([Parameter(Mandatory = $true)][string]$Request)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$gitExecutable = (Get-Command git -CommandType Application -ErrorAction Stop).Source
+$gitExecutable = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $requestData = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Request)) | ConvertFrom-Json
 function Git {
     $result = & $gitExecutable -C $root --no-pager @args

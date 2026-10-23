@@ -27,6 +27,12 @@ function Invoke-Native {
             'branch --show-current' { return $s.branch }
             'rev-parse HEAD' { return $s.head }
             'rev-parse origin/main' { return $s.main }
+            'rev-parse refs/heads/feature/test' { return $s.featureHead }
+            'merge-base *' { return $s.mergeBase }
+            'rev-list --count origin/main..main' { return [string]$s.mainAhead }
+            'switch main' { $s.branch = 'main'; return }
+            'merge --ff-only origin/main' { $s.head = $s.main; return }
+            'branch -D -- feature/test' { $s.cleaned = $true; return }
             'rev-parse --absolute-git-dir' { return (Join-Path $s.root '.git') }
             'status --porcelain*' { if ($s.dirty) { return ' M project.godot' }; return }
             'status --short' { return }
@@ -68,6 +74,10 @@ function Invoke-Native {
                 return 'test-user'
             }
             'pr list *' {
+                if ('merged' -in $Arguments) {
+                    if ($s.merged) { return ('[' + (@{headRefOid=$s.featureHead;mergeCommit=@{oid=$s.mergeSha};url='https://example.invalid/pr/1'} | ConvertTo-Json -Compress) + ']') }
+                    return '[]'
+                }
                 if ($s.pr) { return ('[' + (@{number=1;url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
                 return '[]'
             }
@@ -142,6 +152,7 @@ $global:LandscapingGithubTest = @{
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
     draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
     multiple = $false; otherCiHead = $false; offline = $false; prBody = ''; calls = [Collections.Generic.List[string]]::new()
+    merged = $false; featureHead = ('a' * 40); mergeSha = ('b' * 40); mergeBase = ('b' * 40); mainAhead = 0; cleaned = $false
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -153,6 +164,26 @@ function Expect-Failure {
 try {
     & $testScript -Action Plan | Out-Null
     if (@($s.calls | Where-Object { $_ -match '^gh | fetch | push ' }).Count) { throw 'Plan performed remote operations.' }
+    $passed++
+    Expect-Failure { & $testScript -Action Synchronize -Approve } '*requires the reviewed branch and HEAD*'
+    Expect-Failure { & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -Approve } 'No unique merged PR*'
+    $s.merged = $true
+    $s.mainAhead = 1
+    Expect-Failure { & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -Approve } 'Local main has commits*'
+    if ($s.branch -ne 'feature/test') { throw 'Rejected synchronization switched branches.' }
+    $s.mainAhead = 0
+    $s.mergeBase = 'not-in-main'
+    Expect-Failure { & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -Approve } 'Merged PR is not included*'
+    $s.mergeBase = $s.mergeSha
+    $s.dirty = $true
+    Expect-Failure { & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -Approve } 'Commit or deliberately move*'
+    $s.dirty = $false
+    & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -Approve | Out-Null
+    if ($s.branch -ne 'main' -or $s.cleaned) { throw 'Synchronization deleted a branch without cleanup approval.' }
+    $s.branch = 'feature/test'
+    & $testScript -Action Synchronize -ExpectedHead $s.head -ExpectedBranch $s.branch -CleanupBranch yes -Approve | Out-Null
+    if (-not $s.cleaned -or $s.branch -ne 'main') { throw 'Approved synchronization cleanup failed.' }
+    $s.branch = 'feature/test'; $s.merged = $false
     $passed++
     Expect-Failure { & $testScript -Action Push -ExpectedHead ('b' * 40) -ExpectedBranch 'feature/test' -Approve } 'Approved branch/commit changed*'
     Expect-Failure { & $testScript -Action Push -ExpectedHead $s.head -ExpectedBranch 'feature/other' -Approve } 'Approved branch/commit changed*'

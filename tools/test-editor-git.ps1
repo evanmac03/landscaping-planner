@@ -1,7 +1,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ('editor-git-test-' + [guid]::NewGuid().ToString('N'))
-$git = (Get-Command git -CommandType Application).Source
+$git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
+$originalPath = $env:PATH
+$alternateGit = Join-Path (Split-Path -Parent (Split-Path -Parent $git)) 'bin'
+if (Test-Path -LiteralPath (Join-Path $alternateGit 'git.exe')) { $env:PATH = "$alternateGit;$env:PATH" }
 $shell = (Get-Process -Id $PID).Path
 New-Item -ItemType Directory -Path (Join-Path $fixture 'tools') | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'editor-git.ps1') -Destination (Join-Path $fixture 'tools')
@@ -77,4 +80,7 @@ try {
     if ((& $git -C $fixture branch --show-current) -ne 'feature/combined') { throw 'Combined commit did not create approved branch.' }
     Write-Output 'PASS: main/branch guards, real staging, changed-file/index guards, exact staged review including new files, staged-snapshot commit, stale HEAD, unstage preserving edits.'
 }
-finally { Remove-Item -LiteralPath $fixture -Recurse -Force }
+finally {
+    $env:PATH = $originalPath
+    Remove-Item -LiteralPath $fixture -Recurse -Force
+}

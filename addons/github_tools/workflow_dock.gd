@@ -54,6 +54,7 @@ var _checks_summary: String = "Local validation: not checked this session.\nGitH
 var _phase_file: String = ""
 var _release_receipt: String = ""
 var _preview: bool = false
+var _cleanup_branch: CheckBox
 var _preview_saved: Dictionary = {}
 var _preview_snapshot: Dictionary = {}
 
@@ -286,7 +287,7 @@ func _preview_command(command: Dictionary) -> void:
 		var request: Dictionary = JSON.parse_string(Marshalls.base64_to_utf8(command["args"].back()))
 		match request["action"]:
 			"Status":
-				if _guide_step == "merge":
+				if _guide_step == "merge" and result["guide_next"] == "release":
 					_preview_snapshot["branch"] = "main"
 				result["text"] = JSON.stringify(_preview_snapshot)
 			"Stage":
@@ -308,6 +309,11 @@ func _preview_command(command: Dictionary) -> void:
 					result["guide_next"] = "checks"
 			"DownloadTest":
 				metadata = {"version":_version.text,"commit":"preview-commit","identity":"preview-draft","release_id":"PREVIEW","prerelease":true,"folder":"","executable":"","manifest":{},"url":""}
+			"SmokeTest":
+				metadata = {"state":"simulated"}
+			"Synchronize":
+				_preview_snapshot["branch"] = "main"
+				metadata = {"branch":"main","commit":"preview-commit"}
 			"Push", "Release", "Publish":
 				metadata = {"url":"","version":_version.text}
 			_:
@@ -349,6 +355,9 @@ func _guide_show(step: String) -> void:
 		return
 	if step == "release" and (_snapshot.get("branch", "") != "main" or not _snapshot.get("files", []).is_empty() or not _snapshot.get("staged", []).is_empty()):
 		_guide_label.text = "Release blocked: review/merge the PR on GitHub, switch to main and synchronize it, and handle all dirty work. Then resume after merge. Nothing was pulled or discarded."
+		return
+	if step == "sync_main" and (not String(_snapshot.get("branch", "")).begins_with("feature/") or not _snapshot.get("files", []).is_empty() or not _snapshot.get("staged", []).is_empty()):
+		_guide_label.text = "Synchronization needs a clean, reviewed feature branch. If already on main, use Check main readiness."
 		return
 	_guide_step = step
 	var stage: String = {"files": "Git", "branch": "Git", "commit_review": "Git", "validate_commit": "Validate commit", "push": "Push", "merge": "Review/merge", "release": "Release", "publish": "Test package", "publish_confirm": "Publish", "sync": "Synchronize main", "drafts": "Choose draft", "done": "Complete"}.get(step, step)
@@ -424,6 +433,19 @@ func _guide_show(step: String) -> void:
 				_workflow("Evidence", "merge")
 			)
 			_guide_body.add_child(refresh_checks)
+			var synchronize := Button.new()
+			synchronize.text = "Synchronize main after GitHub merge…"
+			synchronize.pressed.connect(func():
+				_guide_dialog.hide()
+				_git("Status", "sync_main")
+			)
+			_guide_body.add_child(synchronize)
+		"sync_main":
+			description.text = "After you merge on GitHub, synchronize main from reviewed feature %s at %s? This verifies an exact-head merged PR and fast-forwards main only. Dirty work, local-only main commits or an unmerged PR stop the operation. No automatic merge, stash or rebase." % [_snapshot.get("branch", ""), String(_snapshot.get("head", "")).left(8)]
+			_cleanup_branch = CheckBox.new()
+			_cleanup_branch.text = "Also delete this exact merged local feature branch after synchronization."
+			_cleanup_branch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_guide_body.add_child(_cleanup_branch)
 		"release":
 			description.text = "Prepare a private Windows draft? This exports committed main, pushes a version tag and uploads assets. Requires matching export templates. What unused version and Godot executable should be used?"
 			_guide_input = _guide_field("Release version", _version.text)
@@ -441,6 +463,16 @@ func _guide_show(step: String) -> void:
 			download.text = "Download and verify Windows ZIP"
 			download.pressed.connect(_download_test)
 			_guide_body.add_child(download)
+			var smoke := Button.new()
+			smoke.text = "Run verified build headless startup check"
+			smoke.pressed.connect(func():
+				if _test_package.is_empty() or _test_package.get("version") != _guide_input.text.strip_edges():
+					_guide_error.text = "Download and verify this version first."
+					return
+				_guide_dialog.hide()
+				_workflow("SmokeTest", "publish")
+			)
+			_guide_body.add_child(smoke)
 			var open_folder := Button.new()
 			open_folder.text = "Open verified package folder"
 			open_folder.pressed.connect(_open_test_folder)
@@ -479,6 +511,9 @@ func _guide_show(step: String) -> void:
 		_guide_dialog.ok_button_text = "Publish this release"
 	elif step == "sync":
 		_guide_dialog.ok_button_text = "Close"
+	elif step == "sync_main":
+		_guide_dialog.title = "Approve main synchronization"
+		_guide_dialog.ok_button_text = "Synchronize main"
 	elif step == "validate_commit":
 		_guide_dialog.title = "Validate committed work"
 		_guide_dialog.ok_button_text = "Validate this commit"
@@ -584,6 +619,9 @@ func _guide_answer() -> void:
 		"merge":
 			_guide_dialog.hide()
 			_git("Status", "release")
+		"sync_main":
+			_guide_dialog.hide()
+			_workflow("Synchronize", "release")
 		"release":
 			if not _valid_version(_guide_input.text.strip_edges()):
 				_guide_error.text = "Use a version such as v0.2.0 or v0.2.0-rc.1."
@@ -791,7 +829,11 @@ func _workflow(action: String, guide_next: String = "") -> void:
 		args.append_array(["-Godot", _godot.text])
 	if action == "RecoverDraft":
 		args.append_array(["-BuildDirectory", _build.text])
-	if not guide_next.is_empty() and action in ["Push", "Release"]:
+	if action == "SmokeTest":
+		args.append_array(["-Package", Marshalls.utf8_to_base64(JSON.stringify(_test_package))])
+	if action == "Synchronize":
+		args.append_array(["-CleanupBranch", "yes" if _cleanup_branch.button_pressed else "no"])
+	if not guide_next.is_empty() and action in ["Push", "Release", "Synchronize"]:
 		args.append_array(["-ExpectedHead", _snapshot.get("head", ""), "-ExpectedBranch", _snapshot.get("branch", "")])
 	if action == "Publish" and not guide_next.is_empty():
 		args.append_array(["-ExpectedHead", _test_package.get("commit", ""), "-ExpectedBranch", "main", "-ExpectedDraft", _test_package.get("identity", "")])
@@ -819,14 +861,14 @@ func _start(command: Dictionary) -> void:
 	if _thread != null:
 		_output.text += "\nA command is already running."
 		return
-	if command.get("invalidates_checks", false) or command.get("action", "") in ["Push", "Release", "Publish"]:
+	if command.get("invalidates_checks", false) or command.get("action", "") in ["Push", "Release", "Publish", "Synchronize"]:
 		_checks_summary = "Validation / CI evidence needs refresh after this operation. Previous results remain in output."
 		_checks_label.text = _checks_summary
 	_output.text = _history + "\nRunning; output will appear when the command completes…"
 	_running_since = Time.get_ticks_msec()
 	_running_label = command.get("action", "Git operation")
 	_running_status.text = _running_label + " — starting…"
-	if command.get("action", "") in ["Release", "Publish", "DownloadTest", "Validate", "Evidence", "Discover", "Push"]:
+	if command.get("action", "") in ["Release", "Publish", "DownloadTest", "SmokeTest", "Synchronize", "Validate", "Evidence", "Discover", "Push"]:
 		_phase_file = ProjectSettings.globalize_path("user://github-phase-%s.txt" % Time.get_ticks_usec())
 		var insert_at: int = command["args"].size()
 		if command["args"].back() == "-Approve":
@@ -855,7 +897,7 @@ func _execute(command: Dictionary) -> Dictionary:
 	for index in arguments.size():
 		var argument := String(arguments[index])
 		if index % 2 == 1:
-			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve", "-ExpectedHead", "-ExpectedBranch", "-ExpectedDraft", "-PhaseFile"]:
+			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve", "-ExpectedHead", "-ExpectedBranch", "-ExpectedDraft", "-PhaseFile", "-Package", "-CleanupBranch"]:
 				return {"code": 1, "text": "Invalid command parameter.", "status": false}
 			quoted.append(argument)
 		else:
@@ -900,6 +942,20 @@ func _complete(result: Dictionary) -> void:
 				_guide_label.text = "Stopped: invalid workflow result."
 				return
 			metadata = parser.data
+	if result.get("action") == "SmokeTest":
+		_guide_show("publish")
+		var matched: bool = metadata.get("state") == "passed" and not _test_package.is_empty() and metadata.get("identity") == _test_package.get("identity") and metadata.get("version") == _test_package.get("version") and metadata.get("commit") == _test_package.get("commit")
+		if result["code"] == 0 and (matched or (_preview and metadata.get("state") == "simulated")):
+			_guide_error.text = "PREVIEW ONLY: startup check simulated." if _preview else "Headless startup passed; interactive testing is still required."
+		else:
+			_guide_error.text = "Headless startup failed or selection changed. Inspect output; no successful playtest is claimed."
+		return
+	if result.get("action") == "Synchronize" and result["code"] == 0:
+		if metadata.get("branch") != "main" or not metadata.has("commit"):
+			_guide_label.text = "Synchronization result invalid. Inspect Git before continuing."
+			return
+		_git("Status", "release")
+		return
 	if result.get("action", "") in ["Validate", "Evidence"]:
 		if result["code"] != 0:
 			_checks_summary = "Checks unavailable or failed. See command output; no pass is claimed. Refresh before relying on previous evidence."
