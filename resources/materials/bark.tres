@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cwnopdqhek057"]
 
 [sub_resource type="Gradient" id="Gradient_bark"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -12,9 +12,9 @@ fractal_octaves = 2
 [sub_resource type="NoiseTexture2D" id="Tex_bark"]
 width = 128
 height = 128
-seamless = true
 noise = SubResource("Noise_bark")
 color_ramp = SubResource("Gradient_bark")
+seamless = true
 
 [resource]
 albedo_texture = SubResource("Tex_bark")

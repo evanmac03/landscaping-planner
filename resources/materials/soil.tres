@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://dgwuknalwr0bs"]
 
 [sub_resource type="Gradient" id="Gradient_soil"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -12,12 +12,11 @@ fractal_octaves = 3
 [sub_resource type="NoiseTexture2D" id="Tex_soil"]
 width = 256
 height = 256
-seamless = true
 noise = SubResource("Noise_soil")
 color_ramp = SubResource("Gradient_soil")
+seamless = true
 
 [resource]
 albedo_texture = SubResource("Tex_soil")
 metallic_specular = 0.1
-roughness = 1.0
 uv1_scale = Vector3(48, 48, 1)

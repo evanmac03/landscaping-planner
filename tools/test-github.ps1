@@ -47,10 +47,15 @@ function Invoke-Native {
                 $output = [string]($a | Where-Object { $_ -like '--output=*' } | Select-Object -First 1)
                 if (-not $output) { throw "Archive output missing in arguments: $($a -join ' | ')" }
                 $output = $output.Substring(9)
+                if ($s.archive) {
+                    Copy-Item -LiteralPath $s.archive -Destination $output
+                    return
+                }
                 $inputDir = Join-Path $s.root 'archive-input'
                 New-Item -ItemType Directory -Path $inputDir -Force | Out-Null
                 Set-Content -LiteralPath (Join-Path $inputDir 'project.godot') -Value 'config_version=5'
                 Compress-Archive -Path (Join-Path $inputDir '*') -DestinationPath $output
+                $s.archive = $output
                 return
             }
         }
@@ -67,9 +72,11 @@ function Invoke-Native {
                 $s.draft = $true
                 return
             }
-            'api repos/*/releases/tags/*' {
+            'api repos/*/releases/tags/*' { throw 'Release-by-tag API cannot locate an unpublished draft.' }
+            'release view *' { return '{"databaseId":42}' }
+            'api repos/*/releases/42' {
                 return (@{
-                    id = 42; draft = $s.draft; tag_name = 'v0.1.0-rc.1'
+                    id = 42; draft = $s.draft; tag_name = $s.lookupTag; target_commitish = $s.head
                     html_url = 'https://example.invalid/release/42'
                     assets = @($s.assets | ForEach-Object { @{ name = [IO.Path]::GetFileName($_) } })
                 } | ConvertTo-Json -Depth 5)
@@ -83,9 +90,6 @@ function Invoke-Native {
                 return
             }
             'release edit *' { $s.draft = $false; return }
-            'api repos/*/releases/42' {
-                return (@{ draft = $s.draft; html_url = 'https://example.invalid/release/42' } | ConvertTo-Json)
-            }
         }
     }
     elseif ($Command -eq $s.editor) {
@@ -111,7 +115,7 @@ Set-Content -LiteralPath $editor -Value 'not executed'
 $global:LandscapingGithubTest = @{
     root = $fixture; editor = $editor; branch = 'feature/test'; dirty = $false
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
-    draft = $true; assets = @(); tamper = $false
+    draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''
     calls = [Collections.Generic.List[string]]::new()
 }
 $s = $global:LandscapingGithubTest
@@ -155,6 +159,24 @@ try {
     $receipt = Join-Path $fixture '.git\landscaping-releases\v0.1.0-rc.1.json'
     if (-not (Test-Path -LiteralPath $receipt)) { throw 'Verified receipt was not saved.' }
     if (-not $s.draft -or -not $s.tag) { throw 'Preparation did not retain a tagged draft.' }
+    $passed++
+    $retained = Get-ChildItem -LiteralPath (Split-Path -Parent $receipt) -Directory -Filter 'build-*'
+    Remove-Item -LiteralPath $receipt
+    $s.dirty = $true
+    $s.tamper = $true
+    Expect-Failure {
+        & $testScript -Action RecoverDraft -Version v0.1.0-rc.1 -BuildDirectory $retained.FullName -Approve
+    } 'Uploaded asset hash mismatch*'
+    if (Test-Path -LiteralPath $receipt) { throw 'Recovery saved a receipt for tampered assets.' }
+    $s.tamper = $false
+    $passed++
+    & $testScript -Action RecoverDraft -Version v0.1.0-rc.1 -BuildDirectory $retained.FullName -Approve
+    if (-not (Test-Path -LiteralPath $receipt) -or -not $s.draft) { throw 'Draft receipt recovery failed.' }
+    $s.dirty = $false
+    $passed++
+    $s.lookupTag = 'v9.9.9'
+    Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } 'Release lookup returned a different*'
+    $s.lookupTag = 'v0.1.0-rc.1'
     $passed++
     $s.tamper = $true
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } 'Uploaded asset hash mismatch*'

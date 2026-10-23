@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cdjl6krswm76k"]
 
 [sub_resource type="Gradient" id="Gradient_rough"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -12,9 +12,9 @@ fractal_octaves = 3
 [sub_resource type="NoiseTexture2D" id="Tex_rough"]
 width = 256
 height = 256
-seamless = true
 noise = SubResource("Noise_rough")
 color_ramp = SubResource("Gradient_rough")
+seamless = true
 
 [resource]
 albedo_texture = SubResource("Tex_rough")
