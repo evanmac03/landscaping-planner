@@ -40,16 +40,9 @@ func _test() -> void:
 		printerr("Staged changes list does not match Git.")
 		quit(1)
 		return
-	var original: Dictionary = dock._snapshot.duplicate(true)
-	dock._snapshot["staged"] = ["ui-test-only.txt"]
-	dock._name_commit()
-	if not dock._commit_dialog.visible or dock._message.placeholder_text != "Commit name / message":
-		printerr("Commit naming dialog did not open.")
+	if not _test_single_steps():
 		quit(1)
 		return
-	dock._commit_dialog.hide()
-	dock._snapshot = original
-	print("PASS: staged list and Commit -> name dialog (no staging/commit performed).")
 	var first_output: String = dock._history
 	dock._git("Status")
 	deadline = Time.get_ticks_msec() + 30000
@@ -132,6 +125,120 @@ func _test() -> void:
 		return
 	print("PASS: completion routing, failed/malformed status invalidation, cancellation, scrollable long-file review.")
 	quit(0)
+
+
+func _test_single_steps() -> bool:
+	var guide := GuideProbe.new()
+	root.add_child(guide)
+	var status := {"head":"test-head", "branch":"feature/test", "files":[], "staged":[], "hashes":{}, "index_tree":"tree"}
+	var buttons := {"Git":"Review and commit…", "Push":"Push / open PR…", "Release":"Prepare draft release…", "Publish":"Test and publish verified draft…"}
+	for operation in buttons:
+		guide.captured = {}
+		for button in guide._tabs.find_children("*", "Button", true, false):
+			if button.text == buttons[operation]:
+				button.pressed.emit()
+		var step: String = {"Git":"files", "Push":"push", "Release":"release", "Publish":"publish"}[operation]
+		if guide._single_step != operation or not guide.captured.get("status", false) or guide.captured.get("guide_next") != step:
+			printerr("Individual operation did not enter shared status/step flow: ", operation)
+			return false
+		status["branch"] = "main" if operation in ["Release", "Publish"] else "feature/test"
+		status["staged"] = ["sample.txt"] if operation == "Git" else []
+		guide._complete({"code":0, "status":true, "text":JSON.stringify(status), "guide_next":step})
+		if operation == "Git":
+			if guide.captured.get("guide_next") != "commit_review":
+				printerr("Individual Git bypassed staged review.")
+				return false
+			guide._complete({"code":0, "status":false, "review":true, "text":"+sample", "guide_next":"commit_review"})
+			guide._guide_input.text = "Shared Git review"
+			guide.captured = {}
+			guide._guide_answer()
+			if not guide.captured.is_empty() or not "Review the diff" in guide._guide_error.text:
+				printerr("Individual Git skipped explicit diff approval.")
+				return false
+			guide._guide_reviewed.button_pressed = true
+			guide._guide_answer()
+			var request: Dictionary = JSON.parse_string(Marshalls.base64_to_utf8(guide.captured["args"][5]))
+			if request["action"] != "Commit" or request["message"] != "Shared Git review":
+				printerr("Individual Git did not use shared commit command.")
+				return false
+			guide.captured = {}
+			guide._guide_show("after_commit")
+			if guide.captured.get("guide_next") != "validate_commit":
+				printerr("Individual Git skipped post-commit validation offer.")
+				return false
+			status["staged"] = []
+			guide._complete({"code":0, "status":true, "text":JSON.stringify(status), "guide_next":"validate_commit"})
+			guide._guide_answer()
+			if guide.captured.get("action") != "Validate":
+				printerr("Individual Git did not run shared committed-head validation.")
+				return false
+			guide._complete({"code":0, "status":false, "action":"Validate", "guide_next":"push", "text":'EDITOR_RESULT:{"commit":"test-head","local":{"state":"passed","timestamp":"TEST","checks":[]},"ci":{"state":"not-queried","head":"test-head","checks":[]}}'})
+			if not guide.captured.get("status", false) or guide.captured.get("guide_next") != "push":
+				printerr("Individual Git validation did not refresh status.")
+				return false
+			guide.captured = {}
+			guide._complete({"code":0, "status":true, "text":JSON.stringify(status), "guide_next":"push"})
+			if not guide.captured.is_empty() or not "No Push was run" in guide._guide_label.text:
+				printerr("Individual Git continued into Push.")
+				return false
+		elif operation == "Publish":
+			guide.captured = {}
+			guide._guide_answer()
+			if not guide.captured.is_empty() or not "Test the downloaded draft" in guide._guide_error.text:
+				printerr("Individual Publish skipped interactive testing.")
+				return false
+			guide._test_package = {"version":guide._version.text, "commit":"test-head", "identity":"exact-draft", "release_id":123, "prerelease":true}
+			guide._guide_tested.button_pressed = true
+			guide._guide_answer()
+			if guide.captured.get("purpose") != "confirm":
+				printerr("Individual Publish skipped package integrity verification.")
+				return false
+			guide._finish_package_check({"code":0, "purpose":"confirm", "package":guide._test_package.duplicate(true)})
+			if guide._guide_step != "publish_confirm":
+				printerr("Individual Publish skipped final approval.")
+				return false
+			guide._guide_answer()
+			var args: Array = guide.captured["args"]
+			if args[args.find("-ExpectedDraft") + 1] != "exact-draft" or args[args.find("-ExpectedHead") + 1] != "test-head" or args[args.find("-ExpectedBranch") + 1] != "main":
+				printerr("Individual Publish lost exact tested identity.")
+				return false
+		else:
+			guide._guide_answer()
+			var args: Array = guide.captured["args"]
+			if guide.captured.get("action") != operation or args[args.find("-ExpectedHead") + 1] != "test-head":
+				printerr("Individual operation lost shared approval/HEAD guard: ", operation)
+				return false
+		guide._guide_dialog.hide()
+		if operation != "Git":
+			guide._complete({"code":0, "status":false, "action":operation, "version":guide._version.text, "guide_next":"done", "text":"Simulated operation"})
+			if not guide._result_next.is_empty() or guide._result_dialog.ok_button_text != "Done":
+				printerr("Individual operation continued beyond its boundary: ", operation)
+				return false
+			guide._result_dialog.hide()
+			guide.captured = {}
+			guide._result_dialog.confirmed.emit()
+			if not guide.captured.is_empty():
+				printerr("Individual result confirmation launched the next operation.")
+				return false
+	guide._git("Commit")
+	if guide._single_step != "Git" or not guide.captured.get("status", false):
+		printerr("Direct commit dispatch bypassed the shared Git entry.")
+		return false
+	for operation in ["Push", "Release", "Publish"]:
+		guide._workflow(operation)
+		if guide._single_step != operation or not guide.captured.get("status", false):
+			printerr("Direct operation dispatch bypassed shared entry: ", operation)
+			return false
+	guide._guide_begin("files")
+	if not guide._single_step.is_empty():
+		printerr("Full guide retained individual-step mode.")
+		return false
+	guide._workflow("Discover", "discover")
+	if not guide._single_step.is_empty():
+		return false
+	guide.free()
+	print("PASS: individual Git/Push/Release/Publish reuse guide approvals, tested identity and operation boundaries.")
+	return true
 
 
 func _test_adviser(dock) -> bool:

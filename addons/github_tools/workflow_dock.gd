@@ -5,9 +5,8 @@ var _thread: Thread
 var _snapshot: Dictionary = {}
 var _files: ItemList
 var _staged: ItemList
-var _commit_dialog: ConfirmationDialog
 var _status: Label
-var _message: LineEdit
+var _commit_message: String = ""
 var _branch: LineEdit
 var _version: LineEdit
 var _build: LineEdit
@@ -22,6 +21,7 @@ var _guide_label: Label
 var _guide_dialog: ConfirmationDialog
 var _guide_body: VBoxContainer
 var _guide_step: String = ""
+var _single_step: String = ""
 var _guide_files: Array[CheckBox] = []
 var _guide_input: LineEdit
 var _guide_godot: LineEdit
@@ -69,7 +69,8 @@ func _ready() -> void:
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tabs.custom_minimum_size = Vector2(280, 340)
 	add_child(_tabs)
-	_page("Git", "1. Changes → Stage → Commit → name your commit.")
+	_page("Git", "The Guided workflow Git step, run on its own.\nReview files, staged diff, branch and commit name, then validate. Stops before Push.")
+	_button("Review and commit…", _single_begin.bind("Git"))
 	_button("Refresh status", _git.bind("Status"))
 	_button("Tracked diff", _git.bind("Diff"))
 	var changes_label := Label.new()
@@ -91,15 +92,14 @@ func _ready() -> void:
 	_button("Unstage selected", _git.bind("Unstage"))
 	_branch = _field("New feature branch", "feature/my-change")
 	_button("Create branch", _git.bind("Branch"))
-	_button("Commit…", _name_commit)
 	_page("Push", "2. Push committed work and open a pull request.\nReview and merge separately on GitHub.")
 	_button("Check readiness", _workflow.bind("Plan"))
 	_button("Fetch origin", _git.bind("Fetch"))
-	_button("Push / open PR…", _workflow.bind("Push"))
+	_button("Push / open PR…", _single_begin.bind("Push"))
 	_page("Release", "3. Export Windows and prepare a private draft.\nRequires clean, synchronized main and export templates.")
 	_version = _field("Version (also used by Publish)", "v0.1.0-rc.1")
 	_godot = _field("Godot executable", OS.get_executable_path())
-	_button("Prepare draft release…", _workflow.bind("Release"))
+	_button("Prepare draft release…", _single_begin.bind("Release"))
 	var recovery := Label.new()
 	recovery.text = "Interrupted preparation only:"
 	_section.add_child(recovery)
@@ -110,18 +110,18 @@ func _ready() -> void:
 	version_label.text = "Version: " + _version.text
 	_section.add_child(version_label)
 	_version.text_changed.connect(func(value: String): version_label.text = "Version: " + value)
-	_button("Publish verified draft…", _workflow.bind("Publish"))
+	_button("Test and publish verified draft…", _single_begin.bind("Publish"))
 	_page("Guided workflow", "Git → Push → Release → Publish\nAnswer each question before continuing. Cancel stops the guide without undoing completed operations.")
 	_guide_label = Label.new()
 	_guide_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_label.text = "Save all editor files first. Review changes and run your tests before starting. No automatic tests, merge, pull or stash."
-	_section.add_child(_guide_label)
+	add_child(_guide_label)
 	_guide_progress = Label.new()
 	_guide_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_section.add_child(_guide_progress)
+	add_child(_guide_progress)
 	_guide_result = Label.new()
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_section.add_child(_guide_result)
+	add_child(_guide_result)
 	_button("Copy last result summary", func(): DisplayServer.clipboard_set(_release_receipt))
 	_button("View last publication (saved locally)", _workflow.bind("LastPublication", "receipt"))
 	_button("Preview full guide (no Git/GitHub writes)", _begin_preview)
@@ -129,7 +129,7 @@ func _ready() -> void:
 	_checks_label = Label.new()
 	_checks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checks_label.text = _checks_summary
-	_section.add_child(_checks_label)
+	add_child(_checks_label)
 	_button("Run local workflow checks", _workflow.bind("Validate", "checks"))
 	_button("Refresh local / GitHub CI evidence", _workflow.bind("Evidence", "checks"))
 	_button("Start / detect next step…", _workflow.bind("Discover", "discover"))
@@ -154,19 +154,6 @@ func _ready() -> void:
 	_confirm = ConfirmationDialog.new()
 	add_child(_confirm)
 	_confirm.confirmed.connect(func(): _start(_pending))
-	_commit_dialog = ConfirmationDialog.new()
-	_commit_dialog.title = "Name commit"
-	_commit_dialog.ok_button_text = "Create commit"
-	var contents := VBoxContainer.new()
-	var explanation := Label.new()
-	explanation.text = "Commits all staged changes, not later unstaged edits.\nReview staged diff first. No automatic tests run."
-	contents.add_child(explanation)
-	_message = LineEdit.new()
-	_message.placeholder_text = "Commit name / message"
-	contents.add_child(_message)
-	_commit_dialog.add_child(contents)
-	add_child(_commit_dialog)
-	_commit_dialog.confirmed.connect(_git.bind("Commit"))
 	_guide_dialog = ConfirmationDialog.new()
 	_guide_dialog.dialog_hide_on_ok = false
 	_guide_dialog.ok_button_text = "Continue"
@@ -221,9 +208,22 @@ func _ready() -> void:
 
 
 func _guide_begin(step: String) -> void:
-	if _thread != null or _guide_dialog.visible or _confirm.visible or _commit_dialog.visible or _result_dialog.visible:
+	_begin_step(step, "")
+
+
+func _single_begin(operation: String) -> void:
+	_begin_step({"Git":"files", "Push":"push", "Release":"release", "Publish":"publish"}[operation], operation)
+
+
+func _begin_step(step: String, operation: String) -> void:
+	if _thread != null or _guide_dialog.visible or _confirm.visible or _result_dialog.visible:
 		return
-	_tabs.current_tab = 4
+	_single_step = operation
+	if operation.is_empty():
+		_tabs.current_tab = 4
+	if step == "publish":
+		_guide_version = _version.text
+		_test_package.clear()
 	_guide_label.text = "Reading current Git status…"
 	_git("Status", step)
 
@@ -256,9 +256,10 @@ func _open_github(url: String) -> void:
 
 
 func _begin_preview() -> void:
-	if _preview or _thread != null or _guide_dialog.visible or _result_dialog.visible or _confirm.visible or _commit_dialog.visible:
+	if _preview or _thread != null or _guide_dialog.visible or _result_dialog.visible or _confirm.visible:
 		return
-	_preview_saved = {"branch":_branch.text, "version":_version.text, "godot":_godot.text, "message":_message.text, "guide_version":_guide_version, "receipt":_release_receipt, "package":_test_package.duplicate(true), "checks":_checks_summary, "result":_guide_result.text, "url":_github_url, "commit_name":_guide_commit_name}
+	_preview_saved = {"branch":_branch.text, "version":_version.text, "godot":_godot.text, "message":_commit_message, "guide_version":_guide_version, "receipt":_release_receipt, "package":_test_package.duplicate(true), "checks":_checks_summary, "result":_guide_result.text, "url":_github_url, "commit_name":_guide_commit_name, "single_step":_single_step}
+	_single_step = ""
 	_preview = true
 	_preview_saved["adviser_outcomes"] = _adviser_outcomes.duplicate(true)
 	_preview_saved["adviser_evidence"] = _adviser_evidence.duplicate(true)
@@ -280,14 +281,14 @@ func _end_preview() -> void:
 	_guide_dialog.hide()
 	_result_dialog.hide()
 	_confirm.hide()
-	_commit_dialog.hide()
 	_result_next = ""
 	_pending = {}
 	_preview = false
 	_branch.text = _preview_saved["branch"]
 	_version.text = _preview_saved["version"]
 	_godot.text = _preview_saved["godot"]
-	_message.text = _preview_saved["message"]
+	_commit_message = _preview_saved["message"]
+	_single_step = _preview_saved["single_step"]
 	_guide_version = _preview_saved["guide_version"]
 	_release_receipt = _preview_saved["receipt"]
 	_test_package = _preview_saved["package"]
@@ -371,6 +372,11 @@ func _guide_show(step: String) -> void:
 		return
 	if step == "files" and _snapshot.get("files", []).is_empty() and not _guide_back_to_files:
 		step = "branch" if not _snapshot.get("staged", []).is_empty() else "push"
+	if step == "push" and _single_step == "Git":
+		_guide_step = ""
+		_guide_label.text = "Git step finished. No Push was run. See output and validation evidence; use Push separately when ready."
+		_output.text = _history + "\n" + _guide_label.text
+		return
 	_guide_back_to_files = false
 	if step == "branch":
 		step = "commit"
@@ -404,7 +410,7 @@ func _guide_show(step: String) -> void:
 			description.text = "Commit created: %s\nValidate this committed snapshot before Push? Earlier validation is now stale. Runs workflow, Git and Godot guide tests, not a full game test or CI." % _snapshot.get("head", "")
 			_guide_godot = _guide_field("Godot executable", _godot.text)
 		"files":
-			description.text = "%s saved changes; %s already staged.\nSelect ALL reviewed changes to continue. Use Git for partial commits. Select none clears the checklist but cannot continue with dirty files excluded. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
+			description.text = "%s saved changes; %s already staged.\nSelect ALL reviewed changes to continue. Handle partial commits outside this workflow. Select none clears the checklist but cannot continue with dirty files excluded. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
 			_guide_files.clear()
 			var selection_buttons := HBoxContainer.new()
 			for option in ["Select all", "Select none"]:
@@ -549,7 +555,7 @@ func _guide_show(step: String) -> void:
 		_guide_dialog.ok_button_text = "Validate this commit"
 	if step == "files" and _snapshot.get("files", []).is_empty():
 		_guide_dialog.ok_button_text = "Review staged changes"
-	_guide_back_button.visible = step in ["commit_review", "release", "publish", "publish_confirm"]
+	_guide_back_button.visible = step in ["commit_review", "publish", "publish_confirm"] or (step == "release" and _single_step.is_empty())
 	_guide_dialog.reset_size()
 	_guide_dialog.popup_centered(Vector2i(640, 600))
 	if _preview:
@@ -605,7 +611,7 @@ func _guide_answer() -> void:
 				if _guide_files[index].button_pressed:
 					selected_indices.append(index)
 			if selected_indices.size() != _guide_files.size():
-				_guide_error.text = "Unselected dirty files would block Push. Handle excluded work deliberately in Git first, or select all reviewed files. Nothing was staged."
+				_guide_error.text = "Unselected dirty files would block Push. Handle excluded work deliberately outside this workflow, or select all reviewed files. Nothing was staged."
 				return
 			if selected_indices.is_empty():
 				if not _snapshot.get("staged", []).is_empty():
@@ -637,8 +643,8 @@ func _guide_answer() -> void:
 			if not _guide_reviewed.button_pressed:
 				_guide_error.text = "Review the diff and confirm before committing."
 				return
-			_message.text = _guide_input.text.strip_edges()
-			_guide_commit_name = _message.text
+			_commit_message = _guide_input.text.strip_edges()
+			_guide_commit_name = _commit_message
 			if _guide_branch != null:
 				_branch.text = _guide_branch.text.strip_edges()
 			_guide_dialog.hide()
@@ -771,18 +777,6 @@ func _verify_test_files() -> bool:
 	return _test_package.has("manifest") and _package_files(_test_package["folder"]) == _test_package["manifest"]
 
 
-func _name_commit() -> void:
-	if _thread != null:
-		return
-	if _snapshot.is_empty() or _snapshot.get("staged", []).is_empty():
-		_output.text = "Refresh status and stage changes first."
-		return
-	_commit_dialog.dialog_text = ""
-	_message.text = ""
-	_commit_dialog.popup_centered()
-	_message.grab_focus()
-
-
 func _page(title: String, description: String) -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = title
@@ -815,13 +809,16 @@ func _button(title: String, callback: Callable) -> void:
 
 
 func _git(action: String, guide_next: String = "") -> void:
+	if action == "Commit" and guide_next.is_empty():
+		_single_begin("Git")
+		return
 	if action in ["Branch", "Stage", "Unstage", "Commit"] and _snapshot.is_empty():
 		_output.text = "Refresh status first."
 		return
 	var request := _snapshot.duplicate(true)
 	request["action"] = action
 	request["name"] = _branch.text
-	request["message"] = _message.text
+	request["message"] = _commit_message
 	if action == "Commit" and guide_next == "after_commit" and _snapshot.get("branch", "") in ["", "main"]:
 		request["new_branch"] = _branch.text
 	var selected: Array[String] = []
@@ -842,8 +839,6 @@ func _git(action: String, guide_next: String = "") -> void:
 	if not guide_next.is_empty():
 		command["refresh"] = false
 		_start(command)
-	elif action == "Commit":
-		_start(command)
 	elif action == "Branch":
 		_ask(command, "Create %s at the reviewed HEAD? Existing edits stay in place." % _branch.text)
 	else:
@@ -851,6 +846,11 @@ func _git(action: String, guide_next: String = "") -> void:
 
 
 func _workflow(action: String, guide_next: String = "") -> void:
+	if guide_next.is_empty() and action in ["Push", "Release", "Publish"]:
+		_single_begin(action)
+		return
+	if action == "Discover" and guide_next == "discover":
+		_single_step = ""
 	var args := ["-NoProfile", "-NonInteractive", "-File",
 		ProjectSettings.globalize_path("res://tools/github.ps1"), "-Action", action]
 	if action in ["Release", "RecoverDraft", "Publish", "DownloadTest"]:
@@ -1130,8 +1130,8 @@ func _show_workflow_result(result: Dictionary) -> void:
 	_release_receipt = _result_dialog.title + "\n" + summary + "\n" + _result_url
 	_guide_result.text = _result_dialog.title + "\n" + summary + "\n" + _result_url
 	_result_summary.text = summary
-	_result_next = result["guide_next"]
-	_result_dialog.ok_button_text = "Done" if action == "Publish" else "Continue"
+	_result_next = "" if not _single_step.is_empty() else String(result["guide_next"])
+	_result_dialog.ok_button_text = "Done" if _result_next.is_empty() or action == "Publish" else "Continue"
 	_guide_label.text = "Completed: " + action + ". Review the result before continuing."
 	_result_dialog.reset_size()
 	_result_dialog.popup_centered(Vector2i(640, 520))
