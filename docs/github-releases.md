@@ -87,7 +87,15 @@ CI check states/conclusions are shown without treating absent checks as a pass.
 Evidence is point-in-time: refresh after changes made outside the dock.
 Push and merge prompts show the summary; the merge checkpoint can refresh it
 without pushing again. Local workflow mutations mark displayed evidence as
-needing refresh. Network/validation failures never retain a success claim.
+needing refresh. A remote evidence failure preserves the independently checked
+local result and reports GitHub CI as **unavailable**, with its error. A local
+validation failure does not retain a local success claim.
+
+After a guided commit, the guide offers **Validate this commit** with the Godot
+executable field before Push. Cancel pauses; it does not push. A successful
+validation refreshes status and opens Push approval; failed or stale validation
+stops. Existing committed branches discovered at Start can still use the
+separate validation control.
 
 Before asking for a commit name, the guide loads the exact reviewed staged diff
 (including added text files) and asks you to confirm review. Binary contents are
@@ -123,6 +131,11 @@ While a worker runs, a separate status line displays its operation and elapsed
 time. After a minute it explicitly indicates that it is still waiting; this
 is not a failure or a claim of incremental progress. No automatic timeout,
 cancellation or retry is performed, because remote writes may have completed.
+Release operations also display their actual named phase (importing, exporting,
+packaging, uploading, downloading, verifying hashes or publishing) through a
+private per-command temporary status file, removed after completion. Phases
+describe started work, not percentage completion; detailed output still appears
+when the command ends.
 Long questions/reviews scroll within the dialog. A failed or malformed status
 response clears the old selection/snapshot and stops the guide until refreshed.
 Successful Push, Release and Publish operations show a dedicated result dialog
@@ -130,6 +143,12 @@ with an **Open on GitHub** link before continuing. Push confirms the branch/PR
 but not a merge; Release confirms a verified private draft, not publication;
 Publish confirms the exact version was published and links to its release.
 The latest result also remains visible in the Guided workflow tab. Failed
+publication results never create a success receipt. Successful publication
+includes the exact release link, source commit, release ID, publication time,
+prerelease/stable status, asset names/hashes, verification and backup status.
+Use **Copy result summary** in the result dialog or **Copy last result summary**
+in the guide to copy it. This summary lasts for the current dock session.
+Failed
 operations are marked **NOT CONFIRMED**, because partial remote writes may
 need inspection. Closing a success dialog pauses rather than repeating the
 completed operation.

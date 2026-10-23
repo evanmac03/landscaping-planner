@@ -63,7 +63,10 @@ function Invoke-Native {
     elseif ($Command -eq 'gh') {
         $key = $Arguments -join ' '
         switch -Wildcard ($key) {
-            'api user --jq .login' { return 'test-user' }
+            'api user --jq .login' {
+                if ($s.offline) { throw 'Simulated GitHub network outage.' }
+                return 'test-user'
+            }
             'pr list *' {
                 if ($s.pr) { return ('[' + (@{number=1;url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
                 return '[]'
@@ -93,7 +96,7 @@ function Invoke-Native {
             'release view *' { return '{"databaseId":42}' }
             'api repos/*/releases/42' {
                 return (@{
-                    id = 42; draft = $s.draft; tag_name = $s.lookupTag; target_commitish = $s.head; prerelease = $true
+                    id = 42; draft = $s.draft; tag_name = $s.lookupTag; target_commitish = $s.head; prerelease = $true; published_at='2026-10-23T16:00:00Z'
                     html_url = 'https://example.invalid/release/42'
                     assets = @($s.assets | ForEach-Object { @{ name = [IO.Path]::GetFileName($_) } })
                 } | ConvertTo-Json -Depth 5)
@@ -134,7 +137,7 @@ $global:LandscapingGithubTest = @{
     root = $fixture; editor = $editor; branch = 'feature/test'; dirty = $false
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
     draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
-    multiple = $false; otherCiHead = $false; calls = [Collections.Generic.List[string]]::new()
+    multiple = $false; otherCiHead = $false; offline = $false; calls = [Collections.Generic.List[string]]::new()
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -189,6 +192,12 @@ try {
     $evidenceText = (& $testScript -Action Evidence) -join "`n"
     $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
     if ($evidence.local.state -ne 'passed' -or ([DateTimeOffset]$evidence.local.timestamp).UtcDateTime -ne ([DateTimeOffset]'2026-10-23T16:00:00Z').UtcDateTime) { throw "Matching validation receipt lost its result/timestamp: $evidenceText" }
+    $passed++
+    $s.offline = $true
+    $evidenceText = (& $testScript -Action Evidence 3>$null) -join "`n"
+    $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($evidence.local.state -ne 'passed' -or $evidence.ci.state -ne 'unavailable' -or $evidence.ci.error -notlike '*network outage*') { throw 'Remote outage hid valid local evidence.' }
+    $s.offline = $false
     $passed++
     @{fingerprint='outdated';timestamp='2026-10-23T16:00:00Z';checks=@('Fixture suite')} |
         ConvertTo-Json | Set-Content -LiteralPath $validationPath -Encoding UTF8
@@ -264,7 +273,11 @@ try {
     if (-not $s.draft) { throw 'Tampered assets were published.' }
     $s.tamper = $false
     $passed++
-    & $testScript -Action Publish -Version v0.1.0-rc.1 -ExpectedHead $s.head -ExpectedBranch main -ExpectedDraft $downloadData.identity -Approve
+    $phasePath = Join-Path $fixture 'phase.txt'
+    $publication = (& $testScript -Action Publish -Version v0.1.0-rc.1 -ExpectedHead $s.head -ExpectedBranch main -ExpectedDraft $downloadData.identity -PhaseFile $phasePath -Approve) -join "`n"
+    $publishedResult = (($publication -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($publishedResult.commit -ne $s.head -or $publishedResult.assets.Count -ne 2 -or -not $publishedResult.published_at -or $publishedResult.backup -ne 'No Forgejo backup') { throw 'Publication receipt incomplete.' }
+    if ((Get-Content -LiteralPath $phasePath -Raw) -ne 'Publishing verified draft') { throw 'Live phase reporting missing.' }
     if ($s.draft) { throw 'Publish did not change draft state.' }
     $passed++
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } '*already published*'
