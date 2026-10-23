@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Discover', 'Validate', 'Evidence', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
+    [ValidateSet('Plan', 'Discover', 'LastPublication', 'Validate', 'Evidence', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
@@ -56,6 +56,13 @@ function Get-ValidationFingerprint {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($status)))).Replace('-', '').ToLowerInvariant() }
     finally { $sha.Dispose() }
+}
+
+function Get-LocalValidation {
+    $path = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-editor-validation.json'
+    if (-not (Test-Path -LiteralPath $path)) { return @{state='not-run';timestamp='';checks=@()} }
+    $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    return @{state=$(if ($saved.fingerprint -eq (Get-ValidationFingerprint)) {'passed'} else {'stale'});timestamp=([DateTimeOffset]$saved.timestamp).UtcDateTime.ToString('o');checks=$saved.checks}
 }
 
 function Assert-Clean {
@@ -156,6 +163,14 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 
 $branch = [string](Git @('branch', '--show-current'))
 $head = [string](Git @('rev-parse', 'HEAD'))
+if ($Action -eq 'LastPublication') {
+    $path = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-releases\last-publication.json'
+    if (-not (Test-Path -LiteralPath $path)) { throw 'No saved publication receipt. Older releases may predate this feature.' }
+    $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    if ($saved.repository -ne $repository) { throw 'Saved publication receipt belongs to another repository.' }
+    Write-EditorResult $saved
+    return
+}
 if (($ExpectedHead -and $ExpectedHead -ne $head) -or ($ExpectedBranch -and $ExpectedBranch -ne $branch)) {
     throw 'Approved branch/commit changed. Refresh and obtain approval again.'
 }
@@ -291,7 +306,13 @@ if ($Action -eq 'Push') {
         $body = [IO.Path]::GetTempFileName()
         try {
             $commits = Git @('log', '--format=- %h %s', 'origin/main..HEAD')
-            $text = "## Changes`n`n$($commits -join "`n")`n`n## Verification`n`nPublished committed HEAD $head. This script did not run tests or CI; inspect checks and test the change before merging.`n"
+            $validation = Get-LocalValidation
+            $evidence = if ($validation.state -eq 'passed') {
+                "Matching local workflow validation passed at $($validation.timestamp) (UTC). Suites: $($validation.checks -join ', '). This is not a full game test."
+            } else {
+                "Local validation: $($validation.state). No matching local pass is claimed for this commit."
+            }
+            $text = "## Changes`n`n$($commits -join "`n")`n`n## Verification`n`nPushed committed HEAD $head.`n`n$evidence`n`nGitHub CI: not evaluated by Push. Inspect exact-head PR checks separately; local results are not a CI pass.`n"
             [IO.File]::WriteAllText($body, $text, [Text.UTF8Encoding]::new($false))
             Github @('pr', 'create', '--repo', $repository, '--base', 'main', '--head', $branch,
                 '--title', $Title, '--body-file', $body) | Out-Host
@@ -398,9 +419,22 @@ if ($Action -in @('Publish', 'DownloadTest')) {
     $published = ((Github @('api', "repos/$repository/releases/$($draft.id)")) -join "`n") | ConvertFrom-Json
     if ($published.draft) { throw 'Publication did not verify; inspect GitHub before retrying.' }
     Write-Output "Published: $($published.html_url)"
-    Write-EditorResult @{ url = $published.html_url; version=$Version; commit=$head; release_id=$published.id;
+    $publication = @{ repository=$repository; url = $published.html_url; version=$Version; commit=$head; release_id=$published.id;
         published_at=$published.published_at; prerelease=$published.prerelease; assets=$receipt.assets;
         verification='Uploaded assets freshly downloaded and hashes verified before publication'; backup='No Forgejo backup' }
+    # Emit the verified result before local persistence; a disk failure must not imply GitHub failed.
+    Write-EditorResult $publication
+    $temporaryReceipt = Join-Path $receiptDirectory ('publication-' + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        $publication | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporaryReceipt -Encoding UTF8
+        Move-Item -LiteralPath $temporaryReceipt -Destination (Join-Path $receiptDirectory 'last-publication.json') -Force
+    }
+    catch {
+        Write-Warning "GitHub published; local publication receipt could not be saved: $($_.Exception.Message). Do not repeat Publish."
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryReceipt) { Remove-Item -LiteralPath $temporaryReceipt }
+    }
     return
 }
 

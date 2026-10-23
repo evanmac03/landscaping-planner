@@ -13,6 +13,24 @@ All tabs share the command output panel.
 
 ### Guided workflow
 
+#### Safe preview and visual checks
+
+Use **Preview full guide (no Git/GitHub writes)** to rehearse the real dialogs
+with synthetic files, a simulated branch/commit, validation, PR, draft,
+download, testing and publication. Every dialog/result is marked **PREVIEW
+ONLY**. The command boundary intercepts all actions in preview: no Git,
+PowerShell, GitHub calls, downloads or Windows game launch take place.
+Preview results are never saved as publication receipts. **Exit preview**
+restores your real settings/evidence/package selection and clears synthetic
+Git status; refresh real status before continuing. Cancel pauses the preview
+but does not switch back to live operations. Use Exit preview explicitly.
+
+Preview is a UI rehearsal, not proof of authentication, CI, export readiness
+or game playability. The automated guide test exercises all preview dialog
+transitions; a rendered run also checks window layout. A manual walkthrough
+in your editor is still useful for focus, keyboard navigation and editor
+theme/DPI differences.
+
 **Start / detect next step** reads GitHub state without publishing: dirty work
 starts at file selection; a clean feature branch with an exact-head open PR
 resumes at manual review/merge; synchronized clean main resumes draft
@@ -148,6 +166,14 @@ includes the exact release link, source commit, release ID, publication time,
 prerelease/stable status, asset names/hashes, verification and backup status.
 Use **Copy result summary** in the result dialog or **Copy last result summary**
 in the guide to copy it. This summary lasts for the current dock session.
+New publications also save a separate verified receipt under private Git
+metadata (`landscaping-releases/last-publication.json`). **View last publication
+(saved locally)** loads it after reopening the editor, without contacting GitHub
+or repeating publication. It is explicitly historical: remote release state
+is not reverified. Existing preparation receipts are never overwritten.
+If saving fails after GitHub publishes, a warning reports that distinction;
+do not repeat Publish. Releases published before this feature have no saved
+publication receipt unless a later publication replaces it.
 Failed
 operations are marked **NOT CONFIRMED**, because partial remote writes may
 need inspection. Closing a success dialog pauses rather than repeating the
@@ -216,6 +242,11 @@ Push fetches origin, rejects remote-only feature commits, pushes the feature
 branch and reuses or creates its PR against main. It stops before merge.
 It does not run tests or wait for CI; review those separately. Its PR body
 explicitly states this limitation.
+For newly created PRs, the body includes matching local validation suites and
+their UTC timestamp, if a receipt matches the current branch/HEAD/index and
+working-file fingerprints. Stale or missing receipts are labelled without
+claiming a pass. CI remains a separate, unevaluated gate in that body.
+Existing PR descriptions are left unchanged rather than overwritten.
 
 Release requires clean main at the freshly fetched origin/main commit and an
 unused version. It exports a committed-source archive in private Git metadata,

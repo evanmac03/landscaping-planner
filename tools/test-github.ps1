@@ -71,7 +71,11 @@ function Invoke-Native {
                 if ($s.pr) { return ('[' + (@{number=1;url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
                 return '[]'
             }
-            'pr create *' { $s.pr = $true; return 'https://example.invalid/pr/1' }
+            'pr create *' {
+                $bodyIndex = [Array]::IndexOf($Arguments, '--body-file')
+                $s.prBody = [IO.File]::ReadAllText($Arguments[$bodyIndex + 1])
+                $s.pr = $true; return 'https://example.invalid/pr/1'
+            }
             'pr view *' {
                 return (@{headRefOid=$(if ($s.otherCiHead) {'different-head'} else {$s.head});url='https://example.invalid/pr/1';statusCheckRollup=@()} | ConvertTo-Json -Depth 5)
             }
@@ -137,7 +141,7 @@ $global:LandscapingGithubTest = @{
     root = $fixture; editor = $editor; branch = 'feature/test'; dirty = $false
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
     draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
-    multiple = $false; otherCiHead = $false; offline = $false; calls = [Collections.Generic.List[string]]::new()
+    multiple = $false; otherCiHead = $false; offline = $false; prBody = ''; calls = [Collections.Generic.List[string]]::new()
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -172,6 +176,7 @@ try {
     $passed++
     & $testScript -Action Push -Approve
     if (-not @($s.calls | Where-Object { $_ -like 'gh pr create *' }).Count) { throw 'PR was not created.' }
+    if ($s.prBody -notmatch 'Local validation: not-run' -or $s.prBody -notmatch 'not a CI pass') { throw 'Missing PR validation evidence was misrepresented.' }
     $passed++
     $discovery = (& $testScript -Action Discover) -join "`n"
     if ($discovery -notmatch '"next":"merge"') { throw 'Exact-head existing PR was not detected.' }
@@ -193,6 +198,10 @@ try {
     $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
     if ($evidence.local.state -ne 'passed' -or ([DateTimeOffset]$evidence.local.timestamp).UtcDateTime -ne ([DateTimeOffset]'2026-10-23T16:00:00Z').UtcDateTime) { throw "Matching validation receipt lost its result/timestamp: $evidenceText" }
     $passed++
+    $s.pr = $false
+    & $testScript -Action Push -Approve | Out-Null
+    if ($s.prBody -notmatch 'Matching local workflow validation passed' -or $s.prBody -notmatch 'Fixture suite' -or $s.prBody -notmatch '2026-10-23' -or $s.prBody -match 'C:\\') { throw "PR validation fixture mismatch: $($s.prBody)" }
+    $passed++
     $s.offline = $true
     $evidenceText = (& $testScript -Action Evidence 3>$null) -join "`n"
     $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
@@ -206,6 +215,10 @@ try {
     $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
     if ($evidence.local.state -ne 'stale' -or $evidence.ci.state -ne 'different-head') { throw 'Stale local/different-head CI evidence was not distinguished.' }
     $s.otherCiHead = $false
+    $passed++
+    $s.pr = $false
+    & $testScript -Action Push -Approve | Out-Null
+    if ($s.prBody -notmatch 'Local validation: stale' -or $s.prBody -match 'Matching local workflow validation passed') { throw 'Stale receipt was represented as a pass in PR body.' }
     $passed++
     $s.branch = 'main'
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } 'No local preparation receipt*'
@@ -278,6 +291,12 @@ try {
     $publishedResult = (($publication -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
     if ($publishedResult.commit -ne $s.head -or $publishedResult.assets.Count -ne 2 -or -not $publishedResult.published_at -or $publishedResult.backup -ne 'No Forgejo backup') { throw 'Publication receipt incomplete.' }
     if ((Get-Content -LiteralPath $phasePath -Raw) -ne 'Publishing verified draft') { throw 'Live phase reporting missing.' }
+    $beforeRead = $s.calls.Count
+    $historical = (& $testScript -Action LastPublication) -join "`n"
+    $savedPublication = (($historical -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($savedPublication.release_id -ne $publishedResult.release_id -or $savedPublication.commit -ne $publishedResult.commit) { throw 'Publication receipt did not survive script restart.' }
+    if (@($s.calls | Select-Object -Skip $beforeRead | Where-Object { $_ -like 'gh *' -or $_ -like '* fetch *' }).Count) { throw 'Reading historical receipt accessed remote.' }
+    $passed++
     if ($s.draft) { throw 'Publish did not change draft state.' }
     $passed++
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } '*already published*'

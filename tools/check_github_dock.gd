@@ -124,8 +124,107 @@ func _test() -> void:
 	if not _test_transitions():
 		quit(1)
 		return
+	if not await _test_preview():
+		quit(1)
+		return
 	print("PASS: completion routing, failed/malformed status invalidation, cancellation, scrollable long-file review.")
 	quit(0)
+
+
+func _test_preview() -> bool:
+	root.gui_embed_subwindows = true
+	var dock = load("res://addons/github_tools/workflow_dock.gd").new()
+	root.add_child(dock)
+	dock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dock._version.text = "v1.2.3"
+	dock._begin_preview()
+	await _settle_preview()
+	if dock._guide_step != "files" or not dock._guide_dialog.title.begins_with("PREVIEW"):
+		printerr("Preview did not start with a clearly marked file question.")
+		return false
+	dock._guide_select_files(true)
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if dock._guide_step != "commit_review":
+		printerr("Preview did not reach staged diff review.")
+		return false
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--capture-preview=") and DisplayServer.get_name() != "headless":
+			await RenderingServer.frame_post_draw
+			var capture_error := root.get_texture().get_image().save_png(argument.trim_prefix("--capture-preview="))
+			if capture_error != OK:
+				printerr("Could not capture rendered preview: ", capture_error)
+				return false
+	dock._guide_branch.text = "feature/preview"
+	dock._guide_input.text = "Preview commit"
+	dock._guide_reviewed.button_pressed = true
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if dock._guide_step != "validate_commit":
+		printerr("Preview skipped validation question.")
+		return false
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if dock._guide_step != "push":
+		printerr("Preview validation did not reach Push.")
+		return false
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if not dock._result_dialog.visible or not dock._result_dialog.title.begins_with("PREVIEW") or dock._result_link.visible:
+		printerr("Preview push result claimed real success or enabled its link.")
+		return false
+	dock._result_dialog.hide()
+	dock._result_dialog.confirmed.emit()
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if dock._guide_step != "release":
+		printerr("Preview merge checkpoint did not reach Release.")
+		return false
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	dock._result_dialog.hide()
+	dock._result_dialog.confirmed.emit()
+	dock._download_test()
+	await _settle_preview()
+	if dock._guide_step != "publish" or dock._test_package.get("identity") != "preview-draft":
+		printerr("Preview download did not return to testing.")
+		return false
+	dock._launch_test_package()
+	await _settle_preview()
+	dock._guide_tested.button_pressed = true
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if dock._guide_step != "publish_confirm":
+		printerr("Preview skipped separate publication approval.")
+		return false
+	dock._guide_dialog.confirmed.emit()
+	await _settle_preview()
+	if not dock._result_dialog.title.begins_with("PREVIEW") or not dock._release_receipt.begins_with("PREVIEW"):
+		printerr("Preview publication looked real.")
+		return false
+	dock._result_dialog.hide()
+	dock._result_dialog.confirmed.emit()
+	if not dock._guide_label.text.begins_with("PREVIEW ONLY completed"):
+		printerr("Preview completion looked like real publication.")
+		return false
+	dock._end_preview()
+	if dock._preview or dock._version.text != "v1.2.3" or not dock._snapshot.is_empty() or dock._thread != null:
+		printerr("Exiting preview did not restore settings and clear synthetic status.")
+		return false
+	dock._begin_preview()
+	dock._end_preview()
+	await _settle_preview()
+	if dock._preview or dock._thread != null or not dock._snapshot.is_empty():
+		printerr("Exiting preview left deferred commands running.")
+		return false
+	dock.free()
+	print("PASS: full preview via dialog signals, no subprocess/remote/package launch, settings restored.")
+	return true
+
+
+func _settle_preview() -> void:
+	for index in 20:
+		await process_frame
 
 
 func _test_transitions() -> bool:
@@ -249,6 +348,12 @@ func _test_transitions() -> bool:
 	guide._complete({"code":0,"status":false,"action":"Publish","version":"v0.3.0","guide_next":"done","text":"EDITOR_RESULT:" + JSON.stringify(release_data)})
 	if not "source-commit" in guide._release_receipt or not "abc123" in guide._release_receipt or not "Stable" in guide._release_receipt or not "No Forgejo backup" in guide._release_receipt:
 		printerr("Copyable release receipt omitted verification details.")
+		return false
+	guide._result_dialog.hide()
+	release_data["version"] = "v0.3.0"
+	guide._complete({"code":0,"status":false,"action":"LastPublication","guide_next":"receipt","text":"EDITOR_RESULT:" + JSON.stringify(release_data)})
+	if not "historical" in guide._result_dialog.title or not "remote state not reverified" in guide._release_receipt or not guide._result_next.is_empty():
+		printerr("Saved publication was not marked historical/read-only.")
 		return false
 	guide._result_dialog.hide()
 	guide._sync_distance = "0 2"
