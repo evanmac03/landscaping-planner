@@ -58,6 +58,43 @@ func _test() -> void:
 		quit(1)
 		return
 	print("PASS: automatic/status output retains previous command history.")
+	var integrity_folder := "user://github-worker-test-" + str(Time.get_ticks_usec())
+	DirAccess.make_dir_absolute(integrity_folder)
+	var integrity_path := integrity_folder.path_join("test.txt")
+	var integrity_file := FileAccess.open(integrity_path, FileAccess.WRITE)
+	integrity_file.store_string("test package")
+	integrity_file.close()
+	dock._guide_version = "v0.2.0-rc.1"
+	dock._test_package = {"folder": integrity_folder, "manifest": dock._package_files(integrity_folder), "version": "v0.2.0-rc.1", "commit":"test-head", "identity":"test-identity"}
+	dock._guide_show("publish")
+	dock._guide_tested.button_pressed = true
+	dock._guide_answer()
+	var worker_started: bool = dock._thread != null
+	deadline = Time.get_ticks_msec() + 30000
+	while dock._thread != null and Time.get_ticks_msec() < deadline:
+		await create_timer(0.01).timeout
+	var worker_passed: bool = worker_started and dock._thread == null and dock._guide_step == "publish_confirm"
+	dock._guide_dialog.hide()
+	dock._guide_show("publish")
+	dock._guide_tested.button_pressed = true
+	integrity_file = FileAccess.open(integrity_path, FileAccess.WRITE)
+	integrity_file.store_string("modified after testing")
+	integrity_file.close()
+	dock._guide_answer()
+	deadline = Time.get_ticks_msec() + 30000
+	while dock._thread != null and Time.get_ticks_msec() < deadline:
+		await create_timer(0.01).timeout
+	var worker_blocked: bool = dock._thread == null and dock._test_package.is_empty() and not dock._guide_tested.button_pressed and dock._guide_step == "publish"
+	var has_running_result: bool = dock._running_status.text.begins_with("Completed after")
+	dock.finish()
+	DirAccess.remove_absolute(integrity_path)
+	DirAccess.remove_absolute(integrity_folder)
+	if not worker_passed or not worker_blocked or not has_running_result:
+		printerr("Background integrity confirmation/invalidation or elapsed status failed.")
+		dock.free()
+		quit(1)
+		return
+	print("PASS: real background integrity check before testing approval; altered package invalidated; elapsed status.")
 	dock.finish()
 	dock.free()
 	if not _test_guide():
@@ -145,6 +182,78 @@ func _test_transitions() -> bool:
 	guide._complete({"code": 1, "text": "Simulated publish failure", "status": false, "action": "Publish", "guide_next": "done"})
 	if guide._result_dialog.visible or not "NOT CONFIRMED" in guide._guide_result.text:
 		printerr("Failure was shown as success.")
+		return false
+	guide.captured = {}
+	guide._complete({"code": 0, "text": 'EDITOR_RESULT:{"next":"merge","url":"https://github.com/evanmac03/landscaping-planner/pull/2","version":""}', "status": false, "action": "Discover", "guide_next": "discover"})
+	if guide.captured.get("guide_next") != "merge":
+		printerr("Discovery failed to resume existing PR.")
+		return false
+	guide._complete({"code": 0, "text": 'EDITOR_RESULT:{"folder":"test-folder","executable":"test.exe","version":"v0.2.0-rc.1","commit":"test-head","identity":"42:hash","url":"https://github.com/evanmac03/landscaping-planner/releases/tag/draft"}', "status": false, "action": "DownloadTest", "guide_next": "package_ready"})
+	if guide._test_package.get("version") != "v0.2.0-rc.1" or guide._guide_step != "publish":
+		printerr("Verified package did not return to testing.")
+		return false
+	guide._guide_tested.button_pressed = true
+	guide._guide_input.text = "v0.2.0-rc.2"
+	guide._guide_input.text_changed.emit(guide._guide_input.text)
+	if not guide._test_package.is_empty() or guide._guide_tested.button_pressed:
+		printerr("Version change retained an unrelated package.")
+		return false
+	guide._guide_dialog.hide()
+	guide._complete({"code": 0, "text": 'EDITOR_RESULT:{"url":"https://github.com/evanmac03/landscaping-planner/releases/tag/actual-draft"}', "status": false, "action": "Release", "version": "v0.2.0-rc.2", "guide_next": "publish"})
+	if not guide._result_url.ends_with("/actual-draft"):
+		printerr("Actual draft link was discarded.")
+		return false
+	guide._result_dialog.hide()
+	guide._sync_distance = "0 2"
+	guide._guide_show("sync")
+	if guide._guide_step != "sync" or guide._guide_dialog.ok_button_text != "Close":
+		printerr("Unsynchronized main did not show an actionable stop.")
+		return false
+	guide._guide_dialog.hide()
+	guide._draft_choices = [{"version":"v0.3.0-rc.1","url":"https://github.com/evanmac03/landscaping-planner/releases/tag/draft", "commit":"test-head"}]
+	guide._guide_show("drafts")
+	guide._guide_answer()
+	if guide._guide_step != "publish" or guide._guide_input.text != "v0.3.0-rc.1":
+		printerr("Draft chooser did not route selected version to testing.")
+		return false
+	var folder := "user://github-addon-integrity-test-" + str(Time.get_ticks_usec())
+	DirAccess.make_dir_absolute(folder)
+	var path := folder.path_join("example.txt")
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("original")
+	file.close()
+	guide._test_package = {"folder":folder, "manifest":guide._package_files(folder)}
+	var original_valid := guide._verify_test_files()
+	file = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("changed")
+	file.close()
+	var tampered_valid := guide._verify_test_files()
+	file = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string("original")
+	file.close()
+	var extra_path := folder.path_join("added.dll")
+	file = FileAccess.open(extra_path, FileAccess.WRITE)
+	file.store_string("extra")
+	file.close()
+	var added_valid := guide._verify_test_files()
+	DirAccess.remove_absolute(extra_path)
+	DirAccess.remove_absolute(path)
+	var missing_valid := guide._verify_test_files()
+	DirAccess.remove_absolute(folder)
+	if not original_valid or tampered_valid or added_valid or missing_valid:
+		printerr("Package manifest did not detect tampering.")
+		return false
+	guide._test_package = {"version":"v0.3.0-rc.1", "commit":"test-head", "folder":"missing", "manifest":{}}
+	guide._guide_show("publish")
+	guide._guide_tested.button_pressed = true
+	guide.captured = {}
+	guide._launch_test_package()
+	if guide.captured.get("purpose") != "launch":
+		printerr("Launch did not use background integrity verification.")
+		return false
+	guide._complete({"code":1, "text":"Integrity failed.", "status":false, "purpose":"launch", "package":guide._test_package.duplicate(true)})
+	if not guide._test_package.is_empty() or guide._guide_tested.button_pressed or not "Download" in guide._guide_error.text:
+		printerr("Failed launch integrity retained package approval.")
 		return false
 	guide.free()
 	return true
@@ -253,11 +362,25 @@ func _test_guide() -> bool:
 		printerr("Guide published without playtest approval.")
 		return false
 	guide._guide_show("publish")
+	guide._test_package = {"version":"v0.2.0-rc.1", "commit":"test-head", "identity":"42:hash"}
 	guide._guide_tested.button_pressed = true
 	guide._guide_dialog.hide()
 	guide._guide_answer()
+	if guide.captured.get("purpose") != "confirm" or not guide.captured.has("package"):
+		printerr("Testing approval did not request background integrity verification.")
+		return false
+	var checked_package: Dictionary = guide.captured["package"]
+	guide.captured = {}
+	guide._complete({"code":0, "text":"Verified for testing.", "status":false, "purpose":"confirm", "package":checked_package})
+	if guide._guide_step != "publish_confirm" or not guide.captured.is_empty():
+		printerr("Integrity verification skipped separate publication approval.")
+		return false
+	guide._guide_answer()
 	if not "Publish" in guide.captured["args"] or guide.captured["guide_next"] != "done":
 		printerr("Guide publication parameters incorrect.")
+		return false
+	if not "-ExpectedDraft" in guide.captured["args"] or not "-ExpectedHead" in guide.captured["args"]:
+		printerr("Publish command is not bound to tested identity.")
 		return false
 	guide.free()
 	return true

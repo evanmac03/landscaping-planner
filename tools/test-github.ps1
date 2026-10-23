@@ -64,9 +64,23 @@ function Invoke-Native {
         $key = $Arguments -join ' '
         switch -Wildcard ($key) {
             'api user --jq .login' { return 'test-user' }
-            'pr list *' { return '[]' }
-            'pr create *' { return 'https://example.invalid/pr/1' }
-            'api --paginate *' { return }
+            'pr list *' {
+                if ($s.pr) { return ('[' + (@{url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
+                return '[]'
+            }
+            'pr create *' { $s.pr = $true; return 'https://example.invalid/pr/1' }
+            'api --paginate *' {
+                if ($Arguments -notcontains '--jq') {
+                    if ($s.assets.Count) {
+                        $item = @{id=42;draft=$s.draft;tag_name=$s.lookupTag;html_url='https://example.invalid/release/42'}
+                        $items = @($item)
+                        if ($s.multiple) { $items += @{id=43;draft=$true;tag_name='v0.1.0-rc.2';html_url='https://example.invalid/release/43'} }
+                        return ('[' + (ConvertTo-Json -InputObject $items -Compress) + ']')
+                    }
+                    return '[]'
+                }
+                return
+            }
             'release create *' {
                 $s.assets = @($Arguments | Where-Object { $_ -match '\.(zip|sha256)$' })
                 $s.draft = $true
@@ -76,7 +90,7 @@ function Invoke-Native {
             'release view *' { return '{"databaseId":42}' }
             'api repos/*/releases/42' {
                 return (@{
-                    id = 42; draft = $s.draft; tag_name = $s.lookupTag; target_commitish = $s.head
+                    id = 42; draft = $s.draft; tag_name = $s.lookupTag; target_commitish = $s.head; prerelease = $true
                     html_url = 'https://example.invalid/release/42'
                     assets = @($s.assets | ForEach-Object { @{ name = [IO.Path]::GetFileName($_) } })
                 } | ConvertTo-Json -Depth 5)
@@ -115,8 +129,8 @@ Set-Content -LiteralPath $editor -Value 'not executed'
 $global:LandscapingGithubTest = @{
     root = $fixture; editor = $editor; branch = 'feature/test'; dirty = $false
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
-    draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''
-    calls = [Collections.Generic.List[string]]::new()
+    draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
+    multiple = $false; calls = [Collections.Generic.List[string]]::new()
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -129,6 +143,9 @@ try {
     & $testScript -Action Plan | Out-Null
     if (@($s.calls | Where-Object { $_ -match '^gh | fetch | push ' }).Count) { throw 'Plan performed remote operations.' }
     $passed++
+    Expect-Failure { & $testScript -Action Push -ExpectedHead ('b' * 40) -ExpectedBranch 'feature/test' -Approve } 'Approved branch/commit changed*'
+    Expect-Failure { & $testScript -Action Push -ExpectedHead $s.head -ExpectedBranch 'feature/other' -Approve } 'Approved branch/commit changed*'
+    $passed++
     $s.dirty = $true
     Expect-Failure { & $testScript -Action Push -Approve } 'Commit or deliberately move*'
     $s.dirty = $false
@@ -136,6 +153,9 @@ try {
     Expect-Failure { & $testScript -Action Push } '*requires explicit -Approve*'
     $passed++
     $s.branch = 'main'
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"release"') { throw 'Clean main did not resume release.' }
+    $passed++
     Expect-Failure { & $testScript -Action Push -Approve } 'Push requires a feature branch*'
     $passed++
     $s.branch = 'feature/test'
@@ -146,10 +166,16 @@ try {
     & $testScript -Action Push -Approve
     if (-not @($s.calls | Where-Object { $_ -like 'gh pr create *' }).Count) { throw 'PR was not created.' }
     $passed++
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"merge"') { throw 'Exact-head existing PR was not detected.' }
+    $passed++
     $s.branch = 'main'
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } 'No local preparation receipt*'
     $passed++
     $s.main = ('b' * 40)
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"sync"' -or $discovery -notmatch '"distance":') { throw 'Unsynchronized main was not explained.' }
+    $passed++
     Expect-Failure { & $testScript -Action Release -Version v0.1.0-rc.1 -Godot $editor -Approve } '*requires clean main exactly synchronized*'
     $s.main = $s.head
     $passed++
@@ -159,6 +185,32 @@ try {
     $receipt = Join-Path $fixture '.git\landscaping-releases\v0.1.0-rc.1.json'
     if (-not (Test-Path -LiteralPath $receipt)) { throw 'Verified receipt was not saved.' }
     if (-not $s.draft -or -not $s.tag) { throw 'Preparation did not retain a tagged draft.' }
+    $passed++
+    $downloadResult = (& $testScript -Action DownloadTest -Version v0.1.0-rc.1 -Approve) -join "`n"
+    if ($downloadResult -notmatch 'EDITOR_RESULT:.*executable') { throw 'Verified test download missing.' }
+    $passed++
+    $downloadData = ($downloadResult -split 'EDITOR_RESULT:')[-1] | ConvertFrom-Json
+    if (-not $downloadData.identity -or -not $downloadData.manifest.PSObject.Properties['landscaping-planner.exe']) { throw 'Package identity/manifest missing.' }
+    Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -ExpectedDraft 'wrong-draft' -Approve } 'Approved draft identity changed*'
+    if (-not $s.draft) { throw 'Wrong approved draft was published.' }
+    $passed++
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"publish"') { throw 'Prepared draft was not detected.' }
+    $passed++
+    $s.multiple = $true
+    $secondReceipt = Join-Path (Split-Path -Parent $receipt) 'v0.1.0-rc.2.json'
+    $secondData = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+    $secondData.version = 'v0.1.0-rc.2'
+    $secondData.release_id = 43
+    $secondData | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $secondReceipt -Encoding UTF8
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"drafts"' -or $discovery -notmatch '"choices":\[') { throw 'Multiple drafts did not offer a chooser.' }
+    $s.multiple = $false
+    Remove-Item -LiteralPath $secondReceipt
+    $passed++
+    $s.tamper = $true
+    Expect-Failure { & $testScript -Action DownloadTest -Version v0.1.0-rc.1 -Approve } 'Uploaded asset hash mismatch*'
+    $s.tamper = $false
     $passed++
     $retained = Get-ChildItem -LiteralPath (Split-Path -Parent $receipt) -Directory -Filter 'build-*'
     Remove-Item -LiteralPath $receipt
@@ -183,7 +235,7 @@ try {
     if (-not $s.draft) { throw 'Tampered assets were published.' }
     $s.tamper = $false
     $passed++
-    & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve
+    & $testScript -Action Publish -Version v0.1.0-rc.1 -ExpectedHead $s.head -ExpectedBranch main -ExpectedDraft $downloadData.identity -Approve
     if ($s.draft) { throw 'Publish did not change draft state.' }
     $passed++
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } '*already published*'

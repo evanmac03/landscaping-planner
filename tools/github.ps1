@@ -1,11 +1,14 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Push', 'Release', 'RecoverDraft', 'Publish')]
+    [ValidateSet('Plan', 'Discover', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
     [string]$Title,
     [string]$BuildDirectory,
+    [string]$ExpectedHead,
+    [string]$ExpectedBranch,
+    [string]$ExpectedDraft,
     [switch]$Approve
 )
 
@@ -32,6 +35,11 @@ function Git {
 
 function Github {
     Invoke-Native 'gh' @($args | ForEach-Object { $_ })
+}
+
+function Write-EditorResult {
+    param($Data)
+    Write-Output ('EDITOR_RESULT:' + ($Data | ConvertTo-Json -Depth 8 -Compress))
 }
 
 function Assert-Clean {
@@ -92,7 +100,7 @@ function Assert-Tag {
 }
 
 function Assert-DraftAssets {
-    param($Draft, $Receipt)
+    param($Draft, $Receipt, [switch]$Retain)
     if ([string]$Draft.id -ne [string]$Receipt.release_id -or $Draft.tag_name -ne $Version) {
         throw 'Draft identity differs from the preparation receipt.'
     }
@@ -103,6 +111,7 @@ function Assert-DraftAssets {
     }
     $download = Join-Path $receiptDirectory ("verify-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $download | Out-Null
+    $verified = $false
     try {
         Github @('release', 'download', $Version, '--repo', $repository, '--dir', $download) | Out-Host
         foreach ($asset in $Receipt.assets) {
@@ -114,9 +123,11 @@ function Assert-DraftAssets {
                 throw "Uploaded asset hash mismatch: $($asset.name)."
             }
         }
+        $verified = $true
+        if ($Retain) { return $download }
     }
     finally {
-        Remove-Item -LiteralPath $download -Recurse -Force
+        if (-not $Retain -or -not $verified) { Remove-Item -LiteralPath $download -Recurse -Force }
     }
 }
 
@@ -127,6 +138,9 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 
 $branch = [string](Git @('branch', '--show-current'))
 $head = [string](Git @('rev-parse', 'HEAD'))
+if (($ExpectedHead -and $ExpectedHead -ne $head) -or ($ExpectedBranch -and $ExpectedBranch -ne $branch)) {
+    throw 'Approved branch/commit changed. Refresh and obtain approval again.'
+}
 if ($Action -eq 'Plan') {
     Write-Output "Repository: $repository"
     Write-Output "Branch: $branch"
@@ -138,10 +152,53 @@ if ($Action -eq 'Plan') {
     Write-Output 'Release needs Godot 4.7 and its matching Windows export templates. No CI or playability certification is implied.'
     return
 }
+if ($Action -eq 'Discover') {
+    Assert-Remote
+    $dirty = @(Git @('status', '--porcelain=v1', '--untracked-files=all')).Count -gt 0
+    $next = 'files'
+    $url = ''
+    $selectedVersion = ''
+    $choices = @()
+    $distance = ''
+    if (-not $dirty -and $branch -eq 'main' -and $head -ne [string](Git @('rev-parse', 'origin/main'))) {
+        $next = 'sync'
+        $distance = [string](Git @('rev-list', '--left-right', '--count', 'HEAD...origin/main'))
+    }
+    if (-not $dirty -and $branch -eq 'main' -and $head -eq [string](Git @('rev-parse', 'origin/main'))) {
+        $next = 'release'
+        $metadata = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-releases'
+        $pages = ((Github @('api', '--paginate', '--slurp', "repos/$repository/releases")) -join "`n") | ConvertFrom-Json
+        $drafts = @($pages | ForEach-Object { $_ })
+        $candidates = @($drafts | Where-Object {
+            $null -ne $_ -and $_.draft -and $_.tag_name -match '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$' -and
+            (Test-Path -LiteralPath (Join-Path $metadata "$($_.tag_name).json"))
+        } | Where-Object {
+            $saved = Get-Content -LiteralPath (Join-Path $metadata "$($_.tag_name).json") -Raw | ConvertFrom-Json
+            $saved.commit -eq $head -and $saved.repository -eq $repository -and $saved.version -eq $_.tag_name -and [string]$saved.release_id -eq [string]$_.id
+        })
+        if ($candidates.Count -eq 1) {
+            $next = 'publish'; $selectedVersion = $candidates[0].tag_name; $url = $candidates[0].html_url
+        } elseif ($candidates.Count -gt 1) {
+            $next = 'drafts'
+            $choices = @($candidates | ForEach-Object { @{version=$_.tag_name;url=$_.html_url;commit=$head;id=$_.id} })
+        }
+    } elseif (-not $dirty -and $branch -and $branch -ne 'main') {
+        $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--base', 'main',
+            '--state', 'open', '--json', 'url,headRefOid')) -join "`n") | ConvertFrom-Json)
+        if ($prs.Count -eq 1 -and $prs[0].headRefOid -eq $head) { $next = 'merge'; $url = $prs[0].url }
+        else { $next = 'push' }
+    }
+    Write-EditorResult @{ next = $next; url = $url; version = $selectedVersion; commit = $head; choices = $choices; distance = $distance }
+    return
+}
 if ($Action -ne 'RecoverDraft') { Assert-Clean }
 if (-not $Approve) { throw "$Action requires explicit -Approve. Plan performs no remote operations." }
 Assert-Remote
 
+if (($ExpectedHead -and $ExpectedHead -ne [string](Git @('rev-parse', 'HEAD'))) -or
+    ($ExpectedBranch -and $ExpectedBranch -ne [string](Git @('branch', '--show-current')))) {
+    throw 'Approved branch/commit changed during preflight. Refresh and obtain approval again.'
+}
 if ($Action -eq 'Push') {
     if (-not $branch -or $branch -eq 'main') {
         throw 'Push requires a feature branch. Create and commit one yourself first.'
@@ -175,6 +232,10 @@ if ($Action -eq 'Push') {
         finally { Remove-Item -LiteralPath $body -Force }
     }
     Write-Output 'Stopped before merge. Review the PR and any GitHub checks separately.'
+    $current = ((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--base', 'main',
+        '--state', 'open', '--json', 'url,headRefOid')) -join "`n") | ConvertFrom-Json
+    if (@($current).Count -ne 1 -or $current[0].headRefOid -ne $head) { throw 'Could not verify exact pushed PR.' }
+    Write-EditorResult @{ url = $current[0].url }
     return
 }
 
@@ -228,7 +289,7 @@ if ($Action -eq 'RecoverDraft') {
     return
 }
 
-if ($Action -eq 'Publish') {
+if ($Action -in @('Publish', 'DownloadTest')) {
     if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No local preparation receipt. Prepare and verify a draft first.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     if ($receipt.commit -ne $head -or $receipt.repository -ne $repository -or $receipt.version -ne $Version) {
@@ -236,6 +297,23 @@ if ($Action -eq 'Publish') {
     }
     $draft = Get-Draft
     Assert-Tag $head
+    $draftIdentity = ([string]$draft.id) + ':' + $draft.tag_name + ':' + $draft.target_commitish + ':' +
+        [string]$draft.prerelease + ':' + $receipt.assets[0].sha256 + ':' + $receipt.assets[1].sha256
+    if ($ExpectedDraft -and $ExpectedDraft -ne $draftIdentity) { throw 'Approved draft identity changed. Download, test and approve again.' }
+    if ($Action -eq 'DownloadTest') {
+        $download = Assert-DraftAssets $draft $receipt -Retain
+        $stem = "landscaping-planner-$Version-windows-x86_64"
+        $unpacked = Join-Path $download 'unpacked'
+        Expand-Archive -LiteralPath (Join-Path $download "$stem.zip") -DestinationPath $unpacked
+        $exe = Join-Path $unpacked 'landscaping-planner.exe'
+        if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Verified ZIP has no expected Windows executable.' }
+        $manifest = @{}
+        foreach ($file in Get-ChildItem -LiteralPath $unpacked -Recurse -File) {
+            $manifest[$file.FullName.Substring($unpacked.Length + 1).Replace('\', '/')] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+        Write-EditorResult @{ url = $draft.html_url; folder = $unpacked; executable = $exe; version = $Version; commit = $head; identity = $draftIdentity; manifest = $manifest; prerelease = $draft.prerelease; release_id = $draft.id }
+        return
+    }
     Assert-DraftAssets $draft $receipt
     $fresh = Get-Draft
     if (($fresh | ConvertTo-Json -Depth 20 -Compress) -ne ($draft | ConvertTo-Json -Depth 20 -Compress)) {
@@ -251,6 +329,7 @@ if ($Action -eq 'Publish') {
     $published = ((Github @('api', "repos/$repository/releases/$($draft.id)")) -join "`n") | ConvertFrom-Json
     if ($published.draft) { throw 'Publication did not verify; inspect GitHub before retrying.' }
     Write-Output "Published: $($published.html_url)"
+    Write-EditorResult @{ url = $published.html_url }
     return
 }
 
@@ -314,4 +393,5 @@ $receipt = [ordered]@{
 Assert-DraftAssets $draft $receipt
 $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
 Write-Output "Verified draft: $($draft.html_url)"
+Write-EditorResult @{ url = $draft.html_url }
 Write-Output "Build retained at $build. Test the downloaded Windows build before separately approving Publish."
