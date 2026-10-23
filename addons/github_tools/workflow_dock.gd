@@ -53,6 +53,9 @@ var _checks_label: Label
 var _checks_summary: String = "Local validation: not checked this session.\nGitHub CI: not queried. Local tests are not CI."
 var _phase_file: String = ""
 var _release_receipt: String = ""
+var _preview: bool = false
+var _preview_saved: Dictionary = {}
+var _preview_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -117,6 +120,9 @@ func _ready() -> void:
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_section.add_child(_guide_result)
 	_button("Copy last result summary", func(): DisplayServer.clipboard_set(_release_receipt))
+	_button("View last publication (saved locally)", _workflow.bind("LastPublication", "receipt"))
+	_button("Preview full guide (no Git/GitHub writes)", _begin_preview)
+	_button("Exit preview", _end_preview)
 	_checks_label = Label.new()
 	_checks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checks_label.text = _checks_summary
@@ -126,8 +132,8 @@ func _ready() -> void:
 	_button("Start / detect next step…", _workflow.bind("Discover", "discover"))
 	_button("Resume after manual PR merge and sync…", _guide_begin.bind("release"))
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
-	_button("Open GitHub pull requests", func(): OS.shell_open("https://github.com/evanmac03/landscaping-planner/pulls"))
-	_button("Open GitHub releases / drafts", func(): OS.shell_open("https://github.com/evanmac03/landscaping-planner/releases"))
+	_button("Open GitHub pull requests", _open_github.bind("https://github.com/evanmac03/landscaping-planner/pulls"))
+	_button("Open GitHub releases / drafts", _open_github.bind("https://github.com/evanmac03/landscaping-planner/releases"))
 	var output_label := Label.new()
 	output_label.text = "Command output (all stages)"
 	add_child(output_label)
@@ -175,16 +181,21 @@ func _ready() -> void:
 	)
 	_result_dialog = AcceptDialog.new()
 	_result_dialog.ok_button_text = "Continue"
+	var result_scroll := ScrollContainer.new()
+	result_scroll.custom_minimum_size = Vector2(400, 360)
+	result_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_result_dialog.add_child(result_scroll)
 	var result_body := VBoxContainer.new()
 	result_body.custom_minimum_size.x = 360
+	result_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_result_summary = Label.new()
 	_result_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_body.add_child(_result_summary)
 	_result_link = LinkButton.new()
 	_result_link.text = "Open on GitHub"
-	_result_link.pressed.connect(func(): OS.shell_open(_result_url))
+	_result_link.pressed.connect(func(): _open_github(_result_url))
 	result_body.add_child(_result_link)
-	_result_dialog.add_child(result_body)
+	result_scroll.add_child(result_body)
 	var copy_receipt := Button.new()
 	copy_receipt.text = "Copy result summary"
 	copy_receipt.pressed.connect(func(): DisplayServer.clipboard_set(_release_receipt))
@@ -208,6 +219,103 @@ func _guide_begin(step: String) -> void:
 	_tabs.current_tab = 4
 	_guide_label.text = "Reading current Git status…"
 	_git("Status", step)
+
+
+func _open_github(url: String) -> void:
+	if _preview:
+		_guide_label.text = "PREVIEW ONLY: GitHub link opening simulated."
+		return
+	var error := OS.shell_open(url)
+	if error != OK:
+		_output.text += "\nCannot open GitHub: " + error_string(error)
+
+
+func _begin_preview() -> void:
+	if _preview or _thread != null or _guide_dialog.visible or _result_dialog.visible or _confirm.visible or _commit_dialog.visible:
+		return
+	_preview_saved = {"branch":_branch.text, "version":_version.text, "godot":_godot.text, "message":_message.text, "guide_version":_guide_version, "receipt":_release_receipt, "package":_test_package.duplicate(true), "checks":_checks_summary, "result":_guide_result.text, "url":_github_url, "commit_name":_guide_commit_name}
+	_preview = true
+	_test_package.clear()
+	_version.text = "v9.9.9-preview"
+	_guide_version = _version.text
+	_branch.text = "feature/preview"
+	_guide_commit_name = ""
+	_preview_snapshot = {"head":"preview-commit", "branch":"main", "files":["example.txt"], "staged":[], "hashes":{}, "index_tree":"preview-tree"}
+	_tabs.current_tab = 4
+	_git("Status", "files")
+
+
+func _end_preview() -> void:
+	if not _preview or _thread != null:
+		return
+	_guide_dialog.hide()
+	_result_dialog.hide()
+	_confirm.hide()
+	_commit_dialog.hide()
+	_result_next = ""
+	_pending = {}
+	_preview = false
+	_branch.text = _preview_saved["branch"]
+	_version.text = _preview_saved["version"]
+	_godot.text = _preview_saved["godot"]
+	_message.text = _preview_saved["message"]
+	_guide_version = _preview_saved["guide_version"]
+	_release_receipt = _preview_saved["receipt"]
+	_test_package = _preview_saved["package"]
+	_checks_summary = _preview_saved["checks"]
+	_checks_label.text = _checks_summary
+	_guide_result.text = _preview_saved["result"]
+	_github_url = _preview_saved["url"]
+	_guide_commit_name = _preview_saved["commit_name"]
+	_preview_saved.clear()
+	_guide_step = ""
+	_guide_back_to_files = false
+	_invalidate_status()
+	_guide_label.text = "Preview ended. No Git/GitHub operation ran. Refresh real status before continuing."
+	_guide_progress.text = ""
+
+
+func _preview_command(command: Dictionary) -> void:
+	if not _preview:
+		return
+	var result := {"code":0, "text":"PREVIEW ONLY: simulated operation; nothing written or launched.", "status":command.get("status", false), "action":command.get("action", ""), "version":_version.text, "guide_next":command.get("guide_next", ""), "review":command.get("review", false)}
+	if command.has("package"):
+		result["purpose"] = command["purpose"]
+		result["package"] = command["package"]
+	elif command.has("args") and "-Request" in command["args"]:
+		var request: Dictionary = JSON.parse_string(Marshalls.base64_to_utf8(command["args"].back()))
+		match request["action"]:
+			"Status":
+				if _guide_step == "merge":
+					_preview_snapshot["branch"] = "main"
+				result["text"] = JSON.stringify(_preview_snapshot)
+			"Stage":
+				_preview_snapshot["files"] = []
+				_preview_snapshot["staged"] = ["example.txt"]
+			"StagedReview":
+				result["text"] = "PREVIEW ONLY\ndiff --git a/example.txt b/example.txt\n+Example change"
+			"Commit":
+				_preview_snapshot["branch"] = _branch.text
+				_preview_snapshot["staged"] = []
+			_:
+				result["guide_next"] = ""
+	else:
+		var metadata: Dictionary = {}
+		match result["action"]:
+			"Validate", "Evidence":
+				metadata = {"commit":"preview-commit","local":{"state":"simulated","timestamp":"PREVIEW","checks":["Simulated suites; not executed"]},"ci":{"state":"simulated; not queried","head":"preview-commit","checks":[]}}
+				if result["guide_next"] == "push":
+					result["guide_next"] = "checks"
+			"DownloadTest":
+				metadata = {"version":_version.text,"commit":"preview-commit","identity":"preview-draft","release_id":"PREVIEW","prerelease":true,"folder":"","executable":"","manifest":{},"url":""}
+			"Push", "Release", "Publish":
+				metadata = {"url":"","version":_version.text}
+			_:
+				result["guide_next"] = ""
+		result["text"] += "\nEDITOR_RESULT:" + JSON.stringify(metadata)
+	_complete(result)
+	if command.get("action") == "Validate" and command.get("guide_next") == "push":
+		_git("Status", "push")
 
 
 func _guide_field(title: String, value: String) -> LineEdit:
@@ -306,7 +414,7 @@ func _guide_show(step: String) -> void:
 			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Switch to main and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
 			var open_pr := Button.new()
 			open_pr.text = "Open detected pull request"
-			open_pr.pressed.connect(func(): OS.shell_open(_github_url))
+			open_pr.pressed.connect(func(): _open_github(_github_url))
 			_guide_body.add_child(open_pr)
 			description.text += "\n\n" + _checks_summary
 			var refresh_checks := Button.new()
@@ -356,7 +464,7 @@ func _guide_show(step: String) -> void:
 				_draft_picker.add_item("%s — %s" % [draft["version"], String(draft["commit"]).left(8)])
 			_guide_body.add_child(_draft_picker)
 		"done":
-			_guide_label.text = "Publication completed. See command output for the release result. No Forgejo backup was made."
+			_guide_label.text = "PREVIEW ONLY completed. Nothing was committed, pushed, downloaded, launched or published. Use Exit preview." if _preview else "Publication completed. See command output for the release result. No Forgejo backup was made."
 			return
 	_guide_label.text = "Waiting for your answer: " + step + ". Cancel leaves completed work in place."
 	_guide_error = Label.new()
@@ -378,7 +486,10 @@ func _guide_show(step: String) -> void:
 		_guide_dialog.ok_button_text = "Review staged changes"
 	_guide_back_button.visible = step in ["commit_review", "release", "publish", "publish_confirm"]
 	_guide_dialog.reset_size()
-	_guide_dialog.popup_centered()
+	_guide_dialog.popup_centered(Vector2i(640, 600))
+	if _preview:
+		_guide_dialog.title = "PREVIEW ONLY — " + _guide_dialog.title
+		_guide_label.text = "PREVIEW ONLY. No commands, downloads, launches or publication will run. Exit preview to return to real work."
 
 
 func _guide_select_files(selected: bool) -> void:
@@ -527,6 +638,9 @@ func _download_test() -> void:
 
 
 func _open_test_folder() -> void:
+	if _preview:
+		_guide_error.text = "PREVIEW ONLY: folder opening is simulated."
+		return
 	if _test_package.is_empty() or _test_package.get("version") != _guide_input.text.strip_edges():
 		_guide_error.text = "Download and verify this version first."
 		return
@@ -564,6 +678,9 @@ func _finish_package_check(result: Dictionary) -> void:
 		_guide_show("publish_confirm")
 		return
 	_guide_show("publish")
+	if _preview:
+		_guide_error.text = "PREVIEW ONLY: Windows launch simulated."
+		return
 	if OS.create_process(_test_package["executable"], PackedStringArray()) == -1:
 		_guide_error.text = "Could not launch the verified Windows executable."
 	else:
@@ -678,7 +795,7 @@ func _workflow(action: String, guide_next: String = "") -> void:
 		args.append_array(["-ExpectedHead", _snapshot.get("head", ""), "-ExpectedBranch", _snapshot.get("branch", "")])
 	if action == "Publish" and not guide_next.is_empty():
 		args.append_array(["-ExpectedHead", _test_package.get("commit", ""), "-ExpectedBranch", "main", "-ExpectedDraft", _test_package.get("identity", "")])
-	if action not in ["Plan", "Discover", "Validate", "Evidence"]:
+	if action not in ["Plan", "Discover", "LastPublication", "Validate", "Evidence"]:
 		args.append("-Approve")
 	var command := {"args": args, "status": false, "guide_next": guide_next, "action": action, "version": _version.text}
 	if action == "Plan" or not guide_next.is_empty():
@@ -696,6 +813,9 @@ func _ask(command: Dictionary, text: String) -> void:
 
 
 func _start(command: Dictionary) -> void:
+	if _preview:
+		_preview_command.call_deferred(command.duplicate(true))
+		return
 	if _thread != null:
 		_output.text += "\nA command is already running."
 		return
@@ -827,6 +947,20 @@ func _complete(result: Dictionary) -> void:
 		_github_url = metadata["url"]
 		result["url"] = metadata["url"]
 	result["receipt"] = metadata
+	if result.get("action") == "LastPublication":
+		if result["code"] == 0 and metadata.has_all(["published_at", "commit", "release_id", "assets", "version", "url"]):
+			result["action"] = "Publish"
+			result["version"] = metadata["version"]
+			result["guide_next"] = ""
+			_show_workflow_result(result)
+			_result_dialog.title = "Saved publication receipt (historical)"
+			_guide_label.text = "Loaded local historical receipt. This did not contact GitHub or publish; current remote state was not reverified."
+			_release_receipt = "Historical local receipt — remote state not reverified.\n" + _release_receipt
+			_result_summary.text = "Historical local receipt — remote state not reverified.\n" + _result_summary.text
+			_guide_result.text = _release_receipt
+		else:
+			_guide_label.text = "Cannot load saved publication receipt. See output."
+		return
 	if result.get("review", false) and result["code"] == 0:
 		_guide_diff = result["text"]
 	if not result["status"] and not result.get("review", false):
@@ -897,7 +1031,15 @@ func _show_workflow_result(result: Dictionary) -> void:
 	_result_dialog.ok_button_text = "Done" if action == "Publish" else "Continue"
 	_guide_label.text = "Completed: " + action + ". Review the result before continuing."
 	_result_dialog.reset_size()
-	_result_dialog.popup_centered()
+	_result_dialog.popup_centered(Vector2i(640, 520))
+	if _preview:
+		_result_dialog.title = "PREVIEW ONLY — simulated " + action
+		_result_summary.text = "PREVIEW ONLY: no operation succeeded on GitHub.\n" + summary
+		_release_receipt = "PREVIEW ONLY — simulated result; nothing published."
+		_guide_result.text = _release_receipt
+		_result_link.visible = false
+	else:
+		_result_link.visible = true
 
 
 func _invalidate_status() -> void:
