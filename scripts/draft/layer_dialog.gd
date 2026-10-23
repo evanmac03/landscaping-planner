@@ -1,110 +1,111 @@
-# Layer Dialog - searchable, filterable layer management UI
-# Provides UI for managing the 15+ layers in the drawing
-
 extends Node
-## Shows when the user opens the layer management dialog from the HUD or palette.
+## Layer-management data for a dialog backed by the drawing's controller.
 
-# The layer presets from LayerSetScript.PRESETS define the full layer list.
-# Each layer has: name, purpose, colour, weight, linetype, plots
+const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
+const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
-# Search/filter state
+var controller: ControllerScript
+var document: DocumentScript:
+	get:
+		return controller.document if controller != null else null
+
 var _search_text: String = ""
 var _filtered_layers: Array[Dictionary] = []
 
-# UI state
-var _is_dirty: bool = false  # Layer changes need to be committed
 
 func _ready() -> void:
 	refresh_layers()
 
-func refresh_layers() -> void:
-	var all_layers: Array[Dictionary] = []
-	
-	# Get all layers from the document
-	if document != null:
-		for layer in document.layers.layers():
-			all_layers.append({
-				"name": layer.name,
-				"purpose": layer.purpose,
-				"colour": layer.screen_colour,
-				"weight": layer.weight,
-				"linetype": layer.linetype,
-				"plots": layer.plots,
-				"is_locked": document.is_layer_locked(layer.name),
-				"is_frozen": false,  # Would need additional state
-			})
-	
-	# Initial filter: show all layers
-	_filtered_layers = all_layers
-	_update_search_highlights()
 
-func _update_search_highlights() -> void:
-	# Could highlight matching parts of layer names
-	pass
+func refresh_layers() -> void:
+	_filter_layers()
+
 
 func set_search_text(text: String) -> void:
 	_search_text = text
 	_filter_layers()
 
+
 func _filter_layers() -> void:
-	if _search_text == "":
-		_filtered_layers = []
-	else:
-		_filtered_layers = []
-		for layer in _get_all_layers():
-			if layer["name"].to_lower().contains(_search_text.to_lower()):
-				_filtered_layers.append(layer)
+	_filtered_layers.clear()
+	for layer in _get_all_layers():
+		if _search_text.is_empty() or String(layer["name"]).to_lower().contains(_search_text.to_lower()):
+			_filtered_layers.append(layer)
+
 
 func _get_all_layers() -> Array[Dictionary]:
-	# This would typically query the document layers
-	# For now, return empty - the dialog would be populated from the document
-	return []
+	var result: Array[Dictionary] = []
+	if document == null:
+		return result
+	for layer in document.layers.layers():
+		result.append({
+			"name": layer.name,
+			"purpose": layer.purpose,
+			"colour": layer.screen_colour,
+			"weight": layer.plot_weight_mm,
+			"linetype": layer.linetype,
+			"plots": layer.plots,
+			"is_locked": layer.locked,
+			"is_frozen": not layer.visible,
+		})
+	return result
+
 
 func toggle_layer_lock(layer_name: StringName) -> bool:
-	if document != null:
-		current_state = document.is_layer_locked(layer_name)
-		document.set_layer_locked(layer_name, !current_state)
-		return !current_state
-	return false
+	if document == null or not document.layers.has(layer_name):
+		push_error("Cannot lock a layer without a drawing containing that layer.")
+		return false
+	var locked := not document.is_layer_locked(layer_name)
+	var words := "locking %s" % layer_name if locked else "unlocking %s" % layer_name
+	document.begin_gesture(words)
+	document.layers.set_locked(layer_name, locked)
+	document.changed.emit()
+	refresh_layers()
+	return locked
+
 
 func set_layer_current(layer_name: StringName) -> void:
-	if document != null:
-		document.drawing_layer = layer_name
-		_refresh_canvas()
+	if document == null or not document.layers.has(layer_name):
+		push_error("Cannot select a layer without a drawing containing that layer.")
+		return
+	controller.set_layer(layer_name)
+
 
 func get_layer_colour(layer_name: StringName) -> Color:
 	if document != null:
 		for layer in document.layers.layers():
 			if layer.name == layer_name:
-				# Use screen_colour as fallback
-	var c: Color = layer.screen_colour
-	if layer.plot_colour != Color(0, 0, 0):
-		c = layer.plot_colour
-	return c
+				return layer.screen_colour if layer.plot_colour == Color.BLACK else layer.plot_colour
 	return Color(0.5, 0.5, 0.5)
+
 
 func get_layer_weight(layer_name: StringName) -> float:
 	if document != null:
 		for layer in document.layers.layers():
 			if layer.name == layer_name:
-				return layer.weight
+				return layer.plot_weight_mm
 	return 0.5
 
+
 func is_layer_locked(layer_name: StringName) -> bool:
-	if document != null:
-		return document.is_layer_locked(layer_name)
-	return false
+	return document != null and document.is_layer_locked(layer_name)
+
 
 func is_layer_frozen(layer_name: StringName) -> bool:
-	# Placeholder - would need additional state tracking
+	if document != null:
+		for layer in document.layers.layers():
+			if layer.name == layer_name:
+				return not layer.visible
 	return false
+
 
 func get_layer_linetype(layer_name: StringName) -> StringName:
 	if document != null:
 		for layer in document.layers.layers():
 			if layer.name == layer_name:
 				return layer.linetype
-	return "&"continuous""
+	return &"continuous"
+
 
 func layer_has_plots(layer_name: StringName) -> bool:
 	if document != null:
@@ -112,6 +113,7 @@ func layer_has_plots(layer_name: StringName) -> bool:
 			if layer.name == layer_name:
 				return layer.plots
 	return false
+
 
 func get_layer_purpose(layer_name: StringName) -> String:
 	if document != null:
