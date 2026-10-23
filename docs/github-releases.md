@@ -10,7 +10,28 @@ The dock has six tabs: **Git** for local commits, **Push** for PRs,
 **Guided workflow** for a question-by-question walkthrough, and **AI adviser**
 for optional advice.
 The version entered in Release is also displayed and used in Publish.
-All tabs share the command output panel.
+All tabs share command output, current step/result messages and validation/CI evidence.
+
+The individual **Git**, **Push**, **Release** and **Publish** operations use the
+same question dialogs, status refresh, reviewed snapshots, command construction
+and approvals as Guided workflow. Only their scope differs:
+
+- **Git → Review and commit** reviews files and the staged diff, asks for the
+  branch/name and explicit diff approval, then offers committed-head validation.
+  It stops before Push. As in the guide, resolve excluded dirty work first.
+- **Push** reviews the clean feature HEAD and opens/reuses its PR, then stops.
+  It does not merge or begin Release.
+- **Release** asks for the version/exporter and prepares a private draft, then
+  stops before package testing or publication.
+- **Publish** requires download verification, interactive-test confirmation,
+  a fresh local package-integrity check and separate final approval of the exact
+  draft identity. It never skips testing simply because it was opened directly.
+
+Result dialogs say **Done** for individual operations; Guided workflow offers
+the next step. Cancel leaves completed work in place. Git's status/diff,
+stage/unstage and branch tools, Push's fetch/readiness tools and interrupted
+draft recovery remain explicit supporting utilities, not alternate commit or
+publication approval paths. The optional AI adviser is not required.
 
 ### Optional AI adviser
 
@@ -233,7 +254,8 @@ Stage again unless they have newer working-file edits. Such files are marked
 The guide blocks partial file selection before staging: leaving dirty files out
 would otherwise allow a commit that cannot be pushed by this workflow. It also
 checks for remaining unstaged work before commit and a clean feature branch
-before Push. Use the individual Git tab for partial commits instead.
+before Push. The individual Git step uses these same scope rules; handle partial
+commits outside this workflow.
 
 **Run local workflow checks** runs the mocked GitHub, disposable Git,
 squash-merge synchronization, package smoke and Godot guide suites.
@@ -339,24 +361,27 @@ completed operation.
 
 ### Individual tabs
 
-1. Refresh status, inspect Tracked diff, then select individual files in Changes
-   and click **Stage selected**. This writes their saved contents to Git's real
-   index. The separate **Staged changes** list shows the next commit.
-   Untracked files are listed but their contents are not shown in Tracked diff;
-   open and review them separately, especially for credentials and large assets.
-2. On main, enter a `feature/lowercase-kebab-name` branch and create it.
-   Status refreshes after staging, unstaging, branch creation and commits.
-3. Review staged diff, click **Commit**, then enter the commit name/message and
-   confirm **Create commit**. All staged changes are committed, including changes
-   staged externally before the last refresh. Changes to the index since that
-   refresh block the commit. Later working-file edits are left unstaged.
-   **Unstage selected** removes files from the index without losing their edits.
-   Staging uses whole files, not individual hunks, and commits do not run tests.
-4. Push opens/reuses a PR; review tests and merge separately on GitHub.
-5. Prepare Release only after synchronizing clean main outside the dock.
-   Enter the version and editor path; confirmation creates a tag and draft.
-6. Use RecoverDraft only for an interrupted preparation with a retained build.
-   GUI-test the downloaded ZIP before confirming Publish separately.
+1. In **Git**, choose **Review and commit** to start the shared file-selection,
+   staged-review and naming questions. On main, this asks for a
+   `feature/lowercase-kebab-name` branch as part of committing.
+   The same reviewed index/HEAD/content guards apply as in Guided workflow.
+   After committing, validation is offered; successful validation ends the Git
+   step without opening Push. Cancel pauses without undoing the commit.
+2. Supporting Git tools can refresh status, inspect tracked/staged diffs,
+   stage/unstage whole files or create a branch. Staging changes the real index;
+   unstaging keeps working-file edits. Untracked contents and binary assets need
+   separate review, especially for credentials and large assets.
+3. In **Push**, choose **Push / open PR** for the shared clean-feature-HEAD
+   approval. Its result ends this step. Review CI and merge separately on GitHub.
+4. In **Release**, choose **Prepare draft release** after synchronizing clean
+   main. The shared version/editor question approves a tag and private draft,
+   not publication. The result ends this step.
+5. Use **Recover existing draft** only for interrupted preparation with a
+   retained build; it is a separate recovery utility.
+6. In **Publish**, choose **Test and publish verified draft**. Download and
+   verify the exact version, test the game and confirm interactive testing,
+   then approve the exact publication in its separate final question. Package
+   changes invalidate testing approval. The result ends this step.
 
 Commands run in a background thread; output appears when each completes.
 Do not disable the plugin or close Godot while a command runs: shutdown waits
