@@ -41,6 +41,14 @@ var _result_link: LinkButton
 var _result_next: String = ""
 var _result_url: String = ""
 var _guide_result: Label
+var _github_url: String = "https://github.com/evanmac03/landscaping-planner/releases"
+var _test_package: Dictionary = {}
+var _draft_choices: Array = []
+var _draft_picker: OptionButton
+var _sync_distance: String = ""
+var _running_since: int = 0
+var _running_label: String = ""
+var _running_status: Label
 
 
 func _ready() -> void:
@@ -104,7 +112,7 @@ func _ready() -> void:
 	_guide_result = Label.new()
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_section.add_child(_guide_result)
-	_button("Start: Git → Push → Release → Publish…", _guide_begin.bind("files"))
+	_button("Start / detect next step…", _workflow.bind("Discover", "discover"))
 	_button("Resume after manual PR merge and sync…", _guide_begin.bind("release"))
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
 	_button("Open GitHub pull requests", func(): OS.shell_open("https://github.com/evanmac03/landscaping-planner/pulls"))
@@ -116,6 +124,9 @@ func _ready() -> void:
 	_output.editable = false
 	_output.custom_minimum_size = Vector2(260, 220)
 	add_child(_output)
+	_running_status = Label.new()
+	_running_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_running_status)
 	_confirm = ConfirmationDialog.new()
 	add_child(_confirm)
 	_confirm.confirmed.connect(func(): _start(_pending))
@@ -217,8 +228,8 @@ func _guide_show(step: String) -> void:
 		_guide_label.text = "Release blocked: review/merge the PR on GitHub, switch to main and synchronize it, and handle all dirty work. Then resume after merge. Nothing was pulled or discarded."
 		return
 	_guide_step = step
-	var stage: String = {"files": "Git", "branch": "Git", "commit_review": "Git", "push": "Push", "merge": "Review/merge", "release": "Release", "publish": "Publish", "done": "Complete"}.get(step, step)
-	_guide_progress.text = "Git → Push → Review/merge → Release → Publish\nCurrent: " + stage
+	var stage: String = {"files": "Git", "branch": "Git", "commit_review": "Git", "push": "Push", "merge": "Review/merge", "release": "Release", "publish": "Test package", "publish_confirm": "Publish", "sync": "Synchronize main", "drafts": "Choose draft", "done": "Complete"}.get(step, step)
+	_guide_progress.text = "Git → Push → Review/merge → Release → Test → Publish\nCurrent: " + stage
 	for child in _guide_body.get_children():
 		_guide_body.remove_child(child)
 		child.queue_free()
@@ -228,7 +239,7 @@ func _guide_show(step: String) -> void:
 	_guide_body.add_child(description)
 	match step:
 		"files":
-			description.text = "%s saved changes; %s already staged.\nCheck the files to include. Push needs a clean checkout; use the Git tab for partial commits. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
+			description.text = "%s saved changes; %s already staged.\nSelect ALL reviewed changes to continue. Use Git for partial commits. Select none clears the checklist but cannot continue with dirty files excluded. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
 			_guide_files.clear()
 			var selection_buttons := HBoxContainer.new()
 			for option in ["Select all", "Select none"]:
@@ -266,17 +277,49 @@ func _guide_show(step: String) -> void:
 			description.text = "Push committed HEAD %s on %s to GitHub and open/reuse a PR? Requires a clean feature branch. Does not run tests, wait for CI, or merge." % [String(_snapshot.get("head", "")).left(8), _snapshot.get("branch", "")]
 		"merge":
 			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Switch to main and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
+			var open_pr := Button.new()
+			open_pr.text = "Open detected pull request"
+			open_pr.pressed.connect(func(): OS.shell_open(_github_url))
+			_guide_body.add_child(open_pr)
 		"release":
 			description.text = "Prepare a private Windows draft? This exports committed main, pushes a version tag and uploads assets. Requires matching export templates. What unused version and Godot executable should be used?"
 			_guide_input = _guide_field("Release version", _version.text)
 			_guide_godot = _guide_field("Godot executable", _godot.text)
 		"publish":
-			description.text = "Publish an existing verified draft? Download and manually test its Windows ZIP first. This makes it visible to repository viewers; it does not rebuild. The backend rechecks the exact receipt, commit, tag and assets."
+			description.text = "Test the exact Windows package before publication. Download verification, launch and interactive testing are separate checks."
 			_guide_input = _guide_field("Exact prepared version", _guide_version if not _guide_version.is_empty() else _version.text)
+			_guide_input.text_changed.connect(func(_value: String):
+				_test_package.clear()
+				_guide_tested.button_pressed = false
+			)
+			if not _test_package.is_empty():
+				description.text += "\nDownload: verified\nVersion: %s\nCommit: %s" % [_test_package["version"], _test_package["commit"]]
+			var download := Button.new()
+			download.text = "Download and verify Windows ZIP"
+			download.pressed.connect(_download_test)
+			_guide_body.add_child(download)
+			var open_folder := Button.new()
+			open_folder.text = "Open verified package folder"
+			open_folder.pressed.connect(_open_test_folder)
+			_guide_body.add_child(open_folder)
+			var launch := Button.new()
+			launch.text = "Launch verified Windows build"
+			launch.pressed.connect(_launch_test_package)
+			_guide_body.add_child(launch)
 			_guide_tested = CheckBox.new()
-			_guide_tested.text = "I tested this draft's Windows package and approve publication."
+			_guide_tested.text = "I completed interactive testing of this exact version."
 			_guide_tested.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_guide_body.add_child(_guide_tested)
+		"publish_confirm":
+			description.text = "Publish %s?\nCommit: %s\nDraft ID: %s\nType: %s\nVerified assets become visible to repository viewers. No rebuild or Forgejo backup." % [_test_package["version"], _test_package["commit"], str(_test_package.get("release_id", _test_package["identity"])), "Prerelease" if _test_package.get("prerelease", "-" in String(_test_package["version"])) else "Stable"]
+		"sync":
+			description.text = "Main needs synchronization.\nLocal-only / remote-only commits: %s\nInspect history and synchronize outside the dock, then Start / detect again. No pull, rebase or discard was performed." % _sync_distance
+		"drafts":
+			description.text = "Multiple prepared drafts match this commit. Choose the exact version to test. Nothing will be published yet."
+			_draft_picker = OptionButton.new()
+			for draft in _draft_choices:
+				_draft_picker.add_item("%s — %s" % [draft["version"], String(draft["commit"]).left(8)])
+			_guide_body.add_child(_draft_picker)
 		"done":
 			_guide_label.text = "Publication completed. See command output for the release result. No Forgejo backup was made."
 			return
@@ -285,9 +328,17 @@ func _guide_show(step: String) -> void:
 	_guide_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_body.add_child(_guide_error)
 	_guide_dialog.ok_button_text = {"files": "Stage selected", "branch": "Create branch", "commit_review": "Create commit", "push": "Push and open PR", "merge": "Check main readiness", "release": "Prepare draft", "publish": "Publish release"}.get(step, "Continue")
+	if step == "publish":
+		_guide_dialog.title = "6. Test Windows package"
+		_guide_dialog.ok_button_text = "Review publication"
+	elif step == "publish_confirm":
+		_guide_dialog.title = "7. Approve publication"
+		_guide_dialog.ok_button_text = "Publish this release"
+	elif step == "sync":
+		_guide_dialog.ok_button_text = "Close"
 	if step == "files" and _snapshot.get("files", []).is_empty():
 		_guide_dialog.ok_button_text = "Review staged changes"
-	_guide_back_button.visible = step in ["commit_review", "release", "publish"]
+	_guide_back_button.visible = step in ["commit_review", "release", "publish", "publish_confirm"]
 	_guide_dialog.reset_size()
 	_guide_dialog.popup_centered()
 
@@ -301,6 +352,9 @@ func _guide_back() -> void:
 	if _thread != null:
 		return
 	match _guide_step:
+		"publish_confirm":
+			_guide_dialog.hide()
+			_guide_show("publish")
 		"commit_review":
 			_guide_commit_name = _guide_input.text
 			if _guide_branch != null:
@@ -393,13 +447,98 @@ func _guide_answer() -> void:
 			if not _guide_tested.button_pressed:
 				_guide_error.text = "Test the downloaded draft and explicitly approve publication."
 				return
+			if _test_package.is_empty() or _test_package.get("version") != _guide_input.text.strip_edges():
+				_guide_error.text = "Download and verify the exact version before confirming testing."
+				return
 			_version.text = _guide_input.text.strip_edges()
+			_check_package("confirm")
+		"publish_confirm":
 			_guide_dialog.hide()
 			_workflow("Publish", "done")
+		"sync":
+			_guide_dialog.hide()
+		"drafts":
+			_guide_version = _draft_choices[_draft_picker.selected]["version"]
+			_github_url = _draft_choices[_draft_picker.selected]["url"]
+			_test_package.clear()
+			_guide_dialog.hide()
+			_guide_show("publish")
 
 
 func _valid_version(value: String) -> bool:
 	return RegEx.create_from_string("^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$").search(value) != null
+
+
+func _download_test() -> void:
+	if _thread != null:
+		return
+	_version.text = _guide_input.text.strip_edges()
+	if not _valid_version(_version.text):
+		_guide_error.text = "Enter the exact prepared version first."
+		return
+	_test_package.clear()
+	_guide_dialog.hide()
+	_workflow("DownloadTest", "package_ready")
+
+
+func _open_test_folder() -> void:
+	if _test_package.is_empty() or _test_package.get("version") != _guide_input.text.strip_edges():
+		_guide_error.text = "Download and verify this version first."
+		return
+	var error := OS.shell_open(_test_package["folder"])
+	if error != OK:
+		_guide_error.text = "Cannot open folder: " + error_string(error)
+
+
+func _launch_test_package() -> void:
+	_check_package("launch")
+
+
+func _check_package(purpose: String) -> void:
+	if _thread != null:
+		return
+	if _test_package.is_empty() or _test_package.get("version") != _guide_input.text.strip_edges():
+		_guide_error.text = "Download and verify this version first."
+		return
+	_guide_dialog.hide()
+	_start({"package": _test_package.duplicate(true), "purpose": purpose, "action": "Checking package integrity"})
+
+
+func _finish_package_check(result: Dictionary) -> void:
+	if result["code"] != 0:
+		_test_package.clear()
+		_guide_show("publish")
+		_guide_error.text = "Package changed, is missing or cannot be read. Testing approval cleared. Download and verify again."
+		return
+	if result.get("package", {}) != _test_package:
+		_test_package.clear()
+		_guide_show("publish")
+		_guide_error.text = "Package selection changed during verification. Download and test again."
+		return
+	if result["purpose"] == "confirm":
+		_guide_show("publish_confirm")
+		return
+	_guide_show("publish")
+	if OS.create_process(_test_package["executable"], PackedStringArray()) == -1:
+		_guide_error.text = "Could not launch the verified Windows executable."
+	else:
+		_guide_error.text = "Build launched. Test it interactively; startup alone is not a playtest."
+
+
+func _package_files(folder: String, prefix: String = "") -> Dictionary:
+	var result: Dictionary = {}
+	var directory := DirAccess.open(folder)
+	if directory == null:
+		return {"!error": "unreadable"}
+	for file in directory.get_files():
+		result[prefix + file] = FileAccess.get_sha256(folder.path_join(file))
+	for subfolder in directory.get_directories():
+		result.merge(_package_files(folder.path_join(subfolder), prefix + subfolder + "/"))
+	return result
+
+
+func _verify_test_files() -> bool:
+	return _test_package.has("manifest") and _package_files(_test_package["folder"]) == _test_package["manifest"]
 
 
 func _name_commit() -> void:
@@ -483,13 +622,17 @@ func _git(action: String, guide_next: String = "") -> void:
 func _workflow(action: String, guide_next: String = "") -> void:
 	var args := ["-NoProfile", "-NonInteractive", "-File",
 		ProjectSettings.globalize_path("res://tools/github.ps1"), "-Action", action]
-	if action in ["Release", "RecoverDraft", "Publish"]:
+	if action in ["Release", "RecoverDraft", "Publish", "DownloadTest"]:
 		args.append_array(["-Version", _version.text])
 	if action == "Release":
 		args.append_array(["-Godot", _godot.text])
 	if action == "RecoverDraft":
 		args.append_array(["-BuildDirectory", _build.text])
-	if action != "Plan":
+	if not guide_next.is_empty() and action in ["Push", "Release"]:
+		args.append_array(["-ExpectedHead", _snapshot.get("head", ""), "-ExpectedBranch", _snapshot.get("branch", "")])
+	if action == "Publish" and not guide_next.is_empty():
+		args.append_array(["-ExpectedHead", _test_package.get("commit", ""), "-ExpectedBranch", "main", "-ExpectedDraft", _test_package.get("identity", "")])
+	if action not in ["Plan", "Discover"]:
 		args.append("-Approve")
 	var command := {"args": args, "status": false, "guide_next": guide_next, "action": action, "version": _version.text}
 	if action == "Plan" or not guide_next.is_empty():
@@ -511,14 +654,22 @@ func _start(command: Dictionary) -> void:
 		_output.text += "\nA command is already running."
 		return
 	_output.text = _history + "\nRunning; output will appear when the command completes…"
+	_running_since = Time.get_ticks_msec()
+	_running_label = command.get("action", "Git operation")
+	_running_status.text = _running_label + " — starting…"
 	_thread = Thread.new()
 	var error := _thread.start(_execute.bind(command))
 	if error != OK:
 		_thread = null
 		_output.text = "Cannot start worker: " + error_string(error)
+		_running_status.text = _output.text
 
 
 func _execute(command: Dictionary) -> Dictionary:
+	if command.has("package"):
+		var package: Dictionary = command["package"]
+		var valid: bool = package.has("manifest") and _package_files(package["folder"]) == package["manifest"]
+		return {"code": 0 if valid else 1, "text": "Package integrity verified." if valid else "Package integrity check failed.", "status": false, "purpose": command["purpose"], "package": package}
 	var output: Array = []
 	# Godot may inherit PowerShell 7's module path, which breaks Windows PowerShell cmdlets.
 	var invocation := "$ProgressPreference = 'SilentlyContinue'; $env:PSModulePath = \"$PSHOME\\Modules;$env:ProgramFiles\\WindowsPowerShell\\Modules\"; & "
@@ -527,7 +678,7 @@ func _execute(command: Dictionary) -> Dictionary:
 	for index in arguments.size():
 		var argument := String(arguments[index])
 		if index % 2 == 1:
-			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve"]:
+			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve", "-ExpectedHead", "-ExpectedBranch", "-ExpectedDraft"]:
 				return {"code": 1, "text": "Invalid command parameter.", "status": false}
 			quoted.append(argument)
 		else:
@@ -541,16 +692,59 @@ func _execute(command: Dictionary) -> Dictionary:
 
 
 func _process(_delta: float) -> void:
-	if _thread == null or _thread.is_alive():
+	if _thread == null:
+		return
+	if _thread.is_alive():
+		var seconds := (Time.get_ticks_msec() - _running_since) / 1000
+		_running_status.text = "%s — %ss elapsed. Output appears at completion. Do not close Godot." % [_running_label, seconds]
+		if seconds >= 60:
+			_running_status.text += "\nStill waiting; elapsed time does not prove failure. No automatic timeout, cancellation or retry."
 		return
 	var result: Dictionary = _thread.wait_to_finish()
 	_thread = null
+	_running_status.text = "Completed after %ss." % ((Time.get_ticks_msec() - _running_since) / 1000)
 	_complete(result)
 
 
 func _complete(result: Dictionary) -> void:
 	_history += "\n[%s] Exit %s\n%s\n" % [Time.get_datetime_string_from_system(), result["code"], result["text"]]
 	_output.text = _history
+	if result.has("purpose"):
+		_finish_package_check(result)
+		return
+	var metadata: Dictionary = {}
+	for line in String(result["text"]).split("\n"):
+		if line.begins_with("EDITOR_RESULT:"):
+			var parser := JSON.new()
+			if parser.parse(line.trim_prefix("EDITOR_RESULT:")) != OK or not parser.data is Dictionary:
+				_guide_label.text = "Stopped: invalid workflow result."
+				return
+			metadata = parser.data
+	if result["code"] == 0 and result.get("action", "") in ["Discover", "DownloadTest"]:
+		if metadata.is_empty():
+			_guide_label.text = "Stopped: workflow did not return verified state."
+			return
+		if not metadata.get("url", "").is_empty():
+			_github_url = metadata["url"]
+			result["url"] = metadata["url"]
+			result["url"] = metadata["url"]
+		if result["action"] == "DownloadTest":
+			_test_package = metadata
+			_guide_version = metadata["version"]
+			_guide_show("publish")
+			_guide_error.text = "ZIP hashes verified. Open the folder or launch the build. Interactive testing still required."
+		else:
+			if not metadata.get("version", "").is_empty():
+				_guide_version = metadata["version"]
+				_version.text = _guide_version
+			_draft_choices = metadata.get("choices", [])
+			_sync_distance = metadata.get("distance", "")
+			_guide_result.text = "Detected next step: %s\n%s" % [metadata["next"], metadata.get("url", "")]
+			_git("Status", metadata["next"])
+		return
+	if not metadata.get("url", "").is_empty():
+		_github_url = metadata["url"]
+		result["url"] = metadata["url"]
 	if result.get("review", false) and result["code"] == 0:
 		_guide_diff = result["text"]
 	if not result["status"] and not result.get("review", false):
@@ -607,6 +801,8 @@ func _show_workflow_result(result: Dictionary) -> void:
 			_result_dialog.title = "Successfully published to GitHub"
 			summary = "%s was successfully published on GitHub.\nThe verified draft is now visible to repository viewers.\nNo Forgejo backup was made." % version
 			_result_url += "releases/tag/" + version.uri_encode()
+	if String(result.get("url", "")).begins_with("https://github.com/evanmac03/landscaping-planner/"):
+		_result_url = result["url"]
 	_guide_result.text = _result_dialog.title + "\n" + summary + "\n" + _result_url
 	_result_summary.text = summary
 	_result_next = result["guide_next"]

@@ -13,6 +13,41 @@ All tabs share the command output panel.
 
 ### Guided workflow
 
+**Start / detect next step** reads GitHub state without publishing: dirty work
+starts at file selection; a clean feature branch with an exact-head open PR
+resumes at manual review/merge; synchronized clean main resumes draft
+preparation. If exactly one draft has a matching local receipt and commit,
+it resumes testing/publication instead. Multiple matching drafts open a version
+chooser rather than starting another release. Unsynchronized clean main opens
+a synchronization checkpoint showing local-only/remote-only commit counts;
+inspect and synchronize outside the dock, then detect again.
+Discovery fetches origin and requires GitHub login.
+
+Success screens use the actual PR/draft URL returned by GitHub, including
+temporary draft URLs. The testing screen offers **Download and verify Windows
+ZIP**, **Open verified package folder**, and **Launch verified Windows build**.
+Downloads are retained in private release metadata, verified against the local
+preparation receipt, and extracted without rebuilding or uploading. Launching
+requires a separate click and does not certify a successful playtest.
+Before launching, every extracted file is rehashed against the verified
+download manifest, including companion files; changed, missing or added files
+block launch, clear the package selection and testing approval, and require a
+new download. The same integrity check runs again when accepting interactive
+testing confirmation, before the publication approval screen opens.
+Both checks run in the background so hashing does not block the editor.
+Changing the version clears both the
+package selection and the interactive-test checkbox.
+
+Testing and publication are separate screens. Download the exact version,
+test it interactively, and confirm testing before clicking **Review
+publication**. The final screen shows version, source commit, draft ID and
+prerelease/stable status. **Publish this release** is the separate approval.
+Back returns to testing with its confirmation cleared.
+Guided Push/Release approvals are bound to the displayed branch and commit;
+guided Publish is bound to the tested commit, draft ID, version, target,
+prerelease flag and receipt asset hashes. Changed identities stop with an
+explicit error. Remote assets are still freshly verified before publication.
+
 Save all files and review/test the changes, then choose **Guided workflow >
 Start**. The guide asks which files to stage, a feature branch name when on
 main, the commit name, and approval to push to GitHub. Existing staged files
@@ -25,8 +60,9 @@ the new branch remains; inspect output rather than blindly restarting.
 **Back** from commit review refreshes the file screen without undoing staging
 and retains the branch and commit names. Back from draft preparation returns
 to the manual-merge checkpoint and retains version/editor input. Back from
-publication pauses for testing; it never reruns draft preparation or undoes a
-draft. Publication approval must always be given again.
+the testing screen pauses without changing the draft; Back from publication
+returns to testing. Neither reruns draft preparation or undoes a draft.
+Publication approval must always be given again.
 The file question has a checkbox beside each path, with **Select all** and
 **Select none** buttons. Files start unchecked; check the files you reviewed
 before clicking **Stage selected**.
@@ -65,6 +101,10 @@ The progress indicator shows the current stage, and buttons open GitHub's PR
 and release lists. Command results are retained in the shared output panel for
 the current dock session, including automatic status refreshes. Output is not
 saved across editor restarts and is available only after each command finishes.
+While a worker runs, a separate status line displays its operation and elapsed
+time. After a minute it explicitly indicates that it is still waiting; this
+is not a failure or a claim of incremental progress. No automatic timeout,
+cancellation or retry is performed, because remote writes may have completed.
 Long questions/reviews scroll within the dialog. A failed or malformed status
 response clears the old selection/snapshot and stops the guide until refreshed.
 Successful Push, Release and Publish operations show a dedicated result dialog
