@@ -9,6 +9,7 @@ param(
     [string]$ExpectedHead,
     [string]$ExpectedBranch,
     [string]$ExpectedDraft,
+    [string]$PhaseFile,
     [switch]$Approve
 )
 
@@ -40,6 +41,12 @@ function Github {
 function Write-EditorResult {
     param($Data)
     Write-Output ('EDITOR_RESULT:' + ($Data | ConvertTo-Json -Depth 8 -Compress))
+}
+
+function Set-EditorPhase {
+    param([string]$Name)
+    if ($PhaseFile) { [IO.File]::WriteAllText($PhaseFile, $Name) }
+    Write-Host "Phase: $Name"
 }
 
 function Get-ValidationFingerprint {
@@ -122,7 +129,9 @@ function Assert-DraftAssets {
     New-Item -ItemType Directory -Path $download | Out-Null
     $verified = $false
     try {
+        Set-EditorPhase 'Downloading assets'
         Github @('release', 'download', $Version, '--repo', $repository, '--dir', $download) | Out-Host
+        Set-EditorPhase 'Verifying asset hashes'
         foreach ($asset in $Receipt.assets) {
             if ($asset.name -notmatch '^landscaping-planner-v[0-9A-Za-z.-]+-windows-x86_64\.(zip|sha256)$') {
                 throw 'Receipt contains an invalid asset name.'
@@ -165,6 +174,7 @@ if ($Action -in @('Validate', 'Evidence')) {
     $validationPath = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-editor-validation.json'
     $fingerprint = Get-ValidationFingerprint
     if ($Action -eq 'Validate') {
+        Set-EditorPhase 'Running local checks'
         if (Test-Path -LiteralPath $validationPath) { Remove-Item -LiteralPath $validationPath }
         $checks = @('GitHub workflow mocks', 'Disposable Git integration', 'Godot guided workflow')
         & (Join-Path $PSScriptRoot 'test-github.ps1') | Out-Host
@@ -187,6 +197,7 @@ if ($Action -in @('Validate', 'Evidence')) {
     }
     $ci = @{state='not-queried';head=$head;checks=@();url=''}
     if ($Action -eq 'Evidence') {
+        try {
         Assert-Remote
         $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--state', 'open',
             '--json', 'number,url,headRefOid')) -join "`n") | ConvertFrom-Json)
@@ -199,6 +210,11 @@ if ($Action -in @('Validate', 'Evidence')) {
             $ci.checks = @($pr.statusCheckRollup)
             $ci.state = if ($pr.headRefOid -ne $head) {'different-head'} elseif ($ci.checks.Count -eq 0) {'no-checks-reported'} else {'reported'}
         } elseif ($prs.Count -gt 1) { throw 'Multiple open PRs; cannot select CI evidence automatically.' }
+        }
+        catch {
+            $ci = @{state='unavailable';head=$head;checks=@();url='';error=$_.Exception.Message}
+            Write-Warning "GitHub evidence unavailable: $($_.Exception.Message)"
+        }
     }
     Write-EditorResult @{local=$local;ci=$ci;commit=$head}
     return
@@ -352,6 +368,7 @@ if ($Action -in @('Publish', 'DownloadTest')) {
         [string]$draft.prerelease + ':' + $receipt.assets[0].sha256 + ':' + $receipt.assets[1].sha256
     if ($ExpectedDraft -and $ExpectedDraft -ne $draftIdentity) { throw 'Approved draft identity changed. Download, test and approve again.' }
     if ($Action -eq 'DownloadTest') {
+        Set-EditorPhase 'Downloading and verifying assets'
         $download = Assert-DraftAssets $draft $receipt -Retain
         $stem = "landscaping-planner-$Version-windows-x86_64"
         $unpacked = Join-Path $download 'unpacked'
@@ -376,11 +393,14 @@ if ($Action -in @('Publish', 'DownloadTest')) {
         throw 'Checkout changed during draft verification.'
     }
     Assert-Tag $head
+    Set-EditorPhase 'Publishing verified draft'
     Github @('release', 'edit', $Version, '--repo', $repository, '--draft=false') | Out-Host
     $published = ((Github @('api', "repos/$repository/releases/$($draft.id)")) -join "`n") | ConvertFrom-Json
     if ($published.draft) { throw 'Publication did not verify; inspect GitHub before retrying.' }
     Write-Output "Published: $($published.html_url)"
-    Write-EditorResult @{ url = $published.html_url }
+    Write-EditorResult @{ url = $published.html_url; version=$Version; commit=$head; release_id=$published.id;
+        published_at=$published.published_at; prerelease=$published.prerelease; assets=$receipt.assets;
+        verification='Uploaded assets freshly downloaded and hashes verified before publication'; backup='No Forgejo backup' }
     return
 }
 
@@ -402,7 +422,9 @@ Git @('archive', '--format=zip', "--output=$archive", $head) | Out-Null
 Expand-Archive -LiteralPath $archive -DestinationPath $source
 Push-Location $source
 try {
+    Set-EditorPhase 'Importing committed source'
     Invoke-Native $editor @('--headless', '--editor', '--path', $source, '--import') | Out-Host
+    Set-EditorPhase 'Exporting Windows package'
     Invoke-Native $editor @('--headless', '--path', $source, '--export-release', 'Windows Desktop',
         (Join-Path $package 'landscaping-planner.exe')) | Out-Host
 }
@@ -421,6 +443,7 @@ if ([string](Git @('rev-parse', 'HEAD')) -ne $head -or
 }
 $stem = "landscaping-planner-$Version-windows-x86_64"
 $zip = Join-Path $build "$stem.zip"
+Set-EditorPhase 'Packaging Windows build'
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $zip
 $checksum = Join-Path $build "$stem.sha256"
 $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -433,6 +456,7 @@ if ($Version.Contains('-')) { $arguments += '--prerelease' }
 # Draft releases do not create their tag until publication; pin it explicitly now.
 Git @('push', 'origin', "${head}:refs/tags/$Version") | Out-Host
 Assert-Tag $head
+Set-EditorPhase 'Uploading private draft'
 Github $arguments | Out-Host
 $draft = Get-Draft
 $receipt = [ordered]@{
@@ -441,6 +465,7 @@ $receipt = [ordered]@{
     assets = @(@{ name = "$stem.zip"; sha256 = $hash },
         @{ name = "$stem.sha256"; sha256 = (Get-FileHash -LiteralPath $checksum -Algorithm SHA256).Hash.ToLowerInvariant() })
 }
+Set-EditorPhase 'Downloading and verifying assets'
 Assert-DraftAssets $draft $receipt
 $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
 Write-Output "Verified draft: $($draft.html_url)"

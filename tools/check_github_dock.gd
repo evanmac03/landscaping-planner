@@ -58,6 +58,26 @@ func _test() -> void:
 		quit(1)
 		return
 	print("PASS: automatic/status output retains previous command history.")
+	var phase_script := "user://github-phase-test-" + str(Time.get_ticks_usec()) + ".ps1"
+	var phase_source := FileAccess.open(phase_script, FileAccess.WRITE)
+	phase_source.store_string("param([switch]$Approve, [string]$PhaseFile)\n[IO.File]::WriteAllText($PhaseFile, 'Exporting test package')\nStart-Sleep -Milliseconds 500\nWrite-Output 'Simulated operation completed.'\n")
+	phase_source.close()
+	dock._start({"args":["-NoProfile","-NonInteractive","-File",ProjectSettings.globalize_path(phase_script),"-Approve"],"status":false,"action":"Release"})
+	var phase_path: String = dock._phase_file
+	var saw_phase := false
+	deadline = Time.get_ticks_msec() + 30000
+	while dock._thread != null and Time.get_ticks_msec() < deadline:
+		if "Exporting test package" in dock._running_status.text:
+			saw_phase = true
+		await create_timer(0.01).timeout
+	dock.finish()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(phase_script))
+	if not saw_phase or FileAccess.file_exists(phase_path) or not "Simulated operation completed." in dock._history:
+		printerr("Live phase bridge or status-file cleanup failed.")
+		dock.free()
+		quit(1)
+		return
+	print("PASS: live PowerShell phase display, approval argument forwarding and temporary-file cleanup.")
 	var integrity_folder := "user://github-worker-test-" + str(Time.get_ticks_usec())
 	DirAccess.make_dir_absolute(integrity_folder)
 	var integrity_path := integrity_folder.path_join("test.txt")
@@ -111,6 +131,27 @@ func _test() -> void:
 func _test_transitions() -> bool:
 	var guide := GuideProbe.new()
 	root.add_child(guide)
+	guide._guide_show("after_commit")
+	if guide.captured.get("guide_next") != "validate_commit":
+		printerr("Commit completion skipped validation offer.")
+		return false
+	guide.captured = {}
+	guide._snapshot = {"head":"committed-head", "branch":"feature/test", "files":[], "staged":[], "hashes":{}, "index_tree":"tree"}
+	guide._guide_show("validate_commit")
+	guide._guide_answer()
+	if guide.captured.get("action") != "Validate" or guide.captured.get("guide_next") != "push":
+		printerr("Post-commit validation question did not run committed-head checks.")
+		return false
+	guide.captured = {}
+	guide._complete({"code":1,"status":false,"action":"Validate","guide_next":"push","text":"Simulated validation failure"})
+	if not guide.captured.is_empty() or not "Stopped before Push" in guide._guide_label.text:
+		printerr("Failed validation advanced to Push.")
+		return false
+	guide._complete({"code":0,"status":false,"action":"Validate","guide_next":"push","text":'EDITOR_RESULT:{"commit":"committed-head","local":{"state":"passed","timestamp":"2026-10-23T16:00:00Z","checks":["Workflow tests"]},"ci":{"state":"not-queried","head":"committed-head","checks":[]}}'})
+	if guide.captured.get("guide_next") != "push" or not guide.captured.get("status", false):
+		printerr("Successful validation did not refresh before Push.")
+		return false
+	guide.captured = {}
 	var status := {"head": "test-head", "branch": "feature/test", "files": [], "staged": ["sample.txt"], "hashes": {}, "index_tree": "tree"}
 	guide._complete({"code": 0, "text": "Selected files staged.", "status": false, "guide_next": "after_stage"})
 	if guide.captured.get("guide_next") != "branch":
@@ -204,6 +245,12 @@ func _test_transitions() -> bool:
 		printerr("Actual draft link was discarded.")
 		return false
 	guide._result_dialog.hide()
+	var release_data := {"url":"https://github.com/evanmac03/landscaping-planner/releases/tag/v0.3.0", "published_at":"2026-10-23T16:00:00Z", "release_id":42, "commit":"source-commit", "prerelease":false, "verification":"Hashes verified", "assets":[{"name":"package.zip","sha256":"abc123"}]}
+	guide._complete({"code":0,"status":false,"action":"Publish","version":"v0.3.0","guide_next":"done","text":"EDITOR_RESULT:" + JSON.stringify(release_data)})
+	if not "source-commit" in guide._release_receipt or not "abc123" in guide._release_receipt or not "Stable" in guide._release_receipt or not "No Forgejo backup" in guide._release_receipt:
+		printerr("Copyable release receipt omitted verification details.")
+		return false
+	guide._result_dialog.hide()
 	guide._sync_distance = "0 2"
 	guide._guide_show("sync")
 	if guide._guide_step != "sync" or guide._guide_dialog.ok_button_text != "Close":
@@ -260,6 +307,10 @@ func _test_transitions() -> bool:
 	guide._complete({"code":0,"status":false,"action":"Evidence","text":'EDITOR_RESULT:{"commit":"mixed-head","local":{"state":"stale","timestamp":"2026-10-23T16:00:00Z","checks":["Workflow tests"]},"ci":{"state":"no-checks-reported","head":"mixed-head","checks":[]}}'})
 	if not "stale" in guide._checks_label.text or not "no-checks-reported" in guide._checks_label.text or not "not a CI pass" in guide._checks_label.text:
 		printerr("Validation summary conflated stale local evidence with CI.")
+		return false
+	guide._complete({"code":0,"status":false,"action":"Evidence","text":'EDITOR_RESULT:{"commit":"mixed-head","local":{"state":"passed","timestamp":"2026-10-23T16:00:00Z","checks":["Workflow tests"]},"ci":{"state":"unavailable","head":"mixed-head","checks":[],"error":"Network outage"}}'})
+	if not "Local validation: passed" in guide._checks_label.text or not "Network outage" in guide._checks_label.text:
+		printerr("Network outage obscured local evidence.")
 		return false
 	guide._complete({"code":1,"status":false,"action":"Evidence","text":"Simulated network failure"})
 	if not "failed" in guide._checks_label.text:

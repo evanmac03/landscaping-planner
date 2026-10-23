@@ -51,6 +51,8 @@ var _running_label: String = ""
 var _running_status: Label
 var _checks_label: Label
 var _checks_summary: String = "Local validation: not checked this session.\nGitHub CI: not queried. Local tests are not CI."
+var _phase_file: String = ""
+var _release_receipt: String = ""
 
 
 func _ready() -> void:
@@ -114,6 +116,7 @@ func _ready() -> void:
 	_guide_result = Label.new()
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_section.add_child(_guide_result)
+	_button("Copy last result summary", func(): DisplayServer.clipboard_set(_release_receipt))
 	_checks_label = Label.new()
 	_checks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checks_label.text = _checks_summary
@@ -182,6 +185,10 @@ func _ready() -> void:
 	_result_link.pressed.connect(func(): OS.shell_open(_result_url))
 	result_body.add_child(_result_link)
 	_result_dialog.add_child(result_body)
+	var copy_receipt := Button.new()
+	copy_receipt.text = "Copy result summary"
+	copy_receipt.pressed.connect(func(): DisplayServer.clipboard_set(_release_receipt))
+	result_body.add_child(copy_receipt)
 	add_child(_result_dialog)
 	_result_dialog.confirmed.connect(func():
 		var next := _result_next
@@ -215,7 +222,7 @@ func _guide_field(title: String, value: String) -> LineEdit:
 
 func _guide_show(step: String) -> void:
 	if step in ["after_stage", "after_branch", "after_commit"]:
-		var next := {"after_stage": "branch", "after_branch": "commit", "after_commit": "push"}
+		var next := {"after_stage": "branch", "after_branch": "commit", "after_commit": "validate_commit"}
 		_git("Status", next[step])
 		return
 	if step == "files" and _snapshot.get("files", []).is_empty() and not _guide_back_to_files:
@@ -236,7 +243,7 @@ func _guide_show(step: String) -> void:
 		_guide_label.text = "Release blocked: review/merge the PR on GitHub, switch to main and synchronize it, and handle all dirty work. Then resume after merge. Nothing was pulled or discarded."
 		return
 	_guide_step = step
-	var stage: String = {"files": "Git", "branch": "Git", "commit_review": "Git", "push": "Push", "merge": "Review/merge", "release": "Release", "publish": "Test package", "publish_confirm": "Publish", "sync": "Synchronize main", "drafts": "Choose draft", "done": "Complete"}.get(step, step)
+	var stage: String = {"files": "Git", "branch": "Git", "commit_review": "Git", "validate_commit": "Validate commit", "push": "Push", "merge": "Review/merge", "release": "Release", "publish": "Test package", "publish_confirm": "Publish", "sync": "Synchronize main", "drafts": "Choose draft", "done": "Complete"}.get(step, step)
 	_guide_progress.text = "Git → Push → Review/merge → Release → Test → Publish\nCurrent: " + stage
 	for child in _guide_body.get_children():
 		_guide_body.remove_child(child)
@@ -246,6 +253,9 @@ func _guide_show(step: String) -> void:
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_body.add_child(description)
 	match step:
+		"validate_commit":
+			description.text = "Commit created: %s\nValidate this committed snapshot before Push? Earlier validation is now stale. Runs workflow, Git and Godot guide tests, not a full game test or CI." % _snapshot.get("head", "")
+			_guide_godot = _guide_field("Godot executable", _godot.text)
 		"files":
 			description.text = "%s saved changes; %s already staged.\nSelect ALL reviewed changes to continue. Use Git for partial commits. Select none clears the checklist but cannot continue with dirty files excluded. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
 			_guide_files.clear()
@@ -361,6 +371,9 @@ func _guide_show(step: String) -> void:
 		_guide_dialog.ok_button_text = "Publish this release"
 	elif step == "sync":
 		_guide_dialog.ok_button_text = "Close"
+	elif step == "validate_commit":
+		_guide_dialog.title = "Validate committed work"
+		_guide_dialog.ok_button_text = "Validate this commit"
 	if step == "files" and _snapshot.get("files", []).is_empty():
 		_guide_dialog.ok_button_text = "Review staged changes"
 	_guide_back_button.visible = step in ["commit_review", "release", "publish", "publish_confirm"]
@@ -403,6 +416,13 @@ func _guide_answer() -> void:
 		return
 	_guide_error.text = ""
 	match _guide_step:
+		"validate_commit":
+			if not FileAccess.file_exists(_guide_godot.text.strip_edges()):
+				_guide_error.text = "Choose an existing Godot executable."
+				return
+			_godot.text = _guide_godot.text.strip_edges()
+			_guide_dialog.hide()
+			_workflow("Validate", "push")
 		"files":
 			var selected_indices: Array[int] = []
 			for index in _guide_files.size():
@@ -686,12 +706,20 @@ func _start(command: Dictionary) -> void:
 	_running_since = Time.get_ticks_msec()
 	_running_label = command.get("action", "Git operation")
 	_running_status.text = _running_label + " — starting…"
+	if command.get("action", "") in ["Release", "Publish", "DownloadTest", "Validate", "Evidence", "Discover", "Push"]:
+		_phase_file = ProjectSettings.globalize_path("user://github-phase-%s.txt" % Time.get_ticks_usec())
+		var insert_at: int = command["args"].size()
+		if command["args"].back() == "-Approve":
+			insert_at -= 1
+		command["args"].insert(insert_at, "-PhaseFile")
+		command["args"].insert(insert_at + 1, _phase_file)
 	_thread = Thread.new()
 	var error := _thread.start(_execute.bind(command))
 	if error != OK:
 		_thread = null
 		_output.text = "Cannot start worker: " + error_string(error)
 		_running_status.text = _output.text
+		_clear_phase_file()
 
 
 func _execute(command: Dictionary) -> Dictionary:
@@ -707,7 +735,7 @@ func _execute(command: Dictionary) -> Dictionary:
 	for index in arguments.size():
 		var argument := String(arguments[index])
 		if index % 2 == 1:
-			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve", "-ExpectedHead", "-ExpectedBranch", "-ExpectedDraft"]:
+			if argument not in ["-Request", "-Action", "-Version", "-Godot", "-BuildDirectory", "-Approve", "-ExpectedHead", "-ExpectedBranch", "-ExpectedDraft", "-PhaseFile"]:
 				return {"code": 1, "text": "Invalid command parameter.", "status": false}
 			quoted.append(argument)
 		else:
@@ -726,11 +754,14 @@ func _process(_delta: float) -> void:
 	if _thread.is_alive():
 		var seconds := (Time.get_ticks_msec() - _running_since) / 1000
 		_running_status.text = "%s — %ss elapsed. Output appears at completion. Do not close Godot." % [_running_label, seconds]
+		if not _phase_file.is_empty() and FileAccess.file_exists(_phase_file):
+			_running_status.text += "\nPhase: " + FileAccess.get_file_as_string(_phase_file).strip_edges()
 		if seconds >= 60:
 			_running_status.text += "\nStill waiting; elapsed time does not prove failure. No automatic timeout, cancellation or retry."
 		return
 	var result: Dictionary = _thread.wait_to_finish()
 	_thread = null
+	_clear_phase_file()
 	_running_status.text = "Completed after %ss." % ((Time.get_ticks_msec() - _running_since) / 1000)
 	_complete(result)
 
@@ -760,9 +791,16 @@ func _complete(result: Dictionary) -> void:
 			_checks_summary = "Evidence captured at %s (refresh after external changes).\nLocal validation: %s\nTimestamp (UTC): %s\nSuites: %s\nGitHub CI: %s\nCI head: %s\nLocal tests are not a CI pass." % [Time.get_datetime_string_from_system(), local["state"], local["timestamp"], ", ".join(local["checks"]), ci["state"], ci["head"]]
 			for check in ci["checks"]:
 				_checks_summary += "\n%s: %s %s" % [check.get("name", check.get("context", "Check")), check.get("status", check.get("state", "")), check.get("conclusion", "")]
+			if ci.has("error"):
+				_checks_summary += "\nGitHub retrieval error: " + String(ci["error"])
 		_checks_label.text = _checks_summary
 		if result.get("guide_next") == "merge" and result["code"] == 0:
 			_guide_show("merge")
+		elif result.get("guide_next") == "push":
+			if result["code"] == 0 and metadata.get("local", {}).get("state") == "passed":
+				_git("Status", "push")
+			else:
+				_guide_label.text = "Stopped before Push: committed-head validation failed or became stale. Inspect output and retry validation."
 		return
 	if result["code"] == 0 and result.get("action", "") in ["Discover", "DownloadTest"]:
 		if metadata.is_empty():
@@ -770,7 +808,6 @@ func _complete(result: Dictionary) -> void:
 			return
 		if not metadata.get("url", "").is_empty():
 			_github_url = metadata["url"]
-			result["url"] = metadata["url"]
 			result["url"] = metadata["url"]
 		if result["action"] == "DownloadTest":
 			_test_package = metadata
@@ -789,6 +826,7 @@ func _complete(result: Dictionary) -> void:
 	if not metadata.get("url", "").is_empty():
 		_github_url = metadata["url"]
 		result["url"] = metadata["url"]
+	result["receipt"] = metadata
 	if result.get("review", false) and result["code"] == 0:
 		_guide_diff = result["text"]
 	if not result["status"] and not result.get("review", false):
@@ -847,6 +885,12 @@ func _show_workflow_result(result: Dictionary) -> void:
 			_result_url += "releases/tag/" + version.uri_encode()
 	if String(result.get("url", "")).begins_with("https://github.com/evanmac03/landscaping-planner/"):
 		_result_url = result["url"]
+	if action == "Publish" and result.get("receipt", {}).has("published_at"):
+		var receipt: Dictionary = result["receipt"]
+		summary += "\nSource commit: %s\nPublished (UTC): %s\nRelease ID: %s\nType: %s\n%s" % [receipt["commit"], receipt["published_at"], str(receipt["release_id"]), "Prerelease" if receipt["prerelease"] else "Stable", receipt["verification"]]
+		for asset in receipt["assets"]:
+			summary += "\n%s\nSHA-256: %s" % [asset["name"], asset["sha256"]]
+	_release_receipt = _result_dialog.title + "\n" + summary + "\n" + _result_url
 	_guide_result.text = _result_dialog.title + "\n" + summary + "\n" + _result_url
 	_result_summary.text = summary
 	_result_next = result["guide_next"]
@@ -867,3 +911,12 @@ func finish() -> void:
 	if _thread != null:
 		_thread.wait_to_finish()
 		_thread = null
+	_clear_phase_file()
+
+
+func _clear_phase_file() -> void:
+	if not _phase_file.is_empty() and FileAccess.file_exists(_phase_file):
+		var error := DirAccess.remove_absolute(_phase_file)
+		if error != OK:
+			_output.text += "\nCannot remove phase file: " + error_string(error)
+	_phase_file = ""
