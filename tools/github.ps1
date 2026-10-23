@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Discover', 'LastPublication', 'Validate', 'Evidence', 'DownloadTest', 'SmokeTest', 'Synchronize', 'Push', 'Release', 'RecoverDraft', 'Publish')]
+    [ValidateSet('Plan', 'Discover', 'LastPublication', 'Validate', 'LocalEvidence', 'Evidence', 'DownloadTest', 'SmokeTest', 'Synchronize', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
@@ -194,15 +194,17 @@ if ($Action -eq 'Plan') {
     Write-Output 'Release needs Godot 4.7 and its matching Windows export templates. No CI or playability certification is implied.'
     return
 }
-if ($Action -in @('Validate', 'Evidence')) {
+if ($Action -in @('Validate', 'LocalEvidence', 'Evidence')) {
     $validationPath = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-editor-validation.json'
     $fingerprint = Get-ValidationFingerprint
     if ($Action -eq 'Validate') {
         Set-EditorPhase 'Running local checks'
         if (Test-Path -LiteralPath $validationPath) { Remove-Item -LiteralPath $validationPath }
-        $checks = @('GitHub workflow mocks', 'Disposable Git integration', 'Merge synchronization integration', 'Package smoke checks', 'Godot guided workflow')
+        $checks = @('GitHub workflow mocks', 'Read-only agent interface', 'Disposable Git integration', 'Merge synchronization integration', 'Package smoke checks', 'Godot guided workflow')
         & (Join-Path $PSScriptRoot 'test-github.ps1') | Out-Host
         if (-not $?) { throw 'Local GitHub workflow tests failed.' }
+        & (Join-Path $PSScriptRoot 'test-workflow-agent.ps1') | Out-Host
+        if (-not $?) { throw 'Read-only agent interface tests failed.' }
         & (Join-Path $PSScriptRoot 'test-editor-git.ps1') | Out-Host
         if (-not $?) { throw 'Local Git integration tests failed.' }
         & (Join-Path $PSScriptRoot 'test-package-tests.ps1') | Out-Host

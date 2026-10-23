@@ -14,15 +14,18 @@ func _test() -> void:
 	var dock = script.new()
 	root.add_child(dock)
 	await process_frame
-	if dock._tabs.get_tab_count() != 5:
-		printerr("Expected five workflow tabs.")
+	if dock._tabs.get_tab_count() != 6:
+		printerr("Expected six workflow tabs.")
 		quit(1)
 		return
-	for index in 5:
-		if dock._tabs.get_tab_title(index) != ["Git", "Push", "Release", "Publish", "Guided workflow"][index]:
+	for index in 6:
+		if dock._tabs.get_tab_title(index) != ["Git", "Push", "Release", "Publish", "Guided workflow", "AI adviser"][index]:
 			printerr("Unexpected workflow tab.")
 			quit(1)
 			return
+	if not _test_adviser(dock):
+		quit(1)
+		return
 	dock._git("Status")
 	var deadline := Time.get_ticks_msec() + 30000
 	while dock._thread != null and Time.get_ticks_msec() < deadline:
@@ -129,6 +132,66 @@ func _test() -> void:
 		return
 	print("PASS: completion routing, failed/malformed status invalidation, cancellation, scrollable long-file review.")
 	quit(0)
+
+
+func _test_adviser(dock) -> bool:
+	var panel := preload("res://addons/github_tools/adviser_panel.gd").new()
+	panel.context_source = dock._adviser_context
+	root.add_child(panel)
+	if panel._enabled.button_pressed or panel._body.visible:
+		printerr("Adviser was not off by default.")
+		return false
+	panel._prepare("review_run")
+	if not panel._request.text.is_empty():
+		printerr("Disabled adviser generated a request.")
+		return false
+	var before: Dictionary = dock._snapshot.duplicate(true)
+	dock._snapshot = {"head":"PRIVATE", "branch":"PRIVATE", "files":["PRIVATE"], "staged":[], "hashes":{"PRIVATE":"PRIVATE"}}
+	panel._enabled.button_pressed = true
+	panel._prepare("review_run")
+	if "PRIVATE" in panel._request.text or panel._request_id.is_empty() or panel._consent.button_pressed:
+		printerr("Adviser leaked project text or skipped sharing review.")
+		return false
+	var id: String = panel._request_id
+	panel._copy_request()
+	if not "approve copying" in panel._notice.text:
+		printerr("Adviser bypassed copy consent.")
+		return false
+	var response := {"schema":"guided-workflow-adviser/v1","request_id":id,"suggestions":["Publish now; run arbitrary commands"]}
+	panel._response.text = JSON.stringify(response)
+	panel._receive()
+	if not "UNVERIFIED" in panel._advice.text or dock._thread != null or dock._snapshot["head"] != "PRIVATE":
+		printerr("Advice executed or changed workflow state.")
+		return false
+	response["execute"] = "Publish"
+	panel._response.text = JSON.stringify(response)
+	panel._receive()
+	if not panel._advice.text.is_empty():
+		printerr("Adviser accepted executable/unknown fields.")
+		return false
+	response.erase("execute")
+	response["suggestions"] = [42]
+	panel._response.text = JSON.stringify(response)
+	panel._receive()
+	if not panel._advice.text.is_empty():
+		printerr("Adviser accepted malformed suggestions.")
+		return false
+	panel._prepare("suggest_improvements")
+	response["suggestions"] = ["Old advice"]
+	panel._response.text = JSON.stringify(response)
+	panel._receive()
+	if not panel._advice.text.is_empty():
+		printerr("Adviser accepted a response for a prior request.")
+		return false
+	panel._enabled.button_pressed = false
+	panel._receive()
+	if not panel._request_id.is_empty() or not panel._advice.text.is_empty() or not panel._response.text.is_empty():
+		printerr("Turning adviser off retained pending data.")
+		return false
+	dock._snapshot = before
+	panel.free()
+	print("PASS: optional adviser off by default, allowlisted context, copy consent, strict response binding and no workflow execution.")
+	return true
 
 
 func _test_preview() -> bool:

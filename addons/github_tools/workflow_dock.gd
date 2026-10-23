@@ -135,6 +135,10 @@ func _ready() -> void:
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
 	_button("Open GitHub pull requests", _open_github.bind("https://github.com/evanmac03/landscaping-planner/pulls"))
 	_button("Open GitHub releases / drafts", _open_github.bind("https://github.com/evanmac03/landscaping-planner/releases"))
+	_page("AI adviser", "Optional, provider-neutral advice. Off by default.")
+	var adviser := preload("res://addons/github_tools/adviser_panel.gd").new()
+	adviser.context_source = _adviser_context
+	_section.add_child(adviser)
 	var output_label := Label.new()
 	output_label.text = "Command output (all stages)"
 	add_child(output_label)
@@ -220,6 +224,22 @@ func _guide_begin(step: String) -> void:
 	_tabs.current_tab = 4
 	_guide_label.text = "Reading current Git status…"
 	_git("Status", step)
+
+
+func _adviser_context() -> Dictionary:
+	var steps := ["files", "branch", "commit_review", "validate_commit", "push", "merge", "sync_main", "release", "publish", "publish_confirm", "sync", "drafts", "done"]
+	return {
+		"captured_at_utc":Time.get_datetime_string_from_system(true),
+		"mode":"preview" if _preview else "live",
+		"step":_guide_step if _guide_step in steps else "not_started",
+		"operation_running":_thread != null,
+		"status_snapshot_available":not _snapshot.is_empty(),
+		"unstaged_count":_snapshot.get("files", []).size(),
+		"staged_count":_snapshot.get("staged", []).size(),
+		"package_selected":not _test_package.is_empty(),
+		"evidence_note":"CI, validation and publication results deliberately omitted; inspect actual workflow evidence separately.",
+		"approval_policy":"User approval required. Adviser cannot modify workflow state."
+	}
 
 
 func _open_github(url: String) -> void:
