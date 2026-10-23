@@ -1,0 +1,38 @@
+name: Guided workflow checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  workflow:
+    name: Windows workflow (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [pwsh, powershell]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install verified Godot 4.7.2
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'godot.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip' -OutFile $zip
+          $expected = '83decd58fdf67b9d657958a1ae6bf1929c20785315a81effe245874cdc57acb709bf868e00778a96984338c1b29dafdb453c6847747694621c6ecf5da2259993'
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA512).Hash -ne $expected) { throw 'Godot download hash mismatch.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'godot'
+          Expand-Archive -LiteralPath $zip -DestinationPath $destination
+          "WORKFLOW_GODOT=$(Join-Path $destination 'Godot_v4.7.2-stable_win64_console.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Validate workflow, disposable Git and Godot guide
+        run: |
+          & .\tools\github.ps1 -Action Validate -Godot $env:WORKFLOW_GODOT
+          if (-not $?) { throw 'Workflow validation failed.' }

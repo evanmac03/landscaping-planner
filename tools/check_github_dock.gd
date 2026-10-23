@@ -175,6 +175,15 @@ func _test_preview() -> bool:
 		return false
 	dock._result_dialog.hide()
 	dock._result_dialog.confirmed.emit()
+	for child in dock._guide_body.get_children():
+		if child is Button and child.text == "Synchronize main after GitHub merge…":
+			child.pressed.emit()
+			break
+	await _settle_preview()
+	if dock._guide_step != "sync_main" or dock._cleanup_branch.button_pressed:
+		printerr("Preview did not rehearse explicit synchronization approval.")
+		return false
+	dock._cleanup_branch.button_pressed = true
 	dock._guide_dialog.confirmed.emit()
 	await _settle_preview()
 	if dock._guide_step != "release":
@@ -188,6 +197,14 @@ func _test_preview() -> bool:
 	await _settle_preview()
 	if dock._guide_step != "publish" or dock._test_package.get("identity") != "preview-draft":
 		printerr("Preview download did not return to testing.")
+		return false
+	for child in dock._guide_body.get_children():
+		if child is Button and child.text == "Run verified build headless startup check":
+			child.pressed.emit()
+			break
+	await _settle_preview()
+	if dock._thread != null or not "simulated" in dock._guide_error.text:
+		printerr("Preview smoke check started a worker or claimed a real pass.")
 		return false
 	dock._launch_test_package()
 	await _settle_preview()
@@ -513,6 +530,23 @@ func _test_guide() -> bool:
 	if not guide.captured.is_empty() or not guide._guide_dialog.visible:
 		printerr("Manual merge pause executed a command.")
 		return false
+	guide._guide_show("sync_main")
+	if guide._cleanup_branch.button_pressed or not guide.captured.is_empty():
+		printerr("Main synchronization or cleanup was automatically approved.")
+		return false
+	guide._guide_answer()
+	var sync_args: Array = guide.captured["args"]
+	if guide.captured.get("action") != "Synchronize" or sync_args[sync_args.find("-CleanupBranch") + 1] != "no" or sync_args[sync_args.find("-ExpectedBranch") + 1] != "feature/guided-test":
+		printerr("Synchronization was not bound to reviewed feature/cleanup choice.")
+		return false
+	guide._guide_show("sync_main")
+	guide._cleanup_branch.button_pressed = true
+	guide._guide_answer()
+	sync_args = guide.captured["args"]
+	if sync_args[sync_args.find("-CleanupBranch") + 1] != "yes":
+		printerr("Explicit cleanup choice was lost.")
+		return false
+	guide.captured = {}
 	guide._guide_dialog.hide()
 	guide._guide_show("release")
 	if guide._guide_dialog.visible:
@@ -542,6 +576,20 @@ func _test_guide() -> bool:
 		return false
 	guide._guide_show("publish")
 	guide._test_package = {"version":"v0.2.0-rc.1", "commit":"test-head", "identity":"42:hash"}
+	guide._workflow("SmokeTest", "publish")
+	var smoke_args: Array = guide.captured["args"]
+	if JSON.parse_string(Marshalls.base64_to_utf8(smoke_args[smoke_args.find("-Package") + 1])) != guide._test_package:
+		printerr("Smoke test lost verified package identity.")
+		return false
+	guide.captured = {}
+	guide._complete({"code":0,"status":false,"action":"SmokeTest","guide_next":"publish","text":'EDITOR_RESULT:{"state":"passed","version":"v0.2.0-rc.1","commit":"test-head","identity":"42:hash"}'})
+	if guide._guide_tested.button_pressed or not "interactive testing is still required" in guide._guide_error.text or not guide.captured.is_empty():
+		printerr("Smoke test certified an interactive playtest.")
+		return false
+	guide._complete({"code":0,"status":false,"action":"SmokeTest","guide_next":"publish","text":'EDITOR_RESULT:{"state":"passed","version":"v0.2.0-rc.1","commit":"test-head","identity":"different-draft"}'})
+	if not "failed or selection changed" in guide._guide_error.text or not guide.captured.is_empty():
+		printerr("Smoke test accepted results for a different draft.")
+		return false
 	guide._guide_tested.button_pressed = true
 	guide._guide_dialog.hide()
 	guide._guide_answer()

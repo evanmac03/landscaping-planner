@@ -47,6 +47,13 @@ ZIP**, **Open verified package folder**, and **Launch verified Windows build**.
 Downloads are retained in private release metadata, verified against the local
 preparation receipt, and extracted without rebuilding or uploading. Launching
 requires a separate click and does not certify a successful playtest.
+**Run verified build headless startup check** rehashes the package, starts only
+that executable without unsupported path overrides, waits for its exit and
+checks a dedicated startup log for errors. It rehashes again afterward. Missing
+logs, nonzero exit, logged errors or changed files fail explicitly. A 30-second
+limit applies only to this local smoke-test process (which is stopped on expiry),
+not to release/network writes. A passing smoke test never checks the interactive
+testing box or authorizes publication.
 Before launching, every extracted file is rehashed against the verified
 download manifest, including companion files; changed, missing or added files
 block launch, clear the package selection and testing approval, and require a
@@ -93,8 +100,9 @@ would otherwise allow a commit that cannot be pushed by this workflow. It also
 checks for remaining unstaged work before commit and a clean feature branch
 before Push. Use the individual Git tab for partial commits instead.
 
-**Run local workflow checks** runs the mocked GitHub, disposable Git and Godot
-guide suites. It saves a private validation receipt tied to the exact local
+**Run local workflow checks** runs the mocked GitHub, disposable Git,
+squash-merge synchronization, package smoke and Godot guide suites.
+It saves a private validation receipt tied to the exact local
 branch/HEAD/index and working-file fingerprints, with a UTC timestamp. It is
 not a full game test or a CI run. Changing that snapshot makes the receipt
 stale. A new validation attempt invalidates the old receipt before running.
@@ -122,9 +130,21 @@ commit messages, malformed versions, missing Godot executables and missing
 publication approval produce inline errors without losing your answers.
 
 After Push, the guide pauses: review the PR and any checks, merge on GitHub,
-then switch to main and synchronize it outside the dock. Continue the dialog,
-or cancel and use **Resume after manual PR merge and sync** later.
-The guide does not merge, pull or stash. The release backend freshly fetches
+then choose **Synchronize main after GitHub merge...** or switch/synchronize
+outside the dock. The synchronization question refreshes local status and binds
+approval to the displayed feature branch and HEAD. It verifies an exact-head
+merged GitHub PR whose merge commit is included in freshly fetched origin/main,
+rejects dirty work or local-only main commits, switches to main and fast-forwards
+only. It never merges a PR, rebases or stashes.
+Optional local feature-branch deletion starts unchecked and requires explicit
+selection. Squash merges require forced local branch deletion; this is allowed
+only after verifying the exact feature tip against the merged PR, and only
+after main synchronization succeeds. No other local branches or remote branches
+are deleted. If a later step fails, completed synchronization is not undone:
+inspect Git before retrying.
+Alternatively continue **Check main readiness**, or cancel and use
+**Resume after manual PR merge and sync** later.
+The release backend freshly fetches
 and verifies that main is synchronized before creating a draft.
 
 Next it asks for an unused version, Godot executable, and approval to prepare
@@ -140,7 +160,8 @@ An error stops the guide; inspect output and GitHub before retrying, especially
 after a possible partial remote write. Interrupted drafts still use the
 Release tab's recovery controls. The guide does not persist its progress across
 editor restarts; use the resume buttons and existing receipts deliberately.
-It uses GitHub only, with no Forgejo backup, automatic tests or CI certification.
+It uses GitHub only, with no Forgejo backup or automatic CI certification.
+Tests run only when selected, and reported PR checks must be reviewed separately.
 The progress indicator shows the current stage, and buttons open GitHub's PR
 and release lists. Command results are retained in the shared output panel for
 the current dock session, including automatic status refreshes. Output is not
@@ -153,7 +174,8 @@ Release operations also display their actual named phase (importing, exporting,
 packaging, uploading, downloading, verifying hashes or publishing) through a
 private per-command temporary status file, removed after completion. Phases
 describe started work, not percentage completion; detailed output still appears
-when the command ends.
+when the command ends. Headless package checks and approved synchronization
+also expose their current phase.
 Long questions/reviews scroll within the dialog. A failed or malformed status
 response clears the old selection/snapshot and stops the guide until refreshed.
 Successful Push, Release and Publish operations show a dedicated result dialog
@@ -202,8 +224,9 @@ completed operation.
 
 Commands run in a background thread; output appears when each completes.
 Do not disable the plugin or close Godot while a command runs: shutdown waits
-for the command and does not cancel remote mutations. The dock never pulls,
-merges, discards edits, force-pushes, or stores GitHub tokens. Authentication
+for the command and does not cancel remote mutations. The dock never merges
+PRs, discards edits, force-pushes, or stores GitHub tokens. Its approved
+synchronization action only fast-forwards local main. Authentication
 uses the existing `gh` CLI login. Run `gh auth login` in a terminal if needed.
 
 Run [tools/github.ps1](../tools/github.ps1) from PowerShell 5.1 or newer.
@@ -215,8 +238,9 @@ Prerequisites:
 - Git and GitHub CLI (`gh`), authenticated with access to the repository.
 - For Release: Godot 4.7.x and matching Windows x86_64 export templates.
   Install templates using Godot's **Editor > Manage Export Templates**.
-- A clean, committed checkout for Push, Release and Publish. The script never stages, commits, stashes,
-  rebases, merges, force-pushes or changes branches.
+- A clean, committed checkout for Push, Release, Publish and Synchronize.
+  The backend never stages, commits, stashes, rebases, merges PRs or force-pushes.
+  Only separately approved Synchronize changes branches/fast-forwards main.
 
 ```powershell
 # Local information only; safe with uncommitted work.
@@ -226,7 +250,10 @@ Prerequisites:
 .\tools\github.ps1 -Action Push -Approve
 
 # Review the PR and GitHub checks, then merge separately.
-# Switch to main and synchronize it yourself before preparing:
+# From the reviewed clean feature branch, optionally synchronize main:
+.\tools\github.ps1 -Action Synchronize -ExpectedHead REVIEWED_SHA -ExpectedBranch feature/my-change -Approve
+# Add -CleanupBranch yes only to explicitly delete that verified merged local branch.
+# Or switch to main and synchronize it yourself before preparing:
 .\tools\github.ps1 -Action Release -Version v0.1.0-rc.1 -Approve
 
 # Optional explicit editor location:
@@ -235,6 +262,29 @@ Prerequisites:
 # Download and manually test the draft ZIP before this separate approval:
 .\tools\github.ps1 -Action Publish -Version v0.1.0-rc.1 -Approve
 ```
+
+`SmokeTest` accepts `-Package BASE64_JSON -Approve`, where BASE64_JSON is the
+UTF-8 base64 encoding of the exact `EDITOR_RESULT` object returned by
+`DownloadTest`. It uses that object's executable/folder and file manifest, not
+an arbitrary executable path. This action is local and does not authenticate,
+fetch, rebuild, upload or publish.
+
+## GitHub CI
+
+[Guided workflow checks](../.github/workflows/workflow-checks.yml) runs on PRs
+and pushes to main using Windows runners with PowerShell 5.1 and 7. It installs
+Godot 4.7.2 from the official release and verifies a pinned SHA512, then runs
+the same focused `Validate` suites. The job has read-only repository permission,
+no publishing credentials and no release/export side effects. It is not a
+full game playtest or a Windows installer certification.
+CI is not active until this workflow is committed/pushed to GitHub; a local
+pass must not be presented as a hosted CI pass.
+
+Editor connectivity is separate from these tests. A Godot AI MCP server alone
+does not connect this project: it needs a running editor and its compatible
+bridge addon enabled. Ziva is a different extension, not that bridge. Installing
+or enabling another addon requires a separate setup decision. Rendered automated
+guide tests do not certify a manual editor click-through.
 
 ## Guarantees and limits
 

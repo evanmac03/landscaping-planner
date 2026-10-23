@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Discover', 'LastPublication', 'Validate', 'Evidence', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
+    [ValidateSet('Plan', 'Discover', 'LastPublication', 'Validate', 'Evidence', 'DownloadTest', 'SmokeTest', 'Synchronize', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
@@ -10,6 +10,8 @@ param(
     [string]$ExpectedBranch,
     [string]$ExpectedDraft,
     [string]$PhaseFile,
+    [string]$Package,
+    [ValidateSet('yes', 'no')][string]$CleanupBranch = 'no',
     [switch]$Approve
 )
 
@@ -21,7 +23,7 @@ $repository = 'evanmac03/landscaping-planner'
 function Invoke-Native {
     param([string]$Command, [string[]]$Arguments)
     $executable = if ($Command -in @('git', 'gh')) {
-        (Get-Command $Command -CommandType Application -ErrorAction Stop).Source
+        (Get-Command $Command -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
     } else { $Command }
     $output = & $executable @Arguments
     if ($LASTEXITCODE -ne 0) {
@@ -82,7 +84,7 @@ function Resolve-Godot {
     if ($Godot) {
         return (Get-Item -LiteralPath $Godot -ErrorAction Stop).FullName
     }
-    $command = Get-Command 'godot' -ErrorAction SilentlyContinue
+    $command = Get-Command 'godot' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($command) { return $command.Source }
     $candidates = @(Get-ChildItem -LiteralPath (Split-Path -Parent $root) -Filter 'Godot*_console.exe' -File)
     if ($candidates.Count -ne 1) {
@@ -163,6 +165,13 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 
 $branch = [string](Git @('branch', '--show-current'))
 $head = [string](Git @('rev-parse', 'HEAD'))
+if ($Action -eq 'SmokeTest') {
+    if (-not $Approve) { throw 'SmokeTest requires explicit -Approve to run the downloaded executable.' }
+    Set-EditorPhase 'Checking package integrity and headless startup'
+    & (Join-Path $PSScriptRoot 'test-package.ps1') -Package $Package
+    if (-not $?) { throw 'Packaged build smoke test failed.' }
+    return
+}
 if ($Action -eq 'LastPublication') {
     $path = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-releases\last-publication.json'
     if (-not (Test-Path -LiteralPath $path)) { throw 'No saved publication receipt. Older releases may predate this feature.' }
@@ -191,11 +200,15 @@ if ($Action -in @('Validate', 'Evidence')) {
     if ($Action -eq 'Validate') {
         Set-EditorPhase 'Running local checks'
         if (Test-Path -LiteralPath $validationPath) { Remove-Item -LiteralPath $validationPath }
-        $checks = @('GitHub workflow mocks', 'Disposable Git integration', 'Godot guided workflow')
+        $checks = @('GitHub workflow mocks', 'Disposable Git integration', 'Merge synchronization integration', 'Package smoke checks', 'Godot guided workflow')
         & (Join-Path $PSScriptRoot 'test-github.ps1') | Out-Host
         if (-not $?) { throw 'Local GitHub workflow tests failed.' }
         & (Join-Path $PSScriptRoot 'test-editor-git.ps1') | Out-Host
         if (-not $?) { throw 'Local Git integration tests failed.' }
+        & (Join-Path $PSScriptRoot 'test-package-tests.ps1') | Out-Host
+        if (-not $?) { throw 'Package smoke tests failed.' }
+        & (Join-Path $PSScriptRoot 'test-synchronize.ps1') | Out-Host
+        if (-not $?) { throw 'Main synchronization integration tests failed.' }
         $editor = Resolve-Godot
         $log = @(Invoke-Native $editor @('--headless', '--path', $root, '--script', 'res://tools/check_github_dock.gd') 2>&1)
         $log | Out-Host
@@ -280,6 +293,29 @@ Assert-Remote
 if (($ExpectedHead -and $ExpectedHead -ne [string](Git @('rev-parse', 'HEAD'))) -or
     ($ExpectedBranch -and $ExpectedBranch -ne [string](Git @('branch', '--show-current')))) {
     throw 'Approved branch/commit changed during preflight. Refresh and obtain approval again.'
+}
+if ($Action -eq 'Synchronize') {
+    if (-not $ExpectedHead -or -not $ExpectedBranch) { throw 'Synchronize requires the reviewed branch and HEAD.' }
+    if ($branch -notmatch '^feature/[a-z0-9][a-z0-9-]*$') { throw 'Synchronize requires a reviewed feature branch.' }
+    $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--base', 'main',
+        '--state', 'merged', '--json', 'headRefOid,mergeCommit,url')) -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
+    $matching = @($prs | Where-Object { $null -ne $_ -and $_.headRefOid -eq $head -and $_.mergeCommit -and $_.mergeCommit.oid })
+    if ($matching.Count -ne 1) { throw 'No unique merged PR matches the exact feature HEAD. Review/merge on GitHub first.' }
+    $merge = [string]$matching[0].mergeCommit.oid
+    if ([string](Git @('merge-base', $merge, 'origin/main')) -ne $merge) { throw 'Merged PR is not included in origin/main.' }
+    if ([string](Git @('rev-list', '--count', 'origin/main..main')) -ne '0') { throw 'Local main has commits absent from origin/main. Reconcile manually; nothing switched.' }
+    Assert-Clean
+    Set-EditorPhase 'Fast-forwarding main after verified GitHub merge'
+    Git @('switch', 'main') | Out-Host
+    Git @('merge', '--ff-only', 'origin/main') | Out-Host
+    if ([string](Git @('rev-parse', 'HEAD')) -ne [string](Git @('rev-parse', 'origin/main'))) { throw 'Main synchronization did not verify. Inspect before retrying.' }
+    if ($CleanupBranch -eq 'yes') {
+        if ([string](Git @('rev-parse', "refs/heads/$branch")) -ne $head) { throw 'Feature tip changed; main synchronized but cleanup stopped.' }
+        # Squash merges do not make the feature tip an ancestor; exact PR head was verified above.
+        Git @('branch', '-D', '--', $branch) | Out-Host
+    }
+    Write-EditorResult @{commit=[string](Git @('rev-parse', 'HEAD'));branch='main';url=$matching[0].url;cleaned=($CleanupBranch -eq 'yes')}
+    return
 }
 if ($Action -eq 'Push') {
     if (-not $branch -or $branch -eq 'main') {
