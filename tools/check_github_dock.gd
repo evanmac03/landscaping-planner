@@ -10,6 +10,11 @@ func _initialize() -> void:
 	call_deferred("_test")
 
 func _test() -> void:
+	var plugin_config := ConfigFile.new()
+	if plugin_config.load("res://addons/github_tools/plugin.cfg") != OK or plugin_config.get_value("plugin", "name", "") != "Godot Dev Workflow":
+		printerr("Unexpected addon display name.")
+		quit(1)
+		return
 	var script = load("res://addons/github_tools/workflow_dock.gd")
 	var dock = script.new()
 	root.add_child(dock)

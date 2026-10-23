@@ -8,7 +8,7 @@ var _content: Control
 
 func _enter_tree() -> void:
 	_dock = EditorDock.new()
-	_dock.title = "GitHub"
+	_dock.title = "Godot Dev Workflow"
 	_dock.default_slot = EditorDock.DOCK_SLOT_RIGHT_BL
 	_content = Content.new()
 	_dock.add_child(_content)

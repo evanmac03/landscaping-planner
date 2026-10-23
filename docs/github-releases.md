@@ -1,9 +1,13 @@
-# GitHub push, draft release and publication
+# Godot Dev Workflow
+
+Guided and individual Git, push, draft release and publication steps inside
+Godot. GitHub is the currently implemented hosting provider; the host-neutral
+addon name does not imply Forgejo or other hosting services are supported yet.
 
 ## Inside Godot
 
-Enable **GitHub workflow** under **Project > Project Settings > Plugins**.
-The GitHub dock is enabled by default in this project. Save your scenes/scripts
+Enable **Godot Dev Workflow** under **Project > Project Settings > Plugins**.
+The **Godot Dev Workflow** dock is enabled by default in this project. Save your scenes/scripts
 before refreshing status; Git reads disk, not unsaved editor buffers.
 The dock has six tabs: **Git** for local commits, **Push** for PRs,
 **Release** for draft exports/recovery, **Publish** for final publication,
