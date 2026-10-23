@@ -230,7 +230,7 @@ if ($Action -in @('Validate', 'LocalEvidence', 'Evidence')) {
         try {
         Assert-Remote
         $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--state', 'open',
-            '--json', 'number,url,headRefOid')) -join "`n") | ConvertFrom-Json)
+            '--json', 'number,url,headRefOid')) -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
         $ci.state = 'no-open-pr'
         if ($prs.Count -eq 1) {
             $pr = ((Github @('pr', 'view', [string]$prs[0].number, '--repo', $repository,
@@ -240,6 +240,19 @@ if ($Action -in @('Validate', 'LocalEvidence', 'Evidence')) {
             $ci.checks = @($pr.statusCheckRollup)
             $ci.state = if ($pr.headRefOid -ne $head) {'different-head'} elseif ($ci.checks.Count -eq 0) {'no-checks-reported'} else {'reported'}
         } elseif ($prs.Count -gt 1) { throw 'Multiple open PRs; cannot select CI evidence automatically.' }
+        else {
+            $runs = @(((Github @('run', 'list', '--repo', $repository, '--commit', $head, '--limit', '100',
+                '--json', 'databaseId,headSha,name,status,conclusion,url,createdAt')) -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
+            $ci.state = 'no-runs-reported'
+            $ci.source = 'exact-commit-runs'
+            $ci.checks = @()
+            # Keep the newest run of each workflow; an older pass must not hide a newer failure.
+            foreach ($group in @($runs | Where-Object { $null -ne $_ -and $_.headSha -eq $head } | Group-Object name)) {
+                $run = $group.Group | Sort-Object createdAt -Descending | Select-Object -First 1
+                $ci.checks += @{name=$run.name;status=$run.status;conclusion=$run.conclusion;detailsUrl=$run.url;head=$run.headSha}
+            }
+            if ($ci.checks.Count) { $ci.state = 'reported'; $ci.url = $ci.checks[0].detailsUrl }
+        }
         }
         catch {
             $ci = @{state='unavailable';head=$head;checks=@();url='';error=$_.Exception.Message}
@@ -281,9 +294,18 @@ if ($Action -eq 'Discover') {
         }
     } elseif (-not $dirty -and $branch -and $branch -ne 'main') {
         $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--base', 'main',
-            '--state', 'open', '--json', 'url,headRefOid')) -join "`n") | ConvertFrom-Json)
+            '--state', 'open', '--json', 'url,headRefOid')) -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
         if ($prs.Count -eq 1 -and $prs[0].headRefOid -eq $head) { $next = 'merge'; $url = $prs[0].url }
-        else { $next = 'push' }
+        elseif ($prs.Count -gt 1) { throw 'Multiple open PRs; inspect GitHub before continuing.' }
+        elseif ($prs.Count -eq 1) { throw 'Open PR head differs from local HEAD. Reconcile before continuing.' }
+        else {
+            $merged = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--base', 'main',
+                '--state', 'merged', '--json', 'url,headRefOid')) -join "`n") | ConvertFrom-Json | ForEach-Object { $_ } |
+                Where-Object { $null -ne $_ -and $_.headRefOid -eq $head })
+            if ($merged.Count -gt 1) { throw 'Multiple merged PRs match HEAD; inspect GitHub before continuing.' }
+            if ($merged.Count -eq 1) { $next = 'sync_main'; $url = $merged[0].url }
+            else { $next = 'push' }
+        }
     }
     Write-EditorResult @{ next = $next; url = $url; version = $selectedVersion; commit = $head; choices = $choices; distance = $distance }
     return
