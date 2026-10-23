@@ -18,6 +18,15 @@ Start**. The guide asks which files to stage, a feature branch name when on
 main, the commit name, and approval to push to GitHub. Existing staged files
 are included in the commit; later unstaged edits are not. Push still requires
 a clean checkout, so handle any excluded dirty work deliberately.
+Branch name, commit name and staged-diff review now share one screen. Its
+**Create commit** approval creates the requested feature branch when needed
+and commits the reviewed index. If branch creation succeeds but commit fails,
+the new branch remains; inspect output rather than blindly restarting.
+**Back** from commit review refreshes the file screen without undoing staging
+and retains the branch and commit names. Back from draft preparation returns
+to the manual-merge checkpoint and retains version/editor input. Back from
+publication pauses for testing; it never reruns draft preparation or undoes a
+draft. Publication approval must always be given again.
 The file question has a checkbox beside each path, with **Select all** and
 **Select none** buttons. Files start unchecked; check the files you reviewed
 before clicking **Stage selected**.

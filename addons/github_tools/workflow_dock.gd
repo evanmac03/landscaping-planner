@@ -31,6 +31,10 @@ var _guide_error: Label
 var _guide_reviewed: CheckBox
 var _guide_diff: String = ""
 var _guide_progress: Label
+var _guide_branch: LineEdit
+var _guide_commit_name: String = ""
+var _guide_back_button: Button
+var _guide_back_to_files: bool = false
 
 
 func _ready() -> void:
@@ -133,6 +137,11 @@ func _ready() -> void:
 	add_child(_guide_dialog)
 	_guide_dialog.confirmed.connect(_guide_answer)
 	_guide_dialog.canceled.connect(func(): _guide_label.text = "Paused. Completed operations remain in place. Inspect output before restarting or resuming.")
+	_guide_back_button = _guide_dialog.add_button("Back", false, "back")
+	_guide_dialog.custom_action.connect(func(action: String):
+		if action == "back":
+			_guide_back()
+	)
 
 
 func _guide_begin(step: String) -> void:
@@ -158,9 +167,10 @@ func _guide_show(step: String) -> void:
 		var next := {"after_stage": "branch", "after_branch": "commit", "after_commit": "push"}
 		_git("Status", next[step])
 		return
-	if step == "files" and _snapshot.get("files", []).is_empty():
+	if step == "files" and _snapshot.get("files", []).is_empty() and not _guide_back_to_files:
 		step = "branch" if not _snapshot.get("staged", []).is_empty() else "push"
-	if step == "branch" and not _snapshot.get("branch", "") in ["", "main"]:
+	_guide_back_to_files = false
+	if step == "branch":
 		step = "commit"
 	if step == "commit":
 		if not _snapshot.get("files", []).is_empty():
@@ -180,13 +190,13 @@ func _guide_show(step: String) -> void:
 	for child in _guide_body.get_children():
 		_guide_body.remove_child(child)
 		child.queue_free()
-	_guide_dialog.title = "Guided workflow — " + step.capitalize()
+	_guide_dialog.title = {"files": "1. Choose files", "commit_review": "2. Review and name commit", "push": "3. Push to GitHub", "merge": "4. Review and merge", "release": "5. Prepare draft", "publish": "6. Test and publish"}.get(step, "Guided workflow")
 	var description := Label.new()
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_body.add_child(description)
 	match step:
 		"files":
-			description.text = "Which saved files should be staged? Review contents first. This end-to-end guide needs all dirty files handled so Push can run. For partial commits, cancel and use Git. Existing staged changes will also be committed."
+			description.text = "%s saved changes; %s already staged.\nCheck the files to include. Push needs a clean checkout; use the Git tab for partial commits. Back never undoes staging." % [_snapshot.get("files", []).size(), _snapshot.get("staged", []).size()]
 			_guide_files.clear()
 			var selection_buttons := HBoxContainer.new()
 			for option in ["Select all", "Select none"]:
@@ -216,11 +226,14 @@ func _guide_show(step: String) -> void:
 			_guide_reviewed.text = "I reviewed the staged diff and any binary assets separately."
 			_guide_reviewed.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_guide_body.add_child(_guide_reviewed)
-			_guide_input = _guide_field("Commit name / message", "")
+			_guide_branch = null
+			if _snapshot.get("branch", "") in ["", "main"]:
+				_guide_branch = _guide_field("New feature branch", _branch.text)
+			_guide_input = _guide_field("Commit name", _guide_commit_name)
 		"push":
 			description.text = "Push committed HEAD %s on %s to GitHub and open/reuse a PR? Requires a clean feature branch. Does not run tests, wait for CI, or merge." % [String(_snapshot.get("head", "")).left(8), _snapshot.get("branch", "")]
 		"merge":
-			description.text = "Push completed. STOP and review the PR, tests and any checks on GitHub. Merge there, then switch to main and synchronize it outside this dock.\n\nHave you finished those steps? Continue only when ready. Otherwise Cancel and use Resume after merge later."
+			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Switch to main and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
 		"release":
 			description.text = "Prepare a private Windows draft? This exports committed main, pushes a version tag and uploads assets. Requires matching export templates. What unused version and Godot executable should be used?"
 			_guide_input = _guide_field("Release version", _version.text)
@@ -240,6 +253,9 @@ func _guide_show(step: String) -> void:
 	_guide_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_body.add_child(_guide_error)
 	_guide_dialog.ok_button_text = {"files": "Stage selected", "branch": "Create branch", "commit_review": "Create commit", "push": "Push and open PR", "merge": "Check main readiness", "release": "Prepare draft", "publish": "Publish release"}.get(step, "Continue")
+	if step == "files" and _snapshot.get("files", []).is_empty():
+		_guide_dialog.ok_button_text = "Review staged changes"
+	_guide_back_button.visible = step in ["commit_review", "release", "publish"]
 	_guide_dialog.reset_size()
 	_guide_dialog.popup_centered()
 
@@ -247,6 +263,28 @@ func _guide_show(step: String) -> void:
 func _guide_select_files(selected: bool) -> void:
 	for checkbox in _guide_files:
 		checkbox.button_pressed = selected
+
+
+func _guide_back() -> void:
+	if _thread != null:
+		return
+	match _guide_step:
+		"commit_review":
+			_guide_commit_name = _guide_input.text
+			if _guide_branch != null:
+				_branch.text = _guide_branch.text
+			_guide_dialog.hide()
+			_guide_back_to_files = true
+			_git("Status", "files")
+		"release":
+			_version.text = _guide_input.text
+			_godot.text = _guide_godot.text
+			_guide_dialog.hide()
+			_guide_show("merge")
+		"publish":
+			_guide_version = _guide_input.text
+			_guide_dialog.hide()
+			_guide_label.text = "Draft left unchanged. Test it using GitHub releases, then Resume at verified draft publication. Preparing another draft is not a Back action."
 
 
 func _guide_answer() -> void:
@@ -283,6 +321,9 @@ func _guide_answer() -> void:
 			_guide_dialog.hide()
 			_git("Branch", "after_branch")
 		"commit_review":
+			if _guide_branch != null and RegEx.create_from_string("^feature/[a-z0-9][a-z0-9-]*$").search(_guide_branch.text.strip_edges()) == null:
+				_guide_error.text = "Use feature/lowercase-kebab-name."
+				return
 			if _guide_input.text.strip_edges().is_empty() or _snapshot.get("staged", []).is_empty():
 				_guide_error.text = "Commit needs staged files and a nonblank name."
 				return
@@ -290,6 +331,9 @@ func _guide_answer() -> void:
 				_guide_error.text = "Review the diff and confirm before committing."
 				return
 			_message.text = _guide_input.text.strip_edges()
+			_guide_commit_name = _message.text
+			if _guide_branch != null:
+				_branch.text = _guide_branch.text.strip_edges()
 			_guide_dialog.hide()
 			_git("Commit", "after_commit")
 		"push":
@@ -377,6 +421,8 @@ func _git(action: String, guide_next: String = "") -> void:
 	request["action"] = action
 	request["name"] = _branch.text
 	request["message"] = _message.text
+	if action == "Commit" and guide_next == "after_commit" and _snapshot.get("branch", "") in ["", "main"]:
+		request["new_branch"] = _branch.text
 	var selected: Array[String] = []
 	var list := _staged if action == "Unstage" else _files
 	for index in list.get_selected_items():

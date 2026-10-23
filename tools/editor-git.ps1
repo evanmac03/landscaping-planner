@@ -53,15 +53,23 @@ if ($requestData.action -eq 'Branch') {
     exit 0
 }
 if ($requestData.action -eq 'Commit') {
-    if (-not $requestData.branch -or $requestData.branch -eq 'main') { throw 'Create a feature branch before committing.' }
+    $commitBranch = [string]$requestData.branch
+    $newBranch = $requestData.PSObject.Properties['new_branch']
+    if (-not $commitBranch -or $commitBranch -eq 'main') {
+        if (-not $newBranch -or $newBranch.Value -notmatch '^feature/[a-z0-9][a-z0-9-]*$') {
+            throw 'Create a feature branch before committing.'
+        }
+        $commitBranch = [string]$newBranch.Value
+    } elseif ($newBranch) { throw 'Branch creation is only supported from main or detached HEAD.' }
     if (-not $requestData.message.Trim()) { throw 'Enter a commit message.' }
     if (@(Git diff --cached --name-only).Count -eq 0) { throw 'Stage changes before committing.' }
     Git diff --cached --check
     $parent = [string](Git rev-parse HEAD)
     $tree = [string](Git write-tree)
+    if ($newBranch) { Git switch -c $commitBranch }
     Git commit -m $requestData.message -m 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>'
     if ([string](Git rev-parse 'HEAD^') -ne $parent -or [string](Git rev-parse 'HEAD^{tree}') -ne $tree -or
-        [string](Git branch --show-current) -ne $requestData.branch -or @(Git diff --cached --name-only).Count) {
+        [string](Git branch --show-current) -ne $commitBranch -or @(Git diff --cached --name-only).Count) {
         throw 'Commit was created but verification failed. Inspect Git; do not repeat automatically.'
     }
     Git status -sb

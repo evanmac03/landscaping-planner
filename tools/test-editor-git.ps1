@@ -66,6 +66,15 @@ try {
     Invoke-Request @{action='Unstage';head=$status.head;branch=$status.branch;index_tree=$status.index_tree;staged=$status.staged;files=@('excluded.txt')} | Out-Null
     if (@(& $git -C $fixture diff --cached --name-only).Count) { throw 'Unstage failed.' }
     if (-not (Test-Path -LiteralPath (Join-Path $fixture 'excluded.txt'))) { throw 'Unstage lost edits.' }
+    & $git -C $fixture add selected.txt
+    & $git -C $fixture commit -m 'Save fixture follow-up edits' | Out-Null
+    & $git -C $fixture switch main
+    if ($LASTEXITCODE -ne 0) { throw 'Could not switch fixture to main.' }
+    $status = ((Invoke-Request @{action='Status'}) -join "`n") | ConvertFrom-Json
+    Invoke-Request @{action='Stage';head=$status.head;branch=$status.branch;index_tree=$status.index_tree;hashes=$status.hashes;files=@('excluded.txt')} | Out-Null
+    $status = ((Invoke-Request @{action='Status'}) -join "`n") | ConvertFrom-Json
+    Invoke-Request @{action='Commit';head=$status.head;branch=$status.branch;index_tree=$status.index_tree;message='Combined branch and commit';new_branch='feature/combined'} | Out-Null
+    if ((& $git -C $fixture branch --show-current) -ne 'feature/combined') { throw 'Combined commit did not create approved branch.' }
     Write-Output 'PASS: main/branch guards, real staging, changed-file/index guards, exact staged review including new files, staged-snapshot commit, stale HEAD, unstage preserving edits.'
 }
 finally { Remove-Item -LiteralPath $fixture -Recurse -Force }

@@ -111,6 +111,20 @@ func _test_transitions() -> bool:
 	if not guide._guide_body.get_parent() is ScrollContainer:
 		printerr("Long review is not scrollable.")
 		return false
+	guide._guide_input.text = "Retained commit name"
+	guide._guide_back()
+	if guide._guide_commit_name != "Retained commit name" or guide.captured.get("guide_next") != "files":
+		printerr("Back did not retain commit input or refresh scope.")
+		return false
+	guide._complete({"code": 0, "text": JSON.stringify(status), "status": true, "guide_next": "files"})
+	if guide._guide_step != "files" or not guide._guide_dialog.visible:
+		printerr("Back skipped the file screen.")
+		return false
+	guide._guide_dialog.hide()
+	guide._guide_show("commit_review")
+	if guide._guide_input.text != "Retained commit name":
+		printerr("Review did not restore commit input.")
+		return false
 	if not "Selected files staged." in guide._history or not "Simulated failure" in guide._history:
 		printerr("Transitions lost output history.")
 		return false
@@ -143,20 +157,6 @@ func _test_guide() -> bool:
 	if request["action"] != "Stage" or request["files"] != ["sample.txt"]:
 		printerr("Guide did not stage only selected files.")
 		return false
-	guide._guide_show("branch")
-	guide._guide_input.text = "invalid branch"
-	guide._guide_answer()
-	if guide._guide_error.text.is_empty() or guide._guide_input.text != "invalid branch":
-		printerr("Guide did not retain invalid branch input.")
-		return false
-	guide._guide_input.text = "feature/guided-test"
-	guide._guide_dialog.hide()
-	guide._guide_answer()
-	request = JSON.parse_string(Marshalls.base64_to_utf8(guide.captured["args"][-1]))
-	if request["action"] != "Branch" or request["name"] != "feature/guided-test":
-		printerr("Guide did not ask for branch.")
-		return false
-	guide._snapshot["branch"] = "feature/guided-test"
 	guide._snapshot["staged"] = ["sample.txt"]
 	guide.captured = {}
 	guide._guide_show("commit")
@@ -171,6 +171,12 @@ func _test_guide() -> bool:
 		return false
 	guide._guide_diff = "new file mode 100644\n+new file contents"
 	guide._guide_show("commit_review")
+	guide._guide_branch.text = "invalid branch"
+	guide._guide_answer()
+	if guide._guide_error.text.is_empty():
+		printerr("Combined review did not validate branch.")
+		return false
+	guide._guide_branch.text = "feature/guided-test"
 	guide.captured = {}
 	guide._guide_answer()
 	if guide._guide_error.text.is_empty() or not guide.captured.is_empty():
@@ -185,10 +191,11 @@ func _test_guide() -> bool:
 	guide._guide_dialog.hide()
 	guide._guide_answer()
 	request = JSON.parse_string(Marshalls.base64_to_utf8(guide.captured["args"][-1]))
-	if request["action"] != "Commit" or request["message"] != "Guided test":
+	if request["action"] != "Commit" or request["message"] != "Guided test" or request.get("new_branch") != "feature/guided-test":
 		printerr("Guide did not ask for commit name.")
 		return false
 	guide._snapshot["staged"] = []
+	guide._snapshot["branch"] = "feature/guided-test"
 	guide._guide_show("push")
 	guide._guide_dialog.hide()
 	guide._guide_answer()
