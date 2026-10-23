@@ -67,6 +67,14 @@ the current dock session, including automatic status refreshes. Output is not
 saved across editor restarts and is available only after each command finishes.
 Long questions/reviews scroll within the dialog. A failed or malformed status
 response clears the old selection/snapshot and stops the guide until refreshed.
+Successful Push, Release and Publish operations show a dedicated result dialog
+with an **Open on GitHub** link before continuing. Push confirms the branch/PR
+but not a merge; Release confirms a verified private draft, not publication;
+Publish confirms the exact version was published and links to its release.
+The latest result also remains visible in the Guided workflow tab. Failed
+operations are marked **NOT CONFIRMED**, because partial remote writes may
+need inspection. Closing a success dialog pauses rather than repeating the
+completed operation.
 
 ### Individual tabs
 

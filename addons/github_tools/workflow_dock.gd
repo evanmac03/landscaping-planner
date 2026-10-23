@@ -35,6 +35,12 @@ var _guide_branch: LineEdit
 var _guide_commit_name: String = ""
 var _guide_back_button: Button
 var _guide_back_to_files: bool = false
+var _result_dialog: AcceptDialog
+var _result_summary: Label
+var _result_link: LinkButton
+var _result_next: String = ""
+var _result_url: String = ""
+var _guide_result: Label
 
 
 func _ready() -> void:
@@ -95,6 +101,9 @@ func _ready() -> void:
 	_guide_progress = Label.new()
 	_guide_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_section.add_child(_guide_progress)
+	_guide_result = Label.new()
+	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_section.add_child(_guide_result)
 	_button("Start: Git → Push → Release → Publish…", _guide_begin.bind("files"))
 	_button("Resume after manual PR merge and sync…", _guide_begin.bind("release"))
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
@@ -142,10 +151,33 @@ func _ready() -> void:
 		if action == "back":
 			_guide_back()
 	)
+	_result_dialog = AcceptDialog.new()
+	_result_dialog.ok_button_text = "Continue"
+	var result_body := VBoxContainer.new()
+	result_body.custom_minimum_size.x = 360
+	_result_summary = Label.new()
+	_result_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	result_body.add_child(_result_summary)
+	_result_link = LinkButton.new()
+	_result_link.text = "Open on GitHub"
+	_result_link.pressed.connect(func(): OS.shell_open(_result_url))
+	result_body.add_child(_result_link)
+	_result_dialog.add_child(result_body)
+	add_child(_result_dialog)
+	_result_dialog.confirmed.connect(func():
+		var next := _result_next
+		_result_next = ""
+		if not next.is_empty():
+			_guide_show(next)
+	)
+	_result_dialog.canceled.connect(func():
+		_result_next = ""
+		_guide_label.text = "Paused after a completed operation. See the result above; use the appropriate resume button."
+	)
 
 
 func _guide_begin(step: String) -> void:
-	if _thread != null or _guide_dialog.visible or _confirm.visible or _commit_dialog.visible:
+	if _thread != null or _guide_dialog.visible or _confirm.visible or _commit_dialog.visible or _result_dialog.visible:
 		return
 	_tabs.current_tab = 4
 	_guide_label.text = "Reading current Git status…"
@@ -459,7 +491,7 @@ func _workflow(action: String, guide_next: String = "") -> void:
 		args.append_array(["-BuildDirectory", _build.text])
 	if action != "Plan":
 		args.append("-Approve")
-	var command := {"args": args, "status": false, "guide_next": guide_next}
+	var command := {"args": args, "status": false, "guide_next": guide_next, "action": action, "version": _version.text}
 	if action == "Plan" or not guide_next.is_empty():
 		_start(command)
 	else:
@@ -505,7 +537,7 @@ func _execute(command: Dictionary) -> Dictionary:
 	var encoded := Marshalls.raw_to_base64(utf16)
 	var code := OS.execute("powershell.exe",
 		PackedStringArray(["-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand", encoded]), output, true, false)
-	return {"code": code, "text": "\n".join(output), "status": command["status"], "refresh": command.get("refresh", false), "guide_next": command.get("guide_next", ""), "review": command.get("review", false)}
+	return {"code": code, "text": "\n".join(output), "status": command["status"], "refresh": command.get("refresh", false), "guide_next": command.get("guide_next", ""), "review": command.get("review", false), "action": command.get("action", ""), "version": command.get("version", "")}
 
 
 func _process(_delta: float) -> void:
@@ -548,9 +580,40 @@ func _complete(result: Dictionary) -> void:
 		_git("Status")
 	if not result.get("guide_next", "").is_empty():
 		if result["code"] == 0:
-			_guide_show(result["guide_next"])
+			if result.get("action", "") in ["Push", "Release", "Publish"]:
+				_show_workflow_result(result)
+			else:
+				_guide_show(result["guide_next"])
 		else:
 			_guide_label.text = "Stopped after an error. Inspect output and local/GitHub state before retrying. No later step ran; completed operations were not undone."
+			_guide_result.text = "NOT CONFIRMED: %s did not complete successfully. A partial GitHub write may have occurred. Inspect GitHub and output before retrying." % result.get("action", "Operation")
+
+
+func _show_workflow_result(result: Dictionary) -> void:
+	var action: String = result["action"]
+	var version: String = result.get("version", "")
+	var summary: String
+	_result_url = "https://github.com/evanmac03/landscaping-planner/"
+	match action:
+		"Push":
+			_result_dialog.title = "Successfully pushed to GitHub"
+			summary = "Committed work was pushed and a pull request was created or reused.\nNot merged. No release was published.\nNext: review the PR, tests and checks; merge and synchronize main."
+			_result_url += "pulls"
+		"Release":
+			_result_dialog.title = "Draft successfully prepared"
+			summary = "%s: Windows assets were uploaded and verified on GitHub.\nThe release is still a PRIVATE DRAFT, not published.\nNext: download and test the Windows ZIP, then approve Publish separately." % version
+			_result_url += "releases"
+		"Publish":
+			_result_dialog.title = "Successfully published to GitHub"
+			summary = "%s was successfully published on GitHub.\nThe verified draft is now visible to repository viewers.\nNo Forgejo backup was made." % version
+			_result_url += "releases/tag/" + version.uri_encode()
+	_guide_result.text = _result_dialog.title + "\n" + summary + "\n" + _result_url
+	_result_summary.text = summary
+	_result_next = result["guide_next"]
+	_result_dialog.ok_button_text = "Done" if action == "Publish" else "Continue"
+	_guide_label.text = "Completed: " + action + ". Review the result before continuing."
+	_result_dialog.reset_size()
+	_result_dialog.popup_centered()
 
 
 func _invalidate_status() -> void:

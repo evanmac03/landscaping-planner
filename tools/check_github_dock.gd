@@ -128,6 +128,24 @@ func _test_transitions() -> bool:
 	if not "Selected files staged." in guide._history or not "Simulated failure" in guide._history:
 		printerr("Transitions lost output history.")
 		return false
+	guide._guide_dialog.hide()
+	for action in ["Push", "Release", "Publish"]:
+		var next := {"Push": "merge", "Release": "publish", "Publish": "done"}
+		guide._complete({"code": 0, "text": "Simulated successful operation", "status": false, "action": action, "version": "v0.2.0-rc.1", "guide_next": next[action]})
+		if not guide._result_dialog.visible or guide._guide_dialog.visible or guide._result_next != next[action]:
+			printerr("Success did not pause at the result screen.")
+			return false
+		if action == "Release" and not "not published" in guide._result_summary.text:
+			printerr("Draft success was confused with publication.")
+			return false
+		if action == "Publish" and (not "successfully published" in guide._result_summary.text or not guide._result_url.ends_with("/releases/tag/v0.2.0-rc.1")):
+			printerr("Publication confirmation or release link missing.")
+			return false
+		guide._result_dialog.hide()
+	guide._complete({"code": 1, "text": "Simulated publish failure", "status": false, "action": "Publish", "guide_next": "done"})
+	if guide._result_dialog.visible or not "NOT CONFIRMED" in guide._guide_result.text:
+		printerr("Failure was shown as success.")
+		return false
 	guide.free()
 	return true
 
