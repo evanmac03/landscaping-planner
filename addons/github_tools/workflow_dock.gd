@@ -49,6 +49,8 @@ var _sync_distance: String = ""
 var _running_since: int = 0
 var _running_label: String = ""
 var _running_status: Label
+var _checks_label: Label
+var _checks_summary: String = "Local validation: not checked this session.\nGitHub CI: not queried. Local tests are not CI."
 
 
 func _ready() -> void:
@@ -112,6 +114,12 @@ func _ready() -> void:
 	_guide_result = Label.new()
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_section.add_child(_guide_result)
+	_checks_label = Label.new()
+	_checks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_checks_label.text = _checks_summary
+	_section.add_child(_checks_label)
+	_button("Run local workflow checks", _workflow.bind("Validate", "checks"))
+	_button("Refresh local / GitHub CI evidence", _workflow.bind("Evidence", "checks"))
 	_button("Start / detect next step…", _workflow.bind("Discover", "discover"))
 	_button("Resume after manual PR merge and sync…", _guide_begin.bind("release"))
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
@@ -250,11 +258,19 @@ func _guide_show(step: String) -> void:
 			_guide_body.add_child(selection_buttons)
 			for file in _snapshot["files"]:
 				var checkbox := CheckBox.new()
-				checkbox.text = file
+				checkbox.text = file + (" (staged + newer edits)" if file in _snapshot.get("staged", []) else " (needs staging)")
 				checkbox.tooltip_text = file
 				checkbox.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_guide_files.append(checkbox)
 				_guide_body.add_child(checkbox)
+			if not _snapshot.get("staged", []).is_empty():
+				var staged_label := Label.new()
+				staged_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				var staged_lines: Array[String] = []
+				for file in _snapshot["staged"]:
+					staged_lines.append(String(file) + (" — newer edits listed above" if file in _snapshot.get("files", []) else " — ready; will not be staged again"))
+				staged_label.text = "Already staged (included in commit):\n" + "\n".join(staged_lines)
+				_guide_body.add_child(staged_label)
 		"branch":
 			description.text = "A feature branch is required. What should it be called? Existing edits stay in place."
 			_guide_input = _guide_field("New branch", _branch.text)
@@ -275,12 +291,21 @@ func _guide_show(step: String) -> void:
 			_guide_input = _guide_field("Commit name", _guide_commit_name)
 		"push":
 			description.text = "Push committed HEAD %s on %s to GitHub and open/reuse a PR? Requires a clean feature branch. Does not run tests, wait for CI, or merge." % [String(_snapshot.get("head", "")).left(8), _snapshot.get("branch", "")]
+			description.text += "\n\n" + _checks_summary
 		"merge":
 			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Switch to main and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
 			var open_pr := Button.new()
 			open_pr.text = "Open detected pull request"
 			open_pr.pressed.connect(func(): OS.shell_open(_github_url))
 			_guide_body.add_child(open_pr)
+			description.text += "\n\n" + _checks_summary
+			var refresh_checks := Button.new()
+			refresh_checks.text = "Refresh local / GitHub CI evidence"
+			refresh_checks.pressed.connect(func():
+				_guide_dialog.hide()
+				_workflow("Evidence", "merge")
+			)
+			_guide_body.add_child(refresh_checks)
 		"release":
 			description.text = "Prepare a private Windows draft? This exports committed main, pushes a version tag and uploads assets. Requires matching export templates. What unused version and Godot executable should be used?"
 			_guide_input = _guide_field("Release version", _version.text)
@@ -607,6 +632,7 @@ func _git(action: String, guide_next: String = "") -> void:
 		"refresh": action in ["Branch", "Stage", "Unstage", "Commit"],
 		"guide_next": guide_next,
 		"review": action == "StagedReview",
+		"invalidates_checks": action in ["Branch", "Stage", "Unstage", "Commit"],
 	}
 	if not guide_next.is_empty():
 		command["refresh"] = false
@@ -624,7 +650,7 @@ func _workflow(action: String, guide_next: String = "") -> void:
 		ProjectSettings.globalize_path("res://tools/github.ps1"), "-Action", action]
 	if action in ["Release", "RecoverDraft", "Publish", "DownloadTest"]:
 		args.append_array(["-Version", _version.text])
-	if action == "Release":
+	if action in ["Release", "Validate"]:
 		args.append_array(["-Godot", _godot.text])
 	if action == "RecoverDraft":
 		args.append_array(["-BuildDirectory", _build.text])
@@ -632,7 +658,7 @@ func _workflow(action: String, guide_next: String = "") -> void:
 		args.append_array(["-ExpectedHead", _snapshot.get("head", ""), "-ExpectedBranch", _snapshot.get("branch", "")])
 	if action == "Publish" and not guide_next.is_empty():
 		args.append_array(["-ExpectedHead", _test_package.get("commit", ""), "-ExpectedBranch", "main", "-ExpectedDraft", _test_package.get("identity", "")])
-	if action not in ["Plan", "Discover"]:
+	if action not in ["Plan", "Discover", "Validate", "Evidence"]:
 		args.append("-Approve")
 	var command := {"args": args, "status": false, "guide_next": guide_next, "action": action, "version": _version.text}
 	if action == "Plan" or not guide_next.is_empty():
@@ -653,6 +679,9 @@ func _start(command: Dictionary) -> void:
 	if _thread != null:
 		_output.text += "\nA command is already running."
 		return
+	if command.get("invalidates_checks", false) or command.get("action", "") in ["Push", "Release", "Publish"]:
+		_checks_summary = "Validation / CI evidence needs refresh after this operation. Previous results remain in output."
+		_checks_label.text = _checks_summary
 	_output.text = _history + "\nRunning; output will appear when the command completes…"
 	_running_since = Time.get_ticks_msec()
 	_running_label = command.get("action", "Git operation")
@@ -720,6 +749,21 @@ func _complete(result: Dictionary) -> void:
 				_guide_label.text = "Stopped: invalid workflow result."
 				return
 			metadata = parser.data
+	if result.get("action", "") in ["Validate", "Evidence"]:
+		if result["code"] != 0:
+			_checks_summary = "Checks unavailable or failed. See command output; no pass is claimed. Refresh before relying on previous evidence."
+		elif not metadata.has_all(["local", "ci", "commit"]):
+			_checks_summary = "Checks response invalid. No pass is claimed."
+		else:
+			var local: Dictionary = metadata["local"]
+			var ci: Dictionary = metadata["ci"]
+			_checks_summary = "Evidence captured at %s (refresh after external changes).\nLocal validation: %s\nTimestamp (UTC): %s\nSuites: %s\nGitHub CI: %s\nCI head: %s\nLocal tests are not a CI pass." % [Time.get_datetime_string_from_system(), local["state"], local["timestamp"], ", ".join(local["checks"]), ci["state"], ci["head"]]
+			for check in ci["checks"]:
+				_checks_summary += "\n%s: %s %s" % [check.get("name", check.get("context", "Check")), check.get("status", check.get("state", "")), check.get("conclusion", "")]
+		_checks_label.text = _checks_summary
+		if result.get("guide_next") == "merge" and result["code"] == 0:
+			_guide_show("merge")
+		return
 	if result["code"] == 0 and result.get("action", "") in ["Discover", "DownloadTest"]:
 		if metadata.is_empty():
 			_guide_label.text = "Stopped: workflow did not return verified state."
