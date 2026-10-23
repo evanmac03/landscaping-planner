@@ -243,6 +243,29 @@ func _test_transitions() -> bool:
 	if not original_valid or tampered_valid or added_valid or missing_valid:
 		printerr("Package manifest did not detect tampering.")
 		return false
+	guide._guide_dialog.hide()
+	guide._snapshot = {"head":"mixed-head", "branch":"feature/test", "files":["newer.txt"], "staged":["ready.txt","newer.txt"], "hashes":{}, "index_tree":"mixed-tree"}
+	guide._files.clear()
+	guide._files.add_item("newer.txt")
+	guide._guide_show("files")
+	if guide._guide_files.size() != 1 or not "staged + newer edits" in guide._guide_files[0].text:
+		printerr("Mixed staging did not separate ready files from newer edits.")
+		return false
+	guide._guide_select_files(true)
+	guide._guide_answer()
+	var mixed_request = JSON.parse_string(Marshalls.base64_to_utf8(guide.captured["args"][-1]))
+	if mixed_request["files"] != ["newer.txt"]:
+		printerr("Mixed staging re-submitted already staged files.")
+		return false
+	guide._complete({"code":0,"status":false,"action":"Evidence","text":'EDITOR_RESULT:{"commit":"mixed-head","local":{"state":"stale","timestamp":"2026-10-23T16:00:00Z","checks":["Workflow tests"]},"ci":{"state":"no-checks-reported","head":"mixed-head","checks":[]}}'})
+	if not "stale" in guide._checks_label.text or not "no-checks-reported" in guide._checks_label.text or not "not a CI pass" in guide._checks_label.text:
+		printerr("Validation summary conflated stale local evidence with CI.")
+		return false
+	guide._complete({"code":1,"status":false,"action":"Evidence","text":"Simulated network failure"})
+	if not "failed" in guide._checks_label.text:
+		printerr("Failed evidence refresh retained success.")
+		return false
+	guide._guide_version = "v0.3.0-rc.1"
 	guide._test_package = {"version":"v0.3.0-rc.1", "commit":"test-head", "folder":"missing", "manifest":{}}
 	guide._guide_show("publish")
 	guide._guide_tested.button_pressed = true

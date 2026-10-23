@@ -66,10 +66,28 @@ Publication approval must always be given again.
 The file question has a checkbox beside each path, with **Select all** and
 **Select none** buttons. Files start unchecked; check the files you reviewed
 before clicking **Stage selected**.
+Checkboxes list only files needing staging. A separate **Already staged** list
+shows files already included in the next commit; they are never submitted to
+Stage again unless they have newer working-file edits. Such files are marked
+**staged + newer edits**, and their latest contents require explicit selection.
 The guide blocks partial file selection before staging: leaving dirty files out
 would otherwise allow a commit that cannot be pushed by this workflow. It also
 checks for remaining unstaged work before commit and a clean feature branch
 before Push. Use the individual Git tab for partial commits instead.
+
+**Run local workflow checks** runs the mocked GitHub, disposable Git and Godot
+guide suites. It saves a private validation receipt tied to the exact local
+branch/HEAD/index and working-file fingerprints, with a UTC timestamp. It is
+not a full game test or a CI run. Changing that snapshot makes the receipt
+stale. A new validation attempt invalidates the old receipt before running.
+**Refresh local / GitHub CI evidence** reads that receipt and the open PR's
+check rollup. Local results and GitHub CI are displayed separately, including
+no open PR, no checks reported, and PR head different from local HEAD. Individual
+CI check states/conclusions are shown without treating absent checks as a pass.
+Evidence is point-in-time: refresh after changes made outside the dock.
+Push and merge prompts show the summary; the merge checkpoint can refresh it
+without pushing again. Local workflow mutations mark displayed evidence as
+needing refresh. Network/validation failures never retain a success claim.
 
 Before asking for a commit name, the guide loads the exact reviewed staged diff
 (including added text files) and asks you to confirm review. Binary contents are

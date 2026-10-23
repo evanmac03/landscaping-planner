@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Discover', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
+    [ValidateSet('Plan', 'Discover', 'Validate', 'Evidence', 'DownloadTest', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
@@ -40,6 +40,15 @@ function Github {
 function Write-EditorResult {
     param($Data)
     Write-Output ('EDITOR_RESULT:' + ($Data | ConvertTo-Json -Depth 8 -Compress))
+}
+
+function Get-ValidationFingerprint {
+    $statusRequest = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('{"action":"Status"}'))
+    $status = (& (Join-Path $PSScriptRoot 'editor-git.ps1') -Request $statusRequest) -join "`n"
+    if (-not $?) { throw 'Could not capture local validation snapshot.' }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($status)))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
 }
 
 function Assert-Clean {
@@ -150,6 +159,48 @@ if ($Action -eq 'Plan') {
     Write-Output 'Release: clean synchronized main -> local Windows export -> verified draft.'
     Write-Output 'Publish: same clean commit + preparation receipt + exact draft assets + -Approve.'
     Write-Output 'Release needs Godot 4.7 and its matching Windows export templates. No CI or playability certification is implied.'
+    return
+}
+if ($Action -in @('Validate', 'Evidence')) {
+    $validationPath = Join-Path ([string](Git @('rev-parse', '--absolute-git-dir'))) 'landscaping-editor-validation.json'
+    $fingerprint = Get-ValidationFingerprint
+    if ($Action -eq 'Validate') {
+        if (Test-Path -LiteralPath $validationPath) { Remove-Item -LiteralPath $validationPath }
+        $checks = @('GitHub workflow mocks', 'Disposable Git integration', 'Godot guided workflow')
+        & (Join-Path $PSScriptRoot 'test-github.ps1') | Out-Host
+        if (-not $?) { throw 'Local GitHub workflow tests failed.' }
+        & (Join-Path $PSScriptRoot 'test-editor-git.ps1') | Out-Host
+        if (-not $?) { throw 'Local Git integration tests failed.' }
+        $editor = Resolve-Godot
+        $log = @(Invoke-Native $editor @('--headless', '--path', $root, '--script', 'res://tools/check_github_dock.gd') 2>&1)
+        $log | Out-Host
+        if (($log -join "`n") -match '(?m)(?:SCRIPT ERROR:|ERROR:)' -or
+            ($log -join "`n") -notmatch 'PASS: completion routing') { throw 'Godot guide tests did not pass cleanly.' }
+        if ((Get-ValidationFingerprint) -ne $fingerprint) { throw 'Files/index/HEAD changed during checks. No validation receipt saved.' }
+        @{ fingerprint=$fingerprint; head=$head; timestamp=[DateTime]::UtcNow.ToString('o'); checks=$checks } |
+            ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $validationPath -Encoding UTF8
+    }
+    $local = @{state='not-run';timestamp='';checks=@()}
+    if (Test-Path -LiteralPath $validationPath) {
+        $saved = Get-Content -LiteralPath $validationPath -Raw | ConvertFrom-Json
+        $local = @{state=$(if ($saved.fingerprint -eq $fingerprint) {'passed'} else {'stale'});timestamp=$saved.timestamp;checks=$saved.checks}
+    }
+    $ci = @{state='not-queried';head=$head;checks=@();url=''}
+    if ($Action -eq 'Evidence') {
+        Assert-Remote
+        $prs = @(((Github @('pr', 'list', '--repo', $repository, '--head', $branch, '--state', 'open',
+            '--json', 'number,url,headRefOid')) -join "`n") | ConvertFrom-Json)
+        $ci.state = 'no-open-pr'
+        if ($prs.Count -eq 1) {
+            $pr = ((Github @('pr', 'view', [string]$prs[0].number, '--repo', $repository,
+                '--json', 'headRefOid,statusCheckRollup,url')) -join "`n") | ConvertFrom-Json
+            $ci.url = $pr.url
+            $ci.head = $pr.headRefOid
+            $ci.checks = @($pr.statusCheckRollup)
+            $ci.state = if ($pr.headRefOid -ne $head) {'different-head'} elseif ($ci.checks.Count -eq 0) {'no-checks-reported'} else {'reported'}
+        } elseif ($prs.Count -gt 1) { throw 'Multiple open PRs; cannot select CI evidence automatically.' }
+    }
+    Write-EditorResult @{local=$local;ci=$ci;commit=$head}
     return
 }
 if ($Action -eq 'Discover') {

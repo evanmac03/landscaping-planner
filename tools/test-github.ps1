@@ -65,10 +65,13 @@ function Invoke-Native {
         switch -Wildcard ($key) {
             'api user --jq .login' { return 'test-user' }
             'pr list *' {
-                if ($s.pr) { return ('[' + (@{url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
+                if ($s.pr) { return ('[' + (@{number=1;url='https://example.invalid/pr/1';headRefOid=$s.head} | ConvertTo-Json -Compress) + ']') }
                 return '[]'
             }
             'pr create *' { $s.pr = $true; return 'https://example.invalid/pr/1' }
+            'pr view *' {
+                return (@{headRefOid=$(if ($s.otherCiHead) {'different-head'} else {$s.head});url='https://example.invalid/pr/1';statusCheckRollup=@()} | ConvertTo-Json -Depth 5)
+            }
             'api --paginate *' {
                 if ($Arguments -notcontains '--jq') {
                     if ($s.assets.Count) {
@@ -124,13 +127,14 @@ $text = $text.Remove($native.Extent.StartOffset, $native.Extent.EndOffset - $nat
     Insert($native.Extent.StartOffset, $mock)
 $testScript = Join-Path $fixture 'tools\github.ps1'
 [IO.File]::WriteAllText($testScript, $text)
+[IO.File]::WriteAllText((Join-Path $fixture 'tools\editor-git.ps1'), 'param($Request); Write-Output ''{"head":"fixture","branch":"feature/test","index_tree":"tree","files":[],"staged":[],"hashes":{}}''')
 $editor = Join-Path $fixture 'fake-godot.exe'
 Set-Content -LiteralPath $editor -Value 'not executed'
 $global:LandscapingGithubTest = @{
     root = $fixture; editor = $editor; branch = 'feature/test'; dirty = $false
     head = ('a' * 40); main = ('a' * 40); behind = 0; tag = $false
     draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
-    multiple = $false; calls = [Collections.Generic.List[string]]::new()
+    multiple = $false; otherCiHead = $false; calls = [Collections.Generic.List[string]]::new()
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -168,6 +172,31 @@ try {
     $passed++
     $discovery = (& $testScript -Action Discover) -join "`n"
     if ($discovery -notmatch '"next":"merge"') { throw 'Exact-head existing PR was not detected.' }
+    $passed++
+    $evidenceText = (& $testScript -Action Evidence) -join "`n"
+    $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($evidence.local.state -ne 'not-run' -or $evidence.ci.state -ne 'no-checks-reported') { throw 'Missing local/CI evidence was reported incorrectly.' }
+    $passed++
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $snapshot = (& (Join-Path $fixture 'tools\editor-git.ps1') -Request unused) -join "`n"
+        $fingerprint = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($snapshot)))).Replace('-', '').ToLowerInvariant()
+    } finally { $sha.Dispose() }
+    $validationPath = Join-Path $fixture '.git\landscaping-editor-validation.json'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $validationPath) -Force | Out-Null
+    @{fingerprint=$fingerprint;timestamp='2026-10-23T16:00:00Z';checks=@('Fixture suite')} |
+        ConvertTo-Json | Set-Content -LiteralPath $validationPath -Encoding UTF8
+    $evidenceText = (& $testScript -Action Evidence) -join "`n"
+    $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($evidence.local.state -ne 'passed' -or ([DateTimeOffset]$evidence.local.timestamp).UtcDateTime -ne ([DateTimeOffset]'2026-10-23T16:00:00Z').UtcDateTime) { throw "Matching validation receipt lost its result/timestamp: $evidenceText" }
+    $passed++
+    @{fingerprint='outdated';timestamp='2026-10-23T16:00:00Z';checks=@('Fixture suite')} |
+        ConvertTo-Json | Set-Content -LiteralPath $validationPath -Encoding UTF8
+    $s.otherCiHead = $true
+    $evidenceText = (& $testScript -Action Evidence) -join "`n"
+    $evidence = (($evidenceText -split 'EDITOR_RESULT:')[-1]) | ConvertFrom-Json
+    if ($evidence.local.state -ne 'stale' -or $evidence.ci.state -ne 'different-head') { throw 'Stale local/different-head CI evidence was not distinguished.' }
+    $s.otherCiHead = $false
     $passed++
     $s.branch = 'main'
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } 'No local preparation receipt*'
