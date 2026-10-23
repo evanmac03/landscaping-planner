@@ -528,6 +528,7 @@ func hover(screen: Vector2) -> Dictionary:
 	)
 	cursor_point = result["point"]
 	cursor_snapped = result["snapped"]
+	_last_snap = result
 	_refresh_canvas()
 	return result
 
