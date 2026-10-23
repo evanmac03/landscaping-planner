@@ -51,7 +51,7 @@ func test_the_keys_are_the_ones_the_legend_promises() -> void:
 	var tool_keys: Array[String] = []
 	for pair: Array in Hud.DRAFTING_TOOLS:
 		tool_keys.append(Hud._key_label(pair[0]))
-	assert(tool_keys == numbers)
+	assert(tool_keys == numbers, "tool keys are %s, expected %s" % [tool_keys, numbers])
 	assert(Hud._key_label(&"draft_finish") == "Enter")
 	assert(Hud._key_label(&"draft_close") == "C")
 	assert(Hud._key_label(&"draft_undo_point") == "Backspace")

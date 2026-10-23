@@ -132,6 +132,13 @@ for bed borders. These take and return doubles and never touch `Vector2`.
 
 ### Layers
 
+The standalone `scripts/draft/layer_dialog.gd` helper is not wired into the main
+HUD. Assign its `controller` before use; it reads the controller's current
+document, filters the actual layer records and delegates layer selection to the
+controller. Lock changes use the document's undo history and change signal.
+`tests/test_layer_dialog.gd` covers filtering, layer properties, selection and
+undoable locking.
+
 ```
   L5  presentation      plan_canvas.gd (extended)   draft_view_3d.gd (new)
                                     \                    /
