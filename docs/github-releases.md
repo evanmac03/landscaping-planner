@@ -5,13 +5,135 @@
 Enable **GitHub workflow** under **Project > Project Settings > Plugins**.
 The GitHub dock is enabled by default in this project. Save your scenes/scripts
 before refreshing status; Git reads disk, not unsaved editor buffers.
-The dock has five tabs: **Git** for local commits, **Push** for PRs,
+The dock has six tabs: **Git** for local commits, **Push** for PRs,
 **Release** for draft exports/recovery, **Publish** for final publication,
-and **Guided workflow** for a question-by-question walkthrough.
+**Guided workflow** for a question-by-question walkthrough, and **AI adviser**
+for optional advice.
 The version entered in Release is also displayed and used in Publish.
 All tabs share the command output panel.
 
+### Optional AI adviser
+
+AI assistance starts **Off** every time the dock is created. It is never
+required for staging, checks, PRs, synchronization, drafts, testing or publishing.
+Turning it on enables only the manual adviser panel; no provider, account,
+credentials, automatic connection or network traffic is configured.
+Turning it off clears pending requests, pasted responses and displayed advice.
+It does not cancel normal workflow operations or erase already-copied clipboard
+contents. Adviser data is not saved across editor restarts.
+
+Choose **Explain this step**, **Review this run** or **Suggest workflow
+improvements** to generate a request preview. The context includes only
+capture time, preview/live mode, an allowlisted step, running/status-available
+flags, staged/unstaged counts and package-selected status. These are
+point-in-time observations, not fresh readiness checks. No source code, paths,
+filenames, branch names, hashes, logs, URLs or free-form project text are sent.
+Detailed validation, CI and publication evidence is deliberately omitted;
+ask for an explanation or suggestions, not certification of a release.
+
+Review the JSON, check the copying consent box, then **Copy reviewed request**.
+Paste it into your chosen Ziva, MCP-connected agent, local model or other
+assistant. Sharing is manual and subject to that assistant's privacy policy.
+Paste its response JSON into the panel and choose **Display advice only**.
+Advice is untrusted plain text: no commands, clickable actions, workflow
+transitions or approvals are executed, even if the response asks for them.
+Malformed, oversized, unknown-field or wrong-request responses fail explicitly
+and clear previously displayed advice. Errors never block the ordinary guide.
+
+#### Provider-neutral adapter contract (v1)
+
+The previewed request has `schema: "guided-workflow-adviser/v1"`, an opaque
+`request_id`, `intent` (`explain_step`, `review_run`, `suggest_improvements`),
+`context`, read-only `instructions`, and an example `response_format`.
+The response must contain exactly:
+
+```json
+{
+  "schema": "guided-workflow-adviser/v1",
+  "request_id": "copy-the-current-request-id",
+  "suggestions": ["A plain-text suggestion, not an executable action."]
+}
+```
+
+Responses are limited to 32768 characters and 1-10 nonempty suggestions of at
+most 2000 characters each. The ID must match the current request. A new request
+invalidates the previous response and resets sharing consent.
+The isolated [adviser panel](../addons/github_tools/adviser_panel.gd) owns
+request generation and response validation; its context source is the dock's
+allowlisted summary. It has no workflow execution callback.
+Future adapters can translate this contract to MCP, agent or model protocols,
+but there is no universal live transport implemented here. MCP servers and
+LLM APIs are not interchangeable protocols. Each live adapter will require
+explicit setup, consent, privacy handling and independent tests; it must not
+gain workflow execution or approval authority.
+
 ### Guided workflow
+
+#### Read-only agent interface
+
+[workflow-agent.ps1](../tools/workflow-agent.ps1) exposes a versioned,
+provider-neutral CLI for Ziva or another agent that can invoke PowerShell.
+It is not an MCP server and does not install tools into Ziva. If the agent
+cannot launch PowerShell, run it yourself and share the reviewed JSON.
+It reuses the same status/evidence/discovery backends as the dock, not live
+editor controls or unsaved editor buffers. AI is not required.
+
+```powershell
+.\tools\workflow-agent.ps1
+.\tools\workflow-agent.ps1 -Action Status
+.\tools\workflow-agent.ps1 -Action Evidence
+.\tools\workflow-agent.ps1 -Action NextStep
+# Only with permission to read GitHub and refresh/prune local tracking refs:
+.\tools\workflow-agent.ps1 -Action Evidence -Remote
+.\tools\workflow-agent.ps1 -Action NextStep -Remote
+```
+
+Supported actions are exactly `Capabilities` (default), `Status`, `Evidence`
+and `NextStep`. Local calls never authenticate or contact GitHub. Status
+includes disk file names/hashes, branch, HEAD, staged paths and index tree;
+the existing helper may write Git tree objects but does not stage or change
+files/index contents. Evidence reads existing validation only; it never runs
+checks, launches a build or writes a validation receipt.
+`NextStep` without `-Remote` gives conservative local instructions, not an
+inferred remote readiness result.
+
+`-Remote` is accepted only for Evidence/NextStep. Those reuse the dock's
+GitHub queries and fetch/prune origin tracking refs; this is inspection with
+local metadata effects, not a strictly zero-write operation. They never push,
+merge, synchronize main, prepare drafts or publish. Existing `gh` login and
+expected repository origin are required. Remote CI retrieval failure may return
+`ok: true` with `data.ci.state: "unavailable"`: the inspection succeeded but
+the evidence is unavailable, **not passed**. Discovery failures return an error.
+Discovery currently checks open feature PRs; if a branch was already merged,
+inspect merged PRs before following a proposed Push. Main CI is not inferred
+from an absent open PR. All next-step results are advisory only.
+
+Stdout contains one JSON envelope with `schema: "guided-workflow-agent/v1"`,
+`action`, `captured_at_utc`, `ok`, `remote_requested`,
+`authorization: "none; information only"`, `data` and `error`.
+Successful calls exit 0. Rejected actions/backend failures exit 1 with
+`ok: false`, `data: null` and
+`error: {"code":"inspection_failed","message":"..."}`.
+PowerShell argument-binding/startup errors can occur before the envelope
+exists; callers must check both exit status and JSON validity.
+Backend diagnostics/warnings may appear on other streams; do not treat them
+as response JSON. The captured time is request-start time, not a guarantee
+that the repository stayed unchanged afterward.
+
+Do not forward raw agent-interface output automatically to a cloud model:
+status and error messages may contain private filenames/paths. Review/redact
+before sharing, or use the AI adviser panel's limited allowlisted summary.
+This interface has no arbitrary command, script, approval or execution
+parameter. Mutating action names are rejected. An external agent may have
+other tools with write access; these restrictions apply to this interface,
+not to every tool the agent possesses.
+
+Example request to Ziva:
+
+> Read the workflow documentation and use workflow-agent.ps1 for read-only
+> capabilities, status and local evidence. Explain the result without changing
+> anything. Ask before using -Remote. Do not invoke mutating backend actions,
+> execute advice, or treat next-step guidance as user approval.
 
 #### Safe preview and visual checks
 
