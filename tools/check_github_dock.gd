@@ -147,10 +147,17 @@ func _test_adviser(dock) -> bool:
 		return false
 	var before: Dictionary = dock._snapshot.duplicate(true)
 	dock._snapshot = {"head":"PRIVATE", "branch":"PRIVATE", "files":["PRIVATE"], "staged":[], "hashes":{"PRIVATE":"PRIVATE"}}
+	dock._complete({"code":1,"status":false,"action":"Push","text":"PRIVATE error with private paths"})
+	dock._complete({"code":0,"status":false,"action":"Evidence","text":'EDITOR_RESULT:{"commit":"PRIVATE","local":{"state":"passed","timestamp":"PRIVATE","checks":["PRIVATE"]},"ci":{"state":"reported","head":"PRIVATE","checks":[{"name":"PRIVATE","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"PRIVATE"}]}}'})
+	dock._snapshot = {"head":"PRIVATE", "branch":"PRIVATE", "files":["PRIVATE"], "staged":[], "hashes":{}}
 	panel._enabled.button_pressed = true
 	panel._prepare("review_run")
 	if "PRIVATE" in panel._request.text or panel._request_id.is_empty() or panel._consent.button_pressed:
 		printerr("Adviser leaked project text or skipped sharing review.")
+		return false
+	var context: Dictionary = JSON.parse_string(panel._request.text)["context"]
+	if context["outcomes"].size() != 2 or context["outcomes"][0]["result"] != "failed_or_unconfirmed" or context["evidence"]["checks"][0]["conclusion"] != "failure":
+		printerr("Sanitized adviser omitted operation/CI outcomes.")
 		return false
 	var id: String = panel._request_id
 	panel._copy_request()
@@ -189,6 +196,8 @@ func _test_adviser(dock) -> bool:
 		printerr("Turning adviser off retained pending data.")
 		return false
 	dock._snapshot = before
+	dock._adviser_outcomes.clear()
+	dock._adviser_evidence.clear()
 	panel.free()
 	print("PASS: optional adviser off by default, allowlisted context, copy consent, strict response binding and no workflow execution.")
 	return true

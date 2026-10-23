@@ -16,8 +16,10 @@ else { 'EDITOR_RESULT:{"next":"merge","commit":"fixture"}' }
 param([string]$Request)
 $r = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Request)) | ConvertFrom-Json
 if ($r.action -ne 'Status') { throw 'Unsafe Git action.' }
-'{"branch":"feature/test","head":"fixture","files":[],"staged":[],"hashes":{},"index_tree":"tree"}'
+Get-Content -LiteralPath (Join-Path $PSScriptRoot 'status.json') -Raw
 '@ | Set-Content -LiteralPath (Join-Path $fixture 'editor-git.ps1') -Encoding UTF8
+    $snapshot = @{branch='feature/test';head='fixture';files=@();staged=@();hashes=@{};index_tree='tree'}
+    $snapshot | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $fixture 'status.json')
     function Call-Agent([string[]]$Arguments, [bool]$Failure = $false) {
         $text = & $shell -NoProfile -NonInteractive -File (Join-Path $fixture 'workflow-agent.ps1') @Arguments
         if (($LASTEXITCODE -ne 0) -ne $Failure) { throw "Unexpected agent exit: $text" }
@@ -35,6 +37,18 @@ if ($r.action -ne 'Status') { throw 'Unsafe Git action.' }
     if ($remote.data.ci.state -ne 'unavailable' -or -not $remote.remote_requested) { throw 'Unavailable CI concealed.' }
     $next = Call-Agent @('-Action','NextStep')
     if ($next.data.remote_state -ne 'not-queried') { throw 'Local guidance inferred remote readiness.' }
+    foreach ($case in @(
+        @{branch='feature/test';files=@('dirty.txt');staged=@('staged.txt');expected='review_dirty_work'},
+        @{branch='main';files=@();staged=@('staged.txt');expected='review_staged_changes'},
+        @{branch='';files=@();staged=@();expected='choose_branch'},
+        @{branch='main';files=@();staged=@();expected='inspect_main_readiness'},
+        @{branch='feature/test';files=@();staged=@();expected='inspect_feature_remote_state'}
+    )) {
+        $snapshot.branch=$case.branch; $snapshot.files=$case.files; $snapshot.staged=$case.staged
+        $snapshot | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $fixture 'status.json')
+        $next = Call-Agent @('-Action','NextStep')
+        if ($next.data.next -ne $case.expected -or $next.data.remote_state -ne 'not-queried' -or -not $next.data.advisory_only) { throw 'Local state guidance mismatch.' }
+    }
     $next = Call-Agent @('-Action','NextStep','-Remote')
     if ($next.data.discovery.next -ne 'merge' -or -not $next.data.advisory_only) { throw 'Discovery lost advisory boundary.' }
     foreach ($action in @('Push','Publish','Validate','Synchronize','Commit','execute_script')) {

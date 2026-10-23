@@ -89,6 +89,7 @@ function Invoke-Native {
             'pr view *' {
                 return (@{headRefOid=$(if ($s.otherCiHead) {'different-head'} else {$s.head});url='https://example.invalid/pr/1';statusCheckRollup=@()} | ConvertTo-Json -Depth 5)
             }
+            'run list *' { return (ConvertTo-Json -InputObject @($s.runs) -Depth 5 -Compress) }
             'api --paginate *' {
                 if ($Arguments -notcontains '--jq') {
                     if ($s.assets.Count) {
@@ -153,6 +154,7 @@ $global:LandscapingGithubTest = @{
     draft = $true; assets = @(); tamper = $false; lookupTag = 'v0.1.0-rc.1'; archive = ''; pr = $false
     multiple = $false; otherCiHead = $false; offline = $false; prBody = ''; calls = [Collections.Generic.List[string]]::new()
     merged = $false; featureHead = ('a' * 40); mergeSha = ('b' * 40); mergeBase = ('b' * 40); mainAhead = 0; cleaned = $false
+    runs = @()
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -195,12 +197,32 @@ try {
     Expect-Failure { & $testScript -Action Push } '*requires explicit -Approve*'
     $passed++
     $s.branch = 'main'
+    $s.runs = @(
+        @{headSha=$s.head;name='Workflow';status='completed';conclusion='success';url='https://example.invalid/old';createdAt='2026-10-22T00:00:00Z'},
+        @{headSha=$s.head;name='Workflow';status='completed';conclusion='failure';url='https://example.invalid/new';createdAt='2026-10-23T00:00:00Z'},
+        @{headSha='other';name='Other';status='completed';conclusion='success';url='https://example.invalid/other';createdAt='2026-10-23T00:00:00Z'}
+    )
+    $e = ((& $testScript -Action Evidence) -join "`n") -replace '^.*EDITOR_RESULT:', ''
+    $e = $e | ConvertFrom-Json
+    if ($e.ci.state -ne 'reported' -or @($e.ci.checks).Count -ne 1 -or $e.ci.checks[0].conclusion -ne 'failure') { throw 'Exact-commit CI hid latest failure or mixed commits.' }
+    $s.runs = @()
+    $empty = (((& $testScript -Action Evidence) -join "`n") -replace '^.*EDITOR_RESULT:', '') | ConvertFrom-Json
+    if ($empty.ci.state -ne 'no-runs-reported' -or @($empty.ci.checks).Count) { throw 'Absent commit runs were represented as a pass.' }
+    $passed++
     $discovery = (& $testScript -Action Discover) -join "`n"
     if ($discovery -notmatch '"next":"release"') { throw 'Clean main did not resume release.' }
     $passed++
     Expect-Failure { & $testScript -Action Push -Approve } 'Push requires a feature branch*'
     $passed++
     $s.branch = 'feature/test'
+    $s.merged = $true
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"sync_main"') { throw 'Merged feature did not resume synchronization.' }
+    $s.featureHead = 'different'
+    $discovery = (& $testScript -Action Discover) -join "`n"
+    if ($discovery -notmatch '"next":"push"') { throw 'Different-head merged PR was reused.' }
+    $s.featureHead = $s.head; $s.merged = $false
+    $passed++
     $s.behind = 1
     Expect-Failure { & $testScript -Action Push -Approve } 'Remote branch has commits missing*'
     $s.behind = 0

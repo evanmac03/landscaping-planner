@@ -57,6 +57,8 @@ var _preview: bool = false
 var _cleanup_branch: CheckBox
 var _preview_saved: Dictionary = {}
 var _preview_snapshot: Dictionary = {}
+var _adviser_outcomes: Array[Dictionary] = []
+var _adviser_evidence: Dictionary = {}
 
 
 func _ready() -> void:
@@ -237,7 +239,9 @@ func _adviser_context() -> Dictionary:
 		"unstaged_count":_snapshot.get("files", []).size(),
 		"staged_count":_snapshot.get("staged", []).size(),
 		"package_selected":not _test_package.is_empty(),
-		"evidence_note":"CI, validation and publication results deliberately omitted; inspect actual workflow evidence separately.",
+		"outcomes":_adviser_outcomes.duplicate(true),
+		"evidence":_adviser_evidence.duplicate(true),
+		"evidence_note":"Session-only sanitized observations. Stale after external changes; inspect current workflow evidence before acting.",
 		"approval_policy":"User approval required. Adviser cannot modify workflow state."
 	}
 
@@ -256,6 +260,10 @@ func _begin_preview() -> void:
 		return
 	_preview_saved = {"branch":_branch.text, "version":_version.text, "godot":_godot.text, "message":_message.text, "guide_version":_guide_version, "receipt":_release_receipt, "package":_test_package.duplicate(true), "checks":_checks_summary, "result":_guide_result.text, "url":_github_url, "commit_name":_guide_commit_name}
 	_preview = true
+	_preview_saved["adviser_outcomes"] = _adviser_outcomes.duplicate(true)
+	_preview_saved["adviser_evidence"] = _adviser_evidence.duplicate(true)
+	_adviser_outcomes.clear()
+	_adviser_evidence.clear()
 	_test_package.clear()
 	_version.text = "v9.9.9-preview"
 	_guide_version = _version.text
@@ -288,6 +296,8 @@ func _end_preview() -> void:
 	_guide_result.text = _preview_saved["result"]
 	_github_url = _preview_saved["url"]
 	_guide_commit_name = _preview_saved["commit_name"]
+	_adviser_outcomes.assign(_preview_saved["adviser_outcomes"])
+	_adviser_evidence = _preview_saved["adviser_evidence"]
 	_preview_saved.clear()
 	_guide_step = ""
 	_guide_back_to_files = false
@@ -440,7 +450,7 @@ func _guide_show(step: String) -> void:
 			description.text = "Push committed HEAD %s on %s to GitHub and open/reuse a PR? Requires a clean feature branch. Does not run tests, wait for CI, or merge." % [String(_snapshot.get("head", "")).left(8), _snapshot.get("branch", "")]
 			description.text += "\n\n" + _checks_summary
 		"merge":
-			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Switch to main and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
+			description.text = "Push complete.\n1. Review the PR, tests and checks on GitHub.\n2. Merge there.\n3. Use Synchronize main below, or switch and synchronize outside this dock.\nThen check readiness, or Cancel and resume later."
 			var open_pr := Button.new()
 			open_pr.text = "Open detected pull request"
 			open_pr.pressed.connect(func(): _open_github(_github_url))
@@ -949,6 +959,13 @@ func _process(_delta: float) -> void:
 
 
 func _complete(result: Dictionary) -> void:
+	var action: String = result.get("action", "")
+	if action in ["Validate", "Evidence"]:
+		_adviser_evidence = {"local":"unavailable", "ci":"unavailable", "mode":"preview" if _preview else "live", "captured_at_utc":Time.get_datetime_string_from_system(true)}
+	if action in ["Validate", "Evidence", "Push", "Release", "Publish", "DownloadTest", "SmokeTest", "Synchronize"]:
+		_adviser_outcomes.append({"operation":action, "mode":"preview" if _preview else "live", "result":"completed" if result["code"] == 0 else "failed_or_unconfirmed", "captured_at_utc":Time.get_datetime_string_from_system(true)})
+		if _adviser_outcomes.size() > 20:
+			_adviser_outcomes.pop_front()
 	_history += "\n[%s] Exit %s\n%s\n" % [Time.get_datetime_string_from_system(), result["code"], result["text"]]
 	_output.text = _history
 	if result.has("purpose"):
@@ -984,6 +1001,16 @@ func _complete(result: Dictionary) -> void:
 		else:
 			var local: Dictionary = metadata["local"]
 			var ci: Dictionary = metadata["ci"]
+			var local_state: String = local.get("state", "unavailable")
+			var ci_state: String = ci.get("state", "unavailable")
+			_adviser_evidence["local"] = local_state if local_state in ["passed", "stale", "not-run"] else "unavailable"
+			_adviser_evidence["ci"] = ci_state if ci_state in ["reported", "not-queried", "no-open-pr", "no-checks-reported", "no-runs-reported", "different-head", "unavailable"] else "unavailable"
+			var check_states: Array[Dictionary] = []
+			for check in ci["checks"]:
+				var state := String(check.get("status", check.get("state", ""))).to_lower()
+				var conclusion := String(check.get("conclusion", "")).to_lower()
+				check_states.append({"status":state if state in ["completed", "in_progress", "queued", "pending", "success", "failure", "error", "expected", "waiting", "requested"] else "unknown", "conclusion":conclusion if conclusion in ["success", "failure", "cancelled", "skipped", "neutral", "timed_out", "action_required", "stale", "startup_failure", ""] else "unknown"})
+			_adviser_evidence["checks"] = check_states
 			_checks_summary = "Evidence captured at %s (refresh after external changes).\nLocal validation: %s\nTimestamp (UTC): %s\nSuites: %s\nGitHub CI: %s\nCI head: %s\nLocal tests are not a CI pass." % [Time.get_datetime_string_from_system(), local["state"], local["timestamp"], ", ".join(local["checks"]), ci["state"], ci["head"]]
 			for check in ci["checks"]:
 				_checks_summary += "\n%s: %s %s" % [check.get("name", check.get("context", "Check")), check.get("status", check.get("state", "")), check.get("conclusion", "")]

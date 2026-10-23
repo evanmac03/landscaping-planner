@@ -28,8 +28,14 @@ capture time, preview/live mode, an allowlisted step, running/status-available
 flags, staged/unstaged counts and package-selected status. These are
 point-in-time observations, not fresh readiness checks. No source code, paths,
 filenames, branch names, hashes, logs, URLs or free-form project text are sent.
-Detailed validation, CI and publication evidence is deliberately omitted;
-ask for an explanation or suggestions, not certification of a release.
+The request also includes the last 20 session operation outcomes (allowlisted
+operation, completed/failed-or-unconfirmed, mode and UTC capture time), plus
+sanitized validation/CI states and check status/conclusion enums. No check
+names, logs, URLs, raw errors or publication receipt contents are included.
+Completed means the command returned successfully, not independent proof of
+CI, playability or publication. Preview observations are labelled separately
+and real-session observations are restored on exit. These summaries can become
+stale; ask for suggestions, not certification of a release.
 
 Review the JSON, check the copying consent box, then **Copy reviewed request**.
 Paste it into your chosen Ziva, MCP-connected agent, local model or other
@@ -94,8 +100,11 @@ includes disk file names/hashes, branch, HEAD, staged paths and index tree;
 the existing helper may write Git tree objects but does not stage or change
 files/index contents. Evidence reads existing validation only; it never runs
 checks, launches a build or writes a validation receipt.
-`NextStep` without `-Remote` gives conservative local instructions, not an
-inferred remote readiness result.
+`NextStep` without `-Remote` reads disk status and returns an advisory enum:
+`review_dirty_work`, `review_staged_changes`, `choose_branch` (detached),
+`inspect_main_readiness` or `inspect_feature_remote_state`, with explanatory
+guidance and captured commit. Dirty work takes precedence over staged-only
+work. It never infers remote readiness or approves execution.
 
 `-Remote` is accepted only for Evidence/NextStep. Those reuse the dock's
 GitHub queries and fetch/prune origin tracking refs; this is inspection with
@@ -104,9 +113,13 @@ merge, synchronize main, prepare drafts or publish. Existing `gh` login and
 expected repository origin are required. Remote CI retrieval failure may return
 `ok: true` with `data.ci.state: "unavailable"`: the inspection succeeded but
 the evidence is unavailable, **not passed**. Discovery failures return an error.
-Discovery currently checks open feature PRs; if a branch was already merged,
-inspect merged PRs before following a proposed Push. Main CI is not inferred
-from an absent open PR. All next-step results are advisory only.
+Discovery checks open feature PRs, then exact-head merged PRs if none is open.
+A merged match routes to synchronization approval rather than Push; a
+different-head open PR or ambiguous match stops for reconciliation.
+When no open PR exists, Evidence queries up to 100 workflow runs for the exact
+commit, keeping the newest run for each workflow name. It exposes raw run
+status/conclusion separately and never converts absent runs into a pass.
+All next-step results are advisory only.
 
 Stdout contains one JSON envelope with `schema: "guided-workflow-agent/v1"`,
 `action`, `captured_at_utc`, `ok`, `remote_requested`,
@@ -229,9 +242,10 @@ branch/HEAD/index and working-file fingerprints, with a UTC timestamp. It is
 not a full game test or a CI run. Changing that snapshot makes the receipt
 stale. A new validation attempt invalidates the old receipt before running.
 **Refresh local / GitHub CI evidence** reads that receipt and the open PR's
-check rollup. Local results and GitHub CI are displayed separately, including
+check rollup, or exact-commit workflow runs when there is no open PR (including
+on main after synchronization). Local results and GitHub CI are displayed separately, including
 no open PR, no checks reported, and PR head different from local HEAD. Individual
-CI check states/conclusions are shown without treating absent checks as a pass.
+CI check states/conclusions are shown without treating absent checks/runs as a pass.
 Evidence is point-in-time: refresh after changes made outside the dock.
 Push and merge prompts show the summary; the merge checkpoint can refresh it
 without pushing again. Local workflow mutations mark displayed evidence as
@@ -399,6 +413,7 @@ Godot 4.7.2 from the official release and verifies a pinned SHA512, then runs
 the same focused `Validate` suites. The job has read-only repository permission,
 no publishing credentials and no release/export side effects. It is not a
 full game playtest or a Windows installer certification.
+Checkout uses `actions/checkout@v5` with its supported Node.js 24 runtime.
 CI is not active until this workflow is committed/pushed to GitHub; a local
 pass must not be presented as a hosted CI pass.
 

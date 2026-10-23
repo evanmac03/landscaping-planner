@@ -22,6 +22,12 @@ function Read-WorkflowResult([string]$BackendAction) {
     if ($lines.Count -ne 1) { throw 'Workflow returned no unique structured result.' }
     return ($lines[0].Substring(14) | ConvertFrom-Json)
 }
+function Read-Status {
+    $request = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('{"action":"Status"}'))
+    $text = @(& (Join-Path $PSScriptRoot 'editor-git.ps1') -Request $request)
+    if (-not $?) { throw 'Local status failed.' }
+    return (($text -join "`n") | ConvertFrom-Json)
+}
 try {
     if ($Action -notin @('Capabilities', 'Status', 'Evidence', 'NextStep')) {
         throw 'Unsupported action. Only Capabilities, Status, Evidence and NextStep are exposed. Execution is not supported.'
@@ -41,10 +47,7 @@ try {
             }
         }
         'Status' {
-            $request = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('{"action":"Status"}'))
-            $text = @(& (Join-Path $PSScriptRoot 'editor-git.ps1') -Request $request)
-            if (-not $?) { throw 'Local status failed.' }
-            $response.data = ($text -join "`n") | ConvertFrom-Json
+            $response.data = Read-Status
         }
         'Evidence' {
             $response.data = Read-WorkflowResult $(if ($Remote) {'Evidence'} else {'LocalEvidence'})
@@ -54,11 +57,23 @@ try {
                 $response.data = @{
                     discovery = Read-WorkflowResult 'Discover'
                     advisory_only = $true
-                    limits = 'Backend discovery is guidance, not authorization. Feature branches without an open PR may already be merged; inspect merged PRs before Push. Recheck exact-head CI and user approvals separately.'
+                    limits = 'Backend discovery is guidance, not authorization. Recheck exact-head CI and user approvals separately.'
                 }
             } else {
+                $status = Read-Status
+                $next = if (@($status.files).Count) {'review_dirty_work'} elseif (@($status.staged).Count) {'review_staged_changes'} elseif (-not $status.branch) {'choose_branch'} elseif ($status.branch -eq 'main') {'inspect_main_readiness'} else {'inspect_feature_remote_state'}
+                $guidance = @{
+                    review_dirty_work='Review saved unstaged/untracked work and any already staged changes before selecting files. No automatic staging.'
+                    review_staged_changes='Review the complete staged diff before requesting a commit; create a feature branch if needed.'
+                    choose_branch='Detached HEAD: choose a branch deliberately before changing history.'
+                    inspect_main_readiness='Clean main: inspect remote synchronization, exact-commit CI and existing drafts before preparing anything.'
+                    inspect_feature_remote_state='Clean feature branch: inspect open/merged PRs and remote distances before choosing Push or synchronization.'
+                }
                 $response.data = @{
-                    next = 'Inspect Status and local Evidence, then ask the user which reviewed workflow step to take.'
+                    next = $next
+                    guidance = $guidance[$next]
+                    advisory_only = $true
+                    commit = $status.head
                     remote_state = 'not-queried'
                     limits = 'No remote readiness, PR merge, draft or publication state inferred. Use NextStep -Remote only with permission to contact GitHub and update tracking refs.'
                 }
