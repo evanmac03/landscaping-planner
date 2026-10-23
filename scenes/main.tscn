@@ -1,18 +1,18 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene format=3 uid="uid://lvuk5xe7mbxp"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/yard.tscn" id="1_yard"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
-[ext_resource type="Script" path="res://scripts/view_controller.gd" id="3_controller"]
+[ext_resource type="Script" uid="uid://chbmy475r38ic" path="res://scripts/view_controller.gd" id="3_controller"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
-[ext_resource type="Script" path="res://scripts/plan_canvas.gd" id="5_plan_canvas"]
-[ext_resource type="Script" path="res://scripts/draft/draft_controller.gd" id="6_draft"]
-[ext_resource type="Script" path="res://scripts/draft/draft_overlay.gd" id="7_overlay"]
-[ext_resource type="Script" path="res://scripts/vis/presentation_director.gd" id="8_presentation"]
-[ext_resource type="Script" path="res://scripts/vis/orbit_camera.gd" id="9_orbit"]
-[ext_resource type="Script" path="res://scripts/vis/painted_plan.gd" id="10_painted"]
+[ext_resource type="Script" uid="uid://bak0b0takqdib" path="res://scripts/plan_canvas.gd" id="5_plan_canvas"]
+[ext_resource type="Script" uid="uid://pd07g7ndwuq6" path="res://scripts/draft/draft_controller.gd" id="6_draft"]
+[ext_resource type="Script" uid="uid://d0pmadpdl76kq" path="res://scripts/draft/draft_overlay.gd" id="7_overlay"]
+[ext_resource type="Script" uid="uid://kqolhy3x1bir" path="res://scripts/vis/presentation_director.gd" id="8_presentation"]
+[ext_resource type="Script" uid="uid://b1te2jff6nvmp" path="res://scripts/vis/orbit_camera.gd" id="9_orbit"]
+[ext_resource type="Script" uid="uid://dqu8pxe0vvll" path="res://scripts/vis/painted_plan.gd" id="10_painted"]
 [ext_resource type="Resource" path="res://resources/vis/sketch_default.tres" id="11_style"]
-[ext_resource type="Script" path="res://scripts/vis/derived_builder.gd" id="12_derived"]
-[ext_resource type="Script" path="res://scripts/presence.gd" id="13_presence"]
+[ext_resource type="Script" uid="uid://b1i6fqbqyptyq" path="res://scripts/vis/derived_builder.gd" id="12_derived"]
+[ext_resource type="Script" uid="uid://bxqxpgfacn4go" path="res://scripts/presence.gd" id="13_presence"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.29, 0.47, 0.78, 1)
@@ -20,7 +20,6 @@ sky_horizon_color = Color(0.72, 0.8, 0.86, 1)
 ground_bottom_color = Color(0.2, 0.19, 0.16, 1)
 ground_horizon_color = Color(0.58, 0.58, 0.55, 1)
 sun_angle_max = 25.0
-sun_curve = 0.15
 
 [sub_resource type="Sky" id="Sky_main"]
 sky_material = SubResource("ProceduralSkyMaterial_sky")
@@ -35,7 +34,6 @@ tonemap_white = 2.0
 
 [sub_resource type="TorusMesh" id="TorusMesh_ring"]
 inner_radius = 0.88
-outer_radius = 1.0
 rings = 32
 ring_segments = 10
 
@@ -43,20 +41,20 @@ ring_segments = 10
 shading_mode = 0
 albedo_color = Color(1, 0.56, 0.12, 1)
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=188014955]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=415263111]
 environment = SubResource("Environment_main")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.84366119, 0.40519774, -0.3522082, 0, 0.65603274, 0.75473249, 0.53687596, -0.63673854, 0.55346936, 0, 40, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=383673342]
+transform = Transform3D(0.8436612, 0.40519774, -0.3522082, 0, 0.65603274, 0.7547325, 0.53687596, -0.63673854, 0.55346936, 0, 40, 0)
 light_energy = 1.15
 shadow_enabled = true
 directional_shadow_max_distance = 90.0
 
-[node name="Yard" parent="." instance=ExtResource("1_yard")]
+[node name="Yard" parent="." unique_id=1778705215 instance=ExtResource("1_yard")]
 
-[node name="FlightCamera" type="Camera3D" parent="."]
+[node name="FlightCamera" type="Camera3D" parent="." unique_id=1319782405]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 60, 0)
 projection = 1
 current = true
@@ -65,22 +63,22 @@ size = 23.0
 near = 0.1
 far = 150.0
 
-[node name="Player" parent="." instance=ExtResource("2_player")]
+[node name="Player" parent="." unique_id=589910448 instance=ExtResource("2_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 6)
 
-[node name="PlanLayer" type="CanvasLayer" parent="."]
+[node name="PlanLayer" type="CanvasLayer" parent="." unique_id=1356989976]
 layer = 0
 
-[node name="PlanCanvas" type="Node2D" parent="PlanLayer"]
+[node name="PlanCanvas" type="Node2D" parent="PlanLayer" unique_id=474524027]
 script = ExtResource("5_plan_canvas")
 
-[node name="SelectionRing" type="MeshInstance3D" parent="."]
+[node name="SelectionRing" type="MeshInstance3D" parent="." unique_id=814054956]
 visible = false
 cast_shadow = 0
 mesh = SubResource("TorusMesh_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_ring")
 
-[node name="ViewController" type="Node" parent="." node_paths=PackedStringArray("flight_camera", "player", "yard", "plan_layer", "plan_canvas", "selection_ring")]
+[node name="ViewController" type="Node" parent="." unique_id=389196176 node_paths=PackedStringArray("flight_camera", "player", "yard", "plan_layer", "plan_canvas", "selection_ring")]
 script = ExtResource("3_controller")
 flight_camera = NodePath("../FlightCamera")
 player = NodePath("../Player")
@@ -90,31 +88,31 @@ plan_canvas = NodePath("../PlanLayer/PlanCanvas")
 selection_ring = NodePath("../SelectionRing")
 floor_y = 0.02
 
-[node name="DraftController" type="Node" parent="."]
+[node name="DraftController" type="Node" parent="." unique_id=1231804100]
 script = ExtResource("6_draft")
 
-[node name="DraftOverlay" type="Node3D" parent="."]
+[node name="DraftOverlay" type="Node3D" parent="." unique_id=468914187]
 script = ExtResource("7_overlay")
 
-[node name="Hud" parent="." instance=ExtResource("4_hud") node_paths=PackedStringArray("view_controller", "presentation", "painted_plan")]
+[node name="Hud" parent="." unique_id=236804320 node_paths=PackedStringArray("view_controller", "presentation", "painted_plan") instance=ExtResource("4_hud")]
 view_controller = NodePath("../ViewController")
 presentation = NodePath("../Presentation")
 painted_plan = NodePath("../PaintedPlan")
 
-[node name="Presence" type="Node" parent="."]
+[node name="Presence" type="Node" parent="." unique_id=1485292573]
 script = ExtResource("13_presence")
 
-[node name="PaintedPlan" type="Node" parent="." node_paths=PackedStringArray("view_controller", "yard")]
+[node name="PaintedPlan" type="Node" parent="." unique_id=947602470 node_paths=PackedStringArray("view_controller", "yard")]
 script = ExtResource("10_painted")
 view_controller = NodePath("../ViewController")
 yard = NodePath("../Yard")
 style = ExtResource("11_style")
 
-[node name="Derived" type="Node3D" parent="." node_paths=PackedStringArray("view_controller")]
+[node name="Derived" type="Node3D" parent="." unique_id=699745831 node_paths=PackedStringArray("view_controller")]
 script = ExtResource("12_derived")
 view_controller = NodePath("../ViewController")
 
-[node name="Presentation" type="Node3D" parent="." node_paths=PackedStringArray("sun", "world_environment", "orbit", "yard", "view_controller", "plan_layer", "draft_overlay")]
+[node name="Presentation" type="Node3D" parent="." unique_id=687774730 node_paths=PackedStringArray("sun", "world_environment", "orbit", "yard", "view_controller", "plan_layer", "draft_overlay")]
 script = ExtResource("8_presentation")
 sun = NodePath("../Sun")
 world_environment = NodePath("../WorldEnvironment")
@@ -124,17 +122,16 @@ view_controller = NodePath("../ViewController")
 plan_layer = NodePath("../PlanLayer")
 draft_overlay = NodePath("../DraftOverlay")
 
-[node name="OrbitRig" type="Node3D" parent="Presentation"]
+[node name="OrbitRig" type="Node3D" parent="Presentation" unique_id=1717647227]
 script = ExtResource("9_orbit")
 
-[node name="Arm" type="Node3D" parent="Presentation/OrbitRig"]
+[node name="Arm" type="Node3D" parent="Presentation/OrbitRig" unique_id=759731072]
 
-[node name="Elevation" type="Node3D" parent="Presentation/OrbitRig/Arm"]
+[node name="Elevation" type="Node3D" parent="Presentation/OrbitRig/Arm" unique_id=1486905899]
 
-[node name="Boom" type="Node3D" parent="Presentation/OrbitRig/Arm/Elevation"]
+[node name="Boom" type="Node3D" parent="Presentation/OrbitRig/Arm/Elevation" unique_id=732667878]
 
-[node name="Camera" type="Camera3D" parent="Presentation/OrbitRig/Arm/Elevation/Boom"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+[node name="Camera" type="Camera3D" parent="Presentation/OrbitRig/Arm/Elevation/Boom" unique_id=929697500]
 fov = 32.0
 near = 0.1
 far = 400.0

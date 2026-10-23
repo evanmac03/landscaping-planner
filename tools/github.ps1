@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Plan', 'Push', 'Release', 'Publish')]
+    [ValidateSet('Plan', 'Push', 'Release', 'RecoverDraft', 'Publish')]
     [string]$Action = 'Plan',
     [string]$Version,
     [string]$Godot,
     [string]$Title,
+    [string]$BuildDirectory,
     [switch]$Approve
 )
 
@@ -69,8 +70,13 @@ function Assert-Remote {
 }
 
 function Get-Draft {
-    $raw = Github @('api', "repos/$repository/releases/tags/$Version")
+    $lookup = ((Github @('release', 'view', $Version, '--repo', $repository,
+        '--json', 'databaseId')) -join "`n") | ConvertFrom-Json
+    $raw = Github @('api', "repos/$repository/releases/$($lookup.databaseId)")
     $draft = ($raw -join "`n") | ConvertFrom-Json
+    if ($draft.tag_name -ne $Version -or [string]$draft.id -ne [string]$lookup.databaseId) {
+        throw 'Release lookup returned a different version or release ID.'
+    }
     if (-not $draft.draft) { throw "$Version is already published; do not repeat Publish." }
     return $draft
 }
@@ -132,7 +138,7 @@ if ($Action -eq 'Plan') {
     Write-Output 'Release needs Godot 4.7 and its matching Windows export templates. No CI or playability certification is implied.'
     return
 }
-Assert-Clean
+if ($Action -ne 'RecoverDraft') { Assert-Clean }
 if (-not $Approve) { throw "$Action requires explicit -Approve. Plan performs no remote operations." }
 Assert-Remote
 
@@ -180,6 +186,47 @@ $gitDirectory = [string](Git @('rev-parse', '--absolute-git-dir'))
 $receiptDirectory = Join-Path $gitDirectory 'landscaping-releases'
 New-Item -ItemType Directory -Path $receiptDirectory -Force | Out-Null
 $receiptPath = Join-Path $receiptDirectory "$Version.json"
+
+if ($Action -eq 'RecoverDraft') {
+    if (Test-Path -LiteralPath $receiptPath) { throw 'Preparation receipt already exists; do not replace it.' }
+    $build = (Get-Item -LiteralPath $BuildDirectory -ErrorAction Stop).FullName
+    if ((Split-Path -Parent $build) -ne $receiptDirectory -or
+        (Split-Path -Leaf $build) -notmatch '^build-[0-9a-f]{32}$') {
+        throw 'Recovery requires a retained build directly inside this repository release metadata.'
+    }
+    $comparison = Join-Path $receiptDirectory ("source-check-" + [guid]::NewGuid().ToString('N') + '.zip')
+    try {
+        Git @('archive', '--format=zip', "--output=$comparison", $head) | Out-Null
+        if ((Get-FileHash -LiteralPath $comparison -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath (Join-Path $build 'source.zip') -Algorithm SHA256).Hash) {
+            throw 'Retained source archive does not match committed HEAD.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $comparison) { Remove-Item -LiteralPath $comparison }
+    }
+    $stem = "landscaping-planner-$Version-windows-x86_64"
+    $zip = Join-Path $build "$stem.zip"
+    $checksum = Join-Path $build "$stem.sha256"
+    $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ([IO.File]::ReadAllText($checksum).Trim() -ne "$hash  $stem.zip") {
+        throw 'Retained ZIP does not match its original checksum.'
+    }
+    $draft = Get-Draft
+    if ($draft.target_commitish -ne $head) { throw 'Draft target does not match committed HEAD.' }
+    Assert-Tag $head
+    $receipt = [ordered]@{
+        repository = $repository; version = $Version; commit = $head
+        release_id = $draft.id
+        assets = @(@{ name = "$stem.zip"; sha256 = $hash },
+            @{ name = "$stem.sha256"; sha256 = (Get-FileHash -LiteralPath $checksum -Algorithm SHA256).Hash.ToLowerInvariant() })
+    }
+    Assert-DraftAssets $draft $receipt
+    $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
+    Write-Output "Recovered verified draft receipt: $($draft.html_url)"
+    Write-Output 'Retained build provenance is trusted locally; this checks source/archive and asset integrity, not reproducible compilation.'
+    return
+}
 
 if ($Action -eq 'Publish') {
     if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No local preparation receipt. Prepare and verify a draft first.' }

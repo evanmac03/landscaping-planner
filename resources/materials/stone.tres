@@ -1,4 +1,4 @@
-[gd_resource type="StandardMaterial3D" format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://wn7f4am5201o"]
 
 [sub_resource type="Gradient" id="Gradient_stone"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -12,9 +12,9 @@ fractal_octaves = 3
 [sub_resource type="NoiseTexture2D" id="Tex_stone"]
 width = 128
 height = 128
-seamless = true
 noise = SubResource("Noise_stone")
 color_ramp = SubResource("Gradient_stone")
+seamless = true
 
 [resource]
 albedo_texture = SubResource("Tex_stone")
