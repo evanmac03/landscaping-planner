@@ -248,8 +248,11 @@ func _go(target: ViewMode) -> void:
 		else:
 			fly_to_ground()
 	elif mode == ViewMode.GROUND:
-		_pending = target
-		fly_to_plan()
+		if target == ViewMode.OVERHEAD_3D:
+			_switch_overhead(target)
+		else:
+			_pending = target
+			fly_to_plan()
 	else:
 		_switch_overhead(target)
 
@@ -646,6 +649,12 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if mode == ViewMode.GROUND or _transitioning or _fading:
+		if event.is_action_pressed("toggle_view") or event.is_action_pressed("toggle_ground"):
+			pass
+		else:
+			return
+
 	if event.is_action_pressed("toggle_view"):
 		toggle_overhead()
 		get_viewport().set_input_as_handled()
@@ -654,9 +663,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_ground"):
 		toggle_ground()
 		get_viewport().set_input_as_handled()
-		return
-
-	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
 
 	# Planting owns the left button while it is armed, and it comes before the drawing tools because
