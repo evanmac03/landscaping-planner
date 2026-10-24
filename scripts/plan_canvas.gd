@@ -21,6 +21,7 @@ const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
 const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 
 ## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
 ## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
@@ -632,15 +633,79 @@ func _draw_snap_marker() -> void:
 		return
 	var point: Vector2 = snap["point"]
 	var half: float = 6.0 / pixels_per_metre
-	draw_rect(
-		Rect2(point - Vector2(half, half), Vector2(half, half) * 2.0),
-		SNAP, false, 1.6 / pixels_per_metre
-	)
+	var width: float = 1.6 / pixels_per_metre
+	var mode: int = int(snap.get("mode", SnapScript.Mode.NONE))
+	for stroke: PackedVector2Array in marker_strokes(mode, half):
+		var placed := PackedVector2Array()
+		for vertex: Vector2 in stroke:
+			placed.append(point + vertex)
+		draw_polyline(placed, SNAP, width, true)
 	var label: String = String(snap.get("label", ""))
 	if label == "":
 		return
 	var screen: Vector2 = position + point * pixels_per_metre
 	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12, SNAP_TEXT)
+
+
+## The marker drawn at the cursor for a kind of snap: a shape per mode, as strokes centred on the
+## point and reaching `half` either side of it.
+##
+## A shape rather than a character, on purpose. The snap engine carries a table of characters for its
+## modes and **the shipped font has none of them** - every one of the nine is missing from Open Sans
+## SemiBold - so a marker drawn from that table would be nine boxes of tofu. Drafting programs draw
+## these as shapes for the same reason, and a square, a triangle, a circle and a diamond are read at a
+## glance beside the name that says the same thing in words.
+##
+## Static and pure, so the vocabulary can be read and tested with no canvas in sight.
+static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	match mode:
+		SnapScript.Mode.ENDPOINT, SnapScript.Mode.NEAREST:
+			# A catch-all snaps to a point on an outline, which is the endpoint's answer too - and
+			# the engine's own table gives those two the same character as well.
+			out.append(PackedVector2Array([
+				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
+				Vector2(-half, half), Vector2(-half, -half),
+			]))
+		SnapScript.Mode.MIDPOINT:
+			out.append(PackedVector2Array([
+				Vector2(0.0, -half), Vector2(half, half), Vector2(-half, half), Vector2(0.0, -half),
+			]))
+		SnapScript.Mode.CENTRE:
+			var ring := PackedVector2Array()
+			for step in 12:
+				var angle: float = TAU * float(step) / 12.0
+				ring.append(Vector2(cos(angle), sin(angle)) * half)
+			ring.append(ring[0])
+			out.append(ring)
+		SnapScript.Mode.QUADRANT:
+			out.append(PackedVector2Array([
+				Vector2(0.0, -half), Vector2(half, 0.0), Vector2(0.0, half),
+				Vector2(-half, 0.0), Vector2(0.0, -half),
+			]))
+		SnapScript.Mode.INTERSECTION:
+			out.append(PackedVector2Array([Vector2(-half, -half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, -half)]))
+		SnapScript.Mode.PERPENDICULAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.TANGENT:
+			var arc := PackedVector2Array()
+			for step in 9:
+				var angle: float = PI + PI * float(step) / 8.0
+				arc.append(Vector2(cos(angle), sin(angle)) * half)
+			out.append(arc)
+		SnapScript.Mode.GRID:
+			out.append(PackedVector2Array([
+				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
+				Vector2(-half, half), Vector2(-half, -half),
+			]))
+			out.append(PackedVector2Array([Vector2(-half, 0.0), Vector2(half, 0.0)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.POLAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(half, half), Vector2(half, -half)]))
+	return out
 
 
 func _draw_screen_text(screen: Vector2, text: String, size: int, colour: Color) -> void:
