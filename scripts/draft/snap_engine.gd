@@ -147,11 +147,16 @@ func set_enabled(mode: Mode, on: bool) -> void:
 ##
 ## `previous` is the previous point of the tool in progress, needed for
 ## perpendicular and tangent snaps, which are undefined without it.
+##
+## `force_ortho` holds the point to the axes from `previous` for this call alone, whether or not
+## ortho is switched on. That is what a held Shift means while a tool is in hand: a person wants
+## the constraint for one pick, not as a setting they then have to remember to turn off.
 func resolve(
 	cursor: Vector2,
 	pixels_per_metre: float,
 	previous: Vector2 = Vector2.ZERO,
-	has_previous: bool = false
+	has_previous: bool = false,
+	force_ortho: bool = false
 ) -> Dictionary:
 	var scale := maxf(pixels_per_metre, 0.0001)
 	var aperture := aperture_pixels / scale
@@ -200,7 +205,7 @@ func resolve(
 
 	# No exact target. Constraints act on the cursor itself.
 	_locked = {}
-	var constrained := _apply_constraint(cursor, previous, has_previous)
+	var constrained := _apply_constraint(cursor, previous, has_previous, force_ortho)
 	if constrained["constrained"]:
 		var constraint_mode: Mode = constrained["mode"]
 		return {
@@ -234,8 +239,14 @@ func _result(point: Vector2, source: Dictionary, is_snapped: bool, candidate_cou
 ## Ortho and polar tracking. Applied only when nothing exact was found. Reports
 ## which constraint it actually applied, so a caller never sees "polar" when the
 ## grid is what moved the point.
-func _apply_constraint(point: Vector2, previous: Vector2, has_previous: bool) -> Dictionary:
-	if has_previous and ortho:
+##
+## `force_ortho` is the held-Shift case: ortho for this call whether the setting is on or not. An
+## exact object snap still wins even then, which is what keeps "start on a snapped endpoint, then
+## draw straight" behaving the way it always has.
+func _apply_constraint(
+	point: Vector2, previous: Vector2, has_previous: bool, force_ortho: bool = false
+) -> Dictionary:
+	if has_previous and (ortho or force_ortho):
 		var offset := point - previous
 		if absf(offset.x) >= absf(offset.y):
 			return {"point": Vector2(point.x, previous.y), "constrained": true, "mode": Mode.POLAR}

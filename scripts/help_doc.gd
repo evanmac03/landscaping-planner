@@ -19,12 +19,12 @@ extends RefCounted
 ## reference built from them is a view of those tables rather than a fourth copy of them. The HUD
 ## appends that reference as the last topic, so the manual cannot name a key that does nothing.
 ##
-## ## The three claims about the manual
+## ## The four claims about the manual
 ##
-## Which subjects it covers (`SUBJECTS`), how they are grouped (`SECTIONS`), and which ones point at
-## which (`SEE_ALSO`). Each is a table, and each has a test that holds it against the written topics -
-## "the manual covers everything" and "the contents is grouped" are only claims if something reads
-## them.
+## Which subjects it covers (`SUBJECTS`), how they are grouped (`SECTIONS`), which ones point at which
+## (`SEE_ALSO`), and which are shown with a picture (`PICTURES`). Each is a table, and each has a test
+## that holds it against the written topics - "the manual covers everything", "the contents is grouped"
+## and "the manual is illustrated" are only claims if something reads them.
 
 ## The subjects the manual has to cover, in the order they are shown.
 ##
@@ -68,10 +68,11 @@ const SUBJECTS: Array[String] = [
 
 # --- the shape of the manual ------------------------------------------------------------------
 #
-# Three things about the manual are *structure* rather than prose: the order of the subjects
-# (`SUBJECTS`), the sections the subjects are grouped into (`SECTIONS`), and the subjects that point at
-# each other (`SEE_ALSO`). Each is a table, and each has a test that holds it against the manual, for
-# the reason `SUBJECTS` has one: a claim about the manual is only a claim if something reads it.
+# Four things about the manual are *structure* rather than prose: the order of the subjects
+# (`SUBJECTS`), the sections the subjects are grouped into (`SECTIONS`), the subjects that point at
+# each other (`SEE_ALSO`) and the pictures they are shown with (`PICTURES`). Each is a table, and each
+# has a test that holds it against the manual, for the reason `SUBJECTS` has one: a claim about the
+# manual is only a claim if something reads it.
 
 ## The sections the contents is grouped into, in the order they are read.
 ##
@@ -159,6 +160,67 @@ const SEE_ALSO: Dictionary = {
 	"Sheets and plotting": ["Sending the drawing out"],
 	"Undo, revisions and where your files are": ["What the drawing has said", "Working with others"],
 }
+
+
+## The pictures the subjects are shown with: file names in `PICTURE_DIR`, one to three to a subject.
+##
+## A picture is of the **program**, not of the subject in the abstract: each one is a shot of the real
+## running window - the page, the panel or the view the prose is describing - taken off the program by
+## `tools/help_shot.gd` and saved as a file. What a reader wants when a page names a button is to see
+## where the button is.
+##
+## A table, for the reason the other three are: "the manual is illustrated" is a claim about the whole
+## manual rather than about any one subject, so it is written once and a test reads it - in particular
+## that every file a subject names is a file that is *there*, because a picture that failed to load is
+## the quietest defect here. The page still reads and the prose is still true; the only symptom is a
+## page that is less helpful than it was meant to be.
+##
+## A subject names a picture rather than a path, so the folder is one edit and a subject need not know
+## where the manual keeps its pictures. No file type either: there is one, and `picture_path` writes it.
+##
+## Not every subject is shown one. A picture earns its place by showing a reader where something *is*,
+## and a subject that describes a way of working rather than a page - "Editing shapes", "Sending the
+## drawing out" - has nothing to point at.
+const PICTURE_DIR := "res://assets/help/"
+const PICTURES: Dictionary = {
+	"What this program is": ["view-overhead"],
+	"Finding any command: the palette": ["palette"],
+	# The one subject that needs three: it is about the three views of one garden, and one picture of one
+	# view would leave the reader to imagine the other two.
+	"The three views": ["view-plan", "view-overhead", "view-ground"],
+	"Drawing: the tools": ["drawing"],
+	"Snapping and precision": ["snapping"],
+	"Layers, units and the site": ["layers"],
+	"The ground under the garden": ["ground-page"],
+	"Stating levels and falls": ["grading"],
+	"Importing somebody else's file": ["osm"],
+	"Tracing over a picture": ["underlay"],
+	"Plants": ["plants"],
+	"Food: what will crop here": ["food"],
+	"Food: what to grow here next": ["rotation"],
+	"Food: what's ready when": ["harvest"],
+	"Food: when to sow": ["sowing"],
+	"Food: how much to plant": ["yield"],
+	"Ordering the plants from a nursery": ["plant-order"],
+	"Water: irrigation": ["water"],
+	"Light: garden lighting": ["light"],
+	"What it costs: takeoff and estimate": ["estimate", "cost"],
+	"Leads and the pipeline": ["pipeline", "analytics"],
+	"Jobs, crews and the schedule": ["schedule"],
+	"Billing and the books": ["billing", "closeout", "ledger"],
+	"Presenting the garden": ["walk"],
+	"The sun and the shadows": ["sun"],
+	"Sheets and plotting": ["sheet"],
+	"Working with others": ["sync"],
+	"Undo, revisions and where your files are": ["revision"],
+	"What the drawing has said": ["status"],
+}
+
+
+## Where a picture's file is, from the name a subject gives it. One file type, so a subject names a
+## *picture* and never has to say what sort of file it is in.
+static func picture_path(name: String) -> String:
+	return PICTURE_DIR + name + ".webp"
 
 
 # --- reading the manual ----------------------------------------------------------------------
@@ -274,6 +336,13 @@ static func _topics() -> Array[Dictionary]:
 		+ "the one tool that is not on a digit: the nine number keys are already spoken for, so it takes "
 		+ "the full stop.",
 		"",
+		"Once a shape has its first point down, the number keys stop picking tools and say how far away "
+		+ "the next point is. Type 12.5 and press Enter and the point goes twelve and a half units along "
+		+ "the way the cursor points, in whatever unit the drawing is drawn in; an inch mark is honoured, "
+		+ "so 6\" is six inches. Put an angle after a < to state the direction outright - 10<45 is ten "
+		+ "units at forty-five degrees - and the angle is measured the way polar tracking measures one. "
+		+ "Backspace peels a digit back, and Escape drops the typed length without putting the shape away.",
+		"",
 		"The measure tool is a check rather than a drawing: it never commits anything. The four "
 		+ "dimension commands are annotations - they are drawn on the dimension layer, they are kept out "
 		+ "of the 3D views, and they are never counted as work to be priced.",
@@ -295,7 +364,9 @@ static func _topics() -> Array[Dictionary]:
 		"",
 		"Endpoints, midpoints, centres, quadrant points and the intersections of the shapes near the "
 		+ "cursor; perpendicular and tangent points from the previous pick; and a point along an outline. "
-		+ "Ortho and polar tracking hold the direction from the previous point.",
+		+ "Ortho and polar tracking hold the direction from the previous point, and Draft > Snapping "
+		+ "turns them on - or hold Shift while you pick to hold a point to the axes for that one pick "
+		+ "without switching anything on.",
 		"",
 		"The aperture is measured in pixels rather than in metres, so it behaves the same at every zoom. "
 		+ "Once a candidate has locked it is held until another clearly beats it, and the lock survives "
@@ -814,12 +885,12 @@ static func _topics() -> Array[Dictionary]:
 	return out
 
 
-## Each topic with the section it sits in and the subjects it points at, read off `SECTIONS` and
-## `SEE_ALSO`.
+## Each topic with the section it sits in, the subjects it points at and the pictures it is shown
+## with, read off `SECTIONS`, `SEE_ALSO` and `PICTURES`.
 ##
-## A subject in neither table gets an empty section and no links, which is what the keys topic the HUD
-## appends would get if the HUD did not name a section for it: a topic with no section is simply not
-## under a heading, rather than broken. That is the honest reading of a topic that has not been filed.
+## A subject in none of those tables gets an empty section, no links and no pictures, which is what the
+## keys topic the HUD appends gets for the last two: a topic with no section is simply not under a
+## heading, rather than broken. That is the honest reading of a topic nobody has filed.
 ##
 ## The parameter is not called `topics`, because that is this class's own function and a parameter of
 ## that name shadows it.
@@ -835,6 +906,12 @@ static func _annotate(entries: Array[Dictionary]) -> Array[Dictionary]:
 		for target: Variant in (SEE_ALSO.get(title, []) as Array):
 			links.append(String(target))
 		topic["see"] = links
+		# The pictures travel the same way, resolved to paths: the page is handed what it is to show and
+		# never needs to know where the manual keeps its pictures.
+		var pictures: Array[String] = []
+		for name: Variant in (PICTURES.get(title, []) as Array):
+			pictures.append(picture_path(String(name)))
+		topic["pictures"] = pictures
 	return entries
 
 

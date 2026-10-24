@@ -48,6 +48,9 @@ func _test() -> void:
 	if not _test_single_steps():
 		quit(1)
 		return
+	if not await _test_layout_and_publication_resume():
+		quit(1)
+		return
 	var first_output: String = dock._history
 	dock._git("Status")
 	deadline = Time.get_ticks_msec() + 30000
@@ -130,6 +133,43 @@ func _test() -> void:
 		return
 	print("PASS: completion routing, failed/malformed status invalidation, cancellation, scrollable long-file review.")
 	quit(0)
+
+
+func _test_layout_and_publication_resume() -> bool:
+	var host := VBoxContainer.new()
+	host.size = Vector2(420, 900)
+	root.add_child(host)
+	var guide := GuideProbe.new()
+	host.add_child(guide)
+	guide._guide_result.text = "Long receipt\n".repeat(80)
+	guide._checks_label.text = "Long validation evidence\n".repeat(80)
+	for index in 10:
+		await process_frame
+	if guide.get_combined_minimum_size().y > 900 or guide._output.position.y + guide._output.size.y > 900:
+		printerr("Receipt/evidence expanded dock beyond 900px: ", guide.get_combined_minimum_size())
+		return false
+	if not guide._guide_result.get_parent().get_parent() is ScrollContainer:
+		printerr("Shared observations are not scrollable.")
+		return false
+	guide._snapshot = {"branch":"main", "files":[], "staged":[], "head":"published-head"}
+	guide._guide_version = "v1.2.3"
+	guide._guide_show("published")
+	guide.captured = {}
+	guide._guide_answer()
+	if not guide.captured.is_empty() or guide._guide_dialog.visible:
+		printerr("Already-published Done started a new release.")
+		return false
+	guide._guide_show("published")
+	for button in guide._guide_body.get_children():
+		if button is Button and button.text == "Prepare another version…":
+			button.pressed.emit()
+	if guide.captured.get("guide_next") != "release" or not guide.captured.get("status", false):
+		printerr("Explicit another-version action did not refresh readiness.")
+		return false
+	guide._guide_dialog.hide()
+	host.free()
+	print("PASS: bounded 420x900 receipt/evidence layout and completed-publication resume with explicit new-version action.")
+	return true
 
 
 func _test_single_steps() -> bool:

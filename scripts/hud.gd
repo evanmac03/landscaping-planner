@@ -138,6 +138,8 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunWindowScript := preload("res://scripts/sun_window.gd")
+const WalkWindowScript := preload("res://scripts/walk_window.gd")
+const SnapWindowScript := preload("res://scripts/snap_window.gd")
 const StatusWindowScript := preload("res://scripts/status_window.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
@@ -344,7 +346,14 @@ const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
 const BillingWindowScript := preload("res://scripts/billing_window.gd")
 const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
 const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
+const AkauntingLedgerScript := preload("res://scripts/biz/akaunting.gd")
+const InvoiceNinjaLedgerScript := preload("res://scripts/biz/invoice_ninja.gd")
 const CloseoutDeskScript := preload("res://scripts/biz/closeout_desk.gd")
+const LayerWindowScript := preload("res://scripts/layer_window.gd")
+const SyncWindowScript := preload("res://scripts/sync_window.gd")
+const BizStoreScript := preload("res://scripts/biz/store.gd")
+const BizSyncScript := preload("res://scripts/biz/sync.gd")
+const BizHttpTransportScript := preload("res://scripts/biz/http_transport.gd")
 const CloseoutWindowScript := preload("res://scripts/closeout_window.gd")
 const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
 const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
@@ -385,6 +394,15 @@ var _plant_export_dialog: FileDialog = null
 ## The ground: one window, because the site's conditions and the conditions of every area of the plan
 ## are one subject, and a menu cannot hold an area.
 var _ground_window: GroundWindow = null
+## The drawing's layers: every layer, what it is for, and the two things done to one from it - lock it
+## or make it current. A window because it has a search box to type into.
+var _layer_window: LayerWindowScript = null
+## The business records' store and the engine that syncs them with the office's service. The store is
+## where a field change is written; the engine holds the queue and the conflicts, and the page shows
+## what it says. The one service this build offers is the HTTP transport, configured on the page.
+var _sync_store: BizStoreScript = null
+var _sync_engine: BizSyncScript = null
+var _sync_window: SyncWindowScript = null
 ## The sheet setup: what this drawing goes out on, and the set of sheets it goes out as. A window
 ## because it is the one surface here that takes typed text - a drawing number, a title, a revision.
 var _sheet_window: SheetWindow = null
@@ -495,6 +513,12 @@ var _yield_state: String = ""
 ## The study of the sun: a list of moments, and what the height in hand casts at each. A window,
 ## because the height is typed and the study is built out of the fields.
 var _sun_window: SunWindowScript = null
+## The walk-through: the places a client is shown, and the clock that walks the presentation camera
+## through them. A window, because the walk is played from it and the camera belongs to the scene.
+var _walk_window: WalkWindowScript = null
+## The snapping settings: what the cursor may snap to, and the constraints that hold it straight.
+## A window, because it is a page of switches rather than a line of the legend, which is full.
+var _snap_window: SnapWindowScript = null
 ## What the last refresh of that page was drawn from: the site the study is of, and the size of the
 ## study. The page holds the list, so a refresh that rebound it every frame would be the page arguing
 ## with the hand that is building it.
@@ -604,6 +628,7 @@ func _ready() -> void:
 	_build_recovery_dialog()
 	_build_plant_library()
 	_build_ground_window()
+	_build_layer_window()
 	_build_site_report_panel()
 	_build_survey_panel()
 	_build_hatch_panel()
@@ -634,12 +659,18 @@ func _ready() -> void:
 	_build_billing_window()
 	_build_ledger_desk()
 	_build_ledger_window()
+	_build_sync_engine()
+	_build_sync_window()
 	_build_closeout_desk()
 	_build_closeout_window()
 	_build_analytics_report()
 	_build_analytics_window()
 	# The sun's study: a window, because the height it reports about is typed into it.
 	_build_sun_window()
+	# The walk-through: a window, because the walk is played from it and it holds the clock.
+	_build_walk_window()
+	# Snapping: a window, because the settings are switches and the legend has no room for them.
+	_build_snap_window()
 	# What the drawing has said: read-only, and built here so the page is in `pages_in_windows()`
 	# before the Escape pass runs over it.
 	_build_status_window()
@@ -1740,6 +1771,7 @@ func pages_in_windows() -> Array[Window]:
 		_plant_window,
 		_command_palette,
 		_ground_window,
+		_layer_window,
 		_sheet_window,
 		_revision_window,
 		_osm_window,
@@ -1753,6 +1785,8 @@ func pages_in_windows() -> Array[Window]:
 		_sowing_window,
 		_yield_window,
 		_sun_window,
+		_walk_window,
+		_snap_window,
 		_status_window,
 		_estimate_window,
 		_pipeline_board,
@@ -1760,6 +1794,7 @@ func pages_in_windows() -> Array[Window]:
 		_cost_window,
 		_billing_window,
 		_ledger_window,
+		_sync_window,
 		_closeout_window,
 		_analytics_window,
 	]
@@ -2070,6 +2105,7 @@ static func draft_items() -> Array[Dictionary]:
 	))
 	items.append(_separator())
 	items.append(_command(&"draft.hatch", "Hatch a region...", &"", &"_menu_hatch_region"))
+	items.append(_command(&"draft.snapping", "Snapping...", &"", &"_menu_snap_window"))
 	return items
 
 
@@ -2092,6 +2128,9 @@ static func present_items() -> Array[Dictionary]:
 	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
 	items.append(_command(
 		&"present.sun_study", "Sun and shadow study...", &"present_sun_study", &"_menu_sun_window", NEEDS_PRESENTATION
+	))
+	items.append(_command(
+		&"present.walk", "Walk-through...", &"", &"_menu_walk_window", NEEDS_PRESENTATION
 	))
 	items.append(_separator())
 	items.append(_info(&"present.sun_info", "the sun"))
@@ -2140,6 +2179,9 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(&"site.window", "What the ground is like...", &"", &"_menu_ground_window"))
 	items.append(_command(&"site.zone", "Draw a ground zone...", &"", &"_menu_draw_ground_zone"))
 	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
+	# The drawing's layers: the same list the top bar's dropdown quick-picks from, with the two things
+	# a dropdown cannot hold - locking one against editing and reading what each one is for.
+	items.append(_command(&"site.layers", "Layers...", &"", &"_menu_layer_window", NEEDS_DRAFT))
 	# The growing season: two frost dates that no drawing can supply, stated once for the site and kept
 	# with it. Every food crop's "days to maturity" is measured against the season they bound, so this
 	# is the one site fact the kitchen garden rests on.
@@ -2205,6 +2247,9 @@ static func jobs_items() -> Array[Dictionary]:
 	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
 	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
 	items.append(_command(&"jobs.outbox", "What has been handed to a ledger...", &"", &"_menu_ledger_window"))
+	# The records' sync with the office's service: what is waiting, what wants a person, and where the
+	# two copies disagree. Business data like the rest of this menu, so it needs no drawing.
+	items.append(_command(&"jobs.sync", "Sync with the office...", &"", &"_menu_sync_window"))
 	items.append(_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window"))
 	# Finishing the job: the punch list walked at the end, the day the garden was handed over, and the
 	# warranty that runs from it. Business data like the rest of this menu, so it needs no drawing.
@@ -5235,6 +5280,114 @@ func _on_sun_window_closed() -> void:
 	_refresh_menus()
 
 
+# --- the walk-through -----------------------------------------------------------------------
+
+
+func _menu_walk_window(_entry: Dictionary) -> void:
+	open_walk_window()
+
+
+func _on_walk_window_closed() -> void:
+	_refresh_menus()
+
+
+## Build the page and wire what it asks for. The walk moves the presentation camera, so the page is
+## only useful where there is a presentation - which is what `NEEDS_PRESENTATION` says of the menu
+## entry that reaches it.
+func _build_walk_window() -> void:
+	if _walk_window != null:
+		return
+	_walk_window = WalkWindowScript.new()
+	_walk_window.name = "WalkWindow"
+	_walk_window.closed.connect(_on_walk_window_closed)
+	_walk_window.walk_changed.connect(_refresh_menus)
+	add_child(_walk_window)
+	_walk_window.build()
+	_walk_window.hide()
+
+
+func open_walk_window() -> void:
+	_build_walk_window()
+	if _walk_window == null:
+		return
+	_fill_walk_window()
+	_walk_window.popup_centered()
+	# The walk is played from the page, so it holds the drawing's keys while it is up, the way the
+	# grading page does; the drawing keys belong to the drawing again the moment it closes.
+	release_keyboard_focus(self)
+
+
+func close_walk_window() -> void:
+	if _walk_window != null and _walk_window.visible:
+		_walk_window.hide()
+
+
+func is_walk_window_open() -> bool:
+	return _walk_window != null and _walk_window.visible
+
+
+## Point the page at the presentation, so the walk takes that camera over the garden on the drawing.
+func _fill_walk_window() -> void:
+	_build_walk_window()
+	if _walk_window == null:
+		return
+	_walk_window.bind(presentation)
+	_refresh_menus()
+
+
+# --- snapping -----------------------------------------------------------------------
+
+
+func _menu_snap_window(_entry: Dictionary) -> void:
+	open_snap_window()
+
+
+func _on_snap_window_closed() -> void:
+	_refresh_menus()
+
+
+## Build the page. The settings live on the drafting controller, so the page is only useful where
+## there is one - which is what the Draft menu's own presence already says.
+func _build_snap_window() -> void:
+	if _snap_window != null:
+		return
+	_snap_window = SnapWindowScript.new()
+	_snap_window.name = "SnapWindow"
+	_snap_window.closed.connect(_on_snap_window_closed)
+	add_child(_snap_window)
+	_snap_window.build()
+	_snap_window.hide()
+
+
+func open_snap_window() -> void:
+	_build_snap_window()
+	if _snap_window == null:
+		return
+	_fill_snap_window()
+	_snap_window.popup_centered()
+	# The page's switches take the drawing's keys while it is up, the way the grading page does.
+	release_keyboard_focus(self)
+
+
+func close_snap_window() -> void:
+	if _snap_window != null and _snap_window.visible:
+		_snap_window.hide()
+
+
+func is_snap_window_open() -> bool:
+	return _snap_window != null and _snap_window.visible
+
+
+## Point the page at the drawing's own controller, so its switches are the drawing's settings rather
+## than a copy the page would have to keep in step.
+func _fill_snap_window() -> void:
+	_build_snap_window()
+	if _snap_window == null:
+		return
+	_snap_window.bind(_draft)
+	_refresh_menus()
+
+
 # --- what the drawing has said --------------------------------------------------------------
 #
 # The status line under the plan is one line: it says what the drawing just did, and the next thing
@@ -6935,8 +7088,10 @@ func _menu_billing_window(_entry: Dictionary) -> void:
 ## the other pages for the same reason - the outbox is pointed at the billing ledger this file already
 ## wired to the menus - and it needs no drawing, because where a document has got to is not on the plan.
 ##
-## The desk starts with the file backend and nothing else, because a hosted ledger's address and token
-## are the office's to state on the page rather than something this file should invent.
+## The file backend comes from the desk itself and always works. The two hosted ledgers are registered
+## here so the page can *offer* them and the office can state their address and token where the page
+## keeps settings - nothing is invented, because an unconfigured backend offers no address, and nothing
+## is posted to it until it is chosen.
 func _build_ledger_desk() -> void:
 	if _ledger_desk != null:
 		return
@@ -6944,6 +7099,8 @@ func _build_ledger_desk() -> void:
 		_build_billing_ledger()
 	_ledger_desk = LedgerDeskScript.new()
 	_ledger_desk.bind(_billing_ledger)
+	_ledger_desk.add_adapter(AkauntingLedgerScript.new())
+	_ledger_desk.add_adapter(InvoiceNinjaLedgerScript.new())
 
 
 func _build_ledger_window() -> void:
@@ -6988,6 +7145,10 @@ func _on_ledger_changed() -> void:
 
 func _menu_ledger_window(_entry: Dictionary) -> void:
 	open_ledger_window()
+
+
+func _menu_sync_window(_entry: Dictionary) -> void:
+	open_sync_window()
 
 
 ## Finishing the job: the punch list, the hand-over date and the warranty on one page. Built by hand
@@ -7230,6 +7391,106 @@ func close_ground_window() -> void:
 	if _ground_window != null:
 		_ground_window.hide()
 		_ground_window.say("")
+
+
+## The drawing's layers: every layer, what it is for, and the two things done to one here - lock it
+## against editing, or make it the layer new shapes are drawn on.
+##
+## A `Window` like the library and the ground window, for the same reason - it has a search box to type
+## into, and a `Window` owns its own input, so nothing here can take the drawing's keys. Built by hand
+## rather than left to its own `_ready`, so the window the designer opens is the one this file has
+## already wired to the menu and to the drawing.
+func _build_layer_window() -> void:
+	if _layer_window != null:
+		return
+	_layer_window = LayerWindowScript.new()
+	_layer_window.name = "LayerWindow"
+	add_child(_layer_window)
+	_layer_window.build()
+	_layer_window.layers_changed.connect(_on_layers_changed)
+	_layer_window.hide()
+
+
+## Open it, pointed at the drawing that is open now.
+func open_layer_window() -> void:
+	if _layer_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_layer_window.bind(_draft)
+	_layer_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_layer_window() -> void:
+	if _layer_window != null:
+		_layer_window.hide()
+
+
+func is_layer_window_open() -> bool:
+	return _layer_window != null and _layer_window.visible
+
+
+## A layer was locked, unlocked or made current: the drawing is redrawn through the document the
+## dialog already changed, and whatever says which layer is current is now stale.
+func _on_layers_changed() -> void:
+	_refresh_menus()
+
+
+## The business records' store, and the engine that syncs them with the office's service. The store is
+## where a field change is written and the engine holds the queue and the conflicts; the page shows what
+## the engine says. The one service this build offers is the HTTP transport, which the page configures -
+## nothing is invented, and a device with no token has nowhere to sync to and says so.
+func _build_sync_engine() -> void:
+	if _sync_engine != null:
+		return
+	_sync_store = BizStoreScript.new()
+	_sync_engine = BizSyncScript.new(_sync_store)
+	_sync_engine.use_transport(BizHttpTransportScript.new())
+
+
+## The sync page: what is waiting to go out, what wants a person, and where the two copies disagree.
+##
+## A `Window` like the other pages, for the same reason - it has fields to type the service's address
+## and token into - and built by hand so the window the designer opens is the one this file has already
+## wired to the engine.
+func _build_sync_window() -> void:
+	if _sync_window != null:
+		return
+	if _sync_engine == null:
+		_build_sync_engine()
+	_sync_window = SyncWindowScript.new()
+	_sync_window.name = "SyncWindow"
+	add_child(_sync_window)
+	_sync_window.build()
+	_sync_window.bind(_sync_engine)
+	_sync_window.sync_changed.connect(_on_sync_changed)
+	_sync_window.hide()
+
+
+## Open it, pointed at the engine that is in hand.
+func open_sync_window() -> void:
+	if _sync_window == null:
+		_build_sync_window()
+	if _sync_window == null:
+		return
+	_sync_window.bind(_sync_engine)
+	_sync_window.popup_centered()
+	release_keyboard_focus(self)
+
+
+func close_sync_window() -> void:
+	if _sync_window != null:
+		_sync_window.hide()
+
+
+func is_sync_window_open() -> bool:
+	return _sync_window != null and _sync_window.visible
+
+
+## A run, a settled conflict, or the service being configured: whatever reports on the queue is stale.
+func _on_sync_changed() -> void:
+	_refresh_menus()
 
 
 # --- the sheet setup ------------------------------------------------------------------------
@@ -7548,6 +7809,10 @@ func _menu_label_plants(_entry: Dictionary) -> void:
 ## Open the ground window: the site's conditions and one statement per area of the plan.
 func _menu_ground_window(_entry: Dictionary) -> void:
 	open_ground_window()
+
+
+func _menu_layer_window(_entry: Dictionary) -> void:
+	open_layer_window()
 
 
 ## Draw a ground zone: ground nothing on the plan outlines - a frost pocket, a strip of shade, a wet

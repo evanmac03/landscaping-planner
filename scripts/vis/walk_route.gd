@@ -28,6 +28,27 @@ const MAX_DWELL_S := 120.0
 const WALK_SPEED_MPS := 1.4
 ## A speed below this is standing still with extra steps.
 const MIN_SPEED_MPS := 0.05
+## The height the camera walks at, in metres: about a person's eye.
+const EYE_M := 1.6
+
+## How a garden walk is shaped, as shares of the garden's own bounds, so it walks whatever
+## garden is on the drawing. A walk-through of a garden with a house in the middle is a walk
+## *along* the garden, not a lap around the house: a stop behind the house looks at the back
+## of it and a stop inside looks at nothing. The stops stand on the open side and look across
+## at the dwelling, which is the view a client is shown.
+##
+## `YARD_SPAN` is how far along the width the walk runs each way from the middle, `YARD_AT_FRONT`
+## how far out from the middle towards the open side as a share of the depth - far enough out to
+## stand in the garden rather than against the wall - and `YARD_SWING` how far across the garden
+## the camera is aimed, opposite the side it is standing on, so the walker looks *along* the
+## garden instead of flat at a wall: a walk-through that stares down the front of a house is a
+## photograph of a house. `YARD_AIM_BACK` is how far past the middle the look-at line sits.
+const YARD_SPAN := 0.20
+const YARD_AT_FRONT := 0.42
+const YARD_SWING := 0.40
+const YARD_AIM_BACK := 0.18
+## The four places along the open side, in the order they are visited.
+const YARD_STOP_NAMES: Array[String] = ["left", "centre left", "centre right", "right"]
 
 ## The stops, in the order they were added.
 var _stops: Array[Dictionary] = []
@@ -276,4 +297,25 @@ static func from_dict(data: Dictionary) -> WalkRoute:
 			Vector3(float(look_v[0]), float(look_v[1]), float(look_v[2])),
 			dwell
 		)
+	return route
+
+
+## A walk-through of a garden, built from the garden's own bounds rather than hard-coded, so it
+## walks whatever garden is on the drawing. Four places along the open side, evenly spread
+## across the width, each looking across to the far side: the walker turns their head as they go.
+##
+## This is the one description of the yard walk, so the game that plays it and the demo that
+## renders it depart from the same route rather than two copies of the same authoring taste.
+static func for_yard(bounds: Rect2, dwell_s: float = DEFAULT_DWELL_S) -> WalkRoute:
+	var route := WalkRoute.new()
+	var mid_x: float = bounds.position.x + bounds.size.x * 0.5
+	var mid_z: float = bounds.position.y + bounds.size.y * 0.5
+	var stand_z: float = mid_z + bounds.size.y * YARD_AT_FRONT
+	var aim_z: float = mid_z - bounds.size.y * YARD_AIM_BACK
+	var places: int = YARD_STOP_NAMES.size()
+	for index in places:
+		var share: float = -1.0 + 2.0 * float(index) / float(maxi(places - 1, 1))
+		var at := Vector3(mid_x + bounds.size.x * YARD_SPAN * share, EYE_M, stand_z)
+		var aim := Vector3(mid_x - bounds.size.x * YARD_SWING * share, EYE_M, aim_z)
+		route.add_stop(YARD_STOP_NAMES[index], at, aim, dwell_s)
 	return route
