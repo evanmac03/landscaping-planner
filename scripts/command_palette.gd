@@ -490,20 +490,25 @@ static func _quoted(words: String) -> String:
 # --- what it does -----------------------------------------------------------------------------
 
 
-## Move the cursor up or down the list, stopping at ends and skipping non-selectable items (headings),
-## so the arrows walk the command list subject to subject rather than furniture.
+## Move the cursor up or down the list, wrapping round at either end and skipping non-selectable rows,
+## so the arrows are a way through the whole list without reaching for the mouse. A list with nothing
+## selectable in it leaves the cursor where it is rather than looping for ever.
 func _move_selection(step: int) -> void:
 	var count := _list.item_count if _list != null else 0
 	if count == 0:
 		return
 	var picked: PackedInt32Array = _list.get_selected_items()
 	var current: int = picked[0] if not picked.is_empty() else -1
-	var at := current + step
-	while at >= 0 and at < count:
+	var at := current
+	for _attempt in count:
+		at = at + step
+		if at < 0:
+			at = count - 1
+		elif at >= count:
+			at = 0
 		if _list.is_item_selectable(at):
 			select(at)
 			return
-		at += step
 
 
 func _on_row_selected(index: int) -> void:
