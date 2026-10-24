@@ -248,11 +248,13 @@ func _go(target: ViewMode) -> void:
 		else:
 			fly_to_ground()
 	elif mode == ViewMode.GROUND:
-		if target == ViewMode.OVERHEAD_3D:
-			_switch_overhead(target)
-		else:
+		# Leaving the ground always flies up through the overhead framing, because
+		# that flight is what hands the camera back from the player: it restores the
+		# flight camera, puts the player away and releases the mouse. Straight to the
+		# 3D overhead view, or on to the flat plan once the climb has settled.
+		if target != ViewMode.OVERHEAD_3D:
 			_pending = target
-			fly_to_plan()
+		fly_to_plan()
 	else:
 		_switch_overhead(target)
 
@@ -648,21 +650,34 @@ func _process(delta: float) -> void:
 		_update_plant_ghost()
 
 
+## The two view keys are read here, before anything else, and each is scoped to its
+## own pair of views so that neither can ever do the other's job:
+##
+##  - Q (toggle_view) swaps the two overhead views, the flat plan and the 3D render,
+##    and belongs to them alone. In the ground view it does nothing at all, because
+##    G is the one way out of the ground.
+##  - G (toggle_ground) takes you in and out of the ground-level view, and nothing
+##    else. From the flat plan it steps through the overhead render first, since there
+##    is no 3D behind the plan to dive from.
+##
+## Reading them separately also means one key can never be swallowed by the other's
+## state, which is what made the ground view a place G could not leave.
 func _unhandled_input(event: InputEvent) -> void:
-	if mode == ViewMode.GROUND or _transitioning or _fading:
-		if event.is_action_pressed("toggle_view") or event.is_action_pressed("toggle_ground"):
-			pass
-		else:
-			return
-
 	if event.is_action_pressed("toggle_view"):
-		toggle_overhead()
+		if mode != ViewMode.GROUND and not _transitioning and not _fading:
+			toggle_overhead()
 		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("toggle_ground"):
-		toggle_ground()
+		if not _transitioning and not _fading:
+			toggle_ground()
 		get_viewport().set_input_as_handled()
+		return
+
+	# Everything below belongs to the overhead views. Mid-flight, or standing on the
+	# ground, this node has no other business with the keyboard and mouse.
+	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
 
 	# Planting owns the left button while it is armed, and it comes before the drawing tools because
