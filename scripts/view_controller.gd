@@ -661,7 +661,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("toggle_ground"):
-		toggle_ground()
+		# If Shift is held, toggle instantly without the cinematic flight.
+		if event is InputEventKey and event.shift_pressed:
+			mode = ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND
+			_apply_overhead_view()
+			_set_viewport_3d(mode != ViewMode.GROUND)
+			if mode == ViewMode.GROUND:
+				player.set_active(true)
+				player.capture_mouse()
+				_set_cursor_hand(false)
+			else:
+				player.set_active(false)
+				player.release_mouse()
+			view_mode_changed.emit(mode)
+		else:
+			toggle_ground()
 		get_viewport().set_input_as_handled()
 		return
 
