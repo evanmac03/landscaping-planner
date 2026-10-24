@@ -24,6 +24,72 @@ func _page() -> HelpWindowScript:
 	return page
 
 
+## A picture is read from its *bytes* rather than by path, because a picture that ships inside the
+## program lives inside its pack file and only `FileAccess` can see into one - reading it by path would
+## work in the editor and quietly stop working in a built copy. So the reader is pinned here against a
+## real file of each kind the manual could carry, and against bytes that are not a picture at all.
+func test_a_picture_is_decoded_from_its_bytes_by_its_own_kind() -> void:
+	var webp := "res://assets/help/snapping.webp"
+	assert(FileAccess.file_exists(webp), "the manual's own pictures are there to be read")
+	var image: Image = HelpWindowScript.decode(webp, FileAccess.get_file_as_bytes(webp))
+	assert(image != null, "a webp reads")
+	assert(image.get_width() > 100 and image.get_height() > 100, "at the size it was taken at: %s" % image.get_size())
+	var png := "res://resources/textures/hardscape/mulch_bark_albedo.png"
+	assert(HelpWindowScript.decode(png, FileAccess.get_file_as_bytes(png)) != null, "and so does a png")
+	assert(
+		HelpWindowScript.decode("res://nothing_at_all.webp", "not a picture".to_utf8_buffer()) == null,
+		"and bytes that are not a picture answer nothing rather than failing"
+	)
+
+
+## A subject shows the pictures it was handed, and one handed none shows no strip at all.
+##
+## Driven with synthetic topics pointing at a texture that is already in the project: what is under test
+## is the page rather than the manual's own table, which `test_help_doc.gd` holds. The pictures arrive on
+## the topic for the same reason the section does - a page that knew where the manual keeps its pictures
+## would be a page that knows the manual's business.
+func test_a_subject_shows_the_pictures_it_is_handed_and_none_without_them() -> void:
+	var shown := "res://resources/textures/hardscape/mulch_bark_albedo.png"
+	var topics: Array[Dictionary] = [
+		{"title": "Illustrated", "body": "a subject with a picture", "pictures": [shown]},
+		{"title": "Plain", "body": "a subject with none", "pictures": []},
+		{
+			"title": "Missing",
+			"body": "a subject whose picture is not there",
+			"pictures": ["res://resources/textures/hardscape/no_such_picture_at_all.png"],
+		},
+	]
+	var page: HelpWindowScript = HelpWindowScript.new()
+	page.build()
+	page.set_topics(topics)
+	var on_the_page := page.shown_pictures()
+	assert(on_the_page.size() == 1 and on_the_page[0] == shown, "%s" % [on_the_page])
+	assert(page.picture_view().visible, "the picture is on the page")
+	assert(page.picture_view().get_child_count() == 1, "one picture, one view")
+	# And the row can really be given a height. Asserted because it cannot be seen: a picture row with no
+	# minimum height is laid out as nothing and the picture is on the page without ever being visible -
+	# which is what happened when the height was left to follow from the picture's own shape.
+	assert(
+		page.picture_view().get_combined_minimum_size().y > 0.0,
+		"the row has a height to be laid out in"
+	)
+	# A picture is for looking at, so it is not a thing the mouse or the keyboard can take the page with.
+	var view := page.picture_view().get_child(0) as TextureRect
+	assert(view != null, "it is a picture rather than something else")
+	assert(view.mouse_filter == Control.MOUSE_FILTER_IGNORE, "a picture does not take a click")
+	assert(view.focus_mode == Control.FOCUS_NONE, "nor the keyboard")
+	# A subject with none leaves no strip standing over its prose.
+	assert(page.select_topic("Plain"), "the next subject can be chosen")
+	assert(page.shown_pictures().is_empty(), "%s" % [page.shown_pictures()])
+	assert(not page.picture_view().visible, "and the row is not left empty")
+	# And a picture that cannot be read is a page with no picture rather than a page that failed.
+	assert(page.select_topic("Missing"))
+	assert(page.shown_pictures().is_empty(), "%s" % [page.shown_pictures()])
+	assert(not page.picture_view().visible)
+	assert(page.picture_view().get_child_count() == 0, "nothing is left standing in its place")
+	page.free()
+
+
 func test_the_contents_lists_every_subject_the_manual_has() -> void:
 	var page: HelpWindowScript = _page()
 	assert(page.topic_count() == HelpDocScript.topic_count(), "every subject is on the page")

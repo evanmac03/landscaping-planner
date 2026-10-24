@@ -330,3 +330,28 @@ func test_constraints_do_nothing_without_a_previous_point() -> void:
 	# Grid still applies; ortho needs something to be orthogonal to.
 	assert(result["mode"] == Snap.Mode.GRID)
 	assert(result["point"].is_equal_approx(Vector2(1.0, 5.0)))
+
+
+func test_a_held_shift_holds_the_point_to_the_axes_without_the_setting() -> void:
+	var engine = _engine([])
+	assert(not engine.ortho, "the setting is off to begin with")
+	# The held-Shift case: ortho for this call only, without the drawing's setting being touched.
+	var along: Dictionary = engine.resolve(Vector2(3.0, 0.4), 100.0, Vector2(0, 0), true, true)
+	assert(along["point"].is_equal_approx(Vector2(3, 0)), "held straight along the axis")
+	assert(bool(along["snapped"]), "and it is a snap")
+	engine.clear_lock()
+	var upright: Dictionary = engine.resolve(Vector2(0.4, 3.0), 100.0, Vector2(0, 0), true, true)
+	assert(upright["point"].is_equal_approx(Vector2(0, 3)))
+	# Released, with the setting still off, the point is left where it is.
+	engine.clear_lock()
+	var free: Dictionary = engine.resolve(Vector2(3.0, 0.4), 100.0, Vector2(0, 0), true)
+	assert(Vector2(free["point"]).is_equal_approx(Vector2(3.0, 0.4)), "released, the point is the cursor")
+
+
+func test_a_held_shift_still_lets_an_exact_snap_win() -> void:
+	var engine = _engine([_line(1, Vector2(0, 0), Vector2(4, 0))])
+	# An endpoint within the aperture beats the constraint, exactly as it does for the ortho setting:
+	# a held Shift is a convenience, not a licence to move a point off what it is snapped to.
+	var result: Dictionary = engine.resolve(Vector2(0.02, 0.02), 100.0, Vector2(0, 0), true, true)
+	assert(result["mode"] == Snap.Mode.ENDPOINT, "the exact snap wins")
+	assert(result["point"].is_equal_approx(Vector2(0, 0)))

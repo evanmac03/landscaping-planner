@@ -223,6 +223,27 @@ func toggle_ground() -> void:
 	_go(ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND)
 
 
+## Swap to or from the ground view with no flight at all (Shift+G).
+##
+## The camera has to be handed over here just as explicitly as the flight does it, or
+## the mode changes while the other camera keeps rendering - the ground view would look
+## unchanged from either direction.
+func _instant_ground_toggle() -> void:
+	mode = ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND
+	_apply_overhead_view()
+	_set_viewport_3d(mode != ViewMode.GROUND)
+	if mode == ViewMode.GROUND:
+		player.set_active(true)
+		player.capture_mouse()
+		player.camera.current = true
+		_set_cursor_hand(false)
+	else:
+		player.set_active(false)
+		player.release_mouse()
+		flight_camera.current = true
+	view_mode_changed.emit(mode)
+
+
 ## Go to a named view.
 ##
 ## The toggle above is what one key needs; a menu lists the places you can be, and asking for the
@@ -248,11 +269,13 @@ func _go(target: ViewMode) -> void:
 		else:
 			fly_to_ground()
 	elif mode == ViewMode.GROUND:
-		if target == ViewMode.OVERHEAD_3D:
-			_switch_overhead(target)
-		else:
+		# Leaving the ground always flies up through the overhead framing, because
+		# that flight is what hands the camera back from the player: it restores the
+		# flight camera, puts the player away and releases the mouse. Straight to the
+		# 3D overhead view, or on to the flat plan once the climb has settled.
+		if target != ViewMode.OVERHEAD_3D:
 			_pending = target
-			fly_to_plan()
+		fly_to_plan()
 	else:
 		_switch_overhead(target)
 
@@ -648,21 +671,38 @@ func _process(delta: float) -> void:
 		_update_plant_ghost()
 
 
+## The two view keys are read here, before anything else, and each is scoped to its
+## own pair of views so that neither can ever do the other's job:
+##
+##  - Q (toggle_view) swaps the two overhead views, the flat plan and the 3D render,
+##    and belongs to them alone. In the ground view it does nothing at all, because
+##    G is the one way out of the ground.
+##  - G (toggle_ground) takes you in and out of the ground-level view, and nothing
+##    else. From the flat plan it steps through the overhead render first, since there
+##    is no 3D behind the plan to dive from. Held Shift skips the flight.
+##
+## Reading them separately also means one key can never be swallowed by the other's
+## state, which is what made the ground view a place G could not leave.
 func _unhandled_input(event: InputEvent) -> void:
-	if mode == ViewMode.GROUND or _transitioning or _fading:
-		if event.is_action_pressed("toggle_view") or event.is_action_pressed("toggle_ground"):
-			pass
-		else:
-			return
-
 	if event.is_action_pressed("toggle_view"):
-		toggle_overhead()
+		if mode != ViewMode.GROUND and not _transitioning and not _fading:
+			toggle_overhead()
 		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("toggle_ground"):
-		toggle_ground()
+		if not _transitioning and not _fading:
+			# If Shift is held, toggle instantly without the cinematic flight.
+			if event is InputEventKey and event.shift_pressed:
+				_instant_ground_toggle()
+			else:
+				toggle_ground()
 		get_viewport().set_input_as_handled()
+		return
+
+	# Everything below belongs to the overhead views. Mid-flight, or standing on the
+	# ground, this node has no other business with the keyboard and mouse.
+	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
 
 	# Planting owns the left button while it is armed, and it comes before the drawing tools because

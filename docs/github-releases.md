@@ -4,6 +4,31 @@ Guided and individual Git, push, draft release and publication steps inside
 Godot. GitHub is the currently implemented hosting provider; the host-neutral
 addon name does not imply Forgejo or other hosting services are supported yet.
 
+## Installing in another project
+
+The addon is now self-contained: its runtime helpers live under
+`addons/github_tools/tools`. Root-level PowerShell commands in this repository
+are compatibility entry points, not installation dependencies.
+See the [addon README](../addons/github_tools/README.md) for installation,
+configuration and archive creation. Copy the included example to your project
+root as `dev-workflow.json`; set the GitHub repository explicitly. Local Git
+needs no hosting setup. Hosting operations require a matching origin.
+Validation and Windows release export require explicit per-project setup;
+missing settings fail with guidance rather than assuming this project's tests
+or export preset. Forgejo remains deferred.
+
+The separate addon archive is produced by
+`addons/github_tools/tools/package-addon.ps1 -Output PATH.zip`. It contains
+only the addon and example settings, not game files or private receipts, and
+does not publish anything. Select licensing terms before public distribution.
+The Windows game export still deliberately excludes editor addons.
+
+`tools/test-addon.ps1 -Godot PATH` verifies the archive installed into an
+unrelated disposable project, local Git, setup errors and the actual
+headless editor's named dock. This acceptance runs in normal validation/CI
+separately from the game-package smoke test. A human walkthrough remains a
+separate usability check.
+
 ## Inside Godot
 
 Enable **Godot Dev Workflow** under **Project > Project Settings > Plugins**.
@@ -14,7 +39,9 @@ The dock has six tabs: **Git** for local commits, **Push** for PRs,
 **Guided workflow** for a question-by-question walkthrough, and **AI adviser**
 for optional advice.
 The version entered in Release is also displayed and used in Publish.
-All tabs share command output, current step/result messages and validation/CI evidence.
+All tabs share command output, current step/result messages and validation/CI
+evidence. Result/evidence text has a bounded scrollable area so long receipts
+do not push the dock's controls outside a narrow viewport.
 
 The individual **Git**, **Push**, **Release** and **Publish** operations use the
 same question dialogs, status refresh, reviewed snapshots, command construction
@@ -141,6 +168,11 @@ the evidence is unavailable, **not passed**. Discovery failures return an error.
 Discovery checks open feature PRs, then exact-head merged PRs if none is open.
 A merged match routes to synchronization approval rather than Push; a
 different-head open PR or ambiguous match stops for reconciliation.
+Clean synchronized main with no matching draft and an exact-commit published
+release returns `published`, not `release`. The guide shows that publication;
+**Done** performs no operation. **Prepare another version** explicitly refreshes
+readiness and asks for an unused version and a separate preparation approval.
+Matching drafts retain precedence, so a deliberate second draft remains resumable.
 When no open PR exists, Evidence queries up to 100 workflow runs for the exact
 commit, keeping the newest run for each workflow name. It exposes raw run
 status/conclusion separately and never converts absent runs into a pass.
@@ -261,8 +293,10 @@ checks for remaining unstaged work before commit and a clean feature branch
 before Push. The individual Git step uses these same scope rules; handle partial
 commits outside this workflow.
 
-**Run local workflow checks** runs the mocked GitHub, disposable Git,
-squash-merge synchronization, package smoke and Godot guide suites.
+**Run local workflow checks** runs the trusted project entry point configured
+by `validation.script`. In this project it runs the mocked GitHub, disposable
+Git, squash-merge synchronization, package smoke, standalone addon/editor
+acceptance and Godot guide suites.
 It saves a private validation receipt tied to the exact local
 branch/HEAD/index and working-file fingerprints, with a UTC timestamp. It is
 not a full game test or a CI run. Changing that snapshot makes the receipt
@@ -395,7 +429,8 @@ synchronization action only fast-forwards local main. Authentication
 uses the existing `gh` CLI login. Run `gh auth login` in a terminal if needed.
 
 Run [tools/github.ps1](../tools/github.ps1) from PowerShell 5.1 or newer.
-It targets `evanmac03/landscaping-planner` on GitHub only. It does not use the
+It targets the GitHub repository in `dev-workflow.json` (this project's setting
+is `evanmac03/landscaping-planner`). It does not use the
 separate os_agent repository's scripts or Forgejo backups.
 
 Prerequisites:

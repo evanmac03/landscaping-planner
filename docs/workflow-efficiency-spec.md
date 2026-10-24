@@ -364,7 +364,7 @@ takeoff's first job is to generalise that to every layer.
 ## 8. One box for the whole bar - BUILT
 
 `scripts/command_palette.gd` (`CommandPalette`) and the HUD's join in `scripts/hud.gd`. Held
-down by `tests/test_command_palette.gd` (19 tests) and `tests/test_hud_palette.gd` (19 tests),
+down by `tests/test_command_palette.gd` (23 tests) and `tests/test_hud_palette.gd` (24 tests),
 and looked at live by `tools/palette_demo.gd`.
 
 The problem it answers is not "I cannot find the command" but "I know its name and not its

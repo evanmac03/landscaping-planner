@@ -25,6 +25,7 @@ const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const DxfWriterScript := preload("res://scripts/draft/dxf_writer.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
+const DistanceEntryScript := preload("res://scripts/draft/distance_entry.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
@@ -226,8 +227,14 @@ var grading_fall_percent: float = 2.0
 var grading_level: float = 0.0
 
 var _last_snap: Dictionary = {}
+## Whether the cursor is snapped at all. True by default: a drawing program that does not snap is
+## one where two points meant to be the same end up a millimetre apart.
+var snapping: bool = true
 
 signal changed()
+## A snapping setting moved: the master switch, one object-snap mode, or one of the constraint
+## toggles. The menu and the snapping page read state on this rather than polling every frame.
+signal snap_changed()
 
 ## The document in hand was *replaced* rather than edited: a drawing was opened, a revision of it was
 ## restored, or a copy of it was recovered. Every holder of a document watches this, because a
@@ -270,6 +277,8 @@ func set_tool(kind: ToolScript.Kind) -> void:
 	# A ground zone is drawn with the polygon tool for one purpose; choosing another tool, or putting
 	# the tools away, drops the purpose with the tool rather than leaving a click meaning two things.
 	zone_hand = false
+	# A typed length belongs to the shape it was going to finish, so a new tool takes it with it.
+	_clear_distance_entry()
 	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
 	_last_snap = {}
@@ -459,6 +468,10 @@ func status() -> String:
 	var text := "%s  ·  %s  ·  %s" % [
 		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
 	]
+	# A typed length is what the hand is doing at this moment, so it stands in front of the shape's own
+	# words rather than behind them: while it is going, it is the thing being watched.
+	if has_distance_entry():
+		text = "%s  ·  %s" % [distance_label(), text]
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
@@ -510,11 +523,186 @@ func _edit_status() -> String:
 	return text
 
 
+# --- snapping -----------------------------------------------------------------------
+#
+# The snap engine has carried ortho, polar, grid and a per-mode switch since it was written, and
+# until now nothing in the program turned any of them on: they were reachable only from a test, so
+# ortho and polar tracking never happened and the manual promised them anyway. This is the surface
+# the snapping page and the menu drive. Every setter says so on `snap_changed` rather than leaving a
+# reader to poll, and every one of them drops the snap lock, so a setting takes effect at once
+# instead of after the hysteresis the engine keeps to stop the cursor flickering.
+
+
+## The snap engine, made on demand: a controller assembled without `_ready` - a test, or the menu's
+## own snapshot - still has one to answer with.
+func _ensure_snap() -> void:
+	if snap == null:
+		snap = SnapScript.new()
+
+
+func is_snapping() -> bool:
+	return snapping
+
+
+func set_snapping(on: bool) -> void:
+	if snapping == on:
+		return
+	snapping = on
+	_snap_setting_changed()
+
+
+func toggle_snapping() -> void:
+	set_snapping(not snapping)
+
+
+## Whether one object-snap mode is live. The mode is a `DraftSnapEngine.Mode`.
+func is_snap_mode(mode: int) -> bool:
+	_ensure_snap()
+	return bool(snap.enabled.get(mode, false))
+
+
+func set_snap_mode(mode: int, on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.enabled.get(mode, false)) == on:
+		return
+	snap.set_enabled(mode, on)
+	_snap_setting_changed()
+
+
+func is_ortho() -> bool:
+	return snap != null and bool(snap.ortho)
+
+
+func set_ortho(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.ortho) == on:
+		return
+	snap.ortho = on
+	_snap_setting_changed()
+
+
+func toggle_ortho() -> void:
+	set_ortho(not is_ortho())
+
+
+func is_polar() -> bool:
+	return snap != null and bool(snap.polar)
+
+
+func set_polar(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.polar) == on:
+		return
+	snap.polar = on
+	_snap_setting_changed()
+
+
+func toggle_polar() -> void:
+	set_polar(not is_polar())
+
+
+func is_grid_snap() -> bool:
+	return snap != null and bool(snap.grid_snap)
+
+
+func set_grid_snap(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.grid_snap) == on:
+		return
+	snap.grid_snap = on
+	_snap_setting_changed()
+
+
+## The grid pitch, in metres. A step that is not a distance is refused rather than clamped.
+func grid_step() -> float:
+	return float(snap.grid_step) if snap != null else 0.0
+
+
+func set_grid_step(metres: float) -> void:
+	if metres <= 0.0:
+		return
+	_ensure_snap()
+	if is_equal_approx(float(snap.grid_step), metres):
+		return
+	snap.grid_step = metres
+	_snap_setting_changed()
+
+
+## How finely polar tracking divides the circle, in degrees.
+func polar_step_degrees() -> float:
+	return float(snap.polar_step_degrees) if snap != null else 0.0
+
+
+func set_polar_step_degrees(degrees: float) -> void:
+	if degrees <= 0.0:
+		return
+	_ensure_snap()
+	if is_equal_approx(float(snap.polar_step_degrees), degrees):
+		return
+	snap.polar_step_degrees = degrees
+	_snap_setting_changed()
+
+
+## Everything the snapping page and the menu report on, as one snapshot.
+func snap_state() -> Dictionary:
+	_ensure_snap()
+	return {
+		"snapping": snapping,
+		"modes": snap.enabled.duplicate(),
+		"ortho": bool(snap.ortho),
+		"polar": bool(snap.polar),
+		"grid": bool(snap.grid_snap),
+		"grid_step": float(snap.grid_step),
+		"polar_step": float(snap.polar_step_degrees),
+	}
+
+
+## One place for what a moved setting costs: the lock goes, so the change is felt at the cursor now
+## rather than after the engine's own hysteresis, and the canvas redraws the marker it is holding.
+func _snap_setting_changed() -> void:
+	_ensure_snap()
+	snap.clear_lock()
+	snap_changed.emit()
+	_refresh_canvas()
+
+
+## The point a pick becomes: the engine's snapped point, or the cursor itself when snapping is
+## switched off. The one place the master switch is consulted, which is why it is a function of its
+## own rather than a condition inside `hover` - a pick can be checked with no canvas in sight.
+##
+## `constrain` is a held Shift: the point is held to the axes from the last one for this pick only,
+## without turning ortho on. An exact object snap still wins, as it does for the ortho setting.
+func _pick_point(
+	world: Vector2,
+	pixels_per_metre: float,
+	previous: Vector2,
+	has_previous: bool,
+	constrain: bool = false
+) -> Dictionary:
+	if not snapping:
+		return _unsnapped(world)
+	_ensure_snap()
+	return snap.resolve(world, pixels_per_metre, previous, has_previous, constrain)
+
+
+## The cursor with nothing done to it: what a pick becomes when snapping is switched off.
+func _unsnapped(point: Vector2) -> Dictionary:
+	if snap != null:
+		snap.clear_lock()
+	return {
+		"point": point, "mode": SnapScript.Mode.NONE, "snapped": false,
+		"label": "", "glyph": "", "entity": 0, "candidates": 0,
+	}
+
+
 # --- picks --------------------------------------------------------------------------
 
 
 ## Follow the cursor: snap it, and refresh the ghost of the shape in progress.
-func hover(screen: Vector2) -> Dictionary:
+##
+## `constrain` is a held Shift - see `_pick_point` - so the marker shows the point that will
+## actually be committed.
+func hover(screen: Vector2, constrain: bool = false) -> Dictionary:
 	if canvas == null:
 		return {}
 	var previous := Vector2.ZERO
@@ -523,9 +711,8 @@ func hover(screen: Vector2) -> Dictionary:
 		# The last picked point, which is what perpendicular and tangent are
 		# measured from, and what ortho and polar track from.
 		previous = Vector2(tool.points()[tool.point_count() - 1])
-	var result: Dictionary = snap.resolve(
-		canvas.screen_to_world(screen), canvas.pixels_per_metre, previous, has_previous
-	)
+	var world: Vector2 = canvas.screen_to_world(screen)
+	var result: Dictionary = _pick_point(world, canvas.pixels_per_metre, previous, has_previous, constrain)
 	cursor_point = result["point"]
 	cursor_snapped = result["snapped"]
 	_last_snap = result
@@ -533,7 +720,9 @@ func hover(screen: Vector2) -> Dictionary:
 	return result
 
 
-func click(screen: Vector2) -> Dictionary:
+## A pick. `constrain` is a held Shift, and it has to be passed on rather than read from the
+## keyboard here: the point that is committed must be the one the marker showed.
+func click(screen: Vector2, constrain: bool = false) -> Dictionary:
 	if canvas == null:
 		return {}
 	if is_editing():
@@ -541,12 +730,124 @@ func click(screen: Vector2) -> Dictionary:
 	if tool.kind == ToolScript.Kind.SELECT:
 		return _select_click(screen)
 	# Snap first, so the point that is committed is the one the marker showed.
-	hover(screen)
+	hover(screen, constrain)
 	var pick: Dictionary = tool.click(cursor_point)
 	if pick.get("committed", false):
 		_commit(pick)
 	_refresh_canvas()
 	return pick
+
+
+# --- direct distance entry ------------------------------------------------------------
+
+
+## The length a person is typing while a shape is in hand: pick the first point, then say how far away
+## the next one is instead of hunting for it with the mouse. One entry at a time, and it is dropped
+## whenever the shape it was measured from goes away - a typed length that outlived its first point
+## would be a length measured from somewhere that is no longer there.
+var distance_entry: DistanceEntry = DistanceEntryScript.new()
+
+
+## Whether a length can be typed right now: a drawing tool in hand with a first point already down.
+## The distance is measured *from* that point, so before it there is nothing to measure from.
+func can_type_distance() -> bool:
+	if not drawing or is_editing() or canvas == null or document == null:
+		return false
+	return tool.point_count() > 0
+
+
+func has_distance_entry() -> bool:
+	return not distance_entry.is_empty()
+
+
+func distance_text() -> String:
+	return distance_entry.text
+
+
+## Take one typed character. Refuses, and says why, rather than swallowing: a number pressed before
+## the first point is a person reaching for this feature a click early, and that is worth answering.
+func type_distance(character: String) -> bool:
+	if not can_type_distance():
+		last_message = "pick the first point, then type how far the next one goes"
+		_refresh_canvas()
+		return false
+	if not distance_entry.type(character):
+		return false
+	last_message = ""
+	_refresh_canvas()
+	return true
+
+
+## Drop the last typed character. False when there was nothing to drop, which is the caller's cue to
+## let the key mean what it meant before.
+func backspace_distance() -> bool:
+	if distance_entry.is_empty():
+		return false
+	distance_entry.backspace()
+	_refresh_canvas()
+	return true
+
+
+## Put the typed length away and keep the shape in hand.
+func cancel_distance() -> bool:
+	if distance_entry.is_empty():
+		return false
+	_clear_distance_entry()
+	last_message = "the typed length is off"
+	_refresh_canvas()
+	return true
+
+
+## What the typed entry says on the status line: the length in the drawing's own words, and the key
+## that places it. A half-typed or impossible entry reads as what is wrong with it instead, so the line
+## is never a number with no meaning standing in front of the shape.
+func distance_label() -> String:
+	if distance_entry.is_empty():
+		return ""
+	var words := distance_entry.describe(document.units)
+	if document.units != null and distance_entry.problem(document.units) != "":
+		# Nothing may be placed yet, so the line does not offer the key that would refuse.
+		return words
+	return "%s   %s places it" % [words, action_key_label(&"draft_finish")]
+
+
+## Place the point the typed length names.
+##
+## The point is **exact**: it is not put back through the snap engine, because a length that came back
+## as the grid's nearest cell would not be the length that was typed. The *direction* is the cursor's,
+## so ortho, polar and the object snaps have already had their say by the time we get here - and the
+## direction being degenerate is refused with words rather than placed on top of the last point.
+func commit_distance() -> Dictionary:
+	if not can_type_distance():
+		return {}
+	var complaint := distance_entry.problem(document.units)
+	if complaint != "":
+		last_message = complaint
+		_refresh_canvas()
+		return {}
+	var from := Vector2(tool.points()[tool.point_count() - 1])
+	var run := distance_entry.direction(from, cursor_point)
+	if run == Vector2.ZERO:
+		last_message = "point the cursor the way the length runs, or type the angle after <"
+		_refresh_canvas()
+		return {}
+	var at: Vector2 = from + run * distance_entry.metres(document.units)
+	# `said` is already the drawing's status history, so the words for this point get a name of their own.
+	var as_typed := distance_entry.describe(document.units)
+	_clear_distance_entry()
+	cursor_point = at
+	cursor_snapped = false
+	_last_snap = {}
+	var pick: Dictionary = tool.click(at)
+	if pick.get("committed", false):
+		_commit(pick)
+	last_message = "placed %s" % as_typed
+	_refresh_canvas()
+	return pick
+
+
+func _clear_distance_entry() -> void:
+	distance_entry.clear()
 
 
 func finish() -> Dictionary:
@@ -573,6 +874,7 @@ func undo_point() -> bool:
 
 func cancel() -> void:
 	tool.cancel()
+	_clear_distance_entry()
 	# Escape backs out of a half-made edit - the first line of a fillet, the shape
 	# picked to offset - without putting the command itself away.
 	_edit_picked = []
@@ -3047,6 +3349,7 @@ func _refresh_canvas() -> void:
 	canvas.snap = {
 		"snapped": cursor_snapped,
 		"point": cursor_point,
+		"mode": int(_last_snap.get("mode", 0)),
 		"label": String(_last_snap.get("label", "")),
 	}
 	var preview = tool.preview(cursor_point)
