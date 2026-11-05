@@ -17,8 +17,11 @@ const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 ## The window was closed by its own close button.
 signal closed()
 
-## Wide enough for a snap's name and its checkbox in one column, and shorter than the 900-pixel
-## screen the other pages are sized for once the window's own title bar is counted.
+## Wide enough for a snap's name and its checkbox in one column, and shorter than the 900-pixel screen
+## the other pages are sized for once the window's own title bar is counted. 600 is this page's own
+## number and the one it goes back to: the switches and their captions came to 627 while every line here
+## was hand-built, which is why it spent a while at 640, and they come to 596 now that the captions, the
+## headings and the status line are the shared chrome's.
 const SIZE := Vector2i(560, 600)
 const CAPTION_MODES := "what the cursor will snap to"
 const CAPTION_HOLD := "how it is held straight"
@@ -62,11 +65,7 @@ func _ready() -> void:
 func build() -> void:
 	if _column != null:
 		return
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 4)
-	add_child(_column)
+	_column = PageChrome.column(self, 4)
 
 	_master = CheckButton.new()
 	_master.name = "SnapToggle"
@@ -75,7 +74,7 @@ func build() -> void:
 	_master.toggled.connect(_on_master_toggled)
 	_column.add_child(_master)
 
-	_column.add_child(_heading(CAPTION_MODES))
+	_column.add_child(PageChrome.subheading(CAPTION_MODES))
 	for snap_mode: int in mode_order():
 		var box := CheckBox.new()
 		box.name = "Mode%s" % String(mode_label(snap_mode)).capitalize()
@@ -85,7 +84,7 @@ func build() -> void:
 		_column.add_child(box)
 		_modes[snap_mode] = box
 
-	_column.add_child(_heading(CAPTION_HOLD))
+	_column.add_child(PageChrome.subheading(CAPTION_HOLD))
 	_ortho = CheckBox.new()
 	_ortho.name = "Ortho"
 	_ortho.text = "Ortho: hold to the axes from the last point"
@@ -105,7 +104,7 @@ func build() -> void:
 	for degrees: float in POLAR_STEPS:
 		_polar_step.add_item("%d°" % int(degrees))
 	_polar_step.item_selected.connect(_on_polar_step_selected)
-	_column.add_child(_labelled("every", _polar_step))
+	_column.add_child(PageChrome.labelled("every", _polar_step))
 
 	_grid = CheckBox.new()
 	_grid.name = "GridSnap"
@@ -123,23 +122,18 @@ func build() -> void:
 	_grid_step.step = 0.05
 	_grid_step.suffix = " m"
 	_grid_step.value_changed.connect(_on_grid_step_changed)
-	_column.add_child(_labelled("grid pitch", _grid_step))
+	_column.add_child(PageChrome.labelled("grid pitch", _grid_step))
 
 	var run_row := HBoxContainer.new()
 	run_row.name = "RunRow"
 	run_row.add_theme_constant_override("separation", 6)
 	_column.add_child(run_row)
-	var close_button := Button.new()
+	var close_button := PageChrome.button("Close")
 	close_button.name = "Close"
-	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_requested)
 	run_row.add_child(close_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 48)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 
 	refresh()
@@ -311,17 +305,3 @@ func _select_polar_step(degrees: float) -> void:
 		_polar_step.select(index)
 
 
-func _heading(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	return label
-
-
-func _labelled(text: String, field: Control) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
-	label.text = text
-	row.add_child(label)
-	row.add_child(field)
-	return row

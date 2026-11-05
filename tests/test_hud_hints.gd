@@ -26,7 +26,7 @@ func _controller():
 	return controller
 
 
-## What the polyline is telling the drawer to press.
+## What the polyline is saying about itself while it is in hand.
 func _polyline_status() -> String:
 	var tool = Tool.new()
 	tool.begin(Tool.Kind.POLYLINE)
@@ -189,19 +189,102 @@ func test_the_legend_covers_every_drafting_action_exactly() -> void:
 # --- the drawing's own prompts --------------------------------------------------------
 
 
-## The polyline's prompt tells the drawer to press C to close the shape. It did so
-## while nothing listened for C: the tool could close a shape, the command was
-## tested, and the key that was supposed to reach it was never wired up. A prompt
-## is a promise, and this is the binding that keeps it.
-func test_the_key_the_polyline_names_for_closing_is_bound() -> void:
-	assert(_polyline_status().contains("C to close"))
-	assert(Hud._key_label(&"draft_close") == "C")
+## The polyline's prompt must promise no key at all, and the line drawn beside it must name the ones that
+## really answer the tool.
+##
+## The prompt once read "Enter to finish, C to close" while nothing listened for C: the tool could close a
+## shape, the command was tested, and the key that was meant to reach it was never wired up. A key written
+## into a string is a promise that goes stale the moment a binding moves. So the prompt says nothing, the
+## bindings say it, and this pair of assertions is what holds the two halves apart.
+func test_the_polyline_prompt_promises_no_key_and_the_bindings_name_them() -> void:
+	var prompt := _polyline_status()
+	assert(prompt.contains("Specify the next point"), prompt)
+	assert(not prompt.contains(Hud._key_label(&"draft_close")), prompt)
+	assert(not prompt.to_lower().contains("enter"), prompt)
+	assert(Hud._key_label(&"draft_close") == "C", "the close key is still C")
+	assert(Hud._key_label(&"draft_finish") == "Enter", "and the finish key is still Enter")
 
 
-## And the key it names for finishing, likewise.
-func test_the_key_the_polyline_names_for_finishing_is_bound() -> void:
-	assert(_polyline_status().contains("Enter to finish"))
-	assert(Hud._key_label(&"draft_finish") == "Enter")
+## The line at the foot of the screen offers a ring of points - the polyline, and the contour that is a
+## polyline landing on a grading layer - the three keys that end it, and the key that cancels it.
+func test_a_tool_that_collects_points_until_told_to_stop_is_offered_its_keys() -> void:
+	var keys := Hud.hand_keys(Tool.Kind.POLYLINE, false)
+	assert(keys.contains("%s: finish" % Hud._key_label(&"draft_finish")), keys)
+	assert(keys.contains("%s: close" % Hud._key_label(&"draft_close")), keys)
+	assert(keys.contains("%s: drop a point" % Hud._key_label(&"draft_undo_point")), keys)
+	assert(keys.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), keys)
+
+
+## A line takes two picks and is finished by the second of them. It has no last point to drop and no shape
+## to close, so offering it those keys would be the legend-that-lies defect in miniature - and this is the
+## line a person reads with their hand already busy, which is the worst place to be told about a key that
+## does nothing.
+func test_a_tool_that_ends_by_its_own_picks_is_not_offered_the_keys_that_end_a_ring() -> void:
+	var keys := Hud.hand_keys(Tool.Kind.LINE, false)
+	assert(not keys.contains(Hud._key_label(&"draft_finish")), keys)
+	assert(not keys.contains(Hud._key_label(&"draft_close")), keys)
+	assert(not keys.contains(Hud._key_label(&"draft_undo_point")), keys)
+	assert(keys.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), keys)
+
+
+## A measurement is the other tool that ends by key rather than by a pick, because its answer is the pair
+## of picks it has already taken; a rectangle never does.
+func test_a_measurement_is_finished_by_key_where_a_rectangle_is_not() -> void:
+	assert(Hud.hand_keys(Tool.Kind.MEASURE, false).contains(Hud._key_label(&"draft_finish")))
+	assert(not Hud.hand_keys(Tool.Kind.RECTANGLE, false).contains(Hud._key_label(&"draft_finish")))
+
+
+## An editing command is cancelled and never finished: there is no half-drawn shape to end or to close.
+func test_an_editing_command_is_offered_only_the_key_that_cancels_it() -> void:
+	assert(
+		Hud.hand_keys(Tool.Kind.POLYLINE, true) == "%s: cancel" % Hud._key_label(&"draft_cancel"),
+		Hud.hand_keys(Tool.Kind.POLYLINE, true),
+	)
+
+
+## The line reads as the tool's own words and then the keys that answer them, in that order, so a person
+## reads what is being asked for before what to press.
+func test_the_line_at_the_foot_reads_as_the_prompt_and_then_its_keys() -> void:
+	var line := Hud.hand_hints(
+		"Line  ·  Specify the second point", Hud.hand_keys(Tool.Kind.LINE, false)
+	)
+	assert(line.begins_with("Line  ·  Specify the second point"), line)
+	assert(line.ends_with("%s: cancel" % Hud._key_label(&"draft_cancel")), line)
+
+
+## The line the layout check measures the bottom panel against: the longest prompt any tool can be in,
+## under its own name, with that tool's keys beside it.
+func test_the_longest_line_the_foot_can_be_asked_to_carry_names_its_tool_and_its_keys() -> void:
+	var worst := Hud.worst_hint_line()
+	assert(worst.contains("Polyline"), worst)
+	assert(worst.contains("%s: close" % Hud._key_label(&"draft_close")), worst)
+
+
+# --- the instruction and the report are two different lines ---------------------------
+
+
+## What the tool in hand is waiting for is the instruction, and the layer it is drawing on is not part of
+## it: the palette's own row is on screen at the same moment and says which layer that is.
+func test_the_instruction_does_not_repeat_the_layer_the_palette_already_shows() -> void:
+	var controller = _controller()
+	controller.arm(Tool.Kind.LINE)
+	controller.tool.layer = LayerSet.NEW_HARDSCAPE
+	var prompt: String = controller.prompt()
+	assert(prompt.contains("Specify the first point"), prompt)
+	assert(not prompt.contains(String(LayerSet.NEW_HARDSCAPE)), prompt)
+	controller.free()
+
+
+## The last thing the drawing said is a report rather than an instruction, so it is not on the prompt:
+## a refusal left on the foot line would go on hiding what the tool in hand is waiting for.
+func test_what_the_drawing_last_said_is_a_report_and_not_the_instruction() -> void:
+	var controller = _controller()
+	controller.arm(Tool.Kind.LINE)
+	controller.last_message = "placed a line 2.50 m long"
+	assert(controller.status_report() == "placed a line 2.50 m long", controller.status_report())
+	assert(not controller.prompt().contains("placed a line"), controller.prompt())
+	assert(controller.status().contains("placed a line"), "the status line still carries it")
+	controller.free()
 
 
 # --- shape of the block --------------------------------------------------------------

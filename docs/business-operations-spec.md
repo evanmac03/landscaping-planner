@@ -1043,6 +1043,15 @@ The rules, carried over from the landscape side of the app because they are righ
 
 - **Nothing takes the keyboard unless it is typed into.** Text and number fields take focus; buttons
   and grids do not; Escape leaves a mode and never commits a number. (The HUD's own lesson.)
+- **A page in a `Window` may take the keyboard, because it already has it.** A page is a viewport
+  of its own and holds the keyboard while it is up, so the drawing behind it sees no key at all
+  until the page closes. That is measured, not assumed: `tools/page_keyboard_probe.tscn` presses
+  real keys and reports which view the drawing ended up in with a page up, with a control inside
+  that page focused, and again once the page is gone. The rule above is about the drawing's own
+  surface, where the keys are the tools' and every button stays focus-free; it is not a rule about
+  a page. **`PageChrome.takes_the_keyboard` is the one place it is applied**, and
+  `PageChrome.show_centred` is what calls it, so every page's controls are reachable with Tab in
+  the same way - and a dialog inside a page keeps its own keyboard.
 - **A grid is the one place focus is legitimate**, so the estimate grid is a focusable grid with an
   explicit Escape that discards the cell and a visible cursor - and its arrow-key editing must not
   steal the mode's Escape.

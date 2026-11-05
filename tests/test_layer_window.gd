@@ -104,7 +104,10 @@ func test_a_search_that_finds_nothing_says_so_and_acts_on_nothing() -> void:
 	controller.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard_but_the_search_box() -> void:
+## The page *builds* only its search box with a keyboard of its own; every other control is made without
+## one, which is this project's rule for a control. What an *open* page does with the keyboard is decided
+## once, in `PageChrome.takes_the_keyboard`, so this asserts the building and not the showing.
+func test_the_page_builds_only_its_search_box_with_a_keyboard() -> void:
 	var controller := _controller()
 	var page: WindowScript = WindowScript.new()
 	page.build()

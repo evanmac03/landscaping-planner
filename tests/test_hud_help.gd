@@ -30,12 +30,13 @@ func _entry(id: StringName) -> Dictionary:
 func test_the_help_menu_offers_the_palette_the_manual_then_the_keys() -> void:
 	# The palette comes first because it is the shortest way to *any* command, including the ones
 	# that are not in this menu - it is the commands themselves rather than prose about them. The
-	# manual comes next, and the key reference last.
+	# manual comes next, then the key reference, and last the door from the page you have open: the
+	# narrowest way in, so it goes after the ways that reach everything.
 	var ids: Array[String] = []
 	for entry: Dictionary in HudScript.items_for("Help"):
 		ids.append(String(entry.get("id", "")))
-	var expected: Array[String] = ["help.palette", "help.manual", "help.keys"]
-	assert(ids == expected, "the palette, then the manual, then the keys")
+	var expected: Array[String] = ["help.palette", "help.manual", "help.keys", "help.this_page"]
+	assert(ids == expected, "the palette, then the manual, then the keys, then this page")
 
 
 func test_the_manual_reaches_nothing_in_the_scene_it_is_opened_from() -> void:

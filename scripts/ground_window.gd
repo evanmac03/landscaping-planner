@@ -2,9 +2,10 @@ class_name GroundWindow
 extends Window
 ## What the ground is like: the site's own conditions, and the conditions of each area of the plan.
 ##
-## A `Window`, like the plant library, and for the same reason: `Root` is built focus-free so nothing
-## in this HUD can take the drawing keys, and a window is the one boundary at which controls are
-## allowed to hold the keyboard. This one has dropdowns in it, so it has to be that kind of thing.
+## A `Window`, like the plant library, and for the same reason: a window is the one boundary at which
+## controls are allowed to hold the keyboard, and this one has dropdowns in it. Everything here is built
+## through the shared chrome, which makes a control without a keyboard of its own; what the *open* page
+## does with the keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## ## Why a window rather than the menu it replaced
 ##
@@ -29,8 +30,6 @@ extends Window
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
-
-## The ground changed, or an area was stated or unstated: the borders and the Site menu are stale.
 
 ## The ground changed, or an area was stated or unstated: the borders and the Site menu are stale.
 signal ground_changed()
@@ -87,11 +86,9 @@ func _ready() -> void:
 func build() -> void:
 	if _area_list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	var column := PageChrome.scrolling_column(self)
 
 	column.add_child(_heading("The whole site"))
 	var site := VBoxContainer.new()
@@ -107,7 +104,7 @@ func build() -> void:
 		+ "ground is like there, and a check that guessed would be inventing a garden."
 	))
 
-	column.add_child(_separator())
+	column.add_child(PageChrome.separator())
 	column.add_child(_heading("Areas on the plan"))
 	column.add_child(_note(
 		"Every bed, lawn, paving and building the drawing encloses, and any ground zone you have "
@@ -123,10 +120,8 @@ func build() -> void:
 	_area_list.item_selected.connect(_on_area_selected)
 	column.add_child(_area_list)
 
-	_area_status = Label.new()
+	_area_status = PageChrome.text()
 	_area_status.name = "AreaStatus"
-	_area_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_area_status.custom_minimum_size = Vector2(0, 34)
 	column.add_child(_area_status)
 
 	var area_editor := VBoxContainer.new()
@@ -145,7 +140,7 @@ func build() -> void:
 	area_actions.add_child(_button("State these conditions", "_on_state_area"))
 	area_actions.add_child(_button("Take them back", "_on_clear_area"))
 
-	column.add_child(_separator())
+	column.add_child(PageChrome.separator())
 	var actions := HBoxContainer.new()
 	actions.name = "Actions"
 	actions.add_theme_constant_override("separation", 6)
@@ -153,63 +148,51 @@ func build() -> void:
 	actions.add_child(_button("Read the ground from the drawing", "_on_read_drawing"))
 	actions.add_child(_button("Check the planting", "_on_check_planting"))
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 44)
+	_status = PageChrome.status()
 	column.add_child(_status)
 
 
+## A heading inside the page. Its size is the shared chrome's; the name is still the page's own, because
+## two headings under one name are two controls a reader cannot tell apart.
 func _heading(words: String) -> Label:
-	var label := Label.new()
+	var label := PageChrome.subheading(words)
 	label.name = "Heading%s" % words.replace(" ", "")
-	label.text = words
-	label.add_theme_font_size_override("font_size", 15)
 	return label
 
 
+## A sentence explaining a part of the page, in the chrome's own note size and colour.
 func _note(words: String) -> Label:
-	var label := Label.new()
+	var label := PageChrome.note(words)
 	label.name = "Note%s" % str(words.hash())
-	label.text = words
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.modulate = Color(0.75, 0.76, 0.78)
-	label.add_theme_font_size_override("font_size", 11)
 	return label
 
 
-func _separator() -> HSeparator:
-	var line := HSeparator.new()
-	line.name = "Separator%d" % get_child_count()
-	return line
-
-
+## A button wired to one of this page's own methods by name, made by the shared chrome so that its
+## caption and what it does with the keyboard are the project's rather than this page's.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
-	button.name = words.replace(" ", "")
-	button.text = words
-	button.pressed.connect(Callable(self, method))
-	return button
+	var made := PageChrome.button(words)
+	made.pressed.connect(Callable(self, method))
+	return made
 
 
-## One attribute as a label, a dropdown and a unit word. The dropdown's item order **is** the order
-## of `values_for`, because the option's index is what a choice is read back by.
+## One attribute as a caption and a dropdown. The dropdown's item order **is** the order of `values_for`,
+## because the option's index is what a choice is read back by.
+##
+## The row is the shared chrome's, named by the page afterwards because `SunRow`, `MoistureRow` and the
+## rest are how this window reads its own controls back. The caption is given one width so the five
+## dropdowns line up under each other rather than each starting where its own words happen to end - and
+## it is found by the name the chrome gives it, which is what the chrome promises.
 func _attribute_row(key: String, method: String) -> Dictionary:
-	var row := HBoxContainer.new()
-	row.name = "%sRow" % key.capitalize()
-	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
-	label.name = "Label"
-	label.text = String(TerrainProfileScript.KEY_LABELS.get(key, key))
-	label.custom_minimum_size = Vector2(110, 0)
-	row.add_child(label)
 	var option := OptionButton.new()
 	option.name = "Option"
 	option.custom_minimum_size = Vector2(220, 0)
 	for value: Variant in values_for(key):
 		option.add_item(text_for(key, value))
 	option.item_selected.connect(_on_option_chosen.bind(key, method))
-	row.add_child(option)
+	var row := PageChrome.labelled(String(TerrainProfileScript.KEY_LABELS.get(key, key)), option)
+	row.name = "%sRow" % key.capitalize()
+	var words: Label = row.get_node(^"Caption")
+	words.custom_minimum_size = Vector2(110, 0)
 	return {"row": row, "option": option}
 
 
@@ -518,12 +501,6 @@ func _on_site_changed(_key: String) -> void:
 	refresh()
 
 
-## An area's dropdown was changed. **Nothing is stated yet**, and that is the design: the site's
-## conditions are one statement each and apply as they are chosen, while an area's four attributes are
-## set and then committed together by the button below them - one commit is one undo step, rather than
-## four, and a designer changing their mind about the light does not put three zones in the history.
-##
-## What this does is say what is about to be stated, so the line above the boxes is never stale.
 ## An area's dropdown was changed: state it now, the same way the site's conditions are stated.
 ##
 ## Applied as they are chosen rather than held back until a button is pressed, because the ground a

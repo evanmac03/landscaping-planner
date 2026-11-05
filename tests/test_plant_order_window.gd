@@ -108,9 +108,9 @@ func test_building_the_page_takes_it_off_the_screen() -> void:
 func test_building_the_page_twice_builds_it_once() -> void:
 	var page: WindowScript = WindowScript.new()
 	page.build()
-	var first: Control = page.get_node("Column") as Control
+	var first: Control = page.get_node("Scroll/Column") as Control
 	page.build()
-	assert(page.get_node("Column") == first, "the same column, not a second one")
+	assert(page.get_node("Scroll/Column") == first, "the same column, not a second one")
 	assert(page.get_child_count() == 1, "and one child: %d" % page.get_child_count())
 	page.free()
 
@@ -124,7 +124,7 @@ func test_the_page_has_the_controls_a_page_like_this_has() -> void:
 	page.free()
 
 
-func test_nothing_on_the_page_takes_a_key_except_the_nursery_field() -> void:
+func test_only_the_nursery_field_is_built_with_a_keyboard_of_its_own() -> void:
 	var page: WindowScript = WindowScript.new()
 	page.build()
 	assert(page.rows_are_keyboard_free(), "the buttons and the lists take no key")

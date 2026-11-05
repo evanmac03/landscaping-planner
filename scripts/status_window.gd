@@ -62,69 +62,42 @@ func _ready() -> void:
 func build() -> void:
 	if _list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self)
 
-	column.add_child(_heading("What just happened"))
+	column.add_child(PageChrome.heading("What just happened"))
 
-	var explanation := _label(column, "Explanation", EXPLANATION)
-	explanation.add_theme_color_override("font_color", Color(0.78, 0.8, 0.72))
+	var explanation := PageChrome.note(EXPLANATION)
+	explanation.name = "Explanation"
+	column.add_child(explanation)
 
-	_count = _label(column, "Count", "")
+	_count = PageChrome.text()
+	_count.name = "Count"
+	column.add_child(_count)
 
 	var list := ItemList.new()
 	list.name = "Lines"
-	# Sentences to read, not a list to drive: single selection so nothing is highlighted as a choice, and
-	# no focus so the arrow keys stay with the drawing.
+	# Sentences to read, not a list to drive: single selection so nothing is highlighted as a choice. It is
+	# built without a keyboard of its own, like everything else on a page; the shared show is what gives it
+	# one while the page is open.
 	list.select_mode = ItemList.SELECT_SINGLE
 	list.focus_mode = Control.FOCUS_NONE
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(list)
 	_list = list
 
-	_hint = _label(column, "Hint", "")
-	_hint.add_theme_color_override("font_color", Color(0.68, 0.72, 0.62))
+	_hint = PageChrome.hint()
+	column.add_child(_hint)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
-	buttons.alignment = BoxContainer.ALIGNMENT_END
+	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
-	var close_button := _button(buttons, "Close")
+	var close_button := PageChrome.button("Close")
 	close_button.pressed.connect(_on_close_pressed)
+	buttons.add_child(close_button)
 
-	_status = _label(column, "Status", "")
-	_status.add_theme_color_override("font_color", Color(0.72, 0.76, 0.68))
-
-
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading"
-	label.text = words
-	label.add_theme_font_size_override("font_size", 20)
-	return label
-
-
-func _label(parent: Node, node_name: String, words: String) -> Label:
-	var label := Label.new()
-	label.name = node_name
-	label.text = words
-	label.add_theme_font_size_override("font_size", 12)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size = Vector2(300.0, 0.0)
-	parent.add_child(label)
-	return label
-
-
-func _button(parent: Node, words: String) -> Button:
-	var button := Button.new()
-	button.name = words.replace(" ", "") + "Button"
-	button.text = words
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(button)
-	return button
+	# No height is reserved for the status line, deliberately: a page that reserves room whether or not it
+	# has anything to say is a page asking for space it is not using.
+	_status = PageChrome.status()
+	column.add_child(_status)
 
 
 func _on_close_pressed() -> void:
@@ -262,8 +235,9 @@ func count_text() -> String:
 	return _count.text if _count != null else ""
 
 
-## Nothing inside the rows takes the keyboard: they are sentences to read, not a list to drive. Whether
-## the page keeps the reader's keys to itself is what decides whether Escape reaches it at all.
+## The rows are built without a keyboard of their own, like every control on a page: they are sentences to
+## read rather than a list to drive. What the *open* page does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`, and not here.
 func rows_are_keyboard_free() -> bool:
 	build()
 	return _list.focus_mode == Control.FOCUS_NONE

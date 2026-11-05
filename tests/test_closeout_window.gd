@@ -47,7 +47,28 @@ func test_the_page_has_the_controls_a_page_about_finishing_a_job_has() -> void:
 	assert(page.min_size == PageScript.SIZE)
 	assert(page.row_count() == 0, "no items on a job nothing has been said about")
 	assert(page.claim_row_count() == 0)
-	assert(page.buttons_are_focus_free(), "no button takes the keyboard from the drawing")
+	assert(page.buttons_are_focus_free(), "no button is built with a keyboard of its own")
+	_free(page)
+
+
+## A row the page builds **while it is open** is reachable too. The shared show gave the page its
+## keyboard when it was opened, before any item row existed, so the rebuild is what gives the new
+## controls theirs - and the page does that only while it is up, because for a page that is down the
+## show is the one place that decides it.
+func test_a_row_built_while_the_page_is_open_is_reachable() -> void:
+	var pair: Array = _set_up()
+	var page: CloseoutWindow = pair[0]
+	add_child(page)
+	page.show()
+	page.set_item_fields("back patio", "loose paving", "", "Ann")
+	page._on_raise()
+	assert(page.row_count() == 1, "the item was raised and its row built")
+	var row: Node = page.get_node(^"Scroll/Column/Items").get_child(0)
+	var acts := 0
+	for found: Node in row.find_children("*", "Button", true, false):
+		assert((found as Control).focus_mode == Control.FOCUS_ALL, "and it can be reached with Tab")
+		acts += 1
+	assert(acts == 4, "the four acts beside an item: %d" % acts)
 	_free(page)
 
 

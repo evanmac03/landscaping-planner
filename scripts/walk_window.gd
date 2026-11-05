@@ -5,7 +5,8 @@ extends Window
 ##
 ## A `Window` like the other pages, for the same two reasons they are: it has a list a person reads
 ## and buttons they press, and a `Window` owns its own input, so nothing here can take the drawing's
-## keys. Every button is `FOCUS_NONE`.
+## keys. Every control is built through the shared chrome, which makes it without a keyboard of its own;
+## what the page does with the keyboard while it is *open* is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## The page holds no arithmetic. The route - its stops, its dwells, its duration - is `WalkRoute`'s,
 ## and the clock and the one camera transform are `VisWalkDirector`'s. What this page is, is the
@@ -62,58 +63,43 @@ func _ready() -> void:
 func build() -> void:
 	if _column != null:
 		return
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	_column = PageChrome.column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 
-	_column.add_child(_heading(CAPTION))
+	_column.add_child(PageChrome.subheading(CAPTION))
 	_stops = ItemList.new()
 	_stops.name = "Stops"
+	# Built without a keyboard of its own, like everything else on a page; the shared show gives it one
+	# while the page is open.
 	_stops.focus_mode = Control.FOCUS_NONE
 	_stops.custom_minimum_size = Vector2(0, 160)
 	_column.add_child(_stops)
 
-	var run_row := HBoxContainer.new()
-	run_row.name = "RunRow"
-	run_row.add_theme_constant_override("separation", 6)
+	var run_row := PageChrome.button_row()
 	_column.add_child(run_row)
-	_play = Button.new()
+	_play = PageChrome.button("Walk it")
 	_play.name = "Play"
-	_play.focus_mode = Control.FOCUS_NONE
-	_play.text = "Walk it"
 	_play.pressed.connect(_on_play_pressed)
 	run_row.add_child(_play)
-	_stop_button = Button.new()
+	_stop_button = PageChrome.button("Stop")
 	_stop_button.name = "Stop"
-	_stop_button.focus_mode = Control.FOCUS_NONE
-	_stop_button.text = "Stop"
 	_stop_button.pressed.connect(_on_stop_pressed)
 	run_row.add_child(_stop_button)
-	var restart_button := Button.new()
+	var restart_button := PageChrome.button("From the top")
 	restart_button.name = "Restart"
-	restart_button.focus_mode = Control.FOCUS_NONE
-	restart_button.text = "From the top"
 	restart_button.pressed.connect(_on_restart_pressed)
 	run_row.add_child(restart_button)
-	var close_button := Button.new()
+	var close_button := PageChrome.button("Close")
 	close_button.name = "Close"
-	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_requested)
 	run_row.add_child(close_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 44)
+	# No height is reserved for the status line: the shared status line carries no minimum, and a page that
+	# reserves room whether or not it has anything to say is a page asking for space it is not using.
+	_status = PageChrome.status()
 	_column.add_child(_status)
 
 	refresh()
@@ -323,9 +309,3 @@ func _update_buttons() -> void:
 	var walkable: bool = route != null and route.refusal() == ""
 	_play.disabled = not walkable or is_playing()
 	_stop_button.disabled = not is_playing()
-
-
-func _heading(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	return label

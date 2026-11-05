@@ -8,6 +8,9 @@ extends Node
 ## brings the game up once and calls `run()` on each check in turn. The two check scripts expose that
 ## function for exactly this reason; their own scenes are a smaller version of this file.
 ##
+## Three of them bring nothing up themselves: the page layout check builds pages, not the game, and the
+## resource walk never starts one. That is the point of calling them here instead.
+##
 ##     res://tools/audit.tscn
 ##
 ## Read the table at the end. `AUDIT: all checks passed` is the line to look for; anything else names
@@ -17,6 +20,7 @@ extends Node
 const MAIN := preload("res://scenes/main.tscn")
 const LayoutCheck := preload("res://tools/hud_layout_check.gd")
 const PlantCheck := preload("res://tools/plant_scene_check.gd")
+const PageCheck := preload("res://tools/page_layout_check.gd")
 
 ## How long the game is given to lay itself out and read its own scene before anything is measured.
 const SETTLING_FRAMES := 5
@@ -39,6 +43,7 @@ func _ready() -> void:
 	# and not awaited; the layout check is a coroutine and has to be.
 	rows.append(PlantCheck.run(main))
 	rows.append(await LayoutCheck.run(main, get_tree()))
+	rows.append(await PageCheck.run(get_tree()))
 	rows.append(_resources_load())
 
 	print("")

@@ -177,6 +177,77 @@ func test_an_image_object_is_the_samples_it_was_given() -> void:
 	assert(text.contains("stream"), "and carries a stream")
 
 
+func test_the_still_gives_up_room_when_the_page_carries_photographs() -> void:
+	# A proposal also answers "what is on site now?", and the photographs that answer it take a strip of
+	# paper along the foot of the drawing area: the plan gives up the room rather than having pictures
+	# pasted over it, because the drawing is what the page is for.
+	var bare: Dictionary = Page.layout(A3, Vector2i(1600, 900))
+	var with_photos: Dictionary = Page.layout(A3, Vector2i(1600, 900), {"photos": [{}, {}]})
+	var strip: Rect2 = with_photos["photos_mm"]
+	assert(strip.size.x > 0.0 and strip.size.y > 0.0, "there is a strip: %s" % strip)
+	assert(
+		with_photos["still_mm"].size.y < bare["still_mm"].size.y,
+		"the picture gave up height for it: %s vs %s" % [with_photos["still_mm"], bare["still_mm"]]
+	)
+	assert(with_photos["still_mm"].position.y >= strip.end.y, "and its foot is above the photographs' strip")
+	assert(
+		strip.position.y >= with_photos["title_mm"].end.y,
+		"the strip lies above the title block, not over it"
+	)
+	assert(
+		with_photos["area_mm"].position.y >= strip.end.y,
+		"and the drawing area begins above the strip"
+	)
+	assert(bare["photos_mm"].size.y == 0.0, "a page with no photographs reserves no paper for them")
+
+
+func test_a_page_shows_three_photographs_and_says_how_many_it_left_out() -> void:
+	var strip := Rect2(Vector2(10.0, 10.0), Vector2(394.0, Page.PHOTO_STRIP_MM))
+	var laid: Dictionary = Page.photo_bands(5, strip)
+	assert(int(laid["shown"]) == Page.PHOTO_MAX, "three fit a page")
+	assert(int(laid["dropped"]) == 2, "and two are left out, which is what the page then says in words")
+	var bands: Array = laid["bands"]
+	assert(bands.size() == Page.PHOTO_MAX, "three bands")
+	var first: Rect2 = bands[0]
+	var second: Rect2 = bands[1]
+	assert(first.end.x <= second.position.x, "the bands do not overlap: %s and %s" % [first, second])
+	assert(is_equal_approx(first.size.x, second.size.x), "and are the same width")
+	assert(strip.encloses(first), "each sits inside the strip")
+	# One photograph is one slot, centred, and never stretched across the whole strip: a slot wider than its
+	# picture is paper doing nothing.
+	var lone: Dictionary = Page.photo_bands(1, strip)
+	assert(int(lone["shown"]) == 1 and int(lone["dropped"]) == 0, "one photograph, nothing dropped")
+	var solo: Rect2 = lone["bands"][0]
+	assert(solo.size.x <= Page.PHOTO_SLOT_MAX_MM + 0.01, "a slot is no wider than a photograph: %s" % solo)
+	assert(solo.size.x < strip.size.x, "and it does not pretend to fill a strip it does not need")
+	assert(
+		absf((solo.position.x - strip.position.x) - (strip.end.x - solo.end.x)) < 0.5,
+		"so the row is centred in the strip"
+	)
+	# No strip at all is no bands, and the count is still stated so nothing disappears silently.
+	var nowhere: Dictionary = Page.photo_bands(2, Rect2())
+	assert(int(nowhere["dropped"]) == 2, "a page with no room drops both and says so")
+
+
+func test_the_pdf_carries_one_image_per_photograph() -> void:
+	var photos: Array = [
+		{"image": _still(40, 30, Color(0.8, 0.2, 0.2)), "caption": "Thyme by the gate"},
+		{"image": _still(40, 30, Color(0.2, 0.8, 0.2)), "caption": "The bed along the fence"},
+	]
+	var pdf: PackedByteArray = Page.build_pdf(_still(), A3, {}, {"photos": photos})
+	assert(not pdf.is_empty(), "a page was written")
+	# The images' own streams hold NUL bytes, which truncate `get_string_from_utf8` at the first one - so
+	# the evidence is read from the content stream, which is written before them, and never by counting
+	# what a truncated string happens to contain.
+	var text := pdf.get_string_from_utf8()
+	assert(text.contains("/Im1 Do"), "the still is drawn")
+	assert(text.contains("/Im2 Do"), "so is the first photograph")
+	assert(text.contains("/Im3 Do"), "and the second")
+	assert(text.contains("/Im3 "), "the page names the last photograph among its XObjects")
+	assert(text.contains("Thyme by the gate"), "a photograph's caption reaches the sheet")
+	assert(text.contains("The bed along the fence"), "and so does the next one")
+
+
 func test_the_page_and_the_still_agree_about_the_sheet() -> void:
 	# A page laid out for a preset's paper takes that preset's paper, so a proposal page
 	# and the still it holds are the same deliverable.

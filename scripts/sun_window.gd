@@ -21,8 +21,9 @@ extends Window
 ##   what lets it be built, filled and driven with no director, no drawing and no screen.
 
 ## A page wide enough for a row of the report, which is the longest line here - a day, a time, the
-## sun's own numbers and what the height casts.
-const SIZE := Vector2i(1020, 780)
+## sun's own numbers and what the height casts - and tall enough for the whole of it: measured, the
+## report, the fields and the buttons want 811 px, so 820.
+const SIZE := Vector2i(1020, 820)
 
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
@@ -100,15 +101,9 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	var column: VBoxContainer = PageChrome.scrolling_column(self, 6, Vector2(16.0, 12.0))
 
 	_heading = Label.new()
 	_heading.name = "Heading"

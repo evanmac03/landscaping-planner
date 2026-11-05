@@ -13,6 +13,7 @@ extends Node
 ## exactly as it counts a clash.
 
 const MAIN := preload("res://scenes/main.tscn")
+const Hud := preload("res://scripts/hud.gd")
 
 const PANELS: Array[String] = [
 	"TopBar", "Hints", "DraftHints", "Palette", "Presentation", "PaintedSheet",
@@ -142,6 +143,30 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			legend_wants, hints_panel.size.x, legend_lines, legend_fits,
 		])
 		hints_panel.visible = hints_was
+
+	# The line at the foot of the screen is the one line whose words change with what is in hand, so the
+	# worst case is measured rather than whatever happens to be on it at that moment: the longest prompt
+	# any tool can be in, under that tool's own name, with the keys that answer it beside it. Measuring
+	# only what happens to be on the line would pass on the day nothing is armed and fail a week later.
+	var foot_panel: Control = root.get_node_or_null(^"Hints") as Control
+	var foot_label: Control = root.find_child("HintsLabel", true, false) as Control
+	if foot_panel != null and foot_label != null:
+		var foot_was: bool = foot_panel.visible
+		var words_was: String = (foot_label as Label).text
+		var worst: String = Hud.worst_hint_line()
+		foot_panel.visible = true
+		(foot_label as Label).text = worst
+		await tree.process_frame
+		var foot_wants: float = foot_label.get_combined_minimum_size().x
+		var foot_fits: String = _fits(foot_wants, foot_panel.size.x)
+		if foot_fits != FITS:
+			overflow += 1
+		print("  longest tool line wants %6.1f px, Hints panel is %6.1f px  ->  %s" % [
+			foot_wants, foot_panel.size.x, foot_fits,
+		])
+		print("    it reads: %s" % worst)
+		(foot_label as Label).text = words_was
+		foot_panel.visible = foot_was
 
 	print("--- panel rectangles that meet ---")
 	var names: Array = measured.keys()

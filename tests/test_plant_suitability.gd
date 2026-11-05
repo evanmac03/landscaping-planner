@@ -22,6 +22,11 @@ const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const PlacementScript := preload("res://scripts/plant_placement.gd")
+## The four checks that ask `Suitability.worst_of` for their verdict rather than carrying a copy of it.
+const CropSunScript := preload("res://scripts/crop_sun.gd")
+const RotationScript := preload("res://scripts/crop_rotation.gd")
+const SeasonScript := preload("res://scripts/growing_season.gd")
+const SowingScript := preload("res://scripts/sowing_planner.gd")
 
 const SHADE := SpeciesScript.FULL_SHADE
 const SUN := SpeciesScript.FULL_SUN
@@ -70,6 +75,33 @@ func _outcome(verdict: Dictionary, key: String) -> int:
 
 
 # --- the three plants a designer argues about ---------------------------------------------
+
+
+## The one ordering rule every check in the food garden asks for. It is public for exactly that reason:
+## four copies of an ordering rule are four places for a red ring and a red row to disagree about the
+## same facts, and the copies had already drifted (one read the outcome straight off the dictionary,
+## the others wrapped it in `int()` for a findings list built from a parsed file).
+func test_the_worst_of_several_findings_is_one_rule_for_the_whole_family() -> void:
+	var wrong: Dictionary = {"outcome": Suitability.UNSUITABLE}
+	var gap: Dictionary = {"outcome": Suitability.UNKNOWN}
+	var thin: Dictionary = {"outcome": Suitability.TOLERATED}
+	var fine: Dictionary = {"outcome": Suitability.GOOD}
+	assert(Suitability.worst_of([fine, thin, gap, wrong]) == Suitability.UNSUITABLE,
+		"something against the plant outranks everything")
+	assert(Suitability.worst_of([fine, thin, gap]) == Suitability.UNKNOWN,
+		"a gap outranks a thin margin, because the gap is the designer's to fix")
+	assert(Suitability.worst_of([fine, thin]) == Suitability.TOLERATED, "a thin margin is reported")
+	assert(Suitability.worst_of([fine]) == Suitability.GOOD, "and a match is a match")
+	assert(Suitability.worst_of([]) == Suitability.GOOD, "no findings is no objection")
+	# A findings list read back out of a parsed file carries every number as a float, which is why the
+	# rule casts rather than trusting the type it is handed.
+	assert(Suitability.worst_of([{"outcome": 2.0}]) == Suitability.UNSUITABLE,
+		"a float outcome is still the outcome")
+	# Each check in the family answers through this rule rather than a copy of it.
+	for module: GDScript in [CropSunScript, RotationScript, SeasonScript, SowingScript]:
+		var findings: Array[Dictionary] = [{"outcome": 2.0}]
+		assert(module._worst(findings) == Suitability.UNSUITABLE,
+			"%s asks PlantSuitability for the verdict" % module.resource_path.get_file())
 
 
 func test_a_hosta_in_shade_is_green() -> void:

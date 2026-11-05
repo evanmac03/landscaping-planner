@@ -104,7 +104,9 @@ var ghost: Dictionary = {}
 var plant_ghost: Dictionary = {}
 ## Where the cursor snapped to, from the drafting controller.
 var snap: Dictionary = {}
-## What the drafting tools are waiting for, drawn on the plan itself.
+## What the drawing says about itself, drawn on the plan itself: a length being typed, and the last thing
+## the drawing said. What the tool in hand is *waiting for* is not here - that line, with the keys that
+## answer it, is at the foot of the screen, because the palette panel sits over this corner of the plan.
 var status_text: String = ""
 
 

@@ -5,7 +5,10 @@ extends Window
 ##
 ## A `Window` like the library and the ground window, for the same reason they are: it has a field to
 ## type into (the search box), and a `Window` owns its own input, so nothing here can take the
-## drawing's keys. Every control but the search field is `FOCUS_NONE`.
+## drawing's keys. It *builds* every control but the search field without a keyboard of its own, which is
+## this project's rule for a control; what a page that is **open** does with the keyboard is decided once,
+## in `PageChrome.takes_the_keyboard`, which the shared show calls - so a person can walk this page with
+## Tab and press its buttons with Enter all the same.
 ##
 ## It shows what `LayerDialog` says and decides nothing itself. The dialog reads the drawing and makes
 ## every change through the document, so a lock taken here is one undo step like any other, and the
@@ -58,28 +61,20 @@ func build() -> void:
 	if _column != null:
 		return
 	_ensure_dialog()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 8)
-	add_child(_column)
+	_column = PageChrome.column(self)
 
 	# The search box is the one control here that may hold the keyboard, and the only one a person
 	# types into.
-	var find_row := HBoxContainer.new()
-	find_row.name = "FindRow"
-	find_row.add_theme_constant_override("separation", 6)
-	_column.add_child(find_row)
-	var find_label := Label.new()
-	find_label.name = "FindLabel"
-	find_label.text = "Find"
-	find_row.add_child(find_label)
 	_search = LineEdit.new()
 	_search.name = "Search"
 	_search.placeholder_text = "a word in a layer's name"
 	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search.text_changed.connect(_on_search_changed)
-	find_row.add_child(_search)
+	# A caption and the box it names, in one row: the crib the page has a row for is the page's own
+	# name for it rather than the shared builder's, which is set here after it.
+	var find_row: HBoxContainer = PageChrome.labelled("Find", _search)
+	find_row.name = "FindRow"
+	_column.add_child(find_row)
 
 	_list = ItemList.new()
 	_list.name = "Layers"
@@ -89,35 +84,31 @@ func build() -> void:
 	_list.item_selected.connect(_on_layer_selected)
 	_column.add_child(_list)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 44)
+	# The line the page says what just happened on. It reserves no room of its own, which is the shared
+	# rule: a status line holding space for a sentence it may not have is a page asking for room it is
+	# not using.
+	_status = PageChrome.status()
 	_column.add_child(_status)
 
 	var actions := HBoxContainer.new()
 	actions.name = "Actions"
 	actions.add_theme_constant_override("separation", 6)
 	_column.add_child(actions)
-	_lock_button = Button.new()
-	_lock_button.name = "LockButton"
-	_lock_button.focus_mode = Control.FOCUS_NONE
+	_lock_button = PageChrome.button("Lock")
 	_lock_button.pressed.connect(_on_lock_pressed)
 	actions.add_child(_lock_button)
-	_current_button = Button.new()
+	_current_button = PageChrome.button("Make current")
 	_current_button.name = "CurrentButton"
-	_current_button.focus_mode = Control.FOCUS_NONE
-	_current_button.text = "Make current"
 	_current_button.pressed.connect(_on_current_pressed)
 	actions.add_child(_current_button)
 
 	var close_row := HBoxContainer.new()
 	close_row.name = "CloseRow"
 	_column.add_child(close_row)
-	var close_button := Button.new()
+	# The shared builder names a button from its caption, which would make this `CloseButton`: the name
+	# this row is read by is a fact the page already holds, so it sets it rather than the builder.
+	var close_button: Button = PageChrome.button("Close")
 	close_button.name = "Close"
-	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_requested)
 	close_row.add_child(close_button)
 

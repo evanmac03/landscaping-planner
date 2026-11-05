@@ -98,7 +98,7 @@ func test_stopping_stands_the_walk_still() -> void:
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_every_button_on_the_page_is_built_without_a_keyboard_of_its_own() -> void:
 	var page := _window()
 	var checked := 0
 	for found: Node in page.find_children("*", "Button", true, false):

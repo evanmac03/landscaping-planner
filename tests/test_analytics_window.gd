@@ -194,9 +194,9 @@ func test_a_report_with_nothing_stated_reads_as_the_figures_about_hours_waiting(
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_a_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 	var page := _page()
-	assert(page.buttons_are_focus_free())
+	assert(page.buttons_are_focus_free(), "at build time; the shared show is what gives them one")
 	var bare := WindowScript.new()
 	bare.build()
 	assert(bare.buttons_are_focus_free())

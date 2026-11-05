@@ -58,7 +58,7 @@ func test_the_help_menu_offers_the_palette_above_the_manual_and_the_keys() -> vo
 	var ids: Array[String] = []
 	for entry: Dictionary in HudScript.items_for("Help"):
 		ids.append(String(entry.get("id", "")))
-	var expected: Array[String] = ["help.palette", "help.manual", "help.keys"]
+	var expected: Array[String] = ["help.palette", "help.manual", "help.keys", "help.this_page"]
 	assert(ids == expected, "the palette is the first thing the help menu offers")
 
 

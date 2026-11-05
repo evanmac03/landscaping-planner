@@ -461,13 +461,7 @@ func status() -> String:
 			action_key_label(&"draft_mode"),
 		]
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
-	if is_editing():
-		return _edit_status()
-	if tool.kind == ToolScript.Kind.SELECT:
-		return _select_status()
-	var text := "%s  ·  %s  ·  %s" % [
-		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
-	]
+	var text := prompt()
 	# A typed length is what the hand is doing at this moment, so it stands in front of the shape's own
 	# words rather than behind them: while it is going, it is the thing being watched.
 	if has_distance_entry():
@@ -477,10 +471,42 @@ func status() -> String:
 	return text
 
 
+## What the tool in hand is waiting for, with the tool's own name in front of it: the half of the status
+## line that teaches the tool rather than reporting on it, and the half the HUD carries at the foot of the
+## screen beside the keys that answer it (`PlannerHud.hand_keys`).
+##
+## The layer in hand is deliberately not on it: the palette's own row says which layer it is, on screen at
+## the same moment, and the same fact twice on one screen is the thing this project spends the most effort
+## not doing.
+func prompt() -> String:
+	if is_editing():
+		return _edit_prompt()
+	if tool.kind == ToolScript.Kind.SELECT:
+		return _select_prompt()
+	return "%s  ·  %s" % [ToolScript.label_for(tool.kind), tool.status()]
+
+
+## What the drawing says about itself rather than what it is waiting for: what the hand is doing at this
+## moment - a length being typed - and the last thing the drawing said.
+##
+## The instruction belongs at the foot of the screen, where a person's eye can stay while their hand is
+## busy. This is the report, and it stays on the drawing's own surface where the work is.
+func status_report() -> String:
+	var parts := PackedStringArray()
+	if drawing and has_distance_entry():
+		parts.append(distance_label())
+	if last_message != "":
+		parts.append(last_message)
+	return "  ·  ".join(parts)
+
+
 ## What an editing command says while it is in hand. Its own prompt is the half
 ## that changes as picks land, so an edit cannot be left half-made without the line
 ## saying which pick it is waiting for.
-func _edit_status() -> String:
+##
+## It says nothing about how the command ends: the keys that answer it, and the key that cancels it, are
+## printed beside this line at the foot of the screen, read from their own bindings.
+func _edit_prompt() -> String:
 	var hint := ""
 	match edit_kind:
 		EditKind.OFFSET:
@@ -518,8 +544,6 @@ func _edit_status() -> String:
 	var text := "%s  ·  %s" % [edit_label(edit_kind), hint]
 	if edit_kind == EditKind.FILLET:
 		text += "  ·  radius %s" % document.units.format_length(fillet_radius)
-	if last_message != "":
-		text += "  ·  " + last_message
 	return text
 
 
@@ -1070,13 +1094,11 @@ func select_at(world: Vector2) -> Dictionary:
 
 ## What the select tool says while it is out: which way round the band catches
 ## things, what the next pick is for, and what is selected.
-func _select_status() -> String:
+func _select_prompt() -> String:
 	var hint := "pick the first corner" if _select_points.is_empty() else "pick the opposite corner"
 	var text := "%s selection  ·  %s" % [SelectScript.mode_name(select_mode), hint]
 	if not _selected.is_empty():
 		text += "  ·  %d selected" % _selected.size()
-	if last_message != "":
-		text += "  ·  " + last_message
 	return text
 
 
@@ -3361,5 +3383,5 @@ func _refresh_canvas() -> void:
 	# handed over as ids: a highlight that outlived the geometry it named would be a
 	# highlight of nothing.
 	canvas.set_selection(_selected)
-	canvas.status_text = status()
+	canvas.status_text = status_report()
 	canvas.queue_redraw()

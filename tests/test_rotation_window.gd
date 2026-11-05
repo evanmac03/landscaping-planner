@@ -47,18 +47,18 @@ func _page() -> RotationWindow:
 func test_the_page_builds_its_controls_and_takes_no_keyboard() -> void:
 	var page: RotationWindow = RotationWindowScript.new()
 	page.build()
-	assert(page.get_node_or_null("Column/PlaceRow/Place") is OptionButton, "a bed to choose")
-	assert(page.get_node_or_null("Column/TurnRow/Turn") is OptionButton, "what grew here last")
-	assert(page.get_node_or_null("Column/CropRow/Crop") is OptionButton, "a crop to try")
-	assert(page.get_node_or_null("Column/Crops") is ItemList, "and the list of what would follow")
+	assert(page.get_node_or_null("Scroll/Column/PlaceRow/Place") is OptionButton, "a bed to choose")
+	assert(page.get_node_or_null("Scroll/Column/TurnRow/Turn") is OptionButton, "what grew here last")
+	assert(page.get_node_or_null("Scroll/Column/CropRow/Crop") is OptionButton, "a crop to try")
+	assert(page.get_node_or_null("Scroll/Column/Crops") is ItemList, "and the list of what would follow")
 	assert(page.lists_are_keyboard_free(), "a list a person reads is no place to type")
-	assert(page.get_node_or_null("Column/Buttons/CloseButton") is Button, "and a way out")
+	assert(page.get_node_or_null("Scroll/Column/Buttons/CloseButton") is Button, "and a way out")
 	page.free()
 
 
 func test_the_history_dropdown_offers_nine_families_and_not_stated() -> void:
 	var page: RotationWindow = _page()
-	var turn: OptionButton = page.get_node("Column/TurnRow/Turn")
+	var turn: OptionButton = page.get_node("Scroll/Column/TurnRow/Turn")
 	assert(turn.item_count == 10, "not stated, then the nine families: %d" % turn.item_count)
 	assert(turn.get_item_text(0) == RotationWindowScript.NOT_STATED, turn.get_item_text(0))
 	assert(StringName(turn.get_item_metadata(0)) == &"", "and it stands for no family")
@@ -101,7 +101,7 @@ func test_a_bed_whose_history_is_unstated_is_unknown_never_green() -> void:
 	page.choose_crop(&"kale")
 	assert(int(page.verdict()["verdict"]) == CropRotationScript.UNKNOWN, page.turn_line())
 	assert(page.turn_line().contains("cannot be rotated"), page.turn_line())
-	assert(page.get_node("Column/Verdict").text == page.turn_line(), "and the page shows it")
+	assert(page.get_node("Scroll/Column/Verdict").text == page.turn_line(), "and the page shows it")
 	page.free()
 
 
@@ -113,7 +113,7 @@ func test_the_list_is_food_only_best_first() -> void:
 	assert(not str(texts).contains("Boxwood"), str(texts))
 	assert(texts[0].contains("follows on well") or texts[0].contains("fresh family"), texts[0])
 	assert(page.row_count() == 3, "and the count matches the lines")
-	assert(page.get_node("Column/Crops").item_count == 3, "the list shows them too")
+	assert(page.get_node("Scroll/Column/Crops").item_count == 3, "the list shows them too")
 	page.free()
 
 
@@ -137,7 +137,7 @@ func test_the_history_is_kept_for_the_bed_it_was_stated_for() -> void:
 	assert(page.choose_place(0))
 	assert(StringName(page.previous_family()) == CropRotationScript.LEGUME, "and the first bed remembers")
 	# The dropdown follows the bed, so showing a stored history is not a request to change it.
-	var turn: OptionButton = page.get_node("Column/TurnRow/Turn")
+	var turn: OptionButton = page.get_node("Scroll/Column/TurnRow/Turn")
 	assert(StringName(turn.get_item_metadata(turn.selected)) == CropRotationScript.LEGUME)
 	page.free()
 
@@ -158,12 +158,39 @@ func test_the_companion_line_is_the_crops_own_knowledge() -> void:
 	page.free()
 
 
+func test_the_reason_is_shown_where_the_pairings_give_one() -> void:
+	# The list this page was handed holds no marigold, so no pairing names a plant with the bean and
+	# there is no reason to give - and the page shows no line rather than a heading with nothing under
+	# it.
+	var plain: RotationWindow = _page()
+	assert(plain.choose_crop(&"bean"))
+	assert(plain.company_line().contains("grows well beside"), plain.company_line())
+	assert(plain.reason_line() == "", "nothing in this list is named with the bean: %s" % plain.reason_line())
+	plain.free()
+
+	# With a marigold in the list the pairing is named - a plant with no family and not a crop, which no
+	# family row could ever reach - and it is the pairing that carries a mechanism, which is what the
+	# reason line is for.
+	var catalogue: PlantCatalogue = _catalogue()
+	catalogue.add(
+		SpeciesScript.make(&"tagetes-patula", "Tagetes patula", "Marigold", 30, 30, SpeciesScript.ANNUAL)
+	)
+	var page: RotationWindow = RotationWindowScript.new()
+	page.build()
+	page.bind(catalogue, _places())
+	assert(page.choose_crop(&"bean"))
+	assert(page.company_line().contains("Marigold"), page.company_line())
+	assert(page.reason_line().contains("alpha-terthienyl"), page.reason_line())
+	assert(page.get_node_or_null("Scroll/Column/Reason") is Label, "and the page has the line to show it in")
+	page.free()
+
+
 func test_choosing_a_crop_says_so_and_closing_emits() -> void:
 	var page: RotationWindow = _page()
 	var closed: Array = []
 	page.closed.connect(func() -> void: closed.append(true))
 	assert(page.choose_crop(&"bean"))
-	page._on_crop_selected(page.get_node("Column/CropRow/Crop").selected)
+	page._on_crop_selected(page.get_node("Scroll/Column/CropRow/Crop").selected)
 	assert(page.said().contains("Bean"), page.said())
 	page.request_close()
 	assert(closed.size() == 1, "the page announced its own closing")
@@ -182,7 +209,7 @@ func test_choosing_what_is_not_there_is_refused_rather_than_guessed() -> void:
 
 func test_stating_the_history_through_the_dropdown_announces_it() -> void:
 	var page: RotationWindow = _page()
-	var turn: OptionButton = page.get_node("Column/TurnRow/Turn")
+	var turn: OptionButton = page.get_node("Scroll/Column/TurnRow/Turn")
 	var index: int = 0
 	for candidate in turn.item_count:
 		if StringName(turn.get_item_metadata(candidate)) == CropRotationScript.BRASSICA:

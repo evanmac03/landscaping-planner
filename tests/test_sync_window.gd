@@ -20,14 +20,14 @@ func _page(engine: SyncScript) -> WindowScript:
 
 func test_the_page_has_the_controls_a_page_about_sync_has() -> void:
 	var page := _page(SyncScript.new())
-	assert(page.get_node_or_null(^"Column/Summary") != null)
-	assert(page.get_node_or_null(^"Column/Queue") != null)
-	assert(page.get_node_or_null(^"Column/Conflicts") != null)
-	assert(page.get_node_or_null(^"Column/SyncButton") == null, "the buttons live in their rows")
-	assert(page.get_node_or_null(^"Column/RunRow/SyncButton") != null)
-	assert(page.get_node_or_null(^"Column/RunRow/SaveButton") != null)
-	assert(page.get_node_or_null(^"Column/RunRow/Close") != null)
-	assert(page.get_node_or_null(^"Column/Status") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Summary") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Queue") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Conflicts") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/SyncButton") == null, "the buttons live in their rows")
+	assert(page.get_node_or_null(^"Scroll/Column/RunRow/SyncButton") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/RunRow/SaveButton") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/RunRow/Close") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Status") != null)
 	page.free()
 
 
@@ -124,16 +124,16 @@ func test_settling_nothing_does_nothing() -> void:
 	page.free()
 
 
-func test_nothing_but_the_settings_takes_the_keyboard() -> void:
+func test_only_the_settings_fields_are_built_with_a_keyboard_of_their_own() -> void:
 	var page := _page(SyncScript.new(null, HttpScript.new("https://x", "t")))
-	assert(page.get_node(^"Column/Queue").focus_mode == Control.FOCUS_NONE)
-	assert(page.get_node(^"Column/Conflicts").focus_mode == Control.FOCUS_NONE)
+	assert(page.get_node(^"Scroll/Column/Queue").focus_mode == Control.FOCUS_NONE)
+	assert(page.get_node(^"Scroll/Column/Conflicts").focus_mode == Control.FOCUS_NONE)
 	for button: Node in [
-		page.get_node(^"Column/RunRow/SyncButton"),
-		page.get_node(^"Column/RunRow/SaveButton"),
-		page.get_node(^"Column/RunRow/Close"),
-		page.get_node(^"Column/SettleRow/OurCopyButton"),
-		page.get_node(^"Column/SettleRow/TheirCopyButton"),
+		page.get_node(^"Scroll/Column/RunRow/SyncButton"),
+		page.get_node(^"Scroll/Column/RunRow/SaveButton"),
+		page.get_node(^"Scroll/Column/RunRow/Close"),
+		page.get_node(^"Scroll/Column/SettleRow/OurCopyButton"),
+		page.get_node(^"Scroll/Column/SettleRow/TheirCopyButton"),
 	]:
 		assert((button as Control).focus_mode == Control.FOCUS_NONE, "%s takes no keyboard" % button.name)
 	# The settings fields are the one kind of control that may hold it.

@@ -28,8 +28,9 @@ signal cost_changed()
 ## The window was closed by its own close button.
 signal closed()
 
-## Wide enough for the six columns and the order rows, and no taller than the screen.
-const SIZE := Vector2i(1180, 760)
+## Wide enough for the six columns and the order rows - measured, the six of them want 1205 px, and the
+## first 1180 cut the last column off the page's own side - and no taller than the screen.
+const SIZE := Vector2i(1210, 760)
 ## Thousandths of a unit per unit, the module's one quantity unit (§2.1).
 const QUANTITY_MILLI := 1000
 
@@ -82,11 +83,7 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	_column = PageChrome.column(self, 6)
 
 	_summary = Label.new()
 	_summary.name = "Summary"
@@ -743,8 +740,11 @@ func set_approver(who: String, how: String = "") -> void:
 				_how_option.selected = at
 
 
-## Whether every button on the page is focus-free. The typed fields are the only things allowed the
-## keyboard (spec §9's rule), and this is what proves it.
+## Whether every button on the page is built without a keyboard of its own - which is what "the typed
+## fields are the only things allowed the keyboard" meant when the HUD was the only surface here, and
+## what it still means about the *building* of a page. What a page that is **shown** does with the
+## keyboard is decided once, in `PageChrome.takes_the_keyboard`, so a button here is reachable with Tab
+## all the same.
 func buttons_are_focus_free() -> bool:
 	for button in _all_buttons(self):
 		if button.focus_mode != Control.FOCUS_NONE:

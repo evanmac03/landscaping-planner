@@ -88,21 +88,14 @@ func _ready() -> void:
 func build() -> void:
 	if _list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	var heading := Label.new()
-	heading.name = "Heading"
-	heading.text = "Grading"
-	column.add_child(heading)
+	column.add_child(PageChrome.heading("Grading"))
 
-	var explanation := Label.new()
+	# The page's own name for this sentence, kept: an explanation of what a page is for is what the
+	# shared note is worded as, and `tests/test_grading_window.gd` and the HUD both leave it alone.
+	var explanation := PageChrome.note(EXPLANATION)
 	explanation.name = "Explanation"
-	explanation.text = EXPLANATION
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(explanation)
 
 	# The two numbers in hand. A step of five centimetres on the level and half a percent on the fall,
@@ -140,10 +133,10 @@ func build() -> void:
 	_slope_button.pressed.connect(arm_slope)
 
 	# The check. Findings first because they are the things that are wrong, then what is worth knowing.
-	_report = Label.new()
+	# No height reserved: the report always has something to say - that the grading agrees with itself,
+	# if nothing else - so its own line is the room it needs.
+	_report = PageChrome.text()
 	_report.name = "Report"
-	_report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_report.custom_minimum_size = Vector2(0.0, 64.0)
 	column.add_child(_report)
 
 	_list = ItemList.new()
@@ -165,9 +158,7 @@ func build() -> void:
 	_remove_button.pressed.connect(remove_chosen)
 	_button(buttons, "CloseButton", "Close").pressed.connect(_on_close_requested)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
 	show_records([])
@@ -394,9 +385,11 @@ func button_texts() -> Array[String]:
 	return out
 
 
-## Every control that is *not* a field stays out of the keyboard's way. The two number fields are the
-## exception, and they are the reason this page is a `Window` at all: a level has to be typed, and a
-## control that holds the keyboard inside the HUD takes the drawing's keys with it.
+## Every control that is *not* a field is built without a keyboard of its own. The two number fields are
+## the exception at build time, and they are the reason this page is a `Window` at all: a level has to be
+## typed. A control that holds the keyboard *inside the HUD* takes the drawing's keys with it - which is
+## exactly why a page is a `Window`: it holds the keyboard while it is up, so its own switches and buttons
+## may take it too (`PageChrome.takes_the_keyboard`, called by the shared show).
 func list_is_keyboard_free() -> bool:
 	build()
 	return _list.focus_mode == Control.FOCUS_NONE \
@@ -472,27 +465,22 @@ func _refresh() -> void:
 	_remove_button.text = "Take it off the drawing" if remove_enabled() else "Nothing chosen to take off"
 
 
+## A button on this page, from the shared chrome and named by the page: the names are what the HUD's
+## wiring and this page's tests hold it by, so they are set after the builder rather than left to the
+## chrome's naming of a caption.
 func _button(parent: Node, node_name: String, text: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(text)
 	button.name = node_name
-	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
 	parent.add_child(button)
 	return button
 
 
+## A caption and the number it names, in the shared kind of row, plus the range, the step, the suffix
+## and the tooltip a `SpinBox` has to be told. The row goes back to this page's own name for itself, and
+## the two captions are given the same width so the numbers line up under each other rather than the
+## second row beginning where the first caption ends.
 func _spin(parent: Node, caption_text: String, node_name: String, low: float, high: float,
 		step: float, suffix: String, tip: String) -> SpinBox:
-	var row := HBoxContainer.new()
-	row.name = node_name + "Row"
-	row.add_theme_constant_override("separation", 6)
-	parent.add_child(row)
-	var caption := Label.new()
-	caption.name = node_name + "Caption"
-	caption.text = caption_text
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	caption.custom_minimum_size = Vector2(90.0, 0.0)
-	row.add_child(caption)
 	var spin := SpinBox.new()
 	spin.name = node_name
 	spin.min_value = low
@@ -501,5 +489,10 @@ func _spin(parent: Node, caption_text: String, node_name: String, low: float, hi
 	spin.suffix = suffix
 	spin.tooltip_text = tip
 	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spin)
+	var row := PageChrome.labelled(caption_text, spin)
+	row.name = node_name + "Row"
+	var caption: Label = row.get_node(^"Caption")
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	caption.custom_minimum_size = Vector2(90.0, 0.0)
+	parent.add_child(row)
 	return spin

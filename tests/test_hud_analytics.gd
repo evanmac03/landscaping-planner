@@ -115,8 +115,8 @@ func test_building_the_page_gives_the_menu_something_to_open() -> void:
 	assert(hud._analytics_window.report == hud._analytics_report, "and pointed at this report")
 	# Built but not shown is not open: a page nobody has opened is not on the screen.
 	assert(not hud.is_analytics_window_open(), "built is not shown")
-	assert(hud._analytics_window.get_node_or_null(^"Column/Rows") != null, "with the figures on it")
-	assert(hud._analytics_window.get_node_or_null(^"Column/DayRow/DayMinutes") != null,
+	assert(hud._analytics_window.get_node_or_null(^"Scroll/Column/Rows") != null, "with the figures on it")
+	assert(hud._analytics_window.get_node_or_null(^"Scroll/Column/DayRow/DayMinutes") != null,
 		"and the field a working day is stated in")
 	hud.free()
 

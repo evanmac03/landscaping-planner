@@ -151,6 +151,10 @@ var _placeable_cache_ready: bool = false
 
 
 func _ready() -> void:
+	# A phone draws this HUD at 1.35 times the size it was laid out at, which is what turns a
+	# twenty-nine-pixel palette row into one a thumb can hit. Asked once, here, because this node is the
+	# top of the game and the window's scale is nobody else's to set; on a computer nothing happens.
+	PhoneHud.apply(get_window())
 	if flight_camera == null or player == null:
 		push_error("ViewController: flight_camera and player must both be assigned.")
 		set_process(false)
@@ -771,6 +775,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# A finger and a thumb on the glass: spread them to zoom in, and drag them both to move the plan.
+	#
+	# Android only delivers these when the project asks it to read gestures out of touches
+	# (input_devices/pointing/android/enable_pan_and_scale_gestures); a touchscreen otherwise sends
+	# touches, which arrive here as mouse clicks and drags. Two fingers are needed for both, because one
+	# finger is already spoken for: a single-finger drag *is* the mouse, and on this drawing the mouse
+	# moves whatever it is over.
+	var gesture: Dictionary = touch_command(event)
+	if gesture["kind"] == &"zoom":
+		zoom_by(gesture["factor"], gesture["at"])
+		get_viewport().set_input_as_handled()
+		return
+	if gesture["kind"] == &"pan":
+		pan_by_screen(gesture["delta"])
+		get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventMouseButton:
 		var button: InputEventMouseButton = event
 		match button.button_index:
@@ -800,11 +821,42 @@ func _unhandled_input(event: InputEvent) -> void:
 			update_move(cursor)
 		elif _panning:
 			# Drag the design with the cursor: the point under the mouse stays put.
-			plan_focus -= motion.relative * (plan_size / maxf(
-				get_viewport().get_visible_rect().size.y, 1.0
-			))
-			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
-			_apply_overhead_view()
+			pan_by_screen(motion.relative)
+
+
+## Move the design by a drag of the screen, so the ground under the finger - or the cursor - stays
+## where it is.
+##
+## The mouse's right button and two fingers on the glass are the same gesture to a person, so they are
+## the same arithmetic here: one calculation, one clamp, one redraw, and no chance of the two drifting
+## apart on the way the view moves.
+func pan_by_screen(delta: Vector2) -> void:
+	var viewport_height: float = get_viewport().get_visible_rect().size.y
+	plan_focus = ViewMath.focus_after_screen_drag(plan_focus, delta, plan_size, viewport_height)
+	plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
+	_apply_overhead_view()
+
+
+## What a touch gesture on the glass asks the view to do, as a plain answer that names no view: a pinch
+## asks to zoom by a factor about a pixel, two fingers dragged ask to pan by a delta, and any other event
+## asks for nothing at all.
+##
+## It is a function of the event and nothing else - no camera, no viewport, no node - because *which*
+## gesture reaches *which* movement is the half of this that can be wrong, and a static function can be
+## held down by a test that builds no scene. The handler in `_unhandled_input` is then only the part that
+## carries the answer out.
+static func touch_command(event: InputEvent) -> Dictionary:
+	if event is InputEventMagnifyGesture:
+		var magnify: InputEventMagnifyGesture = event
+		return {
+			"kind": &"zoom",
+			"factor": ViewMath.zoom_factor_for_spread(magnify.factor),
+			"at": magnify.position,
+		}
+	if event is InputEventPanGesture:
+		var pan: InputEventPanGesture = event
+		return {"kind": &"pan", "delta": pan.delta}
+	return {"kind": &"none"}
 
 
 # --- planting -------------------------------------------------------------------------
@@ -853,6 +905,15 @@ func environment_map() -> ZoneMap:
 		return null
 	var document: DraftDocument = controller.document
 	return document.environment if document != null else null
+
+
+## Say one line about something that happened to the drawing without the cursor moving - a survey that
+## has just arrived, for instance. The planting tools write this same line, so a second place that words
+## a planting verdict would be a second place free to disagree with the first.
+func say_survey(line: String) -> void:
+	if plan_canvas == null or line.strip_edges().is_empty():
+		return
+	plan_canvas.status_text = line
 
 
 ## Judge one species against the ground at one point, without planting anything. The question the
@@ -1091,3 +1152,53 @@ func _select_draft_tool(event: InputEvent) -> bool:
 			get_viewport().set_input_as_handled()
 			return true
 	return false
+
+# --- field identification & survey subsystem ---
+
+
+## The collection a field capture is filed under.
+const FIELD_SURVEY_COLLECTION := "Field Survey Captures"
+
+## The last species a field identification resolved to, or an empty name.
+var _last_identified_species: StringName = &""
+
+
+## Identify a plant from a raw taxon string and file it under the survey collection.
+## Returns the species, or null. With no plant list in hand there is nothing to identify
+## against, and this returns null rather than guessing.
+func process_field_identification(raw_name: String) -> PlantSpecies:
+	if plant_catalogue == null:
+		return null
+	var resolver := PlantIDResolver.new(plant_catalogue)
+	var species: PlantSpecies = resolver.resolve(raw_name)
+	if species == null:
+		return null
+	_last_identified_species = species.id
+	if not plant_catalogue.has_collection(FIELD_SURVEY_COLLECTION):
+		plant_catalogue.create_collection(FIELD_SURVEY_COLLECTION)
+	plant_catalogue.add_to_collection(FIELD_SURVEY_COLLECTION, species.id)
+	return species
+
+
+## The species captured by field identification so far, in catalogue order.
+func field_survey_captures() -> Array[PlantSpecies]:
+	if plant_catalogue == null:
+		return []
+	return plant_catalogue.collection(FIELD_SURVEY_COLLECTION)
+
+
+## Arm the plant identified last (or the given one) for planting on the plan.
+##
+## The plant is armed and the plan view entered; the next click places it, exactly as
+## choosing one in the library does. `screen_position` is reserved for a later door that
+## places the plant under a tapped point directly.
+@warning_ignore("unused_parameter")
+func _spawn_plant_in_scene(screen_position: Vector2, species_id: StringName = &"") -> PlantSpecies:
+	var wanted: StringName = species_id if not species_id.is_empty() else _last_identified_species
+	if plant_catalogue == null or wanted.is_empty() or not plant_catalogue.has(wanted):
+		return null
+	if not arm_planting(plant_catalogue, wanted):
+		return null
+	if mode == ViewMode.GROUND:
+		show_mode(ViewMode.PLAN_2D)
+	return plant_catalogue.get_species(wanted)

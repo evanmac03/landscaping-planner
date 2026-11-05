@@ -19,3 +19,12 @@ addons/ziva_agent/
 # project source - if something is worth keeping it belongs in a tool's own output
 # folder, not at the root.
 tmp_*
+
+# The exported build. A tool run produces it, so it is not source: `build/` is where
+# `--export-debug "Android (phone)"` puts the APK, and the preset is the file to keep.
+build/
+
+# The MCP bridge is somebody else's addon, installed rather than written here. Its
+# sibling `addons/ziva_agent/` is ignored for the same reason; `addons/context_tools/`
+# is not, because that one is this project's own AI Context dock.
+addons/godot_ai/

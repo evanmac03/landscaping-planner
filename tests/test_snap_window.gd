@@ -128,7 +128,7 @@ func test_closing_the_page_says_so() -> void:
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_the_page_builds_its_switches_without_a_keyboard_of_their_own() -> void:
 	var page := _page()
 	var checked := 0
 	for found: Node in page.find_children("*", "Button", true, false):

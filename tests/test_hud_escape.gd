@@ -8,7 +8,9 @@ extends Node
 ##
 ## The pages that live in a `Window` are deliberately not in the ladder and are not tested here: a
 ## focused window takes the keyboard into its own viewport, so this node never sees an Escape meant
-## for one. Those pages answer for themselves.
+## for one. Those pages answer for themselves - except for the phone's Back gesture, which arrives as a
+## notification rather than as a key and so does reach this node. That one path is tested at the foot of
+## this file, because it is the only way a page in a window is answered for from out here.
 
 const HudScript := preload("res://scripts/hud.gd")
 
@@ -117,3 +119,45 @@ func test_a_page_that_is_already_away_is_not_a_page() -> void:
 	assert(not hud.escape_puts_away(), "a page that is not up is not answered for")
 	page.free()
 	hud.free()
+
+
+# --- the phone's Back gesture -----------------------------------------------------------
+
+
+## Back means what Escape means, so a phone with no keyboard can still get out of a page. A page in a
+## `Window` is closed by emitting `close_requested`, which is the door its own frame and its own Close
+## button already use - which is why Back and the cross cannot come to answer differently.
+func test_the_phone_back_gesture_closes_the_page_in_front() -> void:
+	var hud := HudScript.new()
+	var page := Window.new()
+	var closed: Array[int] = [0]
+	page.close_requested.connect(func() -> void: closed[0] += 1)
+	hud._plant_window = page
+	page.visible = true
+	assert(hud.page_in_front() == page, "the page is the one in front")
+	hud.back_puts_away()
+	assert(closed[0] == 1, "the page was asked to close, once: %d" % closed[0])
+	page.free()
+	hud.free()
+
+
+## With no page in a window, Back is Escape's own ladder: a page this HUD draws itself is put away, and
+## nothing is asked of the program.
+func test_the_phone_back_gesture_falls_through_to_the_escape_ladder() -> void:
+	var hud := HudScript.new()
+	var keys := Control.new()
+	hud._keys_panel = keys
+	keys.visible = true
+	hud.back_puts_away()
+	assert(not hud.is_keys_open(), "the reference is away")
+	keys.free()
+	hud.free()
+
+
+## And it is not the operating system that decides to leave the program, because that is a quit nobody is
+## asked about: the drawing lives in memory until it is written, and a thumb brushes Back by accident.
+func test_the_program_does_not_quit_behind_the_back_gestures_back() -> void:
+	assert(
+		ProjectSettings.get_setting("application/config/quit_on_go_back") == false,
+		"Back is answered by the HUD, so unsaved work is asked about before the program goes"
+	)

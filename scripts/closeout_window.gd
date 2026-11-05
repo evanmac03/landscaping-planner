@@ -3,8 +3,10 @@ extends Window
 ## The end of a job: the punch list, the hand-over date and the warranty (phase 12).
 ##
 ## A `Window` like the other pages, for their two reasons: it has fields to type into, and a `Window`
-## owns its own input, so nothing here can take the drawing's keys. Every button is `FOCUS_NONE`; the
-## typed fields are the only things allowed the keyboard.
+## owns its own input, so nothing here can take the drawing's keys. Every button is built without a
+## keyboard of its own, like every control the shared chrome makes; the typed fields are the only things
+## that keep one, because a field is where somebody types. What the *open* page does with the keyboard is
+## decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what the desk says and works out nothing. Every count on the page is a count the report
 ## did, every line of an item is the item's own `describe()`, and the desk is read again on every
@@ -85,26 +87,21 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 22)
 	_column.add_child(_summary)
 	_column.add_child(_build_job_row())
 	_column.add_child(_build_completion_row())
 	_column.add_child(_build_check_row())
 	_column.add_child(_build_item_row())
 
-	var punch_heading := Label.new()
-	punch_heading.name = "PunchHeading"
-	_punch_heading = punch_heading
-	_column.add_child(punch_heading)
+	_punch_heading = PageChrome.subheading("")
+	_punch_heading.name = "PunchHeading"
+	_column.add_child(_punch_heading)
 
 	_items = VBoxContainer.new()
 	_items.name = "Items"
@@ -113,10 +110,9 @@ func build() -> void:
 
 	_column.add_child(_build_terms_row())
 
-	var warranty_heading := Label.new()
-	warranty_heading.name = "WarrantyHeading"
-	_warranty_heading = warranty_heading
-	_column.add_child(warranty_heading)
+	_warranty_heading = PageChrome.subheading("")
+	_warranty_heading.name = "WarrantyHeading"
+	_column.add_child(_warranty_heading)
 
 	_column.add_child(_build_claim_row())
 
@@ -125,16 +121,11 @@ func build() -> void:
 	_claims.add_theme_constant_override("separation", 2)
 	_column.add_child(_claims)
 
-	_hint = Label.new()
+	_hint = PageChrome.hint()
 	_hint.name = "Hint"
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.custom_minimum_size = Vector2(0, 22)
 	_column.add_child(_hint)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 40)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
 
@@ -241,11 +232,12 @@ func _field(field_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out. That name is what `row_for` and `button_in` look a row's act up by, so it is set
+## after the builder rather than left to the chrome's naming of a caption.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
 
@@ -297,6 +289,10 @@ func refresh() -> void:
 		_hint.text = hint_text()
 	if _status != null and _status.text.is_empty():
 		_set_status(opening_words())
+	# The item and claim rows just built carry buttons, and the shared show that gave this page its
+	# keyboard ran when the page was *opened*, before any of them existed. So a page that is up gives the
+	# new ones theirs here. Nothing is done while it is down: the show decides it then, and once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the page opens with: what to do, or why there is nothing to do yet.

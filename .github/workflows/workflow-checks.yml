@@ -12,7 +12,7 @@ jobs:
   workflow:
     name: Windows workflow (${{ matrix.shell }})
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +32,10 @@ jobs:
           $destination = Join-Path $env:RUNNER_TEMP 'godot'
           Expand-Archive -LiteralPath $zip -DestinationPath $destination
           "WORKFLOW_GODOT=$(Join-Path $destination 'Godot_v4.7.2-stable_win64_console.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Run the Godot test suite
+        run: |
+          & $env:WORKFLOW_GODOT --headless --path . res://tools/run_tests.tscn
+          if ($LASTEXITCODE -ne 0) { throw "The test suite failed with exit code $LASTEXITCODE." }
       - name: Validate workflow, disposable Git and Godot guide
         run: |
           & .\tools\github.ps1 -Action Validate -Godot $env:WORKFLOW_GODOT

@@ -106,10 +106,30 @@ func _lay_the_page(still: Image) -> void:
 		"scale": "as rendered",
 		"date": Time.get_date_string_from_system(false),
 	}
-	var plan: Dictionary = PageScript.layout(paper, still.get_size())
+	# Stand-in site photographs, and the captions say so: this project ships no photographs of anybody's
+	# garden, and a demo that invented one would be telling a story about a survey nobody made. Two crops
+	# of the still it just rendered are enough to prove the strip, the frames and the captions, which is
+	# what the page's photograph support is.
+	var half: int = int(still.get_width() * 0.5)
+	var photos: Array = [
+		{
+			"image": still.get_region(Rect2i(0, 0, half, still.get_height())),
+			"caption": "Stand-in photograph: the still's left half",
+		},
+		{
+			"image": still.get_region(Rect2i(half, 0, still.get_width() - half, still.get_height())),
+			"caption": "Stand-in photograph: the still's right half",
+		},
+	]
+	var options := {"photos": photos}
+	var plan: Dictionary = PageScript.layout(paper, still.get_size(), options)
 	print("page: %s" % PageScript.describe(plan))
+	var laid: Dictionary = PageScript.photo_bands(photos.size(), plan["photos_mm"])
+	print("photographs: %d placed, %d left out, strip %.0f mm deep" % [
+		int(laid["shown"]), int(laid["dropped"]), (plan["photos_mm"] as Rect2).size.y,
+	])
 
-	var pdf: PackedByteArray = PageScript.build_pdf(still, paper, fields)
+	var pdf: PackedByteArray = PageScript.build_pdf(still, paper, fields, options)
 	if pdf.is_empty():
 		print("proposal_demo: the page was refused; nothing was written")
 		return
@@ -130,7 +150,7 @@ func _lay_the_page(still: Image) -> void:
 	])
 	print("pdf tail: %s" % pdf.slice(pdf.size() - 20, pdf.size()).get_string_from_utf8().strip_edges())
 
-	var preview: Image = PageScript.render_image(still, paper, fields, 96.0)
+	var preview: Image = PageScript.render_image(still, paper, fields, 96.0, options)
 	if preview == null:
 		print("proposal_demo: the preview could not be drawn")
 		return

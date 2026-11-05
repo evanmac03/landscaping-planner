@@ -6,7 +6,9 @@ extends Window
 ##
 ## A `Window` like the other pages, for the two reasons they are: it has fields to type into (the
 ## service's address and token), and a `Window` owns its own input, so nothing here can take the
-## drawing's keys. Every button is `FOCUS_NONE`; the settings are the only controls allowed the keyboard.
+## drawing's keys. Every control is built through the shared chrome, which makes it without a keyboard
+## of its own - except the settings fields, which keep theirs, because a field is where somebody types.
+## What the *open* page does with the keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `BizSync` says and decides nothing itself. A conflict is shown and never repaired on a
 ## guess: the two buttons settle it with the copy a person names, which is the module's own `resolve`.
@@ -68,44 +70,37 @@ func _ready() -> void:
 func build() -> void:
 	if _column != null:
 		return
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 
-	_service_line = Label.new()
+	_service_line = PageChrome.text()
 	_service_line.name = "ServiceLine"
-	_service_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_service_line.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_service_line)
 
-	_column.add_child(_heading(SETTINGS_CAPTION))
+	_column.add_child(PageChrome.subheading(SETTINGS_CAPTION))
 	_settings_row = VBoxContainer.new()
 	_settings_row.name = "Settings"
 	_settings_row.add_theme_constant_override("separation", 2)
 	_column.add_child(_settings_row)
 
-	_column.add_child(_heading("what is waiting to go out"))
+	_column.add_child(PageChrome.subheading("what is waiting to go out"))
 	_queue = ItemList.new()
 	_queue.name = "Queue"
+	# A list a person reads rather than types into, built without a keyboard of its own like the rest.
 	_queue.focus_mode = Control.FOCUS_NONE
 	_queue.custom_minimum_size = Vector2(0, 120)
 	_column.add_child(_queue)
 
-	_stranded = Label.new()
+	_stranded = PageChrome.text()
 	_stranded.name = "Stranded"
-	_stranded.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_stranded.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_stranded)
 
-	_column.add_child(_heading("where it does not agree"))
+	_column.add_child(PageChrome.subheading("where it does not agree"))
 	_conflicts = ItemList.new()
 	_conflicts.name = "Conflicts"
 	_conflicts.focus_mode = Control.FOCUS_NONE
@@ -117,52 +112,37 @@ func build() -> void:
 	settle_row.name = "SettleRow"
 	settle_row.add_theme_constant_override("separation", 6)
 	_column.add_child(settle_row)
-	_our_button = Button.new()
+	_our_button = PageChrome.button("Keep this device's copy")
 	_our_button.name = "OurCopyButton"
-	_our_button.focus_mode = Control.FOCUS_NONE
-	_our_button.text = "Keep this device's copy"
 	_our_button.pressed.connect(_on_our_copy)
 	settle_row.add_child(_our_button)
-	_their_button = Button.new()
+	_their_button = PageChrome.button("Keep the office's copy")
 	_their_button.name = "TheirCopyButton"
-	_their_button.focus_mode = Control.FOCUS_NONE
-	_their_button.text = "Keep the office's copy"
 	_their_button.pressed.connect(_on_their_copy)
 	settle_row.add_child(_their_button)
 
-	_last_run = Label.new()
+	_last_run = PageChrome.text()
 	_last_run.name = "LastRun"
-	_last_run.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_last_run.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_last_run)
 
 	var run_row := HBoxContainer.new()
 	run_row.name = "RunRow"
 	run_row.add_theme_constant_override("separation", 6)
 	_column.add_child(run_row)
-	_sync_button = Button.new()
+	_sync_button = PageChrome.button("Sync now")
 	_sync_button.name = "SyncButton"
-	_sync_button.focus_mode = Control.FOCUS_NONE
-	_sync_button.text = "Sync now"
 	_sync_button.pressed.connect(_on_sync_pressed)
 	run_row.add_child(_sync_button)
-	_save_button = Button.new()
+	_save_button = PageChrome.button("Save the service")
 	_save_button.name = "SaveButton"
-	_save_button.focus_mode = Control.FOCUS_NONE
-	_save_button.text = "Save the service"
 	_save_button.pressed.connect(_on_save_pressed)
 	run_row.add_child(_save_button)
-	var close_button := Button.new()
+	var close_button := PageChrome.button("Close")
 	close_button.name = "Close"
-	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_requested)
 	run_row.add_child(close_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 44)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 
 	refresh()
@@ -361,17 +341,14 @@ func _build_settings() -> void:
 		var key := StringName(setting.get("key", ""))
 		if key == &"":
 			continue
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		_settings_row.add_child(row)
-		var label := Label.new()
-		label.text = String(setting.get("label", String(key)))
-		row.add_child(label)
 		var field := LineEdit.new()
 		field.name = String(key)
 		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		field.secret = bool(setting.get("secret", false))
-		row.add_child(field)
+		# A caption and the box it names, in the shared chrome's own row. The field keeps the keyboard:
+		# the sweep only raises a control that has none, and a setting is where somebody types.
+		var row := PageChrome.labelled(String(setting.get("label", String(key))), field)
+		_settings_row.add_child(row)
 		_setting_keys.append(key)
 		_setting_fields.append(field)
 
@@ -408,7 +385,3 @@ func _run_words(out: Dictionary) -> String:
 	return String(out.get("reason", "the run did not go"))
 
 
-func _heading(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	return label

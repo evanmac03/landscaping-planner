@@ -78,16 +78,10 @@ func build() -> void:
 	if pipeline == null:
 		pipeline = PipelineScript.new()
 		pipeline.currency = currency
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	_funnel = Label.new()
+	_funnel = PageChrome.text()
 	_funnel.name = "Funnel"
-	_funnel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_funnel.custom_minimum_size = Vector2(0, 34)
 	column.add_child(_funnel)
 
 	var scroll := ScrollContainer.new()
@@ -115,7 +109,7 @@ func build() -> void:
 	_reason_row.add_theme_constant_override("separation", 6)
 	_reason_row.visible = false
 	column.add_child(_reason_row)
-	_reason_label = Label.new()
+	_reason_label = PageChrome.text()
 	_reason_label.name = "ReasonLabel"
 	_reason_row.add_child(_reason_label)
 	_reason = LineEdit.new()
@@ -148,21 +142,18 @@ func build() -> void:
 	add_button.name = "AddLead"
 	add_row.add_child(add_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 34)
+	_status = PageChrome.status()
 	column.add_child(_status)
 	refresh()
 
 
+## A button on this board, from the shared chrome and named by the board's own rule: a caption with its
+## spaces taken out. The board's typed fields are the only controls it builds with a keyboard, because a
+## field is where somebody types; what the *open* board does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	# HUD controls are focus-free so the drawing keeps the keyboard; the board's typed fields are
-	# the exception, and they are the only ones.
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(Callable(self, method))
 	return button
 
@@ -191,6 +182,10 @@ func refresh() -> void:
 		_reason_row.visible = _pending_stage == LeadScript.LOST
 		if is_asking_for_a_reason():
 			_reason_label.text = "%s is being closed as lost. Why?" % _name_of(_pending_id)
+	# The cards just built are new controls, and the shared show that gave this board its keyboard ran
+	# when it was *opened* - before any of them existed. So a board that is up gives them the keyboard
+	# here. Nothing is done while it is down: the show is what decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## Rebuild every column's cards from the pipeline. Cheap at this size - a column is a handful of
@@ -402,8 +397,9 @@ func is_reason_row_visible() -> bool:
 	return _reason_row != null and _reason_row.visible
 
 
-## The controls that must not take the keyboard: every button on the board. The typed fields are the
-## only things here allowed focus, so this returns the buttons and nothing else.
+## The controls that are *built* without a keyboard: every button on the board. The typed fields are the
+## only things here allowed focus at build time, so this returns the buttons and nothing else - and what a
+## board that is *shown* does with the keyboard is decided once, in `PageChrome.takes_the_keyboard`.
 func buttons_are_focus_free() -> bool:
 	if _row == null:
 		return false

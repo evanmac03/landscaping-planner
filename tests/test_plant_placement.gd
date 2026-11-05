@@ -31,6 +31,73 @@ func _yard() -> Node3D:
 # --- planting one -------------------------------------------------------------------------
 
 
+func test_a_plant_measured_on_site_is_planted_at_the_size_it_was_measured_at() -> void:
+	# The arithmetic is the species' own ratio with the measured spread in place of the catalogue's, so
+	# a measured plant is drawn to scale rather than to the average of its kind.
+	var catalogue: PlantCatalogue = _catalogue()
+	var species: PlantSpecies = catalogue.get_species(MAPLE)
+	var measured_cm: int = int(species.spread_cm) + 200
+	var yard: Node3D = _yard()
+	var measured: Dictionary = PlacementScript.place(
+		catalogue, MAPLE, yard, Vector3.ZERO, {"spread_cm": measured_cm, "source": "stated"}
+	)
+	assert(bool(measured["ok"]), "it is planted: %s" % String(measured["reason"]))
+	var node: Node3D = measured["node"]
+	assert(
+		int(node.get_meta(PlacementScript.SPREAD_META)) == measured_cm,
+		"at the spread it was measured at: %d" % int(node.get_meta(PlacementScript.SPREAD_META))
+	)
+	assert(
+		String(node.get_meta(PlacementScript.SIZE_SOURCE_META)) == "stated",
+		"and the node says the number was measured: %s"
+				% String(node.get_meta(PlacementScript.SIZE_SOURCE_META))
+	)
+	var bare_yard: Node3D = _yard()
+	var plain: Dictionary = PlacementScript.place(catalogue, MAPLE, bare_yard, Vector3.ZERO)
+	assert(
+		float(measured["scale"]) > float(plain["scale"]),
+		"and it is drawn larger than the catalogue's size: %.3f against %.3f"
+				% [float(measured["scale"]), float(plain["scale"])]
+	)
+	yard.free()
+	bare_yard.free()
+
+
+func test_a_plant_nobody_measured_is_planted_at_the_catalogue_size_and_says_so() -> void:
+	var catalogue: PlantCatalogue = _catalogue()
+	var species: PlantSpecies = catalogue.get_species(LILAC)
+	var yard: Node3D = _yard()
+	var planted: Dictionary = PlacementScript.place(catalogue, LILAC, yard, Vector3.ZERO)
+	assert(bool(planted["ok"]), "it is planted: %s" % String(planted["reason"]))
+	var node: Node3D = planted["node"]
+	assert(
+		int(node.get_meta(PlacementScript.SPREAD_META)) == species.spread_cm,
+		"at the size the list states"
+	)
+	assert(
+		String(node.get_meta(PlacementScript.SIZE_SOURCE_META)) == "catalogue",
+		"and the node says where that number came from: %s"
+				% String(node.get_meta(PlacementScript.SIZE_SOURCE_META))
+	)
+	yard.free()
+
+
+func test_a_measurement_of_nothing_is_not_a_measurement() -> void:
+	# Zero is how a page says "I did not measure it", so it has to fall back to the list rather than
+	# scaling the plant to nothing at all.
+	var catalogue: PlantCatalogue = _catalogue()
+	var yard: Node3D = _yard()
+	var planted: Dictionary = PlacementScript.place(
+		catalogue, LILAC, yard, Vector3.ZERO, {"spread_cm": 0, "height_cm": 0, "source": "catalogue"}
+	)
+	assert(bool(planted["ok"]), "it is planted")
+	assert(
+		int(planted["node"].get_meta(PlacementScript.SPREAD_META)) == catalogue.get_species(LILAC).spread_cm,
+		"at the catalogue's size, because nobody measured this one"
+	)
+	yard.free()
+
+
 func test_planting_a_species_puts_it_in_the_yard_at_the_size_the_catalogue_says() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var yard: Node3D = _yard()

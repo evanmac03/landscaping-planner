@@ -43,6 +43,7 @@ const SUBJECTS: Array[String] = [
 	"Stating levels and falls",
 	"Importing somebody else's file",
 	"Tracing over a picture",
+	"What is on site: the field survey",
 	"Plants",
 	"Food: what will crop here",
 	"Food: what to grow here next",
@@ -76,7 +77,7 @@ const SUBJECTS: Array[String] = [
 
 ## The sections the contents is grouped into, in the order they are read.
 ##
-## The list of subjects is flat - one entry per thing to know - but thirty-one flat rows is a wall to
+## The list of subjects is flat - one entry per thing to know - but thirty-two flat rows is a wall to
 ## look at, so the same subjects arrive under eight headings. A section names the subjects in it and
 ## nothing else: the *order* of the subjects is still `SUBJECTS`, and a test checks that the sections
 ## are exactly that list, in that order, split up and not rearranged.
@@ -100,6 +101,7 @@ const SECTIONS: Array[Dictionary] = [
 		"Stating levels and falls",
 		"Importing somebody else's file",
 		"Tracing over a picture",
+		"What is on site: the field survey",
 	]},
 	{"title": "Plants and food", "topics": [
 		"Plants",
@@ -252,8 +254,10 @@ static func _topics() -> Array[Dictionary]:
 		+ "crossfades to the flat 2D plan that the drawing is made on. The menu bar across the top is "
 		+ "the whole program: File, Edit, "
 		+ "View, Draft, Site, Plant, Water, Light, Pipeline, Jobs, Estimate, Present, Team and Help. The "
-		+ "palette down the left holds the drawing tools and the layers. The lines in the corners name "
-		+ "the keys.",
+		+ "palette down the left holds the drawing tools and the layers. The line along the foot of the "
+		+ "screen names the keys, and keeps up with what is in hand: a view's own controls while nothing "
+		+ "is, and what the tool in hand is waiting for - with the keys that answer that tool - while one "
+		+ "of them is.",
 		"",
 		"Help > Landscaping Planner help opens this manual, Help > Drawing keys opens the key "
 		+ "reference, and Help > Command palette opens one box that reaches every command there is. "
@@ -268,6 +272,11 @@ static func _topics() -> Array[Dictionary]:
 		+ "written, rather than dropping it. A page that has a box to type into takes the first Escape "
 		+ "for the box itself and the second to put the page away, because a box cannot be talked out of "
 		+ "the keyboard while somebody is typing into it.",
+		"",
+		"On a phone the Back gesture is that same Escape: it puts away the page in front, and then the "
+		+ "shape in hand, and only when there is nothing left at all does it ask about leaving the "
+		+ "program. That is deliberate. A thumb brushes that gesture by accident, and a drawing lives in "
+		+ "memory until it is written.",
 	]))
 	out.append(_topic("Finding any command: the palette", [
 		"Help > Command palette opens a box holding every command the program has, with a field to type "
@@ -288,6 +297,12 @@ static func _topics() -> Array[Dictionary]:
 		"The commands you used last are not forgotten when the box closes: before anything is typed the "
 		+ "list is the whole bar with those at the top, so Ctrl+P twice in a row is the shortest way back "
 		+ "to whatever you were just doing.",
+		"",
+		"There is a second way in, for the times you are already looking at a page and cannot tell what it "
+		+ "is asking you. F1 - or Help > What this page is about - opens this manual at the subject for the "
+		+ "page in front of you, so the answer arrives without your having to guess which of the headings "
+		+ "below it is filed under. If the page is one this manual has not reached yet, the status line "
+		+ "says so, and says what that page is about so the gap can be filled.",
 		"",
 		"The rest of this manual describes what each of those commands does; this is only the way in.",
 	]))
@@ -311,8 +326,21 @@ static func _topics() -> Array[Dictionary]:
 		+ "washed and the species in their own colours. It is a picture of the same drawing, not a second "
 		+ "drawing.",
 		"",
-		"View > Control hints switches the corner hints off once you know the keys and want the screen "
-		+ "back.",
+		"View > Control hints switches the line at the foot of the screen off once you know those keys "
+		+ "and want the room back.",
+		"",
+		"On a touch screen the plan is moved with two fingers: pinch them apart to zoom in, together to "
+		+ "zoom out, and drag both to slide the design about. One finger is the mouse, so it moves "
+		+ "whatever it is over rather than the view - which is why the views are moved with two.",
+		"",
+		"In the ground view a phone is walked with the thumbs. The left half of the screen is a stick: "
+		+ "push it in any direction to walk that way, and past its ring the walk becomes a run. The right "
+		+ "half is the head, where a drag turns you. Both are live at once, so one thumb can walk while "
+		+ "the other looks, and the stick lets go the moment the fingers leave the glass.",
+		"",
+		"On a phone the whole screen is also drawn larger - by about a third - and the palette's buttons "
+		+ "are made as tall as a thumb needs rather than as tall as a desk did. Nothing about a computer "
+		+ "changes: the same measurements leave a desk's controls exactly the size its layout made them.",
 	]))
 	out.append(_topic("Drawing: the tools", [
 		"Turn the tools on with 0 (Draft > Drawing tools). Nothing can be drawn while they are away, "
@@ -332,7 +360,11 @@ static func _topics() -> Array[Dictionary]:
 		".  angular dim  the corner, a point along each of its two sides, and where the arc stands",
 		"",
 		"Enter finishes a polyline, C closes it into a polygon, Backspace drops the last point picked, "
-		+ "and Escape cancels the shape in hand without putting the tool away. The angular dimension is "
+		+ "and Escape cancels the shape in hand without putting the tool away. The foot of the screen "
+		+ "keeps up with the tool in hand: it says what that tool is waiting for and names the keys that "
+		+ "answer it, so the plan never has to be left to find out what to press next. Only the keys that "
+		+ "tool honours are named - a line is finished by its second pick, so it is never offered the keys "
+		+ "that finish a polyline. The angular dimension is "
 		+ "the one tool that is not on a digit: the nine number keys are already spoken for, so it takes "
 		+ "the full stop.",
 		"",
@@ -500,6 +532,12 @@ static func _topics() -> Array[Dictionary]:
 		"",
 		"Each import is one undo step whatever the file holds, and each one says what it read before the "
 		+ "drawing takes it.",
+		"",
+		"On a phone each of those doors is the phone's own file picker rather than a folder drawn by this "
+		+ "program, because Android gives a program permission to one document at a time and the picker "
+		+ "is how a document is handed over. What comes back is read once and taken into the design - a "
+		+ "photograph is copied into the program's own pictures, a survey becomes rows on the drawing - "
+		+ "so nothing stays tied to a file the phone could take away again.",
 	]))
 	out.append(_topic("Tracing over a picture", [
 		"A picture under the drawing is a tracing aid: a scan of a surveyor's plan, a marked-up print, an "
@@ -523,6 +561,43 @@ static func _topics() -> Array[Dictionary]:
 		"It lies over the yard's own ground and under every line, which is what makes it possible to "
 		+ "trace over. Putting it under the drawing is one undoable step and taking it off is another, "
 		+ "and the copy stays where it is, so undo can always put the picture back.",
+	]))
+	out.append(_topic("What is on site: the field survey", [
+		"A visit to the site is a record before it is a drawing, and Site > Record what is on site... is "
+		+ "where a plant you have just looked at goes: what you think it is, which part you photographed, "
+		+ "how much sun and water it has, how big it is, and where it stands.",
+		"",
+		"Say what you saw and this program will not pretend you said more. A name below the confidence "
+		+ "the plant library needs is kept as a name that was offered and not as an identification, so a "
+		+ "shrub you could not place arrives on the plan as the shrub you could not place - with the "
+		+ "photograph and the note attached to it. A height or a spread of zero means nobody measured it, "
+		+ "and the plant library's own figure is used instead; type the measurement and the drawing "
+		+ "follows yours, and the plant records which of the two it was sized from.",
+		"",
+		"Photographs are kept in the program's own folder under a name made from the picture's own "
+		+ "contents, so the same photograph arriving twice is one file and two different photographs can "
+		+ "never overwrite each other. What a picture is - JPEG, PNG, WebP or BMP - is read from its "
+		+ "header rather than trusted from the name it arrived under.",
+		"",
+		"A survey recorded away from this machine arrives as a file. The program watches for it, plants "
+		+ "what it names, and files the species it could identify into the plant library as Field Survey "
+		+ "Captures, where the plant browser will show them. A capture read twice is planted once, even "
+		+ "when the file it came in names none of its records.",
+		"",
+		"A capture goes in wherever it was found, even when the drawing says the spot is wrong for it: a "
+		+ "survey is a record of what is on site, and the import is not the place to overrule the person "
+		+ "who was standing there. What it does instead is ask what the plan's own conditions make of each "
+		+ "spot it planted in, and say so in one line: how many suit the spot, how many are in the wrong "
+		+ "place - naming the first of them and what it wants - and how many the drawing says nothing "
+		+ "about.",
+		"",
+		"On a proposal page, up to three of those photographs sit under the picture of the garden, each "
+		+ "captioned with what it shows rather than with a file name - and a page handed more than three "
+		+ "says how many it left out instead of shrinking them past being read.",
+		"",
+		"There is no plant-identification model in this program. Reading a species off a photograph is a "
+		+ "step that has not been built, and the page says so rather than guessing: what it will never do "
+		+ "is offer you the nearest species and let you believe it looked.",
 	]))
 	out.append(_topic("Plants", [
 		"The plant library (L) is the catalogue: every species with its mature spread, its hardiness, the "
@@ -581,6 +656,20 @@ static func _topics() -> Array[Dictionary]:
 		+ "tradition rather than science, so the page holds the pairings a kitchen gardener would "
 		+ "recognise and claims no more than that. A bed whose history nobody has stated comes back "
 		+ "unknown rather than green.",
+		"",
+		"Companions come in two layers, and the difference matters. Most pairings are between families "
+		+ "- a herb among the fruiting crops, an allium kept from a legume. A few name a *plant*: "
+		+ "marigold, which is no crop at all and belongs to no family, and fennel, which the tradition "
+		+ "keeps from everything. A plant's own rule is read before its family's, which is how fennel can "
+		+ "be kept from a nightshade when the herb row would otherwise allow it.",
+		"",
+		"Marigold is the pairing that earns its keep. Its roots give off a compound the root-knot "
+		+ "nematode cannot live with, so a bed given to marigolds comes back cleaner than it was - but it "
+		+ "is the ground it helps rather than the plant beside it, and the benefit shows the year after.",
+		"",
+		"Where a pairing has been looked into rather than repeated, the page says what the mechanism is "
+		+ "and which work it came from. Where it is only tradition, it says that too, because a gardener "
+		+ "is owed the difference.",
 		]))
 	out.append(_topic("Food: what's ready when", [
 		"Plant > What's ready when... is the calendar. Pick a month and read every crop the plant list "

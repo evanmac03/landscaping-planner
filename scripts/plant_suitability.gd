@@ -108,7 +108,7 @@ static func check(species: PlantSpecies, profile: TerrainProfile, place: String 
 	var zone: Dictionary = _zone_finding(species, profile)
 	if not zone.is_empty():
 		findings.append(zone)
-	return _result(_worst(findings), findings, species, place, profile)
+	return _result(worst_of(findings), findings, species, place, profile)
 
 
 ## Check a point against the map the site's conditions are stored in. The whole point of the map:
@@ -125,11 +125,16 @@ static func check_at(species: PlantSpecies, zone_map: ZoneMap, point: Vector2) -
 ## The order is **not** the numeric order: a property that is against the plant outranks a gap, and a
 ## gap outranks a tolerated mismatch, because "the plan does not say how wet this is" is a thing the
 ## designer can go and fix and a mild mismatch is not.
-static func _worst(findings: Array[Dictionary]) -> int:
+##
+## Public, and asked for by every check in the food garden (`CropSun`, `CropRotation`, `GrowingSeason`,
+## `SowingPlanner`): **one** ordering rule, so a red ring and a red row cannot come to different
+## verdicts about the same facts. The outcome is read through `int()` because a findings list built
+## from a parsed file carries every number as a float.
+static func worst_of(findings: Array[Dictionary]) -> int:
 	var seen_unknown := false
 	var seen_tolerated := false
 	for finding: Dictionary in findings:
-		var outcome: int = finding.get("outcome", UNKNOWN)
+		var outcome: int = int(finding.get("outcome", UNKNOWN))
 		if outcome == UNSUITABLE:
 			return UNSUITABLE
 		if outcome == UNKNOWN:

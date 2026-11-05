@@ -68,29 +68,23 @@ func _init() -> void:
 func build() -> void:
 	if _column != null:
 		return
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_heading = Label.new()
-	_heading.name = "Heading"
-	_heading.text = "what the drawing plants, and what it costs"
+	_heading = PageChrome.heading("what the drawing plants, and what it costs")
 	_column.add_child(_heading)
 
-	_explanation = Label.new()
+	# The page's own name for this sentence, kept: an explanation of what a page is for is what the
+	# shared note is worded as.
+	_explanation = PageChrome.note(EXPLANATION)
 	_explanation.name = "Explanation"
-	_explanation.text = EXPLANATION
-	_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_explanation.custom_minimum_size = Vector2(0, 56)
 	_column.add_child(_explanation)
 
 	_column.add_child(_build_who_row())
 
-	var lines_heading := Label.new()
+	var lines_heading := PageChrome.subheading("one line per kind of plant")
 	lines_heading.name = "LinesHeading"
-	lines_heading.text = "one line per kind of plant"
 	_column.add_child(lines_heading)
 	_lines = ItemList.new()
 	_lines.name = "Lines"
@@ -99,9 +93,8 @@ func build() -> void:
 	_lines.focus_mode = Control.FOCUS_NONE
 	_column.add_child(_lines)
 
-	var problems_heading := Label.new()
+	var problems_heading := PageChrome.subheading("what the book cannot price")
 	problems_heading.name = "ProblemsHeading"
-	problems_heading.text = "what the book cannot price"
 	_column.add_child(problems_heading)
 	_problems = ItemList.new()
 	_problems.name = "Problems"
@@ -110,25 +103,17 @@ func build() -> void:
 	_problems.focus_mode = Control.FOCUS_NONE
 	_column.add_child(_problems)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 24)
 	_column.add_child(_summary)
 
 	_column.add_child(_build_action_row())
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 44)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 
 	if not close_requested.is_connected(_on_close_requested):
 		close_requested.connect(_on_close_requested)
-	# A window holds the keyboard while it is up, which is what a window is for - but this one has one
-	# field to type into and the rest of it must not take a key away from the drawing.
-	rows_are_keyboard_free()
 	set_plan({})
 	hide()
 
@@ -166,21 +151,18 @@ func _build_action_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "ActionRow"
 	row.add_theme_constant_override("separation", 6)
-	_hint = Label.new()
+	_hint = PageChrome.hint()
 	_hint.name = "Hint"
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Seven hundred wide on purpose: the line before the button is laid out to the width its longest
+	# sentence needs, so the button beside it does not step across as the sentence changes.
 	_hint.custom_minimum_size = Vector2(700, 0)
 	row.add_child(_hint)
-	_order_button = Button.new()
+	_order_button = PageChrome.button("Write the order")
 	_order_button.name = "OrderButton"
-	_order_button.text = "Write the order"
-	_order_button.focus_mode = Control.FOCUS_NONE
 	_order_button.pressed.connect(_on_order)
 	row.add_child(_order_button)
-	_close_button = Button.new()
+	_close_button = PageChrome.button("Close")
 	_close_button.name = "CloseButton"
-	_close_button.text = "Close"
-	_close_button.focus_mode = Control.FOCUS_NONE
 	_close_button.pressed.connect(request_close)
 	row.add_child(_close_button)
 	return row
