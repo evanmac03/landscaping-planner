@@ -4,6 +4,10 @@ extends CanvasLayer
 ## the drawing palette, and the drafting aids on the overlay layer.
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
+const StartChoicesScript := preload("res://scripts/start_choices.gd")
+const StartScript := preload("res://scripts/start_window.gd")
+
+
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
@@ -8651,3 +8655,42 @@ func _refresh_plant_menu() -> void:
 		stop_popup.set_item_disabled(
 			int(stop[1]), view_controller == null or not view_controller.is_planting()
 		)
+
+# --- the front door ---
+
+## A choice was taken on the front door.
+func _on_start_chosen(id: StringName) -> void:
+	if id == StartChoicesScript.CAMERA:
+		open_camera_window()
+		return
+	if id == StartChoicesScript.DESIGN:
+		open_start_drawing_window()
+		return
+	_refresh_menus()
+
+
+func open_start_drawing_window() -> void:
+	_build_start_drawing_window()
+	if _start_drawing_window == null:
+		return
+	var paths: Array[String] = [] if _draft == null else _draft.recent_drawings()
+	_start_drawing_window.bind_recent(paths)
+	_sync_door_screen()
+	PageChromeScript.show_centred(_start_drawing_window)
+	release_keyboard_focus(self)
+	_ask_for_the_doorways_shape()
+
+
+func open_camera_window() -> void:
+	_refresh_menus()
+
+
+func _on_start_window_closed() -> void:
+	# The sheet goes with the door - unless the board choice has already stood the begin-a-drawing page on
+	# it, in which case the doorway is still up and the sheet stays.
+	_sync_door_screen()
+	# And the window keeps the doorway's shape until the last of its two pages goes: the board's own answer
+	# is asked for again only when there is a board to ask it for.
+	_ask_for_the_doorways_shape()
+	_refresh_menus()
+

@@ -1518,6 +1518,23 @@ computed **pure** by `request_for(which, args)` and only then sent, and an addre
 status 0, which is retryable rather than a refusal. Configured and ready are two different states:
 an address with no token can build every request and will not send one.
 
+**How long it waits, and the fault that was here.** The sending is **nothing but `HttpExchange`
+driven to completion** - the same machine the plant reader steps a frame at a time - with the two
+patiences stated on this file: `ANSWER_SECONDS` 30 for the answer and `CONNECT_SECONDS` 1.5 for the
+connection, the second being short for a reason measured in that file (a port nobody is listening on
+never leaves `STATUS_CONNECTING`, so only a budget of its own can tell a mis-typed address from a slow
+service). What stood here was three counted loops - `while turns < 4000: client.poll()` - and
+**counting polls is not waiting**: `poll()` does not block, so four thousand turns go by in a few
+milliseconds and a service that took longer than that was reported as not there. It survived this long
+because only an instant local service ever answered it. The same fault cost the plant reader a whole
+reading before it was found, and it is the reason there is one request machine rather than a loop per
+caller.
+
+**Still owed, and it is this file's own shape rather than that machine's:** `_exchange` waits inside
+the call, so a push against a slow service holds the frame for as long as it waits (up to the 30
+seconds above). `BizSync` is written as a synchronous act - pull, then push, then advance the cursor -
+so making it step across frames is a change to the sync layer, not to the transport.
+
 **`scripts/biz/sync.gd`** (`BizSync`) is the join, and it is the one file in this project that holds
 the conflict policy of section 11.3. Pull-then-push, idempotent, safe to interrupt: **the cursor
 advances only after the pull is applied**, and **a failed pull does not push**. It is offline first

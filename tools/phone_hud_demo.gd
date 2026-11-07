@@ -1,25 +1,27 @@
 extends Node
-## What a finger gets on a phone, measured at the real HUD: the canvas scale it is drawn at, and the
-## height and text size of the palette button that measured 2.3 mm before.
+## What a finger gets on a phone, measured at the real HUD: the canvas scale it is drawn at, the height and
+## text size of the palette button that measured 2.3 mm before, and what *this* device would be told.
 ##
-## A development tool rather than part of the game. It instances `main.tscn` with the device forced to a
-## phone - before the scene is made, because the HUD reads the window's scale when the window is made
-## and sizes its palette once - and then reads the button back and converts it to millimetres. Run
-## `scenes/phone_hud_demo.tscn` and read the console:
+## A development tool rather than part of the game. It instances `main.tscn` into a window it has already
+## drawn up - stating the answer a phone would give, rather than pretending to be one - and then reads the
+## button back and converts it to millimetres. Run `scenes/phone_hud_demo.tscn` and read the console:
 ##
 ##     window scale      drawn up by 1.35, canvas 1185 x 666 of a 1600 x 900 window
-##     palette row       51.4 px of layout, 5.50 mm on a 384.6 dpi screen, text 21 px
-##     before            a row of 29 px was 2.30 mm and text 12 px about 1.0 mm
-##     PHONE HUD: a palette button is 5.5 mm and its text reads at 1.6 mm on the phone's screen
+##     this device       touchscreen no, 144 dpi, a 29 px row comes to 5.12 mm, so a thumb is needed: no
+##     this machine      144.0 dpi at 1.35 scale, so the row is 23.1 px of layout, text 10 px
+##     the phone         384.6 dpi, the same row is 61.7 px = 5.50 mm, text 26 px = 1.62 mm
+##     before            a row of 29 px was 2.59 mm and text 12 px about 0.7 mm
+##     PHONE HUD: the palette answers at 5.5 mm on the phone's screen, sized from that screen's own density
 ##
-## The density is the one thing a desktop cannot lend: this machine has its own, so the millimetres
-## printed here are the phone's arithmetic run with the phone's density. Whether that phone agrees is
-## what the device is for.
+## The `this device` line is the honest one: a desk monitor is not a thumb's device, and a density of 144
+## is what says so - in a real window this machine reports no touchscreen at all, and the headless runner
+## it is tested in reports one, which is why the density is the reading the answer is actually built on.
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
-const PhoneFilesScript := preload("res://scripts/phone_files.gd")
+const TouchInputScript := preload("res://scripts/touch_input.gd")
 
-## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen.
+## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen. Measured on the device itself,
+## which reports 450 dots to the inch; the number here is the one the arithmetic is exercised at.
 const PHONE_DPI := 384.6
 
 ## The row and the text a desk was drawn with, for the comparison.
@@ -31,7 +33,10 @@ var _hud: Node = null
 
 
 func _ready() -> void:
-	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
+	# The window is drawn up here rather than by the program, because this machine is not a phone and
+	# `PhoneHud.apply` would rightly leave it alone. Stating the answer is what a demonstration is for;
+	# the *decision* is printed below, from this device's own readings, so the two can be compared.
+	PhoneHudScript.apply_if(get_window(), true)
 	_app = load("res://scenes/main.tscn").instantiate()
 	_app.name = "App"
 	add_child(_app)
@@ -49,6 +54,22 @@ func _ready() -> void:
 	var shown: Vector2 = window.get_visible_rect().size
 	print("window scale      drawn up by %.2f, canvas %d x %d of a %d x %d window" % [
 		window.content_scale_factor, int(shown.x), int(shown.y), int(window.size.x), int(window.size.y),
+	])
+
+	# What this device would be told, from its own readings - the question the program asks itself, which
+	# no longer mentions an operating system.
+	var here_dpi: float = PhoneHudScript.dpi()
+	var touch: bool = TouchInputScript.has_a_touchscreen()
+	var desk_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, here_dpi)
+	var thumb: bool = TouchInputScript.answered_by_a_thumb(
+		touch, here_dpi, desk_mm, PhoneHudScript.TOUCH_MM
+	)
+	print("this device       touchscreen %s, %.0f dpi, a %.0f px row comes to %.2f mm, so a thumb is needed: %s" % [
+		"yes" if touch else "no",
+		here_dpi,
+		TouchInputScript.DESK_ROW_PX,
+		desk_mm,
+		"yes" if thumb else "no",
 	])
 
 	var row: float = button.custom_minimum_size.y

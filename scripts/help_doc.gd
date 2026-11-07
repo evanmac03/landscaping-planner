@@ -33,6 +33,7 @@ extends RefCounted
 ## test rather than quietly stop being documented.
 const SUBJECTS: Array[String] = [
 	"What this program is",
+	"Where you start: the front door",
 	"Finding any command: the palette",
 	"The three views",
 	"Drawing: the tools",
@@ -44,6 +45,7 @@ const SUBJECTS: Array[String] = [
 	"Importing somebody else's file",
 	"Tracing over a picture",
 	"What is on site: the field survey",
+	"Reading a photograph",
 	"Plants",
 	"Food: what will crop here",
 	"Food: what to grow here next",
@@ -87,6 +89,7 @@ const SUBJECTS: Array[String] = [
 const SECTIONS: Array[Dictionary] = [
 	{"title": "Getting started", "topics": [
 		"What this program is",
+		"Where you start: the front door",
 		"Finding any command: the palette",
 		"The three views",
 	]},
@@ -102,6 +105,7 @@ const SECTIONS: Array[Dictionary] = [
 		"Importing somebody else's file",
 		"Tracing over a picture",
 		"What is on site: the field survey",
+		"Reading a photograph",
 	]},
 	{"title": "Plants and food", "topics": [
 		"Plants",
@@ -148,9 +152,12 @@ const SECTIONS: Array[Dictionary] = [
 ## sow, how much to plant, and the order that comes out of it - so each points at the next, and a reader
 ## who came in at the middle can walk it either way.
 const SEE_ALSO: Dictionary = {
+	"Where you start: the front door": ["What this program is", "The three views"],
 	"The three views": ["Presenting the garden", "The sun and the shadows"],
 	"Drawing: the tools": ["Snapping and precision", "Editing shapes"],
 	"The ground under the garden": ["Stating levels and falls", "Plants"],
+	"What is on site: the field survey": ["Reading a photograph", "Plants"],
+	"Reading a photograph": ["What is on site: the field survey", "Plants"],
 	"Plants": ["Food: what will crop here", "Ordering the plants from a nursery"],
 	"Food: what will crop here": ["Food: what to grow here next", "The sun and the shadows"],
 	"Food: what to grow here next": ["Food: what will crop here", "Food: when to sow"],
@@ -250,8 +257,9 @@ static func _topics() -> Array[Dictionary]:
 		+ "design: the plan, the sheet, the picture and the price are all projections of it, and nothing "
 		+ "is measured twice.",
 		"",
-		"The app opens on the overhead 3D view - the garden as it stands - and Q, or the View menu, "
-		+ "crossfades to the flat 2D plan that the drawing is made on. The menu bar across the top is "
+		"Past the front door - which has a heading of its own just below - the drawing opens on the "
+		+ "flat 2D plan, where an empty sheet reads as empty; Q, or the View menu, crossfades between it and "
+		+ "the overhead 3D garden. The menu bar across the top is "
 		+ "the whole program: File, Edit, "
 		+ "View, Draft, Site, Plant, Water, Light, Pipeline, Jobs, Estimate, Present, Team and Help. The "
 		+ "palette down the left holds the drawing tools and the layers. The line along the foot of the "
@@ -277,6 +285,38 @@ static func _topics() -> Array[Dictionary]:
 		+ "shape in hand, and only when there is nothing left at all does it ask about leaving the "
 		+ "program. That is deliberate. A thumb brushes that gesture by accident, and a drawing lives in "
 		+ "memory until it is written.",
+	]))
+	out.append(_topic("Where you start: the front door", [
+		"On opening, the program asks which of its two halves you have come for: the drawing board, or a "
+		+ "camera for the site you are standing on. Neither half is a mode. Choosing the drawing board puts "
+		+ "the page away, because the drawing is already standing behind it; choosing the camera opens it "
+		+ "over the page rather than instead of it, so a run of photographs does not mean coming back "
+		+ "through the door once a picture. Closing the door - its Close button, or Escape - is the drawing "
+		+ "board, which is what is behind it.",
+		"",
+		"Choosing the drawing board asks one more thing before you are at it: how the drawing should "
+		+ "start. There are four ways, and they are the File menu's own commands - a new drawing, a "
+		+ "drawing you saved earlier, one this program has opened recently, and the example garden below. "
+		+ "Drawing is the last question before the board.",
+		"",
+		"That board is a blank page to begin with. The garden this program ships with - the house, the "
+		+ "lawn, the paving and the planting - is one fixed example, so it is put away rather than standing "
+		+ "behind a new drawing: what you draw, you draw on paper. View > Show the site puts that garden "
+		+ "back under your drawing and takes it away again, and loading the example garden turns it on for "
+		+ "you, since that garden is what the example is.",
+		"",
+		"The door stands there only when there is nothing behind it: a drawing that has never been saved "
+		+ "and has had nothing done to it. That is the state a launch begins in, so it is what you see - and "
+		+ "a launch that opens a drawing goes straight to the drawing instead of asking.",
+		"",
+		"The camera is reachable from inside the drawing as well, and deliberately without needing one: "
+		+ "Site > Take a photograph... opens it from anywhere, and its shutter keeps the picture in the same "
+		+ "folder as a picture you chose from a file. The survey's own door beside it, Record what is on "
+		+ "site..., is about the drawing, and says so by needing one.",
+		"",
+		"To start from something rather than from nothing, File > Examples > The example garden lays out a "
+		+ "small backyard - the site, a house, a patio, a path, four beds and two trees, with one dimension "
+		+ "across it - as a drawing you can move, measure, plant, price and save like any other.",
 	]))
 	out.append(_topic("Finding any command: the palette", [
 		"Help > Command palette opens a box holding every command the program has, with a field to type "
@@ -328,6 +368,18 @@ static func _topics() -> Array[Dictionary]:
 		"",
 		"View > Control hints switches the line at the foot of the screen off once you know those keys "
 		+ "and want the room back.",
+		"",
+		"View > Screen orientation decides which way up the board is asked to be: Landscape, which is how "
+		+ "the board opens and what a plan drawn along a wide screen wants, Portrait for a phone propped "
+		+ "in a stand, or Follow the phone, which turns the board with the device itself. What you choose "
+		+ "is kept, so the next run opens the way you left this one. A desktop's window cannot be asked to "
+		+ "change which way up it is, and the three choices are shown switched off there rather than doing "
+		+ "nothing when they are pressed.",
+		"",
+		"The front door and the page it leads to follow the phone whatever the board has been told, so the "
+		+ "first thing you meet stands up when the phone does and turns with it. The board takes your own "
+		+ "answer back as soon as a drawing begins, because a plan is drawn along a wide screen and a menu "
+		+ "is not a plan.",
 		"",
 		"On a touch screen the plan is moved with two fingers: pinch them apart to zoom in, together to "
 		+ "zoom out, and drag both to slide the design about. One finger is the mouse, so it moves "
@@ -579,6 +631,12 @@ static func _topics() -> Array[Dictionary]:
 		+ "never overwrite each other. What a picture is - JPEG, PNG, WebP or BMP - is read from its "
 		+ "header rather than trusted from the name it arrived under.",
 		"",
+		"On a phone the photograph can be taken where you are standing: the page offers Take a photo... "
+		+ "beside Choose a picture..., and the shutter puts the picture in the same folder as any other. The "
+		+ "first time, Android asks whether this program may use the camera; say no and the page says so and "
+		+ "carries on, because nothing else on it needs a camera, and on a computer the same button asks for "
+		+ "a webcam instead.",
+		"",
 		"A survey recorded away from this machine arrives as a file. The program watches for it, plants "
 		+ "what it names, and files the species it could identify into the plant library as Field Survey "
 		+ "Captures, where the plant browser will show them. A capture read twice is planted once, even "
@@ -595,9 +653,38 @@ static func _topics() -> Array[Dictionary]:
 		+ "captioned with what it shows rather than with a file name - and a page handed more than three "
 		+ "says how many it left out instead of shrinking them past being read.",
 		"",
-		"There is no plant-identification model in this program. Reading a species off a photograph is a "
-		+ "step that has not been built, and the page says so rather than guessing: what it will never do "
-		+ "is offer you the nearest species and let you believe it looked.",
+		"There is no plant-identification model built into this program: reading a species off a "
+		+ "photograph is a model you point the page at, if you want one, and Reading a photograph is where "
+		+ "that is described. Without one the page does what it has always done - it keeps the photograph, "
+		+ "it sends it nowhere, and the name is yours to type.",
+	]))
+	out.append(_topic("Reading a photograph", [
+		"The page that records what is on site can also read the photograph for you, if you point it at "
+		+ "something that can: a vision model running on your own machine, a service over the internet, or "
+		+ "the two together. It is off until you choose one, and off is what this program has always done - "
+		+ "the photograph is kept, it is never sent anywhere, and the name is yours to type.",
+		"",
+		"The dropdown on that page has four answers, and each one says in a sentence what leaves your "
+		+ "machine. Off sends nothing. Local model sends the photograph to a model on this machine, or on "
+		+ "one on your own network, and it does not leave it. Online model sends it to the service you name. "
+		+ "Local shortlist, then online narrows the photograph to a few likely plants on your own machine "
+		+ "first, and then sends the photograph and those few names to the service, which picks.",
+		"",
+		"Under the dropdown are the settings that answer needs - an address, the name of the model to ask, "
+		+ "and, for a service, the key it is used with. The key is masked as you type it, and it is not "
+		+ "written down anywhere: it is held while the program is running and asked for again next time, "
+		+ "because the folder this program keeps your work in is a folder people copy and hand to somebody "
+		+ "else when they need help.",
+		"",
+		"Press Read the photograph and the name goes into the field, with the alternatives beside it as "
+		+ "buttons - each one the plant and how sure the model was. What the record keeps is who said so: a "
+		+ "name a model offered is recorded at that model's own confidence, and names the model, so somebody "
+		+ "reading the survey later can weigh it. Edit the name and it is yours again, recorded as yours.",
+		"",
+		"If the reading cannot be made, the line says what is missing - an address, the name of the model, "
+		+ "a key - rather than that the feature is unavailable. And when the mixed way gets its shortlist "
+		+ "but cannot reach the service, you are shown both: why nothing was decided, and the plants the "
+		+ "first half found, for you to choose from yourself.",
 	]))
 	out.append(_topic("Plants", [
 		"The plant library (L) is the catalogue: every species with its mature spread, its hardiness, the "

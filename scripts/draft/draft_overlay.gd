@@ -26,7 +26,7 @@ var ground_y: float = 0.10
 var ribbon_width: float = 0.08
 var display_scale: float = 100.0
 
-var document = null
+var document: DraftDocument = null
 
 var _committed: MeshInstance3D = null
 var _ghost: MeshInstance3D = null

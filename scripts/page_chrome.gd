@@ -50,6 +50,11 @@ const SUBHEADING_SIZE := 16
 ## Everything that is read rather than glanced at: sentences, notes, status lines.
 const BODY_SIZE := 12
 
+## What a page declares its own size to be, read through the one place that answers that question rather
+## than by looking the `SIZE` constant up a second time here: a second reader is a second answer, and the
+## two can drift apart.
+const PageLayoutScript := preload("res://scripts/page_layout.gd")
+
 ## The node name of a page's content root. `PageLayout.CONTENT_NODE` says the same word, and the two are
 ## held to each other by a test.
 const COLUMN_NAME := "Column"
@@ -271,6 +276,28 @@ static func room_for(page: Window) -> Vector2i:
 	return DisplayServer.screen_get_usable_rect(screen).size
 
 
+## How tall the chrome Godot draws above a page's contents is: the window's own title bar.
+##
+## It is a fact about the theme rather than a number to write down here - 36 on this project's theme - and
+## zero for a page with no title bar to draw, which is what `borderless` means. The bar is drawn *above* the
+## rectangle a `Window` reports as its position and size, so it is the part of a page that hangs off the top
+## of the screen while every number the page can report still says it fits.
+static func chrome_above(page: Window) -> int:
+	if page == null or page.borderless:
+		return 0
+	return maxi(page.get_theme_constant(&"title_height", &"Window"), 0)
+
+
+## The room a page's *contents* have to land in: the viewport it lands inside with its own title bar taken
+## out of it. A display that cannot be asked still answers zero, which `clamped_minimum` reads as "no
+## answer" - a bar that is not drawn is not allowed to turn a real screen into a negative one.
+static func content_room(page: Window) -> Vector2i:
+	var room: Vector2i = room_for(page)
+	if room.x <= 0 or room.y <= 0:
+		return room
+	return Vector2i(room.x, room.y - chrome_above(page))
+
+
 ## Put a page on the screen: centred, with everything it asked for kept inside the room it lands in.
 ##
 ## The one place a page is shown, so that "what happens when a page opens" is answered once instead of
@@ -280,28 +307,81 @@ static func room_for(page: Window) -> Vector2i:
 ## A page whose *contents* then want more room than the clamped height has to scroll to show the rest;
 ## the clamp stops a page hanging off the edge of the screen, and a scrolling column is what stops the
 ## bottom of a tall page being unreachable inside it.
+##
+## ## The title bar is drawn above the contents, and it is the part that hangs off
+##
+## Godot draws an embedded window's title bar itself, and it draws it *above* the rectangle the window
+## reports as its position and size: the page a person sees is the contents with a title bar hanging off the
+## top of them. `popup_centered_clamped` centres the contents alone. So a page lost the top of its own title
+## bar as soon as its floor came within twice the bar's height of the room, and the four pages that declare
+## 850 pixels on a 900-pixel desk lost 11 pixels of it - `tools/page_chrome_probe.tscn` opens the figures
+## page and shows `position.y` 25 with its title text drawn from -11, which is what the tool was written to
+## measure. A phone is worse, because there the floor is brought down to the room exactly: the camera page's
+## 720 came down to the 666 a phone has, which put the *whole* bar - its title and its close cross - above
+## the top of the screen. Nothing measurable was wrong: the size read the clamped floor, the position read
+## (282, 0), a centred page on a screen it exactly matched, and the layout fitted.
+##
+## So the room is taken down by the bar's height before the floor is clamped, and the page is moved down by
+## half of it - which is exactly what centres the whole window rather than its contents.
 static func show_centred(page: Window) -> Vector2i:
 	# Before the clamp, because a taller control makes a taller page and the floor is worked out after.
 	size_for_a_finger(page)
-	var clamped_floor: Vector2i = clamped_minimum(page.min_size, room_for(page))
-	page.min_size = clamped_floor
 	takes_the_keyboard(page)
-	page.popup_centered_clamped(Vector2i.ZERO, SCREEN_RATIO)
+	return _place(page, page.min_size)
+
+
+## Put a page on the screen again, after the room it lands in has changed shape under it.
+##
+## Opening a page is a *place*, not an anchor: `popup_centered_clamped` reads the room once, when the page
+## opens, and a page left up through a turn of the phone stays exactly where it was opened. Measured on the
+## glass: the front door opened on a phone's 1444 by 666 landscape canvas and, after the phone was turned,
+## sat near the top of a canvas 2567 pixels tall - which is where a menu opened in a room less than a third
+## that height is left. So the room is read again and the page is put back in the middle of it.
+##
+## The doorway is what made that reachable: the front door follows the phone (`OrientationChoice.DOORWAY`),
+## so a page *is* up through a turn, and a menu that turned with the phone without moving with it would be
+## the worst of both.
+##
+## Only the page's place is asked for again. The keyboard is not taken a second time and the buttons are
+## not made big for a finger a second time, because a page somebody is already using has already answered
+## both of those questions - and a page that grabbed the keyboard every time the screen changed shape would
+## take the caret out of whatever field a person was typing in.
+##
+## The floor is the page's *declared* size rather than its `min_size`, because `min_size` holds last time's
+## clamp: a page brought down to 630 to fit a landscape phone would never grow back to the 720 it asked for
+## once the phone was held the other way.
+static func placed_again(page: Window) -> Vector2i:
+	if page == null:
+		return Vector2i.ZERO
+	return _place(page, PageLayoutScript.declared_size(page))
+
+
+## Where a page goes and how big it is: the one arithmetic both doors share, `show_centred` when a page
+## opens and `placed_again` when the room under one that is already up changes shape. The floor they start
+## from is the only thing they differ in, and it is handed in rather than read here, so that neither door
+## can come to place a page differently from the other.
+static func _place(page: Window, preferred: Vector2i) -> Vector2i:
+	var clamped_floor: Vector2i = clamped_minimum(preferred, content_room(page))
+	page.min_size = clamped_floor
+	page.popup_centered_clamped(clamped_floor, SCREEN_RATIO)
+	# Godot centred the contents, and the bar hangs above them; the half of it that was off the top is what
+	# the page moves down by.
+	page.position += Vector2i(0, roundi(chrome_above(page) / 2.0))
 	return clamped_floor
 
 
-## Make a page's buttons big enough for a finger, when the device is a phone.
+## Make a page's buttons big enough for a finger, when this device is answered with a finger.
 ##
 ## The rule the palette is held to, asked in the same one place a page is shown - because a rule applied
 ## in thirty pages is thirty answers that drift apart, which is the whole reason this file exists. On a
-## computer `PhoneHud` has nothing to say and every page is exactly the page a desk was drawn for, which
+## computer `TouchInput` has nothing to say and every page is exactly the page a desk was drawn for, which
 ## is what keeps the page layout check measuring the pages this project designed.
 ##
 ## **Only buttons.** A page's text field, its picker, its list and its labels keep the size the page's own
 ## layout gave them: a field grows with its font, and making one grow is a change to that page rather than
 ## a change to a thumb. The buttons are what a thumb presses.
 static func size_for_a_finger(page: Window) -> int:
-	if page == null:
+	if page == null or not PhoneHud.on_a_finger_here():
 		return 0
 	return size_buttons_for_a_finger(page, PhoneHud.canvas_scale(page), PhoneHud.dpi())
 
