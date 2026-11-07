@@ -39,7 +39,7 @@ signal refused(entity_id: int, layer_name: StringName, reason: String)
 
 ## The drafting document. Set by `bind_document()`, which is also what connects the
 ## change signal — binding is the caller's whole job, as it is for `DraftOverlay`.
-var document = null
+var document: DraftDocument = null
 
 var _dirty: bool = false
 var _timer: float = 0.0

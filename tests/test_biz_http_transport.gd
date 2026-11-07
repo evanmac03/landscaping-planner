@@ -206,3 +206,36 @@ func test_the_health_check_against_nowhere_says_it_could_not_reach_it() -> void:
 	var answer: Dictionary = transport.health()
 	assert(not answer["ok"])
 	assert(String(answer["service"]).is_empty())
+
+## A service is not a vision model, and the two budgets say so: half a minute to answer, a second and a half
+## to connect - because the answer may be a page of records being assembled, while a connection is either
+## taken or nobody is there. **Measured** in `HttpExchange`: a port nobody is listening on never leaves
+## `STATUS_CONNECTING`, so only a short budget of its own can tell a mis-typed address from a slow service.
+func test_the_transport_states_its_own_patience_and_connects_shorter_than_it_answers() -> void:
+	assert(
+		HttpScript.CONNECT_SECONDS < HttpScript.ANSWER_SECONDS,
+		"connecting is a different question from answering: %.1f against %.1f"
+			% [HttpScript.CONNECT_SECONDS, HttpScript.ANSWER_SECONDS]
+	)
+	assert(
+		HttpScript.CONNECT_SECONDS <= 5.0,
+		"and short enough that a typo is not a wait: %.1f" % HttpScript.CONNECT_SECONDS
+	)
+	assert(
+		HttpScript.ANSWER_SECONDS >= 10.0,
+		"while the service is given long enough to assemble an answer: %.1f" % HttpScript.ANSWER_SECONDS
+	)
+
+
+## What this transport used to do was count polls: `while turns < 4000: client.poll()`, which is a few
+## milliseconds - so a service that thought about its answer before sending it was reported as not there.
+## The wording now comes from the machine, and it names **which** of the ways the call failed rather than
+## one word for all of them.
+func test_a_service_that_cannot_be_reached_is_refused_in_the_wires_own_words() -> void:
+	var transport: BizHttpTransport = HttpScript.new(NOWHERE, "t")
+	var answer: Dictionary = transport.changes()
+	assert(not String(answer["reason"]).is_empty(), "a refusal says why rather than only how it ended")
+	assert(
+		String(answer["reason"]).contains("nothing is listening"),
+		"and names the way it failed, which a bare status number cannot: %s" % String(answer["reason"])
+	)

@@ -10,6 +10,7 @@ extends Node
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
+const TouchInputScript := preload("res://scripts/touch_input.gd")
 
 ## The phone: its density, and the scale its canvas ends up drawn at.
 const PHONE_DPI := 384.6
@@ -56,16 +57,17 @@ func test_on_a_phone_a_row_is_what_a_thumb_needs() -> void:
 	assert(height > 29.0, "and it is taller than the row a desk was drawn with: %.1f px" % height)
 
 
-## On a computer no minimum of this module's is imposed at all: the HUD's own layout is the layout a
-## desk was drawn for, and this feature has no business moving it.
-func test_on_a_computer_nothing_is_imposed() -> void:
+## A device answered with a mouse is never resized. Whether a row is a thumb's is `TouchInput`'s question,
+## and neither answer here moves the HUD's own layout: not a mouse, and not a density nobody could read -
+## a size worked out from a number that does not exist is worse than the size it already has.
+func test_a_mouse_device_and_an_unread_density_leave_the_layout_alone() -> void:
 	_reset()
-	PhoneFilesScript.force(PhoneFilesScript.Device.COMPUTER)
-	assert(PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI) == 0.0, "no row height")
-	assert(PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI) == 0, "no font size")
+	TouchInputScript.force(TouchInputScript.Answer.MOUSE)
+	assert(not PhoneHudScript.on_a_finger_here(), "a mouse is not a finger")
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	var button: Button = Button.new()
 	button.custom_minimum_size = Vector2(170.0, 0.0)
-	PhoneHudScript.size_for_a_finger(button, PHONE_SCALE, PHONE_DPI)
+	PhoneHudScript.size_for_a_finger(button, PHONE_SCALE, 0.0)
 	assert(button.custom_minimum_size == Vector2(170.0, 0.0), "and the control is as the layout left it")
 	assert(not button.has_theme_font_size_override("font_size"), "with no font of its own")
 	button.free()
@@ -105,18 +107,17 @@ func test_a_control_keeps_its_width_and_gains_the_row_and_the_text() -> void:
 	button.free()
 
 
-## The scale is applied to the window on a phone, and a computer's window is left exactly as it was.
-func test_the_canvas_is_drawn_up_on_a_phone_and_left_alone_on_a_computer() -> void:
+## The scale is applied to a window on a device answered with a finger, and every other window is left
+## exactly as it was.
+func test_the_canvas_is_drawn_up_for_a_finger_and_left_alone_for_a_mouse() -> void:
 	_reset()
 	var window: Window = Window.new()
-	PhoneFilesScript.force(PhoneFilesScript.Device.COMPUTER)
-	PhoneHudScript.apply(window)
-	assert(window.content_scale_factor == 1.0, "a computer's window is not scaled by this program")
-	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
-	PhoneHudScript.apply(window)
+	PhoneHudScript.apply_if(window, false)
+	assert(window.content_scale_factor == 1.0, "a mouse's window is not scaled by this program")
+	PhoneHudScript.apply_if(window, true)
 	assert(
 		is_equal_approx(window.content_scale_factor, PhoneHudScript.UI_SCALE),
-		"a phone draws the canvas at %.2f" % window.content_scale_factor
+		"a finger draws the canvas at %.2f" % window.content_scale_factor
 	)
 	window.free()
 
@@ -176,3 +177,23 @@ func test_a_button_is_measured_by_its_words_not_by_the_size_it_had_before() -> v
 	var after: float = PhoneHudScript.button_width(made)
 	assert(after > before, "twice the type is wider: %.1f against %.1f" % [after, before])
 	made.free()
+
+
+## A palette button carries two lines - its word and its key under it - and the width it asks for is the
+## width of the longer of them, not of the two run together.
+func test_a_two_line_button_is_as_wide_as_its_longest_line() -> void:
+	var button := Button.new()
+	button.text = "Extend"
+	var one_line: float = PhoneHudScript.button_width(button)
+	button.text = "Extend\nX"
+	var two_lines: float = PhoneHudScript.button_width(button)
+	assert(
+		is_equal_approx(one_line, two_lines),
+		"a key under the word does not widen it: %.1f against %.1f" % [two_lines, one_line]
+	)
+	button.text = "Move\nLONGKEY"
+	assert(
+		PhoneHudScript.button_width(button) > two_lines,
+		"but a key longer than the word is what the button is measured by"
+	)
+	button.free()

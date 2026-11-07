@@ -22,7 +22,7 @@ const SketchStyleScript := preload("res://scripts/vis/sketch_style.gd")
 ## smudge, and a smudge in a proposal is worse than a note that is quietly missing.
 const MIN_TEXT_PIXELS := 6.0
 
-var _document = null
+var _document: DraftDocument = null
 var _plot_scale: float = 100.0
 var _style: SketchStyleScript = null
 var _texels_per_mm: float = 6.0

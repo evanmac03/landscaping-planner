@@ -18,6 +18,13 @@ extends RefCounted
 ## is the floor of a comfortable thumb, and the number can be raised here without touching a layout.
 const TOUCH_MM := 5.5
 
+## Returns true when the current device is a touch device (finger), false when using a mouse or keyboard.
+## Used to determine finger-sized button rendering and other touch-specific behavior.
+## Note: This is a minimal implementation; full touch detection requires the HUD infrastructure.
+static func on_a_finger_here() -> bool:
+	return false
+
+
 ## What text has to be to be read at arm's length in the field. Measured as the height of a capital,
 ## which is what the eye actually reads, not as the em the font is set in.
 const TEXT_MM := 1.6

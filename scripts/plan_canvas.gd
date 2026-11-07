@@ -89,7 +89,13 @@ var _has_fence: bool = false
 
 ## The drafting document, if one is bound. Its linework draws on top of the yard,
 ## which is the right way round: the design sits over what was already there.
-var document = null
+var document: DraftDocument = null
+## Whether the site the plan stands on is drawn: the flat shapes read off the yard's own meshes, and its
+## fence. True on the drawing board, false on a blank page - a new drawing is paper and the designer's own
+## linework, with the garden put away (see `SiteScenery`). The ground stays visible in the 3D views, which
+## is why this is a flag here rather than only the yard's node visibility: a blank *page* and an empty
+## *floor* are two different things.
+var site_shown: bool = true
 ## The plot scale the on-screen linework imitates. Weights are authored in paper
 ## millimetres, so they only become pixels once a sheet scale is chosen.
 var display_scale: float = 100.0
@@ -126,7 +132,11 @@ func rebind(yard: Node3D) -> void:
 	_has_fence = false
 	if yard != null:
 		_collect(yard)
-		if yard.has_method("get_bounds"):
+		# The fence line is the property boundary, which the yard reports as a rectangle rather than as
+		# nodes - so it is gated on the fence node rather than read off one. Put the fence away (the
+		# scenery toggle does) and the boundary goes with it.
+		var fence: Node3D = yard.get_node_or_null(^"Fence") as Node3D
+		if yard.has_method("get_bounds") and (fence == null or fence.visible):
 			_fence = yard.get_bounds()
 			_has_fence = true
 	# Big shapes first, so small ones sit on top of them the way a plan drawing
@@ -154,6 +164,16 @@ func apply_view(new_focus: Vector2, new_plan_size: float, viewport_size: Vector2
 	queue_redraw()
 
 
+## Show or put away the site the plan stands on. The yard's own nodes are hidden by whatever owns them
+## (the `ViewController`), and this is told the same fact so the *ground* - kept standing in the 3D views
+## - is left off a blank page too.
+func set_site_shown(shown: bool) -> void:
+	if site_shown == shown:
+		return
+	site_shown = shown
+	queue_redraw()
+
+
 ## World position to screen pixels. Screen +x is world +x (east) and screen +y is
 ## world +z (south), which is exactly how the 3D overhead camera is oriented, so
 ## the two views line up pixel for pixel.
@@ -174,10 +194,17 @@ func _collect(node: Node) -> void:
 		var child_name := String(child.name)
 		if IGNORED.has(child_name):
 			continue
+		# A part of the yard that has been put away is not on the plan either: the scenery toggle hides
+		# nodes rather than telling this canvas what to skip, so what is drawn is what is standing. A
+		# plant the designer puts down later is visible, and so is drawn even with the site put away.
+		var spatial: Node3D = child as Node3D
+		if spatial != null and not spatial.visible:
+			continue
 		if child_name == PLANTS:
 			for plant in child.get_children():
-				if plant is Node3D:
-					_placeables.append(plant)
+				var prop: Node3D = plant as Node3D
+				if prop != null and prop.visible:
+					_placeables.append(prop)
 			continue
 		if child is MeshInstance3D:
 			_add_mesh(child)
@@ -219,9 +246,13 @@ func _draw() -> void:
 		return
 	_draw_paper()
 	_draw_grid()
-	for shape: Dictionary in _context:
-		_draw_context_shape(shape)
-	_draw_fence()
+	# The site: the yard's own flat shapes and its boundary. A blank page is paper and the designer's
+	# linework, so with the site put away none of this is drawn - and the ground, which is still standing
+	# in the 3D views, is not drawn on the page either.
+	if site_shown:
+		for shape: Dictionary in _context:
+			_draw_context_shape(shape)
+		_draw_fence()
 	# The pictures lie **over the ground and under everything else**: the yard's own lawn, house and
 	# paving are scenery read off the 3D meshes and drawn flat, and a tracing aid has to be visible
 	# over them or there is nothing to trace; every plant standing on the ground and every line the

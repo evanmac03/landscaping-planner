@@ -134,7 +134,7 @@ var drawing_layer: StringName = LayerSetScript.NEW_HARDSCAPE
 ## tool, so it lives here beside the document.
 var sheet: String = "A3"
 var plot_scale: float = 100.0
-var pen_table = null
+var pen_table: DraftPlotStyleTable = null
 ## The current sheet's *drawing number*, revision and whether it is portrait. Beside the sheet and the
 ## scale because they are the same kind of thing: the current sheet of the set, as the rest of the app
 ## reads it. The set itself (every sheet, in order) is on the document, because it travels in the file
@@ -3032,6 +3032,36 @@ func note(message: String) -> void:
 ## *setup* rather than its contents, and a new drawing in a named project is still drawn to
 ## that project's standards. The undo history goes, because the history of the drawing that
 ## was on the screen is not the history of this one.
+## Fill the drawing with the example garden: the little backyard this program is worth trying on.
+##
+## `new_drawing()` first, because an example is a thing to *start* from rather than to add to: somebody who
+## asks for the example wants the example, not their own work with a garden laid over it. The HUD guards
+## that the same way it guards New, which is where the question about unsaved work is asked.
+##
+## The shapes come from `ExampleGarden` and go on through `document.add`, which is the door a committed
+## rectangle goes through - so the example is a plan like any other: it lands in one named gesture, one undo
+## takes it back, and it can be edited, planted, priced, saved and plotted. Returns how many shapes were
+## added, because a status line and a test both want the count rather than a guess.
+func draw_the_example() -> int:
+	# By path, for the reason `DraftEntity` states: a class the editor's scan has not registered yet
+	# resolves as a type and not as a value.
+	const ExampleGardenScript := preload("res://scripts/example_garden.gd")
+	if document == null:
+		return 0
+	new_drawing()
+	document.begin_gesture("drawing the example garden")
+	var added := 0
+	for entity: DraftEntity in ExampleGardenScript.parts():
+		document.add(entity)
+		added += 1
+	_rebind_snap()
+	dirty = true
+	last_message = ExampleGardenScript.describe()
+	_refresh_canvas()
+	changed.emit()
+	return added
+
+
 func new_drawing() -> void:
 	document.clear()
 	document.gestures.clear()
