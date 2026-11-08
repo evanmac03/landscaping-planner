@@ -8,6 +8,7 @@ const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const PresenceScript := preload("res://scripts/presence.gd")
+const StartChoicesScript := preload("res://scripts/start_choices.gd")
 
 ## How much space sits between two parts of a hint line, so a line reads as groups of words rather than
 ## as one run of them.
