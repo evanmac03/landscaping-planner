@@ -32,6 +32,7 @@ const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
+const ExampleGardenScript := preload("res://scripts/example_garden.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
@@ -3364,6 +3365,23 @@ func _on_document_changed() -> void:
 func _rebind_snap() -> void:
 	if snap != null:
 		snap.bind(document.entities())
+
+## Draw the example garden - the little backyard - onto the drawing.
+##
+## One gesture, so it is one Ctrl+Z, and the shapes come from `ExampleGarden` rather than being written
+## here: this is the drawing's door onto that garden, and the same parts the doorway's "example" way and
+## the tests hold are what lands on the plan.
+func draw_the_example() -> Dictionary:
+	var parts: Array[EntityScript] = ExampleGardenScript.parts()
+	document.begin_gesture(ExampleGardenScript.NAME)
+	for part: EntityScript in parts:
+		document.add(part, drawing_layer)
+	_rebind_snap()
+	dirty = true
+	last_message = ExampleGardenScript.describe()
+	_refresh_canvas()
+	return {"ok": true, "count": parts.size(), "message": last_message}
+
 
 func _refresh_canvas() -> void:
 	if canvas == null:

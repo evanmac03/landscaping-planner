@@ -37,12 +37,16 @@ const NO_PENDING := -1
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const SiteSceneryScript := preload("res://scripts/site_scenery.gd")
+const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
 
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
 signal transition_finished(to_ground: bool)
 ## Planting was armed or put away, so a menu can say which plant a click will put down.
 signal planting_changed(species_id: StringName)
+## The site was shown or put away, so a menu can tick "Show the site" without asking again.
+signal site_changed(shown: bool)
 
 @export var flight_camera: Camera3D
 @export var player: PlanPlayer
@@ -149,6 +153,18 @@ var planting_verdict: Dictionary = {}
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
 
+## The yard's scenery and its own planted props, kept so the site can be put away and brought back without
+## re-reading the tree each time. Captured once, in `_ready`, because "which plants were the yard's" is only
+## knowable *before* a designer adds one of their own to the very same `Plants` subtree.
+var _captured_scenery: Array[Node3D] = []
+var _captured_planting: Array[Node3D] = []
+
+## Whether the site the plan stands on is shown. A new drawing is a blank page, so this begins **false**: the
+## yard's scenery is hidden and the plan is told, while the ground stays standing so the page has a floor to
+## stand on rather than being a void. `Show the site` and loading the example garden are the two things that
+## turn it back on - never New, Open or Recent, because none of those is a reason to furnish a blank sheet.
+var site_shown: bool = false
+
 
 func _ready() -> void:
 	# A phone draws this HUD at 1.35 times the size it was laid out at, which is what turns a
@@ -161,8 +177,13 @@ func _ready() -> void:
 		set_process_unhandled_input(false)
 		return
 	if plan_canvas != null:
-		plan_canvas.rebind(yard)
 		plan_canvas.modulate.a = 0.0
+	# A new drawing is a blank page, so the site begins put away. `_capture_the_site` runs first, before
+	# anything is hidden, so what is put away is what the yard shipped with - the planting is snapshotted
+	# here because a designer's own plant lands in the same `Plants` subtree, and only *when* it appeared
+	# tells the two apart.
+	_capture_the_site()
+	_apply_site()
 	if plan_layer != null:
 		plan_layer.visible = false
 	_draft = get_node_or_null(^"../DraftController")
@@ -186,6 +207,46 @@ func is_transitioning() -> bool:
 
 func is_overhead() -> bool:
 	return mode != ViewMode.GROUND
+
+
+## Whether the garden the program ships with is standing under the drawing.
+func is_site_shown() -> bool:
+	return site_shown
+
+
+## Show or put away the site the plan stands on. Called by `View > Show the site` and by loading the
+## example garden; nothing else does it, because nothing else is a reason to. Nothing happens when the
+## answer is already this one, so the signal is only ever emitted on a real change.
+func set_site_shown(shown: bool) -> void:
+	if site_shown == shown:
+		return
+	site_shown = shown
+	_apply_site()
+
+
+## Remember what the yard shipped with, so it can be put away and brought back. The scenery is asked for by
+## name (`SiteScenery`), and the yard's own planting is read off `PlantPlacement` **at this moment** - a
+## plant the designer puts down later is theirs and is never in this list.
+func _capture_the_site() -> void:
+	_captured_scenery = SiteSceneryScript.furniture(yard)
+	_captured_planting = PlantPlacementScript.planted(yard)
+
+
+## Put the site into the state `site_shown` says, and tell the plan to draw the same thing. The plan is
+## rebound rather than only toggled, because it reads what is *standing* on the page - so the scenery and
+## the yard's own plants leaving the page is a consequence of their nodes being hidden, and a plant the
+## designer places afterwards (visible) still appears.
+func _apply_site() -> void:
+	for node: Node3D in _captured_scenery:
+		if is_instance_valid(node):
+			node.visible = site_shown
+	for node: Node3D in _captured_planting:
+		if is_instance_valid(node):
+			node.visible = site_shown
+	if plan_canvas != null:
+		plan_canvas.rebind(yard)
+		plan_canvas.set_site_shown(site_shown)
+	site_changed.emit(site_shown)
 
 
 ## The design objects the planner lets you select and move.
