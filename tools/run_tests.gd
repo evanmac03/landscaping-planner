@@ -11,6 +11,12 @@ extends Node
 ## `assert()` raises. `push_error`, `push_warning` and the engine's own `ERR_FAIL_*` checks are not
 ## script errors and do not fail a test - a test that asserts a refusal is a test doing its job.
 ##
+## **A file that will not load is a failure, not a quiet skip.** `load()` on a script with a parse error
+## does *not* return `null` - it returns a `GDScript` with no methods and `can_instantiate()` false - so a
+## file nothing could run looked exactly like one whose tests a filter had not named, and a run of **zero**
+## tests still printed `VERDICT: TESTS PASSED`. That is a verdict CI would take as green, so `is_runable`
+## below is the check and the file is recorded as a failure.
+##
 ## The suite is added to this node, because a test that brings the planner up (`test_view_keys.gd`
 ## does) needs `get_tree()` and `add_child` to work. Each test call is **awaited**, so a test that
 ## waits for frames finishes before the next one starts.
@@ -71,6 +77,17 @@ static func test_paths(target: String = TESTS_DIR) -> PackedStringArray:
 	return out
 
 
+## Whether a loaded script is one this runner can actually run tests from.
+##
+## **A file that fails to compile is not `null`.** Godot hands back a `GDScript` object whose
+## `can_instantiate()` is false and which lists no methods at all - measured: `reload()` returns
+## `ERR_PARSE_ERROR` (43), `can_instantiate()` is false, `get_script_method_list()` is empty. A check for
+## `null` alone therefore missed it, and the file was counted as "held no test matching the filter": a run
+## of zero tests printed `VERDICT: TESTS PASSED`. A script that cannot be made is not a script to run.
+static func is_runable(script: Script) -> bool:
+	return script != null and script.can_instantiate()
+
+
 ## The `test_*` methods of a script, in the order the file declares them. A helper - `_bring_up`,
 ## `_cleanup` - is not a test however it is named.
 static func test_methods(script: Script, filter: String = "") -> PackedStringArray:
@@ -115,7 +132,7 @@ func _ready() -> void:
 
 	for path: String in paths:
 		var script: Script = load(path)
-		if script == null:
+		if not is_runable(script):
 			_record_failure("%s - not loadable (a parse error?)" % path)
 			continue
 		var names := test_methods(script, filter)

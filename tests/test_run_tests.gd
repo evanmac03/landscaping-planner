@@ -59,6 +59,30 @@ func test_no_script_is_no_tests() -> void:
 	assert(RunnerScript.test_methods(null).is_empty(), "a script that failed to load has no tests")
 
 
+## **A file that will not load is a failure, not a skip.**
+##
+## `load()` on a script with a parse error does **not** return `null`: it returns a `GDScript` whose
+## `can_instantiate()` is false and which lists no methods, so a check for `null` alone missed it, the file
+## was counted as "held no test", and a run of zero tests printed `VERDICT: TESTS PASSED` - a verdict CI
+## would take as green. This is the predicate that says otherwise.
+##
+## The broken case is not *built* here, and deliberately: compiling bad source raises the very script error
+## this runner counts as a failure, so a test that made one would fail itself (measured - it does, and that
+## is why this comment exists). The predicate is held down on the two halves it is made of instead, and the
+## real broken file was proved by running the suite with one in place.
+func test_a_script_that_cannot_be_made_is_not_one_to_run() -> void:
+	assert(not RunnerScript.is_runable(null), "nothing is not a script to run")
+	var never_compiled := GDScript.new()
+	assert(
+		not RunnerScript.is_runable(never_compiled),
+		"a script that cannot be instantiated is not one to run"
+	)
+	assert(
+		RunnerScript.is_runable(load("res://tests/test_run_tests.gd")),
+		"while a real test file is"
+	)
+
+
 func test_the_run_is_left_where_a_pack_can_read_it() -> void:
 	# The AI context dock offers "include the last test run" as something to attach, so a run has to
 	# leave one behind: the verdict, and every failure by name. Written to a temporary file and renamed,
