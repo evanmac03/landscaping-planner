@@ -22,7 +22,7 @@ window/size/viewport_width=1600.0
 window/size/viewport_height=900.0
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=4.0
+window/handheld/orientation=6.0
 
 [editor_plugins]
 
