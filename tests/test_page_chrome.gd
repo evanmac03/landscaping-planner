@@ -9,8 +9,9 @@ extends Node
 ## test that made it - the runner fails a whole run over one leaked page.
 
 const PageChromeScript := preload("res://scripts/page_chrome.gd")
-const PhoneFilesScript := preload("res://scripts/phone_files.gd")
+const TouchInputScript := preload("res://scripts/touch_input.gd")
 const PageLayoutScript := preload("res://scripts/page_layout.gd")
+const StartWindowScript := preload("res://scripts/start_window.gd")
 
 var _pages: Array[Window] = []
 
@@ -198,10 +199,10 @@ const PHONE_DPI := 384.6
 const PHONE_SCALE := 1.62
 
 
-## A page's buttons are the things a thumb presses, so on a phone they are made as tall as a thumb needs
-## and their words are made legible - and on a computer the page is untouched.
-func test_a_phones_page_answers_at_a_thumbs_size_and_a_computers_does_not() -> void:
-	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
+## A page's buttons are the things a thumb presses, so on a device answered with a finger they are made as
+## tall as a thumb needs and their words are made legible. The scale and the density are stated rather than
+## read, so what a phone would be told can be held without being one.
+func test_a_phones_page_answers_at_a_thumbs_size() -> void:
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.column(page)
 	var close: Button = PageChromeScript.button("Close")
@@ -213,21 +214,126 @@ func test_a_phones_page_answers_at_a_thumbs_size_and_a_computers_does_not() -> v
 		"and it is taller than the row a desk was drawn with: %s" % str(close.custom_minimum_size))
 	assert(close.get_theme_font_size("font_size") > 12,
 		"with words bigger than the twelve-pixel text a desk gets")
-	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
 	_free_pages()
 
 
-## The same page on a computer is the page this project designed: nothing is imposed at all.
+## The same page on a device answered with a mouse is the page this project designed: the rule is asked
+## once, in the one place a page is shown, and the answer there is no.
 func test_a_computers_page_is_left_exactly_as_the_page_laid_it_out() -> void:
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.column(page)
 	var close: Button = PageChromeScript.button("Close")
 	root.add_child(close)
-	PhoneFilesScript.force(PhoneFilesScript.Device.COMPUTER)
+	TouchInputScript.force(TouchInputScript.Answer.MOUSE)
 
-	var measured: int = PageChromeScript.size_buttons_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
+	var measured: int = PageChromeScript.size_for_a_finger(page)
 	assert(measured == 0, "nothing to impose, so nothing is measured: %d" % measured)
 	assert(close.custom_minimum_size == Vector2.ZERO, "and the button is as the page left it")
 	assert(not close.has_theme_font_size_override("font_size"), "with no font of its own")
-	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	_free_pages()
+
+
+## The title bar is Godot's work rather than a page's - no page builds it, no page's layout counts it - and
+## Godot draws it *above* the rectangle the window reports as its position and size. A page that ignores that
+## opens with its own title and its close cross above the top of the screen, which is exactly what a phone
+## showed and what the desk's own pages were quietly doing by eleven pixels.
+func test_the_title_bar_is_taken_out_of_the_room_a_page_may_use() -> void:
+	var page: Window = _page()
+	add_child(page)
+	var room: Vector2i = PageChromeScript.room_for(page)
+	var bar: int = PageChromeScript.chrome_above(page)
+	assert(bar > 0, "a page with a title bar has one to leave room for: %d" % bar)
+	assert(PageChromeScript.content_room(page) == Vector2i(room.x, room.y - bar),
+		"and the room its contents may use is the room less that bar: %s"
+			% str(PageChromeScript.content_room(page)))
+	remove_child(page)
+	_free_pages()
+
+
+func test_a_page_with_no_title_bar_is_not_made_shorter_for_one() -> void:
+	# `borderless` is a page saying it draws no bar, and taking room away for a bar that is not drawn would
+	# make a short page smaller for nothing.
+	var page: Window = _page()
+	page.borderless = true
+	add_child(page)
+	assert(PageChromeScript.chrome_above(page) == 0, "a borderless page draws no bar")
+	assert(PageChromeScript.content_room(page) == PageChromeScript.room_for(page),
+		"so nothing is taken out of the room it lands in")
+	remove_child(page)
+	_free_pages()
+
+
+func test_a_page_as_tall_as_the_screen_still_keeps_its_title_bar() -> void:
+	# The camera page's own case: it declares a floor as tall as the canvas it lands on, which is what a
+	# phone did to its 720, and the floor is taken below the page's own title bar rather than to the canvas
+	# itself - the bar is drawn above the contents, so a floor equal to the canvas puts the whole bar off the
+	# top of the screen.
+	var page: Window = _page()
+	add_child(page)
+	var room: Vector2i = PageChromeScript.room_for(page)
+	var bar: int = PageChromeScript.chrome_above(page)
+	var floor: Vector2i = PageChromeScript.clamped_minimum(
+		Vector2i(880, room.y), PageChromeScript.content_room(page))
+	assert(floor.y == room.y - bar,
+		"a floor as tall as the canvas is brought below the page's own title bar: %s" % str(floor))
+	assert(floor.y + bar <= room.y, "so the page and its bar together fit the canvas")
+	remove_child(page)
+	_free_pages()
+
+
+## Opening a page is a place and not an anchor: `show_centred` reads the room once, and a page left up
+## through a turn of the phone stays exactly where it opened. The doorway is what made that reachable - the
+## front door follows the phone - so the room is read again and the page is put back in the middle of it.
+func test_a_page_put_back_again_is_given_the_size_it_declares_rather_than_the_clamp_it_was_left() -> void:
+	var page: Window = StartWindowScript.new()
+	# What a room smaller than the page left on it: `min_size` holds last time's clamp, and a page brought
+	# down to a landscape phone's 630 would never grow back to the 720 it asked for.
+	page.min_size = Vector2i(300, 200)
+	_pages.append(page)
+	add_child(page)
+	var declared: Vector2i = PageLayoutScript.declared_size(page)
+	assert(
+		declared == StartWindowScript.SIZE,
+		"the page's own answer is the size it declares: %s" % str(declared)
+	)
+	var floor: Vector2i = PageChromeScript.placed_again(page)
+	assert(
+		floor == PageChromeScript.clamped_minimum(declared, PageChromeScript.content_room(page)),
+		"put back, the page is given the size it declares and not the clamp it was left: %s" % str(floor)
+	)
+	assert(page.min_size == floor, "and the floor it stands on now is the one it was given")
+	remove_child(page)
+	_free_pages()
+
+
+func test_a_page_put_back_stands_where_a_page_opened_stands() -> void:
+	# One arithmetic for both doors, which is what keeps them from drifting apart: a page opened and a page
+	# put back in the same room stand in the same place, at the same size.
+	var opened: Window = StartWindowScript.new()
+	opened.build()
+	_pages.append(opened)
+	add_child(opened)
+	PageChromeScript.show_centred(opened)
+	var put_back: Window = StartWindowScript.new()
+	put_back.build()
+	_pages.append(put_back)
+	add_child(put_back)
+	PageChromeScript.placed_again(put_back)
+	assert(
+		put_back.position == opened.position,
+		"a page put back stands where a page opened stands: %s against %s"
+			% [str(put_back.position), str(opened.position)]
+	)
+	assert(put_back.size == opened.size, "and at the size the other one was given")
+	remove_child(opened)
+	remove_child(put_back)
+	_free_pages()
+
+
+func test_putting_no_page_back_answers_nothing() -> void:
+	# The list a change of shape is walked over holds the front door before the HUD has built it.
+	assert(
+		PageChromeScript.placed_again(null) == Vector2i.ZERO,
+		"a page that is not there is answered with nothing rather than placed"
+	)
