@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/start_door_demo.gd" id="1_start_door_demo"]
+
+[node name="StartDoorDemo" type="Node"]
+script = ExtResource("1_start_door_demo")
