@@ -196,6 +196,16 @@ func test_the_view_the_menu_shows_as_chosen_is_the_view_you_are_in() -> void:
 	assert(offered == all_views)
 
 
+## The garden the yard ships with is put away on a new drawing, and the View menu is where it comes back:
+## the entry is there, and its tick follows what the controller says rather than a default of its own.
+func test_the_view_menu_offers_the_site_and_reports_whether_it_is_shown() -> void:
+	var site: Dictionary = _entry(&"view.site")
+	assert(not site.is_empty(), "the View menu offers the site")
+	assert(HudScript.is_checked(&"site", null, {"site": true}), "shown when the snapshot says so")
+	assert(not HudScript.is_checked(&"site", null, {"site": false}), "and not when it does not")
+	assert(not HudScript.is_checked(&"site", null, {}), "a snapshot with no answer is not shown as on")
+
+
 func test_a_tool_is_shown_as_chosen_only_while_the_tools_are_out() -> void:
 	var line: Dictionary = _entry(&"draft.tool.draft_line")
 	assert(HudScript.is_checked(&"tool", line["value"], {"drawing": true, "tool": int(ToolScript.Kind.LINE)}))
@@ -345,6 +355,9 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 	var hud := HudScript.new()
 	var text := hud.keys_text()
 	assert(text.contains(HudScript.HINTS_GROUND))
+	# The reference names the phone's two gestures as well, and quotes them from the same constant the foot
+	# of the screen does, so the page cannot drift from what a thumb is actually offered.
+	assert(text.contains(HudScript.HINTS_GROUND_ON_A_FINGER))
 	assert(text.contains(HudScript._hints_for(ViewController.ViewMode.PLAN_2D)))
 	for row: String in HudScript.drafting_rows():
 		assert(text.contains(row), "the reference has the legend row: %s" % row)

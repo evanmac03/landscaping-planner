@@ -29,6 +29,7 @@ extends RefCounted
 ## The page, and the manual subject that answers what it is asking.
 const SUBJECT_OF: Dictionary = {
 	"billing_window": "Billing and the books",
+	"camera_window": "What is on site: the field survey",
 	"command_palette": "Finding any command: the palette",
 	"estimate_window": "What it costs: takeoff and estimate",
 	"field_window": "What is on site: the field survey",
@@ -45,6 +46,8 @@ const SUBJECT_OF: Dictionary = {
 	"schedule_board": "Jobs, crews and the schedule",
 	"sheet_window": "Sheets and plotting",
 	"snap_window": "Snapping and precision",
+	"start_drawing_window": "Where you start: the front door",
+	"start_window": "Where you start: the front door",
 	"sowing_window": "Food: when to sow",
 	"status_window": "What the drawing has said",
 	"sun_window": "The sun and the shadows",

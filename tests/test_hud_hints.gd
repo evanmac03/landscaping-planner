@@ -432,6 +432,13 @@ func test_the_control_hints_name_the_key_that_really_switches_views() -> void:
 	assert(not solid.contains(Hud.VIEW_KEY_TOKEN), solid)
 	# The ground view has its own way out, and names that instead.
 	assert(Hud._hints_for(ViewController.ViewMode.GROUND).contains("G: back to overhead"))
+	# And on a touchscreen it names the two gestures that really drive that view, because there is no
+	# keyboard and no captured mouse there to name: a phone told "Mouse: look" is told nothing at all.
+	var by_a_thumb := Hud._hints_for(ViewController.ViewMode.GROUND, true)
+	assert(by_a_thumb.contains("Left thumb: walk"), by_a_thumb)
+	assert(by_a_thumb.contains("Right thumb: drag"), by_a_thumb)
+	assert(not by_a_thumb.contains("Mouse"), by_a_thumb)
+	assert(not by_a_thumb.contains("W A S D"), by_a_thumb)
 
 
 # --- the keyboard belongs to the drawing ----------------------------------------------
