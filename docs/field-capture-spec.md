@@ -259,6 +259,26 @@ what is kept is the viewfinder's own rectangle - so the photograph is of the pla
 button. The camera is the device's, so it is a phone's door; on a computer the same button asks for
 a webcam, and says plainly when there is none.
 
+The camera also decides which way up the window is, and it decides it by **following the phone**.
+That is not a convenience. The photograph is a grab of the page, so the turn a picture needs is the
+one that stands it the way the *page* stands - and a page that follows the phone is always the way
+the phone is held, which makes the answer right by construction rather than by a reading that can
+lie. While it is up it also takes the room: a viewfinder is the one page here whose subject is the
+whole screen, and a page in the middle of a board spends most of that screen showing the board
+through the thing a person is trying to fit a leaf into.
+
+The reading it replaced was `DisplayServer.screen_get_orientation()`, which on Android answers with
+the orientation the program *asked for* - `SCREEN_SENSOR`, or a pinned landscape - and never with a
+fact about the phone. It read as neither portrait nor reverse-portrait, so every branch of the turn
+fell through and a picture taken with the phone held upright was left in the sensor's landscape
+frame, while the page it was taken from was drawn portrait. A room's own shape cannot answer
+"follow", which is why the shape is what the turn is worked out from now.
+
+The button beside the shutter is named for the thing behind it: **Back to the drawing** when a
+drawing is standing there, and **Back to the menu** when the door is. A page that promised a drawing
+there is not would be a button that lies about where it goes, which is the one thing this program's
+words are not allowed to do.
+
 What this program does not do is read the photograph **unless it is told which way to read it**:
 a photograph is kept and sent nowhere until somebody chooses a way, and sections 6 and 12 say
 what follows from that choice.

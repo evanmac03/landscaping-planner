@@ -193,6 +193,16 @@ static func refine_prompt(part: StringName, note: String, shortlist: Array) -> S
 ## program already knows what to do with one: the confidence travels with it, `FieldCapture`'s floors
 ## decide whether that counts as an identification, and a name below them is kept as "a name that was
 ## offered" rather than thrown away. An empty list throws that evidence away; a low number does not.
+##
+## **And the gentler sentence went too, for the same reason.** The version after that kept the empty list
+## but reserved it for a photograph with no plant in it: "answer with an empty list only when the photograph
+## shows no plant at all". Asked about a photograph of ripe tomatoes on the vine - the least ambiguous plant
+## photograph there is - `qwen2.5vl:3b` answered `{"candidates": []}` in **0.3 seconds**, and with that one
+## sentence deleted and nothing else changed it answered `Solanum lycopersicum` at 0.9, **twice**, in 2.0 and
+## 1.1 seconds. A small model does not weigh a permission; it takes it. So the empty list is not offered at
+## all now, and a photograph with no plant in it gets the same answer as an uncertain one: the name it most
+## resembles, at a low confidence - which a person can overrule, and which this program keeps as a name that
+## was offered rather than as an identification.
 static func _answer_rules(limit: int) -> String:
 	return (
 		"Answer with JSON only: no sentence before it, no sentence after it, and no text outside the "
@@ -200,7 +210,7 @@ static func _answer_rules(limit: int) -> String:
 		+ "Give up to %d plants, the one you are most sure of first. The confidence is your own, from "
 		+ "0 to 1. When you are not sure which plant it is, name the plant it most resembles anyway and "
 		+ "say so with a low confidence: a name you are unsure of, marked as unsure, is worth more than "
-		+ "no name. Answer with an empty list only when the photograph shows no plant at all."
+		+ "no name, and this program knows what to do with one."
 	) % [SCHEMA, maxi(limit, 1)]
 
 
@@ -328,6 +338,13 @@ static func split_url(address: String) -> Dictionary:
 ## written in. The prompt asks for the likeliest first, but a prompt is not something a model is
 ## obliged to follow, and the first candidate is the one a capture is filed as - so the numbers, which
 ## are the model's own ranking, are what the order is read from.
+##
+## **An answer that names no plant is not the same thing as an answer this program could not read.** The
+## model is asked for a shortlist and told to keep the empty one for a photograph with no plant in it, and
+## it reaches that answer in either shape: `{"candidates": []}`, or a bare `[]`. Both are read here, and
+## both are refused with the model's own honesty rather than with a complaint about JSON. Only an answer
+## that is not JSON at all - prose, an error page, "it looks like a kind of thyme, I think" - is reported
+## as unreadable, because that is the one case where the shape really is the problem.
 static func parse_response(
 	http_status: int, raw_body: String, model_label: String = "", transport_reason: String = ""
 ) -> Dictionary:
@@ -341,17 +358,20 @@ static func parse_response(
 	var answered: Dictionary = _model_answer(raw_body)
 	var answer: String = String(answered["text"])
 	var record: Dictionary = _find_record(answer)
-	if record.is_empty():
-		return _answer_refusal(
-			"what the model answered could not be read as JSON: %s" % _quote(answer), answer, model_label
-		)
 	var candidates: Array[Dictionary] = _candidates_of(record)
 	if candidates.is_empty():
-		if record.has("candidates"):
+		# The model saying it cannot name the plant is an answer worth believing, and it arrives in two
+		# shapes: the object the prompt asks for, and the bare empty list the prompt's own words invite. They
+		# are one answer, so they are refused in one sentence.
+		if record.has("candidates") or _is_readable_and_names_no_plant(answer):
 			return _answer_refusal(
 				"the model could not tell what the plant is, and said so rather than guessing",
 				answer,
 				model_label
+			)
+		if record.is_empty():
+			return _answer_refusal(
+				"what the model answered could not be read as JSON: %s" % _quote(answer), answer, model_label
 			)
 		return _answer_refusal(
 			"the model's answer named no plant, so there is nothing to look up: %s" % _quote(answer),
@@ -426,6 +446,27 @@ static func _find_record(answer: String) -> Dictionary:
 	if data is Dictionary:
 		return data
 	return {}
+
+
+## Whether an answer that holds no record is nevertheless one this program read perfectly well *and* that
+## names no plant: a bare empty list, which is the other shape the prompt's rule reaches a model in.
+##
+## Worth telling apart from an answer that is not JSON at all, because the two want different sentences -
+## one is a model being honest about a photograph with no plant in it, the other is a model that did not
+## answer in the shape it was asked for - and `_find_record` cannot tell them apart by itself: it looks
+## for a `{` to start from, and `[]` has none. An array holding an object never reaches here, because
+## `_find_record` finds that object first.
+static func _is_readable_and_names_no_plant(answer: String) -> bool:
+	var reader: JSON = JSON.new()
+	if reader.parse(answer.strip_edges()) != OK:
+		return false
+	var data: Variant = reader.data
+	if not (data is Array):
+		return false
+	for entry: Variant in (data as Array):
+		if entry is Dictionary:
+			return false
+	return true
 
 
 ## The candidates of an answer, cleaned: one entry per plant as `{raw_taxon, confidence, reason}`.

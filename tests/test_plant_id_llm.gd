@@ -183,29 +183,69 @@ func test_a_model_that_says_it_cannot_tell_is_refused_rather_than_guessed_for() 
 	)
 
 
-## Found by a whole reading of a real photograph against a real model. The first wording offered the
-## empty list to a model that was merely unsure - "if the photograph does not show enough to name the
-## plant, answer with an empty list, because not knowing is a real answer and a guess is not" - and
-## `qwen2.5vl:3b`, asked about a clear photograph of one boxwood, answered `{"candidates": []}` in 0.2
-## seconds without appearing to look at it. With that one sentence changed it answered in 2.7 seconds
-## with the species this program's own list has.
-func test_the_prompt_asks_an_unsure_model_for_a_low_confidence_rather_than_for_nothing() -> void:
+## Found by reading four real photographs off a phone against a real model: three of them came back as a
+## **bare `[]`**, which is the shape the prompt's own words invite for a photograph with no plant in it -
+## and the reader called it `what the model answered could not be read as JSON: []`.
+##
+## `[]` is JSON this program reads perfectly well, and a bare empty list is the *same answer* as
+## `{"candidates": []}`: the model saying it cannot name the plant. Blaming its formatting turns a
+## correct, believable answer into a message about syntax that a person can do nothing with - and it
+## throws away the one thing the model did do right.
+func test_a_bare_empty_list_is_the_model_saying_it_cannot_tell_not_unreadable_json() -> void:
+	var bare: Dictionary = LlmScript.parse_response(200, _envelope("[]"), LOCAL_MODEL)
+	assert(not bool(bare["ok"]), "a bare empty list is not an identification")
+	assert(
+		String(bare["reason"]).contains("could not tell"),
+		"it is the model's own honesty: %s" % String(bare["reason"])
+	)
+	assert(
+		not String(bare["reason"]).contains("could not be read as JSON"),
+		"and it must not be blamed for its formatting, because `[]` was read perfectly well"
+	)
+
+
+## Found by a whole reading of a real photograph against a real model, **twice over**.
+##
+## The first wording offered the empty list to a model that was merely unsure - "if the photograph does not
+## show enough to name the plant, answer with an empty list, because not knowing is a real answer and a
+## guess is not" - and `qwen2.5vl:3b`, asked about a clear photograph of one boxwood, answered
+## `{"candidates": []}` in 0.2 seconds without appearing to look at it. That sentence went, and a gentler
+## one took its place: the empty list kept, but reserved for a photograph with no plant in it.
+##
+## **The gentler one was still an escape hatch, and a small model does not weigh a permission - it takes
+## it.** Asked about a photograph of ripe tomatoes on the vine, the least ambiguous plant photograph there
+## is, it answered `{"candidates": []}` in **0.3 seconds**; with that one sentence deleted and nothing else
+## changed it answered `Solanum lycopersicum` at 0.9, **twice**, in 2.0 and 1.1 seconds. So the empty list
+## is not offered at all now, and an unsure model is asked for a name and a low confidence - which is what
+## this program wanted in the first place, and already knows how to read: `FieldCapture`'s floors decide
+## whether a low number counts as an identification, and a name below them is kept as "a name that was
+## offered" rather than thrown away.
+##
+## Nothing is lost by not asking, because a model that answers the empty list anyway is still understood:
+## `parse_response` was taught that a bare `[]` is the model saying it cannot tell rather than unreadable
+## JSON, which is held next door.
+func test_the_prompt_asks_for_a_name_and_never_offers_the_model_an_empty_list() -> void:
 	var asked: String = LlmScript.single_prompt(&"whole", "")
 	assert(
 		asked.contains("name the plant it most resembles"),
 		"an unsure model is asked for a name and a low confidence: %s" % asked
 	)
 	assert(
-		asked.contains("empty list only when the photograph shows no plant at all"),
-		"and the empty list is kept for the question it is really for"
+		not asked.contains("empty list"),
+		"and the empty list is never put in front of it, because that is the shape a small model takes: %s"
+			% asked
 	)
 	assert(
 		not asked.contains("does not show enough to name the plant"),
-		"and the sentence that talked a small model out of looking is gone"
+		"neither is the first sentence that talked a small model out of looking"
 	)
 	assert(
 		LlmScript.refine_prompt(&"leaf", "", []).contains("name the plant it most resembles"),
 		"the mixed mode's own question carries the same rule, because both come from one place"
+	)
+	assert(
+		not LlmScript.refine_prompt(&"leaf", "", []).contains("empty list"),
+		"and the mixed mode's question offers no escape hatch either"
 	)
 
 	var prose: Dictionary = LlmScript.parse_response(

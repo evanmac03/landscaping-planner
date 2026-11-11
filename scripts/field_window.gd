@@ -47,6 +47,13 @@ const CameraWindowScript := preload("res://scripts/camera_window.gd")
 signal captured(capture: Dictionary, result: Dictionary)
 signal closed()
 
+## This page's own camera has stood up or gone away.
+##
+## Said out loud because the question "is a camera up" is asked in one place by the HUD, and there are two
+## doors onto a camera: the HUD's own, and this page's. The rule that makes the window follow the phone has to
+## be true of whichever one a person opened, and only this page knows about this one.
+signal camera_changed(open: bool)
+
 ## A reading that had to wait for a model has answered.
 ##
 ## Emitted when the answer lands, which for a model on this machine is seconds or minutes after the button
@@ -455,15 +462,50 @@ func keep_photo(source_path: String) -> Dictionary:
 ## The camera: the device's own, pointed at the plant in front of you. The camera page files the frame
 ## itself, through the same photograph store this page uses, and hands back where it was kept - so the two
 ## doors onto a photograph leave this page in one state rather than two.
+## This page's camera, or null - asked by the HUD, which places it and asks whether it is up.
+func camera_window() -> CameraWindow:
+	return _camera
+
+
+## Whether this page's own camera is standing up, so the one place that answers "is a camera up" can say so.
+func camera_is_open() -> bool:
+	return _camera != null and _camera.visible
+
+
 func take_photo() -> void:
 	if _camera == null:
 		_camera = CameraWindowScript.new()
 		_camera.name = "CameraWindow"
 		_camera.folder = photo_folder
 		_camera.photo_taken.connect(took_photo)
-		add_child(_camera)
-	PageChrome.show_centred(_camera)
+		_camera.closed.connect(_the_camera_went_away)
+		# **Not a child of this page.** Godot embeds a subwindow inside the window it lives in - "centered
+		# inside its embedder", sized "a ratio of embedder's size" - so a camera parented here could never be
+		# bigger than this form, whatever the placing asked for. It is kept alive by this page and freed with
+		# it. `get_tree()` is null for a page that was built and never shown, which is how a test holds one.
+		var tree: SceneTree = get_tree()
+		var room: Node = tree.root if tree != null else self
+		CameraWindowScript.home_for(_camera, room).add_child(_camera)
+		tree_exiting.connect(_forget_camera)
+	# The camera's own door, the same one the HUD's menu opens it through. On a phone the viewfinder is the
+	# whole of what a person is looking at, and a camera placed by its caller here came up a small window over
+	# the survey it was being filled in from.
+	CameraWindowScript.place(_camera)
 	_camera.open()
+	camera_changed.emit(true)
+
+
+## The camera has been put away, so what the window is asked for is asked again: the phone follows itself
+## while a camera is up, and the drawing's own answer is asked for again afterwards.
+func _the_camera_went_away() -> void:
+	camera_changed.emit(false)
+
+
+## The camera does not live inside this page, so it does not go away with it: this is what does.
+func _forget_camera() -> void:
+	if _camera != null:
+		_camera.queue_free()
+		_camera = null
 
 
 ## What the camera kept, in the same field the picker fills.
