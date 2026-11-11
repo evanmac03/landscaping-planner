@@ -61,8 +61,17 @@ Every feature here has the same six parts. A change that adds one and not the ot
   geometry is ever stored in feet.
 - **Undo is a named, serial-numbered gesture** (`DraftGestureHistory`), never a snapshot of state.
   One gesture is one action a person took, and its serial is what joins it to the revision log.
-- **No autoloads.** Whatever a script needs is handed to it by the scene as an `@export var x:
-  SomeClass`, which Godot wires as a `NodePath` in the `.tscn`.
+- **Autoloads are allowed, and there is exactly one.** It is the MCP toolkit's runtime server
+  (`MCPRuntimeServer`, `addons/godot_mcp_toolkit/runtime/mcp_runtime_server.gd`), registered by that
+  addon's own editor plugin. It is the one thing an autoload is genuinely for here: a development
+  bridge that has to be reachable from outside the running game. Everything else is unchanged -
+  whatever a script needs is still handed to it by the scene as an `@export var x: SomeClass`, which
+  Godot wires as a `NodePath` in the `.tscn`, and a second autoload has to earn its place the way this
+  one did.
+- **An autoload has to be inert in an export.** It must destroy itself on `Engine.is_editor_hint()`
+  or `not OS.has_feature("editor")` - never on `is_debug_build()`, which is true in a debug export -
+  so a shipped build neither listens nor logs. The toolkit's runtime server is the worked example, and
+  its own export plugin nulls the autoload for the bake besides.
 - **A page is a `Window`, a model is a `RefCounted`.**
 - **Human-facing strings are plain sentences**, and a refusal names what is missing. There is no
   `Error: invalid input` in this program, and no message that could have been written by a compiler.
@@ -88,13 +97,28 @@ Every feature here has the same six parts. A change that adds one and not the ot
 - **The game**: open the project in Godot 4.7 and run `res://scenes/main.tscn` (also
   `application/run/main_scene`). The renderer is `gl_compatibility`, the physics engine Jolt.
 - **The tests**: `res://tools/run_tests.tscn`, headless and with no editor or plugin needed -
-  `Godot_v4.7.2-stable_win64_console.exe --headless --path . res://tools/run_tests.tscn`. It exits
+  `GODOT_MCP_RUNTIME=0 Godot_v4.7.2-stable_win64_console.exe --headless --path . res://tools/run_tests.tscn`.
+  That variable keeps the MCP toolkit's runtime server inert for the run; without it a headless run binds
+  127.0.0.1:6570 and claims this project's runtime entry from a real game session. It exits
   non-zero when anything failed. One file with `-- res://tests/test_<module>.gd`; a name filter with
   `-- res://tests plant_`. Ziva's `run_tests` runs the same files. **CI runs the suite** -
   `.github/workflows/workflow-checks.yml` runs it on every pull request and on a push to `main`, and validates the release workflow guide.
 - **The dev tools**: `res://tools/` holds one-off checks that are run, not shipped - `audit.gd` (one
-  pass: plant check, HUD layout, every scene loads), `plant_scene_check.gd`, `hud_layout_check.gd`,
+  pass: plant check, HUD layout, every scene loads), `plant_scene_check.gd`, `hud_layout_check.gd`, `console.gd`,
   and the per-feature `*_demo.gd` scripts. Run them with Ziva's `execute_script` or as a scene.
+- **The development console**: run `res://tools/console.tscn` and the console opens over the running
+  game; `:help` lists its commands and a line without a leading `:` runs as GDScript. When the question
+  is about the running program - where a control sits on screen, what the live tree holds, what changes
+  each frame - **ask here before you rebuild**. The verbs: `:where <path>` reports a control's on-screen
+  rectangle, or a page's whole report; `:pages` lists every page the project has and, for each one that
+  is up, where it stands and whether its contents fit; `:probe` says what is on the screen, in the very
+  words the phone's `PROBE` block prints; `:mode` gives the view, the tool in hand, the layer and the
+  status line; and `:doc` gives the drawing - its entity count, its layers, its file and whether it is
+  unsaved. Every figure comes from the module that already owns it (`scripts/hud_probe.gd`,
+  `scripts/page_index.gd`, `scripts/page_layout.gd`, the drawing's own controller), so nothing is worded
+  a second time. Reach the live tree from free-form GDScript through `root` or `get_node("/root/...")`
+  - not `get_tree()`, and not a bare node name. It is a development tool, so `tools/` only: nothing in
+  `scripts/` or `scenes/` may depend on it.
 - **The context exporter**: `tools/context_report.gd` builds a text snapshot of this project for an
   outside AI (`-- plant-id` for a scoped pack). Use the **AI Context** editor dock (`addons/context_tools/`)
   or run `tools/export_project_context.gd` with Ctrl+Shift+X in the editor. If you add a subsystem,
@@ -102,9 +126,10 @@ Every feature here has the same six parts. A change that adds one and not the ot
 
 ## Do not
 
-- **Do not touch `addons/`.** It is third-party: the Ziva MCP bridge (`addons/godot_ai`), the GitHub
+- **Do not touch `addons/`.** It is third-party: the Godot AI bridge (`addons/godot_ai`, gitignored, its plugin off), the GitHub
   release dock, and the business/visualization editor docks. Generate nothing that depends on its
-  internals.
+  internals. The development console in `addons/crabbyconsole/` is used the same way - through
+  `tools/console.tscn`, by path, never by naming what is inside it.
 - **Do not rename the project** (`application/config/name`) or move `user://` data. A drawing, the
   plant catalogue, sheets, revisions and the autosave copies all live under `user://`; renaming moves
   all of it.

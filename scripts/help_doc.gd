@@ -314,6 +314,12 @@ static func _topics() -> Array[Dictionary]:
 		+ "folder as a picture you chose from a file. The survey's own door beside it, Record what is on "
 		+ "site..., is about the drawing, and says so by needing one.",
 		"",
+		"On a phone the camera takes the screen over while it is open, because the thing you are aiming at "
+		+ "is the thing you are looking at, and it turns with the phone rather than with the board behind it "
+		+ "- so a picture is never left lying on its side. The button beside the shutter names what you go "
+		+ "back to: Back to the drawing when a drawing is standing behind it, and Back to the menu when the "
+		+ "door is.",
+		"",
 		"To start from something rather than from nothing, File > Examples > The example garden lays out a "
 		+ "small backyard - the site, a house, a patio, a path, four beds and two trees, with one dimension "
 		+ "across it - as a drawing you can move, measure, plant, price and save like any other.",
