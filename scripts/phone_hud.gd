@@ -66,24 +66,47 @@ static func zooming_here() -> bool:
 	return on_a_finger_here() and TouchInputScript.needs_zooming(across_inches())
 
 
-## How far a phone's own furniture - the camera cutout, the status bar - reaches down from the top of the
-## screen, given in the room's own pixels. Zero on a desk, and on a display that reports no cutout.
+## What a phone's own furniture - the camera cutout, the status bar, a rounded edge - takes off each side of
+## the screen, given in the room's own pixels, as (left, top, right, bottom).
+##
+## The arithmetic and nothing else: hand it a screen, a safe area and a room, and it answers. That is what
+## lets a test hold it down, and it is why the display is read in `cutout_here` and not here.
 ##
 ## The safe area is a fact about the display, in the display's pixels; the room a page lands in is the
 ## viewport's, and on a phone those are not the same number - the SM-A166W reports 1080 by 2340 natively and
-## a 1185 by 2567 room, so a figure in one is not a figure in the other. The answer is the cutout's share of
-## the screen's height and nothing more: a fraction, which is the one thing that travels between the two.
-static func cutout_top(room: Vector2i) -> int:
-	if not on_a_finger_here() or room.y <= 0:
-		return 0
+## a 1185 by 2567 room, so a figure in one is not a figure in the other. Each answer is that side's share of
+## the screen's own side and nothing more: a fraction, which is the one thing that travels between the two.
+##
+## A phone held sideways puts its cutout on the left or the right, so all four sides are answered rather
+## than the top alone - a page that only gave ground at the top would sit under the camera in landscape.
+static func cutout_insets(room: Vector2i, screen: Vector2i, safe: Rect2i) -> Vector4i:
+	if room.x <= 0 or room.y <= 0 or screen.x <= 0 or screen.y <= 0:
+		return Vector4i.ZERO
+	var left: float = float(maxi(safe.position.x, 0))
+	var top: float = float(maxi(safe.position.y, 0))
+	var right: float = float(maxi(screen.x - safe.end.x, 0))
+	var bottom: float = float(maxi(screen.y - safe.end.y, 0))
+	return Vector4i(
+		roundi(float(room.x) * (left / float(screen.x))),
+		roundi(float(room.y) * (top / float(screen.y))),
+		roundi(float(room.x) * (right / float(screen.x))),
+		roundi(float(room.y) * (bottom / float(screen.y))),
+	)
+
+
+## The same answer for the display this program is running on. All four zero on a desk - this furniture is a
+## phone's - and on a display that reports no safe area at all.
+static func cutout_here(room: Vector2i) -> Vector4i:
+	if not on_a_finger_here():
+		return Vector4i.ZERO
 	var screen: int = DisplayServer.window_get_current_screen()
-	var full: Vector2i = DisplayServer.screen_get_size(screen)
-	if full.y <= 0:
-		return 0
-	var inset: int = maxi(DisplayServer.get_display_safe_area().position.y, 0)
-	if inset <= 0:
-		return 0
-	return roundi(float(room.y) * (float(inset) / float(full.y)))
+	return cutout_insets(room, DisplayServer.screen_get_size(screen), DisplayServer.get_display_safe_area())
+
+
+## How far that furniture reaches down from the top of the screen, in the room's own pixels. Its own reading
+## because the top is the one a page's title bar is measured against, and the one this device can measure.
+static func cutout_top(room: Vector2i) -> int:
+	return cutout_here(room).y
 
 
 ## How many inches the screen is across its longer side, or 0 when the density is not known - the

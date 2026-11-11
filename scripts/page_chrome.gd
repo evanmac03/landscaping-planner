@@ -296,15 +296,22 @@ static func chrome_above(page: Window) -> int:
 	return maxi(page.get_theme_constant(&"title_height", &"Window"), 0)
 
 
-## The room a page's *contents* have to land in: the viewport it lands inside with its own title bar, and a
-## phone's camera cutout, taken out of it. A display that cannot be asked still answers zero, which
-## `clamped_minimum` reads as "no answer" - neither a bar that is not drawn nor a cutout that is not there is
-## allowed to turn a real screen into a negative one.
+## The room a page's *contents* have to land in: the viewport it lands inside with its own title bar, and
+## whatever a phone's own furniture takes off the sides of it, taken out of it. A display that cannot be
+## asked still answers zero, which `clamped_minimum` reads as "no answer" - neither a bar that is not drawn
+## nor a cutout that is not there is allowed to turn a real screen into a negative one.
+##
+## Every side gives ground, not the top alone: held sideways a phone puts its cutout on the left or the
+## right, and a page that only stepped down from the top would sit under the camera in landscape.
 static func content_room(page: Window) -> Vector2i:
 	var room: Vector2i = room_for(page)
 	if room.x <= 0 or room.y <= 0:
 		return room
-	return Vector2i(room.x, room.y - chrome_above(page) - PhoneHud.cutout_top(room))
+	var insets: Vector4i = PhoneHud.cutout_here(room)
+	return Vector2i(
+		room.x - insets.x - insets.z,
+		room.y - chrome_above(page) - insets.y - insets.w,
+	)
 
 
 ## Put a page on the screen: centred, with everything it asked for kept inside the room it lands in.
@@ -458,13 +465,20 @@ static func placed_again(page: Window) -> Vector2i:
 ## from is the only thing they differ in, and it is handed in rather than read here, so that neither door
 ## can come to place a page differently from the other.
 static func _place(page: Window, preferred: Vector2i) -> Vector2i:
+	var room: Vector2i = room_for(page)
+	var insets: Vector4i = PhoneHud.cutout_here(room)
 	var clamped_floor: Vector2i = clamped_minimum(preferred, content_room(page))
 	page.min_size = clamped_floor
 	page.popup_centered_clamped(clamped_floor, SCREEN_RATIO)
 	# Godot centred the contents, and the bar hangs above them with a phone's cutout above that; the half of
 	# the two together that was off the top is what the page moves down by. The room was taken down by the
 	# same two, so the whole window - bar, cutout and contents - lands below the cutout and inside the screen.
-	page.position += Vector2i(0, roundi((chrome_above(page) + PhoneHud.cutout_top(room_for(page))) / 2.0))
+	# Sideways is the same arithmetic with no bar: what the furniture takes off one side and not the other
+	# moves the page towards the side that has less, so it is centred in what is left of the screen.
+	page.position += Vector2i(
+		roundi((insets.x - insets.z) / 2.0),
+		roundi((chrome_above(page) + insets.y - insets.w) / 2.0),
+	)
 	return clamped_floor
 
 

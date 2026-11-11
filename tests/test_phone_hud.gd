@@ -18,6 +18,42 @@ const PHONE_DPI := 384.6
 const PHONE_SCALE := 1.62
 
 
+## A cutout is measured as each side's share of the screen, so a phone held sideways is answered on the
+## side its camera is on rather than at the top alone.
+##
+## The display is an argument rather than a reading here, which is the whole reason the arithmetic is
+## testable: on this desk the real safe area has no cutout in it, and a device with one on its side is
+## not a thing this machine can be.
+func test_a_cutout_is_measured_on_every_side_of_the_screen() -> void:
+	var screen := Vector2i(1080, 2340)
+	var room := Vector2i(1185, 2567)
+	var insets: Vector4i = PhoneHudScript.cutout_insets(room, screen, Rect2i(0, 100, 1080, 2240))
+	assert(insets.x == 0 and insets.z == 0, "nothing is taken off the sides in portrait")
+	assert(insets.y == roundi(2567.0 * (100.0 / 2340.0)), "the top is its share of the room's own height")
+	assert(insets.w == 0, "and the foot nothing, because the safe area ends where the screen does")
+
+
+## The same phone on its side: the camera is on the left, so the room gives ground on the left and the
+## page moves towards the side that has more of it.
+func test_a_phone_held_sideways_gives_ground_where_the_camera_is() -> void:
+	var insets: Vector4i = PhoneHudScript.cutout_insets(
+		Vector2i(2567, 1185), Vector2i(2340, 1080), Rect2i(120, 0, 2220, 1080)
+	)
+	assert(insets.x == roundi(2567.0 * (120.0 / 2340.0)), "the left takes the cutout's share of the width")
+	assert(insets.z == 0, "the right takes none of it")
+	assert(insets.y == 0 and insets.w == 0, "and the top and foot take none, held this way")
+
+
+## A display reporting no furniture, and a room nobody could state, both answer zero on all four sides:
+## a cutout that is not there may not make a real screen smaller than it is.
+func test_no_furniture_and_no_room_answer_zero_on_every_side() -> void:
+	var safe := Rect2i(0, 0, 1080, 2340)
+	var nothing: Vector4i = PhoneHudScript.cutout_insets(Vector2i(1185, 2567), Vector2i(1080, 2340), safe)
+	assert(nothing == Vector4i.ZERO, "a display reporting no cutout costs a page nothing")
+	var unstated: Vector4i = PhoneHudScript.cutout_insets(Vector2i.ZERO, Vector2i(1080, 2340), safe)
+	assert(unstated == Vector4i.ZERO, "and neither does a room with no size to take a share of")
+
+
 func _reset() -> void:
 	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
 
