@@ -11,6 +11,7 @@ extends Node
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
+const PlannerHudScript := preload("res://scripts/hud.gd")
 
 ## The phone: its density, and the scale its canvas ends up drawn at.
 const PHONE_DPI := 384.6
@@ -41,6 +42,64 @@ func test_a_density_nobody_can_state_works_nothing_out() -> void:
 	assert(PhoneHudScript.row_height(PHONE_SCALE, 0.0) == 0.0, "so no row height is imposed")
 	assert(PhoneHudScript.font_size(PHONE_SCALE, 0.0) == 0, "and no font size")
 	assert(PhoneHudScript.millimetres(50.0, 0.0, PHONE_DPI) == 0.0, "a scale of nothing is nothing too")
+
+
+## The device is asked where the chrome is sized, not in `_ready`.
+##
+## A window that has not laid out yet does not answer for the device it will be drawn on, and the HUD's own
+## pass is deferred for exactly that reason - but `call_deferred` reads its arguments where it is written, so
+## handing it the reading `_ready` had just made carried an early answer into a late pass. On the phone that
+## showed as a thumb-sized palette beside a foot of the screen that told that same thumb about a mouse wheel
+## and W A S D. Both halves read off the glass before this was written.
+func test_the_device_is_asked_where_the_chrome_is_sized_and_not_in_ready() -> void:
+	var hud := PlannerHudScript.new()
+	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+	PhoneHudScript.force_density(PHONE_DPI)
+	# A HUD that never ran `_ready` still holds that early answer, which is the one a phone was actually given.
+	assert(not hud.shows_touch_controls(), "the reading `_ready` took is the one that does not hold")
+	# The pass that fits the chrome asks again, and everything downstream follows that single answer.
+	hud._size_the_chrome_for_the_device()
+	assert(hud.shows_touch_controls(), "asking where the chrome is sized gets the device right")
+	# And that is the answer the foot of the screen is built from - the same switch, named as a finger's.
+	var line: String = PlannerHudScript._hints_for(
+		ViewController.ViewMode.PLAN_2D, hud.shows_touch_controls()
+	)
+	assert(line == PlannerHudScript.HINTS_OVERHEAD_ON_A_FINGER, "so the line is a finger's: %s" % line)
+	hud.free()
+	PhoneHudScript.force_density(0.0)
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+
+
+## A phone's top bar keeps its doors and gives up everything else; a desk keeps every part of the row.
+##
+## The rule lives on the HUD rather than in `PhoneHud` because it is about this HUD's own row and not about a
+## size: the bar holds the menu bar, the program's name, a rule, the view's name and the three view controls,
+## and at a phone's legible size that is far wider than the screen. A row that cannot hold all of it gives up
+## what is not a **door** - and on a device with no keyboard the view controls are the most important doors
+## there are, so they are the last thing that can go. The view's name goes with the decoration because the
+## controls say it themselves: the button reads "2D plan (Q)" from the 3D view and "Back to overhead (G)" from
+## the ground. The four controls are stated here rather than looked up, so the test holds the decision.
+func test_a_phone_gives_up_the_top_bars_decoration_and_a_desk_keeps_its_own() -> void:
+	var hud := PlannerHudScript.new()
+	var name_label := Label.new()
+	var rule := VSeparator.new()
+	var view_name := Label.new()
+	hud.app_label = name_label
+	hud.bar_separator = rule
+	hud.mode_label = view_name
+	# A computer is given nothing at all: the row stays exactly as the scene drew it.
+	hud.size_for_a_finger(false)
+	assert(name_label.visible, "a desk keeps the program's name in the bar")
+	assert(rule.visible, "and the rule beside it")
+	assert(view_name.visible, "and the name of the view it is in")
+	hud.size_for_a_finger(true)
+	assert(not name_label.visible, "a phone puts the program's name away")
+	assert(not rule.visible, "and the rule that was only there to divide it")
+	assert(not view_name.visible, "and the view's name, which the view controls say themselves")
+	hud.free()
+	name_label.free()
+	rule.free()
+	view_name.free()
 
 
 ## On a phone a row of answers is as tall as a thumb needs, which is what the constant states and what
@@ -197,3 +256,101 @@ func test_a_two_line_button_is_as_wide_as_its_longest_line() -> void:
 		"but a key longer than the word is what the button is measured by"
 	)
 	button.free()
+
+
+## What a thumb presses is given the flat size its caption is drawn at, and what it reads is grown from the
+## size the surface laid it out with: a title stays bigger than the sentence under it rather than every line
+## coming out one size.
+func test_a_finger_gets_the_row_for_what_it_presses_and_a_grown_size_for_what_it_reads() -> void:
+	_reset()
+	var button: Button = Button.new()
+	var line: Label = Label.new()
+	line.add_theme_font_size_override("font_size", 20)
+
+	assert(PhoneHudScript.fit_for_a_finger(button, PHONE_SCALE, PHONE_DPI), "a button is fitted")
+	assert(button.custom_minimum_size.y > 29.0, "in the row a thumb needs to hit")
+	assert(
+		button.get_theme_font_size("font_size") == PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI),
+		"with its caption at the one flat size a phone is told"
+	)
+
+	assert(PhoneHudScript.fit_for_a_finger(line, PHONE_SCALE, PHONE_DPI), "a line is fitted too")
+	var legible: int = PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI)
+	assert(
+		line.get_theme_font_size("font_size") > legible,
+		"and a line the surface drew bigger than its body is still the bigger of the two: %d against %d"
+			% [line.get_theme_font_size("font_size"), legible]
+	)
+	button.free()
+	line.free()
+
+
+## A control that neither shows words nor is pressed is left exactly as it is - a size worked out for a
+## container or a spacer is a size worked out for nothing.
+func test_a_control_with_no_words_and_nothing_to_press_is_left_alone() -> void:
+	_reset()
+	var patch: ColorRect = ColorRect.new()
+	var box: VBoxContainer = VBoxContainer.new()
+	assert(not PhoneHudScript.fit_for_a_finger(patch, PHONE_SCALE, PHONE_DPI), "a colour patch is not fitted")
+	assert(not PhoneHudScript.fit_for_a_finger(box, PHONE_SCALE, PHONE_DPI), "nor is a container")
+	assert(not box.has_theme_font_size_override("font_size"), "and neither of them was given a font")
+	patch.free()
+	box.free()
+
+
+## A panel fitted every time it is shown is not a panel that grows every time it is shown. The size a
+## control was laid out with is remembered on it, because Godot keeps only the answer that replaced it.
+func test_fitting_a_control_twice_grows_it_once() -> void:
+	_reset()
+	var line: Label = Label.new()
+	line.add_theme_font_size_override("font_size", 20)
+	PhoneHudScript.fit_for_a_finger(line, PHONE_SCALE, PHONE_DPI)
+	var once: int = line.get_theme_font_size("font_size")
+	PhoneHudScript.fit_for_a_finger(line, PHONE_SCALE, PHONE_DPI)
+	assert(
+		line.get_theme_font_size("font_size") == once,
+		"a control fitted twice is left at the size it was grown to: %d, was %d"
+			% [line.get_theme_font_size("font_size"), once]
+	)
+	line.free()
+
+
+## A surface's own chrome is fitted, and a page inside it is not: a page answers for its own controls where a
+## page is shown. A menu is a pop-up rather than a page, and is fitted with the control that owns it - a menu
+## that opened at a desk's size on a phone is the very defect this exists to stop.
+func test_a_huds_own_chrome_is_fitted_and_a_page_inside_it_is_left_to_the_page() -> void:
+	_reset()
+	var hud: PlannerHudScript = PlannerHudScript.new()
+	var toolbar: Button = Button.new()
+	hud.add_child(toolbar)
+	var menu: PopupMenu = PopupMenu.new()
+	hud.add_child(menu)
+	var page: Window = Window.new()
+	var in_page: Button = Button.new()
+	page.add_child(in_page)
+	hud.add_child(page)
+
+	var fitted: int = hud.fit_the_chrome_for_a_finger(PHONE_SCALE, PHONE_DPI)
+	assert(fitted == 2, "the HUD's own button and its menu were fitted: %d" % fitted)
+	assert(toolbar.custom_minimum_size.y > 0.0, "the HUD's own button is a thumb's size")
+	assert(menu.get_theme_font_size("font_size") > 12, "and the menu's items are drawn legibly")
+	assert(
+		in_page.custom_minimum_size == Vector2.ZERO and
+			not in_page.has_theme_font_size_override("font_size"),
+		"while the button inside the page is still exactly as the page left it"
+	)
+	hud.free()
+
+
+## A computer's HUD is left exactly as the scene drew it: the answer is handed in, so what a desk would be
+## given can be held without there being a desk - the same door `PhoneHud.apply_if` keeps.
+func test_a_computers_hud_is_left_exactly_as_the_scene_drew_it() -> void:
+	_reset()
+	var hud: PlannerHudScript = PlannerHudScript.new()
+	var line: Label = Label.new()
+	line.add_theme_font_size_override("font_size", 20)
+	hud.add_child(line)
+
+	assert(hud.size_for_a_finger(false) == 0, "nothing is fitted for a mouse")
+	assert(line.get_theme_font_size("font_size") == 20, "and the line keeps the size it was drawn with")
+	hud.free()

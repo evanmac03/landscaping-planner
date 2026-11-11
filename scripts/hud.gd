@@ -1,7 +1,14 @@
 class_name PlannerHud
 extends CanvasLayer
-## The planner's heads-up display: which view you are in, what the controls do,
-## the drawing palette, and the drafting aids on the overlay layer.
+## The planner's heads-up display: the menu bar, which view you are in and the controls that change it,
+## the drawing palette, the panels that are always on screen, and the drafting aids on the overlay layer.
+##
+## The chrome here is not the same shape on every device. A row of controls, a palette and a window are laid
+## out for a desk, where the room is wide and a fingertip is a cursor; a device answered with a finger is
+## given the row a thumb has to hit in and the size a thumb has to read, so what a desk draws exactly as the
+## scene did can be a different arrangement there. `PhoneHud` holds the arithmetic and the door,
+## `size_for_a_finger` is where this HUD asks for it, and `_put_away_what_the_top_bar_cannot_hold` is the one
+## part of the top bar that a room too narrow for it gives up.
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
@@ -12,6 +19,9 @@ const StartChoicesScript := preload("res://scripts/start_choices.gd")
 const StartWindowScript := preload("res://scripts/start_window.gd")
 const StartDrawingScript := preload("res://scripts/start_drawing.gd")
 const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd")
+## What is on the screen, said out loud, on a build that may be driven from another computer: the figures a
+## driver would otherwise have to read off a screenshot.
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const CameraWindowScript := preload("res://scripts/camera_window.gd")
 const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
 
@@ -33,6 +43,15 @@ const HINTS_GROUND := "W A S D: walk     Shift: run     Mouse: look     Arrows: 
 ## nothing at all. Chosen by `shows_touch_controls()` - the same reading that decides whether the thumb pad
 ## is built - so the line and the controls it names arrive and leave together.
 const HINTS_GROUND_ON_A_FINGER := "Left thumb: walk     Right thumb: drag"
+## The overhead views' line on a device answered with a finger. There is no wheel to turn there and no W A S D
+## to press, and a phone told "Wheel: zoom" has been told nothing at all; what a finger really drives is the
+## pair `ViewController.touch_command` reads - a pinch, which is a zoom about the fingers, and two fingers
+## dragged together, which is a pan - together with the tool in hand, which is the same words a desk gets.
+## Fitting the garden is a tap on the menu bar's own Fit button and is not named here, because the bar is one
+## thumb's width from this line and a key is not. Chosen by `shows_touch_controls()`, the same reading that
+## decides whether the thumb pad is built and whether the ground view's line is swapped, so every line a
+## device is shown arrives and leaves with the controls it names.
+const HINTS_OVERHEAD_ON_A_FINGER := EDIT_HINTS + "Two fingers: pan     Pinch: zoom"
 
 ## The drawing tools, in the order the number keys select them: the action that
 ## selects one, the wording it is introduced by, and the tool it puts in your hand.
@@ -206,6 +225,12 @@ const STILL_SIZES: Array = [
 @export var painted_plan: PaintedPlanScript
 
 @onready var mode_label: Label = %ModeLabel
+## The bar's own decoration: the program's name, and the rule that was there only to divide it from the
+## view's name. Two of the three things in the top bar that are there to look at rather than to use, and so
+## two of the three the row gives up when the room cannot hold it - the third is the view's name, put away
+## with these under `_put_away_what_the_top_bar_cannot_hold`.
+@onready var app_label: Label = %AppLabel
+@onready var bar_separator: VSeparator = %Sep
 @onready var toggle_button: Button = %ToggleButton
 @onready var ground_button: Button = %GroundButton
 @onready var fit_button: Button = %FitButton
@@ -681,6 +706,9 @@ func _ready() -> void:
 	# same way: a finger *and* a density that says the row a desk was drawn with is too small to hit.
 	# `DisplayServer.is_touchscreen_available()` alone was the wrong signal - a touchscreen laptop wants its
 	# desk-sized controls, and the density is the thing that tells the two apart.
+	# This answer is an early best guess and no more: a window that has not laid out yet does not answer for
+	# the device it will be drawn on, so `_size_the_chrome_for_the_device` asks the same question again where
+	# the chrome is really sized. On a computer the two answers agree, and nothing is touched either way.
 	_touch_screen = PhoneHudScript.on_a_finger_here()
 	view_controller.view_mode_changed.connect(_on_view_mode_changed)
 	# A page is a position, not an anchor, so a page that is up through a change of the room's shape has to
@@ -698,6 +726,18 @@ func _ready() -> void:
 	_build_plant_panel()
 	_build_presentation_panel()
 	_build_painted_actions()
+	# This HUD's own chrome is fitted to the device once everything it is made of exists - the menu bar, the
+	# panels, the hint lines, the scale bar - and deferred for the same reason the palette is: a control built
+	# during `_ready` is measured before the window has laid out, and the scale read then is not the scale the
+	# finished window draws at. It runs after the palette's own pass, which is queued inside `_build_palette`,
+	# so the palette is already at its size by the time this walks over it and the two agree rather than
+	# taking turns.
+	#
+	# The device question is asked *there* rather than handed in here, and that is the whole of the method:
+	# `call_deferred` reads its arguments where it is written, so passing the `_touch_screen` read a few lines
+	# above would carry a reading taken before the window laid out into a pass whose entire point is to run
+	# after it has.
+	_size_the_chrome_for_the_device.call_deferred()
 	# A session is a sibling of this HUD in the planner scene and absent everywhere else. Found
 	# here rather than exported so no test scene has to remember to provide one.
 	_presence = get_node_or_null(^"../Presence") as PresenceScript
@@ -781,6 +821,77 @@ func _ready() -> void:
 	_build_start_window()
 	if _draft != null and StartChoicesScript.should_show(_draft.drawing_path, _draft.dirty):
 		open_the_front_door()
+	# What is on the screen, said out loud, for anything driving this program from another computer. A debug
+	# build only, and connected after every page has been built, so the walk inside finds all of them.
+	_watch_the_pages_for_the_probe()
+	_the_screen_said()
+
+
+# --- what is on the screen, for anything driving this from another computer -------------------------
+
+
+## Set to keep a second report from stacking up behind a first.
+var _saying_the_screen: bool = false
+
+
+## Say what is on the screen whenever a page is put on it - a debug build only.
+##
+## Connected once, at the end of `_ready` and after every page has been built: they are all built here and
+## kept, so a walk of this tree finds all of them. Two signals, because a page arrives two ways - being
+## opened (`about_to_popup`) and being placed, or put back after the room changed shape under it
+## (`size_changed`) - and either is a moment worth reporting.
+func _watch_the_pages_for_the_probe() -> void:
+	if not HudProbeScript.on():
+		return
+	for node: Node in find_children("*", "Window", true, false):
+		var page: Window = node as Window
+		if page == null or page == self:
+			continue
+		if not page.about_to_popup.is_connected(_the_screen_said):
+			page.about_to_popup.connect(_the_screen_said)
+		if not page.size_changed.is_connected(_the_screen_said):
+			page.size_changed.connect(_the_screen_said)
+
+
+## Say what is on the screen, once the layout has settled rather than the moment a page lands.
+##
+## The settling figure is `PageLayout`'s own, and for its own reason: a container resizes its children on the
+## frame after its own size changes, and a wrapped line re-wraps on the frame after that, so a control's
+## rectangle is only true two frames on. Frames are *awaited* rather than deferred, because a deferred call
+## runs before the layout does and would report a page where it used to be.
+func _the_screen_said() -> void:
+	if not HudProbeScript.on() or _saying_the_screen or not is_inside_tree():
+		return
+	_saying_the_screen = true
+	for i: int in PageLayoutScript.SETTLING_FRAMES:
+		await get_tree().process_frame
+	_saying_the_screen = false
+	_say_the_screen()
+
+
+## The block itself: where this device was answered from, the room, the two lines a person reads at the foot
+## of the screen, the board's own controls, and every page that is up - in that order, because a driver has
+## to be able to tell which of them is standing over which.
+func _say_the_screen() -> void:
+	var lines := PackedStringArray()
+	lines.append_array(HudProbeScript.device_lines(
+		shows_touch_controls(),
+		PhoneHudScript.zooming_here(),
+		PhoneHudScript.dpi(),
+		PhoneHudScript.canvas_scale(get_window()),
+		Vector2i(get_viewport().get_visible_rect().size),
+		DisplayServer.screen_get_size(),
+		DisplayServer.is_touchscreen_available(),
+		hints_label.text if hints_label != null else "",
+		draft_hints_label.text if draft_hints_label != null else "",
+	))
+	lines.append_array(HudProbeScript.row_lines(
+		menu_bar.get_parent() as Control, "the top bar", menu_bar_room()))
+	lines.append_array(HudProbeScript.tap_lines(self, "the board"))
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			lines.append_array(HudProbeScript.page_lines(window))
+	HudProbeScript.publish(lines)
 
 
 func _process(delta: float) -> void:
@@ -901,6 +1012,10 @@ func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
 static func _hints_for(view_mode: int, on_a_finger: bool = false) -> String:
 	if view_mode == ViewController.ViewMode.GROUND:
 		return HINTS_GROUND_ON_A_FINGER if on_a_finger else HINTS_GROUND
+	# The two overhead views are told apart on a desk by the key that swaps them, and a finger has no key: what
+	# is left there is the tool in hand and the two gestures, which are the same in both views.
+	if on_a_finger:
+		return HINTS_OVERHEAD_ON_A_FINGER
 	var template := HINTS_2D \
 		if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
 	return template.replace(VIEW_KEY_TOKEN, _key_label(&"toggle_view"))
@@ -1217,6 +1332,84 @@ func _build_palette() -> void:
 
 	_refresh_palette()
 	_size_palette_for_a_finger.call_deferred()
+
+
+## Fit this HUD's own chrome to the device, and leave a computer's exactly as the scene drew it.
+##
+## The palette is fitted by its own pass below, because the palette also has to re-flow its rows around the
+## words it draws; this is everything else this HUD draws for itself - the menu bar and its menus, the
+## panels, the hint lines, the scale bar. A page is left alone: a page answers for its own controls in the
+## one place a page is shown, and `PageChrome` is that place.
+##
+## `draw_up` is the device answer taken as an argument rather than read here, the same door
+## `PhoneHud.apply_if` keeps, so that a test can hold what a desk would be given. On a computer nothing is
+## touched - not reset to the size a desk has, *left exactly as it was*.
+## Fit this HUD's own chrome to the device, reading the device *now*.
+##
+## The reading is taken here rather than in `_ready` for the reason this whole pass is deferred: a window
+## that has not laid out yet does not answer for the device it will be drawn on. Measured on the phone - the
+## one instrument for this - the palette came out thumb-sized while the foot of the screen told that same
+## thumb about a mouse wheel and W A S D, because `_size_palette_for_a_finger` asks the device where it draws
+## and `_touch_screen` had been read a moment earlier, in `_ready`. The answer is kept on `_touch_screen`
+## because `shows_touch_controls()` is the single question everything else asks - the hint lines, the thumb
+## pad, the doors a demonstration opens - and the foot is written again here so that the two cannot disagree.
+func _size_the_chrome_for_the_device() -> void:
+	_touch_screen = PhoneHudScript.on_a_finger_here()
+	size_for_a_finger(_touch_screen)
+	_refresh_hints()
+
+
+func size_for_a_finger(draw_up: bool) -> int:
+	if not draw_up:
+		return 0
+	var fitted: int = fit_the_chrome_for_a_finger(
+		PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi()
+	)
+	_put_away_what_the_top_bar_cannot_hold()
+	return fitted
+
+
+## The measuring half of `size_for_a_finger`, with the scale and the density stated rather than read, so a
+## test can hold what a phone would be told without being one.
+func fit_the_chrome_for_a_finger(drawn_at: float, density: float) -> int:
+	return PhoneHudScript.fit_the_chrome_for_a_finger(self, drawn_at, density)
+
+
+## Put away what the top bar holds that is not a door, which is what a room too narrow for the bar has to be
+## able to do.
+##
+## The bar is one row: the menu bar, the program's name, a rule, the view's name, and the three view controls.
+## At a phone's legible size that row is far wider than the screen, and an `HBoxContainer` does not shrink any
+## of them to fit - it lays them out at their own minimums and lets the row run off the edge. **Measured on
+## the phone, the three view buttons came out at x = 1860 on a 1080-wide screen**: drawn where nothing can
+## reach them, and on a device with no keyboard they are the *only* way to the 2D, 3D and ground views.
+##
+## So the row gives up what a bar can afford to lose, and the rule it follows is which of its parts are
+## **doors**: the menus, which fold into one `More`; the three view controls; and nothing else. The program's
+## name is not a door - the launcher, the doorway and the sheet's own title block all say it already - and
+## neither is the rule that existed only to divide it, nor the view's name, which the view controls say
+## themselves: the button reads "2D plan (Q)" from the 3D view, "3D view (Q)" from the plan, and "Back to
+## overhead (G)" from the ground. Those three are what this puts away.
+##
+## Measured twice, because the first version of this was nearly right and not right: with only the name and
+## the rule gone, the row still came to **1294 px of a 1161 px room**, and the last button's frame ran 133 px
+## past the edge - reachable by its centre, which is not the same as drawn. A phone is the instrument for that
+## second reading, and the probe above is how it was taken.
+##
+## The bar then folds as it was always meant to: with the decoration gone the room formula in `menu_bar_room`
+## has a figure it can work with, where before everything else in the row was wider than the screen, the room
+## came out zero, and `menu_fold_point` read zero as "no room was worked out" and switched the fold off - all
+## fourteen titles were drawn and the buttons were pushed off the edge behind them.
+##
+## A computer is not touched, and is not restored either: this runs only under `size_for_a_finger(true)`, so
+## the row a desk draws is the row the scene drew.
+func _put_away_what_the_top_bar_cannot_hold() -> void:
+	if app_label != null:
+		app_label.visible = false
+	if bar_separator != null:
+		bar_separator.visible = false
+	if mode_label != null:
+		mode_label.visible = false
 
 
 ## Make every answering control in the palette big enough for a finger.
@@ -4293,6 +4486,10 @@ func keys_text() -> String:
 	var rows: Array[String] = []
 	rows.append("Top-down and overhead")
 	rows.append("    " + _hints_for(ViewController.ViewMode.PLAN_2D))
+	# The overhead views on a touchscreen, quoted from the constant the foot of the screen uses, for the same
+	# reason the ground view's is quoted rather than restated: the reference and the phone cannot drift apart.
+	rows.append("Top-down and overhead, on a touchscreen")
+	rows.append("    " + HINTS_OVERHEAD_ON_A_FINGER)
 	rows.append("Ground view")
 	rows.append("    " + HINTS_GROUND)
 	# The same view on a touchscreen, quoted from the constant the foot of the screen uses, so the reference
@@ -7542,6 +7739,7 @@ func _build_capture_window() -> void:
 	add_child(_capture_window)
 	_capture_window.build()
 	_capture_window.closed.connect(_on_capture_window_closed)
+	_capture_window.camera_changed.connect(_on_capture_camera_changed)
 	_capture_window.hide()
 
 
@@ -8997,10 +9195,34 @@ func open_camera_window() -> void:
 	_build_camera_window()
 	if _camera_window == null:
 		return
+	# What is behind the camera is known before the page is shown, because the way out is named for it.
+	_camera_window.show_over(behind_the_camera())
 	_camera_window.open()
-	PageChromeScript.show_centred(_camera_window)
+	_place_the_camera()
 	_sync_door_screen()
 	release_keyboard_focus(self)
+
+
+## What the camera is standing over, so its way out names the thing a person goes back to. The doorway is
+## asked rather than a drawing being looked for: the camera opens from the door as well as from a drawing,
+## and the door is the one reading that already knows which of the two is standing.
+func behind_the_camera() -> StringName:
+	if the_doorway_is_up():
+		return CameraWindowScript.BEHIND_THE_DOOR
+	return CameraWindowScript.BEHIND_A_DRAWING
+
+
+## Put the camera page where it belongs: over the whole room on a phone, where the viewfinder is the thing
+## being aimed, and centred like every other page on a desk.
+##
+## One door for the placing, so that opening the camera and having the room change shape under it cannot put
+## it in two different places - which is how a page ends up half a title bar off the top of a phone.
+func _place_the_camera() -> void:
+	if _camera_window == null:
+		return
+	# The page's own door, rather than the answer worked out again here: how a camera wants to be placed is
+	# the camera's to say, and the capture page opens the same page through the same one.
+	CameraWindowScript.place(_camera_window)
 
 
 func close_camera_window() -> void:
@@ -9008,13 +9230,26 @@ func close_camera_window() -> void:
 		_camera_window.request_close()
 
 
+## Whether a camera is standing up, whichever of the two doors onto one opened it.
+##
+## There is one camera page and two doors onto it: the HUD's own, and the one the capture page keeps. The
+## window follows the phone while a camera is up, so this question has to be true of both. Asking it of one
+## instance is how a phone held upright over a wide board got a landscape viewfinder from the other door.
 func is_camera_window_open() -> bool:
-	return _camera_window != null and _camera_window.visible
+	if _camera_window != null and _camera_window.visible:
+		return true
+	return _capture_window != null and _capture_window.camera_is_open()
 
 
 func _on_camera_window_closed() -> void:
 	_sync_door_screen()
 	_refresh_menus()
+
+
+## The capture page's camera has come or gone, so what the window is asked for is asked again: the phone
+## follows itself while a camera is up, and the drawing's own answer is asked for again afterwards.
+func _on_capture_camera_changed(_open: bool) -> void:
+	_sync_door_screen()
 
 
 ## Draw the example garden onto the drawing in hand, through the controller's own door onto it.
@@ -9038,11 +9273,17 @@ func the_doorway_is_up() -> bool:
 	return is_front_door_open() or is_start_drawing_window_open()
 
 
-## What the window should be asked for: the doorway's own hold while a doorway page is up, and the board's
-## kept answer the rest of the time. The one answer is handed in, so a phone is asked for its shape once
-## rather than twice in the same breath.
+## What the window should be asked for: the hold of a page that is not a plan while one of those is up, and
+## the board's kept answer the rest of the time. The one answer is handed in, so a phone is asked for its
+## shape once rather than twice in the same breath.
+##
+## The camera counts with the doorway's two pages. None of the three is a plan drawn along a wide screen, and
+## the camera is the one where it shows most: a viewfinder held the way a wide board is held is a picture of a
+## plant lying on its side, which is what a phone held upright over a landscape board used to get.
 func the_shape_for_the_window() -> StringName:
-	return OrientationChoiceScript.for_the_window(the_doorway_is_up(), _orientation)
+	return OrientationChoiceScript.for_the_window(
+		the_doorway_is_up() or is_camera_window_open(), _orientation
+	)
 
 
 ## The pages a change of the window's shape has to put back where they belong: every page in a `Window`, and
@@ -9071,4 +9312,17 @@ func _pages_that_are_up() -> Array[Window]:
 ## is asked for again - not a second keyboard, and not a second finger-sizing.
 func _the_canvas_changed_shape() -> void:
 	for page: Window in _pages_that_are_up():
+		# The camera fills the room on a phone rather than sitting in the middle of it, so it is put back
+		# through its own door: a viewfinder re-placed as a centred page would shrink the moment the phone
+		# was turned under it.
+		if page == _camera_window:
+			_place_the_camera()
+			continue
+		if page == _capture_window and _capture_window.camera_is_open():
+			# The capture page's camera is not itself one of the pages walked here, because a camera that has
+			# to take the whole room hangs where the room is rather than inside a page - no walk of this HUD's
+			# children finds it. So the page is put back and its camera is placed through the same one door.
+			PageChromeScript.placed_again(page)
+			CameraWindowScript.place(_capture_window.camera_window())
+			continue
 		PageChromeScript.placed_again(page)

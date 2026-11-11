@@ -103,16 +103,22 @@ static func choice_for(value: Variant) -> StringName:
 	return DEFAULT
 
 
-## What the window should be asked for, with the doorway's own state handed in: the doorway's hold while
-## it is up, and the board's own answer the rest of the time.
+## What the window should be asked for, with the state of the pages that are not plans handed in: the
+## doorway's hold while either of its two pages is up, the camera's while that is, and the board's own
+## answer the rest of the time.
 ##
-## The state is handed in rather than worked out here, because whether the doorway is up is a question
-## about the drawing and not one this file can answer - `StartChoices.should_show` is the one rule and
-## every caller asks it. Handing it in is also what lets the whole startup decision be made *once*: a
-## window asked for landscape and then for the sensor in the same breath is a phone that turns twice
-## where a person sees it turn once.
-static func for_the_window(doorway_is_up: bool, kept: StringName) -> StringName:
-	return DOORWAY if doorway_is_up else choice_for(kept)
+## Every one of those pages is something other than a plan - a menu, a list of ways to begin, and a
+## viewfinder - and none of them is drawn along a wide screen, so none of them has any business being pinned
+## to one. The camera is the strongest case there is: a viewfinder held the way a wide board is held is a
+## picture of a plant lying on its side.
+##
+## The state is handed in rather than worked out here, because whether such a page is up is a question about
+## the drawing and not one this file can answer - `StartChoices.should_show` is the one rule and every caller
+## asks it. Handing it in is also what lets the whole startup decision be made *once*: a window asked for
+## landscape and then for the sensor in the same breath is a phone that turns twice where a person sees it
+## turn once.
+static func for_the_window(a_page_that_is_not_a_plan_is_up: bool, kept: StringName) -> StringName:
+	return DOORWAY if a_page_that_is_not_a_plan_is_up else choice_for(kept)
 
 
 ## Whether a window on this platform can be asked to change which way up it is - the arithmetic,

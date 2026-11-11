@@ -243,6 +243,9 @@ func _apply_site() -> void:
 	for node: Node3D in _captured_planting:
 		if is_instance_valid(node):
 			node.visible = site_shown
+	# Hiding or showing the planting changes what is selectable, and the pick list caches that answer, so
+	# it is rebuilt for the same reason `refresh_after_planting` rebuilds it.
+	_placeable_cache_ready = false
 	if plan_canvas != null:
 		plan_canvas.rebind(yard)
 		plan_canvas.set_site_shown(site_shown)
@@ -250,11 +253,17 @@ func _apply_site() -> void:
 
 
 ## The design objects the planner lets you select and move.
+##
+## Only what the page is actually showing. A new drawing is a blank page, so the yard's own planting is
+## hidden while staying in `Yard.PLACEABLE_GROUP` - the group is about what the yard *put there*, not
+## about what is standing on the page now. A hidden node that answered a hover would put a selection
+## ring around a plant nobody can see, turn the cursor into a hand over it and let a click drag it, so
+## the question is asked of the node rather than of the group's membership.
 func placeables() -> Array[Node3D]:
 	if not _placeable_cache_ready:
 		_placeable_cache.clear()
 		for node in get_tree().get_nodes_in_group(Yard.PLACEABLE_GROUP):
-			if node is Node3D and is_instance_valid(node):
+			if node is Node3D and is_instance_valid(node) and node.is_visible_in_tree():
 				_placeable_cache.append(node)
 		_placeable_cache_ready = true
 	return _placeable_cache

@@ -3,88 +3,80 @@ extends Node
 ##
 ## The rule worth holding down is the one nobody can see from a desk: the window follows the device and the
 ## camera does not, so a picture taken with the phone on its side arrives on its side and the page has to turn
-## it back. Every way a phone can be held gets its own answer here, and a device that answers nothing gets the
-## landscape one rather than a guess.
+## it back.
+##
+## What the turn is worked out *from* is the whole of this file's reason to exist, and it is the shape of the
+## room the page is drawn in - taller than it is wide, or not. It is deliberately *not* the orientation the
+## program asked the phone for: that call answers with a **request** (six, follow the device, or a pinned
+## landscape) rather than with a fact, so on the phone this was built for a window told to follow the device
+## the reading was neither portrait nor reverse-portrait, every branch fell through, and a picture taken with
+## the phone held upright was left in the sensor's landscape frame. A request cannot answer a question about a
+## fact, and how big the room is is a fact.
 
-const LandscapeScript := preload("res://scripts/held_orientation.gd")
+const HeldOrientationScript := preload("res://scripts/held_orientation.gd")
 
-# The device's own enum, as the phone reports it: landscape is the default a phone's camera frame arrives in.
-const LANDSCAPE := 0
-const PORTRAIT := 1
-const OTHER_LANDSCAPE := 2
-const UPSIDE_DOWN := 3
+## The phone this was built for, both ways round, and the two rooms nothing can be said about.
+const HELD_UPRIGHT := Vector2i(1080, 2340)
+const ON_ITS_SIDE := Vector2i(2340, 1080)
+const SQUARE := Vector2i(1200, 1200)
+const NOTHING_MEASURED := Vector2i.ZERO
 
 
 ## A phone held upright is a quarter turn away from the sensor; a phone held on its side is already where the
 ## sensor is, which is why the camera on a phone used in landscape needs nothing done to it.
-func test_a_phone_held_upright_turns_the_picture_a_quarter_and_one_on_its_side_turns_it_none() -> void:
+func test_a_room_that_stands_up_turns_the_picture_a_quarter_and_one_on_its_side_turns_it_none() -> void:
 	assert(
-		LandscapeScript.quarter_turns(LANDSCAPE, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN) == 0,
-		"the frame a phone's sensor makes is a landscape one, so landscape needs no turning"
-	)
-	assert(
-		LandscapeScript.quarter_turns(PORTRAIT, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN) == 1,
+		HeldOrientationScript.turns_for_a_room(HELD_UPRIGHT) == 1,
 		"held upright against a landscape sensor is one quarter turn"
 	)
 	assert(
-		LandscapeScript.quarter_turns(UPSIDE_DOWN, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN) == 3,
-		"upside down against the sensor is three quarters, not a mirror"
+		HeldOrientationScript.turns_for_a_room(ON_ITS_SIDE) == 0,
+		"the frame a phone's sensor makes is a landscape one, so a landscape room needs no turning"
 	)
 
 
-## Four ways to hold a phone and four different answers: a turn of one, two or three quarters, and the
-## landscape case for a device that will not say.
-func test_every_way_a_phone_can_be_held_gets_exact_quarter_turns_or_none() -> void:
-	var landscape: int = LandscapeScript.quarter_turns(
-		LANDSCAPE, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN
-	)
-	var other_landscape: int = LandscapeScript.quarter_turns(
-		OTHER_LANDSCAPE, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN
-	)
-	var portrait: int = LandscapeScript.quarter_turns(PORTRAIT, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN)
-	var upside_down: int = LandscapeScript.quarter_turns(
-		UPSIDE_DOWN, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN
+## A room nobody could measure leaves the picture alone, and so does one with no long side: a turn invented
+## here would put a plant on its side in the one case where nothing at all is known.
+func test_a_room_nothing_can_be_said_about_leaves_the_picture_alone() -> void:
+	assert(
+		HeldOrientationScript.turns_for_a_room(NOTHING_MEASURED) == 0,
+		"a room nobody measured is not turned"
 	)
 	assert(
-		[landscape, portrait, other_landscape, upside_down] == [0, 1, 2, 3],
-		"the four holds are the four turns: %s" % str([landscape, portrait, other_landscape, upside_down])
-	)
-	assert(
-		LandscapeScript.quarter_turns(99, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN) == 0,
-		"and a device that says nothing readable leaves the picture alone rather than guessing at a turn"
+		HeldOrientationScript.turns_for_a_room(SQUARE) == 0,
+		"and a square has no long side to stand up by"
 	)
 
 
-## Taller than wide is the question a page that has to fit asks, and it is asked of the two portrait answers
-## together rather than of one of them.
-func test_a_screen_taller_than_it_is_wide_stands_up() -> void:
+## Taller than wide is the question a page that has to fit asks, and the camera's turn asks the same one of
+## the same room - which is what keeps there being one answer rather than two that can disagree.
+func test_a_room_taller_than_it_is_wide_stands_up() -> void:
+	assert(HeldOrientationScript.stands_up(HELD_UPRIGHT), "a phone held upright stands up")
+	assert(not HeldOrientationScript.stands_up(ON_ITS_SIDE), "a phone on its side does not")
 	assert(
-		LandscapeScript.stands_up(PORTRAIT, PORTRAIT, UPSIDE_DOWN),
-		"a phone held upright stands up"
-	)
-	assert(
-		LandscapeScript.stands_up(UPSIDE_DOWN, PORTRAIT, UPSIDE_DOWN),
-		"and so does one held upside down - it is still taller than it is wide"
-	)
-	assert(
-		not LandscapeScript.stands_up(LANDSCAPE, PORTRAIT, UPSIDE_DOWN),
-		"a phone on its side does not"
-	)
-	assert(
-		not LandscapeScript.stands_up(OTHER_LANDSCAPE, PORTRAIT, UPSIDE_DOWN),
-		"whichever way round that side is"
+		not HeldOrientationScript.stands_up(NOTHING_MEASURED),
+		"and neither does a room nobody measured, rather than half of one"
 	)
 
 
-## Every hold reads as words a page can put in a sentence, and no two of them read the same - a line that
-## said "held on its side" for an upside-down phone would be worse than saying nothing.
-func test_every_hold_reads_as_words_and_no_two_of_them_the_same() -> void:
-	var said: Array[String] = []
-	for screen: int in [LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN]:
-		var words: String = LandscapeScript.words_for(
-			screen, LANDSCAPE, PORTRAIT, OTHER_LANDSCAPE, UPSIDE_DOWN
-		)
-		assert(not words.is_empty(), "every hold gets words: %d" % screen)
-		assert(not said.has(words), "two holds must not read the same: %s" % words)
-		said.append(words)
-	assert(said.size() == 4, "four holds, four lines: %s" % str(said))
+## The words say how the room stands, and no more than that: a shape can tell standing up from on its side
+## and *cannot* tell which end is up, so a line claiming an upside-down phone would be invention. The line
+## this replaced said "held on its side" over a portrait window, which is exactly how the fault in the camera
+## page was found.
+func test_the_words_say_how_the_room_stands_and_never_guess_at_which_end_is_up() -> void:
+	assert(
+		HeldOrientationScript.words_for_a_room(HELD_UPRIGHT) == "held upright",
+		"a room taller than it is wide is held upright"
+	)
+	assert(
+		HeldOrientationScript.words_for_a_room(ON_ITS_SIDE) == "held on its side",
+		"and one wider than it is tall is on its side"
+	)
+	assert(
+		not HeldOrientationScript.words_for_a_room(HELD_UPRIGHT).contains("upside"),
+		"a shape cannot see which end is up, so the words never claim it"
+	)
+	assert(
+		not HeldOrientationScript.words_for_a_room(ON_ITS_SIDE).contains("upside"),
+		"either way round"
+	)

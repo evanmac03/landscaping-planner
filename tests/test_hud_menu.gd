@@ -358,12 +358,32 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 	# The reference names the phone's two gestures as well, and quotes them from the same constant the foot
 	# of the screen does, so the page cannot drift from what a thumb is actually offered.
 	assert(text.contains(HudScript.HINTS_GROUND_ON_A_FINGER))
+	assert(text.contains(HudScript.HINTS_OVERHEAD_ON_A_FINGER))
 	assert(text.contains(HudScript._hints_for(ViewController.ViewMode.PLAN_2D)))
 	for row: String in HudScript.drafting_rows():
 		assert(text.contains(row), "the reference has the legend row: %s" % row)
 	assert(text.contains("Keys") or text.contains("Drawing"))
 	assert(hud.keys_footer().contains(Engine.get_version_info()["string"]))
 	hud.free()
+
+
+## A phone's overhead views are told about the two gestures a finger really has - the pinch and the two-finger
+## drag that `ViewController.touch_command` reads - and never about a wheel or W A S D, which a phone does not
+## carry. Read off the glass before this was written: the phone's plan view said "Wheel: zoom   W A S D: pan".
+func test_the_overhead_views_on_a_phone_name_the_gestures_a_finger_has() -> void:
+	var line: String = HudScript._hints_for(ViewController.ViewMode.PLAN_2D, true)
+	assert(line.contains("Pinch: zoom"), "the line names the pinch: %s" % line)
+	assert(line.contains("Two fingers: pan"), "and the two-finger drag: %s" % line)
+	assert(not line.contains("Wheel"), "and does not name a wheel: %s" % line)
+	assert(not line.contains("W A S D"), "nor W A S D, which a phone cannot press: %s" % line)
+	# The two overhead views are one line on a finger: the only thing that told them apart was the key that
+	# swaps them, and a finger has no key.
+	var overhead: String = HudScript._hints_for(ViewController.ViewMode.OVERHEAD_3D, true)
+	assert(overhead == line, "3D and 2D are the same words on a phone: %s against %s" % [overhead, line])
+	# And a desk keeps its own lines, wheel and all: this reading is a phone's alone.
+	assert(HudScript._hints_for(ViewController.ViewMode.PLAN_2D).contains("Wheel: zoom"))
+	assert(HudScript._hints_for(ViewController.ViewMode.OVERHEAD_3D).contains("W A S D"))
+
 
 # --- the ground the plants are judged against ----------------------------------------------
 

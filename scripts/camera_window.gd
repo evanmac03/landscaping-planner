@@ -36,15 +36,34 @@ const WAITING_FRAMES := 300
 ## photograph four thousand across, and every pixel of it is drawn and read again when the shutter is pressed.
 const WIDEST_WANTED := 1920
 
+## What stands behind this page, so the way out can be named for the thing a person goes back to. The camera
+## opens over two different things - a drawing board, and the menu a person meets before there is a drawing -
+## and "back to the drawing" over a menu with two choices on it would be a button that lies about where it
+## goes, which is the one thing this program's words are not allowed to do.
+const BEHIND_A_DRAWING := &"drawing"
+const BEHIND_THE_DOOR := &"door"
+
+
+## What the button that leaves this page says, for whichever thing is behind it. A page cannot work this out
+## for itself - nothing about a camera knows whether a drawing is on the screen behind it - so it is told,
+## and this is the one place the telling turns into words.
+static func way_out_word(behind_it: StringName) -> String:
+	return "Back to the drawing" if behind_it == BEHIND_A_DRAWING else "Back to the menu"
+
 ## Where a photograph is filed. Stated rather than fixed so a test can be given a folder of its own and
-## leave the photographs somebody really took alone.
+## leave the photographs really taken alone.
 var folder: String = PhotoStoreScript.DIR
+
+## What is standing behind this page, so the way out can be named for it. Set by whoever opens the page,
+## because only the caller knows whether there is a drawing there.
+var behind: StringName = BEHIND_A_DRAWING
 
 var _column: VBoxContainer = null
 var _viewfinder: Control = null
 var _caption: Label = null
 var _summary: Label = null
 var _shutter: Button = null
+var _way_out: Button = null
 var _status: Label = null
 
 ## The feed being shown, and the textures drawing it. A feed that reports itself YCbCr-separated needs two
@@ -53,9 +72,14 @@ var feed: CameraFeed = null
 var _texture: CameraTexture = null
 var _colour: CameraTexture = null
 var _waiting: int = 0
-## How the device says it is being held, re-read as the phone is turned. The window follows the device and the
-## camera does not, so this is the whole of the disagreement between them - and it is the page's job to undo.
-var _screen: int = int(DisplayServer.SCREEN_LANDSCAPE)
+## How big the room this page is drawn in is, re-read as the phone is turned.
+##
+## Asked instead of the engine's orientation on purpose: that call answers with the request the program made -
+## `SCREEN_SENSOR` while the window is following the device, or a pinned landscape while a plan is up - and a
+## request is not a fact about the phone. It read as neither portrait nor reverse-portrait, so a picture taken
+## with the phone held upright was left in the sensor's landscape frame. A room's own shape cannot answer
+## "follow", and it is also the right question here, because a photograph of this page is a grab of it.
+var _room: Vector2i = Vector2i.ZERO
 ## How big the picture the camera hands over is, in its own pixels, before any turning. Kept because a
 ## rectangle cannot keep the proportions of a picture that is being turned on its own.
 var _picture_size: Vector2 = Vector2.ZERO
@@ -104,10 +128,10 @@ func build() -> void:
 	_shutter.name = "Shutter"
 	_shutter.pressed.connect(_on_shutter_pressed)
 	row.add_child(_shutter)
-	var close_button := PageChrome.button("Close")
-	close_button.name = "Close"
-	close_button.pressed.connect(_on_close_requested)
-	row.add_child(close_button)
+	_way_out = PageChrome.button(way_out_word(behind))
+	_way_out.name = "WayOut"
+	_way_out.pressed.connect(_on_close_requested)
+	row.add_child(_way_out)
 
 	_status = PageChrome.status()
 	_column.add_child(_status)
@@ -135,6 +159,9 @@ func _make_viewfinder() -> Control:
 ## Put the page up and start looking for a camera.
 func open() -> void:
 	build()
+	# Read before the first material is made, so the page's first drawn frame is the right way up rather than
+	# a frame of the sensor's landscape before `_process` notices the room.
+	_room = DisplayServer.window_get_size()
 	_ask_for_the_camera()
 	CameraServer.monitoring_feeds = true
 	_waiting = 0
@@ -361,7 +388,7 @@ func _decoding_material(separated: bool) -> ShaderMaterial:
 
 
 ## What the viewfinder says it is showing: which camera, the shape the device is handing the frame over in,
-## and how the phone is being held - the third because it is the one that changes while the page is open and
+## and how the room stands - the third because it is the one that changes while the page is open and
 ## because a picture that is the wrong way up is the thing this line is here to explain.
 func _caption_line() -> String:
 	if feed == null:
@@ -374,28 +401,16 @@ func _caption_line() -> String:
 			int(feed.get_datatype()),
 			int(CameraFeed.FEED_RGB), int(CameraFeed.FEED_YCBCR), int(CameraFeed.FEED_YCBCR_SEP)
 		),
-		HeldOrientationScript.words_for(
-			_screen,
-			int(DisplayServer.SCREEN_LANDSCAPE),
-			int(DisplayServer.SCREEN_PORTRAIT),
-			int(DisplayServer.SCREEN_REVERSE_LANDSCAPE),
-			int(DisplayServer.SCREEN_REVERSE_PORTRAIT)
-		),
+		HeldOrientationScript.words_for_a_room(_room),
 	]
 
 
-## How many quarter turns stand the picture the way the phone is held, asked of the device rather than
-## remembered, and handed to the material along with the shape the picture has come out.
+## How many quarter turns stand the picture the way the room does, asked of the room rather than remembered,
+## and handed to the material along with the shape the picture has come out.
 func _set_the_turn(material: ShaderMaterial) -> void:
 	if material == null or feed == null:
 		return
-	var turns: int = HeldOrientationScript.quarter_turns(
-		_screen,
-		int(DisplayServer.SCREEN_LANDSCAPE),
-		int(DisplayServer.SCREEN_PORTRAIT),
-		int(DisplayServer.SCREEN_REVERSE_LANDSCAPE),
-		int(DisplayServer.SCREEN_REVERSE_PORTRAIT)
-	)
+	var turns: int = HeldOrientationScript.turns_for_a_room(_room)
 	material.set_shader_parameter("turned", turns)
 	material.set_shader_parameter("showing", _showing(turns))
 
@@ -531,6 +546,61 @@ func summary_text() -> String:
 	return _summary.text if _summary != null else ""
 
 
+## Say what is behind this page, so its way out is named for the right thing. Callable before the page is
+## built, which is the order a caller opens it in: what is behind is known first, and then the page is made.
+func show_over(what_is_behind: StringName) -> void:
+	behind = what_is_behind
+	if _way_out != null:
+		_way_out.text = way_out_word(behind)
+
+
+## The one thing on this page that takes a person back to where they came from, for a test to read the words
+## off rather than trusting that the button was built with them.
+func way_out_button() -> Button:
+	return _way_out
+
+
+## Whether this page should take the whole room rather than sit in the middle of it.
+##
+## A viewfinder is aimed at something, and the thing being aimed at wants the screen: on a phone the picture
+## *is* the page, and a page in the middle of a wide board spends most of it showing the board through a leaf.
+## On a desk the page is a page. Which of the two this machine is, is `PhoneHud`'s one answer - asked here,
+## never worked out here, because a device question answered in two places is two devices.
+func wants_the_whole_room() -> bool:
+	return PhoneHud.on_a_finger_here()
+
+
+## Where a camera page belongs: over the whole room on a phone, where the picture being aimed at is the whole
+## of what a person is looking at, and centred like every other page on a desk.
+##
+## **One door for the placing**, because two things open a camera - the HUD's own menu, and the capture page's
+## `Take a photo...` - and a camera that takes the room when one of them opened it and sits in the middle of
+## the screen when the other did is the same page in two places, decided by whichever button a person
+## pressed. That is not a hypothetical: the capture page placed its own, and on a phone the viewfinder came up
+## a small window over the survey it was being filled in from.
+##
+## The device question is asked here, at the one door, for the same reason `wants_the_whole_room` is the one
+## place that asks it: a device question answered in two places is two devices.
+## Where a camera window is added: **the node that holds the room, never a page.**
+##
+## Godot embeds a subwindow inside the window it lives in, and says so itself: an embedded window is
+## "centered inside its embedder" and its size is "a ratio of embedder's size". So a camera parented to a page
+## can never be bigger than that page, however the placing arithmetic asks for it - which is why the capture
+## page's camera came up a window over the survey from whichever door opened it, while the HUD's own, in the
+## scene root, filled the screen.
+static func home_for(camera: Window, room: Node) -> Node:
+	var parent: Node = camera.get_parent()
+	if parent == null or parent is Window:
+		return room
+	return parent
+
+
+static func place(camera: CameraWindow) -> Vector2i:
+	if camera.wants_the_whole_room():
+		return PageChrome.takes_the_room(camera)
+	return PageChrome.show_centred(camera)
+
+
 func shutter_button() -> Button:
 	return _shutter
 
@@ -557,9 +627,9 @@ func _process(_delta: float) -> void:
 	# A phone can be turned while the page is open and the window turns with it, so which way round the
 	# picture has to stand is re-read rather than remembered - the one thing here that changes without
 	# anything being pressed.
-	var screen: int = int(DisplayServer.screen_get_orientation())
-	if screen != _screen:
-		_screen = screen
+	var room: Vector2i = DisplayServer.window_get_size()
+	if room != _room:
+		_room = room
 		_set_the_turn(_material())
 		_caption.text = _caption_line()
 	# A camera that has not been allowed is not switched on. Android lists its cameras before the permission

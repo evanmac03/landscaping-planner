@@ -200,3 +200,133 @@ func test_the_decoder_looks_for_both_colour_halves_in_the_one_channel_that_carri
 		CameraWindowScript.DECODING_SHADER.contains("interleaved"),
 		"and the feed that carries them apart is still decoded as it was"
 	)
+
+
+## The page asks how big the room is, and never the engine which orientation it asked the phone for.
+##
+## That call answers with the *request* - six, follow the device, or a pinned landscape - rather than with a
+## fact, so on a phone held upright the reading was neither portrait nor reverse-portrait, every branch of the
+## turn fell through, and the picture was left in the sensor's landscape frame while the page was drawn
+## portrait. The fault is invisible from inside the program and the page looked perfectly well; what gave it
+## away was its own caption reading "held on its side" over a portrait window. A source assertion is the only
+## thing here that can notice, which is why it is written as one.
+func test_the_page_asks_the_room_and_never_the_orientation_it_asked_the_phone_for() -> void:
+	var code: String = FileAccess.get_file_as_string("res://scripts/camera_window.gd")
+	assert(not code.is_empty(), "the page is there to read")
+	assert(
+		not code.contains("screen_get_orientation"),
+		"a request is not a reading: asking for one leaves a portrait phone's picture on its side"
+	)
+	assert(
+		code.contains("window_get_size"),
+		"it asks how big the room is instead, which is a fact"
+	)
+
+
+## The camera is opened over two different things - a drawing board, and the doorway a person meets before
+## there is a drawing - and its way out has to be named for whichever one is behind it. "Back to the
+## drawing" over a menu with two choices on it is a button that lies about where it goes, which is the one
+## thing this program's words are not allowed to do.
+func test_the_way_out_of_the_camera_is_named_for_what_is_behind_it() -> void:
+	var over_a_drawing: String = CameraWindowScript.way_out_word(CameraWindowScript.BEHIND_A_DRAWING)
+	var over_the_door: String = CameraWindowScript.way_out_word(CameraWindowScript.BEHIND_THE_DOOR)
+	assert(over_a_drawing.contains("drawing"), "over a drawing it says where it goes: %s" % over_a_drawing)
+	assert(
+		not over_the_door.contains("drawing"),
+		"and over the doorway it does not promise a drawing there is not: %s" % over_the_door
+	)
+	assert(
+		over_a_drawing != over_the_door,
+		"two things behind the camera, two different sentences"
+	)
+	# And the button a person actually presses carries that word, rather than the page building one of its
+	# own: the page is built here and never shown, which is how every page in this program is held down.
+	# Built first and told second, in the same order the HUD does it - so what is held here is that being
+	# told *again* renames the button a person is looking at, which is the case that matters when the camera
+	# is opened a second time from somewhere other than where it was opened the first time.
+	var page := CameraWindowScript.new()
+	page.build()
+	page.show_over(CameraWindowScript.BEHIND_THE_DOOR)
+	var way_out: Button = page.way_out_button()
+	assert(way_out != null, "the page has a way out at all")
+	assert(
+		way_out.text == over_the_door,
+		"and it is the word for what is behind: %s" % way_out.text
+	)
+	page.free()
+
+
+## The two doors onto a camera - the HUD's own menu, and the capture page's "Take a photo..." - place it
+## through the one answer, so the same page cannot take the whole room from one and sit in the middle of the
+## screen from the other.
+##
+## This is a source assertion, and for the reason the turn test above is one: placing a page reads the real
+## room and the real device, and a test has neither. On a desk the whole room and the middle of the screen
+## come to the same rectangle, so a page built here could not tell the two doors apart even if it had a room
+## to be placed in. What a source check *can* hold down is that there is only one door to come through.
+##
+## The fault it was written for was found on a phone: opened from the front door the camera filled the screen,
+## and opened from the capture page it came up a small window over the survey being filled in. The same page,
+## placed in two different ways by whichever button a person pressed, because the capture page was working out
+## where the camera goes for itself instead of asking the camera where it belongs.
+func test_both_doors_onto_a_camera_place_it_through_the_one_answer() -> void:
+	var camera: String = FileAccess.get_file_as_string("res://scripts/camera_window.gd")
+	assert(not camera.is_empty(), "the page is there to read")
+	assert(
+		camera.contains("static func place(camera: CameraWindow)"),
+		"the camera keeps one door for the placing"
+	)
+	assert(
+		camera.contains("camera.wants_the_whole_room()"),
+		"and that one door is what asks the device, rather than each caller asking its own way"
+	)
+	var board: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
+	assert(
+		board.contains("CameraWindowScript.place(_camera_window)"),
+		"the HUD's own camera goes through it"
+	)
+	var field: String = FileAccess.get_file_as_string("res://scripts/field_window.gd")
+	assert(
+		field.contains("CameraWindowScript.place(_camera)"),
+		"and so does the capture page's, which used to work it out for itself"
+	)
+	assert(
+		not field.contains("show_centred(_camera)"),
+		"nothing in the capture page places a camera on its own any more"
+	)
+
+
+## A camera window is never added inside a page, because a window cannot be bigger than the window it lives
+## in.
+##
+## Godot's own documentation says so twice: an embedded window is "centered inside its embedder", and its
+## size is "a ratio of embedder's size". The capture page is itself a page and it parented the camera it
+## opened, so that camera could never take the whole room however the arithmetic asked - which is the fault a
+## person reported from the drawing board: choosing to take a photograph should switch the program over to the
+## camera, "instead of taking a photo inside the landscape design part". The camera has to live where the room
+## is, not inside a form.
+func test_a_camera_is_not_added_inside_a_page() -> void:
+	var room := Node.new()
+	var page := CameraWindowScript.new()
+	var camera := CameraWindowScript.new()
+	page.add_child(camera)
+	assert(
+		CameraWindowScript.home_for(camera, room) == room,
+		"a camera sitting inside a page is given the room, not left where it cannot grow"
+	)
+	var loose := CameraWindowScript.new()
+	assert(
+		CameraWindowScript.home_for(loose, room) == room,
+		"and one with no home at all gets the room as well"
+	)
+	var already_home := CameraWindowScript.new()
+	room.add_child(already_home)
+	assert(
+		CameraWindowScript.home_for(already_home, page) == room,
+		"while one already in the room is left where it is"
+	)
+	already_home.free()
+	loose.free()
+	camera.free()
+	page.free()
+	room.free()

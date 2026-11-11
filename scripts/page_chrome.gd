@@ -64,6 +64,9 @@ const COLUMN_NAME := "Column"
 ## way on every page; what moves is where they sit, and a page's own tests move with them.
 const SCROLL_NAME := "Scroll"
 
+## The same, for the title bar: the size the theme drew a page's title in, remembered for the same reason.
+const TITLE_DRAWN_AT := &"title_drawn_at"
+
 ## A note explaining what a page is for - dimmer than the words it is about.
 const NOTE_COLOR := Color(0.78, 0.8, 0.72)
 ## A hint under a list or a field: what to do next.
@@ -73,6 +76,11 @@ const STATUS_COLOR := Color(0.72, 0.76, 0.68)
 
 ## The marks a caption ends in, which no node name ends in.
 const TRAILING_MARKS: Array[String] = [".", ",", ":", ";", "!", "?", "…"]
+
+## Where a page's contents remember the padding the page laid them out with, so that a page fitted for a
+## finger twice - or fitted again when it is shown again - is inset once rather than twice. An override is
+## one-way, which is the same reason `PhoneHud.DRAWN_AT` exists.
+const PADDING_DRAWN_AT := &"padding_drawn_at"
 
 ## How much of the screen a page may take when it lands. Nearly all of it, because a page is a working
 ## surface rather than a dialog, but not all of it: a sliver of the drawing stays visible around every
@@ -288,14 +296,15 @@ static func chrome_above(page: Window) -> int:
 	return maxi(page.get_theme_constant(&"title_height", &"Window"), 0)
 
 
-## The room a page's *contents* have to land in: the viewport it lands inside with its own title bar taken
-## out of it. A display that cannot be asked still answers zero, which `clamped_minimum` reads as "no
-## answer" - a bar that is not drawn is not allowed to turn a real screen into a negative one.
+## The room a page's *contents* have to land in: the viewport it lands inside with its own title bar, and a
+## phone's camera cutout, taken out of it. A display that cannot be asked still answers zero, which
+## `clamped_minimum` reads as "no answer" - neither a bar that is not drawn nor a cutout that is not there is
+## allowed to turn a real screen into a negative one.
 static func content_room(page: Window) -> Vector2i:
 	var room: Vector2i = room_for(page)
 	if room.x <= 0 or room.y <= 0:
 		return room
-	return Vector2i(room.x, room.y - chrome_above(page))
+	return Vector2i(room.x, room.y - chrome_above(page) - PhoneHud.cutout_top(room))
 
 
 ## Put a page on the screen: centred, with everything it asked for kept inside the room it lands in.
@@ -323,11 +332,96 @@ static func content_room(page: Window) -> Vector2i:
 ##
 ## So the room is taken down by the bar's height before the floor is clamped, and the page is moved down by
 ## half of it - which is exactly what centres the whole window rather than its contents.
+##
+## ## A page too tall for a phone is widened before it is scrolled
+##
+## Two cures, in one order, both in `_land` below: a page whose contents want more height than the room it
+## landed in is first given **the room's width**, because a wider page is a shorter page, and only then - if
+## it is still too tall - a scroll. On a phone the door declared 520 px across a screen of well over a
+## thousand and wrapped one paragraph onto eight lines, which is what pushed its buttons below the fold. The
+## width is given only on a device answered with a finger, so a desk lays every page out exactly as it
+## always did.
 static func show_centred(page: Window) -> Vector2i:
 	# Before the clamp, because a taller control makes a taller page and the floor is worked out after.
 	size_for_a_finger(page)
 	takes_the_keyboard(page)
-	return _place(page, page.min_size)
+	return _land(page, page.min_size)
+
+
+## Land a page in the room: place it at the floor it asked for, give it the whole room if what it holds wants
+## more than it got, and scroll it if even the room cannot hold it.
+##
+## The one place a page lands, so that "what happens when a page opens" and "what happens when the room
+## changes shape under it" cannot come to two different answers: `show_centred` and `placed_again` differ in
+## the floor they start from, and in nothing else.
+##
+## **A page that has outgrown the size it declared for itself is given the room**, both ways across and down,
+## and on a phone that is the whole of the fault. The numbers a page declares were worked out for a desk: the
+## front door's 520 by 540 came out 45% of a phone's width with its one paragraph wrapped onto eight lines and
+## its buttons below the fold, and the phone's own room - 1137 across by 2600-odd logical pixels down - is the
+## honest answer to both. The scroll is what is left for what even the room cannot hold.
+static func _land(page: Window, preferred: Vector2i) -> Vector2i:
+	var landed_at: Vector2i = _place(page, preferred)
+	# After it, because what a page's contents have to fit is the room the page was actually given: a phone
+	# brings a page down to its own screen, and a page brought down shorter than its contents has its last row
+	# - nearly always the buttons - below its bottom edge.
+	if fit_the_room_to_the_page(page, landed_at):
+		landed_at = _place(page, content_room(page))
+	# And last, for what the room itself cannot hold.
+	scroll_if_it_does_not_fit(page, landed_at)
+	return landed_at
+
+
+## Whether a page should be given the room rather than the size it declared for itself. Three things and
+## nothing else: it is a device answered with a finger, it is not already the room, and what it holds wants
+## more height than the room gave it.
+##
+## On a computer the first of those is false, so this answers `false` before reading anything at all - which is
+## what keeps the pages a desk sees the pages this project designed, to the pixel.
+##
+## The room is taken whole rather than at `SCREEN_RATIO`. That ratio is there so a sliver of the *drawing*
+## stays visible around a page, which says the page is over the drawing rather than instead of it; a page that
+## has outgrown the size it declared has earned the room, and a sliver is not worth a paragraph wrapped onto
+## eight lines with the buttons beneath it below the fold.
+##
+## **The height it reads is conservative on purpose.** A `Container` works out what it needs on the frame
+## after its width changes, so a figure read in the same call has not wrapped yet and over-estimates: measured
+## with a page two sentences long, one just widened to 1000 px reported 122 px of contents where the wrap it
+## settled into wants 62. A page is therefore *given* a room it may not need rather than ever being clipped,
+## and `PageLayout.measure` - which does wait for the frames - stays the arbiter of a page that really fits.
+static func fit_the_room_to_the_page(page: Window, landed_at: Vector2i) -> bool:
+	if page == null or landed_at.y <= 0 or not PhoneHud.on_a_finger_here():
+		return false
+	if content_room(page) == landed_at:
+		return false
+	return not _fits_the_height(page, landed_at)
+
+
+## Whether a page's contents fit the height the page was given. The measurement is `PageLayout`'s own - the
+## figure the page-layout check reports a page against - rather than a second sum worked out here that could
+## disagree with it.
+static func _fits_the_height(page: Window, landed_at: Vector2i) -> bool:
+	var contents: Control = PageLayoutScript.content_root(page)
+	return contents == null or PageLayoutScript.wanted_size(contents).y <= float(landed_at.y)
+
+
+## Put a page over the whole of the room rather than in the middle of it: a viewfinder is not a form.
+##
+## The one page this is for is the camera on a phone, where the picture being aimed at is the only thing on
+## the screen that wants every pixel - and where a page in the middle of a wide board spends most of the
+## screen showing the board through the thing a person is trying to fit a leaf into.
+##
+## The same arithmetic as `show_centred` - the same clamp, the same title bar, the same keyboard - with the
+## whole content room asked for instead of the page's own floor. It is one function on purpose: a page that
+## fills the screen and a page that sits in the middle of it must not come to be placed by two different
+## sums, which is exactly how a page ends up half a title bar off the top of a phone.
+static func takes_the_room(page: Window) -> Vector2i:
+	size_for_a_finger(page)
+	takes_the_keyboard(page)
+	# Not asked whether it fits, deliberately: the one page this is for is a viewfinder, and what a viewfinder
+	# has to fit is the *sight* rather than a list of rows - a scroll around one would shrink the picture to
+	# its own minimum. What is on that page is a feed, a caption and a row of buttons, which is short.
+	return _place(page, content_room(page))
 
 
 ## Put a page on the screen again, after the room it lands in has changed shape under it.
@@ -350,10 +444,13 @@ static func show_centred(page: Window) -> Vector2i:
 ## The floor is the page's *declared* size rather than its `min_size`, because `min_size` holds last time's
 ## clamp: a page brought down to 630 to fit a landscape phone would never grow back to the 720 it asked for
 ## once the phone was held the other way.
+## The page lands by the same door it opened by (`_land`), so a page turned with the phone is widened for
+## the new room and scrolled in it exactly as a page opened into that room would be. Nothing a person has
+## already answered is asked again: the floor, the clamp, the width and the scroll are all placement.
 static func placed_again(page: Window) -> Vector2i:
 	if page == null:
 		return Vector2i.ZERO
-	return _place(page, PageLayoutScript.declared_size(page))
+	return _land(page, PageLayoutScript.declared_size(page))
 
 
 ## Where a page goes and how big it is: the one arithmetic both doors share, `show_centred` when a page
@@ -364,10 +461,79 @@ static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 	var clamped_floor: Vector2i = clamped_minimum(preferred, content_room(page))
 	page.min_size = clamped_floor
 	page.popup_centered_clamped(clamped_floor, SCREEN_RATIO)
-	# Godot centred the contents, and the bar hangs above them; the half of it that was off the top is what
-	# the page moves down by.
-	page.position += Vector2i(0, roundi(chrome_above(page) / 2.0))
+	# Godot centred the contents, and the bar hangs above them with a phone's cutout above that; the half of
+	# the two together that was off the top is what the page moves down by. The room was taken down by the
+	# same two, so the whole window - bar, cutout and contents - lands below the cutout and inside the screen.
+	page.position += Vector2i(0, roundi((chrome_above(page) + PhoneHud.cutout_top(room_for(page))) / 2.0))
 	return clamped_floor
+
+
+## Give a page that has outgrown the room it landed in a `ScrollContainer`, so that its own bottom - nearly
+## always the buttons it ends with - can still be reached rather than being cut off at the bottom edge.
+##
+## This is what makes making a page's words legible on a phone safe. Bigger words make every page taller, and
+## a phone brings a page down to its own screen: without this, the front door's second way in would simply be
+## below the fold with no way to get to it. The measurement is `PageLayout`'s own - the figure the page-layout
+## check reports a page against - rather than a second one worked out here that could disagree with it.
+##
+## The page has **already been placed** when this is asked, because the thing to compare against is the
+## height the page actually got rather than the one it asked for.
+##
+## A page that was *built* to scroll is left with the wrapper it built, and a page that fits is left exactly
+## as it was built. On a computer the room is larger than every page this project declares, so nothing is
+## wrapped there and a desk's pages are the pages they always were.
+##
+## Returns whether a wrapper was put in, which is the part a test can hold.
+static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool:
+	if page == null or landed_at.y <= 0:
+		return false
+	var contents: Control = PageLayoutScript.content_root(page)
+	# `scroll_of` walks upwards from the contents and answers with the wrapper they are inside, which is the
+	# right question: what lets a person reach a page's last row is *being inside one*, not its node name.
+	if contents == null or PageLayoutScript.scroll_of(contents) != null:
+		return false
+	if _fits_the_height(page, landed_at):
+		return false
+	_wrap_in_a_scroll(page, contents)
+	return true
+
+
+## Put a page's column inside a scroll where it stands.
+##
+## The insets move from the column onto the wrapper, because a `ScrollContainer` positions the child it holds
+## and would overwrite an offset left on it - and `PageLayout` reads the padding off whichever of the two is
+## the page's own child, so a wrapped page is still measured for the space around its words and the size it
+## declares still means what it meant. The column keeps its name and is put back at the index it held, so the
+## keyboard walk and a page's own tests find it where the page built it, one level down.
+static func _wrap_in_a_scroll(page: Window, contents: Control) -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = SCROLL_NAME
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = contents.offset_left
+	scroll.offset_top = contents.offset_top
+	scroll.offset_right = contents.offset_right
+	scroll.offset_bottom = contents.offset_bottom
+	# The same two settings a page that was built to scroll gets: sideways scrolling is off, because a row too
+	# wide for its page is a fault a person can see and leaving it scrollable would only hide it, and the
+	# length scrolls, which is the whole point.
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	# A page is walked with Tab, and a control below the fold has to come into view when it takes the keyboard.
+	scroll.follow_focus = true
+	var stood_at: int = contents.get_index()
+	page.add_child(scroll)
+	page.move_child(scroll, stood_at)
+	contents.reparent(scroll, false)
+	# The column stops being anchored to the page and becomes the thing the scroll holds: the scroll gives it
+	# the page's width and the height its contents ask for, which is what makes a longer column scroll instead
+	# of being stretched to the room and clipped.
+	for side: int in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		contents.set_anchor(side, 0.0)
+	contents.offset_left = 0.0
+	contents.offset_top = 0.0
+	contents.offset_right = 0.0
+	contents.offset_bottom = 0.0
+	contents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 ## Make a page's buttons big enough for a finger, when this device is answered with a finger.
@@ -383,7 +549,129 @@ static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 static func size_for_a_finger(page: Window) -> int:
 	if page == null or not PhoneHud.on_a_finger_here():
 		return 0
-	return size_buttons_for_a_finger(page, PhoneHud.canvas_scale(page), PhoneHud.dpi())
+	var drawn_at: float = PhoneHud.canvas_scale(page)
+	var density: float = PhoneHud.dpi()
+	return (
+		size_buttons_for_a_finger(page, drawn_at, density)
+		+ size_the_words_for_a_finger(page, drawn_at, density)
+		+ inset_the_contents_for_a_finger(page, drawn_at, density)
+	)
+
+
+## Make a page's own words big enough to read on a device answered with a finger.
+##
+## The other half of the pass `show_centred` runs, and the half a phone was left without: every page's
+## *buttons* were made a thumb's size while its sentences stayed the twelve pixels a desk was drawn with.
+## Twelve pixels comes to about a millimetre of capital on a phone - legible in the hand and not at arm's
+## length, which is the measurement `PhoneHud.TEXT_MM` is there to refuse - and beside a button drawn at
+## 5.5 mm it is the difference a person sees first.
+##
+## A line is grown from **the size the page gave it**, so a heading stays a heading and a page keeps its
+## shape rather than collapsing every line onto one size. A page's own title bar is a page's words too, and
+## it is grown with them: it is Godot's rather than a page's, and it is the one line on a page that no page
+## builds. Returns how many lines were measured, which is the part a test can hold.
+static func size_the_words_for_a_finger(page: Window, drawn_at: float, density: float) -> int:
+	if page == null or PhoneHud.row_height(drawn_at, density) <= 0.0:
+		return 0
+	var measured: int = 0
+	for node: Node in page.find_children("*", "Label", true, false):
+		var line: Label = node as Label
+		# The growing is `PhoneHud`'s, asked of the line itself, so that a page's words and a panel's words
+		# are grown by one rule and one remembered size rather than by two that can drift apart.
+		if line != null and PhoneHud.size_its_words_for_a_finger(line, drawn_at, density):
+			measured += 1
+	return (
+		measured
+		+ _size_the_menus_for_a_finger(page, drawn_at, density)
+		+ _size_the_title_bar_for_a_finger(page, drawn_at, density)
+	)
+
+
+## The margin a page's contents keep from the sides of the screen on a device answered with a finger.
+##
+## The one part of the fitting that is not about the size of a control: on a phone the page **is** the screen,
+## so a page whose contents fill it has nothing at all between its words and the glass. Measured on the
+## SM-A166W, 2026-11: the front door's opening sentence ran to within three pixels of the edge of a
+## 1080-pixel screen and its two choices ran the whole width of it, the Close button ending in the strip
+## Android keeps for its own back gesture.
+##
+## **Across only, never down.** A margin taken off the length would push a page's last row - nearly always the
+## buttons - below its own bottom edge, which is the fault `fit_the_room_to_the_page` is there to answer. A
+## margin taken off the width can only make a page wrap *more*, and a page that wraps taller is given the room
+## it needs by that same rule, or a scroll by `scroll_if_it_does_not_fit`.
+##
+## The margin is written on whichever node the page's own padding is already on - the `ScrollContainer` for a
+## page whose contents scroll, the column otherwise, which is what `PageLayout.padding_of` reads - and the
+## padding the page laid out with is remembered there, so that fitting twice insets once. Returns how many
+## pages were inset, which is the part a test can hold.
+static func inset_the_contents_for_a_finger(page: Window, drawn_at: float, density: float) -> int:
+	var margin: int = PhoneHud.edge_margin(drawn_at, density)
+	if margin <= 0:
+		return 0
+	var contents: Control = PageLayoutScript.content_root(page)
+	if contents == null:
+		return 0
+	# A `ScrollContainer` positions the column it holds and would overwrite an offset written on it, so the
+	# margin goes where the page's own padding already is rather than where the words are.
+	var scrolling: ScrollContainer = PageLayoutScript.scroll_of(contents)
+	var padded: Control = scrolling if scrolling != null else contents
+	# Written down the first time only. Asked with `has_meta` rather than with a default, because a
+	# `get_meta` whose default is `null` logs an engine error when the key is absent - and a logged error
+	# fails the test that provoked it, which is how this was found.
+	if not padded.has_meta(PADDING_DRAWN_AT):
+		padded.set_meta(PADDING_DRAWN_AT, Vector2(padded.offset_left, padded.offset_right))
+	var laid_out: Vector2 = padded.get_meta(PADDING_DRAWN_AT)
+	padded.offset_left = laid_out.x + float(margin)
+	padded.offset_right = laid_out.y - float(margin)
+	return 1
+
+
+## The menus a page's pickers and menu buttons open.
+##
+## A menu is drawn over the whole screen rather than inside the page's layout, so making it legible does not
+## move anything the page laid out - which is why it is grown here, while a field or a list that stays inside
+## the page is deliberately left to the page. A page on a phone whose sentences are a thumb's size and whose
+## every picker still opens a desk-sized menu is the same defect in a smaller place.
+##
+## The walk reads **internal children too**: a picker's menu is one, and `find_children` leaves those out - a
+## menu invisible to this walk is a menu still drawn at a desk's size, which is exactly what was seen live
+## before this line used the right door.
+static func _size_the_menus_for_a_finger(page: Window, drawn_at: float, density: float) -> int:
+	var measured: int = 0
+	for node: Node in _every_node_under(page):
+		var menu: Window = node as Window
+		if menu != null and PhoneHud.size_a_windows_words_for_a_finger(menu, drawn_at, density):
+			measured += 1
+	return measured
+
+
+## Every node under a root, internal children included.
+static func _every_node_under(root: Node) -> Array[Node]:
+	var all: Array[Node] = []
+	for child: Node in root.get_children(true):
+		all.append(child)
+		all.append_array(_every_node_under(child))
+	return all
+
+
+## The bar Godot draws above a page's contents carries the page's own title, and a title is words. Its
+## height is room for those words rather than room for anything else, so it is grown with them - a title
+## drawn at a thumb's size inside a bar drawn for a desk's would be words bigger than the box meant to hold
+## them, and the bar is what `chrome_above` takes out of the room the contents may use.
+static func _size_the_title_bar_for_a_finger(page: Window, drawn_at: float, density: float) -> int:
+	if page.borderless:
+		return 0
+	var was: int = int(page.get_meta(TITLE_DRAWN_AT, page.get_theme_font_size(&"title_font_size", &"Window")))
+	page.set_meta(TITLE_DRAWN_AT, was)
+	var size: int = PhoneHud.text_size_for_a_finger(was, drawn_at, density)
+	if size <= 0:
+		return 0
+	var was_bar: int = maxi(page.get_theme_constant(&"title_height", &"Window"), 0)
+	page.add_theme_font_size_override(&"title_font_size", size)
+	page.add_theme_constant_override(
+		&"title_height", PhoneHud.grown_for_a_finger(was_bar, was, size)
+	)
+	return 1
 
 
 ## The measuring half of `size_for_a_finger`, with the scale and the density stated rather than read, so a

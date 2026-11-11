@@ -81,6 +81,12 @@ func build() -> void:
 		_column.add_child(line)
 
 	var row := PageChrome.button_row()
+	# The shared button row puts a page's buttons at its foot, right-aligned, because there they are nearly
+	# always an OK-and-Cancel pair read from the right. This door has one button at its foot and everything
+	# above it is centred - the title is, and both choices run the width of the column - so a lone Close
+	# pushed to the right edge reads as a stray rather than as the door's own way out. The row is still the
+	# shared one; only this page's use of it is turned to the middle.
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_column.add_child(row)
 	var close_button := PageChrome.button("Close")
 	close_button.name = "CloseButton"

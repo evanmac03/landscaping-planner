@@ -33,6 +33,12 @@ const CAP_RATIO := 0.7
 ## fewer of them on the screen, and the HUD's panels scroll.
 const UI_SCALE := 1.35
 
+## The size a desk's body text is set in: the size `font_size` was measured against, and so the size a
+## piece of a page's own text is compared with to see whether the page drew it bigger than the body.
+## `PageChrome.BODY_SIZE` says the same number, and `tests/test_page_chrome.gd` holds the two to each other -
+## a literal that must agree in two files is a fact someone has to assert.
+const DESK_TEXT := 12
+
 
 ## Draw the canvas up on a phone, and leave a computer's window exactly as it was.
 static func apply(window: Window) -> void:
@@ -58,6 +64,26 @@ static func on_a_finger_here() -> bool:
 ## ten-inch screen up by a third costs it a third of its drawing area and gains nothing.
 static func zooming_here() -> bool:
 	return on_a_finger_here() and TouchInputScript.needs_zooming(across_inches())
+
+
+## How far a phone's own furniture - the camera cutout, the status bar - reaches down from the top of the
+## screen, given in the room's own pixels. Zero on a desk, and on a display that reports no cutout.
+##
+## The safe area is a fact about the display, in the display's pixels; the room a page lands in is the
+## viewport's, and on a phone those are not the same number - the SM-A166W reports 1080 by 2340 natively and
+## a 1185 by 2567 room, so a figure in one is not a figure in the other. The answer is the cutout's share of
+## the screen's height and nothing more: a fraction, which is the one thing that travels between the two.
+static func cutout_top(room: Vector2i) -> int:
+	if not on_a_finger_here() or room.y <= 0:
+		return 0
+	var screen: int = DisplayServer.window_get_current_screen()
+	var full: Vector2i = DisplayServer.screen_get_size(screen)
+	if full.y <= 0:
+		return 0
+	var inset: int = maxi(DisplayServer.get_display_safe_area().position.y, 0)
+	if inset <= 0:
+		return 0
+	return roundi(float(room.y) * (float(inset) / float(full.y)))
 
 
 ## How many inches the screen is across its longer side, or 0 when the density is not known - the
@@ -148,6 +174,158 @@ static func font_size(scale: float, density: float) -> int:
 	# Rounded up, not down: the constant is a floor - "at least this tall" - and a font size rounded
 	# down is a font a hair short of it.
 	return ceili(em)
+
+
+## The size to draw a piece of a page's own text at on a device answered with a finger, given the size the
+## page laid it out at.
+##
+## `font_size` is the floor: the size a capital TEXT_MM tall comes to. A line a page drew *bigger* than its
+## own body - a heading, a page's title - is kept bigger by the same proportion, so a page keeps its shape
+## when it is made readable rather than every line collapsing onto one size. 0 keeps the layout's own size,
+## which is what a line with no size of its own and a density that cannot be read both ask for.
+static func text_size_for_a_finger(was: int, scale: float, density: float) -> int:
+	var legible: int = font_size(scale, density)
+	if legible <= 0 or was <= 0:
+		return 0
+	return maxi(legible, roundi(float(was) * float(legible) / float(DESK_TEXT)))
+
+
+## A theme measurement that is *room for text* - a title bar's height, which is room for the title rather
+## than room for anything else - grown for a finger by the same proportion the text it was drawn for grew
+## by. The bar stays the bar the theme drew, only bigger; a measurement that cannot be grown is left alone.
+static func grown_for_a_finger(was: int, was_text: int, now_text: int) -> int:
+	if was <= 0 or was_text <= 0 or now_text <= 0:
+		return maxi(was, 0)
+	return maxi(was, roundi(float(was) * float(now_text) / float(was_text)))
+
+
+## The margin a page's contents keep from the sides of the screen on a device answered with a finger.
+##
+## A page is a window on a computer, and the window's frame and its own border are the margin between a page's
+## words and the edge of the screen. On a phone the page **is** the screen: there is no frame, so a page whose
+## contents are laid out to the whole rectangle puts its sentences and its buttons against the glass. Measured
+## on the SM-A166W, 2026-11: the front door's opening sentence came out with its last letters three pixels
+## from the edge of a 1080-pixel screen, inside the strip Android keeps for its own back gesture.
+##
+## Half a `TOUCH_MM` - half the thumb a button is drawn for - is the figure: enough that a sentence is not
+## shaved by the edge and a control is not under it, and small enough that a phone does not pay for it in
+## width. Zero where the scale or the density could not be read, which every caller reads as "no margin of
+## mine" rather than as no margin at all.
+static func edge_margin(scale: float, density: float) -> int:
+	return roundi(logical_for_mm(TOUCH_MM * 0.5, scale, density))
+
+
+## Where a control remembers the size its words were laid out with. A control that has been made readable on
+## a phone can no longer answer that question - the size this file wrote is what `get_theme_font_size`
+## reports - and a control fitted every time a panel is shown must not grow every time a panel is shown.
+const DRAWN_AT := &"drawn_at"
+
+## The kinds of control this program shows words with. A container, a colour patch, a picture, a separation
+## line and a spacer show none, and a size worked out for one of those is a size worked out for nothing.
+## `Button` and its kin are not here: a caption is not sized by this rule but by the flat one below, because
+## a button's words are a caption rather than a piece of the surface's own prose.
+const WORDED: Array[String] = [
+	"Label", "LineEdit", "TextEdit", "RichTextLabel", "ItemList", "MenuBar", "Tree",
+]
+
+
+## Whether a control shows words at all.
+static func shows_words(control: Control) -> bool:
+	if control == null:
+		return false
+	for kind: String in WORDED:
+		if control.is_class(kind):
+			return true
+	return false
+
+
+## The size a **window that draws its own words** is drawn at - a menu's items are drawn by the menu rather
+## than by a control inside it, which is why a menu is not reached by the rule above. The theme type is the
+## window's own class, because that is the type a menu's font is looked up under.
+##
+## A page is a `Window` too and is not this: a page answers for its own controls in the one place a page is
+## shown. What is left here is a pop-up, and a menu that opened at a desk's size on a phone is the very
+## defect this exists to stop. Returns whether it was fitted.
+static func size_a_windows_words_for_a_finger(window: Window, scale: float, density: float) -> bool:
+	if not window_shows_words(window):
+		return false
+	var kind: StringName = StringName(window.get_class())
+	var was: int = int(window.get_meta(DRAWN_AT, window.get_theme_font_size(&"font_size", kind)))
+	window.set_meta(DRAWN_AT, was)
+	var size: int = text_size_for_a_finger(was, scale, density)
+	if size <= 0:
+		return false
+	window.add_theme_font_size_override(&"font_size", size)
+	return true
+
+
+## Whether a window shows words of its own, rather than being a page its contents answer for.
+static func window_shows_words(window: Window) -> bool:
+	return window != null and window.is_class("PopupMenu")
+
+
+## Fit one control to a finger: **a control a thumb presses** is given the row it has to be hit in and the
+## flat size its caption is drawn at; **a control that shows words** is given a size grown from the size the
+## surface laid it out with, so a surface keeps its shape - a title stays bigger than the sentence under it
+## rather than every line coming out one size. Anything else is left exactly as it is. Returns whether the
+## control was fitted.
+static func fit_for_a_finger(control: Control, scale: float, density: float) -> bool:
+	if control == null:
+		return false
+	if control is BaseButton:
+		size_for_a_finger(control, scale, density)
+		return row_height(scale, density) > 0.0
+	return size_its_words_for_a_finger(control, scale, density)
+
+
+## The size a control's own words are drawn at on a device answered with a finger, grown from the size the
+## surface laid it out with - and what it was laid out with is **remembered on the control**, because Godot
+## keeps only the answer that replaced it, so that fitting twice is the same as fitting once. Returns
+## whether the control was fitted.
+static func size_its_words_for_a_finger(control: Control, scale: float, density: float) -> bool:
+	if not shows_words(control):
+		return false
+	var was: int = int(control.get_meta(DRAWN_AT, control.get_theme_font_size(&"font_size")))
+	control.set_meta(DRAWN_AT, was)
+	var size: int = text_size_for_a_finger(was, scale, density)
+	if size <= 0:
+		return false
+	control.add_theme_font_size_override(&"font_size", size)
+	return true
+
+
+## Fit every control under a node to a finger, and say how many were fitted.
+##
+## A **page** met on the way is left alone and is not walked into: a page answers for its own controls in the
+## one place a page is shown, and a page fitted by two passes is two answers that can disagree. A **menu** is
+## the other kind of window here and is fitted - it draws its own items rather than holding controls that
+## could be reached - and a menu that opened at a desk's size on a phone is the very defect this exists to
+## stop. The two are told apart the way the engine tells them apart: a page is a `Window`, a menu is a
+## `Popup`.
+static func fit_the_chrome_for_a_finger(root: Node, scale: float, density: float) -> int:
+	if root == null or row_height(scale, density) <= 0.0:
+		return 0
+	var fitted: int = 0
+	# Walked **including the internal children**: the menus a `MenuBar` owns and the list a picker opens are
+	# made as internal children, which `get_children()` leaves out by default - and a menu whose items came
+	# out at a desk's size while everything around it was fitted is the defect this exists to stop, seen live.
+	for child: Node in root.get_children(true):
+		var window: Window = child as Window
+		if window != null:
+			# A page is left standing and is not walked into at all, and a menu is the same: it draws its own
+			# items rather than holding controls this could reach, and what it is fitted *for* is the font its
+			# items are drawn at - its internals are the engine's. A menu is an internal child of the picker
+			# that owns it, which is the whole reason this walk reads internal children in the first place.
+			# Measured: a menu that has entered a tree grows internals of its own, a search field among them,
+			# and walking in there fits machinery rather than the program's own interface.
+			if window is Popup and size_a_windows_words_for_a_finger(window, scale, density):
+				fitted += 1
+			continue
+		var control: Control = child as Control
+		if control != null and fit_for_a_finger(control, scale, density):
+			fitted += 1
+		fitted += fit_the_chrome_for_a_finger(child, scale, density)
+	return fitted
 
 
 ## Make one control's answers big enough for a finger: the row it sits in and the text on it.
