@@ -33,6 +33,9 @@ const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const TaxScript := preload("res://scripts/biz/tax.gd")
 const InvoiceScript := preload("res://scripts/biz/invoice.gd")
+## The plotting module, for the one rule both PDF pages share: how a caption too long for its column is
+## shortened. A second copy of it here would be a second answer to the same question.
+const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
 
 const POINTS_PER_MM := 72.0 / 25.4
 
@@ -595,15 +598,12 @@ static func logo_image(path: String) -> Image:
 
 ## The width law the writer uses, applied to a column: a caption that would run into the next column
 ## is shortened and says so with dots, which is a page short of room rather than a mistake.
+##
+## The rule itself is `SheetExporter`'s rather than a second copy of it here. A caption that fits on a
+## plan and a caption that fits on an invoice are one question asked of one writer, and two answers to
+## it could only ever be one page disagreeing with the other.
 static func clipped_text(writer, text: String, size_points: float, room_points: float) -> String:
-	if room_points <= 0.0:
-		return ""
-	if writer.text_width(text, size_points) <= room_points:
-		return text
-	var clipped := text
-	while not clipped.is_empty() and writer.text_width(clipped + "...", size_points) > room_points:
-		clipped = clipped.substr(0, clipped.length() - 1)
-	return clipped + "..."
+	return SheetExporterScript.clipped_text(writer, text, size_points, room_points)
 
 
 ## A line of a table read as text, for a test or a log: what the row says, in one line.

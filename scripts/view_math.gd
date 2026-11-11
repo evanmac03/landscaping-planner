@@ -57,3 +57,24 @@ static func pixels_per_metre(viewport_height: float, ortho_size: float) -> float
 	if ortho_size <= 0.0:
 		return 0.0
 	return viewport_height / ortho_size
+
+
+## The zoom multiplier a pinch asks for, from how far apart the fingers moved.
+##
+## The view's zoom is the *width of the plan it shows*, so spreading the fingers has to shrink that
+## number: the multiplier is the reciprocal of the spread. A spread reported as nothing multiplies by
+## one, because two fingers that have not moved are not a zoom, and dividing by their stillness would
+## be an infinite one.
+static func zoom_factor_for_spread(spread: float) -> float:
+	if spread <= 0.0:
+		return 1.0
+	return 1.0 / spread
+
+
+## Where the view's focus goes when the design is dragged `delta` screen pixels: the ground under the
+## finger - or the cursor - stays where it is, so the focus moves the opposite way to the drag, by one
+## screen pixel's worth of metres at this zoom.
+static func focus_after_screen_drag(
+	focus: Vector2, delta: Vector2, plan_size: float, viewport_height: float
+) -> Vector2:
+	return focus - delta * (plan_size / maxf(viewport_height, 1.0))

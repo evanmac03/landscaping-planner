@@ -65,11 +65,11 @@ func test_the_page_is_built_once_however_many_times_it_is_asked_for() -> void:
 	page.free()
 
 
-func test_nothing_in_the_rows_takes_the_keyboard() -> void:
-	# Sentences to read, not a list to drive: whether the page keeps the reader's keys to itself is what
-	# decides whether Escape reaches it at all.
+func test_the_rows_are_built_without_a_keyboard_of_their_own() -> void:
+	# Sentences to read, not a list to drive. This asserts how the page *builds* the rows; what an open page
+	# does with the keyboard is the shared show's business, and is measured live rather than here.
 	var page := _holding(["line added", "shape added"])
-	assert(page.rows_are_keyboard_free(), "the rows hold no focus")
+	assert(page.rows_are_keyboard_free(), "the rows are built with no focus of their own")
 	page.free()
 
 

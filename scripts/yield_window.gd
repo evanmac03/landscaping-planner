@@ -33,8 +33,8 @@ signal closed
 signal order_requested(rows: Array)
 
 ## Big enough for the two fields, the list and the sentence underneath without anything falling off the
-## bottom edge.
-const SIZE := Vector2i(920, 680)
+## bottom edge: measured, they want 696 px, so 700.
+const SIZE := Vector2i(920, 700)
 
 const EXPLANATION := ("Work out how much to plant from how many you are feeding. A crop that records "
 	+ "both how much one plant gives in a season and how much of it one person eats can be turned into "
@@ -84,15 +84,7 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
 	_heading = Label.new()
 	_heading.name = "Heading"

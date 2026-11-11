@@ -5,8 +5,10 @@ extends Window
 ##
 ## A `Window` like the six other pages, for the two reasons they are: it has fields to type into, and a
 ## `Window` owns its own input, so nothing here can take the drawing's keys (spec §9's rule). Every
-## button is `FOCUS_NONE`; the typed fields - and a backend's settings are typed fields - are the only
-## things allowed the keyboard.
+## button is built without a keyboard of its own, like every control the shared chrome makes; the typed
+## fields - and a backend's settings are typed fields - are the only things that keep one, because a
+## field is where somebody types. What the *open* page does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `LedgerDesk` says and decides nothing itself. Every line on the page is a field of a row
 ## the desk produced, and the desk builds those from the records every time it is asked, so a document
@@ -81,33 +83,27 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 
 	_column.add_child(_build_backend_row())
-	_backend_line = Label.new()
+	_backend_line = PageChrome.text()
 	_backend_line.name = "BackendLine"
-	_backend_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_backend_line.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_backend_line)
 
-	_column.add_child(_heading("what this ledger needs told"))
+	_column.add_child(PageChrome.subheading("what this ledger needs told"))
 	_settings_row = VBoxContainer.new()
 	_settings_row.name = "Settings"
 	_settings_row.add_theme_constant_override("separation", 2)
 	_column.add_child(_settings_row)
 
 	_column.add_child(_build_run_row())
-	_column.add_child(_heading("what is in the outbox"))
+	_column.add_child(PageChrome.subheading("what is in the outbox"))
 	# The rows are built from the desk's own rows and rebuilt on every refresh, so a document posted a
 	# moment ago is in the next line the page draws.
 	_rows = VBoxContainer.new()
@@ -115,33 +111,21 @@ func build() -> void:
 	_rows.add_theme_constant_override("separation", 2)
 	_column.add_child(_rows)
 
-	_column.add_child(_heading("where it does not agree"))
-	_disagreements = Label.new()
+	_column.add_child(PageChrome.subheading("where it does not agree"))
+	_disagreements = PageChrome.text()
 	_disagreements.name = "Disagreements"
-	_disagreements.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_disagreements.custom_minimum_size = Vector2(0, 40)
 	_column.add_child(_disagreements)
 
-	_column.add_child(_heading("what wants looking at"))
+	_column.add_child(PageChrome.subheading("what wants looking at"))
 	_problems = ItemList.new()
 	_problems.name = "Problems"
 	_problems.custom_minimum_size = Vector2(0, 46)
 	_problems.select_mode = ItemList.SELECT_SINGLE
 	_column.add_child(_problems)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 36)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
-
-
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading%s" % str(words.hash())
-	label.text = words
-	return label
 
 
 ## Which ledger the page is about, whether it is configured, and the two acts that belong to the
@@ -150,9 +134,8 @@ func _build_backend_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "BackendRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("the ledger")
 	label.name = "BackendLabel"
-	label.text = "the ledger"
 	row.add_child(label)
 	_backend_option = OptionButton.new()
 	_backend_option.name = "BackendOption"
@@ -176,11 +159,12 @@ func _build_run_row() -> HBoxContainer:
 	return row
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out, which is the name `tests/test_ledger_window.gd` holds these rows by. The chrome does
+## name a button from its caption too, but it ends the name in `Button`, and these rows came first.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
 
@@ -219,6 +203,10 @@ func refresh() -> void:
 			_problems.set_item_disabled(index, true)
 	if _status != null and _status.text.is_empty():
 		_set_status(opening_words())
+	# The rows just built carry a Post button each, and the shared show that gave this page its keyboard
+	# ran when the page was *opened*, before any of them existed. So a page that is up gives the new ones
+	# theirs here. Nothing is done while it is down: the show decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the page opens with: what to do, or why there is nothing to do yet.
@@ -412,8 +400,11 @@ func status_text() -> String:
 	return "" if _status == null else _status.text
 
 
-## Whether every button on the page is focus-free. The typed fields are the only things allowed the
-## keyboard (spec §9's rule), and this is what proves it.
+## Whether every button on the page is built without a keyboard of its own - which is what "the typed
+## fields are the only things allowed the keyboard" meant when the HUD was the only surface here, and
+## what it still means about the *building* of a page. What a page that is **shown** does with the
+## keyboard is decided once, in `PageChrome.takes_the_keyboard`, so a button here is reachable with Tab
+## all the same.
 func buttons_are_focus_free() -> bool:
 	for button in _all_buttons(self):
 		if button.focus_mode != Control.FOCUS_NONE:

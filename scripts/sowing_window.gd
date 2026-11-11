@@ -28,8 +28,9 @@ const PlannerScript := preload("res://scripts/sowing_planner.gd")
 signal closed
 
 ## Big enough for the fields, the crop's sentences, the list and the words underneath without anything
-## falling off the bottom edge.
-const SIZE := Vector2i(940, 700)
+## falling off the bottom edge - which is what the first version claimed at 700, and 41 px of the page
+## did fall off it. Measured, they want 741 px, so 750.
+const SIZE := Vector2i(940, 750)
 
 const EXPLANATION := ("Say when you mean to sow, and the season works out the rest. A crop takes a "
 	+ "stated number of days from sowing to its first harvest, so sown on a given day it is ready on a "
@@ -89,15 +90,7 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
 	var heading := Label.new()
 	heading.name = "Heading"

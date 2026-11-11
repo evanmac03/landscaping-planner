@@ -19,3 +19,33 @@ addons/ziva_agent/
 # project source - if something is worth keeping it belongs in a tool's own output
 # folder, not at the root.
 tmp_*
+
+# The exported build. A tool run produces it, so it is not source: `build/` is where
+# `--export-debug "Android (phone)"` puts the APK, and the preset is the file to keep.
+build/
+
+# The MCP bridge is somebody else's addon, installed rather than written here. Its
+# sibling `addons/ziva_agent/` is ignored for the same reason; `addons/context_tools/`
+# is not, because that one is this project's own AI Context dock.
+addons/godot_ai/
+
+# A OneDrive rename that did not finish leaves a `~name` copy and a `~name~RFxxxx.TMP` beside the
+# real file - tens of megabytes each, and they read as untracked changes. Not source, never referenced.
+~*
+*.TMP
+
+# The three third-party addons installed per machine are not source, exactly as `addons/godot_ai/`
+# and `addons/ziva_agent/` are not: the MCP toolkit, the runtime dev console, and the GDScript
+# formatter. The toolkit's own installer adds its autoload and its editor plugin back on the machine
+# that has it, which is why the committed project.godot does not name them.
+addons/godot_mcp_toolkit/
+addons/crabbyconsole/
+addons/GDQuest_GDScript_formatter/
+
+# Written by the MCP toolkit's dock for whichever client is on this machine: it names this machine's
+# paths and a server version, so it belongs to the machine and not to the repository.
+.mcp.json
+
+# Regenerable plant-ID fixtures for the reading gallery: 9 MB of PNGs that no test reads, and that
+# every export excludes. Pictures for a run, not project source.
+assets/generated/*reading_test*

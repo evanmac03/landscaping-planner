@@ -89,9 +89,11 @@ func test_the_page_has_the_controls_a_program_of_this_kind_has() -> void:
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_a_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 	var page := _page(_desk())
-	assert(page.buttons_are_focus_free(), "a button that took focus would swallow the drawing's keys")
+	# A button that took the keyboard *inside the HUD* would swallow the drawing's keys; a page in a
+	# Window is the other case, and is what `PageChrome.takes_the_keyboard` is for.
+	assert(page.buttons_are_focus_free(), "at build time, before anything shows the page")
 	page.free()
 
 

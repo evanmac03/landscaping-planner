@@ -4,8 +4,10 @@ extends Window
 ## moment the page lets a person choose (spec §10, §14f).
 ##
 ## A `Window` like the other pages, for the two reasons they are: it has fields to type into, and a
-## `Window` owns its own input, so nothing here can take the drawing's keys (spec §9's rule). Every
-## button is `FOCUS_NONE`; the typed fields are the only things allowed the keyboard.
+## `Window` owns its own input, so nothing here can take the drawing's keys (spec §9's rule). Every button
+## is built without a keyboard of its own, like every control the shared chrome makes; the typed fields
+## are the only things that keep one, because a field is where somebody types. What the *open* page does
+## with the keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## ## What this page is for
 ##
@@ -79,48 +81,34 @@ func build() -> void:
 		return
 	if report == null:
 		report = AnalyticsScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 
 	_column.add_child(_build_window_row())
 	_column.add_child(_build_day_row())
 
-	_column.add_child(_heading("the figures"))
+	_column.add_child(PageChrome.subheading("the figures"))
 	# The rows are rebuilt from the report on every refresh, so a figure is never a moment out of date.
 	_rows = VBoxContainer.new()
 	_rows.name = "Rows"
 	_rows.add_theme_constant_override("separation", 2)
 	_column.add_child(_rows)
 
-	_column.add_child(_heading("what could not be worked out"))
+	_column.add_child(PageChrome.subheading("what could not be worked out"))
 	_missing = ItemList.new()
 	_missing.name = "Missing"
 	_missing.custom_minimum_size = Vector2(0, 96)
 	_missing.select_mode = ItemList.SELECT_SINGLE
 	_column.add_child(_missing)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 36)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
-
-
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading%s" % str(words.hash())
-	label.text = words
-	return label
 
 
 ## What window the report is over, and as at what moment. Three arguments, three fields: they are not
@@ -132,9 +120,9 @@ func _build_window_row() -> HBoxContainer:
 	_from_field = _field("WindowFrom", "2026-01-01", 140)
 	_to_field = _field("WindowTo", "2026-03-31", 140)
 	_as_of_field = _field("AsAt", "2026-04-01", 140)
-	row.add_child(_labelled("from", _from_field))
-	row.add_child(_labelled("to", _to_field))
-	row.add_child(_labelled("as at", _as_of_field))
+	row.add_child(PageChrome.labelled("from", _from_field))
+	row.add_child(PageChrome.labelled("to", _to_field))
+	row.add_child(PageChrome.labelled("as at", _as_of_field))
 	var again := _act_button("Read it again", _on_read_again)
 	row.add_child(again)
 	return row
@@ -147,37 +135,25 @@ func _build_day_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "DayRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	# The caption is given a width so the field lines up under the one in the row above; `wrap_text` is
+	# false because a caption is a word, and one allowed to wrap would report a minimum width of one
+	# word and make the row measure narrower than it is. The line after it is prose, so it wraps.
+	var label := PageChrome.text("a working day", false)
 	label.name = "DayLabel"
-	label.text = "a working day"
 	label.custom_minimum_size = Vector2(160, 0)
 	row.add_child(label)
 	_day_field = _field("DayMinutes", str(SUGGESTED_DAY_MINUTES), 90)
 	row.add_child(_day_field)
-	var unit := Label.new()
+	var unit := PageChrome.text("minutes")
 	unit.name = "DayUnit"
-	unit.text = "minutes"
 	row.add_child(unit)
 	_day_button = _act_button("State the working day", _on_state_day)
 	row.add_child(_day_button)
-	_day_line = Label.new()
+	_day_line = PageChrome.text()
 	_day_line.name = "DayLine"
-	_day_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_day_line.custom_minimum_size = Vector2(360, 0)
 	row.add_child(_day_line)
 	return row
-
-
-func _labelled(words: String, field: LineEdit) -> HBoxContainer:
-	var box := HBoxContainer.new()
-	box.name = "Box%s" % field.name
-	box.add_theme_constant_override("separation", 4)
-	var label := Label.new()
-	label.name = "Label%s" % field.name
-	label.text = words
-	box.add_child(label)
-	box.add_child(field)
-	return box
 
 
 ## A typed field: the only kind of control on any of these pages that is allowed the keyboard.
@@ -190,11 +166,12 @@ func _field(shown_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out. The chrome names a button from its caption too, but it ends the name in `Button`,
+## and this page's rows came first.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
 
@@ -253,11 +230,12 @@ func _fill_rows() -> void:
 		var row := HBoxContainer.new()
 		row.name = "Row%s" % String(held["key"]).hash()
 		row.add_theme_constant_override("separation", 6)
-		var words := Label.new()
+		# Eleven hundred wide on purpose: a figure's sentence is one line here, and the row is the
+		# sentence rather than a label column beside it.
+		var words := PageChrome.text()
 		words.name = "Words"
 		words.text = String(held["text"])
 		words.custom_minimum_size = Vector2(1100, 0)
-		words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		if not bool(held["ok"]):
 			# Greyed, not hidden: the figure is on the page and the page says what it is waiting for.
 			words.modulate = Color(0.62, 0.62, 0.62)
@@ -395,8 +373,11 @@ func state_button_disabled() -> bool:
 	return _day_button == null or _day_button.disabled
 
 
-## Whether every button on the page is focus-free. The typed fields are the only things allowed the
-## keyboard (spec §9's rule), and this is what proves it.
+## Whether every button on the page is built without a keyboard of its own - which is what "the typed
+## fields are the only things allowed the keyboard" meant when the HUD was the only surface here, and
+## what it still means about the *building* of a page. What a page that is **shown** does with the
+## keyboard is decided once, in `PageChrome.takes_the_keyboard`, so a button here is reachable with Tab
+## all the same.
 func buttons_are_focus_free() -> bool:
 	for button in _all_buttons(self):
 		if button.focus_mode != Control.FOCUS_NONE:

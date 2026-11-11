@@ -5,8 +5,10 @@ extends Window
 ##
 ## The board is a `Window` like the pipeline board, the estimate and the ground window, for the same
 ## two reasons: it has fields to type into, and a `Window` owns its own input, so nothing here can take
-## the drawing's keys (spec §9's rule). Buttons are `FOCUS_NONE` for the same reason; the typed fields
-## are the only things allowed the keyboard.
+## the drawing's keys (spec §9's rule). Buttons are built without a keyboard of their own, like every
+## control the shared chrome makes; the typed fields are the only things that keep one, because a field
+## is where somebody types. What the *open* board does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `JobDesk` says and holds no arithmetic of its own. The conflicts below the days are
 ## the board's own rows, in the model's own order, and **nothing here ever moves a block to avoid
@@ -85,16 +87,10 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 22)
 	column.add_child(_summary)
 
 	var scroll := ScrollContainer.new()
@@ -111,9 +107,8 @@ func build() -> void:
 	column.add_child(_build_book_row())
 	column.add_child(_build_crew_row())
 
-	var problems := Label.new()
+	var problems := PageChrome.subheading("clashes")
 	problems.name = "ConflictsLabel"
-	problems.text = "clashes"
 	column.add_child(problems)
 	_conflicts = ItemList.new()
 	_conflicts.name = "Conflicts"
@@ -121,10 +116,7 @@ func build() -> void:
 	_conflicts.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_conflicts)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 40)
+	_status = PageChrome.status()
 	column.add_child(_status)
 	refresh()
 
@@ -190,11 +182,11 @@ func _field(field_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this board, from the shared chrome and named by the board's own rule: a caption with its
+## spaces taken out. `_build_crew_row` renames the one button whose name is not its caption.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(Callable(self, method))
 	return button
 
@@ -231,6 +223,10 @@ func refresh() -> void:
 	# line is what to do with it - and what to do first when there is nothing on it yet.
 	if _status != null and _status.text.is_empty():
 		_set_status(_opening_words())
+	# The blocks just built are new controls, and the shared show that gave this board its keyboard ran
+	# when the board was *opened* - before any of them existed. So a board that is up gives the new ones
+	# theirs here. Nothing is done while it is down: the show decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the board opens with: what to do, or why there is nothing to do yet.
@@ -582,8 +578,9 @@ func day_texts() -> Array[String]:
 	return out
 
 
-## The controls that must not take the keyboard: every button on the board. The typed fields are the
-## only things here allowed focus, so this returns the buttons and nothing else.
+## The controls that are *built* without a keyboard: every button on the board. The typed fields are the
+## only things here allowed focus at build time, so this returns the buttons and nothing else - and what a
+## board that is *shown* does with the keyboard is decided once, in `PageChrome.takes_the_keyboard`.
 func buttons_are_focus_free() -> bool:
 	if _row == null:
 		return false

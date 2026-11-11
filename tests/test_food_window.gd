@@ -58,7 +58,7 @@ func _page() -> FoodWindow:
 # --- building -------------------------------------------------------------------------------
 
 
-func test_the_page_builds_its_controls_and_takes_no_keyboard() -> void:
+func test_the_page_builds_its_controls_without_a_keyboard_of_their_own() -> void:
 	var page: FoodWindow = FoodWindowScript.new()
 	page.build()
 	assert(page.get_node_or_null("Column/PlaceRow/Place") is OptionButton, "a bed to choose")

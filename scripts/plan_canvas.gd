@@ -21,6 +21,7 @@ const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
 const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 
 ## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
 ## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
@@ -88,7 +89,13 @@ var _has_fence: bool = false
 
 ## The drafting document, if one is bound. Its linework draws on top of the yard,
 ## which is the right way round: the design sits over what was already there.
-var document = null
+var document: DraftDocument = null
+## Whether the site the plan stands on is drawn: the flat shapes read off the yard's own meshes, and its
+## fence. True on the drawing board, false on a blank page - a new drawing is paper and the designer's own
+## linework, with the garden put away (see `SiteScenery`). The ground stays visible in the 3D views, which
+## is why this is a flag here rather than only the yard's node visibility: a blank *page* and an empty
+## *floor* are two different things.
+var site_shown: bool = true
 ## The plot scale the on-screen linework imitates. Weights are authored in paper
 ## millimetres, so they only become pixels once a sheet scale is chosen.
 var display_scale: float = 100.0
@@ -103,7 +110,9 @@ var ghost: Dictionary = {}
 var plant_ghost: Dictionary = {}
 ## Where the cursor snapped to, from the drafting controller.
 var snap: Dictionary = {}
-## What the drafting tools are waiting for, drawn on the plan itself.
+## What the drawing says about itself, drawn on the plan itself: a length being typed, and the last thing
+## the drawing said. What the tool in hand is *waiting for* is not here - that line, with the keys that
+## answer it, is at the foot of the screen, because the palette panel sits over this corner of the plan.
 var status_text: String = ""
 
 
@@ -123,7 +132,11 @@ func rebind(yard: Node3D) -> void:
 	_has_fence = false
 	if yard != null:
 		_collect(yard)
-		if yard.has_method("get_bounds"):
+		# The fence line is the property boundary, which the yard reports as a rectangle rather than as
+		# nodes - so it is gated on the fence node rather than read off one. Put the fence away (the
+		# scenery toggle does) and the boundary goes with it.
+		var fence: Node3D = yard.get_node_or_null(^"Fence") as Node3D
+		if yard.has_method("get_bounds") and (fence == null or fence.visible):
 			_fence = yard.get_bounds()
 			_has_fence = true
 	# Big shapes first, so small ones sit on top of them the way a plan drawing
@@ -151,6 +164,16 @@ func apply_view(new_focus: Vector2, new_plan_size: float, viewport_size: Vector2
 	queue_redraw()
 
 
+## Show or put away the site the plan stands on. The yard's own nodes are hidden by whatever owns them
+## (the `ViewController`), and this is told the same fact so the *ground* - kept standing in the 3D views
+## - is left off a blank page too.
+func set_site_shown(shown: bool) -> void:
+	if site_shown == shown:
+		return
+	site_shown = shown
+	queue_redraw()
+
+
 ## World position to screen pixels. Screen +x is world +x (east) and screen +y is
 ## world +z (south), which is exactly how the 3D overhead camera is oriented, so
 ## the two views line up pixel for pixel.
@@ -171,10 +194,17 @@ func _collect(node: Node) -> void:
 		var child_name := String(child.name)
 		if IGNORED.has(child_name):
 			continue
+		# A part of the yard that has been put away is not on the plan either: the scenery toggle hides
+		# nodes rather than telling this canvas what to skip, so what is drawn is what is standing. A
+		# plant the designer puts down later is visible, and so is drawn even with the site put away.
+		var spatial: Node3D = child as Node3D
+		if spatial != null and not spatial.visible:
+			continue
 		if child_name == PLANTS:
 			for plant in child.get_children():
-				if plant is Node3D:
-					_placeables.append(plant)
+				var prop: Node3D = plant as Node3D
+				if prop != null and prop.visible:
+					_placeables.append(prop)
 			continue
 		if child is MeshInstance3D:
 			_add_mesh(child)
@@ -216,9 +246,13 @@ func _draw() -> void:
 		return
 	_draw_paper()
 	_draw_grid()
-	for shape: Dictionary in _context:
-		_draw_context_shape(shape)
-	_draw_fence()
+	# The site: the yard's own flat shapes and its boundary. A blank page is paper and the designer's
+	# linework, so with the site put away none of this is drawn - and the ground, which is still standing
+	# in the 3D views, is not drawn on the page either.
+	if site_shown:
+		for shape: Dictionary in _context:
+			_draw_context_shape(shape)
+		_draw_fence()
 	# The pictures lie **over the ground and under everything else**: the yard's own lawn, house and
 	# paving are scenery read off the 3D meshes and drawn flat, and a tracing aid has to be visible
 	# over them or there is nothing to trace; every plant standing on the ground and every line the
@@ -632,15 +666,79 @@ func _draw_snap_marker() -> void:
 		return
 	var point: Vector2 = snap["point"]
 	var half: float = 6.0 / pixels_per_metre
-	draw_rect(
-		Rect2(point - Vector2(half, half), Vector2(half, half) * 2.0),
-		SNAP, false, 1.6 / pixels_per_metre
-	)
+	var width: float = 1.6 / pixels_per_metre
+	var mode: int = int(snap.get("mode", SnapScript.Mode.NONE))
+	for stroke: PackedVector2Array in marker_strokes(mode, half):
+		var placed := PackedVector2Array()
+		for vertex: Vector2 in stroke:
+			placed.append(point + vertex)
+		draw_polyline(placed, SNAP, width, true)
 	var label: String = String(snap.get("label", ""))
 	if label == "":
 		return
 	var screen: Vector2 = position + point * pixels_per_metre
 	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12, SNAP_TEXT)
+
+
+## The marker drawn at the cursor for a kind of snap: a shape per mode, as strokes centred on the
+## point and reaching `half` either side of it.
+##
+## A shape rather than a character, on purpose. The snap engine carries a table of characters for its
+## modes and **the shipped font has none of them** - every one of the nine is missing from Open Sans
+## SemiBold - so a marker drawn from that table would be nine boxes of tofu. Drafting programs draw
+## these as shapes for the same reason, and a square, a triangle, a circle and a diamond are read at a
+## glance beside the name that says the same thing in words.
+##
+## Static and pure, so the vocabulary can be read and tested with no canvas in sight.
+static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	match mode:
+		SnapScript.Mode.ENDPOINT, SnapScript.Mode.NEAREST:
+			# A catch-all snaps to a point on an outline, which is the endpoint's answer too - and
+			# the engine's own table gives those two the same character as well.
+			out.append(PackedVector2Array([
+				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
+				Vector2(-half, half), Vector2(-half, -half),
+			]))
+		SnapScript.Mode.MIDPOINT:
+			out.append(PackedVector2Array([
+				Vector2(0.0, -half), Vector2(half, half), Vector2(-half, half), Vector2(0.0, -half),
+			]))
+		SnapScript.Mode.CENTRE:
+			var ring := PackedVector2Array()
+			for step in 12:
+				var angle: float = TAU * float(step) / 12.0
+				ring.append(Vector2(cos(angle), sin(angle)) * half)
+			ring.append(ring[0])
+			out.append(ring)
+		SnapScript.Mode.QUADRANT:
+			out.append(PackedVector2Array([
+				Vector2(0.0, -half), Vector2(half, 0.0), Vector2(0.0, half),
+				Vector2(-half, 0.0), Vector2(0.0, -half),
+			]))
+		SnapScript.Mode.INTERSECTION:
+			out.append(PackedVector2Array([Vector2(-half, -half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, -half)]))
+		SnapScript.Mode.PERPENDICULAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.TANGENT:
+			var arc := PackedVector2Array()
+			for step in 9:
+				var angle: float = PI + PI * float(step) / 8.0
+				arc.append(Vector2(cos(angle), sin(angle)) * half)
+			out.append(arc)
+		SnapScript.Mode.GRID:
+			out.append(PackedVector2Array([
+				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
+				Vector2(-half, half), Vector2(-half, -half),
+			]))
+			out.append(PackedVector2Array([Vector2(-half, 0.0), Vector2(half, 0.0)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.POLAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(half, half), Vector2(half, -half)]))
+	return out
 
 
 func _draw_screen_text(screen: Vector2, text: String, size: int, colour: Color) -> void:

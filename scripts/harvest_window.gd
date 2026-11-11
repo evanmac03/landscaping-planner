@@ -18,11 +18,13 @@ extends Window
 ## * **An empty month is a real answer.** January with nothing ready is a fact about the plant list, not
 ##   a fault: the page says "nothing is recorded as ready in January" and keeps going.
 ##
-## * **Nothing here takes the drawing's keyboard**, and nothing here writes anything: it is a page you
-##   read, choose on and close.
+## * **Nothing here writes anything**, and everything it builds is built without a keyboard of its own:
+##   it is a page you read, choose on and close. What the page does with the keyboard while it is *open*
+##   is decided once, by `PageChrome.takes_the_keyboard`.
 
-## A page wide enough for the month's list and a couple of sentences about the year.
-const SIZE := Vector2i(940, 680)
+## A page wide enough for the month's list and a couple of sentences about the year, and as tall as all
+## of it comes to: measured, that is 682 px, so 690 with the buttons on the end.
+const SIZE := Vector2i(940, 690)
 
 const HarvestCalendarScript := preload("res://scripts/harvest_calendar.gd")
 
@@ -41,7 +43,6 @@ var _status: String = ""
 
 var _heading: Label = null
 var _explanation: Label = null
-var _month_label: Label = null
 var _month_option: OptionButton = null
 var _month_line: Label = null
 var _list_label: Label = null
@@ -67,88 +68,60 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
-	_heading = Label.new()
-	_heading.name = "Heading"
-	_heading.text = "What's ready when"
+	_heading = PageChrome.subheading("What's ready when")
 	column.add_child(_heading)
 
-	_explanation = Label.new()
-	_explanation.name = "Explanation"
-	_explanation.text = EXPLANATION
-	_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_explanation = PageChrome.note(EXPLANATION)
 	column.add_child(_explanation)
 
-	var month_row := HBoxContainer.new()
-	month_row.name = "MonthRow"
-	_month_label = Label.new()
-	_month_label.name = "MonthLabel"
-	_month_label.text = "Month"
-	month_row.add_child(_month_label)
 	_month_option = OptionButton.new()
 	_month_option.name = "Month"
-	# The HUD's own rule: a control in the HUD never takes the keyboard from the drawing.
+	# Built without a keyboard of its own, like everything a page makes; the shared show is what gives it
+	# one while the page is open.
 	_month_option.focus_mode = Control.FOCUS_NONE
 	_month_option.tooltip_text = "The month to read"
 	_month_option.custom_minimum_size = Vector2(300.0, 0.0)
 	_month_option.item_selected.connect(func(index: int) -> void: _on_month_selected(index))
-	month_row.add_child(_month_option)
-	column.add_child(month_row)
+	# The shared chrome names the row after the control it carries, which is the `MonthRow` this page's own
+	# tests have always read the dropdown under.
+	column.add_child(PageChrome.labelled("Month", _month_option))
 
-	_month_line = Label.new()
+	_month_line = PageChrome.text()
 	_month_line.name = "MonthLine"
-	_month_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_month_line)
 
-	_list_label = Label.new()
+	_list_label = PageChrome.text()
 	_list_label.name = "ListLabel"
 	column.add_child(_list_label)
 	_crops_list = ItemList.new()
 	_crops_list.name = "Crops"
 	_crops_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_crops_list.custom_minimum_size = Vector2(0.0, 300.0)
-	# A list a person reads is not a list a person types into: the keyboard belongs to the drawing.
+	# A list a person reads rather than types into, built without a keyboard of its own like the rest.
 	_crops_list.focus_mode = Control.FOCUS_NONE
 	_crops_list.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_crops_list)
 
-	_year_line = Label.new()
+	_year_line = PageChrome.text()
 	_year_line.name = "Year"
-	_year_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_year_line)
 
-	_unstated_line = Label.new()
+	_unstated_line = PageChrome.text()
 	_unstated_line.name = "Unstated"
-	_unstated_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_unstated_line)
 
-	_hint_label = Label.new()
-	_hint_label.name = "Hint"
-	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_label = PageChrome.hint()
 	column.add_child(_hint_label)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
-	_close_button = Button.new()
-	_close_button.name = "CloseButton"
-	_close_button.text = "Close"
-	_close_button.focus_mode = Control.FOCUS_NONE
+	var buttons := PageChrome.button_row()
+	column.add_child(buttons)
+	_close_button = PageChrome.button("Close")
 	_close_button.pressed.connect(request_close)
 	buttons.add_child(_close_button)
-	column.add_child(buttons)
 
-	_status_label = Label.new()
-	_status_label.name = "Status"
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label = PageChrome.status()
 	column.add_child(_status_label)
 
 	_rebuild_month_choices()
@@ -248,8 +221,9 @@ func status_text() -> String:
 	return _status
 
 
-## True when nothing on the page can take the drawing's keyboard: no text field is here, and the
-## dropdown, the list and the button are all focus-free.
+## True when the page is *built* with nothing that takes a keyboard of its own: there is no text field
+## here, and the list is built focus-free like every other control a page makes. Whether the page holds
+## the keyboard once it is open is the shared show's decision, and is measured live rather than here.
 func lists_are_keyboard_free() -> bool:
 	return _crops_list != null and _crops_list.focus_mode == Control.FOCUS_NONE
 

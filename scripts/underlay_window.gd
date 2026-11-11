@@ -100,22 +100,10 @@ func _ready() -> void:
 func build() -> void:
 	if _file_label != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self)
 
-	var heading := Label.new()
-	heading.name = "Heading"
-	heading.text = "Put a picture under the drawing"
-	column.add_child(heading)
-
-	var explanation := Label.new()
-	explanation.name = "Explanation"
-	explanation.text = EXPLANATION
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(explanation)
+	column.add_child(PageChrome.subheading("Put a picture under the drawing"))
+	column.add_child(PageChrome.note(EXPLANATION))
 
 	# The file. Chosen through the HUD's own file dialog, and named here so that the page, the report
 	# and the status line all say which picture they are talking about.
@@ -125,9 +113,8 @@ func build() -> void:
 	column.add_child(file_row)
 	_choose_button = _button(file_row, "ChooseButton", "Choose a picture...")
 	_choose_button.pressed.connect(func() -> void: choose_file_requested.emit())
-	_file_label = Label.new()
+	_file_label = PageChrome.text(NO_PICTURE)
 	_file_label.name = "FileLabel"
-	_file_label.text = NO_PICTURE
 	_file_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	file_row.add_child(_file_label)
 
@@ -136,9 +123,8 @@ func build() -> void:
 	report_box.custom_minimum_size = Vector2(0.0, 96.0)
 	report_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(report_box)
-	_report = Label.new()
+	_report = PageChrome.text()
 	_report.name = "Report"
-	_report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_report.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	report_box.add_child(_report)
 
@@ -150,9 +136,8 @@ func build() -> void:
 	var across_holder := VBoxContainer.new()
 	across_holder.name = "Across"
 	lie_row.add_child(across_holder)
-	_across_caption = Label.new()
+	_across_caption = PageChrome.text("Across the ground (m)")
 	_across_caption.name = "AcrossCaption"
-	_across_caption.text = "Across the ground (m)"
 	across_holder.add_child(_across_caption)
 	_across = LineEdit.new()
 	_across.name = "AcrossField"
@@ -174,9 +159,8 @@ func build() -> void:
 	list_holder.name = "UnderlayHolder"
 	list_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_row.add_child(list_holder)
-	var list_caption := Label.new()
+	var list_caption := PageChrome.text("Under the drawing")
 	list_caption.name = "UnderlayCaption"
-	list_caption.text = "Under the drawing"
 	list_holder.add_child(list_caption)
 	_underlays = OptionButton.new()
 	_underlays.name = "UnderlayOption"
@@ -188,14 +172,10 @@ func build() -> void:
 	_remove_button = _button(list_row, "RemoveButton", "Take it off")
 	_remove_button.pressed.connect(func() -> void: remove_requested.emit())
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
-	buttons.add_theme_constant_override("separation", 6)
+	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	_place_button = _button(buttons, "PlaceButton", "Put it under the drawing")
 	_place_button.pressed.connect(func() -> void: place_requested.emit())
@@ -456,9 +436,8 @@ func _spin(parent: HBoxContainer, caption: String, node_name: String, minimum: f
 	var holder := VBoxContainer.new()
 	holder.name = node_name
 	parent.add_child(holder)
-	var label := Label.new()
+	var label := PageChrome.text(caption)
 	label.name = node_name + "Caption"
-	label.text = caption
 	holder.add_child(label)
 	var spin := SpinBox.new()
 	spin.name = node_name + "Spin"
@@ -471,11 +450,12 @@ func _spin(parent: HBoxContainer, caption: String, node_name: String, minimum: f
 	return spin
 
 
-## Named explicitly rather than from the label: a button's caption is written for a person and may
-## hold a full stop, and a node name may not.
+## A button in the page's own row, made by the shared chrome so that its caption and what it does with
+## the keyboard are the project's rather than this page's. The node name is given explicitly rather than
+## taken from the caption, because these captions are written for a person - two end in an ellipsis or a
+## full stop - and are not what this page's own reading of itself is keyed by.
 func _button(parent: HBoxContainer, node_name: String, text: String) -> Button:
-	var button := Button.new()
-	button.name = node_name
-	button.text = text
-	parent.add_child(button)
-	return button
+	var made := PageChrome.button(text)
+	made.name = node_name
+	parent.add_child(made)
+	return made

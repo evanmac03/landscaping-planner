@@ -17,8 +17,9 @@ extends Window
 ##   **unknown**, grey and never green - the same honesty `PlantSuitability` keeps, because a green
 ##   ring for a question that could not run is the one thing this must not give.
 ## * **The crop list is food only.** A question about what will crop has no row for a boxwood.
-## * **Nothing here takes the drawing's keyboard**, and nothing here writes anything: it is a page you
-##   read, choose on and close.
+## * **Nothing here writes anything**, and everything it builds is built without a keyboard of its own:
+##   it is a page you read, choose on and close. What the page does with the keyboard while it is *open*
+##   is decided once, by `PageChrome.takes_the_keyboard`.
 
 ## A page wide enough for the crops list and a couple of sentences of verdict.
 const SIZE := Vector2i(940, 720)
@@ -47,9 +48,7 @@ var _status: String = ""
 
 var _heading: Label = null
 var _explanation: Label = null
-var _place_label: Label = null
 var _place_option: OptionButton = null
-var _crop_label: Label = null
 var _crop_option: OptionButton = null
 var _crop_line: Label = null
 var _place_line: Label = null
@@ -77,119 +76,88 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
-	_heading = Label.new()
-	_heading.name = "Heading"
-	_heading.text = "Food garden"
+	_heading = PageChrome.subheading("Food garden")
 	column.add_child(_heading)
 
-	_explanation = Label.new()
-	_explanation.name = "Explanation"
-	_explanation.text = EXPLANATION
-	_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_explanation = PageChrome.note(EXPLANATION)
 	column.add_child(_explanation)
 
-	var place_row := HBoxContainer.new()
-	place_row.name = "PlaceRow"
-	_place_label = Label.new()
-	_place_label.name = "PlaceLabel"
-	_place_label.text = "Bed"
-	place_row.add_child(_place_label)
-	_place_option = _option(place_row, "Place", "Where the crop would go")
+	_place_option = _option("Place", "Where the crop would go")
 	_place_option.item_selected.connect(func(index: int) -> void: _on_place_selected(index))
-	column.add_child(place_row)
+	# The shared chrome names the row after the control it carries, which is the `PlaceRow` this page's
+	# own tests read the bed dropdown under.
+	column.add_child(PageChrome.labelled("Bed", _place_option))
 
-	var crop_row := HBoxContainer.new()
-	crop_row.name = "CropRow"
-	_crop_label = Label.new()
-	_crop_label.name = "CropLabel"
-	_crop_label.text = "Crop"
-	crop_row.add_child(_crop_label)
-	_crop_option = _option(crop_row, "Crop", "The crop to check")
+	_crop_option = _option("Crop", "The crop to check")
 	_crop_option.item_selected.connect(func(index: int) -> void: _on_crop_selected(index))
-	column.add_child(crop_row)
+	column.add_child(PageChrome.labelled("Crop", _crop_option))
 
-	_place_line = Label.new()
+	_place_line = PageChrome.text()
 	_place_line.name = "PlaceLine"
-	_place_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_place_line)
 
-	_crop_line = Label.new()
+	_crop_line = PageChrome.text()
 	_crop_line.name = "CropLine"
-	_crop_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_crop_line)
 
-	_verdict_line = Label.new()
+	_verdict_line = PageChrome.text()
 	_verdict_line.name = "Verdict"
-	_verdict_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_verdict_line)
 
-	_crops_label = Label.new()
+	_crops_label = PageChrome.text()
 	_crops_label.name = "CropsLabel"
 	column.add_child(_crops_label)
 	_crops_list = ItemList.new()
 	_crops_list.name = "Crops"
 	_crops_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_crops_list.custom_minimum_size = Vector2(0.0, 220.0)
-	# A list a person reads is not a list a person types into: the keyboard belongs to the drawing.
+	# A list a person reads rather than types into, built without a keyboard of its own like the rest.
 	_crops_list.focus_mode = Control.FOCUS_NONE
 	_crops_list.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_crops_list)
 
-	_season_label = Label.new()
+	_season_label = PageChrome.text()
 	_season_label.name = "Season"
-	_season_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_season_label)
 
-	_summary_label = Label.new()
+	_summary_label = PageChrome.text()
 	_summary_label.name = "Summary"
-	_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_summary_label)
 
-	_hint_label = Label.new()
-	_hint_label.name = "Hint"
-	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_label = PageChrome.hint()
 	column.add_child(_hint_label)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
+	var buttons := PageChrome.button_row()
 	_close_button = _button(buttons, "CloseButton", "Close")
 	_close_button.pressed.connect(request_close)
 	column.add_child(buttons)
 
-	_status_label = Label.new()
-	_status_label.name = "Status"
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label = PageChrome.status()
 	column.add_child(_status_label)
 
 	_refresh()
 
 
-func _option(row: Node, node_name: String, tip: String) -> OptionButton:
+## The two dropdowns. There is no shared builder for a picker, so the page keeps its own - and what it
+## keeps is the rule: a control made here is made without a keyboard of its own, and the shared show is
+## what gives the controls of an open page theirs.
+func _option(node_name: String, tip: String) -> OptionButton:
 	var made := OptionButton.new()
 	made.name = node_name
-	# The HUD's own rule: a control in the HUD never takes the keyboard from the drawing.
 	made.focus_mode = Control.FOCUS_NONE
 	made.tooltip_text = tip
 	made.custom_minimum_size = Vector2(420.0, 0.0)
-	row.add_child(made)
 	return made
 
 
+## A button in the page's own row, made by the shared chrome so that its caption and what it does with
+## the keyboard are the project's rather than this page's. The node name is the page's, because its own
+## tests read `CloseButton`.
 func _button(row: Node, node_name: String, caption: String) -> Button:
-	var made := Button.new()
+	var made := PageChrome.button(caption)
 	made.name = node_name
-	made.text = caption
-	made.focus_mode = Control.FOCUS_NONE
 	row.add_child(made)
 	return made
 
@@ -413,8 +381,9 @@ func status_text() -> String:
 	return _status
 
 
-## True when nothing on the page can take the drawing's keyboard: no text field is here, and the two
-## lists and the buttons are all focus-free.
+## True when the page is *built* with nothing that takes a keyboard of its own: there is no text field
+## here, and the list is built focus-free like every other control a page makes. Whether the page holds
+## the keyboard once it is open is the shared show's decision, and is measured live rather than here.
 func lists_are_keyboard_free() -> bool:
 	return _crops_list != null and _crops_list.focus_mode == Control.FOCUS_NONE
 

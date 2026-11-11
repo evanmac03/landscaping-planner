@@ -183,8 +183,24 @@ func test_the_board_formats_in_the_currency_it_was_given() -> void:
 	board.free()
 
 
-func test_every_button_on_the_board_is_focus_free() -> void:
-	# The typed fields are the only things allowed the keyboard (spec §9).
+## A card the board builds **while it is open** is reachable too: the shared show ran when the board was
+## opened, before this card existed, so the rebuild gives the new controls the keyboard.
+func test_a_card_built_while_the_board_is_open_is_reachable() -> void:
+	var board := _board()
+	add_child(board)
+	board.show()
+	var added: Dictionary = board.add_lead("Smith", 100000)
+	assert(added["ok"] == true, String(added["reason"]))
+	var buttons: Array[Node] = board.find_children("*", "Button", true, false)
+	assert(buttons.size() >= 2, "the card and the board's own buttons: %d" % buttons.size())
+	for found: Node in buttons:
+		assert((found as Control).focus_mode == Control.FOCUS_ALL, "%s can be reached" % found.name)
+	board.free()
+
+
+func test_every_button_on_the_board_is_built_focus_free() -> void:
+	# The typed fields are the only things that hold the keyboard at build time; a board that is *shown*
+	# is given it on its controls too, by the shared show.
 	var board := _board()
 	board.add_lead("Smith", 100000)
 	assert(board.buttons_are_focus_free())

@@ -5,7 +5,9 @@ extends Window
 ##
 ## A `Window` like the five other pages, for the two reasons they are: it has fields to type into, and
 ## a `Window` owns its own input, so nothing here can take the drawing's keys (spec §9's rule). Every
-## button is `FOCUS_NONE`; the typed fields are the only things allowed the keyboard.
+## button is built without a keyboard of its own, like every control the shared chrome makes; the typed
+## fields are the only things that keep one, because a field is where somebody types. What the *open*
+## page does with the keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `BillingDesk` says and recomputes nothing. Every figure on the page is a field of a row
 ## the desk produced, and the desk builds those from the records every time it is asked, so an invoice
@@ -96,20 +98,16 @@ func build() -> void:
 		return
 	if ledger == null:
 		ledger = LedgerScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 	_column.add_child(_build_job_row())
 	_column.add_child(_build_step_row())
-	_column.add_child(_heading("the schedule, and what it bills next"))
+	_column.add_child(PageChrome.subheading("the schedule, and what it bills next"))
 	_schedule = VBoxContainer.new()
 	_schedule.name = "Schedule"
 	_schedule.add_theme_constant_override("separation", 2)
@@ -118,14 +116,12 @@ func build() -> void:
 	_column.add_child(_build_measure_row())
 	_column.add_child(_build_terms_row())
 
-	_amount = Label.new()
+	_amount = PageChrome.text()
 	_amount.name = "AmountDue"
-	_amount.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_amount.custom_minimum_size = Vector2(0, 22)
 	_column.add_child(_amount)
 	_column.add_child(_build_raise_row())
 
-	_column.add_child(_heading("what has been invoiced"))
+	_column.add_child(PageChrome.subheading("what has been invoiced"))
 	_column.add_child(_build_invoice_row())
 	_invoices = VBoxContainer.new()
 	_invoices.name = "Invoices"
@@ -133,36 +129,24 @@ func build() -> void:
 	_column.add_child(_invoices)
 	_column.add_child(_build_payment_row())
 
-	_column.add_child(_heading("what has come in"))
+	_column.add_child(PageChrome.subheading("what has come in"))
 	# A label and not a list: there are three payments at most on an invoice, and a scrolled list would
 	# claim height on every page whether or not there is anything in it.
-	_payments = Label.new()
+	_payments = PageChrome.text()
 	_payments.name = "Payments"
-	_payments.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_payments.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_payments)
 	_column.add_child(_build_void_row())
 
-	_column.add_child(_heading("what wants looking at"))
+	_column.add_child(PageChrome.subheading("what wants looking at"))
 	_problems = ItemList.new()
 	_problems.name = "Problems"
 	_problems.custom_minimum_size = Vector2(0, 46)
 	_problems.select_mode = ItemList.SELECT_SINGLE
 	_column.add_child(_problems)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 36)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
-
-
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading%s" % str(words.hash())
-	label.text = words
-	return label
 
 
 ## Which job the page is about, and the one act that begins billing it by the method the contract
@@ -171,9 +155,8 @@ func _build_job_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "JobRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("the job", false)
 	label.name = "JobLabel"
-	label.text = "the job"
 	row.add_child(label)
 	_job_option = OptionButton.new()
 	_job_option.name = "JobOption"
@@ -190,23 +173,20 @@ func _build_step_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "StepRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("a step of the schedule", false)
 	label.name = "StepLabel"
-	label.text = "a step of the schedule"
 	row.add_child(label)
 	_step_field = _field("StepName", "Deposit", 200)
 	row.add_child(_step_field)
 	_share_field = _field("StepShare", "25", 70)
 	row.add_child(_share_field)
-	var share_label := Label.new()
+	var share_label := PageChrome.text("% of the contract", false)
 	share_label.name = "ShareLabel"
-	share_label.text = "% of the contract"
 	row.add_child(share_label)
 	_retainage_field = _field("StepRetainage", "10", 60)
 	row.add_child(_retainage_field)
-	var retain_label := Label.new()
+	var retain_label := PageChrome.text("% withheld", false)
 	retain_label.name = "RetainLabel"
-	retain_label.text = "% withheld"
 	row.add_child(retain_label)
 	row.add_child(_act_button("Add the step", _on_add_step))
 	return row
@@ -219,9 +199,8 @@ func _build_measure_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "MeasureRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("percent complete", false)
 	label.name = "PercentLabel"
-	label.text = "percent complete"
 	row.add_child(label)
 	_percent_field = _field("Percent", "40", 70)
 	row.add_child(_percent_field)
@@ -241,18 +220,16 @@ func _build_terms_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "TermsRow"
 	row.add_theme_constant_override("separation", 6)
-	var tax_label := Label.new()
+	var tax_label := PageChrome.text("tax", false)
 	tax_label.name = "TaxLabel"
-	tax_label.text = "tax"
 	row.add_child(tax_label)
 	_tax_option = OptionButton.new()
 	_tax_option.name = "TaxOption"
 	_tax_option.custom_minimum_size = Vector2(300, 0)
 	_tax_option.focus_mode = Control.FOCUS_NONE
 	row.add_child(_tax_option)
-	var terms_label := Label.new()
+	var terms_label := PageChrome.text("terms, in days", false)
 	terms_label.name = "TermsLabel"
-	terms_label.text = "terms, in days"
 	row.add_child(terms_label)
 	_terms_field = _field("Terms", "30", 70)
 	row.add_child(_terms_field)
@@ -265,9 +242,8 @@ func _build_raise_row() -> HBoxContainer:
 	row.add_theme_constant_override("separation", 6)
 	_raise_button = _act_button("Raise the invoice", _on_raise)
 	row.add_child(_raise_button)
-	var note := Label.new()
+	var note := PageChrome.text("written and issued in one act, numbered above everything already taken")
 	note.name = "RaiseNote"
-	note.text = "written and issued in one act, numbered above everything already taken"
 	row.add_child(note)
 	return row
 
@@ -276,9 +252,8 @@ func _build_invoice_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "InvoiceRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("the invoice", false)
 	label.name = "InvoiceLabel"
-	label.text = "the invoice"
 	row.add_child(label)
 	_invoice_option = OptionButton.new()
 	_invoice_option.name = "InvoiceOption"
@@ -293,9 +268,8 @@ func _build_payment_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "PaymentRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("money received", false)
 	label.name = "PaymentLabel"
-	label.text = "money received"
 	row.add_child(label)
 	_amount_field = _field("Payment", "$1,000.00", 130)
 	row.add_child(_amount_field)
@@ -317,9 +291,8 @@ func _build_void_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "VoidRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("why (a void says why)", false)
 	label.name = "WhyLabel"
-	label.text = "why (a void says why)"
 	row.add_child(label)
 	_why_field = _field("Why", "the address was wrong", 300)
 	row.add_child(_why_field)
@@ -336,11 +309,12 @@ func _field(field_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out. The schedule rows this page rebuilds name their button the same way, and that name
+## is what `tests/test_billing_window.gd` holds a row's act by.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
 
@@ -381,6 +355,10 @@ func refresh() -> void:
 			_problems.set_item_disabled(index, true)
 	if _status != null and _status.text.is_empty():
 		_set_status(opening_words())
+	# The rows just built are new controls, and the shared show that gave this page its keyboard ran when
+	# the page was *opened* - before any of them existed. So a page that is up gives them the keyboard
+	# here. Nothing is done while it is down: the show is what decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the page opens with: what to do, or why there is nothing to do yet.
@@ -938,8 +916,11 @@ func set_terms(days: int) -> void:
 		_terms_field.text = str(days)
 
 
-## Whether every button on the page is focus-free. The typed fields are the only things allowed the
-## keyboard (spec §9's rule), and this is what proves it.
+## Whether every button on the page is built without a keyboard of its own - which is what "the typed
+## fields are the only things allowed the keyboard" meant when the HUD was the only surface here, and
+## what it still means about the *building* of a page. What a page that is **shown** does with the
+## keyboard is decided once, in `PageChrome.takes_the_keyboard`, so a button here is reachable with Tab
+## all the same.
 func buttons_are_focus_free() -> bool:
 	for button in _all_buttons(self):
 		if button.focus_mode != Control.FOCUS_NONE:

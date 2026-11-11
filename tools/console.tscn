@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://csm37pkd4ubl8"]
+
+[ext_resource type="Script" uid="uid://c16ntqqual7ra" path="res://tools/console.gd" id="1_console"]
+
+[node name="Console" type="Node" unique_id=1886889501]
+script = ExtResource("1_console")

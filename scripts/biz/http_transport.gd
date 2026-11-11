@@ -25,9 +25,16 @@ const TOKEN := "token"
 ## How many records one pull asks for. A cursor advances by what was applied, so a page of 500 is 500
 ## small files rather than a request that never returns.
 const DEFAULT_LIMIT := 500
-## How many times a poll loop turns before it gives up. A bounded loop is the difference between "the
-## service is slow" and "this program is not coming back".
-const MAX_POLLS := 4000
+## How long the service is given to answer, and how long a socket is given to connect.
+##
+## **A service is not a vision model.** Half a minute is longer than a records service that is there takes
+## - a page of small files answers in milliseconds - and short enough that somebody waiting on a push is
+## told the service is not answering rather than held there indefinitely. Connecting gets its own, much
+## shorter budget, for the reason measured in `HttpExchange`: a port nobody is listening on sits at
+## `STATUS_CONNECTING` for ever rather than reporting that nothing is there, so only a short budget can
+## tell a mis-typed address from a slow service.
+const ANSWER_SECONDS := 30.0
+const CONNECT_SECONDS := 1.5
 
 var base_url: String = ""
 var token: String = ""
@@ -314,49 +321,43 @@ func _split_base() -> Dictionary:
 ## Send one request and read the answer. **Failing to reach the service is a refusal that says so** -
 ## `status` 0 and retryable - because the alternative is a sync that reports nothing the matter when
 ## nothing was ever sent.
+##
+## It is **nothing but `HttpExchange` driven to completion**: the same machine the plant reader steps a
+## frame at a time, and the same one `PlantIdentifier.send_http` drives on the reader's behalf. What stood
+## here was three counted loops - `while turns < MAX_POLLS: client.poll()` - and **counting polls is not
+## waiting**: `poll()` does not block, so four thousand turns go by in a few milliseconds and a service
+## that took longer than that was reported as not there. That fault cost the plant reader a whole reading
+## before it was found, and it is why there is one machine for this rather than a loop per caller.
+##
+## The paths `request_for` builds already carry the address's own prefix, so nothing here adds one.
 func _exchange(request: Dictionary) -> Dictionary:
 	var parts: Dictionary = _split_base()
 	var host: String = String(parts["host"])
 	if host.is_empty():
 		return _unreachable("the sync address does not name a host")
-	var client := HTTPClient.new()
-	var error: int = OK
-	if bool(parts["tls"]):
-		error = client.connect_to_host(host, int(parts["port"]), TLSOptions.client())
-	else:
-		error = client.connect_to_host(host, int(parts["port"]))
-	if error != OK:
-		return _unreachable("cannot reach %s: %s" % [host, error_string(error)])
-	var turns: int = 0
-	while turns < MAX_POLLS and (
-		client.get_status() == HTTPClient.STATUS_RESOLVING
-		or client.get_status() == HTTPClient.STATUS_CONNECTING
-	):
-		client.poll()
-		turns += 1
-	if client.get_status() != HTTPClient.STATUS_CONNECTED:
-		return _unreachable("%s did not answer (%s)" % [host, _status_word(client.get_status())])
-	var headers: PackedStringArray = []
-	for header in (request["headers"] as Array):
-		headers.append(String(header))
-	error = client.request(int(request["method"]), String(request["path"]), headers, String(request["body"]))
-	if error != OK:
-		return _unreachable("cannot send the request to %s: %s" % [host, error_string(error)])
-	turns = 0
-	while turns < MAX_POLLS and client.get_status() == HTTPClient.STATUS_REQUESTING:
-		client.poll()
-		turns += 1
-	if not client.has_response():
-		return _unreachable("%s did not answer the request" % host)
-	var status: int = client.get_response_code()
-	var bytes := PackedByteArray()
-	turns = 0
-	while turns < MAX_POLLS and client.get_status() == HTTPClient.STATUS_BODY:
-		client.poll()
-		bytes.append_array(client.read_response_body_chunk())
-		turns += 1
-	client.close()
-	var text: String = bytes.get_string_from_utf8()
+	var built: Dictionary = {
+		"ok": true,
+		"reason": "",
+		"tls": bool(parts["tls"]),
+		"host": host,
+		"port": int(parts["port"]),
+		"path": String(request["path"]),
+		"method": int(request["method"]),
+		"headers": request["headers"],
+		"body": String(request["body"]),
+	}
+	var exchange := HttpExchange.new()
+	if exchange.begin(built, ANSWER_SECONDS, CONNECT_SECONDS) == HttpExchange.WORKING:
+		while exchange.step(HttpExchange.PAUSE_MS) == HttpExchange.WORKING:
+			pass
+	var sent: Dictionary = exchange.result()
+	var status: int = int(sent["status"])
+	var text: String = String(sent["body"])
+	if status == 0:
+		# Never arrived, and the machine says which of the ways it was rather than one word for all of
+		# them: a name that does not resolve, nothing listening, a request that could not be sent, a
+		# service that never began answering, or a body that stopped arriving.
+		return _unreachable(String(sent["why"]))
 	if status < FIRST_SUCCESS or status > LAST_SUCCESS:
 		return {
 			"ok": false,
@@ -398,22 +399,3 @@ static func _read_json(text: String) -> Dictionary:
 	if data is Dictionary:
 		return data
 	return {}
-
-
-static func _status_word(status: int) -> String:
-	match status:
-		HTTPClient.STATUS_RESOLVING:
-			return "the address did not resolve"
-		HTTPClient.STATUS_CANT_RESOLVE:
-			return "the address did not resolve"
-		HTTPClient.STATUS_CONNECTING:
-			return "the connection did not finish"
-		HTTPClient.STATUS_CANT_CONNECT:
-			return "the connection was refused"
-		HTTPClient.STATUS_CONNECTION_ERROR:
-			return "the connection failed"
-		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
-			return "the secure handshake failed"
-		HTTPClient.STATUS_DISCONNECTED:
-			return "the connection was lost"
-	return "the reason was not stated"

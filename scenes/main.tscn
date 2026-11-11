@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://lvuk5xe7mbxp"]
+[gd_scene load_steps=4 format=3 uid="uid://lvuk5xe7mbxp"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/yard.tscn" id="1_yard"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
@@ -13,6 +13,7 @@
 [ext_resource type="Resource" path="res://resources/vis/sketch_default.tres" id="11_style"]
 [ext_resource type="Script" uid="uid://b1i6fqbqyptyq" path="res://scripts/vis/derived_builder.gd" id="12_derived"]
 [ext_resource type="Script" uid="uid://bxqxpgfacn4go" path="res://scripts/presence.gd" id="13_presence"]
+[ext_resource type="Script" path="res://scripts/survey_watcher.gd" id="14_watcher"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.29, 0.47, 0.78, 1)
@@ -135,3 +136,8 @@ script = ExtResource("9_orbit")
 fov = 32.0
 near = 0.1
 far = 400.0
+
+[node name="SurveyWatcher" type="Node" parent="." node_paths=PackedStringArray("controller", "catalogue_source")]
+script = ExtResource("14_watcher")
+controller = NodePath("../ViewController")
+catalogue_source = NodePath("../Hud")

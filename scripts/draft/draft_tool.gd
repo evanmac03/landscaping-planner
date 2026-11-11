@@ -536,6 +536,12 @@ func preview_measure(cursor: Vector2) -> Dictionary:
 # --- status -------------------------------------------------------------------------
 
 
+## What the tool in hand is waiting for, in the drawing's own words.
+##
+## **No key is spelled out here**, and that is deliberate: a letter written into a string is a promise
+## that goes stale the moment a binding moves, and this prompt once promised C to close while nothing
+## listened for C. The keys that answer the tool in hand are read from their bindings and printed beside
+## this prompt on the one line at the foot of the screen - see `PlannerHud.hand_keys`.
 func status() -> String:
 	if kind == Kind.SELECT:
 		return "Click geometry to select it"
@@ -543,7 +549,7 @@ func status() -> String:
 		return "Specify the first point" if _points.is_empty() else "Specify the second point"
 	if kind == Kind.POLYLINE or kind == Kind.GRADE_CONTOUR:
 		return "Specify the first point" if _points.is_empty() \
-			else "Specify the next point, Enter to finish, C to close"
+			else "Specify the next point"
 	if kind == Kind.GRADE_SPOT:
 		return "Click the place the level is at"
 	if kind == Kind.GRADE_SLOPE:

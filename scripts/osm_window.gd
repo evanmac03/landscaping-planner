@@ -74,18 +74,12 @@ func _ready() -> void:
 func build() -> void:
 	if _latitude != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self)
 
-	column.add_child(_heading("Site context from OpenStreetMap"))
+	column.add_child(PageChrome.subheading("Site context from OpenStreetMap"))
 
-	var explanation := Label.new()
+	var explanation := PageChrome.note(EXPLANATION)
 	explanation.name = "Explanation"
-	explanation.text = EXPLANATION
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(explanation)
 
 	# The site. Typed here or left as the drawing's own - the window opens on the drawing's site, so
@@ -103,20 +97,15 @@ func build() -> void:
 	report_box.custom_minimum_size = Vector2(0.0, 260.0)
 	report_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(report_box)
-	_report = Label.new()
+	_report = PageChrome.text()
 	_report.name = "Report"
-	_report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_report.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	report_box.add_child(_report)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
-	buttons.add_theme_constant_override("separation", 6)
+	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	_fetch_button = _button(buttons, "FetchButton", "Fetch from OpenStreetMap")
 	_fetch_button.pressed.connect(_on_fetch_pressed)
@@ -230,13 +219,6 @@ static func _number_of(field: LineEdit) -> float:
 # --- furniture ------------------------------------------------------------------------
 
 
-func _heading(text: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading"
-	label.text = text
-	return label
-
-
 func _number_field(parent: HBoxContainer, caption: String, width: float) -> LineEdit:
 	var holder := VBoxContainer.new()
 	holder.name = caption
@@ -267,18 +249,20 @@ func _number_spin(parent: HBoxContainer, caption: String, width: float) -> SpinB
 	return spin
 
 
+## The small word naming the box under it, in the chrome's own body size. The name stays the page's,
+## because these captions have always been named for the field they sit above.
 func _caption(text: String) -> Label:
-	var label := Label.new()
+	var label := PageChrome.text(text)
 	label.name = text + "Caption"
-	label.text = text
 	return label
 
 
-## Named explicitly rather than from the label: a button's caption is written for a person and may
-## hold a full stop, and a node name may not.
+## A button in the page's own row, made by the shared chrome so that its caption and what it does with
+## the keyboard are the project's rather than this page's. The node name is given explicitly rather than
+## taken from the caption: these captions are written for a person - one ends in an ellipsis - and are
+## not the names this window's own tests read.
 func _button(parent: HBoxContainer, node_name: String, text: String) -> Button:
-	var button := Button.new()
-	button.name = node_name
-	button.text = text
-	parent.add_child(button)
-	return button
+	var made := PageChrome.button(text)
+	made.name = node_name
+	parent.add_child(made)
+	return made

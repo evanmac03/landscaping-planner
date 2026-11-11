@@ -19,6 +19,8 @@ const Doc := preload("res://scripts/draft/draft_document.gd")
 const Ent := preload("res://scripts/draft/draft_entity.gd")
 const Layer := preload("res://scripts/draft/draft_layer.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
+const ProposalScript := preload("res://scripts/vis/proposal_page.gd")
+const PlotScript := preload("res://scripts/draft/plot_scale.gd")
 
 const POND := &"450-NEW-POND"
 
@@ -317,4 +319,113 @@ func test_the_last_thing_said_is_readable_without_looking_at_a_label() -> void:
 	dock.said.connect(func(line: String) -> void: heard.append(line))
 	dock.render_next()
 	assert(heard.size() >= 1, "and it is announced as well as kept")
+	dock.free()
+
+
+# --- the proposal page, on the dock -------------------------------------------------------------
+
+
+func test_the_proposal_controls_are_built_and_open_on_a_plan_sheet() -> void:
+	var dock := _dock()
+	for control_name: String in ["StillPath", "Paper", "Portrait", "Project", "View", "Sheet", "Scale",
+			"Date", "OutPath", "PreviewProposal", "WriteProposal", "Preview", "ProposalStatus"]:
+		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
+	# A3 is what a plan is drawn on, so it is what the page opens on.
+	assert(dock.proposal_paper_mm() == Vector2(420.0, 297.0), "it opens on A3: %s" % dock.proposal_paper_mm())
+	var picker: OptionButton = dock.find_child("Paper", true, false)
+	assert(picker.selected == PlotScript.sheet_names().find("A3"), "and the picker shows it")
+	dock.free()
+
+
+func test_the_fields_feed_the_title_block() -> void:
+	var dock := _dock()
+	dock.set_proposal_field("project", "Riverbend")
+	dock.set_proposal_field("view", "Front garden")
+	dock.set_proposal_field("sheet", "S1")
+	dock.set_proposal_field("scale", "1:100")
+	dock.set_proposal_field("date", "2026-01-01")
+	var fields: Dictionary = dock.proposal_fields()
+	assert(String(fields["project"]) == "Riverbend", "the project is read back")
+	assert(String(fields["date"]) == "2026-01-01", "and the date")
+	var rows: Array[Dictionary] = ProposalScript.title_rows(fields)
+	assert(rows.size() == 4, "the block has four rows, got %d" % rows.size())
+	assert(String(rows[0]["value"]) == "Riverbend", "the project row carries it: %s" % rows[0]["value"])
+	assert(String(rows[3]["value"]).contains("1:100"), "the scale is on the scale row: %s" % rows[3]["value"])
+	# The block keeps its shape: a row with nothing is an em dash, not a missing row.
+	dock.set_proposal_field("project", "")
+	assert(String(ProposalScript.title_rows(dock.proposal_fields())[0]["value"]) != "Riverbend",
+		"clearing a field empties the row rather than removing it")
+	dock.free()
+
+
+func test_a_preview_lays_a_still_out_on_the_page() -> void:
+	var dock := _dock()
+	var still := Image.create(800, 600, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.2, 0.4, 0.2))
+	var page: Image = dock.preview_proposal(still)
+	assert(page != null, "a page was laid out")
+	assert(page == dock.last_page, "and it is kept where a test can look at it")
+	assert(page.get_width() > 0 and page.get_height() > 0, "at a real size: %s" % page.get_size())
+	assert(dock.last_words.contains("sheet"), "and the dock describes it: %s" % dock.last_words)
+	assert(dock.last_words.contains("picture"), "with the picture placed: %s" % dock.last_words)
+	dock.free()
+
+
+func test_a_preview_with_no_still_is_an_empty_sheet_and_not_a_refusal() -> void:
+	var dock := _dock()
+	var page: Image = dock.preview_proposal()
+	assert(page != null, "the sheet is still drawn")
+	assert(dock.last_words.contains("no picture placed"), "and it says the picture is missing: %s" % dock.last_words)
+	dock.free()
+
+
+func test_the_still_is_read_from_the_path_field() -> void:
+	var dock := _dock()
+	assert(dock.load_still() == null, "an empty field is no still")
+	dock.set_proposal_still("user://no_such_still_here.png")
+	assert(dock.load_still() == null, "a path with no file is no still")
+	assert(dock.last_words.contains("no file"), "and it says which: %s" % dock.last_words)
+	var still := Image.create(64, 48, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.1, 0.1, 0.1))
+	assert(still.save_png("user://dock_proposal_still.png") == OK, "the fixture was written")
+	dock.set_proposal_still("user://dock_proposal_still.png")
+	var read: Image = dock.load_still()
+	assert(read != null, "the file was read")
+	assert(read.get_size() == Vector2i(64, 48), "at its own size: %s" % read.get_size())
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal_still.png"))
+	dock.free()
+
+
+func test_writing_the_pdf_needs_a_path_and_a_still() -> void:
+	var dock := _dock()
+	assert(not bool(dock.write_proposal("")["ok"]), "no path, no file")
+	assert(dock.last_words.contains("file to be written"), "and it says so: %s" % dock.last_words)
+	assert(not bool(dock.write_proposal("user://dock_proposal.pdf")["ok"]), "a page with no still is refused")
+	assert(dock.last_words.contains("no still was placed"), "in words: %s" % dock.last_words)
+	var still := Image.create(400, 300, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.3, 0.3, 0.5))
+	assert(still.save_png("user://dock_proposal_still.png") == OK)
+	dock.set_proposal_still("user://dock_proposal_still.png")
+	var written: Dictionary = dock.write_proposal("user://dock_proposal.pdf")
+	assert(bool(written["ok"]), "the page was written: %s" % written)
+	assert(int(written["bytes"]) > 0, "and it has bytes")
+	var file := FileAccess.open("user://dock_proposal.pdf", FileAccess.READ)
+	assert(file != null, "the file is there")
+	assert(file.get_buffer(4).get_string_from_ascii() == "%PDF", "and it is a PDF")
+	file.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal_still.png"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal.pdf"))
+	dock.free()
+
+
+func test_the_paper_and_the_turn_change_the_page() -> void:
+	var dock := _dock()
+	var picker: OptionButton = dock.find_child("Paper", true, false)
+	var portrait: CheckBox = dock.find_child("Portrait", true, false)
+	assert(dock.proposal_paper_mm() == Vector2(420.0, 297.0), "A3 landscape to start")
+	portrait.button_pressed = true
+	assert(dock.proposal_paper_mm() == Vector2(297.0, 420.0), "the turn swaps it: %s" % dock.proposal_paper_mm())
+	var a3: int = PlotScript.sheet_names().find("A3")
+	picker.selected = (a3 - 1) if a3 > 0 else a3
+	assert(dock.proposal_paper_mm() != Vector2(297.0, 420.0), "another sheet is another page: %s" % dock.proposal_paper_mm())
 	dock.free()

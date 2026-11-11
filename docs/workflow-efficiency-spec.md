@@ -364,7 +364,7 @@ takeoff's first job is to generalise that to every layer.
 ## 8. One box for the whole bar - BUILT
 
 `scripts/command_palette.gd` (`CommandPalette`) and the HUD's join in `scripts/hud.gd`. Held
-down by `tests/test_command_palette.gd` (19 tests) and `tests/test_hud_palette.gd` (19 tests),
+down by `tests/test_command_palette.gd` (23 tests) and `tests/test_hud_palette.gd` (24 tests),
 and looked at live by `tools/palette_demo.gd`.
 
 The problem it answers is not "I cannot find the command" but "I know its name and not its
@@ -434,6 +434,154 @@ photograph, the consultant's concept.
   turn it already has records nothing. Taking a picture off leaves its copy where it is, because undo
   has to be able to put it back.
 
+
+## 8c. The front door, and two halves that are not modes - BUILT
+
+The program opens on a page offering exactly two things: the drawing board, and the camera. It is a
+page like every other one - a `Window` through `PageChrome`, so it is in `PageIndex`, measured by
+`PageLayout` and pointed at a manual subject by `PageHelp` - and not a mode. Choosing the drawing
+board puts the door away and stands the begin-a-drawing page (§8e) in its place, so what a person is asked first is how the drawing should start; choosing the
+camera opens `CameraWindow` *over* the door rather than instead of it, so a run of photographs does
+not mean coming back through the door once per picture. The camera is one page either way, and the
+arithmetic behind it is one module either way: there is no second camera and nothing to keep in step.
+
+What decides whether the door is shown is `StartChoices.should_show(drawing_path, dirty)`: shown when
+there is nothing behind it. That is the state every launch begins in, so the door comes up every
+time, and it is also what will keep the door out of the way the day a launch restores a drawing - a
+question whose answer is already known is a question that should not be asked. No preference is
+stored and no "do not ask again" is offered: a front door that can be switched off for good is a
+front door that can then not be found at all.
+
+Both halves already existed. What was missing was the camera's own door *inside* the drawing. The
+field survey reaches it (Site > Record what is on site..., which needs a drawing), and that is the
+right depth for a photograph that belongs to a plant being recorded and the wrong one for somebody
+standing at a leaf with a phone in their hand. `Site > Take a photograph...` is the same camera, is
+reachable from the front door as well, and answers by *not* needing anything.
+
+Two faults were found by driving the door rather than by reading it, and neither would have been
+caught by a test that only pressed buttons and looked at the page: the drawing-board choice emitted
+its signal and never put the page away (the button worked; the screen did not change), and
+`CameraWindow` had no `request_close()`, so the HUD's own close call was calling a method ten other
+pages have and this one did not. `tools/start_door_demo.gd` holds both down, because nothing outside
+an embedded `Window` can click inside one: a page is driven by the signals its own buttons emit, from
+a tool that has instanced the game.
+
+The launch experience changed, and the sentence in the manual that says what the program opens on
+changed with it. That is the same sentence that was wrong once before, when it described a view the
+program did not open on - which is the reason it is edited in the same commit as the page and not
+afterwards.
+
+**The screen the door stands on.** The door was right and the opening was still wrong. It stood as it
+was meant to - and so did the whole drawing board behind it: a furnished yard with a house and its
+trees, the tool palette, three panels of readings, the menu bar. A person arriving to photograph a leaf
+was shown a garden nobody had loaded and a set of drawing tools they had not asked for, and the honest
+reading of that screen is "the example garden is loaded".
+
+So the door has a screen of its own. `StartChoices.SCREEN` states what it is filled with, and the HUD
+builds one `StartBackdrop` rectangle from it: full-rect, above the docked panels and the menu bar, shown
+exactly while the door is shown and hidden the moment the door goes. A launch is now the choice and
+nothing else, and taking Design reveals a drawing board that was standing there all along, with the begin-a-drawing page over it - the sheet staying with the
+whole doorway, and not going with the door alone, is what makes that true rather than merely tidy.
+
+Opaque is the property worth holding and the one the test holds: a sheet with any transparency in it is
+the garden showing through it again. `tools/start_door_demo.gd` measures the sheet against the window
+for the same reason - a door that lost its screen would otherwise be a door this tool assumed was fine.
+
+## 8d. An example to start from - BUILT
+
+File > Examples > The example garden lays a small backyard out on a fresh drawing: the site, a house, a
+patio, a path, four beds, two specimen trees, one dimension across the front and a label saying what it
+is. It is a *plan*, made of the same `DraftEntity` shapes the drawing tools make and added through the
+same `document.add` a committed rectangle goes through - so it arrives in one named gesture (one undo
+takes it back), lands on the drafting layer, and can then be moved, measured, planted, priced, saved,
+plotted and thrown away like anything else.
+
+The shapes live in `ExampleGarden.parts()`: what the example *is*, as a static function with no
+document, no scene and no file, which is what a test can hold. `DraftController.draw_the_example()` is
+the join, and it is on the controller because `dirty`, the snapping index and the canvas are the
+controller's - the HUD guards the call the way it guards New, and asks about unsaved work in the same
+one place.
+
+**Why an example is drawn rather than shipped as a file.** The garden the program opens onto - the
+lawn, the house, the patio, the trees - is a 3D scene (`scenes/world/yard.tscn`) and not a drawing:
+`File > New drawing` empties the drawing, so the plan a person can actually work on starts blank while
+the ground outside the window is furnished. A `.json` example would be a second copy of a garden the
+project already has, and this project spends its effort on not having two of anything. What is here is
+a small layout of its own - deliberately *not* a measurement of the yard, whose sizes live in its meshes
+rather than in a number anybody stated - and the file says so in as many words.
+
+**It is never loaded for you.** The example only arrives when somebody picks it from the menu. An
+opening that puts a garden of somebody else's making in front of a person before they have asked for
+one is an opening that has already made a decision, and the front door exists so that the program
+makes none: two ways in, the design suite and the camera, and an empty drawing behind either of them.
+`tools/start_door_demo.gd` counts the shapes on the drawing the moment the program starts and expects
+zero, so the day something begins arriving on its own, the door demo says so out loud rather than the
+change passing unnoticed.
+
+Two facts came out of building it. `document.add(entity, layer_name)` puts an entity whose layer is
+absent onto the **default drafting layer** rather than making it invisible, so an example needs no layer
+names at all. And the manual has a ceiling: adding the front door's paragraphs to "What this program
+is" pushed that subject to 3,261 characters, and `test_no_subject_is_a_wall_of_prose` failed -
+correctly, and in the same run as the feature that grew it. The front-door material moved to a subject
+of its own, "Where you start: the front door", which is where a person looking for it would look.
+
+## 8e. Asking how a drawing begins - BUILT
+
+The front door's drawing-board choice no longer drops a person straight onto a blank sheet. It opens a
+second page, `scripts/start_drawing_window.gd` (`StartDrawingWindow`), over the same opaque sheet, offering
+exactly four ways to begin: a new drawing, a drawing saved earlier, one this program has opened recently,
+and the example garden. The page is a `Window` through `PageChrome` like every other one, built once by the
+HUD and kept, and it is the *doorway* rather than the board: closing it reveals the drawing that was
+standing behind it all along.
+
+The four ways are the File menu's own commands - `new`, `open`, the recent list's entry and `example` - so
+taking one here and taking it from the menu are one action and not two that can drift apart: the page
+answers with the File menu's id, and the HUD runs the same handler the menu entry runs. The ways, their
+wording and the refusal live in `scripts/start_drawing.gd` (`StartDrawing`, all static): `WAYS`, `ids()`,
+`way(id)` and `recent_rows`, which turns the store's remembered paths into the named rows the page shows.
+A drawing with no recent list is answered in words - "No drawings have been saved yet, so there are none to
+come back to" - rather than with an empty list or a count of zero, the rule every other page here keeps.
+
+The recent list is shown *inside* the page rather than handed off to a submenu: the recent way reveals one
+button per remembered drawing, each opening the file it names. The store already drops a remembered drawing
+the moment it stops existing, so every row is a drawing that is there.
+
+The sheet the door stands on stays up for both pages, because both stand over the drawing board: the front
+door asks which half of the program, and this page asks what the drawing starts as, and neither should show
+the furnished board behind it. `tools/start_door_demo.gd` drives the whole sequence - the door, the begin
+page, taking a way - and measures the sheet up and then gone.
+
+## 8f. A blank page, and the site you can put back - BUILT
+
+A new drawing is a **blank page**. The garden this program ships with - `scenes/world/yard.tscn`, a house,
+a lawn, paving, a fence and its planting - is one fixed example rather than something anybody drew, and it
+used to stand behind every drawing: `File > New drawing` emptied the drawing while the furnished yard
+stayed in view, so a person who had just asked for a new sheet reasonably read the garden as "an example
+somebody loaded". That is what it was, and it was not asked for.
+
+So the yard's parts are sorted into **scenery** and **ground** in one place, `scripts/site_scenery.gd`
+(`SiteScenery`): the house, paving, bird bath, distant trees and fence are scenery and are put away; the
+terrain, its collision, the lawn and the fence barrier are ground and are kept. Keeping the ground is the
+whole point of the split - a blank *page* must not be a void one has to stand in, and the ground view has
+to be somewhere. `is_known` holds every top-level part of the yard to one of the three (scenery, ground,
+planting), and `tests/test_site_scenery.gd` reads the real scene, so a prop added to `yard.tscn` and
+forgotten here fails the suite rather than showing through a blank page.
+
+`ViewController` owns the answer: `site_shown` begins **false**, and `set_site_shown(shown)` hides or shows
+the scenery and the planting the yard arrived with, then tells `PlanCanvas`. The planting is snapshotted at
+startup rather than named, because the yard's own plants and the designer's live in the one `Plants`
+subtree and only *when* a plant appeared tells them apart: hiding nodes rather than telling the canvas what
+to skip is what lets a plant placed later still be drawn on a blank page. `PlanCanvas` gained two things
+for it - `_collect` skips a node that is not visible, and `site_shown` gates the yard's own flat shapes and
+its fence - so the ground can stay standing in the 3D views while the page stays white.
+
+Nothing brings the garden back on its own. `View > Show the site` is the one door, and loading the example
+garden turns it on, because the example *is* that garden - asking for the backyard the program opens onto
+and getting it with its own house put away would be a strange answer.
+
+Verified live: after `Design the garden` > `New drawing` the board is a blank 2D plan with nothing behind
+it, and the example garden lays the yard back under the plan. `tools/start_door_demo.gd` still measures the
+drawing as empty, which is the count that says the page is blank rather than that the garden merely quieted.
 
 ## 9. What I would build next, in this order
 

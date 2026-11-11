@@ -43,21 +43,25 @@ const ICON_SIZE := 26
 const LIST_HEIGHT := 110
 
 
-var _header: HBoxContainer = null
+## The panel's rows are flow containers rather than boxes: a row's minimum width is then its widest single
+## control, not the sum of them all, so a phone wraps a row onto a second line instead of widening the panel
+## out from under the drawing. Typed `Container` rather than the one kind, because that is all this panel asks
+## of them - it adds children and lets the row arrange them.
+var _header: Container = null
 var _library_button: Button = null
-var _tag_row: HBoxContainer = null
+var _tag_row: Container = null
 var _tag_option: OptionButton = null
 var _list: ItemList = null
 var _status: Label = null
-var _actions: HBoxContainer = null
+var _actions: Container = null
 var _place_button: Button = null
 var _stop_button: Button = null
 ## Filling a bed rather than planting it a click at a time: how far apart, how the rows are set, and
 ## which bed of the drawing.
-var _fill_row: HBoxContainer = null
+var _fill_row: Container = null
 var _spacing_option: OptionButton = null
 var _arrangement_option: OptionButton = null
-var _bed_row: HBoxContainer = null
+var _bed_row: Container = null
 var _bed_option: OptionButton = null
 var _fill_button: Button = null
 ## The beds the drawing encloses, in the rows `PlantSpacing.bed_areas` returns them, and the key of the
@@ -94,7 +98,7 @@ func build(library_words: String = "Library...") -> void:
 	add_theme_constant_override("separation", 5)
 	add_child(HSeparator.new())
 
-	_header = HBoxContainer.new()
+	_header = HFlowContainer.new()
 	_header.name = "Header"
 	add_child(_header)
 	var caption := Label.new()
@@ -111,7 +115,7 @@ func build(library_words: String = "Library...") -> void:
 	_library_button.pressed.connect(func() -> void: library_requested.emit())
 	_header.add_child(_library_button)
 
-	_tag_row = HBoxContainer.new()
+	_tag_row = HFlowContainer.new()
 	_tag_row.name = "TagRow"
 	add_child(_tag_row)
 	var tag_caption := Label.new()
@@ -149,7 +153,7 @@ func build(library_words: String = "Library...") -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_status)
 
-	_actions = HBoxContainer.new()
+	_actions = HFlowContainer.new()
 	_actions.name = "Actions"
 	add_child(_actions)
 	_place_button = _action_button(_actions, "Place", false)
@@ -174,7 +178,7 @@ func build(library_words: String = "Library...") -> void:
 ## palette may not have, and the one thing a fill does not need. Every control is `FOCUS_NONE` like the
 ## rest of the panel, because the number keys and the arrow keys belong to the drawing.
 func _build_fill_rows() -> void:
-	_fill_row = HBoxContainer.new()
+	_fill_row = HFlowContainer.new()
 	_fill_row.name = "FillRow"
 	add_child(_fill_row)
 	var spacing_caption := Label.new()
@@ -214,7 +218,7 @@ func _build_fill_rows() -> void:
 	# grid of paving, which is a different job.
 	_arrangement_option.selected = SpacingScript.ARRANGEMENTS.find(SpacingScript.TRIANGULAR)
 
-	_bed_row = HBoxContainer.new()
+	_bed_row = HFlowContainer.new()
 	_bed_row.name = "BedRow"
 	add_child(_bed_row)
 	var bed_caption := Label.new()
@@ -241,7 +245,7 @@ func _build_fill_rows() -> void:
 
 ## One of the two buttons under the list. Named rather than numbered, so a test can find it and so
 ## the focus rule is applied in one place rather than remembered twice.
-func _action_button(row: HBoxContainer, words: String, secondary: bool) -> Button:
+func _action_button(row: Container, words: String, secondary: bool) -> Button:
 	var button := Button.new()
 	button.name = words + "Button"
 	button.text = words

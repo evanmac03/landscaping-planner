@@ -112,8 +112,24 @@ func test_building_the_outbox_page_gives_the_menu_something_to_open() -> void:
 	assert(hud._ledger_window.desk == hud._ledger_desk)
 	# Built but not shown is not open: a page nobody has opened is not on the screen.
 	assert(not hud.is_ledger_window_open())
-	assert(hud._ledger_window.get_node_or_null(^"Column/Rows") != null)
-	assert(hud._ledger_window.get_node_or_null(^"Column/BackendRow/BackendOption") != null)
+	assert(hud._ledger_window.get_node_or_null(^"Scroll/Column/Rows") != null)
+	assert(hud._ledger_window.get_node_or_null(^"Scroll/Column/BackendRow/BackendOption") != null)
+	hud.free()
+
+
+func test_the_outbox_page_offers_every_registered_backend() -> void:
+	# The desk starts with the file backend and is handed the two hosted ledgers, so the office has a
+	# page on which to state a hosted ledger's address and token. Until it does, the backend says it
+	# needs configuring and nothing is posted to it.
+	var hud: HudScript = HudScript.new()
+	hud._job_desk = JobDeskScript.new()
+	hud._build_ledger_desk()
+	var expected: Array[String] = ["file", "akaunting", "invoice_ninja"]
+	assert(hud._ledger_desk.adapter_names() == expected, str(hud._ledger_desk.adapter_names()))
+	hud._build_ledger_window()
+	var picker: OptionButton = hud._ledger_window.get_node(^"Scroll/Column/BackendRow/BackendOption")
+	assert(picker.item_count == 3, str(picker.item_count))
+	assert(hud._ledger_window.selected_backend() == "file")
 	hud.free()
 
 

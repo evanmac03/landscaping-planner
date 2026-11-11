@@ -295,6 +295,55 @@ func test_every_drawing_tool_and_edit_the_program_has_is_named_in_the_manual() -
 		assert(_has_word(editing, String(pair[1])), "the manual names the %s edit" % pair[1])
 
 
+## Every picture a subject is shown with is a file that is there.
+##
+## The quietest defect the manual can have: a picture that fails to load leaves a page that still reads,
+## with prose that is still true, and the only symptom is a page less helpful than it was meant to be. So
+## the fact worth holding is that the file exists - and that the subject it is filed under is really a
+## subject, because a picture under a name nobody has is a picture nobody will ever be shown.
+func test_every_picture_the_manual_shows_is_a_file_that_is_there() -> void:
+	var shots := 0
+	for subject: Variant in HelpDocScript.PICTURES:
+		var title := String(subject)
+		assert(
+			HelpDocScript.SUBJECTS.has(title),
+			"\"%s\" is not a subject, so its picture is never shown to anybody" % title
+		)
+		var names: Array = HelpDocScript.PICTURES[subject]
+		assert(not names.is_empty(), "\"%s\" is listed with no picture at all" % title)
+		for name: Variant in names:
+			var path := HelpDocScript.picture_path(String(name))
+			assert(
+				FileAccess.file_exists(path),
+				"\"%s\" is shown %s, which is not there: take it with tools/help_shot.gd" % [title, path]
+			)
+			shots += 1
+	# A floor, so a table someone emptied fails rather than passing without looking at anything.
+	assert(shots >= 6, "the manual is shown %d pictures" % shots)
+
+
+## And they travel on the topic, resolved to paths, so the page shows what it was handed and never needs
+## to know where the manual keeps its pictures.
+func test_the_pictures_reach_the_topic_the_page_is_handed() -> void:
+	var seen := 0
+	for topic: Dictionary in HelpDocScript.topics():
+		var carried: Array = topic.get("pictures", [])
+		var filed: Array = HelpDocScript.PICTURES.get(String(topic["title"]), [])
+		assert(
+			carried.size() == filed.size(),
+			"\"%s\" carries %d pictures and is filed with %d" % [
+				topic["title"], carried.size(), filed.size()
+			]
+		)
+		seen += carried.size()
+		for path: Variant in carried:
+			assert(
+				String(path).begins_with(HelpDocScript.PICTURE_DIR),
+				"a picture arrives as a path in the manual's own folder: %s" % path
+			)
+	assert(seen > 0, "some subject is shown a picture")
+
+
 ## The body of the one topic whose title contains `part`, or "" when there is none. Looked up by a
 ## stable part of the title rather than the whole of it, so rewording a title - dropping a count from
 ## it, say - does not quietly turn this guard into a test of an empty string.

@@ -94,31 +94,31 @@ func test_a_page_with_no_ledger_is_empty_rather_than_broken() -> void:
 
 func test_the_page_has_the_controls_a_program_of_this_kind_has() -> void:
 	var page := _page()
-	assert(page.get_node_or_null(NodePath("Column/Summary")) != null)
-	assert(page.get_node_or_null(NodePath("Column/JobRow/JobOption")) != null)
-	assert(page.get_node_or_null(NodePath("Column/JobRow/Startbillingit")) != null)
-	assert(page.get_node_or_null(NodePath("Column/StepRow/StepName")) != null)
-	assert(page.get_node_or_null(NodePath("Column/StepRow/StepShare")) != null)
-	assert(page.get_node_or_null(NodePath("Column/StepRow/StepRetainage")) != null)
-	assert(page.get_node_or_null(NodePath("Column/StepRow/Addthestep")) != null)
-	assert(page.get_node_or_null(NodePath("Column/Schedule")) != null)
-	assert(page.get_node_or_null(NodePath("Column/MeasureRow/Percent")) != null)
-	assert(page.get_node_or_null(NodePath("Column/MeasureRow/BasisOption")) != null)
-	assert(page.get_node_or_null(NodePath("Column/TermsRow/TaxOption")) != null)
-	assert(page.get_node_or_null(NodePath("Column/TermsRow/Terms")) != null)
-	assert(page.get_node_or_null(NodePath("Column/AmountDue")) != null)
-	assert(page.get_node_or_null(NodePath("Column/RaiseRow/Raisetheinvoice")) != null)
-	assert(page.get_node_or_null(NodePath("Column/InvoiceRow/InvoiceOption")) != null)
-	assert(page.get_node_or_null(NodePath("Column/Invoices")) != null)
-	assert(page.get_node_or_null(NodePath("Column/PaymentRow/Payment")) != null)
-	assert(page.get_node_or_null(NodePath("Column/PaymentRow/MethodOption")) != null)
-	assert(page.get_node_or_null(NodePath("Column/PaymentRow/Recordit")) != null)
-	assert(page.get_node_or_null(NodePath("Column/Payments")) != null)
-	assert(page.get_node_or_null(NodePath("Column/VoidRow/Why")) != null)
-	assert(page.get_node_or_null(NodePath("Column/VoidRow/Printtheinvoice")) != null)
-	assert(page.get_node_or_null(NodePath("Column/VoidRow/Callitback")) != null)
-	assert(page.get_node_or_null(NodePath("Column/Problems")) != null)
-	assert(page.get_node_or_null(NodePath("Column/Status")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Summary")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/JobRow/JobOption")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/JobRow/Startbillingit")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/StepRow/StepName")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/StepRow/StepShare")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/StepRow/StepRetainage")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/StepRow/Addthestep")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/MeasureRow/Percent")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/MeasureRow/BasisOption")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/TermsRow/TaxOption")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/TermsRow/Terms")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/AmountDue")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/RaiseRow/Raisetheinvoice")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/InvoiceRow/InvoiceOption")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Invoices")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/PaymentRow/Payment")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/PaymentRow/MethodOption")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/PaymentRow/Recordit")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Payments")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/VoidRow/Why")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/VoidRow/Printtheinvoice")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/VoidRow/Callitback")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Problems")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Status")) != null)
 	page.free()
 
 
@@ -141,9 +141,11 @@ func test_the_page_opens_saying_what_to_do_with_it() -> void:
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_a_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 	var page := _page()
-	assert(page.buttons_are_focus_free(), "the typed fields are the only things allowed the keyboard")
+	# At build time the typed fields are the only things that hold one; when the page is *shown* the
+	# shared show gives its controls the keyboard too, because the page holds it while it is up.
+	assert(page.buttons_are_focus_free(), "at build time, before anything shows the page")
 	page.free()
 
 
@@ -169,7 +171,27 @@ func test_a_step_is_added_through_the_page() -> void:
 	assert(page.schedule_texts().size() == 1, str(page.schedule_texts()))
 	assert(page.schedule_texts()[0].contains("Deposit"), page.schedule_texts()[0])
 	assert(page.schedule_texts()[0].contains("$3,000.00"), page.schedule_texts()[0])
-	assert(page.get_node_or_null(NodePath("Column/Schedule/Step0")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step0")) != null)
+	page.free()
+
+
+## A row the page builds **while it is open** is reachable too. The shared show gave the page its
+## keyboard when it was opened, before this row existed, so the rebuild is what gives the new controls
+## theirs - and the page does that only while it is up, because for a page that is down the show is the
+## one place that decides it.
+func test_a_row_built_while_the_page_is_open_is_reachable() -> void:
+	var page := _page()
+	add_child(page)
+	page.show()
+	page.set_step_fields("Deposit", "25")
+	var added: Dictionary = page.add_step()
+	assert(added["ok"] == true, String(added["reason"]))
+	var step: Node = page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step0"))
+	assert(step != null, "the row was built")
+	var buttons: Array[Node] = step.find_children("*", "Button", true, false)
+	assert(buttons.size() >= 1, "with the button that bills it")
+	for found: Node in buttons:
+		assert((found as Control).focus_mode == Control.FOCUS_ALL, "and it can be reached with Tab")
 	page.free()
 
 
@@ -205,11 +227,11 @@ func test_a_retainage_on_a_step_reaches_the_invoice_through_the_page() -> void:
 
 func test_the_schedule_says_what_a_job_that_cannot_bill_anything_is_missing() -> void:
 	var page := _page()
-	assert(page.get_node_or_null(NodePath("Column/Schedule/NoSteps")) != null)
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/NoSteps")) != null)
 	var blank := _page()
 	blank.bind(_ledger(JobScript.MILESTONE, false))
 	blank.refresh()
-	var page_text: String = (blank.get_node(NodePath("Column/Schedule/NoSteps")) as Label).text
+	var page_text: String = (blank.get_node(NodePath("Scroll/Column/Schedule/NoSteps")) as Label).text
 	assert(page_text.contains("not being billed yet"), page_text)
 	page.free()
 	blank.free()
@@ -218,9 +240,9 @@ func test_the_schedule_says_what_a_job_that_cannot_bill_anything_is_missing() ->
 func test_the_schedule_bills_the_step_the_schedule_would_bill_next() -> void:
 	var page := _page()
 	_full_schedule(page)
-	assert(page.get_node_or_null(NodePath("Column/Schedule/Step0/Billit")) != null,
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step0/Billit")) != null,
 		"the next step carries the button")
-	assert(page.get_node_or_null(NodePath("Column/Schedule/Step1/Billit")) == null,
+	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step1/Billit")) == null,
 		"and the one after it does not")
 	page.free()
 
@@ -434,7 +456,7 @@ func test_the_problems_the_page_shows_are_the_desks_own() -> void:
 	page.refresh()
 	assert(page.problem_texts().size() == 1, str(page.problem_texts()))
 	assert(page.problem_texts()[0].contains("claimed by no step"), page.problem_texts()[0])
-	var listed: ItemList = page.get_node(NodePath("Column/Problems"))
+	var listed: ItemList = page.get_node(NodePath("Scroll/Column/Problems"))
 	assert(listed.item_count == 1, str(listed.item_count))
 	assert(listed.is_item_disabled(0), "a problem is a thing to read, not a thing to choose")
 	page.free()
@@ -442,6 +464,6 @@ func test_the_problems_the_page_shows_are_the_desks_own() -> void:
 
 func test_an_empty_schedule_says_what_is_missing_rather_than_reading_as_nothing_to_bill() -> void:
 	var page := _page()
-	var empty: Label = page.get_node(NodePath("Column/Schedule/NoSteps"))
+	var empty: Label = page.get_node(NodePath("Scroll/Column/Schedule/NoSteps"))
 	assert(empty.text.contains("with no milestones"), empty.text)
 	page.free()

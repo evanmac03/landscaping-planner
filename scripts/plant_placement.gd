@@ -27,7 +27,12 @@ const PLANTS := "Plants"
 ## screen.
 const SPECIES_META := &"species"
 const HEIGHT_META := &"height_cm"
+## The spread the node is *drawn* at, which is the catalogue's own mature spread unless somebody
+## measured the plant on site. A plan symbol and the 3D prop both read it, so the two cannot disagree.
 const SPREAD_META := &"spread_cm"
+## Where the size above came from: "stated" when it was measured, "catalogue" when the list's own mature
+## size is all there is. The **words** come from `FieldCapture`, which is the one place that decides.
+const SIZE_SOURCE_META := &"size_source"
 
 
 ## The yard's `Plants` node, made if the yard does not have one yet. Returns null only when given
@@ -49,8 +54,16 @@ static func plants_node(yard: Node) -> Node3D:
 ## Returns `{ok, reason, node, scale, species}`. Refusals name what is missing rather than planting
 ## nothing and saying nothing: a species whose scene is not on disk would otherwise be a click that
 ## does nothing at all.
+##
+## `size` is what somebody measured, when somebody measured something: `{"spread_cm": int,
+## "height_cm": int, "source": String}`. A plant that was measured is planted at the size it was
+## measured at - the arithmetic is the species' own `planting_scale` with the measured spread where the
+## catalogue's would have been, so there is still one way this program works out how big a plant is
+## drawn - and the node says where its size came from. An empty dictionary means the catalogue's own
+## mature size, which is what every caller did before there was any other answer.
 static func place(
-	catalogue: PlantCatalogue, species_id: StringName, yard: Node, at: Vector3
+	catalogue: PlantCatalogue, species_id: StringName, yard: Node, at: Vector3,
+	size: Dictionary = {}
 ) -> Dictionary:
 	if catalogue == null:
 		return _refuse("there is no plant list open")
@@ -81,7 +94,13 @@ static func place(
 	var instanced_path: String = node.scene_file_path
 	var form_spec: Dictionary = PlanStyleScript.spec_for(instanced_path)
 	var base_size: float = float((form_spec["size"] as Vector2).x)
+	var measured_spread_cm: int = int(size.get("spread_cm", 0))
+	var measured_height_cm: int = int(size.get("height_cm", 0))
 	var planting_scale: float = species.planting_scale(base_size)
+	if measured_spread_cm > 0 and base_size > 0.0:
+		# The species' own ratio with the measured spread in it: 1.2 m of thyme drawn as a prop whose
+		# footprint is 0.6 m is 2.0, exactly as the catalogue's 0.6 m would have been 1.0.
+		planting_scale = float(measured_spread_cm) / 100.0 / base_size
 
 	# Out of the tree while it is being set up: an instance is not a design object until it is in
 	# the yard, and adding it first would let the group and the transform arrive in either order.
@@ -89,8 +108,9 @@ static func place(
 	node.position = Vector3(at.x, at.y, at.z)
 	node.scale = Vector3.ONE * planting_scale
 	node.set_meta(SPECIES_META, String(species_id))
-	node.set_meta(HEIGHT_META, species.height_cm)
-	node.set_meta(SPREAD_META, species.spread_cm)
+	node.set_meta(HEIGHT_META, measured_height_cm if measured_height_cm > 0 else species.height_cm)
+	node.set_meta(SPREAD_META, measured_spread_cm if measured_spread_cm > 0 else species.spread_cm)
+	node.set_meta(SIZE_SOURCE_META, String(size.get("source", "catalogue")))
 	# The symbol the plan draws it as, worked out here because this is the one place the species and
 	# the node are both in hand: the plan reads a *node*, not a catalogue, so a plant must carry its
 	# own symbol the way it carries its species. A spruce is a conifer rather than the maple's canopy,

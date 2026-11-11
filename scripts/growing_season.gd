@@ -165,24 +165,10 @@ static func _finding(
 	}
 
 
-## The worst outcome among the findings, which is the verdict. The same ordering rule as
-## `PlantSuitability`: something against the crop outranks a gap, and a gap outranks a thin margin.
+## The worst outcome among the findings, which is the verdict. Asked of `PlantSuitability` rather than
+## carried here: one ordering rule, so a red ring and a red row cannot come to different verdicts.
 static func _worst(findings: Array[Dictionary]) -> int:
-	var seen_unknown := false
-	var seen_tolerated := false
-	for finding: Dictionary in findings:
-		var outcome: int = int(finding.get("outcome", UNKNOWN))
-		if outcome == UNSUITABLE:
-			return UNSUITABLE
-		if outcome == UNKNOWN:
-			seen_unknown = true
-		elif outcome == TOLERATED:
-			seen_tolerated = true
-	if seen_unknown:
-		return UNKNOWN
-	if seen_tolerated:
-		return TOLERATED
-	return GOOD
+	return PlantSuitabilityScript.worst_of(findings)
 
 
 static func _result(

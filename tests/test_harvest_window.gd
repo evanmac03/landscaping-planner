@@ -43,7 +43,7 @@ func _page() -> HarvestWindow:
 # --- building -------------------------------------------------------------------------------
 
 
-func test_the_page_builds_its_controls_and_takes_no_keyboard() -> void:
+func test_the_page_builds_its_controls_without_a_keyboard_of_their_own() -> void:
 	var page: HarvestWindow = HarvestWindowScript.new()
 	page.build()
 	assert(page.get_node_or_null("Column/MonthRow/Month") is OptionButton, "a month to choose")
