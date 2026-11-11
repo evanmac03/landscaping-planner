@@ -24,7 +24,11 @@ const CaptureScript := preload("res://scripts/field_capture.gd")
 const LlmScript := preload("res://scripts/plant_id_llm.gd")
 
 const LIST := "res://data/plants/nursery_list.json"
-## A photograph of one small boxwood in a bed of mulch, which the nursery list knows as "boxwood".
+## A photograph of one small boxwood in a bed of mulch. The model reads it as `Buxus microphylla`, which is
+## **not** what this list stocks - the list carries `Buxus sempervirens`, "Common boxwood" - so this
+## photograph comes back `not_in_catalogue`. What makes it worth reading anyway is the candidate behind
+## the name: `Buxus sempervirens` at 0.8, which **is** a species here. That is the shortlist a refusal
+## carries, and it is the reason a refusal is not a dead end.
 const PHOTOGRAPH := "res://assets/generated/boxwood_reading_test.png"
 ## The vision model this machine actually has. The program's own offer is `llava:7b`, which is what the
 ## first reading is for.
