@@ -20,6 +20,32 @@ const KINDS: Array[StringName] = [
 ]
 
 
+## The Present menu carries the panel's own row, because on a phone the panel is over a third of the
+## width with its last rows cut off - and it is the one place latitude, longitude and the zone are
+## edited, so putting it away may not be putting it away for good.
+func test_the_present_menu_carries_the_panels_own_row() -> void:
+	var row: Dictionary = {}
+	for entry: Dictionary in HudScript.present_items():
+		if StringName(entry.get("id", &"")) == &"present.panel":
+			row = entry
+	assert(not row.is_empty(), "the Present menu offers the presentation panel")
+	assert(StringName(row["kind"]) == &"check", "as something that is on or off")
+	assert(StringName(row["state"]) == &"presentation_panel", "standing for the panel's own state")
+	assert(StringName(row["method"]) == &"_menu_presentation_panel", "run by the panel's own toggle")
+
+
+## The tick is read from the snapshot every menu refresh is drawn from, so the row cannot come to say
+## the panel is on while the panel is off - and the panel's own door agrees with the same snapshot.
+func test_the_panel_row_is_ticked_from_the_snapshot() -> void:
+	var hud: Node = HudScript.new()
+	assert(hud.menu_world().has("presentation_panel"), "the snapshot carries the panel's state")
+	assert(bool(hud.menu_world()["presentation_panel"]), "on, when nobody has put it away")
+	hud.set_presentation_panel_wanted(false)
+	assert(not hud.is_presentation_panel_wanted(), "the panel's door says it was put away")
+	assert(not bool(hud.menu_world()["presentation_panel"]), "and the snapshot the tick reads says so too")
+	hud.free()
+
+
 ## The entry with an id, or a failure that names it: an entry that has been renamed should break
 ## the test that was about it rather than quietly testing nothing.
 func _entry(id: StringName) -> Dictionary:

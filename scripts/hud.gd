@@ -301,6 +301,11 @@ var _presentation_state: String = ""
 ## Whether a client presentation is running. Held here because the HUD is what
 ## decides which of its own furniture belongs in a presentation.
 var _presenting: bool = false
+## Whether the presentation panel is wanted on the screen. Held here rather than read from the node
+## because a person can put it away, and the panel is otherwise on whenever the scene has a director.
+## On a phone it is over a third of the width and its last rows are cut off, but it is the one place
+## latitude, longitude and the zone are edited - so it must be reachable again, not gone for good.
+var _presentation_panel_wanted: bool = true
 
 ## The painted plan on screen, held rather than rendered again when it is saved:
 ## looking at the picture and filing it are two decisions, and the second one should
@@ -2693,6 +2698,12 @@ static func tool_label(pair: Array) -> String:
 ## The client presentation: what it is rendered at, how the garden is framed, and the sun.
 static func present_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
+	# First, because everything else in this menu is a control on the panel: a person whose phone has
+	# cut the panel's last rows off needs the row that gives the panel back, and it is ticked when the
+	# panel is on - which is the state it starts in whenever the scene has a director.
+	items.append(_check(
+		&"present.panel", "Presentation panel", &"", &"_menu_presentation_panel", &"presentation_panel"
+	))
 	items.append(_check(&"present.running", "Client presentation", &"", &"_menu_toggle_presentation", &"presenting"))
 	items.append(_separator())
 	items.append(_submenu(&"present.quality", "Quality", tier_items()))
@@ -3043,6 +3054,9 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return int(world.get("still_size", -1)) == int(value)
 		&"keys_panel":
 			return bool(world.get("keys_panel", false))
+		&"presentation_panel":
+			# On unless it has been put away: the panel is on whenever the scene has a director.
+			return bool(world.get("presentation_panel", true))
 		&"hints":
 			return bool(world.get("hints", true))
 		&"site":
@@ -3068,6 +3082,7 @@ func menu_world() -> Dictionary:
 		"tier": int(presentation.tier) if presentation != null else -1,
 		"still_size": int(_still_size_option.selected) if _still_size_option != null else -1,
 		"keys_panel": is_keys_open(),
+		"presentation_panel": _presentation_panel_wanted,
 		"hints": _show_hints,
 		# Whether the garden the program ships with is standing under the drawing - the tick beside "Show
 		# the site". On the signature because the whole bar is rebuilt when it changes, so showing the
@@ -6251,6 +6266,31 @@ func _refresh_present_menu() -> void:
 	if not info.is_empty():
 		var popup: PopupMenu = info[0]
 		popup.set_item_text(int(info[1]), _sun_text())
+
+
+## The presentation panel's own doors, and the menu row that uses them. Public because a test presses
+## what the menu row presses, the same way `open_keys` and `close_keys` are.
+func is_presentation_panel_wanted() -> bool:
+	return _presentation_panel_wanted
+
+
+func set_presentation_panel_wanted(wanted: bool) -> void:
+	_presentation_panel_wanted = wanted
+	_refresh_presentation_panel()
+
+
+## Whether the panel belongs on the screen: a scene with a director has one, unless the person has put
+## it away or the painted sheet is covering everything. The one place that decides, so the frame's
+## refresh and the menu row cannot come to disagree about it.
+func _refresh_presentation_panel() -> void:
+	if presentation_panel == null:
+		return
+	presentation_panel.visible = presentation != null and _presentation_panel_wanted \
+		and not (painted_sheet != null and painted_sheet.visible)
+
+
+func _menu_presentation_panel(_entry: Dictionary) -> void:
+	set_presentation_panel_wanted(not _presentation_panel_wanted)
 
 
 func _menu_sun_window(_entry: Dictionary) -> void:
