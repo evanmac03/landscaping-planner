@@ -917,6 +917,52 @@ list came from, how much of it this catalogue knows, and what the key will do wi
 live here; `_rebuild_field` applies the shortlist first and the spot to what is left, so neither can undo
 the other. The spot half refuses to empty the field - when none of the shortlist suits the spot, only the
 shortlist narrows - and the line above the questions says both facts either way.
+### 7c.11 Stating the leaves a list does not
+
+The leaf questions are latent on the shipped list, and this is the way out of that: by **stating**
+leaves, never by guessing them. `PlantSpecies` already carried the five traits - `to_dict` always
+writes them and `from_dict` reads them as integers with zero meaning not stated - so storage was never
+the missing piece. What was missing is that `ARR_OPPOSITE` is 2 and nobody remembers that from one week
+to the next.
+
+**The words are the file.** `LeafReadings` holds a readings file keyed by species id whose values are
+the words a field guide uses:
+
+    {
+      "readings": {
+        "acer-rubrum": { "leaf_arrangement": "opposite", "leaf_margin": "lobed" }
+      }
+    }
+
+`words_to_bits` looks each word up in the trait's **own** table (`PlantSpecies.names_for`), so a word
+and its value cannot come apart; `PlantSpecies.set_leaf_trait` is the writing half of the one `match`
+`leaf_trait` reads, so a trait cannot be read under one name and written under another. A word a trait
+does not have is refused **with the words it does have**, and a leaf this program does not have is
+refused by name. Several words may be given - a trait is a set, and a plant takes two arrangements the
+way it takes two kinds of light.
+
+**Why not through the import, and why not an editor.** `PlantCatalogue.import_json` skips an id the
+catalogue already holds, and a record read back through `from_dict` **defaults every field it omits** -
+so a row stating only leaves arrives with no height and `problem()` refuses it as a plant that cannot
+be drawn. A leaf is a fact about a plant that already exists rather than a new version of it, so
+`apply` merges onto the plant in hand, and an id the list does not hold is **named and left alone**: a
+plant invented out of a leaf would be a plant nobody chose. §8's rule stands besides - a catalogue is
+edited in a spreadsheet or added to by an import, never in an editor pane - so the authoring path is
+`tools/leaf_reading.gd` and a sheet in `user://`, and what it writes is
+`res://data/plants/leaf_readings.json`: data somebody can read and diff, committed the way
+`nursery_list_more.json` is.
+
+**The line says what the list states, not what it lacks.** `LeafReadings.states_words` counts the
+plants stating each trait and words it once. A list that states nothing is written out - *the list
+states no leaf for any of its 130 plants, so the leaf questions are not asked* - rather than left as
+five noughts, because the state this program ships in is a fact about the list and not an absence. The
+key page shows that sentence and the module words it, so the figure and the sentence that gives it
+away are one arithmetic. The word **coverage** is deliberately not used: it already means irrigation,
+plot extent and closeout here.
+
+**Nothing ships stated.** The readings file is absent until somebody has read a leaf, a blank cell is
+not a statement, and the tool drops its own name column rather than passing it on as a leaf. No leaf
+trait in this repository was written by a guess.
 ## 8. What is not built
 
 The ground can be **read from the drawing** (§7a.4), stated for the site and for any area the

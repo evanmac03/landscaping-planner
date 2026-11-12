@@ -15,6 +15,7 @@ const PageScript := preload("res://scripts/plant_key_window.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
+const ReadingsScript := preload("res://scripts/leaf_readings.gd")
 
 const SPRUCE := &"PICEA-ABIES"
 const TREE_WORDS := "Tree"
@@ -330,6 +331,24 @@ func test_a_page_with_no_list_says_so_rather_than_showing_nothing() -> void:
 ## are all full-sun herbs and a grass, so the count and the narrowing have one right answer.
 func _part_shade_bed() -> ProfileScript:
 	return ProfileScript.make({ "sun": SpeciesScript.PART_SHADE, "moisture": SpeciesScript.WATER_MEDIUM })
+
+
+func test_the_page_says_how_much_of_the_list_states_its_leaves() -> void:
+	# Why somebody is never asked about a leaf has to be on the page they are on when they wonder about it -
+	# and it is a fact about the **list**, so a list nobody has read is said to state nothing rather than
+	# shown five noughts. The sentence is the readings module's own, so the page cannot word it differently.
+	var page: PageScript = _page()
+	var expected: String = ReadingsScript.states_words(_catalogue())
+	assert(page.states_text() == expected, "the page says the module's own sentence")
+	assert(
+		page.states_text().contains("states no leaf"),
+		"which for a list nobody has read says so: %s" % page.states_text()
+	)
+	var line: Label = page.find_child("States", true, false) as Label
+	assert(line != null, "and there is a line on the page to read it from")
+	assert(line.text == expected, "showing that sentence: %s" % line.text)
+	assert(line.visible, "and shown, because it always has something to say about the list")
+	page.free()
 
 
 func test_the_page_says_what_the_ground_is_like_where_the_plant_is_going() -> void:

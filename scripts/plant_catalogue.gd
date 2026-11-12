@@ -632,7 +632,15 @@ static func load_from(path: String = DEFAULT_PATH) -> Dictionary:
 			"reason": "%s is not a plant catalogue: it has neither a version nor a species list" % path,
 			"catalogue": null,
 		}
-	return { "ok": true, "reason": "", "catalogue": from_dict(data) }
+	var catalogue: PlantCatalogue = from_dict(data)
+	# The leaves a list states are not part of the list. A reading (spec §7c.11) is a fact about a plant that
+	# already exists, held in a file of its own so a shipped list stays the file it was; it is applied here
+	# because this is the one place a catalogue is read, so a plant cannot come in by one door with its leaves
+	# and by another without them.
+	var readings: Dictionary = LeafReadings.apply(catalogue)
+	if not bool(readings.get("ok", true)):
+		catalogue.rejected.append(String(readings.get("reason", "")))
+	return { "ok": true, "reason": "", "catalogue": catalogue }
 
 
 ## Take a plant list from somewhere else. What it does not have is added; a duplicate id is **left

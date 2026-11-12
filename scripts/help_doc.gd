@@ -47,6 +47,7 @@ const SUBJECTS: Array[String] = [
 	"What is on site: the field survey",
 	"Reading a photograph",
 	"Identifying a plant by answering questions",
+	"The leaves a list states",
 	"What suits this bed",
 	"Plants",
 	"Food: what will crop here",
@@ -115,6 +116,7 @@ const SECTIONS: Array[Dictionary] = [
 		"title": "Plants and food",
 		"topics": [
 			"Identifying a plant by answering questions",
+			"The leaves a list states",
 			"What suits this bed",
 			"Plants",
 			"Food: what will crop here",
@@ -166,6 +168,7 @@ const SEE_ALSO: Dictionary = {
 	"Reading a photograph": ["What is on site: the field survey", "Plants"],
 	"Identifying a plant by answering questions": ["Reading a photograph", "Plants"],
 	"What suits this bed": ["Identifying a plant by answering questions", "The ground under the garden"],
+	"The leaves a list states": ["Identifying a plant by answering questions", "What suits this bed"],
 	"Plants": ["Food: what will crop here", "Ordering the plants from a nursery"],
 	"Food: what will crop here": ["Food: what to grow here next", "The sun and the shadows"],
 	"Food: what to grow here next": ["Food: what will crop here", "Food: when to sow"],
@@ -819,6 +822,29 @@ static func _topics() -> Array[Dictionary]:
 				+ "plant's leaves are stated in the plant list itself, so a list that arrives with them stated "
 				+ "turns these questions on by itself. Where an answer has been drawn, the drawing is shown on "
 				+ "the button beside its words; an answer nobody has drawn is offered exactly the same way.",
+			],
+		)
+	)
+	out.append(
+		_topic(
+			"The leaves a list states",
+			[
+				"A key can ask about a leaf only while every plant it might still be states that leaf. The list "
+				+ "that ships says nothing about any plant's leaves: nobody has read its plants a leaf at a time, "
+				+ "and a program that guessed would be teaching a wrong name at the very moment somebody is "
+				+ "looking for a word for what they can see. So the leaf questions are not asked at all, and the "
+				+ "key page says so in a sentence rather than showing five noughts.",
+				"",
+				"Stating a leaf is kept in a file of its own rather than in the plant list, because a leaf is a "
+				+ "fact about a plant that already exists and not a new version of it. Running the reading tool "
+				+ "writes a sheet with every plant in the list and the five leaves blank beside it; fill in the "
+				+ "words - lobed, opposite, a midrib with side veins - and run it again. The words are checked "
+				+ "against this program's own vocabulary as they are written, so a word it does not have is "
+				+ "refused by name, with the words that do exist, rather than landing in the list.",
+				"",
+				"The key itself does not change when a list is read. The leaf questions appear by themselves, in "
+				+ "the order they tell one plant from another, and a leaf nobody has read about is never asked "
+				+ "about at all.",
 			],
 		)
 	)

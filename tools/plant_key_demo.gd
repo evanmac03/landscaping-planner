@@ -71,6 +71,7 @@ func _prove() -> void:
 	# no test can stand up for itself: the arithmetic is measured against a garden of five and the page is
 	# driven off-tree, so neither can answer "does the real drawing give the key a spot, and does it narrow".
 	print("DEMO the ground where the cursor was: %s" % page.site_text())
+	print("DEMO what the list states about its leaves: %s" % page.states_text())
 	if page.can_narrow():
 		print("DEMO narrowing to it: %s" % str(page.only_the_ones_that_suit()))
 		print("DEMO the field is now %d of %d plants" % [page.field_count(), catalogue.count()])

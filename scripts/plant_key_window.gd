@@ -67,6 +67,10 @@ const NO_LIST := "There is no plant list here to narrow."
 ## Where the list came from, when somebody else made it short: a photograph's reading.
 const SHORTLIST_CAPTION := "Where this shortlist came from"
 const SITE_CAPTION := "The ground where this plant is going"
+## What the list itself states about its leaves. A fact about the **list** rather than about the bed, so it is
+## said whether or not anybody has described the ground - and it is where somebody who has never been asked
+## about a leaf finds out why.
+const STATES_CAPTION := "The leaves this list states"
 
 ## The buttons' words never change: what a button cannot do right now is said on its tooltip, so a
 ## person reading the row is not left wondering whether the control they remember has gone.
@@ -124,6 +128,8 @@ var _prompt: Label = null
 var _shortlist_caption: Label = null
 var _shortlist_line: Label = null
 var _site_line: Label = null
+var _states_caption: Label = null
+var _states_line: Label = null
 var _suit_button: Button = null
 var _every_button: Button = null
 var _options_row: GridContainer = null
@@ -183,6 +189,13 @@ func build() -> void:
 	_suit_button.pressed.connect(only_the_ones_that_suit)
 	_every_button = _button(site_row, "EveryPlant", EVERY_PLANT)
 	_every_button.pressed.connect(show_every_plant)
+
+	# What the list states about its leaves: the reason the leaf questions are missing, said on the page a
+	# person is on when they wonder about it rather than only in the manual.
+	_states_caption = _caption(STATES_CAPTION)
+	column.add_child(_states_caption)
+	_states_line = _says(column, "States")
+	_states_line.add_theme_color_override("font_color", PageChrome.HINT_COLOR)
 
 	column.add_child(_caption(WORDS_CAPTION))
 	_words = _says(column, "Words")
@@ -260,6 +273,7 @@ func bind(catalogue: PlantCatalogue) -> void:
 	if _catalogue == null:
 		_narrowed = false
 	_rebuild_field()
+	_refresh_states()
 	refresh()
 
 # --- showing what the key says -----------------------------------------------------------
@@ -304,6 +318,29 @@ func _refresh_shortlist() -> void:
 	_shortlist_line.visible = not words.is_empty()
 	if _shortlist_caption != null:
 		_shortlist_caption.visible = not words.is_empty()
+
+
+## What the list states about its leaves, in the words of the one place that counts them - or "" when there
+## is no list, because the page already says that and a second sentence for one thing is a second wording.
+func states_text() -> String:
+	if _catalogue == null:
+		return ""
+	return LeafReadings.states_words(_catalogue)
+
+
+## Say what the list states, and hide the line when there is no list to state it of.
+##
+## Worked out when the page is **handed a list** rather than on every answer: it counts five traits across
+## the whole catalogue, and the catalogue cannot change while the page is open - the same reason the site's
+## count is kept in `_rebuild_field` instead of being asked on every `refresh`.
+func _refresh_states() -> void:
+	if _states_line == null:
+		return
+	var words: String = states_text()
+	_states_line.text = words
+	_states_line.visible = not words.is_empty()
+	if _states_caption != null:
+		_states_caption.visible = not words.is_empty()
 
 
 # --- the bed the plant is going in -----------------------------------------------------------

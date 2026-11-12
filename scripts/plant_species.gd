@@ -636,6 +636,24 @@ func leaf_trait(trait_name: StringName) -> int:
 	return 0
 
 
+## State one leaf trait's bits. **The other half of the one place a trait's name becomes the field that
+## holds it**: a reading that arrived in a person's words (spec §7c.11) is written through here, so a trait
+## cannot be read under one name and written under another. A name this file does not have states nothing,
+## rather than being an error at the moment somebody's sheet has a column too many.
+func set_leaf_trait(trait_name: StringName, bits: int) -> void:
+	match trait_name:
+		LEAF_ARRANGEMENT:
+			leaf_arrangement = bits
+		LEAF_COMPLEXITY:
+			leaf_complexity = bits
+		LEAF_SHAPE:
+			leaf_shape = bits
+		LEAF_MARGIN:
+			leaf_margin = bits
+		LEAF_VENATION:
+			leaf_venation = bits
+
+
 ## The vocabulary of one leaf trait: the bits and the words a person reads. There is **one table per
 ## trait** and it is the same table the key offers answers from, so a trait's values and their words
 ## cannot come apart. A trait this file does not have answers with nothing at all.
