@@ -53,20 +53,33 @@ const HERB := 9
 ## conifer. `PlantSymbols` is the one caller - which shape a plant is drawn as is its business, and
 ## whether a plant is a conifer is this one's.
 const CONIFER_GENERA := [
-	"Abies", "Cedrus", "Chamaecyparis", "Cryptomeria", "Cupressus", "Juniperus", "Larix",
-	"Metasequoia", "Picea", "Pinus", "Pseudotsuga", "Taxodium", "Taxus", "Thuja", "Tsuga",
+	"Abies",
+	"Cedrus",
+	"Chamaecyparis",
+	"Cryptomeria",
+	"Cupressus",
+	"Juniperus",
+	"Larix",
+	"Metasequoia",
+	"Picea",
+	"Pinus",
+	"Pseudotsuga",
+	"Taxodium",
+	"Taxus",
+	"Thuja",
+	"Tsuga",
 ]
 
 ## Sun tolerance, as bits. A plant that takes both is `FULL_SUN | PART_SHADE`.
 const FULL_SUN := 1
 const PART_SHADE := 2
 const FULL_SHADE := 4
-const SUN_NAMES := {FULL_SUN: "full sun", PART_SHADE: "part shade", FULL_SHADE: "full shade"}
+const SUN_NAMES := { FULL_SUN: "full sun", PART_SHADE: "part shade", FULL_SHADE: "full shade" }
 
 const WATER_LOW := 0
 const WATER_MEDIUM := 1
 const WATER_HIGH := 2
-const WATER_NAMES := {WATER_LOW: "low water", WATER_MEDIUM: "medium water", WATER_HIGH: "high water"}
+const WATER_NAMES := { WATER_LOW: "low water", WATER_MEDIUM: "medium water", WATER_HIGH: "high water" }
 
 ## The soils a species will grow in. **Empty means the catalogue does not say**, which is not the same
 ## as "any soil": a question nobody answered is skipped, not answered on their behalf.
@@ -81,13 +94,7 @@ const LOAM := &"LOAM"
 const CLAY := &"CLAY"
 const SILT := &"SILT"
 const ORGANIC := &"ORGANIC"
-const SOILS := {
-	SAND: "sand",
-	LOAM: "loam",
-	CLAY: "clay",
-	SILT: "silt",
-	ORGANIC: "organic",
-}
+const SOILS := { SAND: "sand", LOAM: "loam", CLAY: "clay", SILT: "silt", ORGANIC: "organic" }
 
 ## The drainage a species tolerates, as **bits**, because a plant very often takes more than one kind
 ## of ground. A *place* drains one way, so a place's drainage is a single bit of the same set, and
@@ -105,14 +112,165 @@ const DRAINAGE_NAMES := {
 	DRAINS_SLOW: "slow-draining",
 }
 
+## The leaf: the part of a plant a person standing in front of it is most able to describe, and the
+## vocabulary a field guide's key is built from.
+##
+## These are the morphology a leaf is read by - how the leaves sit on the stem, whether a leaf is one
+## blade or several, its outline, its edge, and the way its veins run - each stored as **bits** for the
+## reason `sun` and `drainage` are: a species is often variable, and one value would force a choice that
+## is wrong half the time.
+##
+## **Zero means it is not stated**, the rule `soils` and `drainage` keep. `PlantKey` is what makes that
+## safe: it asks a leaf question only while every plant left states that leaf, so a plant nobody has
+## described is never eliminated by a description nobody gave.
+##
+## The words are a field guide's, in plain English, so somebody who has looked at a leaf can answer.
+
+## Where the leaves come off the stem: one at a time, in pairs, in rings, or all from the base.
+const LEAF_ARRANGEMENT := &"leaf_arrangement"
+## Whether a leaf is one blade, or several joined - which is the first thing a field guide asks.
+const LEAF_COMPLEXITY := &"leaf_complexity"
+## The outline of a leaf.
+const LEAF_SHAPE := &"leaf_shape"
+## The edge of a leaf.
+const LEAF_MARGIN := &"leaf_margin"
+## The way the veins run.
+const LEAF_VENATION := &"leaf_venation"
+
+## The five, in the order a person is asked them: the coarsest thing to see first, the veins of a leaf
+## last, because that is the one most people have never looked at.
+const LEAF_TRAITS: Array[StringName] = [
+	LEAF_ARRANGEMENT,
+	LEAF_COMPLEXITY,
+	LEAF_SHAPE,
+	LEAF_MARGIN,
+	LEAF_VENATION,
+]
+
+const ARR_ALTERNATE := 1
+const ARR_OPPOSITE := 2
+const ARR_WHORLED := 4
+const ARR_BASAL := 8
+const ARRANGEMENT_NAMES := {
+	ARR_ALTERNATE: "alternate",
+	ARR_OPPOSITE: "opposite",
+	ARR_WHORLED: "whorled",
+	ARR_BASAL: "a rosette at the base",
+}
+
+const CMP_SIMPLE := 1
+const CMP_PINNATE := 2
+const CMP_PALMATE := 4
+const CMP_TRIFOLIATE := 8
+const CMP_BIPINNATE := 16
+const COMPLEXITY_NAMES := {
+	CMP_SIMPLE: "one blade",
+	CMP_PINNATE: "many leaflets along a stem",
+	CMP_PALMATE: "many leaflets from one point",
+	CMP_TRIFOLIATE: "three leaflets",
+	CMP_BIPINNATE: "twice divided",
+}
+
+const SHP_OVATE := 1
+const SHP_OBOVATE := 2
+const SHP_ELLIPTICAL := 4
+const SHP_LANCEOLATE := 8
+const SHP_OBLONG := 16
+const SHP_CORDATE := 32
+const SHP_RENIFORM := 64
+const SHP_SPATULATE := 128
+const SHP_LINEAR := 256
+const SHP_ACICULAR := 512
+const SHP_SCALE := 1024
+const SHP_DELTOID := 2048
+const SHAPE_NAMES := {
+	SHP_OVATE: "oval and widest below the middle",
+	SHP_OBOVATE: "oval and widest above the middle",
+	SHP_ELLIPTICAL: "an even oval",
+	SHP_LANCEOLATE: "long and narrow and pointed",
+	SHP_OBLONG: "a rounded oblong",
+	SHP_CORDATE: "heart-shaped",
+	SHP_RENIFORM: "kidney-shaped",
+	SHP_SPATULATE: "spoon-shaped",
+	SHP_LINEAR: "narrow as grass",
+	SHP_ACICULAR: "a needle",
+	SHP_SCALE: "tiny scales",
+	SHP_DELTOID: "triangular",
+}
+
+const MRG_ENTIRE := 1
+const MRG_SERRATE := 2
+const MRG_DENTATE := 4
+const MRG_CRENATE := 8
+const MRG_LOBED := 16
+const MRG_SINUATE := 32
+const MARGIN_NAMES := {
+	MRG_ENTIRE: "smooth",
+	MRG_SERRATE: "finely toothed",
+	MRG_DENTATE: "toothed",
+	MRG_CRENATE: "scalloped",
+	MRG_LOBED: "lobed",
+	MRG_SINUATE: "wavy",
+}
+
+const VEN_PINNATE := 1
+const VEN_PALMATE := 2
+const VEN_PARALLEL := 4
+const VEN_DICHOTOMOUS := 8
+const VENATION_NAMES := {
+	VEN_PINNATE: "a midrib with side veins",
+	VEN_PALMATE: "several ribs from one point",
+	VEN_PARALLEL: "veins running parallel",
+	VEN_DICHOTOMOUS: "veins forking in two",
+}
+
 ## USDA hardiness zones 1..13. Zone 0 is not a zone: it is a missing value, and a plant that claims
 ## it would be offered to every customer in the coldest climate the map has.
 const ZONE_MIN := 1
 const ZONE_MAX := 13
 
 const MONTH_NAMES := [
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+]
+
+## The four seasons, as the months each one is. A person standing in front of a flowering plant knows the
+## season it flowers in and very rarely the exact month, so the key asks the **season** and this table is
+## the one place the season-to-month mapping is written - the key and any browser chip read this one.
+##
+## The seasons are meteorological (spring is March to May), which is the parting every garden calendar
+## uses. Winter wraps the new year, which is why the months are a list rather than a run.
+const SEASONS := {
+	&"spring": [3, 4, 5],
+	&"summer": [6, 7, 8],
+	&"autumn": [9, 10, 11],
+	&"winter": [12, 1, 2],
+}
+
+## The colours a flower is offered as, in the order a key asks them. A colour answer is a **bucket**, not
+## the shade a nursery chose: the shipped list holds 125 distinct shades, which is not 125 answers anybody
+## can give. `flower_colour_name` is what puts a shade in a bucket, and it is the same rule for the plant
+## and for the person's answer, so the two can never come to use different words for one flower.
+const FLOWER_COLOURS: Array[StringName] = [
+	&"white",
+	&"cream",
+	&"yellow",
+	&"orange",
+	&"red",
+	&"pink",
+	&"purple",
+	&"blue",
+	&"green",
 ]
 
 ## The longest name worth storing. A nursery list with a 4,000-character "name" is a paste accident.
@@ -190,6 +348,13 @@ var zone_max: int = ZONE_MAX
 ## Mature size, in whole centimetres.
 var height_cm: int = 0
 var spread_cm: int = 0
+## The leaf morphology, as bits from the `ARR_*`, `CMP_*`, `SHP_*`, `MRG_*` and `VEN_*` tables above.
+## Zero means the catalogue does not say.
+var leaf_arrangement: int = 0
+var leaf_complexity: int = 0
+var leaf_shape: int = 0
+var leaf_margin: int = 0
+var leaf_venation: int = 0
 var sun: int = FULL_SUN
 var water: int = WATER_MEDIUM
 ## The soils it will grow in, from `SOILS`. Empty means the catalogue does not say.
@@ -253,14 +418,13 @@ static func make(
 	common: String,
 	height: int,
 	spread: int,
-	kind: int = SHRUB
+	kind: int = SHRUB,
 ) -> PlantSpecies:
 	var species: PlantSpecies = PlantSpecies.new(species_id, botanical, common)
 	species.height_cm = height
 	species.spread_cm = spread
 	species.category = kind
 	return species
-
 
 # --- horticulture -----------------------------------------------------------------------
 
@@ -286,6 +450,50 @@ func set_blooms_in(month: int, blooming: bool) -> void:
 		return
 	var bit: int = 1 << (month - 1)
 	bloom_months = (bloom_months | bit) if blooming else (bloom_months & ~bit)
+
+
+## Whether the catalogue says this plant flowers at all. A fern, a grass and a conifer grown for its
+## habit state no month, and a plant that never flowers has no colour and no season to be asked about.
+##
+## This is what makes the flower questions safe to ask only while every remaining candidate blooms, in the
+## same way the leaf questions are asked only of plants whose leaves somebody has read.
+func blooms() -> bool:
+	return bloom_months != 0
+
+
+## A bloom colour as one of `FLOWER_COLOURS`: the bucket a person standing in front of the flower would
+## answer with.
+##
+## The rule is deliberately coarse and written down rather than clever, because the shade a nursery chose
+## can sit on a boundary and a person's word for it must not be a guess. A flower with almost no colour is
+## white, or **cream** when it leans warm; otherwise the hue decides, with the one adjustment that matters
+## in practice - a very pale or a very light red is a **pink** to everybody who is not a colourimeter.
+##
+## It is one rule used twice: the plant's own shade is bucketed by this function, and the answer a person
+## gives is named by this function's vocabulary, so "pink" means the same flower on both sides. A shade
+## that falls the other side of a boundary is what "take the last answer back" is for.
+static func flower_colour_name(colour: Color) -> StringName:
+	if colour.s < 0.12:
+		# Nearly colourless: **white**, unless it leans distinctly warm. A true white or grey has no hue
+		# to lean with - Godot answers hue 0 for it, which on its own would read as warm - so saturation
+		# is what tells a white flower from a cream one.
+		if colour.s < 0.02:
+			return &"white"
+		return &"cream" if (colour.h < 0.14 or colour.h > 0.94) else &"white"
+	var deg: float = colour.h * 360.0
+	if deg < 15.0 or deg >= 345.0:
+		return &"pink" if (colour.s < 0.55 or colour.v > 0.85) else &"red"
+	if deg < 42.0:
+		return &"orange"
+	if deg < 70.0:
+		return &"yellow"
+	if deg < 165.0:
+		return &"green"
+	if deg < 255.0:
+		return &"blue"
+	if deg < 310.0:
+		return &"purple"
+	return &"pink"
 
 
 func height_m() -> float:
@@ -407,6 +615,45 @@ func category_name() -> String:
 	return String(CATEGORY_NAMES.get(category, "?"))
 
 
+# --- the leaf ------------------------------------------------------------------------------
+
+
+## This plant's bits for one leaf trait, or 0 when it states nothing about it. **The one place a trait's
+## name becomes the field that holds it**, so the filter, the key and a page cannot call one trait two
+## different things; a name this file does not have is answered as nothing stated.
+func leaf_trait(trait_name: StringName) -> int:
+	match trait_name:
+		LEAF_ARRANGEMENT:
+			return leaf_arrangement
+		LEAF_COMPLEXITY:
+			return leaf_complexity
+		LEAF_SHAPE:
+			return leaf_shape
+		LEAF_MARGIN:
+			return leaf_margin
+		LEAF_VENATION:
+			return leaf_venation
+	return 0
+
+
+## The vocabulary of one leaf trait: the bits and the words a person reads. There is **one table per
+## trait** and it is the same table the key offers answers from, so a trait's values and their words
+## cannot come apart. A trait this file does not have answers with nothing at all.
+static func names_for(trait_name: StringName) -> Dictionary:
+	match trait_name:
+		LEAF_ARRANGEMENT:
+			return ARRANGEMENT_NAMES
+		LEAF_COMPLEXITY:
+			return COMPLEXITY_NAMES
+		LEAF_SHAPE:
+			return SHAPE_NAMES
+		LEAF_MARGIN:
+			return MARGIN_NAMES
+		LEAF_VENATION:
+			return VENATION_NAMES
+	return { }
+
+
 # --- food ---------------------------------------------------------------------------------
 
 
@@ -524,7 +771,6 @@ func crop_text() -> String:
 		parts.append("%s to maturity" % days)
 	return "; ".join(parts)
 
-
 # --- what it is drawn as -----------------------------------------------------------------
 
 
@@ -553,13 +799,11 @@ func display_name() -> String:
 
 ## Everything a person might type into a search box for this plant, lowercased.
 func search_text() -> String:
-	var parts: PackedStringArray = PackedStringArray([
-		String(id), botanical_name, common_name, cultivar, category_name(),
-		edible_parts_text(), family_name(),
-	])
+	var parts: PackedStringArray = PackedStringArray(
+		[String(id), botanical_name, common_name, cultivar, category_name(), edible_parts_text(), family_name()]
+	)
 	parts.append_array(PackedStringArray(tags))
 	return " ".join(parts).to_lower()
-
 
 # --- validation -------------------------------------------------------------------------
 
@@ -576,9 +820,7 @@ func problem() -> String:
 	if not CATEGORY_NAMES.has(category):
 		return "plant %s has category %d, which is not a category" % [id, category]
 	if zone_min < ZONE_MIN or zone_max > ZONE_MAX or zone_min > zone_max:
-		return "plant %s is hardy in zones %d..%d, which is not a zone range" % [
-			id, zone_min, zone_max
-		]
+		return "plant %s is hardy in zones %d..%d, which is not a zone range" % [id, zone_min, zone_max]
 	if height_cm < 0 or spread_cm < 0:
 		return "plant %s has a negative size" % id
 	if height_cm == 0 and spread_cm == 0:
@@ -592,6 +834,19 @@ func problem() -> String:
 			return "plant %s grows in \"%s\", which is not a soil" % [id, String(soil)]
 	if drainage == 0 or (drainage & ~DRAINS_ANY) != 0:
 		return "plant %s has drainage %d, which is not a set of drainages" % [id, drainage]
+	# The leaves, checked trait by trait. Zero is allowed - a plant nobody has read a leaf of is not a
+	# broken plant - but a bit outside a trait's own table is a mistyped number, not a leaf. The bits a
+	# trait may use are its own table's, so a value added to a leaf is a valid bit the day it is added.
+	for trait_name: StringName in LEAF_TRAITS:
+		var stated: int = leaf_trait(trait_name)
+		var allowed: int = 0
+		for bit: Variant in names_for(trait_name).keys():
+			allowed |= int(bit)
+		if stated != 0 and (stated & ~allowed) != 0:
+			return (
+				"plant %s states %s %d, which is not a set of leaf values"
+				% [id, String(trait_name).replace("leaf_", "leaf "), stated]
+			)
 	if (bloom_months & ~0xFFF) != 0:
 		return "plant %s blooms in months outside January..December (bits %d)" % [id, bloom_months]
 	if (edible_parts & ~EDIBLE_ANY) != 0:
@@ -603,15 +858,11 @@ func problem() -> String:
 	if maturity_days < 0:
 		return "plant %s has a negative time to maturity" % id
 	if sun_hours_tenths < 0 or sun_hours_tenths > MAX_SUN_HOURS_TENTHS:
-		return "plant %s needs %d tenths of an hour of sun in a day, which is not a day" % [
-			id, sun_hours_tenths
-		]
+		return "plant %s needs %d tenths of an hour of sun in a day, which is not a day" % [id, sun_hours_tenths]
 	if yield_per_plant_g < 0 or yield_per_plant_g > MAX_SEASON_GRAMS:
 		return "plant %s gives %d grams in a season, which is not a yield" % [id, yield_per_plant_g]
 	if need_per_person_g < 0 or need_per_person_g > MAX_SEASON_GRAMS:
-		return "plant %s feeds a person %d grams in a season, which is not an amount" % [
-			id, need_per_person_g
-		]
+		return "plant %s feeds a person %d grams in a season, which is not an amount" % [id, need_per_person_g]
 	if form.strip_edges().is_empty():
 		return "plant %s does not say what it is drawn as" % id
 	return ""
@@ -619,7 +870,6 @@ func problem() -> String:
 
 func is_valid() -> bool:
 	return problem().is_empty()
-
 
 # --- persistence ------------------------------------------------------------------------
 
@@ -652,6 +902,13 @@ func to_dict() -> Dictionary:
 		"water": water,
 		"soils": _soil_names(),
 		"drainage": drainage,
+		# The leaves, as bits, always written: zero is what a catalogue that has not been read leaf by
+		# leaf says, and it is a fact about the record rather than an absence from it.
+		"leaf_arrangement": leaf_arrangement,
+		"leaf_complexity": leaf_complexity,
+		"leaf_shape": leaf_shape,
+		"leaf_margin": leaf_margin,
+		"leaf_venation": leaf_venation,
 		"bloom_months": bloom_months,
 		# With the `#`: `Color.from_string` on a bare hex run is not the parse it looks like, and a
 		# colour that came back as the fallback would be a bloom the plan draws in the wrong colour.
@@ -698,9 +955,20 @@ static func from_dict(data: Dictionary) -> PlantSpecies:
 			if not name.is_empty() and not species.soils.has(name):
 				species.soils.append(name)
 	species.drainage = int(data.get("drainage", DRAINS_ANY))
+	# A record from a file holds every number as a float, so the leaves are read back as ints like every
+	# other bit set here - and a record written before this existed states nothing, which is honest.
+	species.leaf_arrangement = int(data.get("leaf_arrangement", 0))
+	species.leaf_complexity = int(data.get("leaf_complexity", 0))
+	species.leaf_shape = int(data.get("leaf_shape", 0))
+	species.leaf_margin = int(data.get("leaf_margin", 0))
+	species.leaf_venation = int(data.get("leaf_venation", 0))
 	species.bloom_months = int(data.get("bloom_months", 0))
 	var colour_text: String = String(data.get("bloom_colour", ""))
-	species.bloom_colour = Color.from_string(colour_text, Color(0.89, 0.42, 0.6)) if not colour_text.is_empty() else Color(0.89, 0.42, 0.6)
+	species.bloom_colour = (
+		Color.from_string(colour_text, Color(0.89, 0.42, 0.6))
+		if not colour_text.is_empty()
+		else Color(0.89, 0.42, 0.6)
+	)
 	species.form = String(data.get("form", "res://scenes/props/shrub.tscn"))
 	species.model_scene = String(data.get("model_scene", ""))
 	species.thumbnail = String(data.get("thumbnail", ""))

@@ -697,6 +697,138 @@ the order price a plant by asking what kind it is rather than by matching a disp
 menu line and the write.
 
 
+## 7c. Naming a plant by answering questions
+
+The plant library is the thing you search when you know what you are looking for. A key is for the
+other moment: something is growing in front of you, you cannot name it, and there is nobody to ask.
+Plant menu → **Name a plant by answering questions** - the page in `scripts/plant_key_window.gd`,
+the arithmetic in `scripts/plant_key.gd` - asks what you can see, one question at a time, and the
+candidates come down until one plant is left. It is the person's door onto the same question a
+photograph is read to answer, and like that one it is reached from the menu rather than from
+anything about the drawing: it narrows the catalogue, and where the plant then goes is the planting's
+business.
+
+### 7c.1 A key asks; the catalogue's one filter answers
+
+The temptation is to give the key its own matching, and it is refused for the reason this module
+refuses every second engine: `PlantCatalogue.filter` is this program's one filter, and the browser,
+the palette and every planting check already go through it. So each answer is a **criteria fragment
+in that filter's own words** - a kind is `category`, a light level is `sun`, "something you would
+eat" is `edible`, "not grown to eat" is `not_edible`, whether it is a conifer is `conifer` - and the
+key turns the answers into one `criteria` dictionary and hands it over. Which plants are left is the
+filter's answer, and a plant the browser would find is a plant the key finds.
+
+Two criteria were added to the filter for this and are now part of its vocabulary for everybody:
+`conifer`, asked of `PlantSpecies.is_conifer()` rather than of a tag, because a boxwood is evergreen
+without being a conifer; and `not_edible`, the far side of the `edible` question, because "not
+something you eat" is a real answer and a key that could not give it would offer a way to eliminate
+the right plant.
+
+The vocabulary is not written down twice either: the kinds are `PlantSpecies.CATEGORY_NAMES`, the
+light levels are `SUN_NAMES`, the water needs are `WATER_NAMES`. So a kind added to the species table
+is offered by the key the day it is added, and a question cannot come to offer a category nothing in
+the list is filed under.
+
+### 7c.2 Which question to ask next is arithmetic
+
+The order questions are asked in is written down nowhere. Every remaining question is scored by the
+**entropy of the split its answers would make of the plants still in the running**, and the most
+informative question is asked first - so a garden of two trees is asked about the conifer, and a list
+of thirty is asked whatever cuts it most evenly. `QUESTIONS`' own order is only the tie-break between
+two equally informative questions, which is what makes the same answers ask the same thing every
+time. A question that cannot narrow the field any more is passed over rather than asked.
+
+The answers offered are only those that would still leave something (`live_options`), and each shows
+how many plants it would leave. A person cannot therefore eliminate the plant in front of them by
+choosing something it cannot possibly be.
+
+### 7c.3 Three answers that are not a plant
+
+A key can end three ways, and none of them is a failure to be hidden behind a zero:
+
+* **One plant left** - it is named, and *Use this plant* arms it exactly as the library does, through
+  the HUD's one `_arm_planting`. Naming a plant is not a third way of choosing one.
+* **Several the list cannot separate** - reported as exactly that, with the plants named. Measured on
+  the shipped 130-species list: four answers - a small tree, something you would eat, full sun, and
+  not a conifer - leave *Amelanchier canadensis* and *Malus 'Royalty'*, which no remaining question in
+  the vocabulary separates. A key that chose between them would be inventing a fact.
+* **Nothing fits** - said plainly, and naming the way back out: take the last answer back.
+
+Undo is one answer at a time, newest first, because an answer that turns out to have been wrong is
+the common case. *Start again* is the other door, and it is the one somebody wants when the first
+answer was wrong and everything after it followed from it.
+
+### 7c.4 Height is asked with its warning attached
+
+The only question whose answer is a prediction: the catalogue states the height a plant **grows to**,
+so a young plant in front of somebody is honestly shorter than the number the answer matches. The
+prompt says so rather than pretending otherwise, and its bands partition every size - each band's
+upper bound one centimetre below the next band's floor - so no plant falls between two answers.
+
+### 7c.5 Where it is reached, and what holds it down
+
+Plant menu → Name a plant by answering questions. It needs no drawing. The manual
+describes it under **Identifying a plant by answering questions**, and `PageHelp` is what joins the
+page to that subject.
+
+`tests/test_plant_key.gd` (27) holds the arithmetic and the wording; `tests/test_plant_key_window.gd`
+(12) holds the page; `tests/test_plants.gd` holds the two criteria the key added to the filter; and
+`tests/test_plants.gd` holds the criteria the key added to the filter, and `tools/plant_key_demo.gd`
+stands the real game up, opens the page through the handler the menu names, and walks the shipped list.
+
+### 7c.6 The leaves, and the rule that makes a partly-read list safe
+
+Five more questions read the **leaf**: `leaf_arrangement`, `leaf_complexity`, `leaf_shape`,
+`leaf_margin` and `leaf_venation`, stored on `PlantSpecies` as bits from its own `ARR_*`, `CMP_*`,
+`SHP_*`, `MRG_*` and `VEN_*` tables - the vocabulary a field guide's key is built from, in plain
+English, so somebody who has looked at a leaf can answer without learning this program's words.
+**A leaf question's key is its trait's own name**, so an answer is a criterion in exactly that
+trait's words and the key, the filter and a page cannot come to call one leaf two different things.
+`PlantCatalogue` gained the five criteria, read through its own `can_be`.
+
+**Zero means not stated** - the rule `soils` and `drainage` already keep - and every entry defaults
+to it, which is what makes this safe to ship against a catalogue nobody has read leaf by leaf. A
+plant that states nothing about a leaf **fails every answer** to a question about that leaf, so
+asking one while such a plant is still in the running would eliminate it by a description nobody
+gave: the silent, wrong answer this program is arranged against. `PlantKey.askable` is the cure - a
+leaf question is asked only while every plant still in the running states that leaf. The leaf
+questions appear, disappear and come back as the field narrows, and a list nobody has read leaf by
+leaf is simply never asked about leaves.
+
+So the key its whole life has two halves, and which one a person meets depends on the list they
+have: against a list that states its leaves, the leaf questions are usually the most informative
+ones there are and are asked early; against the shipped list, which states none, they are never
+asked and the key behaves exactly as it did before they existed.
+
+
+### 7c.7 The flowers: a colour a person can name, and a season
+
+Two questions ask what only a flowering plant can answer: the colour of the flowers, and the season it
+flowers in. Both are held behind the same rule the leaves are - asked only while every plant still in the
+running states them - which, for a flower, means only while every one of those plants flowers at all.
+
+**A colour answer is a bucket, not a shade.** The catalogue stores the colour a nursery chose, and the
+shipped list holds 125 distinct shades; `PlantSpecies.flower_colour_name` is the one rule that turns a
+shade into one of `PlantSpecies.FLOWER_COLOURS`. It is used twice - the plant's own shade is bucketed by
+it, and the answer a person gives is that vocabulary - so "pink" cannot mean one flower to the key and
+another to the person looking at it. The rule is deliberately coarse and written down: a flower that is
+nearly colourless is white, or cream when it leans warm, and otherwise the hue decides, with a very pale
+red called a pink and a violet on the blue side of purple.
+
+**The season is what a person knows.** The catalogue stores months, and `PlantSpecies.SEASONS` is the one
+place those become the four seasons; `bloom_season` is the criterion that reads it. A plant flowering
+from April to June is honestly "spring", and the four seasons between them are the twelve months.
+
+Both criteria refuse a plant the catalogue says never blooms, for the same reason a leaf criterion
+refuses a plant whose leaf nobody has read: a fern's stored colour is the class's default, which is a
+pink nobody chose, and answering "pink" must not keep a plant that has no flower at all.
+
+
+**"Not sure" is a way past a question, not an answer.** `PlantKey.UNSURE` is kept as an answer - so the
+question is not asked again - and carries no criterion, so the field is not narrowed by a guess nobody
+made. It is deliberately absent from every `options_of`, so it can never appear as one of a question's own
+answers; a page offers it beside them, only while there is a question to pass.
+
 ## 8. What is not built
 
 The ground can be **read from the drawing** (§7a.4), stated for the site and for any area the
@@ -774,3 +906,27 @@ drawing encloses (§7a.8), and stated for ground the drawing does not enclose by
 * the list reaches the plotted sheet: a species is one row with its count beside it, and the
   plants the catalogue cannot name are one row that says so rather than being dropped
   (`test_sheet_export.gd`)
+
+* every answer becomes one of the catalogue filter's own criteria, so a key and the browser cannot
+  come to disagree about which plants match (`test_plant_key.gd`)
+* a conifer is a question about the genus and not about a tag, and "not grown to eat" is the other
+  side of the food question, both asked of the plant itself (`test_plants.gd`)
+* the question asked is the one that splits the field most evenly rather than the one written down
+  first, and a question that cannot narrow the field is passed over
+* a plant the list cannot separate is reported as such, naming the plants, rather than chosen between
+* an answer that fits nothing says so, and taking the last answer back leaves the answers before it
+* the height bands leave every plant in exactly one band, so no plant falls between two answers
+* the page offers only answers that would still leave something, and a button that cannot act is
+  disabled and says on its tooltip what it is waiting for (`test_plant_key_window.gd`)
+* the shipped 130-species list is walked from the Plant menu through the handler that menu names
+  (`tools/plant_key_demo.gd`)
+
+* a plant states its leaves as bits or states nothing about them, an out-of-vocabulary bit is
+  refused by name, and a record written before the leaves existed is simply not described
+  (`test_plants.gd`)
+* a leaf criterion finds the plants that are described and leaves out the ones nobody has read -
+  which is why the filter's rule is not enough on its own
+* a leaf question is asked only while every plant still in the running states that leaf, and comes
+  back the moment an undescribed plant has been answered out of the way (`test_plant_key.gd`)
+* the leaf answers are the species' own vocabulary, one table per trait, so a value added to a leaf
+  is offered by the key the day it is added

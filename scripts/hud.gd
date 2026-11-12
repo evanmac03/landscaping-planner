@@ -107,7 +107,7 @@ const HAND_KEY_WORDS := {
 ## `Period` is here because the angular dimension is bound to that key and Godot reads it back as the
 ## word rather than as the character: a legend row saying "Period angular dim" is both wider and harder
 ## to read than the key a person actually presses, which is a full stop.
-const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter", "Period": "."}
+const SHORT_KEY_NAMES := { "Escape": "Esc", "Return": "Enter", "Period": "." }
 
 ## The editing commands: what is done to geometry that already exists.
 ##
@@ -115,22 +115,44 @@ const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter", "Period": "."}
 ## tools are the nine number keys and the edits are their own set of letters - a
 ## table that tried to be both would have to lie about one of them.
 const EDIT_TOOLS: Array = [
-	[&"edit_offset", "offset", DraftControllerScript.EditKind.OFFSET,
-		"Draw a new shape a fixed distance out from the one you pick"],
-	[&"edit_trim", "trim", DraftControllerScript.EditKind.TRIM,
-		"Cut the picked piece of a line away at what crosses it"],
-	[&"edit_extend", "extend", DraftControllerScript.EditKind.EXTEND,
-		"Grow the picked end of a line out to the next shape"],
-	[&"edit_fillet", "fillet", DraftControllerScript.EditKind.FILLET,
-		"Round the corner where two lines meet"],
-	[&"edit_erase", "erase", DraftControllerScript.EditKind.ERASE,
-		"Take the picked shape off the drawing"],
-	[&"edit_rotate", "rotate", DraftControllerScript.EditKind.ROTATE,
-		"Turn the picked shape about a point you pick, to the direction you click"],
-	[&"edit_move", "move", DraftControllerScript.EditKind.MOVE,
-		"Move the picked shape: pick a point on it, then click where it should go"],
-	[&"edit_copy", "copy", DraftControllerScript.EditKind.COPY,
-		"Copy the picked shape: pick a point on it, then click where the copy should go"],
+	[
+		&"edit_offset",
+		"offset",
+		DraftControllerScript.EditKind.OFFSET,
+		"Draw a new shape a fixed distance out from the one you pick",
+	],
+	[
+		&"edit_trim",
+		"trim",
+		DraftControllerScript.EditKind.TRIM,
+		"Cut the picked piece of a line away at what crosses it",
+	],
+	[
+		&"edit_extend",
+		"extend",
+		DraftControllerScript.EditKind.EXTEND,
+		"Grow the picked end of a line out to the next shape",
+	],
+	[&"edit_fillet", "fillet", DraftControllerScript.EditKind.FILLET, "Round the corner where two lines meet"],
+	[&"edit_erase", "erase", DraftControllerScript.EditKind.ERASE, "Take the picked shape off the drawing"],
+	[
+		&"edit_rotate",
+		"rotate",
+		DraftControllerScript.EditKind.ROTATE,
+		"Turn the picked shape about a point you pick, to the direction you click",
+	],
+	[
+		&"edit_move",
+		"move",
+		DraftControllerScript.EditKind.MOVE,
+		"Move the picked shape: pick a point on it, then click where it should go",
+	],
+	[
+		&"edit_copy",
+		"copy",
+		DraftControllerScript.EditKind.COPY,
+		"Copy the picked shape: pick a point on it, then click where the copy should go",
+	],
 ]
 
 ## How many entries share a line before the legend wraps.
@@ -317,7 +339,7 @@ var _painted_save: Button = null
 
 ## The menu bar's entries, per popup, in the order they were added. A PopupMenu item's id is its
 ## index, so this is the way back from a press to the entry that describes it.
-var _menu_items: Dictionary[PopupMenu, Array] = {}
+var _menu_items: Dictionary[PopupMenu, Array] = { }
 ## What the menu was last drawn to match, so a check every frame does not restate state that has
 ## not moved.
 var _menu_state: String = ""
@@ -343,7 +365,7 @@ var _site_report_panel: Control = null
 ## The survey import page, built by `_build_survey_panel`. A survey is read and *shown* before it
 ## is put on the drawing, so the page holds the survey that is waiting for an answer.
 var _survey_panel: Control = null
-var _pending_survey: Dictionary = {}
+var _pending_survey: Dictionary = { }
 ## The survey file chooser. A survey is a file somebody else sent, so it is read wherever it
 ## lives rather than out of the app's own folder.
 var _survey_dialog: FileDialog = null
@@ -371,7 +393,7 @@ var _pending_simplify: SimplifyReportScript = null
 var _recovery_dialog: ConfirmationDialog = null
 ## The copy that is waiting, read off disk when something changes rather than on every frame: the menu
 ## world is built every frame and a directory listing is not something a frame may do.
-var _pending_recovery: Dictionary = {}
+var _pending_recovery: Dictionary = { }
 ## How long the drawing has been worked on since the last copy was kept, in seconds.
 var _autosave_clock: float = 0.0
 ## What to do once the unsaved-changes question has been answered. Held as an id rather than as a
@@ -420,7 +442,14 @@ const LightingScript := preload("res://scripts/draft/lighting.gd")
 ## short because this is a drop-down. One list rather than one per reader: the question is the same
 ## question and the answer is the same word, and two lists of the same words is how they drift.
 const IMPORT_UNIT_CHOICES: Array[String] = [
-	"", "metres", "feet", "inches", "millimetres", "centimetres", "yards", "US survey feet",
+	"",
+	"metres",
+	"feet",
+	"inches",
+	"millimetres",
+	"centimetres",
+	"yards",
+	"US survey feet",
 ]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
@@ -455,6 +484,7 @@ const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
 const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
 const SeasonWindowScript := preload("res://scripts/season_window.gd")
 const FieldCaptureWindowScript := preload("res://scripts/field_window.gd")
+const PlantKeyWindowScript := preload("res://scripts/plant_key_window.gd")
 const SowingWindowScript := preload("res://scripts/sowing_window.gd")
 const YieldWindowScript := preload("res://scripts/yield_window.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
@@ -510,7 +540,7 @@ var _dxf_panel: Control = null
 var _dxf_text: String = ""
 var _dxf_name: String = ""
 var _dxf_units: String = ""
-var _pending_dxf: Dictionary = {}
+var _pending_dxf: Dictionary = { }
 ## Where the drawing goes out as a DXF. A dialog of its own rather than the import's, because the two
 ## commands are opposites - reading a file in and writing the drawing out - and a person who reached
 ## for the wrong one should not have to work it out from the file mode.
@@ -527,7 +557,7 @@ var _landxml_panel: Control = null
 var _landxml_text: String = ""
 var _landxml_name: String = ""
 var _landxml_units: String = ""
-var _pending_landxml: Dictionary = {}
+var _pending_landxml: Dictionary = { }
 ## The OpenStreetMap import: the chooser for a saved extract, the window that holds the site's
 ## coordinates and the radius, and the reader that can reach the network. The map is somebody else's
 ## data over a network, so the reading and the asking are two modules rather than one, and this is
@@ -535,14 +565,14 @@ var _pending_landxml: Dictionary = {}
 var _osm_dialog: FileDialog = null
 var _osm_window: OsmWindow = null
 var _osm_fetch: OsmFetch = null
-var _pending_osm: Dictionary = {}
+var _pending_osm: Dictionary = { }
 ## A picture under the drawing: the chooser for the file itself, the page that says how far it lies
 ## across the ground, and the record in hand of a picture that has been read and kept but is not yet
 ## under the drawing. The counterpart of the DXF, map and LandXML readers, for the file that has no
 ## linework in it to read - a scan, an aerial photograph, a rendered concept.
 var _underlay_dialog: FileDialog = null
 var _underlay_window: UnderlayWindow = null
-var _pending_picture: Dictionary = {}
+var _pending_picture: Dictionary = { }
 ## Why the file in hand was not read. Kept apart from the record because a refusal has no record, and
 ## the page has to be able to say what was wrong with what somebody chose.
 var _picture_refusal: String = ""
@@ -574,7 +604,7 @@ var _plant_order_window: PlantOrderWindowScript = null
 var _plant_order_state: String = ""
 ## When the yield page hands its household's count over, this is the plan the order page is about instead
 ## of the drawing's planting. Empty means the order is the drawing's own planting.
-var _plant_order_plan_override: Dictionary = {}
+var _plant_order_plan_override: Dictionary = { }
 ## The food garden: what will crop in a bed, and which beds suit which crops. A window, because the
 ## question is what a *bed* and a *crop* come to together and a menu can hold neither.
 var _food_window: FoodWindow = null
@@ -601,6 +631,10 @@ var _season_state: String = ""
 ## reading the drawing. It is the person's door - a phone's manifest is the other one - and it is the
 ## reason a garden somebody walked round can be put on the plan with no phone involved at all.
 var _capture_window: FieldCaptureWindowScript = null
+## Naming a plant by answering questions about it: the other door onto a name, beside the photograph a
+## phone can read. It reaches the catalogue rather than the drawing, like the field page, and it ends by
+## arming the plant the way the library does - so naming a plant is never a third way of choosing one.
+var _plant_key_window: PlantKeyWindowScript = null
 ## When to sow and how to keep it coming: the growing season read as a sowing calendar - a day to sow, a
 ## crop to sow, and the succession that repeats it. A window, because the day and the interval are
 ## typed; it reads the drawing's season but writes nothing, so it is the season page's reading half.
@@ -834,7 +868,6 @@ func _ready() -> void:
 
 # --- what is on the screen, for anything driving this from another computer -------------------------
 
-
 ## Set to keep a second report from stacking up behind a first.
 var _saying_the_screen: bool = false
 
@@ -879,19 +912,20 @@ func _the_screen_said() -> void:
 ## to be able to tell which of them is standing over which.
 func _say_the_screen() -> void:
 	var lines := PackedStringArray()
-	lines.append_array(HudProbeScript.device_lines(
-		shows_touch_controls(),
-		PhoneHudScript.zooming_here(),
-		PhoneHudScript.dpi(),
-		PhoneHudScript.canvas_scale(get_window()),
-		Vector2i(get_viewport().get_visible_rect().size),
-		DisplayServer.screen_get_size(),
-		DisplayServer.is_touchscreen_available(),
-		hints_label.text if hints_label != null else "",
-		draft_hints_label.text if draft_hints_label != null else "",
-	))
-	lines.append_array(HudProbeScript.row_lines(
-		menu_bar.get_parent() as Control, "the top bar", menu_bar_room()))
+	lines.append_array(
+		HudProbeScript.device_lines(
+			shows_touch_controls(),
+			PhoneHudScript.zooming_here(),
+			PhoneHudScript.dpi(),
+			PhoneHudScript.canvas_scale(get_window()),
+			Vector2i(get_viewport().get_visible_rect().size),
+			DisplayServer.screen_get_size(),
+			DisplayServer.is_touchscreen_available(),
+			hints_label.text if hints_label != null else "",
+			draft_hints_label.text if draft_hints_label != null else "",
+		)
+	)
+	lines.append_array(HudProbeScript.row_lines(menu_bar.get_parent() as Control, "the top bar", menu_bar_room()))
 	lines.append_array(HudProbeScript.tap_lines(self, "the board"))
 	for window: Window in get_viewport().get_embedded_subwindows():
 		if window.visible:
@@ -936,9 +970,7 @@ func _process(delta: float) -> void:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
 	# Both overhead views share one zoom, so one conversion serves them both.
-	overlay.set_pixels_per_metre(
-		ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size)
-	)
+	overlay.set_pixels_per_metre(ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size))
 	# Arming the tools happens on a key press inside the view controller, which has
 	# no signal for it, and it is one bool: reading it is cheaper than routing it.
 	# The legend and the palette both go away on the ground, where the tools do
@@ -1022,7 +1054,7 @@ static func _hints_for(view_mode: int, on_a_finger: bool = false) -> String:
 	if on_a_finger:
 		return HINTS_OVERHEAD_ON_A_FINGER
 	var template := HINTS_2D \
-		if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
+			if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
 	return template.replace(VIEW_KEY_TOKEN, _key_label(&"toggle_view"))
 
 
@@ -1106,9 +1138,7 @@ func _refresh_hints() -> void:
 	var wanted: String = _hints_for(view_controller.mode, shows_touch_controls())
 	# The tools do nothing on the ground, where the corner line is the way back out of it.
 	if _draft != null and _draft.drawing and view_controller.mode != ViewController.ViewMode.GROUND:
-		wanted = hand_hints(
-			_draft.prompt(), hand_keys(_draft.current_tool(), _draft.is_editing())
-		)
+		wanted = hand_hints(_draft.prompt(), hand_keys(_draft.current_tool(), _draft.is_editing()))
 	if hints_label.text != wanted:
 		hints_label.text = wanted
 
@@ -1119,7 +1149,6 @@ func _on_transition_started(_to_ground: bool) -> void:
 
 func _on_transition_finished(_to_ground: bool) -> void:
 	overlay.set_transitioning(false)
-
 
 # --- the drafting legend --------------------------------------------------------------
 
@@ -1157,9 +1186,7 @@ static func _entries(pairs: Array) -> Array[String]:
 static func _wrap(entries: Array[String], per_row: int) -> Array[String]:
 	var rows: Array[String] = []
 	for start in range(0, entries.size(), per_row):
-		rows.append(DRAFTING_ROW_GAP.join(PackedStringArray(
-			entries.slice(start, start + per_row)
-		)))
+		rows.append(DRAFTING_ROW_GAP.join(PackedStringArray(entries.slice(start, start + per_row))))
 	return rows
 
 
@@ -1188,7 +1215,6 @@ static func _key_label(action: StringName) -> String:
 		var shortened: String = SHORT_KEY_NAMES.get(rendered, rendered)
 		return ("Ctrl+" + shortened) if key.ctrl_pressed else shortened
 	return ""
-
 
 # --- the drawing palette --------------------------------------------------------------
 
@@ -1289,9 +1315,7 @@ func _build_palette() -> void:
 	for choice: Dictionary in _draft.layer_choices():
 		_layer_names.append(choice["name"])
 		_layer_option.add_item(String(choice["name"]))
-		_layer_option.set_item_tooltip(
-			_layer_option.item_count - 1, String(choice["purpose"])
-		)
+		_layer_option.set_item_tooltip(_layer_option.item_count - 1, String(choice["purpose"]))
 	_layer_option.item_selected.connect(_on_layer_selected)
 	layer_row.add_child(_layer_option)
 	# The lock sits on the layer's own row because it is a property of that layer rather than a
@@ -1331,9 +1355,7 @@ func _build_palette() -> void:
 	var style_row := HFlowContainer.new()
 	style_row.name = "StyleRow"
 	palette_column.add_child(style_row)
-	_style_button = _command_button(
-		style_row, &"draft_dimension_style", "Standard", _draft.cycle_dimension_style
-	)
+	_style_button = _command_button(style_row, &"draft_dimension_style", "Standard", _draft.cycle_dimension_style)
 
 	_refresh_palette()
 	_size_palette_for_a_finger.call_deferred()
@@ -1367,9 +1389,7 @@ func _size_the_chrome_for_the_device() -> void:
 func size_for_a_finger(draw_up: bool) -> int:
 	if not draw_up:
 		return 0
-	var fitted: int = fit_the_chrome_for_a_finger(
-		PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi()
-	)
+	var fitted: int = fit_the_chrome_for_a_finger(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
 	_put_away_what_the_top_bar_cannot_hold()
 	return fitted
 
@@ -1475,7 +1495,11 @@ func _reflow_the_tool_row() -> void:
 			widths.append(maxf(PhoneHudScript.button_width(made), PALETTE_CELL_WIDTH))
 		var separation: float = float(grid.get_theme_constant(&"h_separation"))
 		grid.columns = PhoneHudScript.columns_that_fit(
-			widths, PALETTE_COLUMNS, _palette_room() - PALETTE_INSET, separation, PALETTE_FEWEST_COLUMNS
+			widths,
+			PALETTE_COLUMNS,
+			_palette_room() - PALETTE_INSET,
+			separation,
+			PALETTE_FEWEST_COLUMNS,
 		)
 
 
@@ -1497,8 +1521,11 @@ func _reflow_the_edit_row() -> void:
 			widths.append(PhoneHudScript.button_width(made))
 		var separation: float = float(tools.get_theme_constant(&"h_separation"))
 		tools.columns = PhoneHudScript.columns_that_fit(
-			widths, PALETTE_EDIT_COLUMNS, _palette_room() - PALETTE_INSET, separation,
-			PALETTE_FEWEST_COLUMNS
+			widths,
+			PALETTE_EDIT_COLUMNS,
+			_palette_room() - PALETTE_INSET,
+			separation,
+			PALETTE_FEWEST_COLUMNS,
 		)
 	_grow_palette_to_its_contents.call_deferred()
 
@@ -1543,9 +1570,7 @@ func _grow_palette_to_its_contents() -> void:
 ## A palette button for one of the drafting commands. The key goes in the tooltip
 ## rather than on the button: the nine tools are worth learning by number, and the
 ## row of small buttons would be a wall of brackets if every one carried its key.
-func _command_button(
-	row: Container, action: StringName, wording: String, handler: Callable
-) -> Button:
+func _command_button(row: Container, action: StringName, wording: String, handler: Callable) -> Button:
 	var button := Button.new()
 	button.name = String(action)
 	button.text = wording
@@ -1570,9 +1595,14 @@ func _refresh_palette() -> void:
 	# say: without them a tooltip would keep naming the gesture that was in hand when the palette last
 	# redrew, which is exactly the confusion the labels exist to remove.
 	var state := "%s|%d|%s|%s|%d|%s|%s|%s" % [
-		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
-		String(_draft.dimension_style_name), int(_draft.current_edit()),
-		_is_layer_locked(), _undo_label(), _redo_label(),
+		_draft.drawing,
+		int(_draft.current_tool()),
+		String(_draft.current_layer()),
+		String(_draft.dimension_style_name),
+		int(_draft.current_edit()),
+		_is_layer_locked(),
+		_undo_label(),
+		_redo_label(),
 	]
 	if state == _palette_state:
 		return
@@ -1600,7 +1630,8 @@ func _refresh_palette() -> void:
 	_lock_button.set_pressed_no_signal(_is_layer_locked())
 	_style_button.text = "Standard: %s" % String(_draft.dimension_style_name)
 	_style_button.tooltip_text = "%s (%s)" % [
-		_draft.document.dimension_style.describe(), _key_label(&"draft_dimension_style"),
+		_draft.document.dimension_style.describe(),
+		_key_label(&"draft_dimension_style"),
 	]
 	# What the two buttons would act on, by name. A button that says only "Undo" leaves a person to
 	# guess whether it will put back the line they have just trimmed or a survey overlaid two hours ago.
@@ -1732,7 +1763,6 @@ static func _inside_window(node: Node) -> bool:
 		walk = walk.get_parent()
 	return false
 
-
 # --- the client presentation ----------------------------------------------------------
 
 
@@ -1795,17 +1825,44 @@ func _build_presentation_panel() -> void:
 	# A tenth of a degree of latitude, so the site's own latitude survives being put in
 	# the box: at half a degree the panel would silently move the garden 5 km north. Half a
 	# degree of longitude is two minutes of solar time, which is fine for a longitude.
-	_sun_hour = _spin("SunHour", 0.0, 24.0, 0.5, " h", 16.0,
-		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.")
-	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0,
-		"Day of the year. 172 is the solstice.")
-	_sun_latitude = _spin("SunLatitude", -90.0, 90.0, 0.1, "°", 45.0,
-		"Degrees north, so negative is south. The number that makes a shadow study mean anything.")
-	_sun_longitude = _spin("SunLongitude", -180.0, 180.0, 0.5, "°", -75.0,
-		"Degrees east, so negative is west. Four minutes of solar time to a degree: this is what makes a clock time the site's sky rather than the sky at Greenwich.")
+	_sun_hour = _spin(
+		"SunHour",
+		0.0,
+		24.0,
+		0.5,
+		" h",
+		16.0,
+		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.",
+	)
+	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0, "Day of the year. 172 is the solstice.")
+	_sun_latitude = _spin(
+		"SunLatitude",
+		-90.0,
+		90.0,
+		0.1,
+		"°",
+		45.0,
+		"Degrees north, so negative is south. The number that makes a shadow study mean anything.",
+	)
+	_sun_longitude = _spin(
+		"SunLongitude",
+		-180.0,
+		180.0,
+		0.5,
+		"°",
+		-75.0,
+		"Degrees east, so negative is west. Four minutes of solar time to a degree: this is what makes a clock time the site's sky rather than the sky at Greenwich.",
+	)
 	# A quarter hour, because the world's zones are not all whole hours apart.
-	_sun_utc_offset = _spin("SunUtcOffset", -12.0, 14.0, 0.25, " h", -5.0,
-		"Hours from UTC in force at the site. Daylight saving belongs here rather than in a rule, since a rule is right in one country and wrong in the next: in summer this is an hour ahead of standard time, which is why every sunrise reads an hour later.")
+	_sun_utc_offset = _spin(
+		"SunUtcOffset",
+		-12.0,
+		14.0,
+		0.25,
+		" h",
+		-5.0,
+		"Hours from UTC in force at the site. Daylight saving belongs here rather than in a rule, since a rule is right in one country and wrong in the next: in summer this is an hour ahead of standard time, which is why every sunrise reads an hour later.",
+	)
 	_add_sun_field(sun_grid, "Hour", _sun_hour)
 	_add_sun_field(sun_grid, "Day", _sun_day)
 	_add_sun_field(sun_grid, "Latitude", _sun_latitude)
@@ -1888,8 +1945,13 @@ func _build_presentation_panel() -> void:
 ## because a helper that both made a control and parented it would have two owners for
 ## one child.
 func _spin(
-	node_name: String, low: float, high: float, step: float,
-	suffix: String, initial: float, tip: String
+	node_name: String,
+	low: float,
+	high: float,
+	step: float,
+	suffix: String,
+	initial: float,
+	tip: String,
 ) -> SpinBox:
 	var box := SpinBox.new()
 	box.name = node_name
@@ -1930,9 +1992,13 @@ func _refresh_presentation() -> void:
 	# showing a default the scene does not use, and *Apply* would then push that default
 	# back over the site's own latitude, longitude and offset.
 	var state := "%s|%d|%.2f|%.2f|%.2f|%d|%.2f" % [
-		str(presentation.is_active()), presentation.tier,
-		presentation.latitude, presentation.longitude, presentation.utc_offset_hours,
-		presentation.day_of_year, presentation.hour,
+		str(presentation.is_active()),
+		presentation.tier,
+		presentation.latitude,
+		presentation.longitude,
+		presentation.utc_offset_hours,
+		presentation.day_of_year,
+		presentation.hour,
 	]
 	if state == _presentation_state:
 		return
@@ -2011,12 +2077,8 @@ func _on_apply_sun() -> void:
 	# The site and the moment, together: the presenter turns the clock time into the
 	# site's own sky, which is where the longitude and the offset earn their place.
 	presentation.apply_sun(
-		SunStudyScript.site(
-			float(_sun_latitude.value),
-			float(_sun_longitude.value),
-			float(_sun_utc_offset.value)
-		),
-		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value))
+		SunStudyScript.site(float(_sun_latitude.value), float(_sun_longitude.value), float(_sun_utc_offset.value)),
+		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value)),
 	)
 
 
@@ -2075,7 +2137,6 @@ func _on_still_failed(reason: String) -> void:
 	# rendering, and the walk's own sentence counts what it could not do.
 	if _sun_render_waiting:
 		_sun_still_landed(false)
-
 
 # --- the painted plan -----------------------------------------------------------------
 
@@ -2178,9 +2239,13 @@ static func painted_caption_text(report: Dictionary) -> String:
 	var pixels: Array = report.get("pixels", [0, 0])
 	var mm: Array = report.get("mm", [0.0, 0.0])
 	return "Painted plan   %.0f x %.0f mm at 1:%s   %d x %d px   %d washed areas, %d planted" % [
-		float(mm[0]), float(mm[1]), String.num(float(report.get("plot_scale", 100.0)), 4),
-		int(pixels[0]), int(pixels[1]),
-		int(report.get("regions", 0)), int(report.get("props", 0)),
+		float(mm[0]),
+		float(mm[1]),
+		String.num(float(report.get("plot_scale", 100.0)), 4),
+		int(pixels[0]),
+		int(pixels[1]),
+		int(report.get("regions", 0)),
+		int(report.get("props", 0)),
 	]
 
 
@@ -2203,15 +2268,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Ctrl+S behind an open Save dialog would open another one.
 	if not _file_dialog_open():
 		if event.is_action_pressed(&"file_new"):
-			_menu_new_drawing({})
+			_menu_new_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"file_open"):
-			_menu_open_drawing({})
+			_menu_open_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"file_save"):
-			_menu_save_drawing({})
+			_menu_save_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		# The palette, on the same footing as the file commands and behind the same guard: it is a
@@ -2241,23 +2306,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		# three tools. Each one runs the menu entry that advertises it, so the key, the menu line and
 		# the page's own button are one act rather than three.
 		if event.is_action_pressed(&"plant_order"):
-			_menu_plant_order_window({})
+			_menu_plant_order_window({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"present_sun_study"):
-			_menu_sun_window({})
+			_menu_sun_window({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_spot"):
-			_menu_grade_spot({})
+			_menu_grade_spot({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_contour"):
-			_menu_grade_contour({})
+			_menu_grade_contour({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_slope"):
-			_menu_grade_slope({})
+			_menu_grade_slope({ })
 			get_viewport().set_input_as_handled()
 			return
 	if painted_plan == null:
@@ -2327,6 +2392,7 @@ func pages_in_windows() -> Array[Window]:
 		_harvest_window,
 		_season_window,
 		_capture_window,
+		_plant_key_window,
 		_sowing_window,
 		_yield_window,
 		_sun_window,
@@ -2365,7 +2431,6 @@ func _let_escape_close_pages() -> void:
 # Every entry does something, and the ones that stand for a key say which key. The keys come from
 # the input map rather than from a table here, so a rebinding moves the menu with the legend.
 
-
 ## What an entry needs from the scene before it means anything. `NEEDS_NOTHING` is the common
 ## case: the command works in any scene this HUD is in.
 const NEEDS_NOTHING := &""
@@ -2375,81 +2440,101 @@ const NEEDS_PRESENCE := &"presence"
 ## The window can be turned at all: a desktop's window cannot be asked which way up to be, so the three
 ## orientation choices are shown switched off there rather than doing nothing when they are pressed.
 const NEEDS_CAN_TURN := &"can_turn"
-const KNOWN_NEEDS: Array[StringName] = [
-	NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION, NEEDS_PRESENCE, NEEDS_CAN_TURN
-]
+const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION, NEEDS_PRESENCE, NEEDS_CAN_TURN]
 
 
 ## One entry that runs a command.
 static func _command(
-	id: String, label: String, action: StringName, method: StringName,
-	needs: StringName = NEEDS_NOTHING, enabled_when: StringName = &""
+	id: String,
+	label: String,
+	action: StringName,
+	method: StringName,
+	needs: StringName = NEEDS_NOTHING,
+	enabled_when: StringName = &"",
 ) -> Dictionary:
 	return {
-		"kind": &"command", "id": id, "label": label, "action": action,
-		"method": method, "needs": needs, "enabled_when": enabled_when, "value": null,
+		"kind": &"command",
+		"id": id,
+		"label": label,
+		"action": action,
+		"method": method,
+		"needs": needs,
+		"enabled_when": enabled_when,
+		"value": null,
 	}
 
 
 ## One entry of a set: choosing it chooses that value, and exactly one of the set is shown as on.
 ## `state` names what it is checked against, and `value` is the value it stands for.
 static func _radio(
-	id: String, label: String, action: StringName, method: StringName,
-	state: StringName, value: Variant, needs: StringName = NEEDS_NOTHING
+	id: String,
+	label: String,
+	action: StringName,
+	method: StringName,
+	state: StringName,
+	value: Variant,
+	needs: StringName = NEEDS_NOTHING,
 ) -> Dictionary:
 	return {
-		"kind": &"radio", "id": id, "label": label, "action": action, "method": method,
-		"state": state, "value": value, "needs": needs,
+		"kind": &"radio",
+		"id": id,
+		"label": label,
+		"action": action,
+		"method": method,
+		"state": state,
+		"value": value,
+		"needs": needs,
 	}
 
 
 ## One entry that is on or off, and means the state it names. It carries a null value so that
 ## every checkable entry has the same shape, and a reader of the plan does not have to know which
 ## kind it is before asking what it stands for.
-static func _check(
-	id: String, label: String, action: StringName, method: StringName, state: StringName
-) -> Dictionary:
+static func _check(id: String, label: String, action: StringName, method: StringName, state: StringName) -> Dictionary:
 	return {
-		"kind": &"check", "id": id, "label": label, "action": action, "method": method,
-		"state": state, "value": null, "needs": NEEDS_NOTHING,
+		"kind": &"check",
+		"id": id,
+		"label": label,
+		"action": action,
+		"method": method,
+		"state": state,
+		"value": null,
+		"needs": NEEDS_NOTHING,
 	}
 
 
 ## A menu inside a menu, for the sets that would otherwise be ten entries long.
 static func _submenu(id: String, label: String, items: Array[Dictionary]) -> Dictionary:
-	return {"kind": &"submenu", "id": id, "label": label, "items": items, "action": &"", "needs": NEEDS_NOTHING}
+	return { "kind": &"submenu", "id": id, "label": label, "items": items, "action": &"", "needs": NEEDS_NOTHING }
 
 
 static func _separator() -> Dictionary:
-	return {"kind": &"separator", "id": "", "action": &"", "needs": NEEDS_NOTHING}
+	return { "kind": &"separator", "id": "", "action": &"", "needs": NEEDS_NOTHING }
 
 
 ## A line that says something rather than doing something: shown switched off, because a menu
 ## entry that looks pressable and is not is the thing this whole file is trying not to build.
 static func _info(id: String, label: String) -> Dictionary:
-	return {
-		"kind": &"info", "id": id, "label": label, "action": &"", "needs": NEEDS_NOTHING,
-		"value": null,
-	}
+	return { "kind": &"info", "id": id, "label": label, "action": &"", "needs": NEEDS_NOTHING, "value": null }
 
 
 ## The whole bar, menu by menu.
 static func menu_plan() -> Array[Dictionary]:
 	var menus: Array[Dictionary] = []
-	menus.append({"title": "File", "items": file_items()})
-	menus.append({"title": "Edit", "items": edit_items()})
-	menus.append({"title": "View", "items": view_items()})
-	menus.append({"title": "Draft", "items": draft_items()})
-	menus.append({"title": "Site", "items": site_items()})
-	menus.append({"title": "Plant", "items": plant_items()})
-	menus.append({"title": "Water", "items": water_items()})
-	menus.append({"title": "Light", "items": light_items()})
-	menus.append({"title": "Pipeline", "items": pipeline_items()})
-	menus.append({"title": "Jobs", "items": jobs_items()})
-	menus.append({"title": "Estimate", "items": estimate_items()})
-	menus.append({"title": "Present", "items": present_items()})
-	menus.append({"title": "Team", "items": team_items()})
-	menus.append({"title": "Help", "items": help_items()})
+	menus.append({ "title": "File", "items": file_items() })
+	menus.append({ "title": "Edit", "items": edit_items() })
+	menus.append({ "title": "View", "items": view_items() })
+	menus.append({ "title": "Draft", "items": draft_items() })
+	menus.append({ "title": "Site", "items": site_items() })
+	menus.append({ "title": "Plant", "items": plant_items() })
+	menus.append({ "title": "Water", "items": water_items() })
+	menus.append({ "title": "Light", "items": light_items() })
+	menus.append({ "title": "Pipeline", "items": pipeline_items() })
+	menus.append({ "title": "Jobs", "items": jobs_items() })
+	menus.append({ "title": "Estimate", "items": estimate_items() })
+	menus.append({ "title": "Present", "items": present_items() })
+	menus.append({ "title": "Team", "items": team_items() })
+	menus.append({ "title": "Help", "items": help_items() })
 	return menus
 
 
@@ -2468,40 +2553,38 @@ static func file_items() -> Array[Dictionary]:
 	# A drawing to look at rather than a file to open: the example garden laid out on the sheet, so a
 	# person who has nothing yet has something to build from. It stands with New and Open for the same
 	# reason - it is a way of getting a drawing - and unlike them it needs nothing open first.
-	items.append(_submenu(&"file.examples", "Examples", [
-		_command(&"file.examples.garden", "The example garden", &"", &"_menu_example_garden"),
-	]))
+	items.append(
+		_submenu(
+			&"file.examples",
+			"Examples",
+			[_command(&"file.examples.garden", "The example garden", &"", &"_menu_example_garden")],
+		)
+	)
 	# A way of getting a drawing, so it stands with New and Open rather than with Save. It is *shown*
 	# switched off in the ordinary case rather than hidden, for the same reason the bar greys out what
 	# the scene cannot do: an entry that comes and goes cannot teach anybody that it exists.
-	items.append(_command(
-		&"file.recover", "Recover unsaved work...", &"", &"_menu_recover_unsaved", NEEDS_DRAFT, &"recovery"
-	))
+	items.append(
+		_command(&"file.recover", "Recover unsaved work...", &"", &"_menu_recover_unsaved", NEEDS_DRAFT, &"recovery")
+	)
 	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
 	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
 	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
 	items.append(_command(&"file.landxml", "Import a LandXML plat...", &"", &"_menu_import_landxml", NEEDS_DRAFT))
 	# The fourth import, and the only one that is not a file of linework: a raster picture, which is
 	# kept beside the drawing and laid under everything rather than read into entities.
-	items.append(_command(
-		&"file.picture", "Put a picture under the drawing...", &"", &"_menu_import_picture", NEEDS_DRAFT
-	))
+	items.append(
+		_command(&"file.picture", "Put a picture under the drawing...", &"", &"_menu_import_picture", NEEDS_DRAFT)
+	)
 	# And the way out. It stands with the imports rather than beside Save, because what it produces is
 	# an interchange file for somebody else's program and not this drawing's own saved form.
-	items.append(_command(
-		&"file.dxf_out", "Save the drawing as a DXF...", &"", &"_menu_save_dxf", NEEDS_DRAFT
-	))
+	items.append(_command(&"file.dxf_out", "Save the drawing as a DXF...", &"", &"_menu_save_dxf", NEEDS_DRAFT))
 	# And the other way out, and the one that leaves the drawing behind: a DXF is the design in two
 	# dimensions for another drafting program, and a model is the garden in three for a person who
 	# wants to build from it or light it. It needs nothing of the drawing to exist - the yard stands
 	# whatever is on the plan - but it stands *next to* the DXF, because they are the same act.
-	items.append(_command(
-		&"file.model_out", "Save the yard as a 3D model...", &"", &"_menu_save_model"
-	))
+	items.append(_command(&"file.model_out", "Save the yard as a 3D model...", &"", &"_menu_save_model"))
 	items.append(_separator())
-	items.append(_command(
-		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
-	))
+	items.append(_command(&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"))
 	items.append(_command(&"file.save_as", "Save as...", &"", &"_menu_save_drawing_as", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(&"file.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot", NEEDS_DRAFT))
@@ -2523,10 +2606,17 @@ static func sheet_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	# Not `name`: this is a CanvasLayer, and `name` is the node's own.
 	for sheet_name in PlotScaleScript.sheet_names():
-		items.append(_radio(
-			"file.sheet." + String(sheet_name), String(sheet_name), &"", &"_menu_set_sheet",
-			&"sheet", sheet_name, NEEDS_DRAFT
-		))
+		items.append(
+			_radio(
+				"file.sheet." + String(sheet_name),
+				String(sheet_name),
+				&"",
+				&"_menu_set_sheet",
+				&"sheet",
+				sheet_name,
+				NEEDS_DRAFT,
+			)
+		)
 	return items
 
 
@@ -2536,10 +2626,17 @@ static func scale_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	# Not `scale`: this is a CanvasLayer, and `scale` is a property of it.
 	for ratio: float in PlotScaleScript.METRIC_LADDER:
-		items.append(_radio(
-			"file.scale.%d" % int(ratio), PlotScaleScript.metric_label(ratio), &"",
-			&"_menu_set_scale", &"scale", ratio, NEEDS_DRAFT
-		))
+		items.append(
+			_radio(
+				"file.scale.%d" % int(ratio),
+				PlotScaleScript.metric_label(ratio),
+				&"",
+				&"_menu_set_scale",
+				&"scale",
+				ratio,
+				NEEDS_DRAFT,
+			)
+		)
 	return items
 
 
@@ -2559,23 +2656,34 @@ static func edit_items() -> Array[Dictionary]:
 	items.append(_submenu(&"edit.dimension_style", "Dimension standard", dimension_style_items()))
 	items.append(_separator())
 	for pair: Array in EDIT_TOOLS:
-		items.append(_radio(
-			"edit.tool." + String(pair[0]), edit_tool_label(pair), pair[0],
-			&"_menu_arm_edit", &"edit", pair[2]
-		))
+		items.append(
+			_radio("edit.tool." + String(pair[0]), edit_tool_label(pair), pair[0], &"_menu_arm_edit", &"edit", pair[2])
+		)
 	# Selecting is not editing: it is how a person says *which* shapes before saying
 	# what to do with them, and the two modes are the whole of it. They get no key
 	# because the select tool has none - it is the one tool with no palette button,
 	# since a band needs no settling in the hand.
 	items.append(_separator())
-	items.append(_radio(
-		&"edit.select_window", "Window selection", &"", &"_menu_select_mode",
-		&"select_mode", SelectScript.MODE_WINDOW
-	))
-	items.append(_radio(
-		&"edit.select_crossing", "Crossing selection", &"", &"_menu_select_mode",
-		&"select_mode", SelectScript.MODE_CROSSING
-	))
+	items.append(
+		_radio(
+			&"edit.select_window",
+			"Window selection",
+			&"",
+			&"_menu_select_mode",
+			&"select_mode",
+			SelectScript.MODE_WINDOW,
+		)
+	)
+	items.append(
+		_radio(
+			&"edit.select_crossing",
+			"Crossing selection",
+			&"",
+			&"_menu_select_mode",
+			&"select_mode",
+			SelectScript.MODE_CROSSING,
+		)
+	)
 	# The history goes at the foot of Edit, under the selection bands and away from the commands: it is
 	# not an edit, it is what the drawing was when it was sent, and a person looks for it when they are
 	# thinking about the job rather than about the shape under the cursor. It takes no key, as the bands
@@ -2602,10 +2710,16 @@ static func dimension_style_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for style: StringName in DraftControllerScript.DIMENSION_STYLES:
 		var words := String(style)
-		items.append(_radio(
-			"edit.dimension_style." + words, words.substr(0, 1).to_upper() + words.substr(1),
-			&"draft_dimension_style", &"_menu_set_dimension_style", &"dimension_style", style
-		))
+		items.append(
+			_radio(
+				"edit.dimension_style." + words,
+				words.substr(0, 1).to_upper() + words.substr(1),
+				&"draft_dimension_style",
+				&"_menu_set_dimension_style",
+				&"dimension_style",
+				style,
+			)
+		)
 	return items
 
 
@@ -2615,18 +2729,29 @@ static func dimension_style_items() -> Array[Dictionary]:
 ## one key can do, and a menu lists all three because that is what a menu is for.
 static func view_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
-	items.append(_radio(
-		&"view.plan", "2D plan", &"toggle_view", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.PLAN_2D
-	))
-	items.append(_radio(
-		&"view.overhead", "3D overhead", &"toggle_view", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.OVERHEAD_3D
-	))
-	items.append(_radio(
-		&"view.ground", "Ground view", &"toggle_ground", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.GROUND
-	))
+	items.append(
+		_radio(&"view.plan", "2D plan", &"toggle_view", &"_menu_show_mode", &"mode", ViewController.ViewMode.PLAN_2D)
+	)
+	items.append(
+		_radio(
+			&"view.overhead",
+			"3D overhead",
+			&"toggle_view",
+			&"_menu_show_mode",
+			&"mode",
+			ViewController.ViewMode.OVERHEAD_3D,
+		)
+	)
+	items.append(
+		_radio(
+			&"view.ground",
+			"Ground view",
+			&"toggle_ground",
+			&"_menu_show_mode",
+			&"mode",
+			ViewController.ViewMode.GROUND,
+		)
+	)
 	items.append(_separator())
 	items.append(_command(&"view.fit", "Fit the design to the screen", &"fit_view", &"_menu_fit"))
 	# The site the plan stands on: put away on a new drawing (a blank page), brought back here. A tick
@@ -2651,10 +2776,17 @@ static func view_items() -> Array[Dictionary]:
 static func orientation_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for choice: StringName in OrientationChoiceScript.CHOICES:
-		items.append(_radio(
-			"view.orientation." + String(choice), OrientationChoiceScript.word(choice),
-			&"", &"_menu_set_orientation", &"orientation", choice, NEEDS_CAN_TURN
-		))
+		items.append(
+			_radio(
+				"view.orientation." + String(choice),
+				OrientationChoiceScript.word(choice),
+				&"",
+				&"_menu_set_orientation",
+				&"orientation",
+				choice,
+				NEEDS_CAN_TURN,
+			)
+		)
 	return items
 
 
@@ -2668,10 +2800,9 @@ static func draft_items() -> Array[Dictionary]:
 	items.append(_check(&"draft.armed", "Drawing tools", &"draft_mode", &"_menu_toggle_drawing", &"drawing"))
 	items.append(_separator())
 	for pair: Array in DRAFTING_TOOLS:
-		items.append(_radio(
-			"draft.tool." + String(pair[0]), tool_label(pair), pair[0], &"_menu_arm_tool",
-			&"tool", pair[2]
-		))
+		items.append(
+			_radio("draft.tool." + String(pair[0]), tool_label(pair), pair[0], &"_menu_arm_tool", &"tool", pair[2])
+		)
 	items.append(_separator())
 	items.append(_command(&"draft.finish", "Finish the shape", &"draft_finish", &"_menu_finish"))
 	items.append(_command(&"draft.close", "Close the shape", &"draft_close", &"_menu_close_shape"))
@@ -2679,9 +2810,9 @@ static func draft_items() -> Array[Dictionary]:
 	items.append(_command(&"draft.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
 	items.append(_separator())
 	items.append(_command(&"draft.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot"))
-	items.append(_command(
-		&"draft.style", "Next dimension standard", &"draft_dimension_style", &"_menu_cycle_dimension_style"
-	))
+	items.append(
+		_command(&"draft.style", "Next dimension standard", &"draft_dimension_style", &"_menu_cycle_dimension_style")
+	)
 	items.append(_separator())
 	items.append(_command(&"draft.hatch", "Hatch a region...", &"", &"_menu_hatch_region"))
 	items.append(_command(&"draft.snapping", "Snapping...", &"", &"_menu_snap_window"))
@@ -2701,9 +2832,9 @@ static func present_items() -> Array[Dictionary]:
 	# First, because everything else in this menu is a control on the panel: a person whose phone has
 	# cut the panel's last rows off needs the row that gives the panel back, and it is ticked when the
 	# panel is on - which is the state it starts in whenever the scene has a director.
-	items.append(_check(
-		&"present.panel", "Presentation panel", &"", &"_menu_presentation_panel", &"presentation_panel"
-	))
+	items.append(
+		_check(&"present.panel", "Presentation panel", &"", &"_menu_presentation_panel", &"presentation_panel")
+	)
 	items.append(_check(&"present.running", "Client presentation", &"", &"_menu_toggle_presentation", &"presenting"))
 	items.append(_separator())
 	items.append(_submenu(&"present.quality", "Quality", tier_items()))
@@ -2711,12 +2842,16 @@ static func present_items() -> Array[Dictionary]:
 	items.append(_separator())
 	items.append(_submenu(&"present.still_size", "Still size", still_size_items()))
 	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
-	items.append(_command(
-		&"present.sun_study", "Sun and shadow study...", &"present_sun_study", &"_menu_sun_window", NEEDS_PRESENTATION
-	))
-	items.append(_command(
-		&"present.walk", "Walk-through...", &"", &"_menu_walk_window", NEEDS_PRESENTATION
-	))
+	items.append(
+		_command(
+			&"present.sun_study",
+			"Sun and shadow study...",
+			&"present_sun_study",
+			&"_menu_sun_window",
+			NEEDS_PRESENTATION,
+		)
+	)
+	items.append(_command(&"present.walk", "Walk-through...", &"", &"_menu_walk_window", NEEDS_PRESENTATION))
 	items.append(_separator())
 	items.append(_info(&"present.sun_info", "the sun"))
 	items.append(_separator())
@@ -2728,10 +2863,9 @@ static func present_items() -> Array[Dictionary]:
 static func tier_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for tier: int in TierScript.CHOICES:
-		items.append(_radio(
-			"present.quality.%d" % tier, TierScript.name_of(tier), &"", &"_menu_set_tier",
-			&"tier", tier
-		))
+		items.append(
+			_radio("present.quality.%d" % tier, TierScript.name_of(tier), &"", &"_menu_set_tier", &"tier", tier)
+		)
 	return items
 
 
@@ -2739,10 +2873,16 @@ static func tier_items() -> Array[Dictionary]:
 static func still_size_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for index in STILL_SIZES.size():
-		items.append(_radio(
-			"present.still_size.%d" % index, String(STILL_SIZES[index][0]), &"",
-			&"_menu_set_still_size", &"still_size", index
-		))
+		items.append(
+			_radio(
+				"present.still_size.%d" % index,
+				String(STILL_SIZES[index][0]),
+				&"",
+				&"_menu_set_still_size",
+				&"still_size",
+				index,
+			)
+		)
 	return items
 
 
@@ -2771,40 +2911,37 @@ static func site_items() -> Array[Dictionary]:
 	# with it. Every food crop's "days to maturity" is measured against the season they bound, so this
 	# is the one site fact the kitchen garden rests on.
 	items.append(_info(&"site.season", "the growing season is not stated"))
-	items.append(_command(
-		&"site.season.window", "How long the season is...", &"", &"_menu_season_window", NEEDS_DRAFT
-	))
+	items.append(_command(&"site.season.window", "How long the season is...", &"", &"_menu_season_window", NEEDS_DRAFT))
 	# The camera's own door from inside the drawing, and it needs nothing: a person standing at a leaf
 	# with a phone in their hand should not have to have a drawing open to photograph it. The survey's
 	# door beside it is the one that is *about* the drawing, and says so by needing one.
 	items.append(_command(&"site.photograph", "Take a photograph...", &"", &"_menu_take_a_photograph"))
 	# Recording what is standing on site: the person's own door into the same survey file a phone
 	# writes, so a garden walked round with a notebook and a camera reaches the plan without one.
-	items.append(_command(
-		&"site.capture", "Record what is on site...", &"", &"_menu_capture_window", NEEDS_DRAFT
-	))
+	items.append(_command(&"site.capture", "Record what is on site...", &"", &"_menu_capture_window", NEEDS_DRAFT))
 	items.append(_separator())
 	# The ground's own heights. Apart from the conditions above, because a level is a fact about the
 	# shape of the land while a condition is a fact about what will grow on it - and a plan can be
 	# levelled without anybody having said what the soil is like.
 	items.append(_info(&"site.grading", "nothing on this drawing is graded"))
-	items.append(_command(
-		&"site.grade", "The ground's heights: levels, contours, slopes...", &"", &"_menu_grading_window",
-		NEEDS_DRAFT
-	))
+	items.append(
+		_command(
+			&"site.grade",
+			"The ground's heights: levels, contours, slopes...",
+			&"",
+			&"_menu_grading_window",
+			NEEDS_DRAFT,
+		)
+	)
 	# The three tools the page above holds, on their own lines: each is one key away and each is the
 	# same act as the button of that name on the page, so a level can be stamped without opening a page
 	# and then choosing a tool in it. The keys - Z, B and M - are the three free ones that read as a
 	# group, and `_unhandled_input` runs exactly these methods.
-	items.append(_command(
-		&"site.grade.spot", "Spot level here", &"grade_spot", &"_menu_grade_spot", NEEDS_DRAFT
-	))
-	items.append(_command(
-		&"site.grade.contour", "Draw a contour", &"grade_contour", &"_menu_grade_contour", NEEDS_DRAFT
-	))
-	items.append(_command(
-		&"site.grade.slope", "Draw a slope arrow", &"grade_slope", &"_menu_grade_slope", NEEDS_DRAFT
-	))
+	items.append(_command(&"site.grade.spot", "Spot level here", &"grade_spot", &"_menu_grade_spot", NEEDS_DRAFT))
+	items.append(
+		_command(&"site.grade.contour", "Draw a contour", &"grade_contour", &"_menu_grade_contour", NEEDS_DRAFT)
+	)
+	items.append(_command(&"site.grade.slope", "Draw a slope arrow", &"grade_slope", &"_menu_grade_slope", NEEDS_DRAFT))
 	items.append(_command(&"site.grade.check", "Check the grading", &"", &"_menu_check_grading", NEEDS_DRAFT))
 	items.append(_separator())
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
@@ -2844,7 +2981,9 @@ static func jobs_items() -> Array[Dictionary]:
 	# The records' sync with the office's service: what is waiting, what wants a person, and where the
 	# two copies disagree. Business data like the rest of this menu, so it needs no drawing.
 	items.append(_command(&"jobs.sync", "Sync with the office...", &"", &"_menu_sync_window"))
-	items.append(_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window"))
+	items.append(
+		_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window")
+	)
 	# Finishing the job: the punch list walked at the end, the day the garden was handed over, and the
 	# warranty that runs from it. Business data like the rest of this menu, so it needs no drawing.
 	items.append(_command(&"jobs.closeout", "Finishing the job...", &"", &"_menu_closeout_window"))
@@ -2862,9 +3001,7 @@ static func estimate_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	items.append(_info(&"estimate.info", "nothing has been taken off the plan yet"))
 	items.append(_separator())
-	items.append(_command(
-		&"estimate.window", "Takeoff and estimate...", &"", &"_menu_estimate_window", NEEDS_DRAFT
-	))
+	items.append(_command(&"estimate.window", "Takeoff and estimate...", &"", &"_menu_estimate_window", NEEDS_DRAFT))
 	items.append(_command(&"estimate.take_off", "Take off the plan", &"", &"_menu_take_off", NEEDS_DRAFT))
 	items.append(_command(&"estimate.check", "Check the numbers", &"", &"_menu_check_numbers", NEEDS_DRAFT))
 	return items
@@ -2880,29 +3017,37 @@ static func plant_items() -> Array[Dictionary]:
 	items.append(_info(&"plant.info", "no plant list"))
 	items.append(_separator())
 	items.append(_command(&"plant.library", "Plant library...", &"plant_library", &"_menu_plant_library"))
+	# The other way to a name, and the one for a plant you are standing in front of: answer what you can
+	# see and the list narrows. It reaches the catalogue and not the scene, so this is the same menu in a
+	# scene with no yard.
+	items.append(_command(&"plant.key", "Name a plant by answering questions...", &"", &"_menu_plant_key"))
 	items.append(_command(&"plant.place", "Place the chosen plant", &"", &"_menu_plant_place"))
 	items.append(_command(&"plant.stop", "Stop planting", &"", &"_menu_stop_planting"))
 	items.append(_separator())
 	items.append(_command(&"plant.label", "Label the planting", &"", &"_menu_label_plants"))
 	# The nursery order: the one thing a planting list is for besides being read. It needs the drawing
 	# because the plants are in the yard, which is a fact about the plan and not about the list.
-	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"plant_order",
-		&"_menu_plant_order_window", NEEDS_DRAFT))
+	items.append(
+		_command(
+			&"plant.order",
+			"Order the plants for this drawing...",
+			&"plant_order",
+			&"_menu_plant_order_window",
+			NEEDS_DRAFT,
+		)
+	)
 	# The food garden: the same drawing and the same list, asked the other question a garden is for -
 	# where the food will actually crop. It needs the drawing because a bed's light is stated on the
 	# plan, and a crop's hours are checked against the bed rather than against the list.
-	items.append(_command(&"plant.food", "What will crop here...", &"", &"_menu_food_window",
-		NEEDS_DRAFT))
+	items.append(_command(&"plant.food", "What will crop here...", &"", &"_menu_food_window", NEEDS_DRAFT))
 	# What to grow here next: the kitchen gardener's other question - what should follow what, and what
 	# grows well together. It needs the drawing for the bed names, and states the bed's history itself,
 	# because no drawing was ever told what grew there last season.
-	items.append(_command(&"plant.rotation", "What to grow here next...", &"",
-		&"_menu_rotation_window", NEEDS_DRAFT))
+	items.append(_command(&"plant.rotation", "What to grow here next...", &"", &"_menu_rotation_window", NEEDS_DRAFT))
 	# What is ready when: the same plant list read as a calendar - pick a month and see every crop
 	# recorded as ready then. It needs nothing but the list, so it needs no drawing; the entry sits here
 	# among its food neighbours rather than in a menu of its own.
-	items.append(_command(&"plant.harvest", "What's ready when...", &"",
-		&"_menu_harvest_window", NEEDS_NOTHING))
+	items.append(_command(&"plant.harvest", "What's ready when...", &"", &"_menu_harvest_window", NEEDS_NOTHING))
 	# When to sow: the season read as a sowing calendar - a day to sow on and how long a crop can be kept
 	# coming. It needs the drawing because the season lives there, and the list because a crop's days to
 	# maturity do; what it does not do is write either.
@@ -2910,8 +3055,7 @@ static func plant_items() -> Array[Dictionary]:
 	# How much to plant: the same list asked a household's question - how many plants it takes to feed a
 	# given number of people. It needs nothing but the list, so it needs no drawing, and the entry sits
 	# here among its food neighbours rather than in a menu of its own.
-	items.append(_command(&"plant.yield", "How much to plant...", &"", &"_menu_yield_window",
-		NEEDS_NOTHING))
+	items.append(_command(&"plant.yield", "How much to plant...", &"", &"_menu_yield_window", NEEDS_NOTHING))
 	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
 	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
@@ -2949,9 +3093,7 @@ static func light_items() -> Array[Dictionary]:
 ## the hints are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
-	items.append(_command(
-		&"help.palette", "Command palette...", &"command_palette", &"_menu_command_palette"
-	))
+	items.append(_command(&"help.palette", "Command palette...", &"command_palette", &"_menu_command_palette"))
 	items.append(_command(&"help.manual", "Landscaping Planner help...", &"", &"_menu_help"))
 	items.append(_check(&"help.keys", "Drawing keys", &"", &"_menu_keys", &"keys_panel"))
 	# Last, because it is the narrowest of the three ways in: the palette reaches any command, the manual
@@ -2966,12 +3108,10 @@ static func help_items() -> Array[Dictionary]:
 static func team_items() -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	items.append(_info(&"team.info", "no session"))
-	items.append(_command(
-		&"team.start", "Share this drawing...", &"", &"_menu_start_session", NEEDS_PRESENCE
-	))
-	items.append(_command(
-		&"team.leave", "Leave the session", &"", &"_menu_leave_session", NEEDS_PRESENCE, &"session_on"
-	))
+	items.append(_command(&"team.start", "Share this drawing...", &"", &"_menu_start_session", NEEDS_PRESENCE))
+	items.append(
+		_command(&"team.leave", "Leave the session", &"", &"_menu_leave_session", NEEDS_PRESENCE, &"session_on")
+	)
 	return items
 
 
@@ -3028,7 +3168,7 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			# palette follows: a menu highlighting a tool while the tools are put away would be
 			# describing a mode that is not on. An editing command in hand is not a drawing tool.
 			return bool(world.get("drawing", false)) and int(world.get("edit", 0)) == 0 \
-				and int(world.get("tool", -1)) == int(value)
+					and int(world.get("tool", -1)) == int(value)
 		&"edit":
 			# Likewise, an editing command is only shown as in hand while the tools are out and
 			# nothing else is drawing.
@@ -3040,8 +3180,8 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			# a drawing tool is only shown as chosen while the tools are out: a menu claiming a
 			# band is in hand when nothing is would be describing a mode that is not on.
 			return bool(world.get("drawing", false)) \
-				and int(world.get("tool", -1)) == int(DraftToolScript.Kind.SELECT) \
-				and StringName(world.get("select_mode", &"")) == StringName(value)
+					and int(world.get("tool", -1)) == int(DraftToolScript.Kind.SELECT) \
+					and StringName(world.get("select_mode", &"")) == StringName(value)
 		&"sheet":
 			return String(world.get("sheet", "")) == String(value)
 		&"scale":
@@ -3217,8 +3357,6 @@ func _light_budget_text() -> String:
 	return "transformer: %s" % LightingScript.transformer_words(transformer)
 
 
-
-
 ## The name the folded menus are gathered under.
 const MORE_TITLE := "More"
 ## How many menus have to be folded away before folding is worth doing at all. A fold that leaves one or
@@ -3268,13 +3406,16 @@ func _fold_menu_bar_to_fit() -> void:
 	# from a desk: the room the bar was given, what the bar itself says it needs, the row it sits in, and
 	# how many titles are on it. A debug build may say this; a release build says nothing.
 	if OS.is_debug_build():
-		print("MENUBAR room=%.0f bar_min=%.0f row=%.0f shown=%.0f titles=%d" % [
-			room,
-			menu_bar.get_combined_minimum_size().x,
-			(menu_bar.get_parent() as Control).size.x,
-			get_viewport().get_visible_rect().size.x if get_viewport() != null else -1.0,
-			_menu_titles.size(),
-		])
+		print(
+			"MENUBAR room=%.0f bar_min=%.0f row=%.0f shown=%.0f titles=%d"
+			% [
+				room,
+				menu_bar.get_combined_minimum_size().x,
+				(menu_bar.get_parent() as Control).size.x,
+				get_viewport().get_visible_rect().size.x if get_viewport() != null else -1.0,
+				_menu_titles.size(),
+			]
+		)
 	# The room is remembered *before* the bar is rebuilt: the rebuild ends by asking for a refresh, and a
 	# refresh that found the room still unrecorded would rebuild the bar again and again.
 	_menu_room = room
@@ -3362,12 +3503,10 @@ func menu_bar_plan(available: float) -> Array[Dictionary]:
 		var menu: Dictionary = plan[i]
 		# The menu's name becomes a titled separator, so a command under More still says which menu it
 		# lives in rather than arriving with no place at all.
-		more.append({
-			"kind": &"separator", "id": "more.%d" % i, "label": String(menu["title"]),
-		})
+		more.append({ "kind": &"separator", "id": "more.%d" % i, "label": String(menu["title"]) })
 		for item: Dictionary in Array(menu.get("items", [])):
 			more.append(item)
-	out.append({"title": MORE_TITLE, "items": more})
+	out.append({ "title": MORE_TITLE, "items": more })
 	return out
 
 
@@ -3412,8 +3551,7 @@ func menu_title_widths(words: Array[String]) -> Array[float]:
 	if font != null and point_size > 0:
 		var around: float = menu_button_chrome(bar)
 		for title: String in words:
-			widths.append(around + font.get_string_size(
-				title, HORIZONTAL_ALIGNMENT_LEFT, -1, point_size).x)
+			widths.append(around + font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, point_size).x)
 	if borrowed:
 		bar.free()
 	return widths
@@ -3563,7 +3701,7 @@ func _refresh_menus() -> void:
 			if kind == &"radio" or kind == &"check":
 				popup.set_item_checked(
 					index,
-					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world)
+					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world),
 				)
 			# An entry that only means something in some states says which, and is shown switched
 			# off rather than doing nothing when the state is not on: Save with nothing to save.
@@ -3590,7 +3728,6 @@ func _on_menu_item_pressed(id: int, popup: PopupMenu) -> void:
 	if id < 0 or id >= entries.size():
 		return
 	run_entry(entries[id])
-
 
 # --- what each entry does -------------------------------------------------------------
 
@@ -3652,7 +3789,6 @@ func back_puts_away() -> void:
 	if escape_puts_away():
 		return
 	quit_requested()
-
 
 # --- the drawing on disk --------------------------------------------------------------
 
@@ -3755,10 +3891,12 @@ func _build_file_dialogs() -> void:
 	_model_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_model_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	_model_export_dialog.current_file = "yard.glb"
-	_model_export_dialog.filters = PackedStringArray([
-		"*.glb ; Binary glTF, one file with its pictures inside it",
-		"*.gltf ; glTF text, with its pictures named rather than carried",
-	])
+	_model_export_dialog.filters = PackedStringArray(
+		[
+			"*.glb ; Binary glTF, one file with its pictures inside it",
+			"*.gltf ; glTF text, with its pictures named rather than carried",
+		]
+	)
 	_model_export_dialog.file_selected.connect(_on_model_export_chosen)
 	add_child(_model_export_dialog)
 
@@ -3805,13 +3943,13 @@ func _build_file_dialogs() -> void:
 	# dialogs that stay inside `user://` are deliberately not in this list - a drawing is written to a
 	# temporary file and renamed into place, and a hand-over cannot rename anything.
 	for door: FileDialog in [
-			_survey_dialog,
-			_dxf_dialog,
-			_dxf_export_dialog,
-			_model_export_dialog,
-			_landxml_dialog,
-			_osm_dialog,
-			_underlay_dialog,
+		_survey_dialog,
+		_dxf_dialog,
+		_dxf_export_dialog,
+		_model_export_dialog,
+		_landxml_dialog,
+		_osm_dialog,
+		_underlay_dialog,
 	]:
 		PhoneFilesScript.prepare(door)
 
@@ -3843,10 +3981,10 @@ func _build_file_dialogs() -> void:
 
 func _file_dialog_open() -> bool:
 	return (_open_dialog != null and _open_dialog.visible) \
-		or (_save_dialog != null and _save_dialog.visible) \
-		or (_discard_dialog != null and _discard_dialog.visible) \
-		or (_recovery_dialog != null and _recovery_dialog.visible) \
-		or (_underlay_dialog != null and _underlay_dialog.visible)
+			or (_save_dialog != null and _save_dialog.visible) \
+			or (_discard_dialog != null and _discard_dialog.visible) \
+			or (_recovery_dialog != null and _recovery_dialog.visible) \
+			or (_underlay_dialog != null and _underlay_dialog.visible)
 
 
 ## Ask before throwing work away, then do what was asked for.
@@ -4001,7 +4139,6 @@ func _menu_save_drawing(_entry: Dictionary) -> void:
 func _menu_save_drawing_as(_entry: Dictionary) -> void:
 	save_drawing_dialog()
 
-
 # --- a copy kept in case the program stops --------------------------------------------
 
 
@@ -4052,7 +4189,7 @@ func _tick_autosave(delta: float) -> void:
 ## thrown away, and the question being answered - and never from `menu_world`, which is built on the
 ## way to *every* menu refresh: a directory listing is not something a frame may do.
 func _refresh_pending_recovery() -> void:
-	_pending_recovery = _draft.pending_recovery() if _draft != null else {}
+	_pending_recovery = _draft.pending_recovery() if _draft != null else { }
 
 
 ## The one line the File menu adds when a session that ended without saving left work behind. Empty in
@@ -4151,20 +4288,32 @@ func _fill_recent_menu() -> void:
 	if paths.is_empty():
 		_recent_popup.add_item("nothing yet")
 		_recent_popup.set_item_disabled(0, true)
-		entries.append({
-			"kind": &"info", "id": &"file.recent.none", "label": "nothing yet",
-			"action": &"", "needs": NEEDS_NOTHING, "value": null,
-		})
+		entries.append(
+			{
+				"kind": &"info",
+				"id": &"file.recent.none",
+				"label": "nothing yet",
+				"action": &"",
+				"needs": NEEDS_NOTHING,
+				"value": null,
+			}
+		)
 	else:
 		for path in paths:
 			# Not `name`: this is a CanvasLayer, and `name` is the node's own.
 			var file_name := StoreScript.display_name(path)
 			_recent_popup.add_item(file_name)
-			entries.append({
-				"kind": &"command", "id": StringName("file.recent." + file_name),
-				"label": file_name, "action": &"", "method": &"_menu_open_recent",
-				"needs": NEEDS_DRAFT, "value": path,
-			})
+			entries.append(
+				{
+					"kind": &"command",
+					"id": StringName("file.recent." + file_name),
+					"label": file_name,
+					"action": &"",
+					"method": &"_menu_open_recent",
+					"needs": NEEDS_DRAFT,
+					"value": path,
+				}
+			)
 	_menu_items[_recent_popup] = entries
 
 
@@ -4410,9 +4559,7 @@ func page_help_refusal() -> String:
 	if PageHelpScript.WITHOUT_NEED.has(asked):
 		return String(PageHelpScript.WITHOUT_NEED[asked])
 	if PageHelpScript.NOT_YET_WRITTEN.has(asked):
-		return "the manual has not reached \"%s\" yet: %s" % [
-			asked, String(PageHelpScript.NOT_YET_WRITTEN[asked]),
-		]
+		return "the manual has not reached \"%s\" yet: %s" % [asked, String(PageHelpScript.NOT_YET_WRITTEN[asked])]
 	return "the manual has nothing about \"%s\"" % asked
 
 
@@ -4434,7 +4581,6 @@ func open_page_help() -> bool:
 	if _draft != null:
 		_draft.last_message = "the manual, on \"%s\"" % subject
 	return true
-
 
 # --- the key reference ----------------------------------------------------------------
 
@@ -4550,7 +4696,6 @@ func close_keys() -> void:
 # which is the same string the key reference shows, so the manual cannot name a key that does nothing
 # - the half worth deriving is derived, and there is no fourth copy of the bindings to drift.
 
-
 ## The subject the keys live under, appended to the manual's own topics.
 const KEYS_TOPIC := "Keys"
 ## The heading the keys are listed under. The manual's own sections come from `HelpDoc`; this one is
@@ -4577,7 +4722,7 @@ func help_topics() -> Array[Dictionary]:
 	var topics: Array[Dictionary] = HelpDocScript.topics()
 	# Filed under its own heading: the keys are the one subject the manual does not carry as prose, and
 	# left unsectioned they would sit under the last section of the manual and read as part of it.
-	topics.append({"title": KEYS_TOPIC, "body": keys_text(), "section": KEYS_SECTION})
+	topics.append({ "title": KEYS_TOPIC, "body": keys_text(), "section": KEYS_SECTION })
 	return topics
 
 
@@ -4608,7 +4753,6 @@ func close_help_window() -> void:
 
 func is_help_window_open() -> bool:
 	return _help_window != null and _help_window.visible
-
 
 # --- the command palette --------------------------------------------------------------
 #
@@ -4790,14 +4934,13 @@ func _fill_command_palette() -> void:
 ## up: a command that moved the drawing leaves the ticks and the lines that describe the drawing
 ## describing the drawing before it.
 func _on_command_chosen(row: Dictionary) -> void:
-	var entry: Dictionary = row.get("entry", {})
+	var entry: Dictionary = row.get("entry", { })
 	if run_entry(entry):
 		_refresh_menus()
 
 
 func _menu_command_palette(_entry: Dictionary) -> void:
 	open_command_palette()
-
 
 # --- the site report ------------------------------------------------------------------
 
@@ -4871,7 +5014,6 @@ func open_site_report() -> void:
 func close_site_report() -> void:
 	if _site_report_panel != null:
 		_site_report_panel.visible = false
-
 
 # --- importing a survey ---------------------------------------------------------------
 
@@ -4970,7 +5112,7 @@ func open_survey_panel(parsed: Dictionary) -> void:
 func close_survey_panel() -> void:
 	if _survey_panel != null:
 		_survey_panel.visible = false
-	_pending_survey = {}
+	_pending_survey = { }
 
 
 ## Put the survey that was read on the drawing. The page stays up until the drawing has taken it,
@@ -4981,7 +5123,6 @@ func confirm_survey_import() -> void:
 	var taken: Dictionary = _draft.import_survey(_pending_survey)
 	if bool(taken.get("ok", false)):
 		close_survey_panel()
-
 
 ## The survey file chooser. It starts in the app's own surveys folder when there is one - the
 ## place a survey that was dropped in for this drawing lives - and anywhere on the disk otherwise,
@@ -5034,8 +5175,9 @@ func _build_dxf_panel() -> void:
 	for unit_name: String in IMPORT_UNIT_CHOICES:
 		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
 		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
-	units_choice.item_selected.connect(func(index: int) -> void:
-		choose_dxf_units(String(units_choice.get_item_metadata(index)))
+	units_choice.item_selected.connect(
+		func(index: int) -> void:
+			choose_dxf_units(String(units_choice.get_item_metadata(index))),
 	)
 	units_row.add_child(units_choice)
 	column.add_child(units_row)
@@ -5086,7 +5228,7 @@ func dxf_import_enabled() -> bool:
 ## Read the file in hand again, with the units a person chose. Called on open and whenever the choice
 ## changes: the answer is part of reading the file, not a second step after it.
 func _read_pending_dxf() -> Dictionary:
-	var options := {"underlay": true}
+	var options := { "underlay": true }
 	if not _dxf_units.is_empty():
 		options["units"] = _dxf_units
 	var plan := DxfFileScript.read_text(_dxf_text, options)
@@ -5109,7 +5251,8 @@ func open_dxf_panel() -> void:
 		var option := choice as OptionButton
 		var needed := int(_pending_dxf.get("insunits", 0)) == 0
 		option.disabled = not needed
-		option.tooltip_text = ("this file does not say what its units are" if needed
+		option.tooltip_text = ("this file does not say what its units are"
+			if needed
 			else "the file states its own units")
 	var answer := _dxf_panel.get_node_or_null(^"Page/Column/Buttons/ImportDxf")
 	if answer is Button:
@@ -5120,7 +5263,7 @@ func open_dxf_panel() -> void:
 func close_dxf_panel() -> void:
 	if _dxf_panel != null:
 		_dxf_panel.visible = false
-	_pending_dxf = {}
+	_pending_dxf = { }
 	_dxf_text = ""
 	_dxf_name = ""
 	_dxf_units = ""
@@ -5241,7 +5384,6 @@ func _on_model_export_chosen(path: String) -> void:
 		_draft.last_message = YardExporterScript.describe(report)
 	release_keyboard_focus(self)
 
-
 # --- the LandXML plat ------------------------------------------------------------------
 
 
@@ -5292,8 +5434,9 @@ func _build_landxml_panel() -> void:
 	for unit_name: String in IMPORT_UNIT_CHOICES:
 		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
 		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
-	units_choice.item_selected.connect(func(index: int) -> void:
-		choose_landxml_units(String(units_choice.get_item_metadata(index)))
+	units_choice.item_selected.connect(
+		func(index: int) -> void:
+			choose_landxml_units(String(units_choice.get_item_metadata(index))),
 	)
 	units_row.add_child(units_choice)
 	column.add_child(units_row)
@@ -5338,16 +5481,13 @@ func landxml_report_text() -> String:
 ## Whether what was read may go on the drawing. A refused file is *shown* rather than hidden, because
 ## the usual reason is the one question it can still answer.
 func landxml_import_enabled() -> bool:
-	return (
-		_draft != null and _draft.document != null
-		and LandXmlFileScript.is_usable(_pending_landxml)
-	)
+	return (_draft != null and _draft.document != null and LandXmlFileScript.is_usable(_pending_landxml))
 
 
 ## Read the plat in hand again, with the units a person chose. Called on open and whenever the choice
 ## changes: the answer is part of reading the file, not a second step after it.
 func _read_pending_landxml() -> Dictionary:
-	var options := {"underlay": true}
+	var options := { "underlay": true }
 	if not _landxml_units.is_empty():
 		options["units"] = _landxml_units
 	var plan := LandXmlFileScript.read_text(_landxml_text, options)
@@ -5371,7 +5511,8 @@ func open_landxml_panel() -> void:
 		var option := choice as OptionButton
 		var needed := String(_pending_landxml.get("declared_unit", "")).is_empty()
 		option.disabled = not needed
-		option.tooltip_text = ("this plat does not say what its units are" if needed
+		option.tooltip_text = ("this plat does not say what its units are"
+			if needed
 			else "the file states its own units")
 	var answer := _landxml_panel.get_node_or_null(^"Page/Column/Buttons/ImportLandXml")
 	if answer is Button:
@@ -5382,7 +5523,7 @@ func open_landxml_panel() -> void:
 func close_landxml_panel() -> void:
 	if _landxml_panel != null:
 		_landxml_panel.visible = false
-	_pending_landxml = {}
+	_pending_landxml = { }
 	_landxml_text = ""
 	_landxml_name = ""
 	_landxml_units = ""
@@ -5449,7 +5590,6 @@ func _on_landxml_chosen(path: String) -> void:
 func _menu_import_landxml(_entry: Dictionary) -> void:
 	open_landxml_dialog()
 
-
 # --- the site map from OpenStreetMap -------------------------------------------------
 
 
@@ -5504,7 +5644,7 @@ func _fill_osm_window() -> void:
 func close_osm_window() -> void:
 	if _osm_window != null and _osm_window.visible:
 		_osm_window.hide()
-	_pending_osm = {}
+	_pending_osm = { }
 
 
 func is_osm_window_open() -> bool:
@@ -5518,7 +5658,7 @@ func _osm_centre() -> Dictionary:
 		return _osm_window.centre()
 	if _draft != null and _draft.document != null:
 		return _draft.document.site()
-	return {}
+	return { }
 
 
 func _osm_radius() -> float:
@@ -5562,10 +5702,9 @@ func _on_osm_fetch(centre: Dictionary, radius_m: float) -> void:
 		return
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
-	_osm_window.say(
-		"the map was not read" if not bool(plan.get("ok", false))
-		else OsmFileScript.describe(plan)
-	)
+	_osm_window.say(("the map was not read"
+			if not bool(plan.get("ok", false))
+			else OsmFileScript.describe(plan)))
 
 
 ## The chooser for a map already saved on disk. Anywhere on the disk, because it is a file somebody
@@ -5585,8 +5724,9 @@ func _on_osm_chosen(path: String) -> void:
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
 	_osm_window.say(
-		"the map was not read" if not bool(_pending_osm.get("ok", false))
-		else OsmFileScript.describe(_pending_osm)
+		("the map was not read"
+			if not bool(_pending_osm.get("ok", false))
+			else OsmFileScript.describe(_pending_osm))
 	)
 
 
@@ -5602,7 +5742,6 @@ func confirm_osm_import() -> void:
 
 func _menu_import_osm(_entry: Dictionary) -> void:
 	open_osm_window()
-
 
 # --- a picture under the drawing -------------------------------------------------------
 
@@ -5641,7 +5780,7 @@ func open_underlay_window() -> void:
 func close_underlay_window() -> void:
 	if _underlay_window != null and _underlay_window.visible:
 		_underlay_window.hide()
-	_pending_picture = {}
+	_pending_picture = { }
 	_picture_refusal = ""
 
 
@@ -5746,7 +5885,7 @@ func _on_underlay_chosen(path: String) -> void:
 		return
 	var kept: Dictionary = RasterUnderlayScript.keep(path)
 	if not bool(kept.get("ok", false)):
-		_pending_picture = {}
+		_pending_picture = { }
 		_picture_refusal = String(kept.get("reason", "the picture could not be read"))
 		_refresh_underlay_window()
 		return
@@ -5756,8 +5895,11 @@ func _on_underlay_chosen(path: String) -> void:
 		_picture_refusal = "the picture could not be measured, so it cannot be laid at a size"
 	_refresh_underlay_window()
 	_underlay_window.say(
-		"the picture was not read" if not _picture_refusal.is_empty()
-		else RasterUnderlayScript.describe(_pending_picture, _drawing_units())
+		(
+			"the picture was not read"
+			if not _picture_refusal.is_empty()
+			else RasterUnderlayScript.describe(_pending_picture, _drawing_units())
+		)
 	)
 
 
@@ -5766,15 +5908,18 @@ func _on_underlay_chosen(path: String) -> void:
 func place_the_picture() -> void:
 	if _draft == null or _underlay_window == null or _pending_picture.is_empty():
 		return
-	var taken: Dictionary = _draft.take_on_picture(_pending_picture, {
-		"width_m": _underlay_window.width_m(),
-		"rotation_deg": _underlay_window.rotation_deg(),
-		"opacity": _underlay_window.opacity(),
-	})
+	var taken: Dictionary = _draft.take_on_picture(
+		_pending_picture,
+		{
+			"width_m": _underlay_window.width_m(),
+			"rotation_deg": _underlay_window.rotation_deg(),
+			"opacity": _underlay_window.opacity(),
+		},
+	)
 	if not bool(taken.get("ok", false)):
 		_underlay_window.say(String(taken.get("reason", "the picture could not be taken on")))
 		return
-	_pending_picture = {}
+	_pending_picture = { }
 	_underlay_window.set_suggested_width(_picture_suggested_width())
 	_refresh_underlay_window()
 	_underlay_window.say(_draft.last_message)
@@ -5787,18 +5932,22 @@ func apply_to_the_picture() -> void:
 	var id := _underlay_window.chosen_id()
 	if id == 0:
 		return
-	var changed: Dictionary = _draft.change_underlay(id, {
-		"width_m": _underlay_window.width_m(),
-		"rotation_deg": _underlay_window.rotation_deg(),
-		"opacity": _underlay_window.opacity(),
-	})
+	var changed: Dictionary = _draft.change_underlay(
+		id,
+		{
+			"width_m": _underlay_window.width_m(),
+			"rotation_deg": _underlay_window.rotation_deg(),
+			"opacity": _underlay_window.opacity(),
+		},
+	)
 	if not bool(changed.get("ok", false)):
 		_underlay_window.say(String(changed.get("reason", "the picture could not be changed")))
 		return
 	_refresh_underlay_window()
 	_underlay_window.say(
-		_draft.last_message if bool(changed.get("changed", false))
-		else "the picture already lies like that"
+		(_draft.last_message
+			if bool(changed.get("changed", false))
+			else "the picture already lies like that")
 	)
 
 
@@ -5818,7 +5967,6 @@ func take_the_picture_off() -> void:
 
 func _menu_import_picture(_entry: Dictionary) -> void:
 	open_underlay_window()
-
 
 # --- the ground's own heights ----------------------------------------------------------
 #
@@ -5912,7 +6060,6 @@ func _grading_rows() -> Array[Dictionary]:
 		return none
 	return _draft.grading_rows()
 
-
 # --- what the page's own controls asked for ---------------------------------------------
 
 
@@ -5939,7 +6086,7 @@ func arm_grading_tool(kind: String) -> void:
 		return
 	# A scene with no drawing still gets an answer rather than silence: a button that cannot do anything
 	# explains itself, here as much as anywhere else.
-	var armed: Dictionary = {"ok": false, "reason": "there is no drawing to grade"}
+	var armed: Dictionary = { "ok": false, "reason": "there is no drawing to grade" }
 	if _draft != null:
 		armed = _draft.begin_grading(kind)
 	if not bool(armed.get("ok", false)):
@@ -6039,8 +6186,8 @@ func _on_survey_chosen(path: String) -> void:
 ## by the reader's own default.
 func _survey_read_options() -> Dictionary:
 	if _draft == null or _draft.document == null:
-		return {}
-	return {"display_units": _draft.document.units}
+		return { }
+	return { "display_units": _draft.document.units }
 
 
 ## Show the line of hints or not, remembering that a presentation and the painted sheet take them away
@@ -6049,7 +6196,6 @@ func _apply_hints_visibility() -> void:
 	if hints != null:
 		var painted: bool = painted_sheet != null and painted_sheet.visible
 		hints.visible = _show_hints and not _presenting and not painted
-
 
 # --- the sun and the shadows --------------------------------------------------------------
 #
@@ -6121,7 +6267,7 @@ func _fill_sun_window() -> void:
 ## rather than studying a latitude nobody stated.
 func _sun_site() -> Dictionary:
 	if presentation == null:
-		return {}
+		return { }
 	return presentation.current_site()
 
 
@@ -6185,14 +6331,14 @@ func render_sun_study(moments: Array) -> Dictionary:
 	_sun_render_refused = 0
 	_sun_render_waiting = false
 	_render_next_sun_still()
-	return {"ok": true, "reason": "", "names": _sun_render_names}
+	return { "ok": true, "reason": "", "names": _sun_render_names }
 
 
 func _refuse_sun_render(reason: String) -> Dictionary:
 	if _sun_window != null:
 		_sun_window.say(reason)
 	var none: Array[String] = []
-	return {"ok": false, "reason": reason, "names": none}
+	return { "ok": false, "reason": reason, "names": none }
 
 
 ## The next still of the walk, or the end of it. A moment whose sun cannot be aimed - which the page's
@@ -6242,7 +6388,7 @@ func _finish_sun_render() -> void:
 	var words := "%d still%s written" % [_sun_render_written, "" if _sun_render_written == 1 else "s"]
 	if _sun_render_refused > 0:
 		words += ", %d moment%s could not be rendered" \
-			% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
+				% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
 	_sun_window.say(words)
 
 
@@ -6258,7 +6404,7 @@ func _sun_text() -> String:
 		return "%s: no moments chosen yet" % site
 	var up: int = _sun_window.renderable_moments().size()
 	return "%s: %d moment%s, %d with the sun up" \
-		% [site, count, "" if count == 1 else "s", up]
+			% [site, count, "" if count == 1 else "s", up]
 
 
 func _refresh_present_menu() -> void:
@@ -6286,7 +6432,7 @@ func _refresh_presentation_panel() -> void:
 	if presentation_panel == null:
 		return
 	presentation_panel.visible = presentation != null and _presentation_panel_wanted \
-		and not (painted_sheet != null and painted_sheet.visible)
+			and not (painted_sheet != null and painted_sheet.visible)
 
 
 func _menu_presentation_panel(_entry: Dictionary) -> void:
@@ -6299,7 +6445,6 @@ func _menu_sun_window(_entry: Dictionary) -> void:
 
 func _on_sun_window_closed() -> void:
 	_refresh_menus()
-
 
 # --- the walk-through -----------------------------------------------------------------------
 
@@ -6355,7 +6500,6 @@ func _fill_walk_window() -> void:
 	_walk_window.bind(presentation)
 	_refresh_menus()
 
-
 # --- snapping -----------------------------------------------------------------------
 
 
@@ -6407,7 +6551,6 @@ func _fill_snap_window() -> void:
 		return
 	_snap_window.bind(_draft)
 	_refresh_menus()
-
 
 # --- what the drawing has said --------------------------------------------------------------
 #
@@ -6480,7 +6623,6 @@ func _on_status_window_closed() -> void:
 
 func _menu_said(_entry: Dictionary) -> void:
 	open_status_window()
-
 
 # --- hatching a region ---------------------------------------------------------------------
 
@@ -6570,7 +6712,6 @@ func _on_hatch_fill(entity_id: int, options: Dictionary) -> void:
 
 func _menu_hatch_region(_entry: Dictionary) -> void:
 	open_hatch_panel()
-
 
 # --- watering an area ----------------------------------------------------------------------
 
@@ -6694,7 +6835,6 @@ func _on_water_remove(number: int) -> void:
 func _menu_water_panel(_entry: Dictionary) -> void:
 	open_water_panel()
 
-
 # --- lighting an area ----------------------------------------------------------------------
 
 
@@ -6817,7 +6957,6 @@ func _on_light_remove(number: int) -> void:
 func _menu_light_panel(_entry: Dictionary) -> void:
 	open_light_panel()
 
-
 # --- the plant list -----------------------------------------------------------------------
 
 
@@ -6908,7 +7047,6 @@ func _on_plant_panel_stop() -> void:
 	if view_controller != null:
 		view_controller.stop_planting()
 
-
 # --- filling a bed ---------------------------------------------------------------------------
 
 
@@ -6937,7 +7075,7 @@ func _on_plant_fill_bed(bed_key: String, spacing: float, arrangement: String) ->
 	if species_id.is_empty():
 		_plant_panel.say("Choose a plant to fill a bed with")
 		return
-	var bed: Dictionary = {}
+	var bed: Dictionary = { }
 	for row: Dictionary in _planting_beds():
 		if String(row.get("key", "")) == bed_key:
 			bed = row
@@ -6948,8 +7086,11 @@ func _on_plant_fill_bed(bed_key: String, spacing: float, arrangement: String) ->
 		return
 	var yard: Node = view_controller.yard if view_controller != null else null
 	var report: Dictionary = PlantSpacingScript.fill(
-		plant_list(), yard, species_id, bed["outline"],
-		{"spacing": spacing, "arrangement": arrangement}
+		plant_list(),
+		yard,
+		species_id,
+		bed["outline"],
+		{ "spacing": spacing, "arrangement": arrangement },
 	)
 	_plant_panel.say(PlantSpacingScript.report_words(report))
 	if not bool(report["ok"]):
@@ -7065,7 +7206,7 @@ func open_plant_order_window() -> void:
 
 ## Forget a plan a household handed over, so the order page is about the drawing's planting again.
 func _forget_handed_plan() -> void:
-	_plant_order_plan_override = {}
+	_plant_order_plan_override = { }
 
 
 ## Show the order page on the plan it is pointed at, whether that is the drawing's planting or a count a
@@ -7159,9 +7300,7 @@ func _plant_order_book() -> CostBook:
 func write_plant_order(job_id: String, supplier: String) -> Dictionary:
 	if _job_desk == null:
 		_build_job_desk()
-	var written: Dictionary = PlantOrderScript.write_orders(
-		_job_desk, job_id, plant_order_plan(), supplier
-	)
+	var written: Dictionary = PlantOrderScript.write_orders(_job_desk, job_id, plant_order_plan(), supplier)
 	if bool(written["ok"]):
 		_plant_order_state = _plant_order_signature()
 		# What the job has committed has moved, so the cost page and the menu lines are stale.
@@ -7175,8 +7314,9 @@ func _on_plant_order_requested(job_id: String, supplier: String) -> void:
 	if _plant_order_window == null:
 		return
 	if bool(written["ok"]):
-		_plant_order_window.say("written, and waiting to be issued: %s"
-			% PlantOrderScript.orders_words(written["orders"]))
+		_plant_order_window.say(
+			"written, and waiting to be issued: %s" % PlantOrderScript.orders_words(written["orders"])
+		)
 	else:
 		_plant_order_window.say(String(written["reason"]))
 
@@ -7194,8 +7334,7 @@ func _on_yield_order_requested(rows: Array) -> void:
 		PageChromeScript.show_centred(_plant_order_window)
 	release_keyboard_focus(self)
 	if _yield_window != null:
-		_yield_window.say("handed %d kind%s to the nursery order"
-			% [rows.size(), "" if rows.size() == 1 else "s"])
+		_yield_window.say("handed %d kind%s to the nursery order" % [rows.size(), "" if rows.size() == 1 else "s"])
 
 
 ## Point the order page at the rows a household's count comes to, priced, and fill it - without showing
@@ -7204,7 +7343,6 @@ func _show_yield_order(rows: Array) -> Dictionary:
 	_plant_order_plan_override = PlantOrderScript.plan(rows, _plant_order_book())
 	_fill_plant_order_window()
 	return _plant_order_plan_override
-
 
 # --- the food garden -------------------------------------------------------------------------
 #
@@ -7268,20 +7406,12 @@ func food_places() -> Array:
 	var map: ZoneMapScript = _ground_map()
 	if map == null:
 		return places
-	places.append({
-		"name": "the whole site",
-		"profile": map.base.copy(),
-		"summary": map.base.describe(),
-	})
+	places.append({ "name": "the whole site", "profile": map.base.copy(), "summary": map.base.describe() })
 	for raw: Variant in map.zones:
 		var zone: Variant = raw
 		var stated: TerrainProfile = zone.profile
 		var profile: TerrainProfile = stated.merged_over(map.base)
-		places.append({
-			"name": String(zone.name),
-			"profile": profile,
-			"summary": profile.describe(),
-		})
+		places.append({ "name": String(zone.name), "profile": profile, "summary": profile.describe() })
 	return places
 
 
@@ -7316,7 +7446,6 @@ func _menu_food_window(_entry: Dictionary) -> void:
 
 func _on_food_window_closed() -> void:
 	_refresh_menus()
-
 
 # --- what to grow here next -------------------------------------------------------------------
 #
@@ -7376,11 +7505,11 @@ func rotation_places() -> Array:
 	var map: ZoneMapScript = _ground_map()
 	if map == null:
 		return places
-	places.append({"name": "the whole site", "summary": map.base.describe()})
+	places.append({ "name": "the whole site", "summary": map.base.describe() })
 	for raw: Variant in map.zones:
 		var zone: Variant = raw
 		var profile: TerrainProfile = zone.profile.merged_over(map.base)
-		places.append({"name": String(zone.name), "summary": profile.describe()})
+		places.append({ "name": String(zone.name), "summary": profile.describe() })
 	return places
 
 
@@ -7412,7 +7541,6 @@ func _menu_rotation_window(_entry: Dictionary) -> void:
 
 func _on_rotation_window_closed() -> void:
 	_refresh_menus()
-
 
 # --- what is ready when -----------------------------------------------------------------------
 #
@@ -7495,7 +7623,6 @@ func _menu_harvest_window(_entry: Dictionary) -> void:
 func _on_harvest_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- when to sow -------------------------------------------------------------------------------
 #
 # The growing season read as a calendar: a day to sow on, a crop to sow, and the succession of sowings
@@ -7573,7 +7700,6 @@ func _menu_sowing_window(_entry: Dictionary) -> void:
 
 func _on_sowing_window_closed() -> void:
 	_refresh_menus()
-
 
 # --- how much to plant -------------------------------------------------------------------------
 #
@@ -7657,7 +7783,6 @@ func _menu_yield_window(_entry: Dictionary) -> void:
 func _on_yield_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- the growing season -------------------------------------------------------------------------
 #
 # The site's own frost dates, and what they mean for the food list. Every other food page reads the
@@ -7731,9 +7856,7 @@ func _season_signature() -> String:
 	if _draft == null or _draft.document == null:
 		return "no drawing"
 	var document: DraftDocument = _draft.document
-	return "%d:%d:%d" % [
-		document.get_instance_id(), document.season_last_frost, document.season_first_frost
-	]
+	return "%d:%d:%d" % [document.get_instance_id(), document.season_last_frost, document.season_first_frost]
 
 
 ## What the Site menu says about the season, in one line. Lower-cased at the front because a menu
@@ -7755,7 +7878,6 @@ func _menu_season_window(_entry: Dictionary) -> void:
 ## The season changed on the drawing: the Site menu's line about it is stale.
 func _on_season_changed() -> void:
 	_refresh_menus()
-
 
 # --- recording what is on site -------------------------------------------------------------------
 
@@ -7950,7 +8072,6 @@ func _refresh_pipeline_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _pipeline_text())
-
 
 # --- the jobs and the crews --------------------------------------------------------------------
 
@@ -8302,9 +8423,7 @@ func _build_analytics_report() -> void:
 		_build_job_desk()
 	if _billing_ledger == null:
 		_build_billing_ledger()
-	_analytics_report = AnalyticsScript.new(
-		_pipeline_board.pipeline, _job_desk, _billing_ledger
-	)
+	_analytics_report = AnalyticsScript.new(_pipeline_board.pipeline, _job_desk, _billing_ledger)
 
 
 func _build_analytics_window() -> void:
@@ -8370,7 +8489,7 @@ func queue_invoices_for_ledger() -> Dictionary:
 	if _ledger_desk == null:
 		_build_ledger_desk()
 	if _ledger_desk == null:
-		return {"ok": false, "reason": "there is no outbox", "queued": 0, "refused": 0}
+		return { "ok": false, "reason": "there is no outbox", "queued": 0, "refused": 0 }
 	var handed: Dictionary = _ledger_desk.queue_unhanded()
 	if int(handed["queued"]) > 0 or int(handed["refused"]) > 0:
 		_refresh_menus()
@@ -8386,7 +8505,6 @@ func _refresh_jobs_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _jobs_text())
-
 
 # --- the shared session --------------------------------------------------------------
 
@@ -8570,7 +8688,6 @@ func is_sync_window_open() -> bool:
 func _on_sync_changed() -> void:
 	_refresh_menus()
 
-
 # --- the sheet setup ------------------------------------------------------------------------
 
 
@@ -8707,7 +8824,6 @@ func _on_sheet_plot_set() -> void:
 func _menu_sheet_setup(_entry: Dictionary) -> void:
 	open_sheet_window()
 
-
 # --- the history of the drawing -------------------------------------------------------
 
 
@@ -8757,8 +8873,10 @@ func _refresh_revision_window() -> void:
 	if _revision_window == null or _draft == null:
 		return
 	var state := "%s|%d|%d|%d" % [
-		StoreScript.display_name(_draft.drawing_path), _draft.revisions.count(),
-		_draft.revisions.dropped, _draft.document.gesture_serial(),
+		StoreScript.display_name(_draft.drawing_path),
+		_draft.revisions.count(),
+		_draft.revisions.dropped,
+		_draft.document.gesture_serial(),
 	]
 	if state == _revision_state:
 		return
@@ -8806,7 +8924,7 @@ func _on_ground_changed() -> void:
 
 
 func _on_ground_check_requested() -> void:
-	_menu_check_planting({})
+	_menu_check_planting({ })
 
 
 ## Show the coverage report. It is a reading of the drawing, so it is opened rather than
@@ -8836,6 +8954,72 @@ func _refresh_plant_browser() -> void:
 
 func _menu_plant_library(_entry: Dictionary) -> void:
 	open_plant_browser()
+
+
+# --- naming a plant by answering questions --------------------------------------------------
+
+#
+# The page is the person's half of the question "what is this plant": it asks what they can see and
+# narrows the list until one is left. Everything about it that is not a page - which question, which
+# answers, and what an answer leaves - is `PlantKey`'s, and this file owns only the window and the one
+# thing a plant named this way has in common with a plant chosen from the library: it gets armed.
+
+
+func _menu_plant_key(_entry: Dictionary) -> void:
+	open_plant_key_window()
+
+
+## Build the page once, the first time somebody asks for it. It reaches the catalogue rather than the
+## scene, so there is nothing about the drawing to hand it and nothing to rebuild when the drawing
+## changes - which is why it is not in the refresh ladder the drawing's own pages are in.
+func _build_plant_key_window() -> void:
+	if _plant_key_window != null:
+		return
+	_plant_key_window = PlantKeyWindowScript.new()
+	_plant_key_window.name = "PlantKeyWindow"
+	add_child(_plant_key_window)
+	_plant_key_window.build()
+	_plant_key_window.closed.connect(_on_plant_key_window_closed)
+	_plant_key_window.species_chosen.connect(_on_plant_key_chosen)
+	_plant_key_window.hide()
+
+
+## Open it pointed at the one plant list. It needs no drawing: a key narrows the catalogue, and where the
+## plant it names then goes is the planting's business.
+func open_plant_key_window() -> void:
+	_build_plant_key_window()
+	if _plant_key_window == null:
+		return
+	_plant_key_window.bind(plant_list())
+	PageChromeScript.show_centred(_plant_key_window)
+	release_keyboard_focus(self)
+
+
+func close_plant_key_window() -> void:
+	if _plant_key_window != null and _plant_key_window.visible:
+		_plant_key_window.request_close()
+
+
+func is_plant_key_window_open() -> bool:
+	return _plant_key_window != null and _plant_key_window.visible
+
+
+func _on_plant_key_window_closed() -> void:
+	_refresh_menus()
+
+
+## A plant named by working through the key is armed exactly as one chosen from the library or the
+## palette is - `_arm_planting` is the one door onto that - so nothing downstream can tell which of the
+## three a plant came through.
+##
+## When there is nowhere to plant it the page has already closed, so this is the only place left that can
+## say so; a person told which plant it is and then left with nothing happening would think it had failed.
+func _on_plant_key_chosen(species_id: StringName) -> void:
+	if _arm_planting(species_id):
+		return
+	var species: PlantSpecies = plant_list().get_species(species_id)
+	var named: String = species.display_name() if species != null else String(species_id)
+	_plant_say("%s is named, but nothing here can be planted yet: open a drawing with a yard first." % named)
 
 
 ## Put the last chosen plant back in hand. With nothing chosen yet, the library is what is wanted,
@@ -8868,18 +9052,19 @@ func _menu_label_plants(_entry: Dictionary) -> void:
 		var species_id := PlantPlacementScript.species_of(node)
 		var species = null if catalogue == null else catalogue.get_species(species_id)
 		var printed := "" if species == null else species.display_name()
-		plants.append({
-			"species": species_id,
-			"name": printed,
-			"position": Vector2(node.global_position.x, node.global_position.z),
-		})
+		plants.append(
+			{
+				"species": species_id,
+				"name": printed,
+				"position": Vector2(node.global_position.x, node.global_position.z),
+			}
+		)
 	var wanted := PlantLabelsScript.labels_for(plants)
 	var reason := String(wanted.get("reason", ""))
 	if not reason.is_empty():
 		_draft.note(reason)
 		return
 	_draft.label_planting(wanted["labels"])
-
 
 # --- what the ground is like, and what that means for the planting -----------------------
 
@@ -8915,9 +9100,7 @@ func _menu_read_ground(_entry: Dictionary) -> void:
 	var document: DraftDocument = _draft.document
 	var count: int = document.read_environment_from_drawing()
 	if count <= 0:
-		_plant_say(
-			"the drawing has no buildings or hard surfaces on it, so it says nothing about the ground"
-		)
+		_plant_say("the drawing has no buildings or hard surfaces on it, so it says nothing about the ground")
 		return
 	_plant_say("read %d area%s of ground from the drawing" % [count, "" if count == 1 else "s"])
 	_refresh_menus()
@@ -8955,11 +9138,11 @@ func _menu_plant_export(_entry: Dictionary) -> void:
 ## takes the entry that was pressed and a button has no such thing to pass, so the two doors are
 ## kept and the work stays in one place.
 func _on_plant_import_requested() -> void:
-	_menu_plant_import({})
+	_menu_plant_import({ })
 
 
 func _on_plant_export_requested() -> void:
-	_menu_plant_export({})
+	_menu_plant_export({ })
 
 
 ## Choosing a plant arms it and closes the library: the very next click is on the plan, which is
@@ -9073,10 +9256,7 @@ func _refresh_plant_menu() -> void:
 	var stop := _find_item(&"plant.stop")
 	if not stop.is_empty():
 		var stop_popup: PopupMenu = stop[0]
-		stop_popup.set_item_disabled(
-			int(stop[1]), view_controller == null or not view_controller.is_planting()
-		)
-
+		stop_popup.set_item_disabled(int(stop[1]), view_controller == null or not view_controller.is_planting())
 
 # --- the front door -------------------------------------------------------------------------------
 
@@ -9195,9 +9375,9 @@ func is_start_drawing_window_open() -> bool:
 ## File > New drawing are one action rather than two that can drift apart.
 func _on_start_drawing_chosen(id: StringName) -> void:
 	if id == StartDrawingScript.NEW:
-		_menu_new_drawing({})
+		_menu_new_drawing({ })
 	elif id == StartDrawingScript.OPEN:
-		_menu_open_drawing({})
+		_menu_open_drawing({ })
 	elif id == StartDrawingScript.EXAMPLE:
 		draw_the_example()
 	# Whichever way was taken, the flat plan comes forward: the board behind the doorway was the furnished
@@ -9302,7 +9482,6 @@ func draw_the_example() -> void:
 	if view_controller != null:
 		view_controller.set_site_shown(true)
 
-
 # --- which way up the window is ------------------------------------------------------------------
 
 
@@ -9321,9 +9500,7 @@ func the_doorway_is_up() -> bool:
 ## the camera is the one where it shows most: a viewfinder held the way a wide board is held is a picture of a
 ## plant lying on its side, which is what a phone held upright over a landscape board used to get.
 func the_shape_for_the_window() -> StringName:
-	return OrientationChoiceScript.for_the_window(
-		the_doorway_is_up() or is_camera_window_open(), _orientation
-	)
+	return OrientationChoiceScript.for_the_window(the_doorway_is_up() or is_camera_window_open(), _orientation)
 
 
 ## The pages a change of the window's shape has to put back where they belong: every page in a `Window`, and

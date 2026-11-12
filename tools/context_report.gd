@@ -97,8 +97,14 @@ const SUBJECTS := {
 			"res://scripts/utils/bitmask_utils.gd",
 		],
 		"also": [
-			"PlantBrowser", "PlantSymbols", "PlantIcons", "PlantLabels", "PlantPanel", "ZoneMap",
-			"CropSun", "TerrainProfile",
+			"PlantBrowser",
+			"PlantSymbols",
+			"PlantIcons",
+			"PlantLabels",
+			"PlantPanel",
+			"ZoneMap",
+			"CropSun",
+			"TerrainProfile",
 		],
 		"sections": [
 			{
@@ -147,8 +153,17 @@ const SUBJECTS := {
 			"res://scripts/utils/bitmask_utils.gd",
 		],
 		"also": [
-			"ViewController", "FieldCaptureWindow", "PlantCatalogue", "PlantPlacement", "RasterUnderlay",
-			"PlannerHud", "SiteReport", "VisProposalPage", "PlantSuitability", "Survey", "SurveyFile",
+			"ViewController",
+			"FieldCaptureWindow",
+			"PlantCatalogue",
+			"PlantPlacement",
+			"RasterUnderlay",
+			"PlannerHud",
+			"SiteReport",
+			"VisProposalPage",
+			"PlantSuitability",
+			"Survey",
+			"SurveyFile",
 			"DraftUnits",
 		],
 		"sections": [
@@ -166,37 +181,30 @@ const SUBJECTS := {
 		"hooks": true,
 	},
 	"planting": {
-		"title": "the plant database - species, catalogue, symbols, placement, browser",
-		"when": "Anything about a species record, the catalogue, the plant list in the game, plant symbols, or putting a plant on the plan.",
+		"title": "the plant database - species, catalogue, placement, browser",
+		"when": "Anything about a species record, the catalogue, the plant list in the game, or putting a plant on the plan.",
 		"brief": [
 			"The work: the plant side of the planner - what a species is, how a catalogue of them is",
-			"read, written, searched and shown, what symbol a species is drawn as, and what happens to",
-			"the plan when one is planted.",
+			"read, written, searched and shown, and what happens to the plan when one is planted.",
 			"",
 			"A species is a record in JSON, never a `.tres`; the runtime handles it caches (a",
-			"`PackedScene`, a `Texture2D`) are the only `Resource`s in the picture. `PlantSymbols`",
-			"owns the shape vocabulary, so a symbol a list can name is a symbol the plan can draw.",
+			"`PackedScene`, a `Texture2D`) are the only `Resource`s in the picture.",
 			"",
 			"The catalogue the app uses is the HUD's (`Hud.plant_list()`), never a second one.",
 			"",
-			"**This pack is kept inside one chat message**, so `PlanStyle` - which decides how big and",
-			"what shape the planted prop is - is named below rather than detailed here. Ask for the",
-			"whole snapshot when a change is about how a planted species is *drawn* rather than what it",
-			"is.",
+			"How a planted species is **drawn** - the symbol vocabulary, its inks, and the size the prop",
+			"is planted at - is the `plant-drawing` pack. The two are separate packs because this one",
+			"grew past what a chat message holds when the leaves were added to a species.",
 		],
 		"scripts": [
 			"res://scripts/plant_species.gd",
 			"res://scripts/plant_catalogue.gd",
-			"res://scripts/plant_symbols.gd",
 			"res://scripts/plant_placement.gd",
 			"res://scripts/plant_spacing.gd",
 			"res://scripts/plant_suitability.gd",
 			"res://scripts/plant_browser.gd",
 		],
-		"also": [
-			"PlannerHud", "PlantIcons", "PlantLabels", "PlantPanel", "ZoneMap", "CropSun",
-			"PlanStyle",
-		],
+		"also": ["PlannerHud", "PlantIcons", "PlantLabels", "PlantPanel", "ZoneMap", "CropSun"],
 		"sections": [
 			{
 				"doc": "res://docs/plant-database-spec.md",
@@ -204,17 +212,35 @@ const SUBJECTS := {
 					"2. The files, and where they live",
 					"2a. More plants, and the rule that keeps them from being duplicates",
 					"3. One species",
-					"4a. The symbol a species is drawn as",
 					"5. Planting: what the catalogue does to the plan",
 					"5a. A bed at a spacing",
 					"6. The browser",
 				],
 			},
 		],
-		"data": [
-			"res://data/plants/nursery_list.json",
-			"res://data/plants/nursery_list_more.json",
+		"data": ["res://data/plants/nursery_list.json", "res://data/plants/nursery_list_more.json"],
+	},
+	"plant-drawing": {
+		"title": "how a planted species is drawn - the symbol vocabulary and the planted size",
+		"when": "Anything about the shape a plant is drawn as on the plan, the inks a symbol is drawn in, or how big the planted prop is.",
+		"brief": [
+			"The work: turning what a species **is** into what the plan **draws**. `PlantSymbols` owns",
+			"the shape vocabulary and the figures, so a symbol a list can name is a symbol the plan can",
+			"draw, and `PlanStyle` decides how big the planted prop stands.",
+			"",
+			"A plant is drawn as a symbol derived from its category and whether it is a conifer, never",
+			"from a name: one tree model is shared by four thousand trees, and a spruce and a maple must",
+			"not come out as the same green disc.",
 		],
+		"scripts": ["res://scripts/plant_symbols.gd"],
+		"also": ["PlantSymbols", "PlanStyle"],
+		"sections": [
+			{
+				"doc": "res://docs/plant-database-spec.md",
+				"headings": ["4a. The symbol a species is drawn as"],
+			},
+		],
+		"data": [],
 	},
 	"drafting": {
 		"title": "the drafting subsystem - model space, tools, layers, survey import",
@@ -245,8 +271,16 @@ const SUBJECTS := {
 			"res://scripts/draft/survey_file.gd",
 		],
 		"also": [
-			"DraftController", "DraftOverlay", "DraftRender", "DraftSelect", "DraftEdit",
-			"DraftSpatialGrid", "PlanCanvas", "PlannerHud", "SnapEngine", "DraftSimplify",
+			"DraftController",
+			"DraftOverlay",
+			"DraftRender",
+			"DraftSelect",
+			"DraftEdit",
+			"DraftSpatialGrid",
+			"PlanCanvas",
+			"PlannerHud",
+			"SnapEngine",
+			"DraftSimplify",
 		],
 		"sections": [
 			{
@@ -300,9 +334,7 @@ const SUBJECTS := {
 			"res://scripts/biz/estimate_desk.gd",
 			"res://scripts/biz/takeoff.gd",
 		],
-		"also": [
-			"EstimateWindow", "BizBookImport", "SiteReport", "PlantOrder", "PlantOrderWindow",
-		],
+		"also": ["EstimateWindow", "BizBookImport", "SiteReport", "PlantOrder", "PlantOrderWindow"],
 		"sections": [
 			{
 				"doc": "res://docs/business-operations-spec.md",
@@ -349,11 +381,29 @@ const SUBJECTS := {
 			"res://scripts/biz/store.gd",
 		],
 		"also": [
-			"JobCostWindow", "ScheduleBoard", "BillingWindow", "InvoiceSheet", "CreditNote",
-			"Milestone", "Rate", "LedgerDesk", "LedgerWindow", "LedgerAdapter", "FileLedger",
-			"AkauntingLedger", "InvoiceNinjaLedger", "BizSync", "SyncWindow", "Analytics",
-			"AnalyticsWindow", "CrewMember", "TimeEntry", "PurchaseOrder", "ChangeOrder",
-			"CloseoutDesk", "Money",
+			"JobCostWindow",
+			"ScheduleBoard",
+			"BillingWindow",
+			"InvoiceSheet",
+			"CreditNote",
+			"Milestone",
+			"Rate",
+			"LedgerDesk",
+			"LedgerWindow",
+			"LedgerAdapter",
+			"FileLedger",
+			"AkauntingLedger",
+			"InvoiceNinjaLedger",
+			"BizSync",
+			"SyncWindow",
+			"Analytics",
+			"AnalyticsWindow",
+			"CrewMember",
+			"TimeEntry",
+			"PurchaseOrder",
+			"ChangeOrder",
+			"CloseoutDesk",
+			"Money",
 		],
 		"sections": [
 			{
@@ -411,8 +461,15 @@ const SUBJECTS := {
 			"res://scripts/vis/derived_builder.gd",
 		],
 		"also": [
-			"SunStudy", "SunWindow", "WalkWindow", "StillExporter", "StillSidecar",
-			"PresentationDirector", "CadSolid", "TextureSetBuilder", "YardExporter",
+			"SunStudy",
+			"SunWindow",
+			"WalkWindow",
+			"StillExporter",
+			"StillSidecar",
+			"PresentationDirector",
+			"CadSolid",
+			"TextureSetBuilder",
+			"YardExporter",
 		],
 		"sections": [
 			{
@@ -455,19 +512,11 @@ const SUBJECTS := {
 		"sections": [
 			{
 				"doc": "res://docs/irrigation-subsystem-spec.md",
-				"headings": [
-					"2.9 Heads are entities on `500-IRRIGATION`",
-					"3. Data models",
-					"4. The algorithms",
-				],
+				"headings": ["2.9 Heads are entities on `500-IRRIGATION`", "3. Data models", "4. The algorithms"],
 			},
 			{
 				"doc": "res://docs/lighting-subsystem-spec.md",
-				"headings": [
-					"2.9 Fixtures are entities on `501-LIGHTING`",
-					"3. Data models",
-					"4. The algorithms",
-				],
+				"headings": ["2.9 Fixtures are entities on `501-LIGHTING`", "3. Data models", "4. The algorithms"],
 			},
 		],
 		"data": [],
@@ -505,8 +554,16 @@ const SUBJECTS := {
 			"res://scripts/plant_yield.gd",
 		],
 		"also": [
-			"FoodWindow", "RotationWindow", "HarvestWindow", "SeasonWindow", "SowingWindow",
-			"YieldWindow", "PlantCatalogue", "PlantBrowser", "PlantOrder", "PlantOrderWindow",
+			"FoodWindow",
+			"RotationWindow",
+			"HarvestWindow",
+			"SeasonWindow",
+			"SowingWindow",
+			"YieldWindow",
+			"PlantCatalogue",
+			"PlantBrowser",
+			"PlantOrder",
+			"PlantOrderWindow",
 		],
 		"sections": [
 			{
@@ -550,8 +607,15 @@ const SUBJECTS := {
 			"res://scripts/underlay_window.gd",
 		],
 		"also": [
-			"PlannerHud", "DraftController", "DraftSimplify", "DraftSpatialGrid", "Presence",
-			"PresenceMember", "StatusHistory", "PageEscape", "DraftGestureHistory",
+			"PlannerHud",
+			"DraftController",
+			"DraftSimplify",
+			"DraftSpatialGrid",
+			"Presence",
+			"PresenceMember",
+			"StatusHistory",
+			"PageEscape",
+			"DraftGestureHistory",
 		],
 		"sections": [
 			{
@@ -584,10 +648,7 @@ const SUBJECTS := {
 			"Adding a feature means adding a subject here as well - it is one of the six parts of a",
 			"feature this project asks for.",
 		],
-		"scripts": [
-			"res://scripts/help_doc.gd",
-			"res://scripts/help_window.gd",
-		],
+		"scripts": ["res://scripts/help_doc.gd", "res://scripts/help_window.gd"],
 		"also": ["PlannerHud", "PageEscape", "CommandPalette"],
 		"sections": [
 			{
@@ -800,15 +861,12 @@ static func build() -> String:
 	_append_prose(out, "Specifications in docs/", _spec_lines())
 	_append_prose(out, "Folder map", _folder_map_lines())
 	_append_prose(out, "Tests and tools (names only)", _names_lines())
-	_append_prose(out, "Data file shapes (derived) - one record of each",
-			_data_shape_lines(_json_under("res://data")))
+	_append_prose(out, "Data file shapes (derived) - one record of each", _data_shape_lines(_json_under("res://data")))
 	_append_prose(out, "Conventions (from AGENTS.md)", _convention_lines())
-	_append_prose(out, "The one of each thing - hand-written, checked against the disk",
-			_single_source_lines())
+	_append_prose(out, "The one of each thing - hand-written, checked against the disk", _single_source_lines())
 	_append_prose(out, "A test file, as this project writes one", _test_file_lines())
 	_append_prose(out, "The scene tree of the main scene (derived)", _scene_section_lines())
-	_append_prose(out, "Hook points for the plant-ID / site-survey feature - hand-written",
-			_feature_lines())
+	_append_prose(out, "Hook points for the plant-ID / site-survey feature - hand-written", _feature_lines())
 	_append_prose(out, "Script inventory (derived)", _inventory_lines())
 	_append_prose(out, "If a rule you need is not here - hand-written", _ask_lines())
 	out.append(build_models())
@@ -824,7 +882,6 @@ static func build_models() -> String:
 	for path: String in SCRIPTS:
 		_append_script(out, path)
 	return "\n".join(out) + "\n"
-
 
 # --- subject packs --------------------------------------------------------------------------
 
@@ -862,7 +919,6 @@ static func output_path(subject: String) -> String:
 	if subject == REVIEW:
 		return "user://gemini_context_review.md"
 	return "user://gemini_context_%s.md" % subject
-
 
 # --- what a pack was built from ---------------------------------------------------------------
 
@@ -959,14 +1015,15 @@ static func _fingerprint_lines(subject: String, entry: Dictionary) -> PackedStri
 	if address.is_empty():
 		return PackedStringArray()
 	var out := PackedStringArray()
-	out.append("*Built from %s, content address `%s`. If a file it quotes has changed since, this pack"
-			% [_contents_words(entry), address])
+	out.append(
+		"*Built from %s, content address `%s`. If a file it quotes has changed since, this pack"
+		% [_contents_words(entry), address]
+	)
 	out.append("is out of date - the dock says so, and rebuilding it is one press.*")
 	return out
 
 
 # --- a change under review --------------------------------------------------------------------
-
 
 ## The pack that is not a slice of the code but a slice of *time*: the change in hand. It is deliberately
 ## not in `SUBJECTS`, because it is not a part of the project - it is a question about the work going on
@@ -983,7 +1040,7 @@ const STATUS_CHARS := " MADRCUT?!"
 ## the commit it sits on, the files it touches, and the rules their tests hold down. The same attachment
 ## the packs take, read for a different purpose - here the change is the subject rather than an extra, so
 ## a clean tree is answered by name instead of by an empty pack.
-static func build_review(attachment: Dictionary = {}) -> String:
+static func build_review(attachment: Dictionary = { }) -> String:
 	var index: Dictionary = _use_index()
 	var touched: PackedStringArray = touched_paths(String(attachment.get("git_status", "")))
 	var out := PackedStringArray()
@@ -994,8 +1051,7 @@ static func build_review(attachment: Dictionary = {}) -> String:
 	out.append("")
 	_append_prose(out, "Project", _header_lines())
 	_append_prose(out, "Conventions (from AGENTS.md)", _convention_lines())
-	_append_prose(out, "The one of each thing - hand-written, checked against the disk",
-			_single_source_lines())
+	_append_prose(out, "The one of each thing - hand-written, checked against the disk", _single_source_lines())
 	_append_attachment(out, attachment)
 	if touched.is_empty():
 		_append_prose(out, "There is nothing uncommitted to review", _nothing_to_review())
@@ -1004,8 +1060,11 @@ static func build_review(attachment: Dictionary = {}) -> String:
 	var rules: PackedStringArray = _review_rule_lines(touched, index)
 	if not rules.is_empty():
 		_append_prose(out, "The rules those files' tests hold down - derived", rules)
-	_append_prose(out, "How to check a change to this work - derived",
-			_verify_lines({"scripts": _touched_scripts(touched)}, index))
+	_append_prose(
+		out,
+		"How to check a change to this work - derived",
+		_verify_lines({ "scripts": _touched_scripts(touched) }, index),
+	)
 	_append_prose(out, "If a rule you need is not here - hand-written", _ask_lines())
 	return "\n".join(out) + "\n"
 
@@ -1080,7 +1139,7 @@ static func _review_rule_lines(touched: PackedStringArray, index: Dictionary) ->
 	var scripts: Array = _touched_scripts(touched)
 	if scripts.is_empty():
 		return PackedStringArray()
-	return _rule_lines({"scripts": scripts}, index)
+	return _rule_lines({ "scripts": scripts }, index)
 
 
 ## The touched paths that are scripts: the half of a change that has rules and a test file of its own.
@@ -1112,7 +1171,7 @@ static func _nothing_to_review() -> PackedStringArray:
 ## the commits that touched this work's own files, and the last test run. All of
 ## it is **text a caller has already obtained**: this file reads no file, runs no command and asks no
 ## editor for anything, which is what keeps packing testable with no repository and no editor present.
-static func build_for(subject: String, attachment: Dictionary = {}) -> String:
+static func build_for(subject: String, attachment: Dictionary = { }) -> String:
 	if subject == REVIEW:
 		return build_review(attachment)
 	if subject.is_empty():
@@ -1123,10 +1182,11 @@ static func build_for(subject: String, attachment: Dictionary = {}) -> String:
 ## One subject's pack. An unknown subject is **refused by name** with the list of the ones that
 ## exist, rather than quietly building the whole snapshot - which would answer a different question
 ## than the one that was asked, and say nothing about it.
-static func build_subject(subject: String, attachment: Dictionary = {}) -> String:
+static func build_subject(subject: String, attachment: Dictionary = { }) -> String:
 	if not SUBJECTS.has(subject):
 		return "# Unknown subject: %s\n\nThere is no pack for that. The subjects are: %s\n" % [
-				subject, ", ".join(subject_names()),
+			subject,
+			", ".join(subject_names()),
 		]
 	var entry: Dictionary = SUBJECTS[subject]
 	var out := PackedStringArray()
@@ -1161,11 +1221,12 @@ static func build_subject(subject: String, attachment: Dictionary = {}) -> Strin
 ##
 ## An unknown name is refused **by name**, and two of the same is one pack rather than a payload that
 ## carries it twice.
-static func build_pair(first: String, second: String, attachment: Dictionary = {}) -> String:
+static func build_pair(first: String, second: String, attachment: Dictionary = { }) -> String:
 	for subject: String in [first, second]:
 		if not SUBJECTS.has(subject):
 			return "# Unknown subject: %s\n\nThere is no pack for that. The subjects are: %s\n" % [
-					subject, ", ".join(subject_names()),
+				subject,
+				", ".join(subject_names()),
 			]
 	if first == second:
 		return build_subject(first, attachment)
@@ -1180,13 +1241,15 @@ static func build_pair(first: String, second: String, attachment: Dictionary = {
 	out.append("")
 	var address := pack_fingerprint(subjects)
 	if not address.is_empty():
-		out.append("*Built from both subjects' files, content address `%s`. If a file either of them quotes"
-				% address)
+		out.append("*Built from both subjects' files, content address `%s`. If a file either of them quotes" % address)
 		out.append("has changed since, this pack is out of date - rebuilding it is one press.*")
 		out.append("")
 	for subject: String in subjects:
-		_append_prose(out, "What the '%s' pack is for - hand-written" % subject,
-				_string_lines((SUBJECTS[subject] as Dictionary)["brief"]))
+		_append_prose(
+			out,
+			"What the '%s' pack is for - hand-written" % subject,
+			_string_lines((SUBJECTS[subject] as Dictionary)["brief"]),
+		)
 	_append_shared(out)
 	for subject: String in subjects:
 		out.append("## The '%s' pack" % subject)
@@ -1195,8 +1258,7 @@ static func build_pair(first: String, second: String, attachment: Dictionary = {
 	_append_attachment(out, attachment)
 	_append_prose(out, "If a rule you need is not here - hand-written", _ask_lines())
 	for subject: String in subjects:
-		_append_prose(out, "What the '%s' pack leaves out" % subject,
-				_left_out_lines(SUBJECTS[subject] as Dictionary))
+		_append_prose(out, "What the '%s' pack leaves out" % subject, _left_out_lines(SUBJECTS[subject] as Dictionary))
 	return "\n".join(out) + "\n"
 
 
@@ -1206,8 +1268,7 @@ static func build_pair(first: String, second: String, attachment: Dictionary = {
 static func _append_shared(out: PackedStringArray) -> void:
 	_append_prose(out, "Project", _header_lines())
 	_append_prose(out, "Conventions (from AGENTS.md)", _convention_lines())
-	_append_prose(out, "The one of each thing - hand-written, checked against the disk",
-			_single_source_lines())
+	_append_prose(out, "The one of each thing - hand-written, checked against the disk", _single_source_lines())
 	_append_prose(out, "A test file, as this project writes one", _test_file_lines())
 
 
@@ -1241,8 +1302,7 @@ static func _source_lines(path: String, text: String) -> PackedStringArray:
 	if lines.size() <= SOURCE_LINE_CAP:
 		out.append("## Full source of `%s` - %d lines" % [path, lines.size()])
 	else:
-		out.append("## The start of `%s` - the first %d of %d lines" % [
-				path, SOURCE_LINE_CAP, lines.size()])
+		out.append("## The start of `%s` - the first %d of %d lines" % [path, SOURCE_LINE_CAP, lines.size()])
 	out.append("")
 	out.append("This is the file the request is about, quoted verbatim rather than summarised.")
 	out.append("")
@@ -1263,8 +1323,7 @@ static func _append_attachment(out: PackedStringArray, attachment: Dictionary) -
 	if not source_path.is_empty():
 		out.append_array(_source_lines(source_path, String(attachment.get("source_text", ""))))
 		out.append("")
-	out.append_array(_git_lines(
-			String(attachment.get("git_status", "")), String(attachment.get("git_diff", ""))))
+	out.append_array(_git_lines(String(attachment.get("git_status", "")), String(attachment.get("git_diff", ""))))
 	out.append_array(_commit_lines(String(attachment.get("last_commit", ""))))
 	out.append_array(_recent_lines(String(attachment.get("recent_commits", ""))))
 	out.append_array(_last_run_lines(String(attachment.get("last_run", ""))))
@@ -1361,8 +1420,7 @@ static func _last_run_lines(text: String) -> PackedStringArray:
 	out.append("run that failed rather than with a description of it.")
 	out.append("")
 	if from > 0:
-		out.append("*The first %d of %d lines are not shown; the verdict is at the end.*" % [
-				from, lines.size()])
+		out.append("*The first %d of %d lines are not shown; the verdict is at the end.*" % [from, lines.size()])
 		out.append("")
 	out.append("```")
 	for index: int in range(from, lines.size()):
@@ -1374,9 +1432,7 @@ static func _last_run_lines(text: String) -> PackedStringArray:
 
 ## Fenced text, capped, with the cut stated in words after it. The one place pasted text is shown, so
 ## a status, a diff and a test log all read the same way.
-static func _capped_block(
-		out: PackedStringArray, text: String, language: String, cap: int
-) -> void:
+static func _capped_block(out: PackedStringArray, text: String, language: String, cap: int) -> void:
 	var lines: PackedStringArray = _lines_of(text)
 	out.append("```" + language)
 	for index: int in mini(lines.size(), cap):
@@ -1427,10 +1483,9 @@ static func _variable_lines(script: Script) -> PackedStringArray:
 	var lines := PackedStringArray()
 	for prop in script.get_script_property_list():
 		if prop.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
-			lines.append("- %s: %s" % [
-					String(prop.name),
-					_type_text(int(prop.type), String(prop.get("class_name", ""))),
-			])
+			lines.append(
+				"- %s: %s" % [String(prop.name), _type_text(int(prop.type), String(prop.get("class_name", "")))]
+			)
 	return lines
 
 
@@ -1460,12 +1515,15 @@ static func _signal_lines(script: Script) -> PackedStringArray:
 static func _method_lines(script: Script) -> PackedStringArray:
 	var lines := PackedStringArray()
 	for method: Dictionary in script.get_script_method_list():
-		lines.append("- %s%s(%s) -> %s" % [
+		lines.append(
+			"- %s%s(%s) -> %s"
+			% [
 				"static " if (int(method["flags"]) & METHOD_FLAG_STATIC) != 0 else "",
 				String(method["name"]),
 				", ".join(_argument_texts(method)),
 				_return_text(method),
-		])
+			]
+		)
 	return lines
 
 
@@ -1479,8 +1537,8 @@ static func _argument_texts(method: Dictionary) -> PackedStringArray:
 	for index: int in args.size():
 		var arg: Dictionary = args[index]
 		var text := "%s: %s" % [
-				String(arg["name"]),
-				_arg_type_text(int(arg["type"]), String(arg.get("class_name", ""))),
+			String(arg["name"]),
+			_arg_type_text(int(arg["type"]), String(arg.get("class_name", ""))),
 		]
 		if index >= first_default:
 			text += " = %s" % _default_text(defaults[index - first_default])
@@ -1540,20 +1598,32 @@ static func _value_text(value: Variant) -> String:
 ## because their values are not 0..9 and a hardcoded run of them is wrong from the second entry.
 static func type_to_name(type_id: int) -> String:
 	match type_id:
-		TYPE_BOOL: return "bool"
-		TYPE_INT: return "int"
-		TYPE_FLOAT: return "float"
-		TYPE_STRING: return "String"
-		TYPE_STRING_NAME: return "StringName"
-		TYPE_VECTOR2: return "Vector2"
-		TYPE_VECTOR2I: return "Vector2i"
-		TYPE_VECTOR3: return "Vector3"
-		TYPE_COLOR: return "Color"
-		TYPE_ARRAY: return "Array"
-		TYPE_DICTIONARY: return "Dictionary"
-		TYPE_OBJECT: return "Object"
-		_: return "Variant"
-
+		TYPE_BOOL:
+			return "bool"
+		TYPE_INT:
+			return "int"
+		TYPE_FLOAT:
+			return "float"
+		TYPE_STRING:
+			return "String"
+		TYPE_STRING_NAME:
+			return "StringName"
+		TYPE_VECTOR2:
+			return "Vector2"
+		TYPE_VECTOR2I:
+			return "Vector2i"
+		TYPE_VECTOR3:
+			return "Vector3"
+		TYPE_COLOR:
+			return "Color"
+		TYPE_ARRAY:
+			return "Array"
+		TYPE_DICTIONARY:
+			return "Dictionary"
+		TYPE_OBJECT:
+			return "Object"
+		_:
+			return "Variant"
 
 # --- sections -------------------------------------------------------------------------------
 
@@ -1566,7 +1636,6 @@ static func _append_prose(out: PackedStringArray, title: String, lines: PackedSt
 	out.append("")
 	out.append_array(lines)
 	out.append("")
-
 
 # --- the project header, read from ProjectSettings -----------------------------------------
 
@@ -1594,19 +1663,21 @@ static func _header_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	out.append("- Engine: Godot %s" % Engine.get_version_info().string)
 	out.append("- Main scene: %s" % _setting("application/run/main_scene", "(none)"))
-	out.append("- Viewport: %s x %s, stretch %s / %s" % [
+	out.append(
+		"- Viewport: %s x %s, stretch %s / %s"
+		% [
 			_setting("display/window/size/viewport_width", "?"),
 			_setting("display/window/size/viewport_height", "?"),
 			_setting("display/window/stretch/mode", "?"),
 			_setting("display/window/stretch/aspect", "?"),
-	])
+		]
+	)
 	out.append("- Renderer: %s" % _setting("rendering/renderer/rendering_method", "?"))
 	out.append("- Physics: %s" % _setting("physics/3d/physics_engine", "?"))
 	var autoloads := _autoload_names()
 	out.append("- Autoloads: %s" % ("none" if autoloads.is_empty() else ", ".join(autoloads)))
 	out.append("- Editor plugins enabled: %s" % _setting("editor_plugins/enabled", "(none)"))
 	return out
-
 
 # --- what the folders hold, and what the specs say ------------------------------------------
 
@@ -1637,7 +1708,6 @@ static func _names_lines() -> PackedStringArray:
 	out.append("")
 	out.append(", ".join(_names_in("res://tools", ".gd")))
 	return out
-
 
 # --- the shape of a data file ---------------------------------------------------------------
 
@@ -1693,7 +1763,7 @@ static func _sample_record(path: String) -> PackedStringArray:
 					"drainage_mask": 7,
 					"notes": "front border",
 				},
-			]
+			],
 		)
 		for line: String in JSON.stringify(sample_manifest, "  ").split("\n"):
 			out.append(line)
@@ -1715,7 +1785,7 @@ static func _sample_record(path: String) -> PackedStringArray:
 static func _first_record(parsed: Variant) -> Variant:
 	if parsed is Array:
 		var list: Array = parsed
-		return list[0] if not list.is_empty() else {}
+		return list[0] if not list.is_empty() else { }
 	if parsed is Dictionary:
 		var dict: Dictionary = parsed
 		for key: Variant in dict.keys():
@@ -1723,9 +1793,9 @@ static func _first_record(parsed: Variant) -> Variant:
 			if value is Dictionary and not (value as Dictionary).is_empty():
 				var inner: Dictionary = value
 				var first: Variant = inner.keys()[0]
-				return {String(key): {String(first): inner[first]}}
+				return { String(key): { String(first): inner[first] } }
 			if value is Array and not (value as Array).is_empty():
-				return {String(key): (value as Array)[0]}
+				return { String(key): (value as Array)[0] }
 		return dict
 	return parsed
 
@@ -1737,7 +1807,6 @@ static func _read_text(path: String) -> String:
 	var text := file.get_as_text()
 	file.close()
 	return text
-
 
 # --- a worked test file ---------------------------------------------------------------------
 
@@ -1791,7 +1860,6 @@ static func _test_file_lines() -> PackedStringArray:
 	out.append("\tquit(0)")
 	out.append("```")
 	return out
-
 
 # --- the rules the tests hold down -----------------------------------------------------------
 
@@ -1915,7 +1983,6 @@ static func _test_names(path: String) -> PackedStringArray:
 		out.append(trimmed.trim_prefix("func ").split("(")[0].strip_edges())
 	return out
 
-
 # --- the one of each thing -------------------------------------------------------------------
 
 
@@ -1929,11 +1996,11 @@ static func _single_source_lines() -> PackedStringArray:
 	out.append("adding a second:")
 	out.append("")
 	for row: Dictionary in SINGLE_SOURCES:
-		out.append("* **%s** - %s in `%s`: %s" % [
-			String(row["what"]), String(row["one"]), String(row["path"]), String(row["note"]),
-		])
+		out.append(
+			"* **%s** - %s in `%s`: %s"
+			% [String(row["what"]), String(row["one"]), String(row["path"]), String(row["note"])]
+		)
 	return out
-
 
 # --- the scene tree of the main scene --------------------------------------------------------
 
@@ -1954,7 +2021,7 @@ static func _scene_lines(scene_path: String) -> PackedStringArray:
 	var lines := _read_lines(scene_path)
 	if lines.is_empty():
 		return out
-	var resources: Dictionary = {}
+	var resources: Dictionary = { }
 	var nodes: Array = []
 	for line: String in lines:
 		if line.begins_with("[ext_resource"):
@@ -1963,21 +2030,27 @@ static func _scene_lines(scene_path: String) -> PackedStringArray:
 				resources[id] = _attribute(line, "path")
 			continue
 		if line.begins_with("[node "):
-			nodes.append({"path": _node_path_in(line), "type": _attribute(line, "type"),
-					"instance": _instance_id(line), "script": ""})
+			nodes.append(
+				{
+					"path": _node_path_in(line),
+					"type": _attribute(line, "type"),
+					"instance": _instance_id(line),
+					"script": "",
+				}
+			)
 			continue
 		if line.strip_edges().begins_with("script = ExtResource(") and not nodes.is_empty():
 			var id := line.strip_edges().trim_prefix("script = ExtResource(").trim_suffix(")")
-			(nodes[nodes.size() - 1] as Dictionary)["script"] = String(
-					resources.get(id.replace("\"", ""), ""))
+			(nodes[nodes.size() - 1] as Dictionary)["script"] = String(resources.get(id.replace("\"", ""), ""))
 	for node: Dictionary in nodes:
 		var detail := String(node["type"])
 		var instance := String(node["instance"])
 		if not instance.is_empty():
 			detail = "instance of `%s`" % String(resources.get(instance, "?"))
 		var script := String(node["script"])
-		out.append("- `%s` (%s)%s" % [
-				String(node["path"]), detail, "" if script.is_empty() else " - script `%s`" % script])
+		out.append(
+			"- `%s` (%s)%s" % [String(node["path"]), detail, "" if script.is_empty() else " - script `%s`" % script]
+		)
 	return out
 
 
@@ -2065,16 +2138,29 @@ static func _folder_summary(folder: String) -> String:
 	# "here" is this folder's own files and "in the subtree" is everything below it, so a folder
 	# that holds only subfolders does not read as an empty one.
 	return "%d scripts, %d scenes, %d other files here, %d subfolders; %d scripts in the subtree" % [
-			scripts_n, scenes_n, other_n, folders_n, _gd_paths(folder).size(),
+		scripts_n,
+		scenes_n,
+		other_n,
+		folders_n,
+		_gd_paths(folder).size(),
 	]
 
 
 static func _folder_map_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	for folder: String in [
-		"res://scenes", "res://scripts", "res://scripts/biz", "res://scripts/draft",
-		"res://scripts/io", "res://scripts/utils", "res://scripts/vis",
-		"res://tests", "res://tools", "res://data", "res://docs", "res://addons",
+		"res://scenes",
+		"res://scripts",
+		"res://scripts/biz",
+		"res://scripts/draft",
+		"res://scripts/io",
+		"res://scripts/utils",
+		"res://scripts/vis",
+		"res://tests",
+		"res://tools",
+		"res://data",
+		"res://docs",
+		"res://addons",
 	]:
 		out.append("- `%s/` - %s" % [folder, _folder_summary(folder)])
 	var data_files := _files_under("res://data")
@@ -2085,7 +2171,6 @@ static func _folder_map_lines() -> PackedStringArray:
 	out.append("`addons/` is third-party (the Ziva MCP bridge, the GitHub release dock and the")
 	out.append("business/visualization editor docks). Generate nothing that depends on its internals.")
 	return out
-
 
 # --- the inventory, derived from the scripts themselves --------------------------------------
 
@@ -2191,22 +2276,25 @@ static func _inventory_line(path: String) -> String:
 	var signals_n: int = script.get_script_signal_list().size()
 	var summary := _doc_line(path)
 	return "- `%s` (%s) - %d members, %d methods, %d signals - `%s`%s" % [
-			named, String(script.get_instance_base_type()), members, methods_n, signals_n, path,
-			"" if summary.is_empty() else " - " + summary,
+		named,
+		String(script.get_instance_base_type()),
+		members,
+		methods_n,
+		signals_n,
+		path,
+		"" if summary.is_empty() else " - " + summary,
 	]
 
 
 static func _inventory_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	var paths := _gd_paths("res://scripts")
-	out.append("%d scripts under `res://scripts`, sorted by path. Each line: class name (base type) -"
-			% paths.size())
+	out.append("%d scripts under `res://scripts`, sorted by path. Each line: class name (base type) -" % paths.size())
 	out.append("member, method and signal counts - path - the script's own doc comment, first paragraph.")
 	out.append("")
 	for path: String in paths:
 		out.append(_inventory_line(path))
 	return out
-
 
 # --- the two hand-written blocks -------------------------------------------------------------
 
@@ -2259,7 +2347,6 @@ static func _feature_lines() -> PackedStringArray:
 	out.append("- **Specification:** `docs/plant-database-spec.md` is the authority on the plant model.")
 	return out
 
-
 # --- reading a file's lines, and a specification's sections ---------------------------------
 
 
@@ -2307,9 +2394,7 @@ static func _heading_level(line: String) -> int:
 ## `drop_heading` is for the one caller whose own heading already names the section - quoting
 ## `AGENTS.md`'s conventions under a `## Conventions (from AGENTS.md)` heading would otherwise print
 ## a heading immediately followed by the same heading again.
-static func _section_lines(
-		doc_path: String, heading_prefix: String, drop_heading: bool = false
-) -> PackedStringArray:
+static func _section_lines(doc_path: String, heading_prefix: String, drop_heading: bool = false) -> PackedStringArray:
 	var lines := _read_lines(doc_path)
 	var start := -1
 	var level := 0
@@ -2375,7 +2460,6 @@ static func _append_specification(out: PackedStringArray, sections: Array) -> vo
 
 # --- who uses what this work declares ---------------------------------------------------------
 
-
 ## The project's calls, indexed once per build: `"<owner>.<name>" -> the files making that call`, where
 ## an owner is either the **path** of the script an alias loads, or the class name a call was written
 ## against.
@@ -2397,7 +2481,7 @@ static func _append_specification(out: PackedStringArray, sections: Array) -> vo
 ## rather than a read, and any write touches it, so the cache cannot answer about a file that has since
 ## changed shape. Without the cache the index costs about a second and every pack pays it again; with it
 ## every pack after the first costs the stats.
-static var _index_cache: Dictionary = {}
+static var _index_cache: Dictionary = { }
 static var _index_stamp: String = ""
 
 
@@ -2422,9 +2506,9 @@ static func _use_index() -> Dictionary:
 	call_pattern.compile("([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)\\(")
 	var alias_pattern := RegEx.new()
 	alias_pattern.compile("const[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*:=[ \t]*preload\\(\"([^\"]+)\"\\)")
-	var by_call: Dictionary = {}
-	var texts: Dictionary = {}
-	var classes: Dictionary = {}
+	var by_call: Dictionary = { }
+	var texts: Dictionary = { }
+	var classes: Dictionary = { }
 	for path: String in scripts:
 		var text := _read_text(path)
 		texts[path] = text
@@ -2435,12 +2519,7 @@ static func _use_index() -> Dictionary:
 		for found: RegExMatch in call_pattern.search_all(text):
 			var owner := String(aliases.get(found.get_string(1), found.get_string(1)))
 			_record_call(by_call, "%s.%s" % [owner, found.get_string(2)], path)
-	_index_cache = {
-		"by_call": by_call,
-		"texts": texts,
-		"classes": classes,
-		"bindings": _scene_bindings(scenes),
-	}
+	_index_cache = { "by_call": by_call, "texts": texts, "classes": classes, "bindings": _scene_bindings(scenes) }
 	_index_stamp = words
 	return _index_cache
 
@@ -2464,7 +2543,7 @@ static func _class_name_in(text: String) -> String:
 
 ## Every `const Alias := preload("res://...")` in a text, as alias -> the path it loads.
 static func _aliases_in(text: String, pattern: RegEx) -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for found: RegExMatch in pattern.search_all(text):
 		var alias := found.get_string(1)
 		if not out.has(alias):
@@ -2489,11 +2568,11 @@ static func _symbols(script: Script) -> Array[Dictionary]:
 		var name := String(method.get("name", ""))
 		if name.begins_with("_") or name.is_empty():
 			continue
-		out.append({"name": name, "kind": "func"})
+		out.append({ "name": name, "kind": "func" })
 	for sig: Dictionary in script.get_script_signal_list():
 		var name := String(sig.get("name", ""))
 		if not name.is_empty():
-			out.append({"name": name, "kind": "signal"})
+			out.append({ "name": name, "kind": "signal" })
 	return out
 
 
@@ -2507,7 +2586,11 @@ static func _symbols(script: Script) -> Array[Dictionary]:
 ## half the pages in this program have a `closed`. So a signal's users are found **by name**, and the
 ## block says so rather than letting a name match read as a fact.
 static func _users_of(
-		name: String, kind: String, decl_path: String, decl_class: String, index: Dictionary
+	name: String,
+	kind: String,
+	decl_path: String,
+	decl_class: String,
+	index: Dictionary,
 ) -> PackedStringArray:
 	var out := PackedStringArray()
 	if kind == "signal":
@@ -2560,16 +2643,23 @@ static func _caller_lines(entry: Dictionary, index: Dictionary) -> PackedStringA
 			continue
 		for symbol: Dictionary in _symbols(script):
 			var callers := _users_of(
-				String(symbol["name"]), String(symbol["kind"]), path,
-				String(script.get_global_name()), texts
+				String(symbol["name"]),
+				String(symbol["kind"]),
+				path,
+				String(script.get_global_name()),
+				texts,
 			)
 			if callers.is_empty():
 				continue
-			lines.append("* `%s.%s`%s - %s" % [
-				path.get_file().get_basename(), String(symbol["name"]),
-				" (a signal)" if String(symbol["kind"]) == "signal" else "",
-				_caller_words(callers),
-			])
+			lines.append(
+				"* `%s.%s`%s - %s"
+				% [
+					path.get_file().get_basename(),
+					String(symbol["name"]),
+					" (a signal)" if String(symbol["kind"]) == "signal" else "",
+					_caller_words(callers),
+				]
+			)
 	if lines.is_empty():
 		return out
 	lines.sort()
@@ -2625,7 +2715,7 @@ static func _graph_lines(entry: Dictionary, index: Dictionary) -> PackedStringAr
 	if scripts.size() < 2:
 		return PackedStringArray()
 	var by_call: Dictionary = index["by_call"]
-	var ids: Dictionary = {}
+	var ids: Dictionary = { }
 	var nodes := PackedStringArray()
 	for at: int in scripts.size():
 		ids[scripts[at]] = "n%d" % at
@@ -2651,8 +2741,10 @@ static func _graph_lines(entry: Dictionary, index: Dictionary) -> PackedStringAr
 	out.append("```")
 	if edges.size() > GRAPH_EDGE_CAP:
 		out.append("")
-		out.append("*%d further arrow%s are not drawn.*" % [
-				edges.size() - GRAPH_EDGE_CAP, "" if edges.size() - GRAPH_EDGE_CAP == 1 else "s"])
+		out.append(
+			"*%d further arrow%s are not drawn.*"
+			% [edges.size() - GRAPH_EDGE_CAP, "" if edges.size() - GRAPH_EDGE_CAP == 1 else "s"]
+		)
 	return out
 
 
@@ -2687,9 +2779,9 @@ static func _class_path(name: String, index: Dictionary) -> String:
 ## The value of a script's entry is `<scene> - <node path>`, so a reader of a pack is told not only that
 ## something binds the script but where.
 static func _scene_bindings(scenes: PackedStringArray) -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for path: String in scenes:
-		var by_id: Dictionary = {}
+		var by_id: Dictionary = { }
 		var node_path := ""
 		for line: String in _read_lines(path):
 			if line.begins_with("[ext_resource"):
@@ -2747,8 +2839,10 @@ static func _ask_lines() -> PackedStringArray:
 
 static func _left_out_lines(entry: Dictionary) -> PackedStringArray:
 	var out := PackedStringArray()
-	out.append("One subject of %d scripts in `res://scripts` (the %d above are detailed in full, with"
-			% [_gd_paths("res://scripts").size(), (entry["scripts"] as Array).size()])
+	out.append(
+		"One subject of %d scripts in `res://scripts` (the %d above are detailed in full, with"
+		% [_gd_paths("res://scripts").size(), (entry["scripts"] as Array).size()]
+	)
 	out.append("their members, constants, methods and signals). The specification sections quoted above are")
 	out.append("the ones this work has to obey; the rest of the project - and the rest of `docs/` - is")
 	out.append("deliberately absent. Run the exporter with no subject for the whole snapshot when the work")

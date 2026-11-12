@@ -40,6 +40,7 @@ const SUBJECT_OF: Dictionary = {
 	"layer_window": "Layers, units and the site",
 	"osm_window": "Importing somebody else's file",
 	"pipeline_board": "Leads and the pipeline",
+	"plant_key_window": "Identifying a plant by answering questions",
 	"plant_order_window": "Ordering the plants from a nursery",
 	"revision_window": "Undo, revisions and where your files are",
 	"rotation_window": "Food: what to grow here next",
@@ -77,9 +78,7 @@ const NOT_YET_WRITTEN: Dictionary = {
 		"what a job has cost against what it was budgeted has no subject; `Jobs, crews and the schedule` "
 		+ "is about the work and who is doing it"
 	),
-	"ledger_window": (
-		"sending the books to another program has no subject; the manual does not mention it at all"
-	),
+	"ledger_window": ("sending the books to another program has no subject; the manual does not mention it at all"),
 	"season_window": (
 		"how long the growing season is has no subject of its own; the food topics assume a season rather "
 		+ "than explain one"
