@@ -15,6 +15,7 @@ extends Node
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const KeyScript := preload("res://scripts/plant_key.gd")
+const ProfileScript := preload("res://scripts/terrain_profile.gd")
 
 
 # --- the fixture -------------------------------------------------------------------------
@@ -607,3 +608,168 @@ func test_an_i_am_not_sure_answer_narrows_nothing_and_is_not_asked_again() -> vo
 		assert(not KeyScript.option_keys(question).has(KeyScript.UNSURE), "%s does not offer not sure" % question)
 	# And it is taken back like any other answer, which is what somebody who pressed it by mistake needs.
 	assert(KeyScript.without_last(answers).is_empty(), "taking it back leaves nothing answered")
+
+
+func test_a_drawing_of_an_answer_is_a_file_that_is_really_there() -> void:
+	# A drawing is the definition of an answer, so a picture this program claims to have must be a file on
+	# disk - not a path somebody hoped for. Where none has been drawn the answer is answered with nothing,
+	# because a stand-in image would be a picture of some other leaf.
+	for question: StringName in KeyScript.LEAF_QUESTIONS:
+		for option: StringName in KeyScript.option_keys(question):
+			var picture: String = KeyScript.picture_for(question, option)
+			if picture == "":
+				continue
+			assert(FileAccess.file_exists(picture), "the drawing of %s is a file: %s" % [option, picture])
+			assert(
+				picture.ends_with("key_%s_%s.png" % [String(question), String(option)]),
+				"and it is named for its trait and its value: %s" % picture,
+			)
+
+
+func test_every_answer_to_every_leaf_question_has_its_drawing() -> void:
+	# Held as a concrete claim rather than as a hope: every value each leaf trait's own table knows has a
+	# drawing, so a person answering any leaf question sees what each answer means. A drawing is only worth
+	# having for the answers beside it - "finely toothed" beside "toothed" beside "scalloped" is exactly the
+	# question words alone cannot settle.
+	for question: StringName in KeyScript.LEAF_QUESTIONS:
+		for option: StringName in KeyScript.option_keys(question):
+			assert(
+				KeyScript.picture_for(question, option) != "",
+				"the answer '%s' to %s has a drawing" % [option, question],
+			)
+	# And a question that is not about a leaf needs none: the words are the answer.
+	assert(not KeyScript.option_keys(KeyScript.KIND).is_empty(), "the habit questions have words alone")
+	for option: StringName in KeyScript.option_keys(KeyScript.KIND):
+		assert(KeyScript.picture_for(KeyScript.KIND, option) == "", "and no drawing is claimed for '%s'" % option)
+
+
+# --- the bed the plant is going in --------------------------------------------------------
+
+
+## Two perennials that differ only in the light they take, so the question "what suits this bed" has one
+## right answer rather than a debate.
+func _sun_and_shade() -> CatalogueScript:
+	var catalogue: CatalogueScript = CatalogueScript.make()
+	var sunflower: SpeciesScript = _plant("SUN-LOVER", "Helianthus annuus", "Sunflower", SpeciesScript.PERENNIAL, 200)
+	sunflower.sun = SpeciesScript.FULL_SUN
+	sunflower.water = SpeciesScript.WATER_LOW
+	_add(catalogue, sunflower)
+
+	var hosta: SpeciesScript = _plant("SHADE-LOVER", "Hosta", "Plantain lily", SpeciesScript.PERENNIAL, 60)
+	hosta.sun = SpeciesScript.FULL_SHADE
+	hosta.water = SpeciesScript.WATER_MEDIUM
+	_add(catalogue, hosta)
+	return catalogue
+
+
+## A shady, damp bed: everything a suitability check needs to judge a plant.
+func _shady_bed() -> ProfileScript:
+	return ProfileScript.make({ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_MEDIUM })
+
+
+func test_a_spot_the_plan_has_not_described_keeps_the_whole_list() -> void:
+	# Silence is not a pass: on an undescribed spot every plant is `UNKNOWN`, so a key narrowed to it would
+	# be a page with no plants on it at all. The honest answer is the whole list, with the reason said out
+	# loud - and a narrowed key that quietly emptied itself is the failure this holds off.
+	var catalogue: CatalogueScript = _sun_and_shade()
+	var nothing: ProfileScript = ProfileScript.make()
+	assert(not KeyScript.states_the_ground(nothing), "a spot nobody described is not a description")
+	var suited: Array[PlantSpecies] = KeyScript.suiting(catalogue, nothing)
+	assert(suited.size() == 2, "so the whole list stays in the key: %d" % suited.size())
+	var words: String = KeyScript.spot_words(catalogue, nothing, "the bed")
+	assert(words.contains("Nothing says what the ground is like the bed"), "and the page says so: %s" % words)
+	assert(words.contains("every plant"), "and that nothing has been dropped: %s" % words)
+
+
+func test_a_spot_keeps_the_plants_that_suit_it_and_no_others() -> void:
+	var catalogue: CatalogueScript = _sun_and_shade()
+	var suited: Array[PlantSpecies] = KeyScript.suiting(catalogue, _shady_bed())
+	assert(suited.size() == 1, "one of the two suits a bed in full shade: %d" % suited.size())
+	assert(suited[0].id == &"SHADE-LOVER", "and it is the one that takes the shade")
+	assert(KeyScript.for_the_spot(catalogue, _shady_bed()).count() == 1, "the key's own field is that plant")
+	var words: String = KeyScript.spot_words(catalogue, _shady_bed(), "the bed")
+	assert(words.contains("1 of 2 plants suit the bed"), "and the count is said out loud: %s" % words)
+
+
+func test_a_spot_nothing_suits_says_so_rather_than_showing_an_empty_key() -> void:
+	var catalogue: CatalogueScript = _sun_and_shade()
+	# Dark and dry: the shade-lover drowns in a dry bed and the sunflower will not take the shade.
+	var bleak: ProfileScript = ProfileScript.make({
+		"sun": SpeciesScript.FULL_SHADE,
+		"moisture": SpeciesScript.WATER_LOW,
+	})
+	assert(KeyScript.suiting(catalogue, bleak).is_empty(), "nothing survives a dark bed that also dries out")
+	var words: String = KeyScript.spot_words(catalogue, bleak, "the bed")
+	assert(words.contains("Nothing in the list suits the bed"), "and the page says which fact did it: %s" % words)
+
+
+func test_a_spot_silent_about_the_light_cannot_be_checked_and_says_what_is_missing() -> void:
+	# The two properties a *place* has to state before anything can be judged. A spot that states neither
+	# hides no plants: it cannot be checked at all - and "nothing suits this spot" would blame the plants for
+	# a gap in the plan, which is the opposite of what to go and fix.
+	var catalogue: CatalogueScript = _sun_and_shade()
+	var zone_only: ProfileScript = ProfileScript.make({ "zone": 5 })
+	assert(KeyScript.states_the_ground(zone_only), "it is a spot somebody has described")
+	assert(KeyScript.suiting(catalogue, zone_only).is_empty(), "but not described enough to judge a plant on")
+	var words: String = KeyScript.spot_words(catalogue, zone_only, "the bed")
+	assert(words.contains("cannot be checked yet"), "so the page says that rather than nothing suits: %s" % words)
+	assert(words.contains("how much sun"), "and names the first gap: %s" % words)
+	assert(words.contains("how wet"), "and the second: %s" % words)
+
+
+# --- a shortlist somebody else made -------------------------------------------------------
+
+
+func test_every_drawing_on_disk_really_loads() -> void:
+	# `picture_for` answers "is the drawing there?" and the page then **loads** what it named. In Godot those
+	# are two questions: an image with no `.import` beside it is a file that exists and a resource that comes
+	# back as nothing, so the page would reserve the room for a drawing and show a blank - the picture
+	# mechanism failing in exactly the way it was built not to. Two of the thirty-one were in that state when
+	# this was written, which is why the check asks the loader and not the file manager.
+	#
+	# It walks the key's **own vocabulary** and not the folder the drawings sit in: that folder holds other
+	# generated pictures - a plant reader's fixture, for one - and demanding those load would be this test
+	# asserting something about a module that is not the key.
+	var counted: int = 0
+	for question: StringName in KeyScript.LEAF_QUESTIONS:
+		for option: StringName in KeyScript.option_keys(question):
+			var picture: String = KeyScript.picture_for(question, option)
+			if picture == "":
+				continue
+			counted += 1
+			assert(load(picture) != null, "the drawing of %s loads as a picture: %s" % [option, picture])
+	assert(counted > 0, "there are drawings to load at all")
+
+
+func test_a_shortlist_keeps_the_plants_the_list_knows_and_leaves_out_the_rest() -> void:
+	# A reading's candidates are a suggestion, so an id this list does not have is **dropped** rather than
+	# emptying the key: a shortlist the catalogue cannot answer has to leave a usable key behind.
+	var catalogue: CatalogueScript = _sun_and_shade()
+	var shortlist: CatalogueScript = KeyScript.among(catalogue, [&"SHADE-LOVER", &"NOT-IN-THE-LIST"])
+	assert(shortlist.count() == 1, "one of the two is a plant this list has: %d" % shortlist.count())
+	assert(shortlist.all()[0].id == &"SHADE-LOVER", "and it is the one that is in it")
+	assert(KeyScript.among(catalogue, [&"NOT-IN-THE-LIST"]).count() == 0, "a shortlist of strangers is empty")
+	assert(KeyScript.among(catalogue, []).count() == 0, "and so is no shortlist at all")
+
+
+func test_a_shortlist_says_where_it_came_from_and_what_the_key_will_do() -> void:
+	var catalogue: CatalogueScript = _sun_and_shade()
+	var words: String = KeyScript.shortlist_words(catalogue, [&"SUN-LOVER", &"SHADE-LOVER"], "photograph")
+	assert(words.contains("offered 2 plants"), "it says how many were offered: %s" % words)
+	assert(words.contains("tells them apart"), "and what the key will do with them: %s" % words)
+	var stranger: String = KeyScript.shortlist_words(catalogue, [&"NOT-IN-THE-LIST"], "photograph")
+	assert(
+		stranger.contains("Nothing the photograph offered is in the plant list"),
+		"a stranger is named rather than counted: %s" % stranger,
+	)
+	assert(stranger.contains("every plant is in the key"), "with the whole key still usable: %s" % stranger)
+	var one: String = KeyScript.shortlist_words(catalogue, [&"SHADE-LOVER"], "photograph")
+	assert(one.contains("one plant"), "a shortlist of one says so: %s" % one)
+	assert(one.contains("Plantain lily"), "and names the plant: %s" % one)
+	# A reading can name plants this list does not stock, and the two counts are then different numbers. The
+	# sentence has to give both: saying the **offered** count and then calling it the known one reports a
+	# reading nobody got, and saying "one plant" for a reading of two would be that same lie.
+	var partly: String = KeyScript.shortlist_words(catalogue, [&"SHADE-LOVER", &"NOT-IN-THE-LIST"], "photograph")
+	assert(partly.contains("offered 2 plants"), "a partly-known reading says what was offered: %s" % partly)
+	assert(partly.contains("knows 1 of them"), "and how much of it this list has: %s" % partly)
+	assert(not partly.contains("one plant"), "without claiming one plant came back: %s" % partly)

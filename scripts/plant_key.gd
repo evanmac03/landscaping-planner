@@ -162,6 +162,10 @@ const UNSURE := &"unsure"
 ## What `UNSURE` reads as, on the button and in the line that says what was taken back.
 const UNSURE_WORDS := "not sure"
 
+## Where the drawings of an answer live. A picture is named for the **trait and the value** it shows, so one
+## question's drawings cannot be another's.
+const PICTURE_DIR := "res://assets/generated/"
+
 
 # --- the questions ----------------------------------------------------------------------------
 
@@ -367,12 +371,158 @@ static func option_keys(question: StringName) -> Array[StringName]:
 	return out
 
 
+## The drawing of one answer, or `""` when nobody has drawn one.
+##
+## **A drawing is the definition of an answer**, which is why its absence is answered with nothing rather
+## than with a stand-in: a placeholder image would be a picture of some other leaf, and a key that showed
+## it would be teaching the wrong thing at the moment somebody is looking for a word for what they can see.
+##
+## An answer with no drawing is offered exactly as one with: the words are the answer and the drawing only
+## helps. This is why the key can be built before the drawings are - the questions work, and a drawing
+## appears the day the file does.
+static func picture_for(question: StringName, option: StringName) -> String:
+	var path: String = "%skey_%s_%s.png" % [PICTURE_DIR, String(question), String(option)]
+	return path if FileAccess.file_exists(path) else ""
+
+
 ## One answer's entry, or an empty dictionary when the question or the answer is not this program's.
 static func _option_for(question: StringName, option: StringName) -> Dictionary:
 	for entry: Dictionary in options_of(question):
 		if StringName(entry["key"]) == option:
 			return entry
 	return { }
+
+
+# --- the spot the plant is going in ------------------------------------------------------------
+
+
+## Whether the plan says anything about what the ground is like at one spot.
+##
+## The whole of the site-aware half of a key rests on this, and the reason is that silence is **not** a
+## pass: `PlantSuitability` calls every plant `UNKNOWN` on a spot nobody described rather than green. So a
+## key narrowed to an undescribed spot would be a page with no plants on it - and the honest answer there
+## is the whole list, with a line saying why.
+static func states_the_ground(profile: TerrainProfile) -> bool:
+	return profile != null and not profile.is_empty()
+
+
+## The plants that suit one spot: the ones `PlantSuitability` calls good or tolerated there.
+##
+## **This is not a second suitability rule.** Every verdict is `PlantSuitability.check`'s own, read through
+## the `certain` flag it already returns - the same predicate the survey import counts a plant as "suiting
+## where it stands" with, so a key and that report cannot come to disagree about the same spot.
+##
+## A spot the plan has not described keeps the whole list, for the reason `states_the_ground` gives.
+static func suiting(catalogue: PlantCatalogue, profile: TerrainProfile) -> Array[PlantSpecies]:
+	if catalogue == null:
+		return []
+	var all: Array[PlantSpecies] = catalogue.all()
+	if not states_the_ground(profile):
+		return all
+	var out: Array[PlantSpecies] = []
+	for plant: PlantSpecies in all:
+		if bool(PlantSuitability.check(plant, profile)["certain"]):
+			out.append(plant)
+	return out
+
+
+## The plants that suit a spot as a list the key can narrow - the same plants, in the one container
+## `PlantCatalogue.filter` and `state` are written for.
+##
+## A separate call from `suiting` because a page wants both: the plants to narrow to, and the count to say
+## out loud. Both are the same arithmetic, so they cannot come apart.
+static func for_the_spot(catalogue: PlantCatalogue, profile: TerrainProfile) -> PlantCatalogue:
+	var out: PlantCatalogue = PlantCatalogue.make()
+	if catalogue == null:
+		return out
+	for plant: PlantSpecies in suiting(catalogue, profile):
+		out.add(plant)
+	return out
+
+
+## What the spot means for the key, in the one sentence a page shows above the questions.
+##
+## Every branch names what is missing rather than showing a zero: a spot nobody described says so and says
+## the whole list is in the key, and a spot nothing suits says that too - because "0 of 130 plants suit
+## this spot" reads like a broken key rather than like a bed under a walnut.
+static func spot_words(catalogue: PlantCatalogue, profile: TerrainProfile, place: String = "here") -> String:
+	var where: String = place if not place.strip_edges().is_empty() else "here"
+	if not states_the_ground(profile):
+		return "Nothing says what the ground is like %s yet, so every plant in the list is in the key." % where
+	if catalogue == null:
+		return ""
+	var total: int = catalogue.count()
+	var suited: int = suiting(catalogue, profile).size()
+	if suited <= 0:
+		# A spot silent about the light or the water cannot be judged at all, and "nothing suits this spot"
+		# would blame the plants for a gap in the plan. `gaps_at` is `PlantSuitability`'s own reading of what
+		# a place has to state, so the two cannot come to different answers about the same silence.
+		var gaps: Array[String] = PlantSuitability.gaps_at(profile)
+		if not gaps.is_empty():
+			return "This spot cannot be checked yet - %s. The whole list is in the key." % " and ".join(gaps)
+		return "Nothing in the list suits %s (%s)." % [where, profile.describe()]
+	if suited >= total:
+		return "All %s suit %s (%s)." % [count_text(total), where, profile.describe()]
+	return "%d of %s suit %s (%s)." % [suited, count_text(total), where, profile.describe()]
+
+
+# --- a shortlist somebody else made ------------------------------------------------------------
+
+
+## The key's field for a set of species: the plants a photograph offered, or any other shortlist already
+## resolved to entries in this catalogue.
+##
+## **Not a name-matching rule.** A raw name off a model is `PlantIDResolver`'s business - it is the one place
+## this program turns what a model said into a species - so this takes ids and leaves that join where it
+## belongs. An id the catalogue does not have is **skipped** rather than emptying the key: a shortlist is a
+## suggestion, and a suggestion the list cannot answer must leave a usable key behind rather than a page with
+## no plants on it.
+static func among(catalogue: PlantCatalogue, ids: Array) -> PlantCatalogue:
+	var out: PlantCatalogue = PlantCatalogue.make()
+	if catalogue == null:
+		return out
+	for raw: Variant in ids:
+		var wanted: StringName = _as_key(raw)
+		if wanted.is_empty():
+			continue
+		var plant: PlantSpecies = catalogue.get_species(wanted)
+		if plant != null:
+			out.add(plant)
+	return out
+
+
+## What a shortlist means for the key, in the one sentence a page shows: where the list came from, how much
+## of it this catalogue knows, and what the key will do with it.
+##
+## `source` is a **bare noun** - "photograph", not "the photograph" - because every branch puts its own
+## article in front of it. A caller that passes the article as well gets "Nothing the the photograph
+## offered", which is how this was caught.
+##
+## **Both counts are said, because they are not the same number.** A reading can name three plants and have
+## only two of them in the catalogue, so the sentence gives the count that was **offered** and then the count
+## this list **knows** of it. Saying one number twice is how a page comes to report a reading it did not get.
+##
+## Every branch says which fact produced it, including the one where nothing matched - a shortlist the list
+## cannot answer is a thing to be told, not a page that quietly empties itself.
+static func shortlist_words(catalogue: PlantCatalogue, ids: Array, source: String = "photograph") -> String:
+	if catalogue == null:
+		return ""
+	var offered: int = 0
+	for raw: Variant in ids:
+		if not _as_key(raw).is_empty():
+			offered += 1
+	var shortlist: PlantCatalogue = among(catalogue, ids)
+	var kept: int = shortlist.count()
+	if kept <= 0:
+		return "Nothing the %s offered is in the plant list, so every plant is in the key." % source
+	if kept == 1 and offered == 1:
+		return "The %s offered one plant, and the list has it: %s." % [source, shortlist.all()[0].display_name()]
+	var known: String = "all of them" if kept >= offered else "%d of them" % kept
+	return "The %s offered %s, and the list knows %s. The key asks only what tells them apart." % [
+		source,
+		count_text(offered),
+		known,
+	]
 
 
 # --- reading and writing the answers ------------------------------------------------------------

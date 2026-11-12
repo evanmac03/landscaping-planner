@@ -388,6 +388,69 @@ func test_the_reading_line_says_what_will_happen_to_the_photograph() -> void:
 	page.free()
 
 
+func test_a_reading_that_offered_several_plants_offers_the_key() -> void:
+	# The way from a photograph to a name: a model offers several plants and the key asks only the question
+	# that tells them apart. The plants leave here as **ids**, because what a model said into a species is
+	# `PlantIDResolver`'s join and this page is where the reading is in hand.
+	_clean()
+	var page: Window = _page()
+	page.identifier = _reader()
+	page.set_id_mode(ChoiceScript.LOCAL)
+	page.set_photo_path(_png("user://test_capture_shot.png"))
+	_forget_questions()
+	_answers.append(_answer([_plant(THYME_NAME, 0.7), _plant(BOX, 0.6)]))
+	var heard: Array[StringName] = []
+	page.key_requested.connect(func(ids: Array[StringName]) -> void: heard.append_array(ids))
+	page.identify_photo()
+	assert(page.candidate_count() == 2, "the reading offered two plants: %d" % page.candidate_count())
+	var ids: Array[StringName] = page.candidate_ids()
+	assert(ids.size() == 2, "and both of them are plants this list knows: %d" % ids.size())
+	assert(ids.has(StringName(THYME)), "the thyme is one of them: %s" % str(ids))
+	var settle: Button = page.find_child("SettleWithKey", true, false) as Button
+	assert(settle != null, "so the key is offered rather than left to guess with")
+	settle.pressed.emit()
+	assert(heard.size() == 2, "and pressing it hands the key both plants: %d" % heard.size())
+	_clean()
+	page.free()
+
+
+func test_a_reading_that_offered_one_plant_offers_no_key() -> void:
+	# One plant is already a name, so a key opened on it would have nothing to ask: the invitation is not
+	# there at all rather than being a button that leads to a key of one. A single name is kept as the name
+	# and nothing else - the page has no shortlist to offer anybody.
+	_clean()
+	var page: Window = _page()
+	page.identifier = _reader()
+	page.set_id_mode(ChoiceScript.LOCAL)
+	page.set_photo_path(_png("user://test_capture_shot.png"))
+	_forget_questions()
+	_answers.append(_answer([_plant(THYME_NAME, 0.9)]))
+	page.identify_photo()
+	assert(page.candidate_ids().is_empty(), "one name is a name, not a shortlist to narrow a key by")
+	assert(page.find_child("SettleWithKey", true, false) == null, "so there is no key to settle with")
+	_clean()
+	page.free()
+
+
+func test_a_reading_the_list_can_place_once_offers_no_key() -> void:
+	# Two names off a model, one of them a plant this list carries: a key narrowed to a single plant has
+	# nothing to ask, so the invitation is not built - the guard is on the **resolved** plants and not on how
+	# many names came back.
+	_clean()
+	var page: Window = _page()
+	page.identifier = _reader()
+	page.set_id_mode(ChoiceScript.LOCAL)
+	page.set_photo_path(_png("user://test_capture_shot.png"))
+	_forget_questions()
+	_answers.append(_answer([_plant(THYME_NAME, 0.7), _plant("Rosa 'Gertrude Jekyll'", 0.5)]))
+	page.identify_photo()
+	assert(page.candidate_count() == 2, "the reading offered two names: %d" % page.candidate_count())
+	assert(page.candidate_ids().size() == 1, "and this list knows one of them: %d" % page.candidate_ids().size())
+	assert(page.find_child("SettleWithKey", true, false) == null, "so there is no key to settle with")
+	_clean()
+	page.free()
+
+
 func test_a_photograph_is_read_and_the_record_says_which_model_said_so() -> void:
 	_clean()
 	var page: Window = _page()

@@ -767,7 +767,7 @@ upper bound one centimetre below the next band's floor - so no plant falls betwe
 
 ### 7c.5 Where it is reached, and what holds it down
 
-Plant menu → Name a plant by answering questions. It needs no drawing. The manual
+Plant menu → Name a plant by answering questions. It reads the drawing only for the bed the plant is going in (§7c.9); the key itself narrows the catalogue, and where the plant then goes is the planting's business. The manual
 describes it under **Identifying a plant by answering questions**, and `PageHelp` is what joins the
 page to that subject.
 
@@ -829,6 +829,94 @@ question is not asked again - and carries no criterion, so the field is not narr
 made. It is deliberately absent from every `options_of`, so it can never appear as one of a question's own
 answers; a page offers it beside them, only while there is a question to pass.
 
+
+### 7c.8 The drawing beside an answer
+
+An answer may carry a drawing, and where one has been made it is shown on the button beside the words
+rather than instead of them. `PlantKey.picture_for(question, option)` is the one place the rule lives: a
+drawing is named for the **question and the option** - `key_leaf_venation_a_midrib_with_side_veins.png`,
+because a leaf question's key is its trait's own name and an option's key is the slug of its label - and
+where no file matches, the answer is offered with its words alone.
+
+**A missing drawing is answered with nothing, never with a stand-in.** A drawing is the *definition* of an
+answer: a shape charted on "how do the veins run?" is what tells a person which words describe the leaf in
+their hand, so a placeholder image would be a picture of some other leaf at the moment somebody is looking
+for the word. That is also why the questions were built before any of the drawings were: an answer is its
+words, the drawing only helps, and a drawing appears the day its file does - which is what
+`test_a_drawing_of_an_answer_is_a_file_that_is_really_there` holds.
+
+The drawings are line art in the page's own pale ink (`#c9d2b4`-ish) on a transparent background, because
+the program's theme is dark. Black ink would be invisible on it; white would vanish on a light theme.
+
+### 7c.9 The bed the plant is going in
+
+A key answers two different questions, and until now it answered one. "What is this plant?" is the
+question somebody standing in front of an unnamed plant is asking. The other is **"what can I plant
+here?"**, and the drawing can already partly answer it: `ZoneMap.profile_at` says what the ground is
+like where the drawing's cursor last was - which is the bed a person had in mind on their way to the
+menu, and not the menu bar the pointer is over by the time anything asks.
+
+The page is handed that spot and says what it leaves of the list - *"1 of 5 plants suit the front bed
+(part shade, medium moisture)"* - with two buttons: **Only the plants that suit this spot**, and
+**Every plant in the list** to widen back.
+
+**It never narrows itself, and that is the decision worth stating.** A key opened to name the plant
+already growing in front of somebody must not drop that plant for not suiting the bed it is
+demonstrably living in - and that plant is exactly the one a designer most wants named. So the whole
+list is where the page starts, narrowing is a deliberate press, and the count is said either way.
+
+**The verdict is `PlantSuitability`'s own.** `PlantKey.suiting` keeps the plants whose `check` came
+back `certain` - good or tolerated - which is the same predicate the survey import counts "suiting
+where it stands" with, so a key and that report cannot come to different answers about the same bed.
+No second suitability rule is written for the key.
+
+Three refusals, each naming what is missing rather than showing a zero:
+
+* a spot the plan has **not described** leaves the whole list in the key and says so - silence is not a
+  pass, and a key narrowed to an undescribed spot would be a page with no plants on it at all;
+* a spot that states neither the light nor the water **cannot be checked at all**, and
+  `PlantSuitability.gaps_at` is what names which of the two is missing - so the page reports a gap in
+  the plan rather than "nothing suits this spot", which would blame the plants for it;
+* a spot nothing in the list suits leaves the key on the whole list, and the button says which fact
+  stopped it.
+
+A plant the plan cannot **judge** - one that names a soil the plan is silent about - is not counted as
+suiting, for the same reason `UNKNOWN` is never drawn green. Narrowing therefore shows fewer plants
+than "all those that would live here", the count is said out loud, and one press puts the whole list
+back.
+
+### 7c.10 From a photograph to the key
+
+A reading that comes back with several names is a **choice**, and a choice of plants is what a key is
+for. So the capture page offers a button - **Settle which of these it is** - and pressing it puts the
+reading into the key, which then asks only the questions that tell those plants apart.
+
+**The offer is a button on a page, not a menu entry**, and both reasons are load-bearing. The reading is
+in hand on that page and nowhere else, so a menu entry would have to reach back for it. And the manual
+guard builds a regular expression out of every menu title (`test_help_doc.gd`), so a menu entry
+advertising the seed would have to say so in its own title, where a button says it in its own words.
+
+**A shortlist seeds the field; it does not answer a question.** Letting the reading pre-answer, say, the
+flower colour was rejected: the key would then assert what the model only guessed, and it would fix
+which question came first. Seeding the field leaves `PlantKey.next_question` free to pick the
+**highest-entropy question among the candidates**, which is the whole point of a key.
+
+**The join from a name to a species belongs to `PlantIDResolver`**, and the page asks it of `resolve`
+rather than `resolve_identification`. That second one applies the **confidence floors a record needs**; a
+shortlist is not a record, and dropping a candidate for being uncertain would drop the very plant the key
+is opened to ask about. The page hands the key **ids** and never names, so what a model said becomes a
+species in exactly one place.
+
+**One plant is not a choice, and neither is a reading this list cannot answer.** The button is built only
+while more than one of the plants the reading named is in the catalogue: a key of one plant has nothing to
+ask, and a key of none is a broken page. `PlantKey.among` skips ids the list does not have rather than
+emptying the field, and `PlantKey.shortlist_words` is the one sentence that says what happened - where the
+list came from, how much of it this catalogue knows, and what the key will do with it.
+
+**The two narrowings compose.** A photograph says which plants it could be; a bed says which of those will
+live here; `_rebuild_field` applies the shortlist first and the spot to what is left, so neither can undo
+the other. The spot half refuses to empty the field - when none of the shortlist suits the spot, only the
+shortlist narrows - and the line above the questions says both facts either way.
 ## 8. What is not built
 
 The ground can be **read from the drawing** (§7a.4), stated for the site and for any area the

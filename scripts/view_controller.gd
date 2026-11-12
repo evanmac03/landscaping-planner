@@ -949,6 +949,22 @@ func environment_map() -> ZoneMap:
 	return document.environment if document != null else null
 
 
+## What the plan says the ground is like where the drawing's cursor last was.
+##
+## The spot is the **drawing's own `cursor_point`** and not the live mouse position, and that is the whole
+## reason to ask for it here: a person reaches the plant key from the menus, so by the time anything asks,
+## the pointer is over the menu bar - and the bed they mean is the one it was over on its way there.
+##
+## Returns `{profile, zone, place, source}` as `ZoneMap.profile_at` does, or an empty dictionary in a scene
+## with no drawing.
+func ground_at_cursor() -> Dictionary:
+	var map: ZoneMap = environment_map()
+	var controller: DraftControllerScript = draft_controller()
+	if map == null or controller == null:
+		return { }
+	return map.profile_at(controller.cursor_point)
+
+
 ## Say one line about something that happened to the drawing without the cursor moving - a survey that
 ## has just arrived, for instance. The planting tools write this same line, so a second place that words
 ## a planting verdict would be a second place free to disagree with the first.

@@ -114,6 +114,28 @@ static func check_at(species: PlantSpecies, zone_map: ZoneMap, point: Vector2) -
 	return check(species, spot["profile"], String(spot["place"]))
 
 
+## What a plan has not said about one spot yet, in the words a check would use - one phrase per property
+## **every** check asks about. Empty when the spot can be judged.
+##
+## The light and the moisture and nothing else: `check` asks those two of every plant, while soil, drainage
+## and hardiness are asked only of the plants that have an opinion about them - so a spot silent about
+## those still judges a plant that does not care. `test_the_two_things_a_spot_must_state_are_the_two_every_check_asks`
+## is what holds this list to the check: add a third always-asked property and that test fails, rather than
+## this function quietly going stale.
+##
+## It exists so a page can say *why* nothing could be judged, rather than reporting a gap in the plan as
+## "nothing suits this spot" - which would blame the plants for the designer's silence.
+static func gaps_at(profile: TerrainProfile) -> Array[String]:
+	var out: Array[String] = []
+	if profile == null:
+		return ["nothing says what the ground is like here"]
+	if not profile.has("sun"):
+		out.append("nothing says how much sun this spot gets")
+	if not profile.has("moisture"):
+		out.append("nothing says how wet this spot stays")
+	return out
+
+
 ## The worst outcome among the findings, which is the verdict.
 ##
 ## The order is **not** the numeric order: a property that is against the plant outranks a gap, and a

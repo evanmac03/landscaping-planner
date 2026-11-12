@@ -67,6 +67,43 @@ func _prove() -> void:
 		return
 	print("DEMO the page is open: %s" % str(_hud.is_plant_key_window_open()))
 
+	# The bed the plant is going in, read live off the game's own drawing and its cursor. This is the half
+	# no test can stand up for itself: the arithmetic is measured against a garden of five and the page is
+	# driven off-tree, so neither can answer "does the real drawing give the key a spot, and does it narrow".
+	print("DEMO the ground where the cursor was: %s" % page.site_text())
+	if page.can_narrow():
+		print("DEMO narrowing to it: %s" % str(page.only_the_ones_that_suit()))
+		print("DEMO the field is now %d of %d plants" % [page.field_count(), catalogue.count()])
+		print("DEMO widening back: %s" % str(page.show_every_plant()))
+	else:
+		print("DEMO nothing to narrow to here, and the button says why: %s" % page.the_button("SuitHere").tooltip_text)
+
+	# The other way in: the plants a photograph's reading offered, handed to the page as **ids**. This is the
+	# half of that path no test can drive live - a reading needs a model - so the ids a reading would hand over
+	# are named here, one of them deliberately a plant this list does not stock, and the page is asked what it
+	# does with them. The join from what a model said to an id is `PlantIDResolver`'s and stays the capture
+	# page's business: the key is handed ids and nothing else.
+	var reading: Array[StringName] = [
+		&"thymus-serpyllum", &"buxus-sempervirens", &"deliberately-not-in-this-list"
+	]
+	page.from_a_shortlist(reading, "photograph")
+	print("DEMO a reading offered %d plants, one of them absent: %s" % [reading.size(), str(reading)])
+	print("DEMO the key says: %s" % page.shortlist_text())
+	print(
+		(
+			"DEMO the field is now %d of %d plants, from a shortlist: %s"
+			% [page.field_count(), catalogue.count(), str(page.is_from_a_shortlist())]
+		)
+	)
+	print("DEMO the key asks: %s  (%d offered)" % [page.prompt_text(), page.option_count()])
+	page.show_every_plant()
+	print(
+		(
+			"DEMO showing every plant: the field is %d plants, from a shortlist: %s"
+			% [page.field_count(), str(page.is_from_a_shortlist())]
+		)
+	)
+
 	# Answered until it settles, always taking the first answer offered: the biggest group, so this walks
 	# the whole list down rather than taking a shortcut through one plant's own answers.
 	var steps: int = 0

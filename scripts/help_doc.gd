@@ -47,6 +47,7 @@ const SUBJECTS: Array[String] = [
 	"What is on site: the field survey",
 	"Reading a photograph",
 	"Identifying a plant by answering questions",
+	"What suits this bed",
 	"Plants",
 	"Food: what will crop here",
 	"Food: what to grow here next",
@@ -114,6 +115,7 @@ const SECTIONS: Array[Dictionary] = [
 		"title": "Plants and food",
 		"topics": [
 			"Identifying a plant by answering questions",
+			"What suits this bed",
 			"Plants",
 			"Food: what will crop here",
 			"Food: what to grow here next",
@@ -163,6 +165,7 @@ const SEE_ALSO: Dictionary = {
 	"What is on site: the field survey": ["Reading a photograph", "Plants"],
 	"Reading a photograph": ["What is on site: the field survey", "Plants"],
 	"Identifying a plant by answering questions": ["Reading a photograph", "Plants"],
+	"What suits this bed": ["Identifying a plant by answering questions", "The ground under the garden"],
 	"Plants": ["Food: what will crop here", "Ordering the plants from a nursery"],
 	"Food: what will crop here": ["Food: what to grow here next", "The sun and the shadows"],
 	"Food: what to grow here next": ["Food: what will crop here", "Food: when to sow"],
@@ -762,6 +765,12 @@ static func _topics() -> Array[Dictionary]:
 				+ "a key - rather than that the feature is unavailable. And when the mixed way gets its shortlist "
 				+ "but cannot reach the service, you are shown both: why nothing was decided, and the plants the "
 				+ "first half found, for you to choose from yourself.",
+				"",
+				"When a reading comes back with more than one plant, the page offers the key as well: the button "
+				+ "hands those plants to Identifying a plant by answering questions, which then asks only the "
+				+ "questions that tell them apart. A reading of one plant is already a name, and a reading this "
+				+ "list cannot place leaves the key on the whole list - so the invitation is there only when there "
+				+ "is a choice to settle.",
 			],
 		)
 	)
@@ -808,7 +817,31 @@ static func _topics() -> Array[Dictionary]:
 				+ "every plant still in the running has been read. The leaf questions come and go as the list "
 				+ "narrows, and a list nobody has read leaf by leaf is never asked about leaves at all. A "
 				+ "plant's leaves are stated in the plant list itself, so a list that arrives with them stated "
-				+ "turns these questions on by itself.",
+				+ "turns these questions on by itself. Where an answer has been drawn, the drawing is shown on "
+				+ "the button beside its words; an answer nobody has drawn is offered exactly the same way.",
+			],
+		)
+	)
+	out.append(
+		_topic(
+			"What suits this bed",
+			[
+				"The plant key answers two questions, and this is the second one. Identifying a plant is for "
+				+ "something already growing that you cannot name; this is the other direction - you have a bed, "
+				+ "and you want to know what will live in it. Open the key from the Plant menu as usual: the page "
+				+ "says what the ground is like where the drawing's cursor last was, and how many of the list "
+				+ "suit it.",
+				"",
+				"Only the plants that suit this spot narrows the key to just those, so its questions start from a "
+				+ "list this bed can already carry. Every plant in the list widens it back, and the count stays "
+				+ "on screen either way. It never narrows itself, because a plant already growing somewhere must "
+				+ "not be ruled out for not suiting the ground it is plainly living in - and that plant is the "
+				+ "one you most often want named.",
+				"",
+				"The ground is whatever the site has been told; The ground under the garden is where it is "
+				+ "stated. Where the plan says nothing about that spot, the key says so and stays on the whole "
+				+ "list. Where it says too little to judge any plant at all - neither the light nor the water - "
+				+ "it says that instead, rather than reporting a gap in the plan as a bed nothing will grow in.",
 			],
 		)
 	)

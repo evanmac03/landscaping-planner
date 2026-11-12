@@ -14,6 +14,7 @@ extends Node
 const PageScript := preload("res://scripts/plant_key_window.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const ProfileScript := preload("res://scripts/terrain_profile.gd")
 
 const SPRUCE := &"PICEA-ABIES"
 const TREE_WORDS := "Tree"
@@ -121,6 +122,53 @@ func test_saying_not_sure_with_nothing_to_leave_out_says_so() -> void:
 		page.choose(0)
 	assert(not page.skip(), "there is no question to leave out")
 	assert(page.status_text() == PageScript.NOTHING_TO_LEAVE_OUT, "and the page says why rather than doing nothing")
+	page.free()
+
+
+# --- the drawings beside the answers ------------------------------------------------------
+
+
+## Two trees that differ in nothing at all except how their veins run, so "how do the veins run?" is the one
+## question worth asking - and it is the one leaf question that has been drawn.
+func _two_veined() -> CatalogueScript:
+	var catalogue: CatalogueScript = CatalogueScript.make()
+	var beech: SpeciesScript = _plant("FAGUS-SYLVATICA", "Fagus sylvatica", "Beech", SpeciesScript.TREE, 1500)
+	beech.sun = SpeciesScript.FULL_SUN
+	beech.water = SpeciesScript.WATER_MEDIUM
+	beech.leaf_venation = SpeciesScript.VEN_PINNATE
+	assert(catalogue.add(beech), "the beech is a plant the catalogue takes")
+	var maple: SpeciesScript = _plant("ACER-RUBRUM", "Acer rubrum", "Red maple", SpeciesScript.TREE, 1500)
+	maple.sun = SpeciesScript.FULL_SUN
+	maple.water = SpeciesScript.WATER_MEDIUM
+	maple.leaf_venation = SpeciesScript.VEN_PALMATE
+	assert(catalogue.add(maple), "the maple is a plant the catalogue takes")
+	return catalogue
+
+
+func test_an_answer_that_has_been_drawn_shows_the_drawing() -> void:
+	# The two plants differ only in their veins, so the veins are what the key asks about - and its answers
+	# are the ones that have pictures.
+	var page: PageScript = PageScript.new()
+	page.build()
+	page.visible = true
+	page.bind(_two_veined())
+	assert(StringName(page.the_state()["question"]) == &"leaf_venation", "the key has come to the veins")
+	assert(page.option_count() == 2, "and offers the two answers that are left")
+	for index: int in page.option_count():
+		assert(
+			page.option_picture(index) != null,
+			"the answer '%s' shows its drawing" % page.option_words(index),
+		)
+	page.free()
+
+
+func test_an_answer_nobody_has_drawn_is_offered_with_its_words_alone() -> void:
+	# The other half of the same rule, and the reason the key could be built before any drawing existed: a
+	# button with no picture is built exactly like one with, and nothing is claimed for it.
+	var page: PageScript = _page()
+	assert(page.option_count() > 0, "the page opens with answers")
+	for index: int in page.option_count():
+		assert(page.option_picture(index) == null, "no drawing is shown where none has been made")
 	page.free()
 
 
@@ -272,4 +320,117 @@ func test_a_page_with_no_list_says_so_rather_than_showing_nothing() -> void:
 	assert(page.words_text().contains("no plant list"), "the page says what is missing: %s" % page.words_text())
 	assert(page.option_count() == 0, "and offers nothing to answer")
 	assert(page.prompt_text().is_empty(), "and asks nothing")
+	page.free()
+
+
+# --- the bed the plant is going in --------------------------------------------------------
+
+
+## A bed in part shade, which of the fixture's five plants exactly one will take - the maple. The other four
+## are all full-sun herbs and a grass, so the count and the narrowing have one right answer.
+func _part_shade_bed() -> ProfileScript:
+	return ProfileScript.make({ "sun": SpeciesScript.PART_SHADE, "moisture": SpeciesScript.WATER_MEDIUM })
+
+
+func test_the_page_says_what_the_ground_is_like_where_the_plant_is_going() -> void:
+	var page: PageScript = _page()
+	page.suit_to({ "profile": _part_shade_bed(), "place": "the front bed" })
+	assert(
+		page.site_text().contains("1 of 5 plants suit the front bed"),
+		"the page says what the bed leaves of the list: %s" % page.site_text(),
+	)
+	assert(not page.is_narrowed(), "and the key is not narrowed by itself")
+	assert(page.field_count() == 5, "so every plant is still in it")
+	assert(page.only_the_ones_that_suit(), "narrowing to the bed is offered")
+	assert(page.is_narrowed(), "and the key is narrowed to it")
+	assert(page.field_count() == 1, "to the one plant that suits it")
+	assert(int(page.the_state()["count"]) == 1, "which is what the answers are narrowing now")
+	assert(page.show_every_plant(), "and the way back is there")
+	assert(not page.is_narrowed(), "which widens the key again")
+	assert(page.field_count() == 5, "to the whole list")
+	page.free()
+
+
+func test_a_spot_nobody_has_described_offers_no_narrowing_and_says_where_to_state_it() -> void:
+	var page: PageScript = _page()
+	page.suit_to({ "profile": ProfileScript.make(), "place": "the bed" })
+	assert(
+		page.site_text().contains("Nothing says what the ground is like the bed"),
+		"the page says what is missing: %s" % page.site_text(),
+	)
+	var button: Button = page.the_button("SuitHere")
+	assert(button != null and button.disabled, "the narrowing is off rather than hidden")
+	assert(button.tooltip_text.contains("Site menu"), "and says where the ground is stated: %s" % button.tooltip_text)
+	assert(not page.only_the_ones_that_suit(), "pressing it anyway narrows nothing")
+	assert(page.status_text().contains("Nothing says what the ground is like"), "and says so: %s" % page.status_text())
+	assert(page.field_count() == 5, "with the whole list still in the key")
+	page.free()
+
+
+func test_the_way_back_is_off_until_the_key_has_been_narrowed() -> void:
+	# A button that cannot act is disabled and says what it is waiting for, the same rule the three buttons
+	# of state below follow - so nobody is left wondering whether the control they remember has gone.
+	var page: PageScript = _page()
+	page.suit_to({ "profile": _part_shade_bed(), "place": "the bed" })
+	var back: Button = page.the_button("EveryPlant")
+	assert(back != null and back.disabled, "there is nothing to widen back from yet")
+	assert(not page.show_every_plant(), "and pressing it does nothing")
+	assert(page.status_text() == PageScript.NOT_NARROWED, "and it says why: %s" % page.status_text())
+	page.free()
+
+
+func test_a_spot_nothing_suits_does_not_leave_an_empty_key() -> void:
+	# The failure this holds off: narrowing a key to a spot nothing in the list suits would be a page with no
+	# plants on it, which somebody would have to work out how to get out of.
+	var page: PageScript = _page()
+	page.suit_to({
+		"profile": ProfileScript.make({ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_LOW }),
+		"place": "the bed",
+	})
+	assert(not page.can_narrow(), "nothing in this list suits a dark, dry bed")
+	assert(page.the_button("SuitHere").disabled, "so the narrowing is off rather than empty")
+	assert(
+		page.the_button("SuitHere").tooltip_text.contains("Nothing in the list suits this spot"),
+		"and it says which fact stopped it: %s" % page.the_button("SuitHere").tooltip_text,
+	)
+	assert(page.field_count() == 5, "with the whole list still in the key")
+	assert(not page.is_narrowed(), "and the key is not narrowed by a press that could not work")
+	page.free()
+
+
+# --- a shortlist somebody else made -------------------------------------------------------
+
+
+func test_a_shortlist_narrows_the_key_and_says_where_it_came_from() -> void:
+	# The photograph's half: a reading offers several plants and the key asks only the question that tells
+	# them apart. The page takes **ids**, because what a model said into a species is `PlantIDResolver`'s
+	# join and the page that holds the reading is where it is asked.
+	var page: PageScript = _page()
+	page.from_a_shortlist([SPRUCE, &"ACER-RUBRUM"], "photograph")
+	assert(page.is_from_a_shortlist(), "the key is narrowing the shortlist")
+	assert(page.field_count() == 2, "to the two plants the reading offered: %d" % page.field_count())
+	assert(
+		page.shortlist_text().contains("offered 2 plants"),
+		"and the page says where they came from: %s" % page.shortlist_text(),
+	)
+	assert(not page.the_button("EveryPlant").disabled, "the way back is offered while a shortlist stands")
+	assert(page.show_every_plant(), "and it widens the key")
+	assert(page.field_count() == 5, "to every plant in the list")
+	assert(not page.is_from_a_shortlist(), "with no shortlist left")
+	page.free()
+
+
+func test_a_shortlist_the_list_cannot_place_leaves_the_whole_key_usable() -> void:
+	# A model naming something this catalogue does not stock is an ordinary thing to happen, and the answer
+	# is a usable key plus a line saying so - never a key of no plants.
+	var page: PageScript = _page()
+	page.from_a_shortlist([&"NOT-IN-THE-LIST"], "photograph")
+	assert(page.field_count() == 5, "every plant is still in the key: %d" % page.field_count())
+	assert(
+		page.shortlist_text().contains("Nothing the photograph offered is in the plant list"),
+		"and the page says why: %s" % page.shortlist_text(),
+	)
+	assert(not page.is_from_a_shortlist(), "so there is no shortlist to widen back from")
+	assert(page.the_button("EveryPlant").disabled, "and the way back is off rather than a button that does nothing")
+	assert(not page.show_every_plant(), "pressing it anyway does nothing")
 	page.free()

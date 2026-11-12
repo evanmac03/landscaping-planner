@@ -39,6 +39,7 @@ const FieldCaptureScript := preload("res://scripts/field_capture.gd")
 const PhotoStoreScript := preload("res://scripts/field_photo_store.gd")
 const IdentifierScript := preload("res://scripts/plant_identifier.gd")
 const PlantIdChoiceScript := preload("res://scripts/plant_id_choice.gd")
+const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 const WatcherScript := preload("res://scripts/survey_watcher.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
@@ -59,6 +60,11 @@ signal camera_changed(open: bool)
 ## Emitted when the answer lands, which for a model on this machine is seconds or minutes after the button
 ## was pressed - so a caller that wants the answer waits on this rather than on the call that started it.
 signal reading_finished(answer: Dictionary)
+
+
+## The plants a reading offered, resolved to entries in this list, when somebody asks the key to settle
+## which of them it is. **Idle until asked**: this is a door onto the key, not a reading.
+signal key_requested(ids: Array[StringName])
 
 ## Wide enough for the fields and the notes beside them, and tall enough for all of it: measured, the
 ## contents want 774 px. The first 680 cut the page's last row off the bottom edge and 730, which replaced
@@ -84,6 +90,9 @@ const READING_QUESTION := "How is it read?"
 ## The reading is a refusal-shaped answer until it is not, so a caller reading `ok` and `reason` needs no
 ## case of its own for "not yet": it is simply not `ok`.
 const READING_NOW := "Reading the photograph..."
+## What the invitation to the key says. It names what the key will do rather than what it is, because a
+## person looking at six names a model offered already knows what the key is.
+const SETTLE_WITH_KEY := "Settle which of these it is..."
 
 ## The order the light levels are offered in. The **words** are `PlantSpecies`' own, so the page cannot
 ## come to say "semi-shade" about the bit the model calls part shade.
@@ -129,6 +138,9 @@ var _id_settings_row: VBoxContainer = null
 var _id_field_keys: Array[StringName] = []
 var _id_fields: Array[LineEdit] = []
 var _candidate_row: HFlowContainer = null
+## The row the invitation to the key sits in: **separate from the candidates**, so `candidate_count()` goes
+## on meaning the plants a reading offered and nothing this page added.
+var _settle_row: HBoxContainer = null
 ## The plants the last reading offered, in the order their buttons were built: what `choose_candidate`
 ## reads. The answer's own entries, rather than a second word for a plant.
 var _candidates: Array[Dictionary] = []
@@ -575,6 +587,12 @@ func _reading(column: VBoxContainer) -> void:
 	_candidate_row.add_theme_constant_override("v_separation", 2)
 	column.add_child(_candidate_row)
 
+	# The way from a photograph to a name: a model offers several plants and the key asks only the question
+	# that tells them apart. Built empty here and filled by `_offer_the_key` when a reading lands.
+	_settle_row = HBoxContainer.new()
+	_settle_row.name = "SettleRow"
+	column.add_child(_settle_row)
+
 
 ## Read the photograph with the model the chosen way names, and put what it says on the page.
 ##
@@ -746,6 +764,49 @@ func _show_candidates(plants: Array) -> void:
 		# Buttons built while the page is open: somebody who reached the page with the keyboard has to be
 		# able to reach these too.
 		PageChrome.takes_the_keyboard_if_up(self)
+	_offer_the_key()
+
+
+## Offer the key when a reading named more than one plant, so a person who has six names is not left to
+## guess which question settles them.
+##
+## Offered only while **more than one** of them is in this list: one plant is already a name, and a reading
+## this list cannot answer is a reading with nothing to ask about - neither is a question worth asking, and
+## a button that led to a key of one plant, or none, would be a button that did nothing.
+func _offer_the_key() -> void:
+	if _settle_row == null:
+		return
+	for child in _settle_row.get_children():
+		_settle_row.remove_child(child)
+		child.free()
+	if candidate_ids().size() <= 1:
+		return
+	var settle := _button(_settle_row, "SettleWithKey", SETTLE_WITH_KEY)
+	settle.pressed.connect(func() -> void: key_requested.emit(candidate_ids()))
+	PageChrome.takes_the_keyboard_if_up(self)
+
+
+## The plants a reading offered, as ids in this list.
+##
+## **The name-to-species join is `PlantIDResolver`'s**, and this is the one place the capture page asks it: a
+## second reading of the same names would be a second answer to one question, which is the defect this
+## program is arranged against.
+##
+## It asks `resolve` and not `resolve_identification`, deliberately: that one applies the **confidence
+## floors** a record needs, and a shortlist is not a record - dropping a candidate for being uncertain would
+## drop the very plant the key is being opened to ask about, which is the silent wrong answer again. A name
+## the list cannot match at all is left out: a shortlist is a suggestion, and the key has to stay usable
+## without one.
+func candidate_ids() -> Array[StringName]:
+	var out: Array[StringName] = []
+	if _catalogue == null:
+		return out
+	var resolver: PlantIDResolver = ResolverScript.new(_catalogue)
+	for entry: Dictionary in _candidates:
+		var plant: PlantSpecies = resolver.resolve(String(entry.get("raw_taxon", "")))
+		if plant != null:
+			out.append(plant.id)
+	return out
 
 
 func _candidate_words(entry: Dictionary) -> String:
@@ -762,6 +823,11 @@ func _clear_candidates() -> void:
 		# being added to: a queued free happens a frame later, and a test never reaches that frame.
 		_candidate_row.remove_child(child)
 		child.free()
+	# And the invitation goes with them: it is about the reading that has just been replaced.
+	if _settle_row != null:
+		for child in _settle_row.get_children():
+			_settle_row.remove_child(child)
+			child.free()
 
 
 ## Choose one of the plants a model offered. It goes into the name field, and the record will carry the

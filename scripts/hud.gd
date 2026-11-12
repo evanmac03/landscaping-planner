@@ -7902,6 +7902,7 @@ func _build_capture_window() -> void:
 	_capture_window.build()
 	_capture_window.closed.connect(_on_capture_window_closed)
 	_capture_window.camera_changed.connect(_on_capture_camera_changed)
+	_capture_window.key_requested.connect(_on_capture_key_requested)
 	_capture_window.hide()
 
 
@@ -8984,15 +8985,35 @@ func _build_plant_key_window() -> void:
 	_plant_key_window.hide()
 
 
-## Open it pointed at the one plant list. It needs no drawing: a key narrows the catalogue, and where the
-## plant it names then goes is the planting's business.
+## Open it pointed at the one plant list, and at the bed the plant is going in.
+##
+## The bed is what the plan says the ground is like where the drawing's cursor last was, which is why the
+## key is site-aware here rather than merely a filter over the catalogue: a designer asking "what can I
+## plant in this bed" is asking a question the drawing can already partly answer. A scene with no drawing
+## answers an empty spot, and the page then says the key is not narrowed to anything.
 func open_plant_key_window() -> void:
 	_build_plant_key_window()
 	if _plant_key_window == null:
 		return
 	_plant_key_window.bind(plant_list())
+	_plant_key_window.suit_to(view_controller.ground_at_cursor() if view_controller != null else { })
 	PageChromeScript.show_centred(_plant_key_window)
 	release_keyboard_focus(self)
+
+
+## Settle which of the plants a photograph offered it is: the key, narrowed to just those.
+##
+## The capture page is put away first, because the key is opened over it and two pages up at once is a
+## keyboard nobody knows the owner of - and the photograph's own half of the work is finished, which is why
+## the invitation lived on that page.
+##
+## A reading that resolved to nothing leaves the key on the whole list rather than emptying it, and the
+## page's own line says so: `PlantKey.among` skips the ids this list does not have.
+func _on_capture_key_requested(ids: Array[StringName]) -> void:
+	close_capture_window()
+	open_plant_key_window()
+	if _plant_key_window != null:
+		_plant_key_window.from_a_shortlist(ids, "photograph")
 
 
 func close_plant_key_window() -> void:

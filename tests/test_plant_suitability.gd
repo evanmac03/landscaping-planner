@@ -191,6 +191,25 @@ func test_something_wrong_outranks_a_gap() -> void:
 	assert(int(verdict["verdict"]) == Suitability.UNSUITABLE, "a stated fault beats an unstated fact")
 	assert(_outcome(verdict, "moisture") == Suitability.UNKNOWN, "the moisture was never stated")
 
+func test_the_two_things_a_spot_must_state_are_the_two_every_check_asks() -> void:
+	# `gaps_at` names the properties a *place* has to state before any plant can be judged, and the only
+	# thing that makes that list true is `check` asking exactly those properties of every plant. So this is
+	# what holds the two together: a plant with no opinion beyond those two comes back fully judged on a spot
+	# that states them - add a third always-asked property and this fails rather than gaps_at going stale.
+	var spot: Profile = Profile.make({ "sun": SUN, "moisture": DAMP })
+	assert(Suitability.gaps_at(spot).is_empty(), "a spot stating the light and the water has said enough")
+	var verdict: Dictionary = Suitability.check(_tomato(), spot)
+	assert(
+		int(verdict["verdict"]) != Suitability.UNKNOWN,
+		"and a plant can be judged on it: %s" % verdict["summary"],
+	)
+	assert(_outcome(verdict, "sun") != Suitability.UNKNOWN, "the light is judged")
+	assert(_outcome(verdict, "moisture") != Suitability.UNKNOWN, "the water is judged")
+	var silent: Profile = Profile.make({ "zone": 5 })
+	assert(Suitability.gaps_at(silent).size() == 2, "and a spot silent about both names both of them")
+	assert(Suitability.gaps_at(null).size() == 1, "and a spot there is no plan for says one thing")
+
+
 # --- what the catalogue is asked, and what it is not --------------------------------------
 
 
