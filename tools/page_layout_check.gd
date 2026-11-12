@@ -56,9 +56,7 @@ static func run(tree: SceneTree) -> Dictionary:
 	# the root while the root is still setting up its own children. One frame and the root is ready.
 	await tree.process_frame
 	var paths: Array[String] = PageIndexScript.scripts()
-	print("=== PAGE LAYOUT (%d page(s), held to a %d x %d screen) ===" % [
-		paths.size(), SMALL_SCREEN.x, SMALL_SCREEN.y,
-	])
+	print("=== PAGE LAYOUT (%d page(s), held to a %d x %d screen) ===" % [paths.size(), SMALL_SCREEN.x, SMALL_SCREEN.y])
 
 	var clipped: Array[String] = []
 	var unread: Array[String] = []
@@ -73,9 +71,13 @@ static func run(tree: SceneTree) -> Dictionary:
 		var note: String = ""
 		if not bool(row["fits_viewport"]):
 			note = "   (declares more than a %d x %d screen holds: clamped when it lands%s)" % [
-				SMALL_SCREEN.x, SMALL_SCREEN.y,
-				" and scrolls the rest of itself into view" if bool(row["scrolls"])
-					else ", which would cut its own bottom",
+				SMALL_SCREEN.x,
+				SMALL_SCREEN.y,
+				(
+					" and scrolls the rest of itself into view"
+					if bool(row["scrolls"])
+					else ", which would cut its own bottom"
+				),
 			]
 		print("  %s%s" % [String(row["words"]), note])
 		if not bool(row["fits_declared"]):
@@ -95,17 +97,19 @@ static func run(tree: SceneTree) -> Dictionary:
 	else:
 		print("  %d page(s) could not be read: %s" % [unread.size(), ", ".join(unread)])
 	if needs_clamp.is_empty():
-		print("  every page fits a %d x %d screen at the size it declares" % [
-			SMALL_SCREEN.x, SMALL_SCREEN.y,
-		])
+		print("  every page fits a %d x %d screen at the size it declares" % [SMALL_SCREEN.x, SMALL_SCREEN.y])
 	else:
-		print("  %d page(s) declare more than a %d x %d screen holds (named, not counted as faults): %s"
-			% [needs_clamp.size(), SMALL_SCREEN.x, SMALL_SCREEN.y, ", ".join(needs_clamp)])
+		print(
+			"  %d page(s) declare more than a %d x %d screen holds (named, not counted as faults): %s"
+			% [needs_clamp.size(), SMALL_SCREEN.x, SMALL_SCREEN.y, ", ".join(needs_clamp)]
+		)
 		if would_cut.is_empty():
 			print("    each lands clamped to the screen, and scrolls the rest of itself into view")
 		else:
-			print("    %d scroll the rest of themselves into view; %d have no scrolling column and would"
-				% [needs_clamp.size() - would_cut.size(), would_cut.size()])
+			print(
+				"    %d scroll the rest of themselves into view; %d have no scrolling column and would"
+				% [needs_clamp.size() - would_cut.size(), would_cut.size()]
+			)
 			print("    have their own bottom cut on a smaller screen: %s" % ", ".join(would_cut))
 
 	var ok: bool = clipped.is_empty() and unread.is_empty()
@@ -113,13 +117,15 @@ static func run(tree: SceneTree) -> Dictionary:
 	if ok:
 		summary = "%d page(s) fit the size they declare, and all of them were read" % paths.size()
 	else:
-		summary = "%d page(s) clip their own contents, %d could not be read" % [
-			clipped.size(), unread.size(),
-		]
+		summary = "%d page(s) clip their own contents, %d could not be read" % [clipped.size(), unread.size()]
 	print("=== END PAGE LAYOUT ===")
 	return {
-		"name": "page layout", "ok": ok, "clipped": clipped.size(), "unread": unread.size(),
-		"needs_clamp": needs_clamp, "summary": summary,
+		"name": "page layout",
+		"ok": ok,
+		"clipped": clipped.size(),
+		"unread": unread.size(),
+		"needs_clamp": needs_clamp,
+		"summary": summary,
 	}
 
 
@@ -129,12 +135,22 @@ static func run(tree: SceneTree) -> Dictionary:
 static func _measure_page(path: String, tree: SceneTree) -> Dictionary:
 	var script: Script = load(path) as Script
 	if script == null or not script.can_instantiate():
-		return {"name": path.get_file(), "read": false, "fits_declared": false, "fits_viewport": true,
-			"words": "%s: %s cannot be built" % [PageLayoutScript.UNKNOWN, path.get_file()]}
+		return {
+			"name": path.get_file(),
+			"read": false,
+			"fits_declared": false,
+			"fits_viewport": true,
+			"words": "%s: %s cannot be built" % [PageLayoutScript.UNKNOWN, path.get_file()],
+		}
 	var page: Window = script.new() as Window
 	if page == null:
-		return {"name": path.get_file(), "read": false, "fits_declared": false, "fits_viewport": true,
-			"words": "%s: %s is not a window" % [PageLayoutScript.UNKNOWN, path.get_file()]}
+		return {
+			"name": path.get_file(),
+			"read": false,
+			"fits_declared": false,
+			"fits_viewport": true,
+			"words": "%s: %s is not a window" % [PageLayoutScript.UNKNOWN, path.get_file()],
+		}
 
 	# The page is given a tree to live in before it is built, because `_ready` is where several pages
 	# build themselves and a page must not be built twice. `build` is idempotent for exactly this.

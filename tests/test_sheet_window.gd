@@ -21,9 +21,16 @@ func _window() -> SheetWindow:
 
 func _row(index: int, title: String, number: String, portrait: bool = false) -> Dictionary:
 	return {
-		"index": index, "title": title, "number": number, "revision": "",
-		"sheet": "A3", "scale": 100.0, "legend": true, "portrait": portrait,
-		"current": index == 0, "description": "%s  %s  1:100 on A3" % [number, title],
+		"index": index,
+		"title": title,
+		"number": number,
+		"revision": "",
+		"sheet": "A3",
+		"scale": 100.0,
+		"legend": true,
+		"portrait": portrait,
+		"current": index == 0,
+		"description": "%s  %s  1:100 on A3" % [number, title],
 	}
 
 
@@ -36,19 +43,38 @@ func _rows() -> Array[Dictionary]:
 func _record(window: SheetWindow) -> Array:
 	var seen: Array = []
 	window.field_changed.connect(
-		func(index: int, field: String, value: Variant) -> void: seen.append([index, field, value])
+		func(index: int, field: String, value: Variant) -> void:
+			seen.append([index, field, value]),
 	)
 	window.identity_changed.connect(
-		func(field: String, value: String) -> void: seen.append([-1, field, value])
+		func(field: String, value: String) -> void:
+			seen.append([-1, field, value]),
 	)
-	window.sheet_added.connect(func() -> void: seen.append(["added"]))
-	window.sheet_removed.connect(func(index: int) -> void: seen.append(["removed", index]))
-	window.sheet_selected.connect(func(index: int) -> void: seen.append(["selected", index]))
-	window.plot_requested.connect(func(index: int) -> void: seen.append(["plot", index]))
-	window.plot_set_requested.connect(func() -> void: seen.append(["plot set"]))
-	window.closed.connect(func() -> void: seen.append(["closed"]))
+	window.sheet_added.connect(
+		func() -> void:
+			seen.append(["added"]),
+	)
+	window.sheet_removed.connect(
+		func(index: int) -> void:
+			seen.append(["removed", index]),
+	)
+	window.sheet_selected.connect(
+		func(index: int) -> void:
+			seen.append(["selected", index]),
+	)
+	window.plot_requested.connect(
+		func(index: int) -> void:
+			seen.append(["plot", index]),
+	)
+	window.plot_set_requested.connect(
+		func() -> void:
+			seen.append(["plot set"]),
+	)
+	window.closed.connect(
+		func() -> void:
+			seen.append(["closed"]),
+	)
 	return seen
-
 
 # --- what it shows --------------------------------------------------------------------
 
@@ -102,7 +128,6 @@ func test_an_empty_form_says_nothing_rather_than_failing() -> void:
 	assert(not window.tick_flag("colour", true), "nor such a flag")
 	assert(window.status_text() == "")
 	window.free()
-
 
 # --- what a person does ---------------------------------------------------------------
 
@@ -160,7 +185,6 @@ func test_plotting_announces_which_sheet_and_whether_the_whole_set() -> void:
 	window.plot_set_requested.emit()
 	assert(seen == [["plot", 1], ["plot set"]], str(seen))
 	window.free()
-
 
 # --- what may not happen --------------------------------------------------------------
 

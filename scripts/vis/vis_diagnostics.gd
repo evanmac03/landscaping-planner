@@ -67,41 +67,45 @@ static func report(document, layer_set) -> Array[Dictionary]:
 		# is not a report.
 		if not WashTableScript.washes(layer_name):
 			if not WashTableScript.NO_WASH.has(layer_name):
-				findings.append({
-					"severity": WARNING,
-					"where": "scripts/vis/wash_table.gd",
-					"what": "layer '%s' has geometry and plots but the wash table has no entry for it: add it to WashTable.WASHES or record why it does not wash." % layer_name,
-				})
+				findings.append(
+					{
+						"severity": WARNING,
+						"where": "scripts/vis/wash_table.gd",
+						"what": "layer '%s' has geometry and plots but the wash table has no entry for it: add it to WashTable.WASHES or record why it does not wash."
+						% layer_name,
+					}
+				)
 		if not SolidTableScript.has_solid(layer_name):
 			if SolidTableScript.NO_SOLID.has(layer_name):
-				findings.append({
-					"severity": NOTE,
-					"where": "scripts/vis/solid_table.gd",
-					"what": "layer '%s' builds no solid: %s" % [
-						layer_name, SolidTableScript.reason_for(layer_name),
-					],
-				})
+				findings.append(
+					{
+						"severity": NOTE,
+						"where": "scripts/vis/solid_table.gd",
+						"what": "layer '%s' builds no solid: %s" % [layer_name, SolidTableScript.reason_for(layer_name)],
+					}
+				)
 			else:
-				findings.append({
-					"severity": WARNING,
-					"where": "scripts/vis/solid_table.gd",
-					"what": "layer '%s' has geometry and plots but the solid table has no entry for it: add it to SolidTable.SOLIDS or record why it stays flat." % layer_name,
-				})
+				findings.append(
+					{
+						"severity": WARNING,
+						"where": "scripts/vis/solid_table.gd",
+						"what": "layer '%s' has geometry and plots but the solid table has no entry for it: add it to SolidTable.SOLIDS or record why it stays flat."
+						% layer_name,
+					}
+				)
 	# A solid that names a material set nobody has is a solid that renders grey.
 	for set_name: String in SolidTableScript.material_sets():
 		if not HardscapeScript.has_set(set_name):
-			findings.append({
-				"severity": ERROR,
-				"where": "scripts/vis/solid_table.gd",
-				"what": "a solid asks for texture set '%s', which the texture table does not have" % set_name,
-			})
+			findings.append(
+				{
+					"severity": ERROR,
+					"where": "scripts/vis/solid_table.gd",
+					"what": "a solid asks for texture set '%s', which the texture table does not have" % set_name,
+				}
+			)
 	# The textures themselves, as paths that are not on disk.
 	for path: String in HardscapeScript.missing_paths():
-		findings.append({
-			"severity": ERROR,
-			"where": path,
-			"what": "the hardscape texture set is missing this map",
-		})
+		findings.append({ "severity": ERROR, "where": path, "what": "the hardscape texture set is missing this map" })
 	return sorted(findings)
 
 
@@ -171,14 +175,15 @@ static func problems(findings: Array[Dictionary]) -> Array[Dictionary]:
 static func rows(findings: Array[Dictionary]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for finding: Dictionary in findings:
-		out.append({
-			"severity": String(finding["severity"]),
-			"where": String(finding["where"]),
-			"what": String(finding["what"]),
-			"text": "%s: %s  (%s)" % [
-				String(finding["severity"]).to_upper(), String(finding["what"]), String(finding["where"]),
-			],
-		})
+		out.append(
+			{
+				"severity": String(finding["severity"]),
+				"where": String(finding["where"]),
+				"what": String(finding["what"]),
+				"text": "%s: %s  (%s)"
+				% [String(finding["severity"]).to_upper(), String(finding["what"]), String(finding["where"])],
+			}
+		)
 	return out
 
 

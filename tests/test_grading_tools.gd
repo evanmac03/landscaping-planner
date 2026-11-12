@@ -21,7 +21,6 @@ const SPOT := GradingScript.SPOT
 const CONTOUR := GradingScript.CONTOUR
 const SLOPE := GradingScript.SLOPE
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -71,13 +70,13 @@ const EntityKind := preload("res://scripts/draft/draft_entity.gd").Kind
 func _on_layer(controller: DraftController, layer: StringName) -> int:
 	return controller.document.entities_on_layer(layer).size()
 
-
 # --- the tools ----------------------------------------------------------------------------
 
 
 func test_the_three_grading_tools_are_the_three_the_module_knows() -> void:
 	for pair: Array in [
-		[ToolScript.Kind.GRADE_SPOT, SPOT], [ToolScript.Kind.GRADE_CONTOUR, CONTOUR],
+		[ToolScript.Kind.GRADE_SPOT, SPOT],
+		[ToolScript.Kind.GRADE_CONTOUR, CONTOUR],
 		[ToolScript.Kind.GRADE_SLOPE, SLOPE],
 	]:
 		var kind: ToolScript.Kind = pair[0]
@@ -86,9 +85,18 @@ func test_the_three_grading_tools_are_the_three_the_module_knows() -> void:
 	assert(not ToolScript.is_grading(ToolScript.Kind.LINE), "a line is not about the ground's heights")
 	assert(not ToolScript.is_grading(ToolScript.Kind.POLYLINE), "and neither is a polyline")
 	assert(ToolScript.grading_kind(ToolScript.Kind.LINE) == "", "which states no kind of record")
-	assert(ToolScript.label_for(ToolScript.Kind.GRADE_SPOT) == "Spot level", ToolScript.label_for(ToolScript.Kind.GRADE_SPOT))
-	assert(ToolScript.label_for(ToolScript.Kind.GRADE_CONTOUR) == "Contour", ToolScript.label_for(ToolScript.Kind.GRADE_CONTOUR))
-	assert(ToolScript.label_for(ToolScript.Kind.GRADE_SLOPE) == "Slope arrow", ToolScript.label_for(ToolScript.Kind.GRADE_SLOPE))
+	assert(
+		ToolScript.label_for(ToolScript.Kind.GRADE_SPOT) == "Spot level",
+		ToolScript.label_for(ToolScript.Kind.GRADE_SPOT),
+	)
+	assert(
+		ToolScript.label_for(ToolScript.Kind.GRADE_CONTOUR) == "Contour",
+		ToolScript.label_for(ToolScript.Kind.GRADE_CONTOUR),
+	)
+	assert(
+		ToolScript.label_for(ToolScript.Kind.GRADE_SLOPE) == "Slope arrow",
+		ToolScript.label_for(ToolScript.Kind.GRADE_SLOPE),
+	)
 	# A contour collects points until it is told to stop, like a polyline; the other two complete on
 	# their own count.
 	assert(ToolScript.is_ring(ToolScript.Kind.GRADE_CONTOUR), "a contour is drawn like a polyline")
@@ -131,7 +139,6 @@ func test_a_contour_is_drawn_like_a_polyline_and_an_arrow_completes_on_two_picks
 	assert(String((arrow["measure"] as Dictionary)["grading"]) == SLOPE, str(arrow["measure"]))
 	controller.free()
 
-
 # --- the stamp ----------------------------------------------------------------------------
 
 
@@ -146,8 +153,7 @@ func test_a_spot_level_puts_a_mark_and_a_label_on_its_own_layer() -> void:
 	# The layer in hand for drawing tools is not disturbed by stamping a level: a grading tool goes to
 	# its own layer for the reason a dimension goes to the dimension layer.
 	assert(controller.drawing_layer == LayerSetScript.NEW_HARDSCAPE, String(controller.drawing_layer))
-	assert(String(controller.last_message).contains("102.35 m at (3, 4) is on the drawing"),
-		controller.last_message)
+	assert(String(controller.last_message).contains("102.35 m at (3, 4) is on the drawing"), controller.last_message)
 	controller.free()
 
 
@@ -198,8 +204,10 @@ func test_every_stamp_is_one_named_undoable_gesture() -> void:
 	assert(controller.document.undo_label() == "stating a spot level", controller.document.undo_label())
 	assert(controller.document.undo_last(), "which can be undone")
 	assert(controller.document.count() == 0, "taking the marks with it")
-	assert(controller.grading_spots().is_empty(), "**and the record**: so undo cannot leave a level on the "
-		+ "drawing with no mark, or a mark with no level")
+	assert(
+		controller.grading_spots().is_empty(),
+		"**and the record**: so undo cannot leave a level on the " + "drawing with no mark, or a mark with no level",
+	)
 	assert(controller.document.redo_last(), "and put back")
 	assert(controller.grading_spots().size() == 1, "record and marks together")
 	assert(controller.document.count() == 2, "both marks")
@@ -211,15 +219,12 @@ func test_a_stamp_that_found_nothing_records_no_gesture_at_all() -> void:
 	# than no step, because the button says there is something to undo.
 	var controller := _controller()
 	var before: int = controller.document.gesture_serial()
-	var empty: Dictionary = controller.stamp_grading({"grading": CONTOUR, "points": PackedVector2Array()})
+	var empty: Dictionary = controller.stamp_grading({ "grading": CONTOUR, "points": PackedVector2Array() })
 	assert(not bool(empty["ok"]), "a contour of no points is refused")
-	assert(String(empty["reason"]) == "a contour needs at least two points to be a line",
-		String(empty["reason"]))
+	assert(String(empty["reason"]) == "a contour needs at least two points to be a line", String(empty["reason"]))
 	assert(controller.document.count() == 0, "nothing reached the drawing")
 	assert(controller.document.gesture_serial() == before, "and nothing was recorded to undo")
-	var one: Dictionary = controller.stamp_grading({
-		"grading": SLOPE, "points": PackedVector2Array([Vector2.ZERO]),
-	})
+	var one: Dictionary = controller.stamp_grading({ "grading": SLOPE, "points": PackedVector2Array([Vector2.ZERO]) })
 	assert(not bool(one["ok"]), "an arrow of one point is refused")
 	assert(controller.document.gesture_serial() == before, "and records nothing either")
 	controller.free()
@@ -253,15 +258,14 @@ func test_a_fall_that_is_not_a_percentage_is_refused() -> void:
 func test_a_locked_layer_refuses_the_stamp_rather_than_writing_through_the_lock() -> void:
 	var controller := _controller()
 	controller.document.layers.set_locked(LayerSetScript.GRADING_SPOT, true)
-	var stamped: Dictionary = controller.stamp_grading({
-		"grading": SPOT, "points": PackedVector2Array([Vector2.ZERO]),
-	})
+	var stamped: Dictionary = controller.stamp_grading(
+		{ "grading": SPOT, "points": PackedVector2Array([Vector2.ZERO]) }
+	)
 	assert(not bool(stamped["ok"]), "a locked layer takes nothing")
 	assert(String(stamped["reason"]).contains("is locked"), String(stamped["reason"]))
 	assert(controller.document.count() == 0, "and the drawing is untouched")
 	assert(controller.grading_spots().is_empty(), "no record either")
 	controller.free()
-
 
 # --- the check, live -----------------------------------------------------------------------
 
@@ -278,11 +282,12 @@ func test_the_check_catches_an_arrow_that_contradicts_the_levels_under_it() -> v
 	assert(findings.size() == 1, str(findings))
 	assert(String(findings[0]).contains("says falling 2.5% (1 in 40)"), String(findings[0]))
 	assert(String(findings[0]).contains("say falling 6.7% (1 in 15)"), String(findings[0]))
-	assert(controller.grading_summary() == (
-		"2 spot levels and a slope arrow on this drawing, running from 101.95 m to 102.35 m"
-	), controller.grading_summary())
+	assert(
+		controller.grading_summary()
+		== ("2 spot levels and a slope arrow on this drawing, running from 101.95 m to 102.35 m"),
+		controller.grading_summary(),
+	)
 	controller.free()
-
 
 # --- changing and taking off ----------------------------------------------------------------
 
@@ -296,10 +301,7 @@ func test_changing_a_level_rewrites_its_label_as_one_gesture() -> void:
 	assert(bool(changed["ok"]), String(changed["reason"]))
 	assert(bool(changed["changed"]), "it changed")
 	assert(controller.document.gesture_serial() == before + 1, "one gesture")
-	assert(
-		controller.document.undo_label() == "changing the level of a spot level",
-		controller.document.undo_label()
-	)
+	assert(controller.document.undo_label() == "changing the level of a spot level", controller.document.undo_label())
 	assert(_label_text(controller, SPOT, 1) == "103.0 m", _label_text(controller, SPOT, 1))
 	assert(controller.document.count() == 2, "**and no label was left behind**: two marks, not four")
 	assert(is_equal_approx(float(controller.grading_spots()[0]["level"]), 103.0), "and the record moved")
@@ -333,13 +335,11 @@ func test_taking_a_record_off_the_drawing_takes_its_own_marks_and_nothing_else()
 	assert(controller.grading_spots().size() == 1, "one spot level left")
 	assert(controller.grading_slopes().size() == 1, "the arrow is untouched")
 	assert(_on_layer(controller, LayerSetScript.GRADING_SLOPE) == 3, "all three of its marks too")
-	assert(String(controller.last_message) == "spot level off the drawing, with 2 marks",
-		controller.last_message)
+	assert(String(controller.last_message) == "spot level off the drawing, with 2 marks", controller.last_message)
 	var missing: Dictionary = controller.remove_grading(SPOT, 9)
 	assert(not bool(missing["ok"]), "a record that is not there cannot be taken off")
 	assert(String(missing["reason"]) == "there is no spot level 9 on this drawing", String(missing["reason"]))
 	controller.free()
-
 
 # --- what the drawing keeps ------------------------------------------------------------------
 
@@ -352,8 +352,10 @@ func test_the_records_and_the_rows_read_the_same_as_the_modules_do() -> void:
 	controller.tool.click(Vector2(0.0, 3.0))
 	controller._commit(controller.tool.finish())
 	var set := controller.grading()
-	assert(controller.grading_rows() == GradingScript.schedule(set, controller.document.units),
-		"the rows are the module's own")
+	assert(
+		controller.grading_rows() == GradingScript.schedule(set, controller.document.units),
+		"the rows are the module's own",
+	)
 	assert(controller.grading_lines() == GradingScript.schedule_lines(set, controller.document.units), "")
 	assert(controller.grading_summary() == GradingScript.summary(set), controller.grading_summary())
 	assert(controller.grading_level_words() == "101.5 m", controller.grading_level_words())
@@ -369,28 +371,24 @@ func test_a_drawing_keeps_its_marks_and_its_records_through_a_file() -> void:
 	assert(read.count() == 5, "every mark comes back: %d" % read.count())
 	assert(GradingScript.spots_of(read.grading).size() == 1, "and the spot record")
 	assert(GradingScript.slopes_of(read.grading).size() == 1, "and the arrow record")
-	assert(is_equal_approx(float(GradingScript.spots_of(read.grading)[0]["level"]), 102.35),
-		"with its level")
-	assert(is_equal_approx(float(GradingScript.slopes_of(read.grading)[0]["percent"]), 2.5),
-		"and the arrow its fall")
+	assert(is_equal_approx(float(GradingScript.spots_of(read.grading)[0]["level"]), 102.35), "with its level")
+	assert(is_equal_approx(float(GradingScript.slopes_of(read.grading)[0]["percent"]), 2.5), "and the arrow its fall")
 	controller.free()
 
 
 func test_a_grading_layer_has_a_reason_for_not_being_measured() -> void:
 	# A slope arrow counts for nothing in a takeoff, and the takeoff says so rather than staying silent.
-	for layer: StringName in [
-		LayerSetScript.GRADING_CONTOUR, LayerSetScript.GRADING_SPOT, LayerSetScript.GRADING_SLOPE,
-	]:
+	for layer: StringName in [LayerSetScript.GRADING_CONTOUR, LayerSetScript.GRADING_SPOT, LayerSetScript.GRADING_SLOPE]:
 		assert(TakeoffScript.NOT_MEASURED.has(layer), "%s has a reason: %s" % [layer, String(layer)])
-	assert(String(TakeoffScript.NOT_MEASURED[LayerSetScript.GRADING_SLOPE]).contains("not a quantity"),
-		String(TakeoffScript.NOT_MEASURED[LayerSetScript.GRADING_SLOPE]))
+	assert(
+		String(TakeoffScript.NOT_MEASURED[LayerSetScript.GRADING_SLOPE]).contains("not a quantity"),
+		String(TakeoffScript.NOT_MEASURED[LayerSetScript.GRADING_SLOPE]),
+	)
 
 
 func test_the_grading_layers_are_in_the_preset_set_and_can_be_switched_off_one_at_a_time() -> void:
 	var set = LayerSetScript.default_set()
-	for layer: StringName in [
-		LayerSetScript.GRADING_CONTOUR, LayerSetScript.GRADING_SPOT, LayerSetScript.GRADING_SLOPE,
-	]:
+	for layer: StringName in [LayerSetScript.GRADING_CONTOUR, LayerSetScript.GRADING_SPOT, LayerSetScript.GRADING_SLOPE]:
 		assert(set.has(layer), "%s is in the preset set: %s" % [layer, String(layer)])
 	var names: Array[DraftLayer] = set.layers()
 	assert(not names.is_empty(), "and the set can list its layers")

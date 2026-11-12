@@ -20,7 +20,6 @@ func _straight_route() -> WalkRoute:
 	route.add_stop("path end", Vector3(0, 1.6, 3), Vector3(0, 1.6, 0), 2.0)
 	return route
 
-
 # --- the route -----------------------------------------------------------------------
 
 
@@ -181,11 +180,11 @@ func test_a_route_survives_its_dict_with_its_stops() -> void:
 func test_a_row_that_will_not_read_is_skipped_rather_than_invented() -> void:
 	var data := {
 		"stops": [
-			{"name": "good", "at": [0.0, 1.0, 0.0], "look": [0.0, 1.0, 5.0], "dwell": 2.0},
-			{"name": "no look", "at": [0.0, 1.0, 2.0]},
+			{ "name": "good", "at": [0.0, 1.0, 0.0], "look": [0.0, 1.0, 5.0], "dwell": 2.0 },
+			{ "name": "no look", "at": [0.0, 1.0, 2.0] },
 			"not a row at all",
-			{"name": "bad at", "at": [1.0], "look": [0.0, 1.0, 0.0]},
-			{"name": "good again", "at": [0.0, 1.0, 4.0], "look": [0.0, 1.0, 0.0], "dwell": 1.0},
+			{ "name": "bad at", "at": [1.0], "look": [0.0, 1.0, 0.0] },
+			{ "name": "good again", "at": [0.0, 1.0, 4.0], "look": [0.0, 1.0, 0.0], "dwell": 1.0 },
 		],
 	}
 	var route: WalkRoute = Route.from_dict(data)
@@ -195,9 +194,8 @@ func test_a_row_that_will_not_read_is_skipped_rather_than_invented() -> void:
 
 
 func test_a_file_that_is_not_a_route_reads_as_no_walk() -> void:
-	assert(Route.from_dict({}).count() == 0)
-	assert(Route.from_dict({"stops": "nonsense"}).count() == 0)
-
+	assert(Route.from_dict({ }).count() == 0)
+	assert(Route.from_dict({ "stops": "nonsense" }).count() == 0)
 
 # --- the yard walk, as one shared shape ----------------------------------------------
 
@@ -228,9 +226,10 @@ func test_a_yard_walk_walks_the_garden_it_is_given() -> void:
 	assert(large.total_travel() > small.total_travel(), "a wider garden is a longer walk")
 	assert(small.count() == large.count(), "with the same number of stops")
 	var moved: WalkRoute = Route.for_yard(Rect2(40, 25, 10, 8))
-	assert(Vector3(moved.stops()[0]["at"]).x > Vector3(small.stops()[0]["at"]).x,
-		"and a garden elsewhere is walked elsewhere")
-
+	assert(
+		Vector3(moved.stops()[0]["at"]).x > Vector3(small.stops()[0]["at"]).x,
+		"and a garden elsewhere is walked elsewhere",
+	)
 
 # --- the director -------------------------------------------------------------------
 
@@ -275,7 +274,10 @@ func test_a_stalled_frame_does_not_teleport_the_camera() -> void:
 	director.bind(_straight_route())
 	director.play()
 	director.advance(10.0)
-	assert(is_equal_approx(director.elapsed, Director.MAX_STEP_S), "a stalled frame is clamped, got %s" % director.elapsed)
+	assert(
+		is_equal_approx(director.elapsed, Director.MAX_STEP_S),
+		"a stalled frame is clamped, got %s" % director.elapsed,
+	)
 
 
 func test_the_walk_finishes_and_stops_itself() -> void:

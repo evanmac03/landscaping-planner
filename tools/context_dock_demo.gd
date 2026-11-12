@@ -32,10 +32,14 @@ func _ready() -> void:
 	var dock: Control = DockScript.new()
 	dock.output_dir = "user://demo_context"
 	dock.build()
-	dock.said.connect(func(line: String) -> void:
-		print("DOCK STATUS: ", line))
-	dock.exported.connect(func(subject: String, path: String, chars: int) -> void:
-		print("DOCK EXPORTED: subject='%s' path=%s chars=%d" % [subject, path, chars]))
+	dock.said.connect(
+		func(line: String) -> void:
+			print("DOCK STATUS: ", line),
+	)
+	dock.exported.connect(
+		func(subject: String, path: String, chars: int) -> void:
+			print("DOCK EXPORTED: subject='%s' path=%s chars=%d" % [subject, path, chars]),
+	)
 	margin.add_child(dock)
 
 	# What the layout actually did, rather than what it looks like. The dock itself is a plain `Control`
@@ -44,8 +48,10 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var column: Control = dock.find_child("Dock", true, false)
-	print("DOCK DEMO (slot %d px): the column is %.0f wide and asks for %.0f" % [
-			DOCK_WIDTH, column.size.x, column.get_combined_minimum_size().x])
+	print(
+		"DOCK DEMO (slot %d px): the column is %.0f wide and asks for %.0f"
+		% [DOCK_WIDTH, column.size.x, column.get_combined_minimum_size().x]
+	)
 
 	var picker: OptionButton = dock.find_child("SubjectPicker", true, false)
 	var entries := PackedStringArray()
@@ -77,10 +83,14 @@ func _ready() -> void:
 	dock.select_subject("plant-id")
 	var built: String = dock.refresh_preview()
 	print("DOCK DEMO (all attached): ", dock.last_words)
-	print("DOCK DEMO (sections): source=%s git=%s last run=%s" % [
+	print(
+		"DOCK DEMO (sections): source=%s git=%s last run=%s"
+		% [
 			built.contains("## Full source of"),
 			built.contains("## Uncommitted changes"),
-			built.contains("## The last test run")])
+			built.contains("## The last test run"),
+		]
+	)
 
 	dock.select_subject("")
 	dock.refresh_preview()

@@ -36,7 +36,6 @@ func _set_up() -> Array:
 func _free(page: CloseoutWindow) -> void:
 	page.free()
 
-
 # --- what the page is ---------------------------------------------------------------------------
 
 
@@ -99,7 +98,6 @@ func test_a_page_with_no_desk_at_all_is_still_a_page() -> void:
 	assert(page.hint_text().contains("Pick a job"), page.hint_text())
 	assert(page.status_text().contains("No job has been started yet"), page.status_text())
 	_free(page)
-
 
 # --- the punch list -----------------------------------------------------------------------------
 
@@ -203,10 +201,9 @@ func test_taking_an_item_off_the_list_through_the_page() -> void:
 	assert(page.status_text().contains("off the list"), page.status_text())
 	assert(
 		page.summary_text().contains("the punch list is done: 1 item closed (1 withdrawn)"),
-		"and it stops counting: %s" % page.summary_text()
+		"and it stops counting: %s" % page.summary_text(),
 	)
 	_free(page)
-
 
 # --- the hand-over date and the warranty --------------------------------------------------------
 
@@ -261,7 +258,6 @@ func test_a_term_nobody_meant_is_refused_with_the_parts_it_could_cover() -> void
 	assert(page.status_text().contains("between 1 and 120"), page.status_text())
 	assert(not desk.has_warranty("J1"), "and nothing was stated")
 	_free(page)
-
 
 # --- the claims ---------------------------------------------------------------------------------
 
@@ -355,7 +351,6 @@ func test_a_claim_refused_on_the_page_is_finished_by_that_answer() -> void:
 	assert(page.claim_texts()[0].contains("not covered"), page.claim_texts()[0])
 	_free(page)
 
-
 # --- the page as a whole ------------------------------------------------------------------------
 
 
@@ -374,7 +369,10 @@ func test_closing_the_page_says_so_once() -> void:
 	var pair: Array = _set_up()
 	var page: CloseoutWindow = pair[0]
 	var said: Array[int] = [0]
-	page.closed.connect(func() -> void: said[0] += 1)
+	page.closed.connect(
+		func() -> void:
+			said[0] += 1,
+	)
 	page._on_close_requested()
 	assert(said[0] == 1, "the window was closed")
 	assert(not page.visible)
@@ -387,7 +385,10 @@ func test_every_act_announces_itself_so_the_menu_line_is_not_stale() -> void:
 	var pair: Array = _set_up()
 	var page: CloseoutWindow = pair[0]
 	var seen: Array[int] = [0]
-	page.closeout_changed.connect(func() -> void: seen[0] += 1)
+	page.closeout_changed.connect(
+		func() -> void:
+			seen[0] += 1,
+	)
 	page.set_item_fields("back patio", "paver out of level", "", "Dana")
 	page._on_raise()
 	assert(seen[0] == 1, "raising an item")

@@ -7,7 +7,6 @@ const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LineStyle := preload("res://scripts/draft/line_style.gd")
 const LayerScript := preload("res://scripts/draft/draft_layer.gd")
 
-
 # --- the shared layout ------------------------------------------------------------------
 
 
@@ -41,14 +40,10 @@ func test_the_layout_of_a_text_entity_is_a_label_with_a_height() -> void:
 	assert(parts["labels"].size() == 1)
 	assert(parts["labels"][0]["text"] == "Patio (new)")
 	assert(Vector2(parts["labels"][0]["position"]).is_equal_approx(Vector2(3, 4)))
-	assert(is_equal_approx(
-		parts["labels"][0]["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0
-	))
+	assert(is_equal_approx(parts["labels"][0]["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0))
 	# A height set on the entity wins, so a note can be authored to its own size.
 	entity.meta["height"] = 5.0
-	assert(is_equal_approx(
-		Render.layout(entity, _layer(), 100.0)["labels"][0]["height"], 0.5
-	))
+	assert(is_equal_approx(Render.layout(entity, _layer(), 100.0)["labels"][0]["height"], 0.5))
 
 
 ## A dimension measures the drawing and a note annotates it: neither is a thing

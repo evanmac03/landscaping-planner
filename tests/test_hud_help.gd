@@ -24,7 +24,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 func test_the_help_menu_offers_the_palette_the_manual_then_the_keys() -> void:
@@ -45,11 +45,11 @@ func test_the_manual_reaches_nothing_in_the_scene_it_is_opened_from() -> void:
 	assert(String(manual.get("method", "")) == "_menu_help", "and it runs the handler that opens it")
 	assert(
 		StringName(manual.get("needs", &"")) == HudScript.NEEDS_NOTHING,
-		"a manual needs nothing of the scene it is opened in"
+		"a manual needs nothing of the scene it is opened in",
 	)
 	assert(
 		String(manual.get("action", "")) == "",
-		"it advertises no key: a manual is not something a hand reaches for mid-draw"
+		"it advertises no key: a manual is not something a hand reaches for mid-draw",
 	)
 
 
@@ -59,13 +59,13 @@ func test_the_topics_the_hud_hands_over_are_the_manuals_and_then_the_keys() -> v
 	assert(topics.size() == HelpDocScript.topic_count() + 1, "one more than the subjects the manual has")
 	assert(
 		String(topics[0]["title"]) == HelpDocScript.SUBJECTS[0],
-		"the manual's own subjects come first, in the order the manual has them"
+		"the manual's own subjects come first, in the order the manual has them",
 	)
 	var last: Dictionary = topics[topics.size() - 1]
 	assert(String(last["title"]) == HudScript.KEYS_TOPIC, "and the keys come last")
 	assert(
 		String(last["body"]) == hud.keys_text(),
-		"the keys topic *is* the key reference, so the manual cannot name a key that does nothing"
+		"the keys topic *is* the key reference, so the manual cannot name a key that does nothing",
 	)
 	hud.free()
 
@@ -78,7 +78,7 @@ func test_the_window_the_program_builds_is_pointed_at_the_topics_it_should_show(
 	assert(page.list_texts().size() == page.topic_count(), "and lists every one of them")
 	assert(
 		String(page.list_texts()[page.topic_count() - 1]) == HudScript.KEYS_TOPIC,
-		"with the keys at the foot of the contents"
+		"with the keys at the foot of the contents",
 	)
 	assert(page.shown_topic_index() == 0, "and a subject on the page rather than a blank frame")
 	hud.free()
@@ -105,6 +105,6 @@ func test_a_hud_with_no_page_at_all_says_nothing_rather_than_failing() -> void:
 	assert(not hud.is_help_window_open(), "and nothing was opened")
 	assert(
 		hud.help_topics().size() == HelpDocScript.topic_count() + 1,
-		"the topics are the manual's own, which need no scene to be read"
+		"the topics are the manual's own, which need no scene to be read",
 	)
 	hud.free()

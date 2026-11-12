@@ -56,7 +56,7 @@ static func label_text(name: String, count: int, keyed: bool = false) -> String:
 ## `{"species": id, "text": String, "at": Vector2, "count": n}`. `skipped` counts
 ## the plants standing under no name, so a caller can say so out loud.
 static func labels_for(plants: Array, keyed: bool = false) -> Dictionary:
-	var groups: Dictionary = {}
+	var groups: Dictionary = { }
 	for entry in plants:
 		var plant: Dictionary = entry
 		if not (plant.get("position") is Vector2):
@@ -70,7 +70,7 @@ static func labels_for(plants: Array, keyed: bool = false) -> Dictionary:
 		var key := String(species) if not String(species).is_empty() else UNKNOWN_NAME
 		# A plain `Array` for the positions, because a packed array is a value: append
 		# to one taken back out of a dictionary and the append is lost.
-		var group: Dictionary = groups.get(key, {"name": name, "points": []})
+		var group: Dictionary = groups.get(key, { "name": name, "points": [] })
 		(group["points"] as Array).append(plant["position"])
 		groups[key] = group
 
@@ -79,20 +79,24 @@ static func labels_for(plants: Array, keyed: bool = false) -> Dictionary:
 	for key: String in groups:
 		var group: Dictionary = groups[key]
 		var points: Array = group["points"]
-		labels.append({
-			"species": StringName(key),
-			"text": label_text(String(group["name"]), points.size(), keyed),
-			"at": centroid(PackedVector2Array(points)),
-			"count": points.size(),
-		})
+		labels.append(
+			{
+				"species": StringName(key),
+				"text": label_text(String(group["name"]), points.size(), keyed),
+				"at": centroid(PackedVector2Array(points)),
+				"count": points.size(),
+			}
+		)
 		if key == UNKNOWN_NAME:
 			skipped += points.size()
 	# Sorted by what they say, so the same drawing always writes the same list.
-	labels.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
-		return String(first["text"]) < String(second["text"]))
+	labels.sort_custom(
+		func(first: Dictionary, second: Dictionary) -> bool:
+			return String(first["text"]) < String(second["text"]),
+	)
 
 	var reason := "nothing is planted" if labels.is_empty() else ""
-	return {"labels": labels, "skipped": skipped, "reason": reason}
+	return { "labels": labels, "skipped": skipped, "reason": reason }
 
 
 ## How many plants the labels account for.
@@ -109,6 +113,8 @@ static func summary(labels: Array) -> String:
 	if wanted == 0:
 		return "nothing to label"
 	return "%d label%s for %d plant%s" % [
-		labels.size(), "" if labels.size() == 1 else "s",
-		wanted, "" if wanted == 1 else "s",
+		labels.size(),
+		"" if labels.size() == 1 else "s",
+		wanted,
+		"" if wanted == 1 else "s",
 	]

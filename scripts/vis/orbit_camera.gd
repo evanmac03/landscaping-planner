@@ -56,7 +56,8 @@ func frame(box: AABB, margin: float = 0.18) -> void:
 	global_position = box.get_center()
 	elevation.rotation.x = -clampf(
 		deg_to_rad(frame_elevation_deg),
-		deg_to_rad(min_elevation_deg), deg_to_rad(max_elevation_deg)
+		deg_to_rad(min_elevation_deg),
+		deg_to_rad(max_elevation_deg),
 	)
 	# Half the box's diagonal against the tangent of half the field of view: the
 	# distance at which that diagonal exactly fills the frame. Using the diagonal
@@ -102,9 +103,7 @@ func orbit(delta_pixels: Vector2) -> void:
 	# Dragging down raises the camera, the way a turntable behaves: the gesture pulls
 	# the garden down the screen, which means looking at it from higher up.
 	var above: float = -elevation.rotation.x + delta_pixels.y * orbit_step
-	elevation.rotation.x = -clampf(
-		above, deg_to_rad(min_elevation_deg), deg_to_rad(max_elevation_deg)
-	)
+	elevation.rotation.x = -clampf(above, deg_to_rad(min_elevation_deg), deg_to_rad(max_elevation_deg))
 
 
 ## Dolly in and out. Proportional to the current distance, so one wheel notch is

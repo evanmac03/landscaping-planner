@@ -56,9 +56,7 @@ func _ready() -> void:
 ## How far the presentation camera stands from the middle of the garden, in metres.
 func _camera_distance() -> float:
 	var bounds: Rect2 = _director.yard.get_bounds()
-	var centre := Vector3(
-		bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5
-	)
+	var centre := Vector3(bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5)
 	return _director.orbit.camera.global_position.distance_to(centre)
 
 
@@ -68,11 +66,14 @@ func _render_day() -> void:
 	var day: int = _director.day_of_year
 	var light: Dictionary = SunStudyScript.daylight_for(site, SunStudyScript.moment(day, 12.0))
 	print("site %s, day %d" % [_director.site_text(), day])
-	print("sunrise %s, sunset %s, day length %.2f h" % [
-		SunStudyScript.clock_text(light["sunrise_clock_hour"]),
-		SunStudyScript.clock_text(light["sunset_clock_hour"]),
-		light["day_length_hours"],
-	])
+	print(
+		"sunrise %s, sunset %s, day length %.2f h"
+		% [
+			SunStudyScript.clock_text(light["sunrise_clock_hour"]),
+			SunStudyScript.clock_text(light["sunset_clock_hour"]),
+			light["day_length_hours"],
+		]
+	)
 	var cells: Array[Dictionary] = []
 	for hour in HOURS:
 		var moment: Dictionary = SunStudyScript.moment(day, hour)
@@ -84,14 +85,21 @@ func _render_day() -> void:
 			# the camera happened to be at when the scene loaded.
 			_director.frame_yard()
 			await get_tree().process_frame
-			print("camera stands %.1f m from the garden; shadows are drawn to %.1f m" % [
-				_camera_distance(), _director.sun.directional_shadow_max_distance,
-			])
+			print(
+				"camera stands %.1f m from the garden; shadows are drawn to %.1f m"
+				% [_camera_distance(), _director.sun.directional_shadow_max_distance]
+			)
 		var sun: Dictionary = _director.sun_settings()
-		print("%s  altitude %5.1f°  bearing %5.1f°  solar %5.2f h  declination %5.2f°" % [
-			SunStudyScript.clock_text(hour),
-			sun["altitude_deg"], sun["azimuth_deg"], sun["solar_hour"], sun["declination_deg"],
-		])
+		print(
+			"%s  altitude %5.1f°  bearing %5.1f°  solar %5.2f h  declination %5.2f°"
+			% [
+				SunStudyScript.clock_text(hour),
+				sun["altitude_deg"],
+				sun["azimuth_deg"],
+				sun["solar_hour"],
+				sun["declination_deg"],
+			]
+		)
 		var still: Dictionary = await _one_still(hour)
 		if still.is_empty():
 			continue
@@ -110,8 +118,10 @@ func _one_still(hour: float) -> Dictionary:
 	_director.frame_yard()
 	var written: Array[String] = []
 	var refused: Array[String] = []
-	var on_written := func(path: String) -> void: written.append(path)
-	var on_refused := func(reason: String) -> void: refused.append(reason)
+	var on_written := func(path: String) -> void:
+		written.append(path)
+	var on_refused := func(reason: String) -> void:
+		refused.append(reason)
 	_director.still_written.connect(on_written)
 	_director.still_failed.connect(on_refused)
 	# Not awaited: `render_still` is a coroutine that reports by signal, so waiting for the
@@ -125,22 +135,21 @@ func _one_still(hour: float) -> Dictionary:
 	_director.still_failed.disconnect(on_refused)
 	if not refused.is_empty():
 		print("%s  refused: %s" % [SunStudyScript.clock_text(hour), refused[0]])
-		return {}
+		return { }
 	if written.is_empty():
 		print("%s  no still came back in %d frames" % [SunStudyScript.clock_text(hour), WAIT_FRAMES])
-		return {}
+		return { }
 	var target: String = "%s/%02d.png" % [OUT_DIR, int(hour)]
 	DirAccess.copy_absolute(written[0], ProjectSettings.globalize_path(target))
 	var image: Image = Image.load_from_file(target)
 	if image == null:
 		print("%s  the still could not be read back" % SunStudyScript.clock_text(hour))
-		return {}
+		return { }
 	var sun: Dictionary = _director.sun_settings()
 	return {
 		"texture": ImageTexture.create_from_image(image),
-		"caption": "%s   sun %.0f° up, bearing %.0f°" % [
-			SunStudyScript.clock_text(hour), sun["altitude_deg"], sun["azimuth_deg"],
-		],
+		"caption": "%s   sun %.0f° up, bearing %.0f°"
+		% [SunStudyScript.clock_text(hour), sun["altitude_deg"], sun["azimuth_deg"]],
 	}
 
 

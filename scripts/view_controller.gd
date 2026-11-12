@@ -26,9 +26,9 @@ extends Node
 ## node so the player's own _ready() has run before the first pose is applied.
 
 enum ViewMode {
-	PLAN_2D,     ## Flat schematic plan, drawn in 2D.
+	PLAN_2D, ## Flat schematic plan, drawn in 2D.
 	OVERHEAD_3D, ## Orthographic 3D camera looking straight down.
-	GROUND,      ## First person, walking the design at eye height.
+	GROUND, ## First person, walking the design at eye height.
 }
 
 ## Guards the "run this next" slot; an enum value or NO_PENDING.
@@ -148,7 +148,7 @@ var planting_species: StringName = &""
 ##
 ## Kept rather than only pushed at the canvas, because a verdict is a thing a person can ask about -
 ## the state line says which plant is in hand, and the ring says whether it belongs here.
-var planting_verdict: Dictionary = {}
+var planting_verdict: Dictionary = { }
 
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
@@ -276,11 +276,10 @@ func fit_plan_to_yard() -> void:
 	plan_size = clampf(
 		maxf(yard_extent.y, yard_extent.x / maxf(aspect, 0.001)) * fit_margin,
 		plan_size_min,
-		plan_size_max
+		plan_size_max,
 	)
 	plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 	_apply_overhead_view()
-
 
 # --- view control -----------------------------------------------------------------
 
@@ -420,9 +419,7 @@ func fly_to_ground() -> void:
 	# Land a little behind whatever you were examining and face it, so arriving
 	# at ground level frames the part of the design you were just looking at.
 	# World -Z is "up" the plan view, which is the direction we land facing.
-	var landing: Vector2 = ViewMath.clamp_to_rect(
-		plan_focus + Vector2(0.0, land_back_off), land_bounds
-	)
+	var landing: Vector2 = ViewMath.clamp_to_rect(plan_focus + Vector2(0.0, land_back_off), land_bounds)
 	var landing_yaw: float = 0.0
 	var matched_fov: float = ViewMath.match_fov(plan_size, plan_height)
 
@@ -441,16 +438,17 @@ func fly_to_ground() -> void:
 	_tween = create_tween().set_parallel(true).bind_node(self)
 	_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_property(
-		flight_camera, "global_position",
-		Vector3(landing.x, floor_y + land_eye_height, landing.y), flight_time
+		flight_camera,
+		"global_position",
+		Vector3(landing.x, floor_y + land_eye_height, landing.y),
+		flight_time,
 	)
 	# Hold the downward tilt for most of the descent and only level out on
 	# arrival (EASE_IN keeps the eased value low early), so the design stays
 	# framed the whole way instead of the camera staring off over the boundary.
-	_tween.tween_property(
-		flight_camera, "global_rotation",
-		Vector3(0.0, landing_yaw, 0.0), flight_time
-	).set_ease(Tween.EASE_IN)
+	_tween.tween_property(flight_camera, "global_rotation", Vector3(0.0, landing_yaw, 0.0), flight_time).set_ease(
+		Tween.EASE_IN
+	)
 	_tween.tween_property(flight_camera, "fov", ground_fov, flight_time)
 	_tween.chain().tween_callback(_on_landed)
 
@@ -464,17 +462,13 @@ func fly_to_plan() -> void:
 
 	# Re-centre the plan on where the player is standing so going back up keeps
 	# your place in the design.
-	plan_focus = ViewMath.clamp_to_rect(
-		Vector2(player.global_position.x, player.global_position.z), pan_bounds
-	)
+	plan_focus = ViewMath.clamp_to_rect(Vector2(player.global_position.x, player.global_position.z), pan_bounds)
 
 	# First frame of the flight: exactly what the player is looking at. The
 	# flight camera takes over the player's pose, so the handover is invisible.
 	# Wrap the yaw so the tween never unwinds accumulated full turns.
 	flight_camera.global_position = player.eye_position()
-	flight_camera.global_rotation = Vector3(
-		player.get_pitch(), ViewMath.wrap_angle(player.get_yaw()), 0.0
-	)
+	flight_camera.global_rotation = Vector3(player.get_pitch(), ViewMath.wrap_angle(player.get_yaw()), 0.0)
 	flight_camera.fov = ground_fov
 	flight_camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	flight_camera.current = true
@@ -485,18 +479,17 @@ func fly_to_plan() -> void:
 	_tween = create_tween().set_parallel(true).bind_node(self)
 	_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_property(
-		flight_camera, "global_position",
-		Vector3(plan_focus.x, plan_height, plan_focus.y), flight_time
+		flight_camera,
+		"global_position",
+		Vector3(plan_focus.x, plan_height, plan_focus.y),
+		flight_time,
 	)
 	# Mirror of the descent: tilt down early (EASE_OUT raises the eased value
 	# quickly), then spend the climb looking at the design.
-	_tween.tween_property(
-		flight_camera, "global_rotation",
-		Vector3(-PI * 0.5, 0.0, 0.0), flight_time
-	).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(
-		flight_camera, "fov", ViewMath.match_fov(plan_size, plan_height), flight_time
+	_tween.tween_property(flight_camera, "global_rotation", Vector3(-PI * 0.5, 0.0, 0.0), flight_time).set_ease(
+		Tween.EASE_OUT
 	)
+	_tween.tween_property(flight_camera, "fov", ViewMath.match_fov(plan_size, plan_height), flight_time)
 	_tween.chain().tween_callback(_on_arrived_at_plan)
 
 
@@ -538,17 +531,10 @@ func _apply_overhead_view() -> void:
 
 
 func _on_landed() -> void:
-	var spot: Vector2 = Vector2(
-		flight_camera.global_position.x, flight_camera.global_position.z
-	)
+	var spot: Vector2 = Vector2(flight_camera.global_position.x, flight_camera.global_position.z)
 	# Snap the player to exactly where the camera came to rest -- same spot, eye
 	# height, yaw and pitch -- so handing the camera over shows no jump at all.
-	player.place(
-		spot,
-		floor_y,
-		flight_camera.global_rotation.y,
-		flight_camera.global_rotation.x
-	)
+	player.place(spot, floor_y, flight_camera.global_rotation.y, flight_camera.global_rotation.x)
 	player.camera.current = true
 	player.set_active(true)
 	player.capture_mouse()
@@ -576,7 +562,6 @@ func _kill_tween() -> void:
 		_tween.kill()
 	_tween = null
 
-
 # --- picking and moving -----------------------------------------------------------
 
 
@@ -588,9 +573,7 @@ func begin_move(screen: Vector2) -> void:
 	if node == null:
 		return
 	_grabbed = node
-	var centre: Vector2 = _world_to_screen(Vector3(
-		node.global_position.x, floor_y, node.global_position.z
-	))
+	var centre: Vector2 = _world_to_screen(Vector3(node.global_position.x, floor_y, node.global_position.z))
 	_grab_offset = centre - screen
 	_drag_cursor = screen
 	if plan_canvas != null:
@@ -628,9 +611,7 @@ func nearest_placeable(screen: Vector2) -> Node3D:
 	var best_distance: float = INF
 	var pixels_per_metre: float = _pixels_per_metre()
 	for node: Node3D in placeables():
-		var centre: Vector2 = _world_to_screen(
-			Vector3(node.global_position.x, floor_y, node.global_position.z)
-		)
+		var centre: Vector2 = _world_to_screen(Vector3(node.global_position.x, floor_y, node.global_position.z))
 		var reach: float = PlanStyle.footprint_radius(node) * pixels_per_metre + pick_slack
 		var distance: float = centre.distance_to(screen)
 		if distance <= reach and distance < best_distance:
@@ -692,9 +673,7 @@ func _set_cursor_hand(wants_hand: bool) -> void:
 	if wants_hand == _hand_cursor:
 		return
 	_hand_cursor = wants_hand
-	Input.set_default_cursor_shape(
-		Input.CURSOR_POINTING_HAND if wants_hand else Input.CURSOR_ARROW
-	)
+	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if wants_hand else Input.CURSOR_ARROW)
 
 
 func _refresh_selection_ring() -> void:
@@ -705,9 +684,7 @@ func _refresh_selection_ring() -> void:
 	if not selection_ring.visible:
 		return
 	var radius: float = PlanStyle.footprint_radius(node) + 0.35
-	selection_ring.global_position = Vector3(
-		node.global_position.x, floor_y + 0.05, node.global_position.z
-	)
+	selection_ring.global_position = Vector3(node.global_position.x, floor_y + 0.05, node.global_position.z)
 	# The ring mesh is authored at radius 1, so the footprint sizes it directly.
 	selection_ring.scale = Vector3.ONE * radius
 
@@ -918,16 +895,11 @@ func pan_by_screen(delta: Vector2) -> void:
 static func touch_command(event: InputEvent) -> Dictionary:
 	if event is InputEventMagnifyGesture:
 		var magnify: InputEventMagnifyGesture = event
-		return {
-			"kind": &"zoom",
-			"factor": ViewMath.zoom_factor_for_spread(magnify.factor),
-			"at": magnify.position,
-		}
+		return { "kind": &"zoom", "factor": ViewMath.zoom_factor_for_spread(magnify.factor), "at": magnify.position }
 	if event is InputEventPanGesture:
 		var pan: InputEventPanGesture = event
-		return {"kind": &"pan", "delta": pan.delta}
-	return {"kind": &"none"}
-
+		return { "kind": &"pan", "delta": pan.delta }
+	return { "kind": &"none" }
 
 # --- planting -------------------------------------------------------------------------
 
@@ -950,7 +922,7 @@ func arm_planting(catalogue: PlantCatalogue, species_id: StringName) -> bool:
 	# A click cannot be two things, so arming a plant puts the drawing tools away.
 	if _draft != null and _draft.drawing:
 		_draft.set_drawing(false)
-	planting_verdict = {}
+	planting_verdict = { }
 	_say_planting()
 	planting_changed.emit(planting_species)
 	return true
@@ -960,10 +932,10 @@ func stop_planting() -> void:
 	if planting_species.is_empty():
 		return
 	planting_species = &""
-	planting_verdict = {}
+	planting_verdict = { }
 	if plan_canvas != null:
 		plan_canvas.status_text = ""
-		plan_canvas.plant_ghost = {}
+		plan_canvas.plant_ghost = { }
 	planting_changed.emit(planting_species)
 
 
@@ -990,7 +962,7 @@ func say_survey(line: String) -> void:
 ## ring answers, askable from a script or a test.
 func spot_verdict(species: PlantSpecies, world: Vector2) -> Dictionary:
 	if species == null:
-		return {}
+		return { }
 	return PlantSuitabilityScript.check_at(species, environment_map(), world)
 
 
@@ -1005,11 +977,9 @@ func _update_plant_ghost() -> void:
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
 	if species == null:
-		plan_canvas.plant_ghost = {}
+		plan_canvas.plant_ghost = { }
 		return
-	var world: Vector2 = ViewMath.clamp_to_rect(
-		_screen_to_world(get_viewport().get_mouse_position()), edit_bounds
-	)
+	var world: Vector2 = ViewMath.clamp_to_rect(_screen_to_world(get_viewport().get_mouse_position()), edit_bounds)
 	var verdict: Dictionary = PlantSuitabilityScript.check_at(species, environment_map(), world)
 	planting_verdict = verdict
 	plan_canvas.plant_ghost = {
@@ -1028,10 +998,13 @@ func _update_plant_ghost() -> void:
 ## to the library.
 func plant_at(screen: Vector2) -> Dictionary:
 	if not is_planting():
-		return {"ok": false, "reason": "nothing is being planted", "node": null, "scale": 1.0}
+		return { "ok": false, "reason": "nothing is being planted", "node": null, "scale": 1.0 }
 	var world: Vector2 = ViewMath.clamp_to_rect(_screen_to_world(screen), edit_bounds)
 	var result: Dictionary = PlantPlacement.place(
-		plant_catalogue, planting_species, yard, Vector3(world.x, floor_y, world.y)
+		plant_catalogue,
+		planting_species,
+		yard,
+		Vector3(world.x, floor_y, world.y),
 	)
 	if not bool(result["ok"]):
 		if plan_canvas != null:
@@ -1063,7 +1036,7 @@ func refresh_after_planting() -> void:
 ## Judge the plant in hand against the ground at one point, and remember the answer.
 func _judge_placement(world: Vector2) -> void:
 	if plant_catalogue == null:
-		planting_verdict = {}
+		planting_verdict = { }
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
 	planting_verdict = spot_verdict(species, world)
@@ -1074,7 +1047,7 @@ func planted_count() -> int:
 	return PlantPlacement.planted(yard).size()
 
 
-func _say_planting(verdict: Dictionary = {}) -> void:
+func _say_planting(verdict: Dictionary = { }) -> void:
 	if plan_canvas == null or plant_catalogue == null:
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
@@ -1083,20 +1056,15 @@ func _say_planting(verdict: Dictionary = {}) -> void:
 		return
 	# `name` is not available as a local: it is a property of every Node, and shadowing it is an
 	# error here for the same reason it would be a bug anywhere else in this file.
-	var label: String = (
-		species.common_name if not species.common_name.is_empty() else species.display_name()
-	)
+	var label: String = (species.common_name if not species.common_name.is_empty() else species.display_name())
 	var summary: String = String(verdict.get("summary", ""))
 	# Armed but nothing placed yet: what the click will do. Only a *placement* writes the verdict
 	# here - the one under the cursor is drawn at the cursor, because a status line rewritten every
 	# frame is a status line that flickers while the mouse moves.
 	if summary.is_empty():
-		plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [
-			label, planted_count()
-		]
+		plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [label, planted_count()]
 		return
 	plan_canvas.status_text = "%s  %d planted.  Escape puts it away." % [summary, planted_count()]
-
 
 # --- drafting -------------------------------------------------------------------------
 
@@ -1190,9 +1158,7 @@ func _handle_drafting(event: InputEvent) -> bool:
 	elif event is InputEventMouseMotion:
 		var motion: InputEventMouseMotion = event
 		if _panning:
-			plan_focus -= motion.relative * (plan_size / maxf(
-				get_viewport().get_visible_rect().size.y, 1.0
-			))
+			plan_focus -= motion.relative * (plan_size / maxf(get_viewport().get_visible_rect().size.y, 1.0))
 			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 			_apply_overhead_view()
 		_draft.hover(motion.position)
@@ -1223,8 +1189,8 @@ func _select_draft_tool(event: InputEvent) -> bool:
 			return true
 	return false
 
-# --- field identification & survey subsystem ---
 
+# --- field identification & survey subsystem ---
 
 ## The collection a field capture is filed under.
 const FIELD_SURVEY_COLLECTION := "Field Survey Captures"

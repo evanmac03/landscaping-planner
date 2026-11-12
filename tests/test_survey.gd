@@ -14,12 +14,11 @@ func _rectangle_lot() -> Array:
 	var width := 50.0 * FOOT
 	var depth := 120.0 * FOOT
 	return [
-		{"azimuth": 90.0, "distance": width},    # frontage, due east
-		{"azimuth": 0.0, "distance": depth},     # side, due north
-		{"azimuth": 270.0, "distance": width},   # rear
-		{"azimuth": 180.0, "distance": depth},   # side back to start
+		{ "azimuth": 90.0, "distance": width }, # frontage, due east
+		{ "azimuth": 0.0, "distance": depth }, # side, due north
+		{ "azimuth": 270.0, "distance": width }, # rear
+		{ "azimuth": 180.0, "distance": depth }, # side back to start
 	]
-
 
 # --- bearings -----------------------------------------------------------------------
 
@@ -71,7 +70,6 @@ func test_a_leg_converts_feet_to_metres() -> void:
 	assert(is_equal_approx(entry["azimuth"], 90.0))
 	assert(is_equal_approx(entry["distance"], 15.24))
 
-
 # --- traverse and closure -----------------------------------------------------------
 
 
@@ -95,9 +93,9 @@ func test_model_space_puts_north_negative_z() -> void:
 
 func test_a_loose_traverse_reports_its_misclosure() -> void:
 	var legs := [
-		{"azimuth": 0.0, "distance": 10.0},
-		{"azimuth": 120.0, "distance": 10.0},
-		{"azimuth": 240.0, "distance": 10.5},
+		{ "azimuth": 0.0, "distance": 10.0 },
+		{ "azimuth": 120.0, "distance": 10.0 },
+		{ "azimuth": 240.0, "distance": 10.5 },
 	]
 	var result := Survey.traverse(legs)
 	assert(not result["closed"])
@@ -116,9 +114,9 @@ func test_an_exact_traverse_passes_the_closure_check() -> void:
 
 func test_bowditch_removes_the_misclosure() -> void:
 	var legs := [
-		{"azimuth": 0.0, "distance": 10.0},
-		{"azimuth": 120.0, "distance": 10.0},
-		{"azimuth": 240.0, "distance": 10.5},
+		{ "azimuth": 0.0, "distance": 10.0 },
+		{ "azimuth": 120.0, "distance": 10.0 },
+		{ "azimuth": 240.0, "distance": 10.5 },
 	]
 	var before := Survey.traverse(legs)
 	var adjusted := Survey.bowditch_adjust(legs, before["east"], before["north"])
@@ -141,20 +139,18 @@ func test_area_cross_check() -> void:
 	# With nothing stated there is nothing to disagree with.
 	assert(Survey.check_area(computed, 0.0)["status"] == "pass")
 
-
 # --- alignment ----------------------------------------------------------------------
 
 
 func _known_transform(point: Vector2, scale: float, angle: float, offset: Vector2) -> Vector2:
 	return Vector2(
 		offset.x + scale * (cos(angle) * point.x - sin(angle) * point.y),
-		offset.y + scale * (sin(angle) * point.x + cos(angle) * point.y)
+		offset.y + scale * (sin(angle) * point.x + cos(angle) * point.y),
 	)
 
 
 func test_similarity_fit_recovers_a_known_scale_and_rotation() -> void:
-	var source := PackedVector2Array([
-		Vector2(100.0, 100.0), Vector2(700.0, 100.0), Vector2(700.0, 500.0)])
+	var source := PackedVector2Array([Vector2(100.0, 100.0), Vector2(700.0, 100.0), Vector2(700.0, 500.0)])
 	var target := PackedVector2Array()
 	for point: Vector2 in source:
 		target.append(_known_transform(point, 0.024, deg_to_rad(30.0), Vector2(-5.0, 12.0)))
@@ -189,8 +185,7 @@ func test_two_points_are_enough() -> void:
 func test_a_sheared_source_is_reported_not_absorbed() -> void:
 	# A similarity cannot reduce this, which is exactly the signal that the source
 	# is distorted rather than merely imprecise (REQ 6.4.5).
-	var source := PackedVector2Array([
-		Vector2(100.0, 100.0), Vector2(700.0, 100.0), Vector2(700.0, 500.0)])
+	var source := PackedVector2Array([Vector2(100.0, 100.0), Vector2(700.0, 100.0), Vector2(700.0, 500.0)])
 	var target := PackedVector2Array()
 	for point: Vector2 in source:
 		target.append(_known_transform(point, 0.024, deg_to_rad(30.0), Vector2(-5.0, 12.0)))
@@ -216,16 +211,13 @@ func test_coincident_source_points_cannot_be_fitted() -> void:
 	var target := PackedVector2Array([Vector2(0, 0), Vector2(1, 1)])
 	assert(not Survey.similarity_fit(source, target)["ok"])
 
-
 # --- remaining checks ---------------------------------------------------------------
 
 
 func test_a_self_intersecting_parcel_blocks() -> void:
-	var bow_tie := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)])
+	var bow_tie := PackedVector2Array([Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)])
 	assert(Survey.check_simple(bow_tie)["status"] == "fail")
-	var square := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
+	var square := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
 	assert(Survey.check_simple(square)["status"] == "pass")
 
 
@@ -236,26 +228,22 @@ func test_an_implausible_extent_is_flagged() -> void:
 
 
 func test_the_report_blocks_on_a_failure() -> void:
-	var clean := Survey.summarise([
-		Survey.check_closure(Survey.traverse(_rectangle_lot())),
-		Survey.check_area(557.4182, 557.4182),
-	])
+	var clean := Survey.summarise(
+		[Survey.check_closure(Survey.traverse(_rectangle_lot())), Survey.check_area(557.4182, 557.4182)]
+	)
 	assert(clean["passed"])
 	assert(clean["failures"] == 0)
 	assert(clean["records"].size() == 2)
 
-	var blocked := Survey.summarise([
-		Survey.check_simple(PackedVector2Array([
-			Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)])),
-	])
+	var blocked := Survey.summarise(
+		[Survey.check_simple(PackedVector2Array([Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)]))]
+	)
 	assert(not blocked["passed"])
 	assert(blocked["failures"] == 1)
 
 
 func test_warnings_do_not_block() -> void:
-	var report := Survey.summarise([
-		Survey.check_area(600.0, 557.4182),
-	])
+	var report := Survey.summarise([Survey.check_area(600.0, 557.4182)])
 	assert(report["passed"])
 	assert(report["warnings"] == 1)
 	assert(report["failures"] == 0)

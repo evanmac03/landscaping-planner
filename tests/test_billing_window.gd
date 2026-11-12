@@ -40,7 +40,7 @@ func _line(code: StringName, units_milli: int, cost_cents: int, price_cents: int
 func _desk(method: int = JobScript.MILESTONE) -> DeskScript:
 	var jobs: DeskScript = DeskScript.new()
 	var estimate: EstimateScript = EstimateScript.new(JOB)
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	estimate.lines.append(_line(&"HARDSCAPE", 10000, 70000, 100000))
 	estimate.lines.append(_line(&"PLANTING", 10000, 15000, 20000))
 	jobs.make_job_from(estimate)
@@ -70,7 +70,6 @@ func _full_schedule(page: WindowScript) -> void:
 	page.ledger.add_milestone(JOB, "Balance", 750000)
 	page.refresh()
 
-
 # --- building ----------------------------------------------------------------------------------
 
 
@@ -84,8 +83,10 @@ func test_a_page_with_no_ledger_is_empty_rather_than_broken() -> void:
 	assert(page.invoice_texts().is_empty())
 	assert(page.payment_texts().is_empty())
 	assert(page.problem_texts().is_empty())
-	assert(page.status_text() == "No job has been started yet: an estimate that is agreed becomes a job.",
-		page.status_text())
+	assert(
+		page.status_text() == "No job has been started yet: an estimate that is agreed becomes a job.",
+		page.status_text(),
+	)
 	assert(page.start_button_disabled())
 	assert(page.raise_button_disabled())
 	assert(page.payment_button_disabled())
@@ -148,7 +149,6 @@ func test_a_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 	assert(page.buttons_are_focus_free(), "at build time, before anything shows the page")
 	page.free()
 
-
 # --- starting to bill, and the schedule ---------------------------------------------------------
 
 
@@ -203,8 +203,7 @@ func test_a_step_that_is_not_a_share_of_the_contract_is_refused_by_the_page() ->
 	assert(page.status_text().contains("share of the contract"), page.status_text())
 	assert(page.schedule_texts().is_empty(), "and nothing was added")
 	page.set_step_fields("Deposit", "25", "one tenth")
-	assert(page.add_step()["ok"] == false,
-		"a retainage nobody can read is refused rather than taken as lots")
+	assert(page.add_step()["ok"] == false, "a retainage nobody can read is refused rather than taken as lots")
 	assert(page.schedule_texts().is_empty())
 	page.free()
 
@@ -240,10 +239,14 @@ func test_the_schedule_says_what_a_job_that_cannot_bill_anything_is_missing() ->
 func test_the_schedule_bills_the_step_the_schedule_would_bill_next() -> void:
 	var page := _page()
 	_full_schedule(page)
-	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step0/Billit")) != null,
-		"the next step carries the button")
-	assert(page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step1/Billit")) == null,
-		"and the one after it does not")
+	assert(
+		page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step0/Billit")) != null,
+		"the next step carries the button",
+	)
+	assert(
+		page.get_node_or_null(NodePath("Scroll/Column/Schedule/Step1/Billit")) == null,
+		"and the one after it does not",
+	)
 	page.free()
 
 
@@ -278,7 +281,6 @@ func test_a_percent_nobody_could_have_measured_is_refused_by_the_page() -> void:
 	assert(page.status_text().contains("a percent somebody could have measured"), page.status_text())
 	page.free()
 
-
 # --- raising an invoice -------------------------------------------------------------------------
 
 
@@ -309,8 +311,10 @@ func test_a_step_is_billed_from_its_own_row() -> void:
 	_full_schedule(page)
 	var raised: Dictionary = page.bill_step("Balance")
 	assert(raised["ok"] == true, String(raised["reason"]))
-	assert((raised["invoice"] as InvoiceScript).subtotal().format_with_currency() == "$9,000.00",
-		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency())
+	assert(
+		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency() == "$9,000.00",
+		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency(),
+	)
 	assert(page.status_text().contains("$9,000.00"), page.status_text())
 	page.free()
 
@@ -354,7 +358,6 @@ func test_an_invoice_that_could_not_go_out_says_why_on_the_status_line() -> void
 	assert(page.status_text().contains("nothing went out"), page.status_text())
 	assert(page.invoice_texts().is_empty())
 	page.free()
-
 
 # --- the money ----------------------------------------------------------------------------------
 
@@ -407,7 +410,6 @@ func test_the_payments_the_page_lists_are_the_ones_the_desk_holds() -> void:
 	page.record_payment()
 	assert(page.payment_texts() == page.ledger.payment_texts(page.selected_invoice()))
 	page.free()
-
 
 # --- calling one back ---------------------------------------------------------------------------
 

@@ -92,16 +92,23 @@ static func pull_request(base_url: String, model_tag: String, stream: bool = tru
 	var tag: String = model_tag.strip_edges()
 	if tag.is_empty():
 		return {
-			"ok": false, "reason": "a model to fetch has to be named, and none was given",
-			"url": "", "tls": false, "host": "", "port": 0, "path": "", "method": 0,
-			"headers": [] as Array, "body": "",
+			"ok": false,
+			"reason": "a model to fetch has to be named, and none was given",
+			"url": "",
+			"tls": false,
+			"host": "",
+			"port": 0,
+			"path": "",
+			"method": 0,
+			"headers": [] as Array,
+			"body": "",
 		}
 	var request: Dictionary = _get_request("%s%s" % [clean, PULL_PATH], "the model being fetched")
 	if not bool(request["ok"]):
 		return request
 	request["method"] = HTTPClient.METHOD_POST
 	request["headers"] = ["Content-Type: application/json", "Accept: application/x-ndjson"] as Array
-	request["body"] = JSON.stringify({"model": tag, "stream": stream})
+	request["body"] = JSON.stringify({ "model": tag, "stream": stream })
 	return request
 
 
@@ -130,9 +137,7 @@ static func reading_for(base_url: String, transport: Callable) -> Dictionary:
 	if models.is_empty() and _answered(listed):
 		models = models_from_openai(String(listed.get("body", "")))
 		if not models.is_empty():
-			read_from = (
-				"the ids the server lists, read for whether the name says it can see"
-			)
+			read_from = ("the ids the server lists, read for whether the name says it can see")
 	if models.is_empty():
 		return _refusal(_nothing_found(clean, listed, tags))
 	return {
@@ -166,21 +171,12 @@ static func probe(transport: Callable, custom_url: String = "") -> Dictionary:
 	if readings.is_empty():
 		return {
 			"ok": false,
-			"reason": (
-				"nothing answered at %s, so no model server is running there"
-				% ", ".join(asked)
-			),
+			"reason": ("nothing answered at %s, so no model server is running there" % ", ".join(asked)),
 			"asked": asked,
 			"readings": readings,
 			"refusals": refusals,
 		}
-	return {
-		"ok": true,
-		"reason": "",
-		"asked": asked,
-		"readings": readings,
-		"refusals": refusals,
-	}
+	return { "ok": true, "reason": "", "asked": asked, "readings": readings, "refusals": refusals }
 
 
 ## The first server that answered with a model able to look at a photograph, or an empty dictionary.
@@ -191,7 +187,7 @@ static func first_with_vision(probed: Dictionary) -> Dictionary:
 	for reading: Dictionary in Array(probed.get("readings", [])):
 		if not Array(reading.get("vision", [])).is_empty():
 			return reading
-	return {}
+	return { }
 
 
 ## The models in Ollama's own shape: `{"models": [{"name", "size", "capabilities"}]}`.
@@ -289,20 +285,20 @@ static func _a_model(named: String, size_bytes: Variant, capabilities: Variant) 
 		for one: Variant in (capabilities as Array):
 			if String(one).to_lower() == "vision":
 				can_see = true
-		return {
-			"id": named, "size_bytes": size, "vision": can_see,
-			"whence": "the server's own capabilities for it",
-		}
+		return { "id": named, "size_bytes": size, "vision": can_see, "whence": "the server's own capabilities for it" }
 	return {
-		"id": named, "size_bytes": size, "vision": Fit.is_vision_model_id(named),
+		"id": named,
+		"size_bytes": size,
+		"vision": Fit.is_vision_model_id(named),
 		"whence": "this program's own reading of the model's name",
 	}
 
 
 ## A pull line as one step of a download.
 static func _pull_step(status: String, completed: int, total: int, error: String) -> Dictionary:
-	var done: bool = error.is_empty() and (
-		status == "success" or (total != Fit.UNKNOWN and completed != Fit.UNKNOWN and completed >= total)
+	var done: bool = (
+		error.is_empty()
+		and (status == "success" or (total != Fit.UNKNOWN and completed != Fit.UNKNOWN and completed >= total))
 	)
 	return {
 		"ok": error.is_empty(),
@@ -322,9 +318,7 @@ static func _pull_words(status: String, completed: int, total: int, error: Strin
 		return error
 	if status == "success":
 		return "the model is fetched and ready to use"
-	var counted: bool = (
-		total != Fit.UNKNOWN and total > 0 and completed != Fit.UNKNOWN and completed >= 0
-	)
+	var counted: bool = (total != Fit.UNKNOWN and total > 0 and completed != Fit.UNKNOWN and completed >= 0)
 	if counted:
 		var percent: int = int(float(completed) / float(total) * 100.0)
 		return "%s: %s of %s, %d%%" % [
@@ -351,13 +345,13 @@ static func _reading_summary(clean: String, models: Array[Dictionary]) -> String
 	var vision: Array[String] = _ids_where(true, models)
 	var text: Array[String] = _ids_where(false, models)
 	if vision.is_empty():
-		return "at %s there are %d models and not one of them can look at a photograph" % [
-			clean, models.size(),
-		]
+		return "at %s there are %d models and not one of them can look at a photograph" % [clean, models.size()]
 	if text.is_empty():
 		return "at %s, %s can look at a photograph" % [clean, ", ".join(vision)]
 	return "at %s, %s can look at a photograph, and %d more can only read text" % [
-		clean, ", ".join(vision), text.size(),
+		clean,
+		", ".join(vision),
+		text.size(),
 	]
 
 
@@ -375,9 +369,7 @@ static func _reached(sent: Dictionary) -> bool:
 ## half that can say which: a connection that was never made is a server that is not running, and the
 ## sentence names the address rather than reporting a slow machine.
 static func _nothing_listening(clean: String, sent: Dictionary) -> String:
-	return "%s could not be asked: %s" % [
-		clean, String(sent.get("why", "the connection was never made")),
-	]
+	return "%s could not be asked: %s" % [clean, String(sent.get("why", "the connection was never made"))]
 
 
 ## Why an address answered without anything this program could read as a list of models.
@@ -399,7 +391,7 @@ static func _one_reason(clean: String, sent: Dictionary, what: String) -> String
 ## One request, answered by the transport a caller handed over or by this subsystem's own sender.
 static func _ask(request: Dictionary, transport: Callable) -> Dictionary:
 	if not bool(request.get("ok", false)):
-		return {"status": 0, "body": "", "why": String(request.get("reason", ""))}
+		return { "status": 0, "body": "", "why": String(request.get("reason", "")) }
 	if transport.is_valid():
 		return transport.call(request)
 	return Identifier.send_http(request, PROBE_SECONDS)
@@ -419,9 +411,16 @@ static func _get_request(url: String, what: String) -> Dictionary:
 	var address: Dictionary = Llm.split_url(url)
 	if not bool(address["ok"]):
 		return {
-			"ok": false, "reason": String(address["reason"]), "url": url, "tls": false,
-			"host": "", "port": 0, "path": "", "method": HTTPClient.METHOD_GET,
-			"headers": [] as Array, "body": "",
+			"ok": false,
+			"reason": String(address["reason"]),
+			"url": url,
+			"tls": false,
+			"host": "",
+			"port": 0,
+			"path": "",
+			"method": HTTPClient.METHOD_GET,
+			"headers": [] as Array,
+			"body": "",
 		}
 	return {
 		"ok": true,

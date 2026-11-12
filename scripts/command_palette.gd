@@ -25,6 +25,8 @@ extends Window
 
 ## The palette was closed, by Escape, by its own button, or by its own frame.
 signal closed()
+
+
 func _on_close_requested() -> void:
 	hide()
 	closed.emit()
@@ -59,6 +61,8 @@ func open() -> void:
 		_search.grab_focus()
 ## A row was chosen. The row is carried whole, because the method it names and the entry that
 ## describes it are what runs it: the palette knows nothing about what any command does.
+
+
 signal chosen(row: Dictionary)
 
 ## Big enough for a command and the reason it cannot run, and a list long enough to be worth
@@ -95,7 +99,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _list == null:
 		build()
-
 
 # --- building ----------------------------------------------------------------------------------
 
@@ -167,7 +170,6 @@ func build() -> void:
 	# built by hand and never filled has no bar behind it, and two empty labels would look like a
 	# palette that had failed.
 	_apply_filter()
-
 
 # --- what it is showing ------------------------------------------------------------------------
 
@@ -280,7 +282,7 @@ func shown_id(row: int) -> String:
 ## The whole row a shown row stands for.
 func shown_row(row: int) -> Dictionary:
 	if _list == null or row < 0 or row >= _list.item_count:
-		return {}
+		return { }
 	return _rows[int(_list.get_item_metadata(row))]
 
 
@@ -305,7 +307,6 @@ func said() -> String:
 func status_text() -> String:
 	return said()
 
-
 # --- the controls themselves, for a test that has to read them ---------------------------------
 
 
@@ -318,9 +319,7 @@ func commands_list() -> ItemList:
 func search_field() -> LineEdit:
 	return _search
 
-
 # --- showing it --------------------------------------------------------------------------------
-
 
 
 func close_palette() -> void:
@@ -328,7 +327,6 @@ func close_palette() -> void:
 		return
 	hide()
 	closed.emit()
-
 
 # --- the work ----------------------------------------------------------------------------------
 
@@ -382,7 +380,7 @@ func _recents_first(rows: Array[int]) -> Array[int]:
 ## are both in it.
 func _earlier_recent(a: int, b: int) -> bool:
 	return _recents.find(String(_rows[a].get("id", ""))) \
-		< _recents.find(String(_rows[b].get("id", "")))
+			< _recents.find(String(_rows[b].get("id", "")))
 
 
 ## What one row says: what it is called, the key that also does it, and the menu it lives under. A
@@ -421,8 +419,7 @@ func _describe_shown(query: String) -> String:
 		if _recents.is_empty():
 			return "%d commands. Type to narrow them, Enter to run the chosen one." % _shown.size()
 		# Said out loud, because an order a person did not ask for is a thing they will look at twice.
-		return ("%d commands, the ones you ran last first. Type to narrow them, Enter to run the "
-			+ "chosen one.") % _shown.size()
+		return ("%d commands, the ones you ran last first. Type to narrow them, Enter to run the " + "chosen one.") % _shown.size()
 	return "%d of %d commands mention %s." % [_shown.size(), _rows.size(), _quoted(query)]
 
 
@@ -442,7 +439,6 @@ func _choose(row: int) -> void:
 		return
 	chosen.emit(picked)
 	close_palette()
-
 
 # --- the search -------------------------------------------------------------------------------
 
@@ -485,7 +481,6 @@ static func find_in(among: Array[Dictionary], query: String) -> Array[int]:
 
 static func _quoted(words: String) -> String:
 	return "\"%s\"" % words.strip_edges()
-
 
 # --- what it does -----------------------------------------------------------------------------
 
@@ -552,5 +547,3 @@ func _on_search_gui_input(event: InputEvent) -> void:
 		KEY_UP:
 			_move_selection(-1)
 			_search.accept_event()
-
-

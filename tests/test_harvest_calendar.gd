@@ -29,11 +29,10 @@ func _boxwood() -> PlantSpecies:
 func _catalogue() -> PlantCatalogue:
 	var catalogue: PlantCatalogue = CatalogueScript.make()
 	catalogue.add(_boxwood())
-	catalogue.add(_crop(&"basil", "Basil", [6, 7], SpeciesScript.EAT_LEAF))       # June-July
-	catalogue.add(_crop(&"kale", "Kale", [11, 12, 1, 2, 3], SpeciesScript.EAT_LEAF))  # Nov-March
-	catalogue.add(_crop(&"beet", "Beetroot", [6], SpeciesScript.EAT_ROOT))        # June only
+	catalogue.add(_crop(&"basil", "Basil", [6, 7], SpeciesScript.EAT_LEAF)) # June-July
+	catalogue.add(_crop(&"kale", "Kale", [11, 12, 1, 2, 3], SpeciesScript.EAT_LEAF)) # Nov-March
+	catalogue.add(_crop(&"beet", "Beetroot", [6], SpeciesScript.EAT_ROOT)) # June only
 	return catalogue
-
 
 # --- months -------------------------------------------------------------------------------
 
@@ -46,7 +45,6 @@ func test_a_month_reads_the_way_a_person_says_it() -> void:
 	assert(CalendarScript.month_name(13) == "", "nor is thirteen")
 	assert(CalendarScript.is_month(1) and CalendarScript.is_month(12))
 	assert(not CalendarScript.is_month(0) and not CalendarScript.is_month(13))
-
 
 # --- what is ready ------------------------------------------------------------------------
 
@@ -88,7 +86,6 @@ func test_the_row_line_is_the_rows_own_label() -> void:
 	var rows: Array[Dictionary] = CalendarScript.rows(_catalogue(), 6)
 	assert(String(rows[0]["window"]) == "June-July", String(rows[0]["window"]))
 
-
 # --- the year -----------------------------------------------------------------------------
 
 
@@ -120,14 +117,14 @@ func test_the_ready_span_words_the_run_the_way_a_bloom_is_worded() -> void:
 	assert(span["months"] == [1, 2, 3, 6, 7, 11, 12], str(span["months"]))
 	assert(
 		SpeciesScript.months_run_text(int(span["bits"])) == "June-July, November-March",
-		SpeciesScript.months_run_text(int(span["bits"]))
+		SpeciesScript.months_run_text(int(span["bits"])),
 	)
 	assert(int(CalendarScript.ready_span(CatalogueScript.make())["first"]) == 0, "nothing ready, no span")
 
 
 func test_a_crop_with_no_window_is_counted_apart_rather_than_unsuitable() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
-	var mint: PlantSpecies = _crop(&"mint", "Mint", [])   # edible, but no months
+	var mint: PlantSpecies = _crop(&"mint", "Mint", []) # edible, but no months
 	catalogue.add(mint)
 	var missing: Array[PlantSpecies] = CalendarScript.unstated(catalogue)
 	assert(missing.size() == 1, "one crop says nothing: %d" % missing.size())
@@ -139,7 +136,7 @@ func test_a_crop_with_no_window_is_counted_apart_rather_than_unsuitable() -> voi
 	assert(line.contains("Mint"), line)
 	assert(
 		CalendarScript.unstated_line(_catalogue()) == "",
-		"and a list where every crop has a window has nothing to admit"
+		"and a list where every crop has a window has nothing to admit",
 	)
 
 
@@ -157,7 +154,6 @@ func test_the_year_reads_as_one_sentence_and_says_what_it_is_missing() -> void:
 	assert(CalendarScript.year_text(undated) == CalendarScript.NONE_RECORDED, CalendarScript.year_text(undated))
 	assert(CalendarScript.year_text(null) == CalendarScript.NO_FOOD)
 
-
 # --- saying it ----------------------------------------------------------------------------
 
 
@@ -166,7 +162,7 @@ func test_a_month_with_nothing_ready_says_so_rather_than_failing() -> void:
 	assert(line == "nothing is recorded as ready in April.", line)
 	assert(
 		CalendarScript.describe_rows(CalendarScript.rows(_catalogue(), 6), 6) == "2 crops ready in June.",
-		CalendarScript.describe_rows(CalendarScript.rows(_catalogue(), 6), 6)
+		CalendarScript.describe_rows(CalendarScript.rows(_catalogue(), 6), 6),
 	)
 	assert(CalendarScript.describe_rows([], 0) == "no month was chosen")
 

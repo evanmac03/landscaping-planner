@@ -10,7 +10,7 @@ const OsmFile := preload("res://scripts/draft/osm_file.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 
 ## The site: a real latitude and longitude, so the degree lengths are the ones a real site gets.
-const CENTRE := {"latitude": 43.7, "longitude": -79.4}
+const CENTRE := { "latitude": 43.7, "longitude": -79.4 }
 
 
 func _map(elements: Array = []) -> String:
@@ -19,37 +19,44 @@ func _map(elements: Array = []) -> String:
 		listed = [
 			# A house: a closed way, with the first point repeated at the end as Overpass writes it.
 			{
-				"type": "way", "id": 1, "tags": {"building": "house"},
+				"type": "way",
+				"id": 1,
+				"tags": { "building": "house" },
 				"geometry": [
-					{"lat": 43.70020, "lon": -79.39970},
-					{"lat": 43.70020, "lon": -79.39940},
-					{"lat": 43.70000, "lon": -79.39940},
-					{"lat": 43.70000, "lon": -79.39970},
-					{"lat": 43.70020, "lon": -79.39970},
+					{ "lat": 43.70020, "lon": -79.39970 },
+					{ "lat": 43.70020, "lon": -79.39940 },
+					{ "lat": 43.70000, "lon": -79.39940 },
+					{ "lat": 43.70000, "lon": -79.39970 },
+					{ "lat": 43.70020, "lon": -79.39970 },
 				],
 			},
 			# A street: an open way through the site.
 			{
-				"type": "way", "id": 2, "tags": {"highway": "residential"},
+				"type": "way",
+				"id": 2,
+				"tags": { "highway": "residential" },
 				"geometry": [
-					{"lat": 43.69980, "lon": -79.40030},
-					{"lat": 43.70000, "lon": -79.40000},
-					{"lat": 43.70020, "lon": -79.39980},
+					{ "lat": 43.69980, "lon": -79.40030 },
+					{ "lat": 43.70000, "lon": -79.40000 },
+					{ "lat": 43.70020, "lon": -79.39980 },
 				],
 			},
-			{"type": "node", "id": 3, "lat": 43.70010, "lon": -79.39990, "tags": {"natural": "tree"}},
+			{ "type": "node", "id": 3, "lat": 43.70010, "lon": -79.39990, "tags": { "natural": "tree" } },
 			{
-				"type": "node", "id": 4, "lat": 43.70005, "lon": -79.39995,
-				"tags": {"amenity": "cafe", "name": "The Cafe"},
+				"type": "node",
+				"id": 4,
+				"lat": 43.70005,
+				"lon": -79.39995,
+				"tags": { "amenity": "cafe", "name": "The Cafe" },
 			},
-			{"type": "relation", "id": 5, "tags": {"type": "multipolygon", "building": "yes"}, "members": []},
-			{"type": "node", "id": 6, "lat": 43.70003, "lon": -79.39993},
+			{ "type": "relation", "id": 5, "tags": { "type": "multipolygon", "building": "yes" }, "members": [] },
+			{ "type": "node", "id": 6, "lat": 43.70003, "lon": -79.39993 },
 		]
-	return JSON.stringify({"version": 0.6, "generator": "Overpass API 0.7.62", "elements": listed})
+	return JSON.stringify({ "version": 0.6, "generator": "Overpass API 0.7.62", "elements": listed })
 
 
-func _read(options: Dictionary = {}) -> Dictionary:
-	var merged := {"centre": CENTRE}
+func _read(options: Dictionary = { }) -> Dictionary:
+	var merged := { "centre": CENTRE }
 	merged.merge(options, true)
 	return OsmFile.read_text(_map(), merged)
 
@@ -60,7 +67,6 @@ func _of(plan: Dictionary, feature: String) -> Array:
 		if String(shape["feature"]) == feature:
 			out.append(shape)
 	return out
-
 
 # --- the projection -------------------------------------------------------------------
 
@@ -84,7 +90,10 @@ func test_a_place_north_of_the_site_lands_at_a_negative_y() -> void:
 	var north := OsmFile.to_model(43.701, -79.4, CENTRE)
 	assert(is_zero_approx(north.x), "a hundredth of a degree due north is due north")
 	assert(north.y < 0.0, "and north is up the page, so -Y: %f" % north.y)
-	assert(absf(absf(north.y) - OsmFile.metres_per_degree_latitude(43.7) * 0.001) < 0.01, "by one thousandth of a degree")
+	assert(
+		absf(absf(north.y) - OsmFile.metres_per_degree_latitude(43.7) * 0.001) < 0.01,
+		"by one thousandth of a degree",
+	)
 
 
 func test_a_place_east_of_the_site_lands_at_a_positive_x() -> void:
@@ -100,47 +109,45 @@ func test_the_centre_itself_is_the_origin_of_the_drawing() -> void:
 
 func test_a_place_is_worded_the_way_a_person_writes_one() -> void:
 	assert(OsmFile.place_words(CENTRE) == "43.7000°N 79.4000°W", OsmFile.place_words(CENTRE))
-	assert(OsmFile.place_words({"latitude": -33.5, "longitude": 151.2}) == "33.5000°S 151.2000°E")
-
+	assert(OsmFile.place_words({ "latitude": -33.5, "longitude": 151.2 }) == "33.5000°S 151.2000°E")
 
 # --- what the tags mean ---------------------------------------------------------------
 
 
 func test_a_house_a_street_a_path_a_river_and_a_pond_are_told_apart_by_their_tags() -> void:
-	var building := OsmFile.feature_for({"building": "house"})
+	var building := OsmFile.feature_for({ "building": "house" })
 	assert(String(building["kind"]) == "building")
 	assert(bool(building["area"]), "a house is a footprint")
-	var street := OsmFile.feature_for({"highway": "residential"})
+	var street := OsmFile.feature_for({ "highway": "residential" })
 	assert(String(street["kind"]) == "road")
 	assert(not bool(street["area"]), "a street is a line")
-	assert(String(OsmFile.feature_for({"highway": "footway"})["kind"]) == "path")
-	assert(String(OsmFile.feature_for({"highway": "steps"})["kind"]) == "path")
-	var stream := OsmFile.feature_for({"waterway": "stream"})
+	assert(String(OsmFile.feature_for({ "highway": "footway" })["kind"]) == "path")
+	assert(String(OsmFile.feature_for({ "highway": "steps" })["kind"]) == "path")
+	var stream := OsmFile.feature_for({ "waterway": "stream" })
 	assert(String(stream["kind"]) == "water")
 	assert(not bool(stream["area"]), "a stream is a line")
-	var pond := OsmFile.feature_for({"natural": "water"})
+	var pond := OsmFile.feature_for({ "natural": "water" })
 	assert(String(pond["kind"]) == "water")
 	assert(bool(pond["area"]), "a pond is a ring")
 
 
 func test_a_tree_and_a_wood_are_planting_and_a_fence_is_hardscape() -> void:
-	assert(String(OsmFile.feature_for({"natural": "tree"})["kind"]) == "tree")
-	assert(String(OsmFile.feature_for({"natural": "wood"})["kind"]) == "wood")
-	assert(bool(OsmFile.feature_for({"landuse": "forest"})["area"]), "a forest is a region")
-	assert(String(OsmFile.feature_for({"barrier": "fence"})["kind"]) == "wall")
-	assert(String(OsmFile.feature_for({"wall": "no"})["kind"]) == "wall")
+	assert(String(OsmFile.feature_for({ "natural": "tree" })["kind"]) == "tree")
+	assert(String(OsmFile.feature_for({ "natural": "wood" })["kind"]) == "wood")
+	assert(bool(OsmFile.feature_for({ "landuse": "forest" })["area"]), "a forest is a region")
+	assert(String(OsmFile.feature_for({ "barrier": "fence" })["kind"]) == "wall")
+	assert(String(OsmFile.feature_for({ "wall": "no" })["kind"]) == "wall")
 
 
 func test_the_thing_an_element_is_wins_over_what_else_it_is_called() -> void:
 	# A building with a name is a building, not a label: the order of the table is the decision.
-	var named_house := OsmFile.feature_for({"building": "yes", "amenity": "school", "name": "P.S. 1"})
+	var named_house := OsmFile.feature_for({ "building": "yes", "amenity": "school", "name": "P.S. 1" })
 	assert(String(named_house["kind"]) == "building", String(named_house["kind"]))
 
 
 func test_tags_nothing_here_draws_are_not_a_feature() -> void:
-	assert(String(OsmFile.feature_for({"name": "Somewhere"})["kind"]).is_empty())
-	assert(String(OsmFile.feature_for({"type": "multipolygon"})["kind"]).is_empty())
-
+	assert(String(OsmFile.feature_for({ "name": "Somewhere" })["kind"]).is_empty())
+	assert(String(OsmFile.feature_for({ "type": "multipolygon" })["kind"]).is_empty())
 
 # --- reading a real extract -----------------------------------------------------------
 
@@ -154,7 +161,10 @@ func test_a_house_comes_in_as_a_closed_footprint() -> void:
 	assert(String(shape["kind"]) == "LWPOLYLINE")
 	assert(bool(shape["closed"]), "a house is a ring")
 	# Four corners, not five: Overpass repeats the first point and the repeat is where it closes.
-	assert((shape["points"] as PackedVector2Array).size() == 4, "four corners: %d" % (shape["points"] as PackedVector2Array).size())
+	assert(
+		(shape["points"] as PackedVector2Array).size() == 4,
+		"four corners: %d" % (shape["points"] as PackedVector2Array).size(),
+	)
 
 
 func test_a_street_comes_in_as_a_line_that_does_not_close() -> void:
@@ -212,7 +222,7 @@ func test_the_extract_lands_on_the_layer_that_does_not_plot() -> void:
 func test_nothing_reaches_the_sheet_even_when_the_map_is_kept() -> void:
 	# The kept mode is the same data read as existing conditions. The layers it names are the
 	# existing-conditions band, which *does* plot - that is the difference between the two modes.
-	var plan := _read({"underlay": false})
+	var plan := _read({ "underlay": false })
 	assert(not bool(plan["underlay"]))
 	var house: Dictionary = _of(plan, "building")[0]
 	assert(StringName(house["layer"]) == LayerSet.EXISTING_STRUCTURE, String(house["layer"]))
@@ -227,7 +237,6 @@ func test_a_map_read_from_a_saved_file_says_which_file_it_was() -> void:
 	plan["source"] = "site.json"
 	assert(String(plan["source"]) == "site.json")
 
-
 # --- the size of the ask --------------------------------------------------------------
 
 
@@ -235,10 +244,10 @@ func test_a_feature_reaching_past_the_area_that_was_asked_for_is_left_out() -> v
 	# The house and the street reach about thirty metres from the centre, so they are inside a
 	# hundred-metre extract and outside a ten-metre one. Overpass answers with a whole way if any part
 	# of it is in range, so without this a park boundary comes in whole.
-	var small := _read({"radius": 10.0})
+	var small := _read({ "radius": 10.0 })
 	assert(int(small["outlying"]) == 2, "the house and the street: %d" % int(small["outlying"]))
 	assert((small["shapes"] as Array).size() == 2, "the tree and the cafe are inside it")
-	var large := _read({"radius": 120.0})
+	var large := _read({ "radius": 120.0 })
 	assert(int(large["outlying"]) == 0, "nothing reaches past a hundred and twenty metres")
 	assert((large["shapes"] as Array).size() == 4, "and everything comes in")
 
@@ -247,33 +256,33 @@ func test_a_way_the_response_was_not_asked_to_geometrise_is_named_rather_than_dr
 	# `out` without `geom` answers a way with node ids and no points. That is a different file, and the
 	# reader says so rather than silently placing nothing.
 	var plan := OsmFile.read_text(
-		JSON.stringify({"elements": [
-			{"type": "way", "id": 9, "tags": {"building": "yes"}, "nodes": [1, 2, 3]},
-		]}),
-		{"centre": CENTRE}
+		JSON.stringify({ "elements": [{ "type": "way", "id": 9, "tags": { "building": "yes" }, "nodes": [1, 2, 3] }] }),
+		{ "centre": CENTRE },
 	)
 	assert(bool(plan["ok"]), String(plan["reason"]))
 	assert((plan["shapes"] as Array).is_empty())
-	assert(int((plan["skipped"] as Dictionary).get("a way with no geometry: the response was not asked for `out geom`", 0)) == 1)
-
+	assert(
+		int((plan["skipped"] as Dictionary).get("a way with no geometry: the response was not asked for `out geom`", 0))
+		== 1
+	)
 
 # --- what is refused ------------------------------------------------------------------
 
 
 func test_an_empty_map_is_refused() -> void:
-	var plan := OsmFile.read_text("", {"centre": CENTRE})
+	var plan := OsmFile.read_text("", { "centre": CENTRE })
 	assert(not bool(plan["ok"]))
 	assert(String(plan["reason"]) == "the map is empty")
 
 
 func test_that_which_is_not_json_is_refused_in_words() -> void:
-	var plan := OsmFile.read_text("<osm><node/></osm>", {"centre": CENTRE})
+	var plan := OsmFile.read_text("<osm><node/></osm>", { "centre": CENTRE })
 	assert(not bool(plan["ok"]))
 	assert(String(plan["reason"]).contains("not JSON"), String(plan["reason"]))
 
 
 func test_json_that_is_not_a_map_is_refused_in_words() -> void:
-	var plan := OsmFile.read_text('{"hello": "world"}', {"centre": CENTRE})
+	var plan := OsmFile.read_text('{"hello": "world"}', { "centre": CENTRE })
 	assert(not bool(plan["ok"]))
 	assert(String(plan["reason"]).contains("no elements array"), String(plan["reason"]))
 
@@ -281,16 +290,15 @@ func test_json_that_is_not_a_map_is_refused_in_words() -> void:
 func test_a_map_with_no_centre_is_refused_rather_than_placed_at_a_guess() -> void:
 	# The projection has no meaning without a centre, and a default latitude would be a confident map
 	# of somewhere else. It is the one question this reader will not answer for itself.
-	var plan := OsmFile.read_text(_map(), {})
+	var plan := OsmFile.read_text(_map(), { })
 	assert(not bool(plan["ok"]))
 	assert(String(plan["reason"]).contains("where the drawing's origin is"), String(plan["reason"]))
 
 
 func test_a_file_that_is_not_there_is_refused_rather_than_raising() -> void:
-	var plan := OsmFile.of_file("user://no-such-map.json", {"centre": CENTRE})
+	var plan := OsmFile.of_file("user://no-such-map.json", { "centre": CENTRE })
 	assert(not bool(plan["ok"]))
 	assert(String(plan["reason"]).contains("no file called"), String(plan["reason"]))
-
 
 # --- saying what was read -------------------------------------------------------------
 
@@ -316,4 +324,4 @@ func test_a_refused_map_reads_as_its_reason() -> void:
 func test_is_usable_is_about_having_something_to_draw() -> void:
 	assert(OsmFile.is_usable(_read()))
 	assert(not OsmFile.is_usable(OsmFile.refused("no")))
-	assert(not OsmFile.is_usable(_read({"radius": 1.0})), "a map with nothing in it is not usable")
+	assert(not OsmFile.is_usable(_read({ "radius": 1.0 })), "a map with nothing in it is not usable")

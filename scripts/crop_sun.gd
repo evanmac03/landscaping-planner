@@ -57,7 +57,6 @@ const LEVEL_HOURS := {
 	PlantSpeciesScript.FULL_SHADE: Vector2(0.0, 3.0),
 }
 
-
 # --- the bands ----------------------------------------------------------------------------
 
 
@@ -79,7 +78,6 @@ static func band_text(level: int) -> String:
 			return "under 3 hours"
 	return ""
 
-
 # --- the site's own ceiling ---------------------------------------------------------------
 
 
@@ -99,7 +97,7 @@ static func daylight_hours(site: Dictionary, day_of_year: int) -> float:
 ## Returns `{day_of_year, hours}`, or `{day_of_year: 0, hours: 0.0}` for a site nobody stated.
 static func longest_day(site: Dictionary) -> Dictionary:
 	if site.is_empty():
-		return {"day_of_year": 0, "hours": 0.0}
+		return { "day_of_year": 0, "hours": 0.0 }
 	var best_day: int = SunReportScript.JUNE_SOLSTICE
 	var best_hours: float = -1.0
 	for day: int in [SunReportScript.JUNE_SOLSTICE, SunReportScript.DECEMBER_SOLSTICE]:
@@ -107,7 +105,7 @@ static func longest_day(site: Dictionary) -> Dictionary:
 		if hours > best_hours:
 			best_hours = hours
 			best_day = day
-	return {"day_of_year": best_day, "hours": best_hours}
+	return { "day_of_year": best_day, "hours": best_hours }
 
 
 ## The site's ceiling in one line, for a page: "the longest day is 21 June, with 15.4 hours of
@@ -117,9 +115,9 @@ static func season_line(site: Dictionary) -> String:
 		return ""
 	var longest: Dictionary = longest_day(site)
 	return "the longest day is %s, with %.1f hours of daylight" % [
-		SunReportScript.day_words(int(longest["day_of_year"])), float(longest["hours"]),
+		SunReportScript.day_words(int(longest["day_of_year"])),
+		float(longest["hours"]),
 	]
-
 
 # --- the check ----------------------------------------------------------------------------
 
@@ -135,7 +133,10 @@ static func season_line(site: Dictionary) -> String:
 ## the crop's own requirement missing means there is nothing to check and the verdict is unknown with
 ## no findings, and a site nobody stated skips the season without turning it grey.
 static func check(
-	crop: PlantSpecies, profile: TerrainProfile, site: Dictionary = {}, place: String = "this spot"
+	crop: PlantSpecies,
+	profile: TerrainProfile,
+	site: Dictionary = { },
+	place: String = "this spot",
 ) -> Dictionary:
 	var findings: Array[Dictionary] = []
 	if crop == null:
@@ -164,57 +165,88 @@ static func check_at(crop: PlantSpecies, zone_map: ZoneMap, site: Dictionary, po
 
 static func _sun_finding(crop: PlantSpecies, profile: TerrainProfile) -> Dictionary:
 	if crop == null or crop.sun_hours_tenths <= 0:
-		return {}
+		return { }
 	var wanted: String = crop.sun_hours_text()
 	if profile == null or not profile.has("sun"):
 		return _finding(
-			"sun_hours", "sun", wanted, "not stated", UNKNOWN,
-			"nothing says how much sun this spot gets", "the plan doesn't say the sun"
+			"sun_hours",
+			"sun",
+			wanted,
+			"not stated",
+			UNKNOWN,
+			"nothing says how much sun this spot gets",
+			"the plan doesn't say the sun",
 		)
 	var span: Vector2 = band(profile.sun_level())
 	var shown: String = band_text(profile.sun_level())
 	var need: float = crop.sun_hours()
 	if need <= span.x:
 		return _finding(
-			"sun_hours", "sun", wanted, shown, GOOD,
-			"it wants %s and this spot is %s" % [wanted, shown], shown
+			"sun_hours",
+			"sun",
+			wanted,
+			shown,
+			GOOD,
+			"it wants %s and this spot is %s" % [wanted, shown],
+			shown,
 		)
 	if need <= span.y:
 		return _finding(
-			"sun_hours", "sun", wanted, shown, TOLERATED,
+			"sun_hours",
+			"sun",
+			wanted,
+			shown,
+			TOLERATED,
 			"it wants %s and this spot gets %s, so it is thin" % [wanted, shown],
-			"wants %s, gets %s" % [wanted, shown]
+			"wants %s, gets %s" % [wanted, shown],
 		)
 	return _finding(
-		"sun_hours", "sun", wanted, shown, UNSUITABLE,
+		"sun_hours",
+		"sun",
+		wanted,
+		shown,
+		UNSUITABLE,
 		"it wants %s and this spot gets only %s" % [wanted, shown],
-		"wants %s, gets %s" % [wanted, shown]
+		"wants %s, gets %s" % [wanted, shown],
 	)
 
 
 static func _season_finding(crop: PlantSpecies, site: Dictionary) -> Dictionary:
 	if crop == null or crop.sun_hours_tenths <= 0 or site.is_empty():
-		return {}
+		return { }
 	var longest: Dictionary = longest_day(site)
 	var hours: float = float(longest["hours"])
 	var found: String = "%.1f hours" % hours
 	var wanted: String = crop.sun_hours_text()
 	if crop.sun_hours() > hours:
 		return _finding(
-			"season", "the season", wanted, found, UNSUITABLE,
+			"season",
+			"the season",
+			wanted,
+			found,
+			UNSUITABLE,
 			"even at midsummer this site has only %s of daylight" % found,
-			"the site has too short a day"
+			"the site has too short a day",
 		)
 	return _finding(
-		"season", "the season", wanted, found, GOOD,
+		"season",
+		"the season",
+		wanted,
+		found,
+		GOOD,
 		"the year's longest day has %s of daylight, so %s is there to be had" % [found, wanted],
-		found
+		found,
 	)
 
 
 static func _finding(
-	key: String, label: String, wanted: String, found: String, outcome: int, because: String,
-	brief: String
+	key: String,
+	label: String,
+	wanted: String,
+	found: String,
+	outcome: int,
+	because: String,
+	brief: String,
 ) -> Dictionary:
 	return {
 		"key": key,
@@ -234,7 +266,11 @@ static func _worst(findings: Array[Dictionary]) -> int:
 
 
 static func _result(
-	verdict: int, findings: Array[Dictionary], crop: PlantSpecies, place: String, profile: TerrainProfile
+	verdict: int,
+	findings: Array[Dictionary],
+	crop: PlantSpecies,
+	place: String,
+	profile: TerrainProfile,
 ) -> Dictionary:
 	var first: Dictionary = _first_not(findings, verdict)
 	var title: String = crop.display_name() if crop != null else "this crop"
@@ -258,17 +294,14 @@ static func _first_not(findings: Array[Dictionary], outcome: int) -> Dictionary:
 	for finding: Dictionary in findings:
 		if int(finding.get("outcome", GOOD)) == outcome:
 			return finding
-	return findings[0] if not findings.is_empty() else {}
-
+	return findings[0] if not findings.is_empty() else { }
 
 # --- saying it ----------------------------------------------------------------------------
 
 
 static func _summary(verdict: int, first: Dictionary, title: String, place: String) -> String:
 	if first.is_empty():
-		return "%s does not say how much sun it wants, so there is nothing to check at %s." % [
-			title, place
-		]
+		return "%s does not say how much sun it wants, so there is nothing to check at %s." % [title, place]
 	match verdict:
 		UNSUITABLE:
 			return "%s will not crop at %s: %s." % [title, place, String(first.get("because", ""))]
@@ -307,7 +340,6 @@ static func colour_from(result: Dictionary) -> Color:
 static func verdict_name(verdict: int) -> String:
 	return PlantSuitabilityScript.verdict_name(verdict)
 
-
 # --- the crops of a place -----------------------------------------------------------------
 
 
@@ -316,7 +348,12 @@ static func verdict_name(verdict: int) -> String:
 ## found}` shape, sorted by verdict and then by botanical name so the list is the same twice running.
 ##
 ## Only edible species are listed: a question about what will crop has no row for a boxwood.
-static func rows(catalogue: PlantCatalogue, profile: TerrainProfile, site: Dictionary = {}, place: String = "this spot") -> Array[Dictionary]:
+static func rows(
+	catalogue: PlantCatalogue,
+	profile: TerrainProfile,
+	site: Dictionary = { },
+	place: String = "this spot",
+) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if catalogue == null:
 		return out
@@ -324,27 +361,36 @@ static func rows(catalogue: PlantCatalogue, profile: TerrainProfile, site: Dicti
 		if not plant.is_edible():
 			continue
 		var verdict: Dictionary = check(plant, profile, site, place)
-		out.append({
-			"id": plant.id,
-			"title": plant.display_name(),
-			"needed": plant.sun_hours_text(),
-			"verdict": int(verdict["verdict"]),
-			"colour": verdict["colour"],
-			"summary": String(verdict["summary"]),
-			"label": String(verdict["label"]),
-			"found": String(verdict["band_text"]),
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["verdict"]) != int(b["verdict"]):
-			return int(a["verdict"]) < int(b["verdict"])
-		return String(a["title"]) < String(b["title"]))
+		out.append(
+			{
+				"id": plant.id,
+				"title": plant.display_name(),
+				"needed": plant.sun_hours_text(),
+				"verdict": int(verdict["verdict"]),
+				"colour": verdict["colour"],
+				"summary": String(verdict["summary"]),
+				"label": String(verdict["label"]),
+				"found": String(verdict["band_text"]),
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a["verdict"]) != int(b["verdict"]):
+				return int(a["verdict"]) < int(b["verdict"])
+			return String(a["title"]) < String(b["title"]),
+	)
 	return out
 
 
 ## Those rows as the lines a list control shows: the crop and how the place answers it. The line is
 ## the row's own `label` - which already carries what the crop wants and what it gets - rather than a
 ## format assembled here, so the list and the summary cannot say two different things.
-static func row_texts(catalogue: PlantCatalogue, profile: TerrainProfile, site: Dictionary = {}, place: String = "this spot") -> Array[String]:
+static func row_texts(
+	catalogue: PlantCatalogue,
+	profile: TerrainProfile,
+	site: Dictionary = { },
+	place: String = "this spot",
+) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in rows(catalogue, profile, site, place):
 		out.append("%s: %s" % [String(row["title"]), String(row["label"])])
@@ -353,7 +399,7 @@ static func row_texts(catalogue: PlantCatalogue, profile: TerrainProfile, site: 
 
 ## How many crops of each verdict a place has, for a summary line.
 static func counts(rows_list: Array) -> Dictionary:
-	var out: Dictionary = {GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0}
+	var out: Dictionary = { GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0 }
 	for row: Dictionary in rows_list:
 		var level: int = int(row.get("verdict", UNKNOWN))
 		out[level] = int(out[level]) + 1
@@ -377,6 +423,4 @@ static func describe_rows(rows_list: Array) -> String:
 	var unknown: int = int(held.get(UNKNOWN, 0))
 	if unknown > 0:
 		parts.append("%d cannot be checked" % unknown)
-	return "%d crop%s: %s." % [
-		rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)
-	]
+	return "%d crop%s: %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)]

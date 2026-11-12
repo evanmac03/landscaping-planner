@@ -40,8 +40,7 @@ func test_an_exact_id_is_found_as_itself() -> void:
 	var by_id: Dictionary = resolver.resolve_identification("quercus_alba")
 	assert(String(by_id["status"]) == "exact_match", "the id is an exact match")
 	assert(String(by_id["match_type"]) == "id_exact", "and it matched on the id")
-	assert(by_id["species"] != null and by_id["species"].id == &"quercus_alba",
-		"and it is the plant that id names")
+	assert(by_id["species"] != null and by_id["species"].id == &"quercus_alba", "and it is the plant that id names")
 
 	# The same id written the way a nursery label writes it - a space, a capital - still
 	# reaches the id, because a name and an id differ only by how they are spelled.
@@ -59,8 +58,10 @@ func test_a_botanical_prefix_matches() -> void:
 	var found: Dictionary = resolver.resolve_identification("acer")
 	assert(String(found["status"]) == "exact_match", "a genus prefix is an exact match")
 	assert(String(found["match_type"]) == "botanical_exact", "and it matched the botanical name")
-	assert(found["species"] != null and String(found["species"].botanical_name).begins_with("Acer"),
-		"and it is an Acer")
+	assert(
+		found["species"] != null and String(found["species"].botanical_name).begins_with("Acer"),
+		"and it is an Acer",
+	)
 
 
 ## 2b. A common name matches too, and says that is how it matched.
@@ -69,8 +70,7 @@ func test_a_common_name_matches() -> void:
 	var found: Dictionary = resolver.resolve_identification("Red Maple")
 	assert(String(found["status"]) == "exact_match", "the common name is an exact match")
 	assert(String(found["match_type"]) == "common_exact", "and it says it matched the common name")
-	assert(found["species"] != null and found["species"].id == &"acer_rubrum",
-		"and it is the Red Maple")
+	assert(found["species"] != null and found["species"].id == &"acer_rubrum", "and it is the Red Maple")
 
 
 ## 2c. `rank_of` orders the ways of matching, lower being better: an id, then a botanical
@@ -91,8 +91,7 @@ func test_the_ranking_orders_the_ways_of_matching() -> void:
 	assert(picked != null and picked.id == &"acer_saccharum", "a full common name picks the plant")
 	var fuzzy: Dictionary = resolver.resolve_identification("rubrum")
 	assert(String(fuzzy["status"]) == "fuzzy_match", "a containment is only a fuzzy match")
-	assert(fuzzy["species"] != null and fuzzy["species"].id == &"acer_rubrum",
-		"and it still names the right plant")
+	assert(fuzzy["species"] != null and fuzzy["species"].id == &"acer_rubrum", "and it still names the right plant")
 
 
 ## 3a. A plant the catalogue does not have is refused, not guessed at.

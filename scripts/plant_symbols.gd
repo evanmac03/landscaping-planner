@@ -41,9 +41,7 @@ const VINE := &"vine"
 const FERN := &"fern"
 const BED := &"bed"
 const MARKER := &"marker"
-const NAMES: Array[StringName] = [
-	CANOPY, CONIFER, SHRUB, GRASS, GROUNDCOVER, VINE, FERN, BED, MARKER,
-]
+const NAMES: Array[StringName] = [CANOPY, CONIFER, SHRUB, GRASS, GROUNDCOVER, VINE, FERN, BED, MARKER]
 
 ## How each symbol is said out loud, for a label that has to name one.
 const WORDS := {
@@ -75,7 +73,7 @@ const BLOB_STEPS := 48
 ## Figures are built on demand and kept: the plan asks for one per plant every frame, and a figure
 ## rebuilt sixty times a second is allocation for nothing. Keyed by symbol, so there is one figure per
 ## symbol however many species are drawn as it.
-static var FIGURES: Dictionary = {}
+static var FIGURES: Dictionary = { }
 
 
 ## Whether a name is one of the symbols a species can be drawn as.
@@ -184,18 +182,29 @@ static func _build(name: StringName) -> Array[Dictionary]:
 			for blade in 9:
 				var blade_angle: float = TAU * float(blade) / 9.0
 				var lean: float = 0.18 * (1.0 if blade % 2 == 0 else -1.0)
-				parts.append(_line(PackedVector2Array([
-					Vector2.ZERO,
-					Vector2(cos(blade_angle + lean), sin(blade_angle + lean)) * 0.55,
-					Vector2(cos(blade_angle), sin(blade_angle)),
-				]), false, 0.08))
+				parts.append(
+					_line(
+						PackedVector2Array(
+							[
+								Vector2.ZERO,
+								Vector2(cos(blade_angle + lean), sin(blade_angle + lean)) * 0.55,
+								Vector2(cos(blade_angle), sin(blade_angle)),
+							]
+						),
+						false,
+						0.08,
+					)
+				)
 		GROUNDCOVER:
 			var mat: PackedVector2Array = _blob(1.0, 11, 0.09)
 			parts.append(_poly(mat))
 			parts.append(_line(mat, true, 0.05))
 			for tuft: Vector2 in [
-				Vector2(0.0, 0.0), Vector2(0.5, 0.34), Vector2(-0.5, 0.34),
-				Vector2(0.5, -0.34), Vector2(-0.5, -0.34),
+				Vector2(0.0, 0.0),
+				Vector2(0.5, 0.34),
+				Vector2(-0.5, 0.34),
+				Vector2(0.5, -0.34),
+				Vector2(-0.5, -0.34),
 			]:
 				parts.append(_mark(0.12, tuft))
 		VINE:
@@ -208,18 +217,16 @@ static func _build(name: StringName) -> Array[Dictionary]:
 			for step in 26:
 				var travelled: float = float(step) / 25.0
 				var spiral_angle: float = TAU * 2.25 * travelled
-				tendril.append(
-					Vector2(cos(spiral_angle), sin(spiral_angle)) * (0.30 + 0.66 * travelled)
-				)
+				tendril.append(Vector2(cos(spiral_angle), sin(spiral_angle)) * (0.30 + 0.66 * travelled))
 			parts.append(_line(tendril, false, 0.07))
 		FERN:
 			parts.append(_disc(0.22))
 			for frond in 8:
 				var frond_angle: float = TAU * float(frond) / 8.0
 				var out := Vector2(cos(frond_angle), sin(frond_angle))
-				parts.append(_line(PackedVector2Array([
-					Vector2.ZERO, out.rotated(0.16) * 0.58, out.rotated(0.30),
-				]), false, 0.07))
+				parts.append(
+					_line(PackedVector2Array([Vector2.ZERO, out.rotated(0.16) * 0.58, out.rotated(0.30)]), false, 0.07)
+				)
 		BED:
 			# A figure fills the normalised square, and the oblongness comes from the *footprint*: the
 			# bed's prop is wider than it is deep, so the same square figure comes out as the oblong a
@@ -229,8 +236,10 @@ static func _build(name: StringName) -> Array[Dictionary]:
 			parts.append(_rect_ring(Vector2(1.0, 1.0), 0.09))
 			parts.append(_rect_ring(Vector2(0.86, 0.86), 0.04))
 			for bloom: Vector2 in [
-				Vector2(-0.60, 0.72), Vector2(-0.20, -0.72),
-				Vector2(0.20, 0.72), Vector2(0.60, -0.72),
+				Vector2(-0.60, 0.72),
+				Vector2(-0.20, -0.72),
+				Vector2(0.20, 0.72),
+				Vector2(0.60, -0.72),
 			]:
 				parts.append(_mark(0.16, bloom))
 		_:
@@ -253,28 +262,28 @@ static func _blob(radius: float, lobes: int, depth: float) -> PackedVector2Array
 
 
 static func _disc(radius: float) -> Dictionary:
-	return {"ink": INK_FILL, "kind": "disc", "c": Vector2.ZERO, "r": radius}
+	return { "ink": INK_FILL, "kind": "disc", "c": Vector2.ZERO, "r": radius }
 
 
 static func _poly(points: PackedVector2Array) -> Dictionary:
-	return {"ink": INK_FILL, "kind": "poly", "points": points}
+	return { "ink": INK_FILL, "kind": "poly", "points": points }
 
 
 static func _rect(half: Vector2) -> Dictionary:
-	return {"ink": INK_FILL, "kind": "rect", "c": Vector2.ZERO, "half": half}
+	return { "ink": INK_FILL, "kind": "rect", "c": Vector2.ZERO, "half": half }
 
 
 static func _ring(radius: float, width: float) -> Dictionary:
-	return {"ink": INK_EDGE, "kind": "disc", "c": Vector2.ZERO, "r": radius, "w": width}
+	return { "ink": INK_EDGE, "kind": "disc", "c": Vector2.ZERO, "r": radius, "w": width }
 
 
 static func _rect_ring(half: Vector2, width: float) -> Dictionary:
-	return {"ink": INK_EDGE, "kind": "rect", "c": Vector2.ZERO, "half": half, "w": width}
+	return { "ink": INK_EDGE, "kind": "rect", "c": Vector2.ZERO, "half": half, "w": width }
 
 
 static func _line(points: PackedVector2Array, closed: bool, width: float) -> Dictionary:
-	return {"ink": INK_EDGE, "kind": "line", "points": points, "closed": closed, "w": width}
+	return { "ink": INK_EDGE, "kind": "line", "points": points, "closed": closed, "w": width }
 
 
 static func _mark(radius: float, at: Vector2 = Vector2.ZERO) -> Dictionary:
-	return {"ink": INK_MARK, "kind": "disc", "c": at, "r": radius}
+	return { "ink": INK_MARK, "kind": "disc", "c": at, "r": radius }

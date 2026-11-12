@@ -42,7 +42,7 @@ const POLL_SECONDS := 1.5
 ## The file's modification time as last acted on. Zero means "nothing seen yet".
 var _last_modified: int = 0
 ## instance_id -> true, for every feature already dealt with.
-var _imported_ids: Dictionary = {}
+var _imported_ids: Dictionary = { }
 
 # Counters, so a test (or a person) can tell a poll that did work from one that did not.
 var polls: int = 0
@@ -141,7 +141,11 @@ func import_manifest() -> int:
 			continue
 		_imported_ids[key] = true
 		var placed: Dictionary = PlantPlacementScript.place(
-			catalogue, species.id, yard, _position_of(entry), _size_of(entry)
+			catalogue,
+			species.id,
+			yard,
+			_position_of(entry),
+			_size_of(entry),
 		)
 		if bool(placed["ok"]):
 			added += 1
@@ -199,8 +203,11 @@ func suitability_line() -> String:
 		parts.append("1 is in the wrong place" if wrong == 1 else "%d are in the wrong place" % wrong)
 	if unknown > 0:
 		parts.append(
-			"nothing says how the ground is" if unknown == 1
-			else "nothing says how the ground is at %d of them" % unknown
+			(
+				"nothing says how the ground is"
+				if unknown == 1
+				else "nothing says how the ground is at %d of them" % unknown
+			)
 		)
 	var said: String = "1 capture placed" if total == 1 else "%d captures placed" % total
 	if not parts.is_empty():
@@ -214,19 +221,18 @@ func suitability_line() -> String:
 ## One capture's verdict, in the shape this node reports - or nothing when nobody can be asked.
 func _verdict_of(controller_node: ViewController, species: PlantSpecies, at: Vector3) -> Dictionary:
 	if controller_node == null or species == null:
-		return {}
+		return { }
 	# The plan is (x, z): the yard is a `Vector3` and the drawing is a `Vector2`, and a survey record
 	# carries the first. This is the one place the survey side has to remember which is which.
 	var verdict: Dictionary = controller_node.spot_verdict(species, Vector2(at.x, at.z))
 	if verdict.is_empty():
-		return {}
+		return { }
 	return {
 		"species": String(verdict.get("species", "")),
 		"place": String(verdict.get("place", "")),
 		"verdict": int(verdict.get("verdict", PlantSuitabilityScript.UNKNOWN)),
 		"summary": String(verdict.get("summary", "")),
 	}
-
 
 # --- internals -------------------------------------------------------------------------
 
@@ -259,12 +265,8 @@ func _size_of(entry: Dictionary) -> Dictionary:
 	var spread_cm: int = roundi(float(entry.get("measured_spread_m", 0.0)) * 100.0)
 	var height_cm: int = roundi(float(entry.get("measured_height_m", 0.0)) * 100.0)
 	if spread_cm <= 0 and height_cm <= 0:
-		return {}
-	return {
-		"spread_cm": spread_cm,
-		"height_cm": height_cm,
-		"source": FieldCaptureScript.SIZE_STATED,
-	}
+		return { }
+	return { "spread_cm": spread_cm, "height_cm": height_cm, "source": FieldCaptureScript.SIZE_STATED }
 
 
 ## A feature's ground position. `FieldManifestExporter` writes `{x, y, z}`, and y is the
@@ -273,7 +275,5 @@ func _position_of(entry: Dictionary) -> Vector3:
 	var raw: Variant = entry.get("position", null)
 	if raw is Dictionary:
 		var point: Dictionary = raw
-		return Vector3(
-			float(point.get("x", 0.0)), float(point.get("y", 0.0)), float(point.get("z", 0.0))
-		)
+		return Vector3(float(point.get("x", 0.0)), float(point.get("y", 0.0)), float(point.get("z", 0.0)))
 	return Vector3.ZERO

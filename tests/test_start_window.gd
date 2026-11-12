@@ -23,7 +23,7 @@ func test_the_door_offers_the_two_choices_as_buttons() -> void:
 	var page: Window = _page()
 	assert(
 		page.choice_buttons() == StartScript.ids(),
-		"the buttons are the model's choices, in its order: %s" % str(page.choice_buttons())
+		"the buttons are the model's choices, in its order: %s" % str(page.choice_buttons()),
 	)
 	for id: StringName in StartScript.ids():
 		var made: Button = page.button_of(id)
@@ -37,7 +37,10 @@ func test_the_door_offers_the_two_choices_as_buttons() -> void:
 func test_pressing_a_button_takes_that_choice() -> void:
 	var page: Window = _page()
 	var taken: Array[StringName] = []
-	page.chosen.connect(func(id: StringName) -> void: taken.append(id))
+	page.chosen.connect(
+		func(id: StringName) -> void:
+			taken.append(id),
+	)
 	page.button_of(StartScript.CAMERA).pressed.emit()
 	assert(taken == [StartScript.CAMERA], "the camera was taken: %s" % str(taken))
 	page.free()
@@ -57,7 +60,11 @@ func test_the_drawing_choice_puts_the_door_away() -> void:
 func test_dismissing_the_door_puts_it_away_and_says_so_once() -> void:
 	var page: Window = _page()
 	var said: Array[bool] = []
-	page.connect(&"closed", func() -> void: said.append(true))
+	page.connect(
+		&"closed",
+		func() -> void:
+			said.append(true),
+	)
 	page.request_close()
 	assert(not page.visible, "the door is put away")
 	assert(said.size() == 1, "and it said so once: %d time(s)" % said.size())
@@ -69,7 +76,7 @@ func test_dismissing_the_door_puts_it_away_and_says_so_once() -> void:
 func test_closing_the_door_means_the_drawing_board() -> void:
 	assert(
 		StartScript.dismissed() == StartScript.DESIGN,
-		"a dismissed front door is the drawing, not a dark screen: %s" % StartScript.dismissed()
+		"a dismissed front door is the drawing, not a dark screen: %s" % StartScript.dismissed(),
 	)
 
 
@@ -78,12 +85,15 @@ func test_closing_the_door_means_the_drawing_board() -> void:
 func test_a_choice_that_is_not_on_the_door_is_refused_by_name() -> void:
 	var page: Window = _page()
 	var taken: Array[StringName] = []
-	page.chosen.connect(func(id: StringName) -> void: taken.append(id))
+	page.chosen.connect(
+		func(id: StringName) -> void:
+			taken.append(id),
+	)
 	page.choose(&"print the invoice")
 	assert(taken.is_empty(), "nothing was taken: %s" % str(taken))
 	assert(
 		page.status_text().contains("print the invoice"),
-		"and the page names what it does not have: %s" % page.status_text()
+		"and the page names what it does not have: %s" % page.status_text(),
 	)
 	page.free()
 

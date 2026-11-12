@@ -10,17 +10,14 @@ const StartScript := preload("res://scripts/start_choices.gd")
 
 ## The state every launch starts in: no file, nothing done. This is the only state the door is for.
 func test_a_drawing_nobody_has_touched_and_never_saved_is_nothing_to_open() -> void:
-	assert(
-		StartScript.should_show("", false),
-		"the door is shown when there is nothing behind it"
-	)
+	assert(StartScript.should_show("", false), "the door is shown when there is nothing behind it")
 
 
 ## A drawing that came from a file is something to come back to, and the door does not stand in front of it.
 func test_a_drawing_that_came_from_a_file_is_something_to_open() -> void:
 	assert(
 		not StartScript.should_show("user://drawings/Backyard Design.json", false),
-		"a drawing with a file is already open"
+		"a drawing with a file is already open",
 	)
 
 
@@ -62,7 +59,7 @@ func test_every_choice_says_where_it_leads() -> void:
 func test_the_screen_behind_the_door_shows_nothing_through_it() -> void:
 	assert(
 		StartScript.SCREEN.a >= 1.0,
-		"the door's screen must be opaque, or the garden shows through it: %s" % StartScript.SCREEN
+		"the door's screen must be opaque, or the garden shows through it: %s" % StartScript.SCREEN,
 	)
 
 
@@ -71,5 +68,5 @@ func test_the_screen_behind_the_door_shows_nothing_through_it() -> void:
 func test_closing_the_door_means_the_drawing_board() -> void:
 	assert(
 		StartScript.dismissed() == StartScript.DESIGN,
-		"a dismissed front door is the drawing, not nothing: %s" % StartScript.dismissed()
+		"a dismissed front door is the drawing, not nothing: %s" % StartScript.dismissed(),
 	)

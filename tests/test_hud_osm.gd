@@ -11,7 +11,7 @@ const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const OsmFile := preload("res://scripts/draft/osm_file.gd")
 
-const CENTRE := {"latitude": 43.7, "longitude": -79.4}
+const CENTRE := { "latitude": 43.7, "longitude": -79.4 }
 const SAVED := "user://osm-hud-test.json"
 
 
@@ -39,32 +39,39 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 func _write_map() -> void:
 	var file := FileAccess.open(SAVED, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"elements": [
-		{
-			"type": "way", "id": 1, "tags": {"building": "house"},
-			"geometry": [
-				{"lat": 43.7002, "lon": -79.3997}, {"lat": 43.7002, "lon": -79.3994},
-				{"lat": 43.7, "lon": -79.3994}, {"lat": 43.7002, "lon": -79.3997},
-			],
-		},
-		{"type": "node", "id": 2, "lat": 43.7001, "lon": -79.3999, "tags": {"natural": "tree"}},
-	]}))
+	file.store_string(
+		JSON.stringify(
+			{
+				"elements": [
+					{
+						"type": "way",
+						"id": 1,
+						"tags": { "building": "house" },
+						"geometry": [
+							{ "lat": 43.7002, "lon": -79.3997 },
+							{ "lat": 43.7002, "lon": -79.3994 },
+							{ "lat": 43.7, "lon": -79.3994 },
+							{ "lat": 43.7002, "lon": -79.3997 },
+						],
+					},
+					{ "type": "node", "id": 2, "lat": 43.7001, "lon": -79.3999, "tags": { "natural": "tree" } },
+				]
+			}
+		)
+	)
 	file.close()
-
 
 # --- the way in -----------------------------------------------------------------------
 
 
 func test_the_file_menu_offers_importing_a_site_map() -> void:
 	var entry: Dictionary = _entry(&"file.osm")
-	assert(
-		String(entry["label"]) == "Import a site map (OpenStreetMap)...", String(entry["label"])
-	)
+	assert(String(entry["label"]) == "Import a site map (OpenStreetMap)...", String(entry["label"]))
 	assert(StringName(entry["method"]) == &"_menu_import_osm", String(entry["method"]))
 	assert(StringName(entry["needs"]) == &"draft", "a map needs a drawing to land on")
 	var in_file := false
@@ -94,7 +101,6 @@ func test_the_map_window_is_pointed_at_the_drawings_own_site() -> void:
 	assert(hud._osm_window.fetch_enabled(), "and a place can be asked about")
 	assert(hud.osm_report_text() == "no map has been read", hud.osm_report_text())
 	_done(hud)
-
 
 # --- what the window says --------------------------------------------------------------
 
@@ -136,7 +142,6 @@ func test_a_file_that_is_not_a_map_says_so_and_cannot_be_placed() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVED))
 	_done(hud)
 
-
 # --- what confirming does --------------------------------------------------------------
 
 
@@ -157,10 +162,10 @@ func test_confirming_puts_the_map_on_the_underlay_and_closes_the_window() -> voi
 func test_a_drawing_that_is_not_there_yet_cannot_take_an_import() -> void:
 	var hud = HudScript.new()
 	hud._pending_osm = OsmFile.read_text(
-		JSON.stringify({"elements": [
-			{"type": "node", "id": 1, "lat": 43.7001, "lon": -79.4, "tags": {"natural": "tree"}},
-		]}),
-		{"centre": CENTRE}
+		JSON.stringify(
+			{ "elements": [{ "type": "node", "id": 1, "lat": 43.7001, "lon": -79.4, "tags": { "natural": "tree" } }] }
+		),
+		{ "centre": CENTRE },
 	)
 	# The reader is happy; the *drawing* is what is missing, and the page says so by refusing.
 	assert(not hud.osm_import_enabled())

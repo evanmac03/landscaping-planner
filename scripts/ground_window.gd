@@ -56,8 +56,8 @@ const SETS: Array[String] = ["sun", "moisture", "soil", "drainage", "zone"]
 
 var document: DraftDocument = null
 
-var _site_rows: Dictionary[String, Dictionary] = {}
-var _area_rows: Dictionary[String, Dictionary] = {}
+var _site_rows: Dictionary[String, Dictionary] = { }
+var _area_rows: Dictionary[String, Dictionary] = { }
 var _areas: Array[Dictionary] = []
 var _selected_key: String = ""
 var _area_list: ItemList = null
@@ -75,7 +75,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _area_list == null:
 		build()
-
 
 # --- building --------------------------------------------------------------------------------
 
@@ -99,18 +98,21 @@ func build() -> void:
 		var row: Dictionary = _attribute_row(key, "_on_site_changed")
 		_site_rows[key] = row
 		site.add_child(row["row"])
-	column.add_child(_note(
-		"A place nobody has stated is drawn grey rather than green: the plan has not said what the "
-		+ "ground is like there, and a check that guessed would be inventing a garden."
-	))
+	column.add_child(
+		_note(
+			"A place nobody has stated is drawn grey rather than green: the plan has not said what the "
+			+ "ground is like there, and a check that guessed would be inventing a garden."
+		)
+	)
 
 	column.add_child(PageChrome.separator())
 	column.add_child(_heading("Areas on the plan"))
-	column.add_child(_note(
-		"Every bed, lawn, paving and building the drawing encloses, and any ground zone you have "
-		+ "drawn by hand. State what the ground is like in the ones that are not like the rest of "
-		+ "the site."
-	))
+	column.add_child(
+		_note(
+			"Every bed, lawn, paving and building the drawing encloses, and any ground zone you have "
+			+ "drawn by hand. State what the ground is like in the ones that are not like the rest of " + "the site."
+		)
+	)
 
 	_area_list = ItemList.new()
 	_area_list.name = "Areas"
@@ -193,8 +195,7 @@ func _attribute_row(key: String, method: String) -> Dictionary:
 	row.name = "%sRow" % key.capitalize()
 	var words: Label = row.get_node(^"Caption")
 	words.custom_minimum_size = Vector2(110, 0)
-	return {"row": row, "option": option}
-
+	return { "row": row, "option": option }
 
 # --- what each dropdown offers -----------------------------------------------------------
 
@@ -262,7 +263,6 @@ static func value_at(key: String, index: int) -> Variant:
 		return TerrainProfileScript.no_value(key)
 	return values[index]
 
-
 # --- what it is showing ----------------------------------------------------------------------
 
 
@@ -323,16 +323,18 @@ static func _hand_zone_rows(drawing: DraftDocument, map: ZoneMap) -> Array[Dicti
 			continue
 		var outline: PackedVector2Array = zone.outline
 		var area: float = absf(GeomScript.polygon_area(outline))
-		out.append({
-			"entity_id": 0,
-			"layer": &"",
-			"key": source,
-			"label": "zone",
-			"name": zone.name if not zone.name.is_empty() else "zone",
-			"outline": outline,
-			"area_m2": area,
-			"area_text": ZoneMapScript.area_words(drawing, area),
-		})
+		out.append(
+			{
+				"entity_id": 0,
+				"layer": &"",
+				"key": source,
+				"label": "zone",
+				"name": zone.name if not zone.name.is_empty() else "zone",
+				"outline": outline,
+				"area_m2": area,
+				"area_text": ZoneMapScript.area_words(drawing, area),
+			}
+		)
 	return out
 
 
@@ -340,9 +342,7 @@ static func _hand_zone_rows(drawing: DraftDocument, map: ZoneMap) -> Array[Dicti
 func _fill_area_list() -> void:
 	_area_list.clear()
 	for row: Dictionary in _areas:
-		_area_list.add_item("%s   %s   %s" % [
-			String(row["name"]), ZoneMapScript.row_area_text(row), _area_note(row)
-		])
+		_area_list.add_item("%s   %s   %s" % [String(row["name"]), ZoneMapScript.row_area_text(row), _area_note(row)])
 		_area_list.set_item_metadata(_area_list.item_count - 1, String(row["key"]))
 
 
@@ -374,9 +374,9 @@ func _area_detail(row: Dictionary) -> String:
 	if effect.is_empty():
 		parts.append("and nothing is known about the ground here yet")
 	else:
-		parts.append("so the ground here is %s (%s)" % [
-			effect.describe(), _source_words(String(row.get("source", "")))
-		])
+		parts.append(
+			"so the ground here is %s (%s)" % [effect.describe(), _source_words(String(row.get("source", "")))]
+		)
 	return "|  ".join(parts)
 
 
@@ -402,16 +402,14 @@ func _describe_state(map: ZoneMap) -> String:
 		return "Nothing is stated about the ground yet, so every plant is drawn grey. State the site's conditions above, state an area, or read what the drawing already implies."
 	if _areas.is_empty():
 		return "%s. Nothing on the plan encloses ground yet." % map.describe()
-	return "%s. %d area%s stated by hand." % [
-		map.describe(), areas, "" if areas == 1 else "s"
-	]
+	return "%s. %d area%s stated by hand." % [map.describe(), areas, "" if areas == 1 else "s"]
 
 
 func _selected_area() -> Dictionary:
 	for row: Dictionary in _areas:
 		if String(row["key"]) == _selected_key:
 			return row
-	return {}
+	return { }
 
 
 func _show_area(key: String) -> void:
@@ -464,7 +462,6 @@ func selected_key() -> String:
 
 func area_count() -> int:
 	return _areas.size()
-
 
 # --- what it does ------------------------------------------------------------------------------
 
@@ -540,8 +537,7 @@ func _on_state_area() -> void:
 	var choice: TerrainProfile = area_choice()
 	if choice.is_empty():
 		_set_status(
-			"%s states nothing yet: choose one of the conditions above, or take the area back."
-			% String(row["name"])
+			"%s states nothing yet: choose one of the conditions above, or take the area back." % String(row["name"])
 		)
 		return
 	_state_choice(row, choice)
@@ -552,9 +548,7 @@ func _on_state_area() -> void:
 ## Put a statement on one area. One undo step, through the document, like everything else here.
 func _state_choice(row: Dictionary, choice: TerrainProfile) -> bool:
 	var map: ZoneMap = document.environment.copy()
-	map.state_zone(
-		String(row["key"]), String(row["name"]), row["outline"] as PackedVector2Array, choice
-	)
+	map.state_zone(String(row["key"]), String(row["name"]), row["outline"] as PackedVector2Array, choice)
 	if not document.set_environment(map):
 		return false
 	ground_changed.emit()
@@ -616,7 +610,6 @@ func _on_area_selected(index: int) -> void:
 func _on_close_requested() -> void:
 	hide()
 	closed.emit()
-
 
 # --- what a test needs, without a window on screen ---------------------------------------------
 

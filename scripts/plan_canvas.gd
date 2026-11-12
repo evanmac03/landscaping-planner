@@ -26,7 +26,7 @@ const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 ## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
 ## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
 ## so the disk is not asked for it again either.
-var _underlay_textures: Dictionary[String, Texture2D] = {}
+var _underlay_textures: Dictionary[String, Texture2D] = { }
 
 ## The shapes a selection band caught, by id, handed over by the drafting controller.
 var _selected: Array[int] = []
@@ -100,16 +100,16 @@ var site_shown: bool = true
 ## millimetres, so they only become pixels once a sheet scale is chosen.
 var display_scale: float = 100.0
 ## The shape being drawn, ghosted: {"entity": …, "layer": …}.
-var ghost: Dictionary = {}
+var ghost: Dictionary = { }
 ## Where the plant being placed would go, and what the plan's own conditions say about that spot:
 ## `{point, radius, colour, label, verdict, species}`. Empty when nothing is being planted.
 ##
 ## The colour is the whole feature - green where the plant suits the ground, red where it does not -
 ## and it is computed by the ViewController, which is where the species, the document and the cursor
 ## already are. This node is told a point, a size and a colour, and draws them.
-var plant_ghost: Dictionary = {}
+var plant_ghost: Dictionary = { }
 ## Where the cursor snapped to, from the drafting controller.
-var snap: Dictionary = {}
+var snap: Dictionary = { }
 ## What the drawing says about itself, drawn on the plan itself: a length being typed, and the last thing
 ## the drawing said. What the tool in hand is *waiting for* is not here - that line, with the keys that
 ## answer it, is at the foot of the screen, because the palette panel sits over this corner of the plan.
@@ -142,11 +142,12 @@ func rebind(yard: Node3D) -> void:
 	# Big shapes first, so small ones sit on top of them the way a plan drawing
 	# layers its elements.
 	_context.sort_custom(
-		func(a: Dictionary, b: Dictionary) -> bool: return a["extent"] > b["extent"]
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return a["extent"] > b["extent"],
 	)
 	_placeables.sort_custom(
 		func(a: Node3D, b: Node3D) -> bool:
-			return PlanStyle.footprint_radius(a) > PlanStyle.footprint_radius(b)
+			return PlanStyle.footprint_radius(a) > PlanStyle.footprint_radius(b),
 	)
 	queue_redraw()
 
@@ -184,7 +185,6 @@ func world_to_screen(world: Vector3) -> Vector2:
 ## Screen pixels to world XZ.
 func screen_to_world(screen: Vector2) -> Vector2:
 	return (screen - position) / pixels_per_metre
-
 
 # --- construction -----------------------------------------------------------------
 
@@ -229,14 +229,15 @@ func _add_mesh(mesh_instance: MeshInstance3D) -> void:
 	var size: Vector2 = high - low
 	if size.x <= 0.001 or size.y <= 0.001:
 		return
-	_context.append({
-		"centre": (low + high) * 0.5,
-		"size": size,
-		"round": mesh_instance.mesh is CylinderMesh or mesh_instance.mesh is SphereMesh,
-		"colour": PlanStyle.colour_for(mesh_instance),
-		"extent": maxf(size.x, size.y),
-	})
-
+	_context.append(
+		{
+			"centre": (low + high) * 0.5,
+			"size": size,
+			"round": mesh_instance.mesh is CylinderMesh or mesh_instance.mesh is SphereMesh,
+			"colour": PlanStyle.colour_for(mesh_instance),
+			"extent": maxf(size.x, size.y),
+		}
+	)
 
 # --- drawing ----------------------------------------------------------------------
 
@@ -323,12 +324,11 @@ func _draw_placeable(node: Node3D) -> void:
 	_draw_symbol(
 		Vector2(node.global_position.x, node.global_position.z),
 		PlanStyle.footprint_size(node),
-		PlanStyle.symbol_of(node)
+		PlanStyle.symbol_of(node),
 	)
 
 
 # --- plant symbols -------------------------------------------------------------------
-
 
 ## Every symbol is drawn from one figure (see `PlantSymbols`), which is what keeps the plan and the
 ## swatch in a plant list from disagreeing about what a plant looks like. The inks are the plan's own:
@@ -341,25 +341,25 @@ const PEN_PIXELS := 1.6
 const PEN_REFERENCE := 0.07
 
 const SYMBOL_INKS := {
-	&"canopy": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
-	&"conifer": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
-	&"shrub": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"grass": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
-	&"groundcover": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"vine": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"fern": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
-	&"bed": {"fill": BED_SOIL, "edge": BED_EDGE, "mark": BED_BLOOM},
+	&"canopy": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK },
+	&"conifer": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK },
+	&"shrub": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"grass": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY },
+	&"groundcover": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"vine": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"fern": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY },
+	&"bed": { "fill": BED_SOIL, "edge": BED_EDGE, "mark": BED_BLOOM },
 }
 
 ## The marker's inks, and the answer for a symbol nobody has: the colour a prop the tables do not
 ## describe is drawn in, brought down for its own line. Built once at run time rather than written out
 ## as a constant, because a constant cannot be made by calling `darkened`.
-static var _fallback_inks: Dictionary = {}
+static var _fallback_inks: Dictionary = { }
 
 
 static func fallback_inks() -> Dictionary:
 	if _fallback_inks.is_empty():
-		_fallback_inks = {"fill": GENERIC, "edge": GENERIC.darkened(0.4), "mark": GENERIC.darkened(0.4)}
+		_fallback_inks = { "fill": GENERIC, "edge": GENERIC.darkened(0.4), "mark": GENERIC.darkened(0.4) }
 	return _fallback_inks
 
 
@@ -376,9 +376,7 @@ func _draw_symbol(centre: Vector2, size: Vector2, symbol: StringName) -> void:
 	# The offset shrinks with the plant. It is authored for the 1.5 m shrub it grew up on, and at that
 	# size it is a shadow; under a 30 cm groundcover the same 0.3 m puts the shadow in the next bed
 	# along, where it reads as a second plant. `SHADOW_REFERENCE` is the size it is written for.
-	var step: Vector2 = SHADOW_OFFSET * clampf(
-		minf(size.x, size.y) / SHADOW_REFERENCE, 0.0, 1.0
-	)
+	var step: Vector2 = SHADOW_OFFSET * clampf(minf(size.x, size.y) / SHADOW_REFERENCE, 0.0, 1.0)
 	for part: Dictionary in parts:
 		if StringName(part["ink"]) == PlantSymbols.INK_FILL:
 			_fill_part(part, centre + step, half, SHADOW)
@@ -410,9 +408,7 @@ func _edge_part(part: Dictionary, centre: Vector2, half: Vector2, colour: Color)
 		&"rect":
 			draw_rect(_box(part["half"], centre, half), colour, false, width)
 		_:
-			draw_polyline(
-				_placed_all(part["points"], centre, half), colour, width, bool(part["closed"])
-			)
+			draw_polyline(_placed_all(part["points"], centre, half), colour, width, bool(part["closed"]))
 
 
 ## One normalised point, as a position on the plan.
@@ -436,11 +432,7 @@ func _box(part_half: Vector2, centre: Vector2, half: Vector2) -> Rect2:
 func _draw_selection(node: Node3D, active: bool) -> void:
 	var centre := Vector2(node.global_position.x, node.global_position.z)
 	var radius: float = PlanStyle.footprint_radius(node) + 0.45
-	draw_arc(
-		centre, radius, 0.0, TAU, 48,
-		GRAB if active else HOVER,
-		(3.0 if active else 2.0) / pixels_per_metre
-	)
+	draw_arc(centre, radius, 0.0, TAU, 48, GRAB if active else HOVER, (3.0 if active else 2.0) / pixels_per_metre)
 
 
 ## The plant about to be placed, ringed in the colour of what the plan says about the spot.
@@ -470,9 +462,7 @@ func _draw_plant_ghost() -> void:
 	var label: String = String(plant_ghost.get("label", ""))
 	if not label.is_empty():
 		var screen: Vector2 = position + point * pixels_per_metre
-		_draw_screen_text(
-			screen + Vector2(radius * pixels_per_metre + 8.0, 4.0), label, 13, colour.darkened(0.3)
-		)
+		_draw_screen_text(screen + Vector2(radius * pixels_per_metre + 8.0, 4.0), label, 13, colour.darkened(0.3))
 
 
 ## Points around a circle whose radius wobbles, so a shrub looks like foliage
@@ -490,7 +480,6 @@ func _blob(centre: Vector2, radius: float) -> PackedVector2Array:
 
 func _screen_to_local(screen: Vector2) -> Vector2:
 	return (screen - position) / pixels_per_metre
-
 
 # --- the drafted document ---------------------------------------------------------
 
@@ -590,7 +579,11 @@ func selected_ids() -> Array[int]:
 func _draw_marked(entity, layer) -> void:
 	var colour: Color = SELECTION_COLOUR
 	var parts: Dictionary = DraftRenderScript.layout(
-		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+		entity,
+		layer,
+		display_scale,
+		_units(),
+		DraftDimensionScript.style_for(entity, document),
 	)
 	var style = parts["style"]
 	var width: float = style.width_pixels(display_scale, pixels_per_metre) / pixels_per_metre
@@ -613,7 +606,11 @@ func _draw_entity(entity, layer, alpha: float) -> void:
 	var colour: Color = DraftRenderScript.screen_colour(layer)
 	colour.a *= alpha
 	var parts: Dictionary = DraftRenderScript.layout(
-		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+		entity,
+		layer,
+		display_scale,
+		_units(),
+		DraftDimensionScript.style_for(entity, document),
 	)
 	var style = parts["style"]
 	# Godot's draw widths are in the canvas item's own units, which here are
@@ -629,10 +626,8 @@ func _draw_entity(entity, layer, alpha: float) -> void:
 	for mark: Dictionary in parts["marks"]:
 		if mark["kind"] == &"arrow":
 			draw_colored_polygon(
-				DraftDimensionScript.arrow_triangle(
-					mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
-				),
-				colour
+				DraftDimensionScript.arrow_triangle(mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]),
+				colour,
 			)
 		elif mark["kind"] == &"dot":
 			draw_circle(Vector2(mark["at"]), float(mark["size"]) * 0.5, colour)
@@ -696,14 +691,23 @@ static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
 		SnapScript.Mode.ENDPOINT, SnapScript.Mode.NEAREST:
 			# A catch-all snaps to a point on an outline, which is the endpoint's answer too - and
 			# the engine's own table gives those two the same character as well.
-			out.append(PackedVector2Array([
-				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
-				Vector2(-half, half), Vector2(-half, -half),
-			]))
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(-half, -half),
+						Vector2(half, -half),
+						Vector2(half, half),
+						Vector2(-half, half),
+						Vector2(-half, -half),
+					]
+				)
+			)
 		SnapScript.Mode.MIDPOINT:
-			out.append(PackedVector2Array([
-				Vector2(0.0, -half), Vector2(half, half), Vector2(-half, half), Vector2(0.0, -half),
-			]))
+			out.append(
+				PackedVector2Array(
+					[Vector2(0.0, -half), Vector2(half, half), Vector2(-half, half), Vector2(0.0, -half)]
+				)
+			)
 		SnapScript.Mode.CENTRE:
 			var ring := PackedVector2Array()
 			for step in 12:
@@ -712,10 +716,17 @@ static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
 			ring.append(ring[0])
 			out.append(ring)
 		SnapScript.Mode.QUADRANT:
-			out.append(PackedVector2Array([
-				Vector2(0.0, -half), Vector2(half, 0.0), Vector2(0.0, half),
-				Vector2(-half, 0.0), Vector2(0.0, -half),
-			]))
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(0.0, -half),
+						Vector2(half, 0.0),
+						Vector2(0.0, half),
+						Vector2(-half, 0.0),
+						Vector2(0.0, -half),
+					]
+				)
+			)
 		SnapScript.Mode.INTERSECTION:
 			out.append(PackedVector2Array([Vector2(-half, -half), Vector2(half, half)]))
 			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, -half)]))
@@ -729,10 +740,17 @@ static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
 				arc.append(Vector2(cos(angle), sin(angle)) * half)
 			out.append(arc)
 		SnapScript.Mode.GRID:
-			out.append(PackedVector2Array([
-				Vector2(-half, -half), Vector2(half, -half), Vector2(half, half),
-				Vector2(-half, half), Vector2(-half, -half),
-			]))
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(-half, -half),
+						Vector2(half, -half),
+						Vector2(half, half),
+						Vector2(-half, half),
+						Vector2(-half, -half),
+					]
+				)
+			)
 			out.append(PackedVector2Array([Vector2(-half, 0.0), Vector2(half, 0.0)]))
 			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
 		SnapScript.Mode.POLAR:
@@ -746,14 +764,8 @@ func _draw_screen_text(screen: Vector2, text: String, size: int, colour: Color) 
 	_begin_screen_space()
 	# A light halo behind the glyphs, because a snap label can land on top of
 	# dark planting and become unreadable exactly when it matters most.
-	draw_string(
-		ThemeDB.fallback_font, screen + Vector2(1.0, 1.0), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, DARK
-	)
-	draw_string(
-		ThemeDB.fallback_font, screen, text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour
-	)
+	draw_string(ThemeDB.fallback_font, screen + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, DARK)
+	draw_string(ThemeDB.fallback_font, screen, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour)
 	_end_screen_space()
 
 
@@ -773,11 +785,7 @@ func _end_screen_space() -> void:
 
 ## This node's own transform, which is exactly pan plus zoom and no rotation.
 func _node_transform() -> Transform2D:
-	return Transform2D(
-		Vector2(pixels_per_metre, 0.0),
-		Vector2(0.0, pixels_per_metre),
-		position
-	)
+	return Transform2D(Vector2(pixels_per_metre, 0.0), Vector2(0.0, pixels_per_metre), position)
 
 
 ## The drafting status, on the drawing surface rather than in the HUD: what the
@@ -786,14 +794,16 @@ func _draw_status() -> void:
 	if status_text == "":
 		return
 	draw_set_transform_matrix(_node_transform().affine_inverse())
-	var size: Vector2 = ThemeDB.fallback_font.get_string_size(
-		status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13
-	)
+	var size: Vector2 = ThemeDB.fallback_font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
 	var origin := Vector2(14.0, 74.0)
-	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)),
-		Color(0.99, 0.98, 0.95, 0.9), true)
+	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)), Color(0.99, 0.98, 0.95, 0.9), true)
 	draw_string(
-		ThemeDB.fallback_font, origin + Vector2(0.0, 13.0), status_text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.12, 0.13, 0.15, 0.95)
+		ThemeDB.fallback_font,
+		origin + Vector2(0.0, 13.0),
+		status_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		13,
+		Color(0.12, 0.13, 0.15, 0.95),
 	)
 	draw_set_transform_matrix(Transform2D.IDENTITY)

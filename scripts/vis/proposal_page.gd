@@ -79,7 +79,7 @@ const INK := Color(0.10, 0.10, 0.10)
 ## Returns `{paper_mm, border_mm, title_mm, area_mm, still_mm, scale, fits}`. `fits` is
 ## false when there is no picture or no room, and everything else is still filled in, so
 ## a caller can lay out the frame and say what is wrong rather than draw nothing.
-static func layout(paper_mm: Vector2, still_px: Vector2i, options: Dictionary = {}) -> Dictionary:
+static func layout(paper_mm: Vector2, still_px: Vector2i, options: Dictionary = { }) -> Dictionary:
 	var page := paper_mm
 	if page.x <= 0.0 or page.y <= 0.0:
 		# A page of no size is not a page; A3 landscape is the one a plan is drawn on.
@@ -92,7 +92,7 @@ static func layout(paper_mm: Vector2, still_px: Vector2i, options: Dictionary = 
 	# The title block lies along the foot, struck to the right edge inside the border.
 	var title := Rect2(
 		Vector2(border.position.x + border.size.x - title_w, border.position.y),
-		Vector2(title_w, title_h)
+		Vector2(title_w, title_h),
 	)
 	# The picture sits above the title block strip, inside the border and the margin. Photographs, when
 	# the page carries any, take a strip along the foot of that area: the still gives up the room rather
@@ -107,18 +107,12 @@ static func layout(paper_mm: Vector2, still_px: Vector2i, options: Dictionary = 
 		# page with no room for photographs lays out none rather than squeezing the drawing to nothing.
 		strip = minf(strip, maxf(room * 0.5 - PHOTO_GAP_MM, 0.0))
 		if strip > 0.0:
-			photos = Rect2(
-				Vector2(border.position.x + margin, foot),
-				Vector2(border.size.x - margin * 2.0, strip)
-			)
+			photos = Rect2(Vector2(border.position.x + margin, foot), Vector2(border.size.x - margin * 2.0, strip))
 			room -= strip + PHOTO_GAP_MM
 			# The strip is carved out of the foot of the area, so the drawing begins *above* it: a picture
 			# centred in a box that still includes the strip's paper would be drawn over the photographs.
 			lift = strip + PHOTO_GAP_MM
-	var area := Rect2(
-		Vector2(border.position.x + margin, foot + lift),
-		Vector2(border.size.x - margin * 2.0, room)
-	)
+	var area := Rect2(Vector2(border.position.x + margin, foot + lift), Vector2(border.size.x - margin * 2.0, room))
 	var still := Rect2()
 	var scale := 0.0
 	var fits := false
@@ -164,12 +158,13 @@ static func embedding_size(still_px: Vector2i, max_px: int = MAX_EMBED_PX) -> Ve
 ## reads has the same shape whatever was filled in.
 static func title_rows(fields: Dictionary) -> Array[Dictionary]:
 	var pairs: Array[Dictionary] = [
-		{"caption": "PROJECT", "value": _or_dash(fields.get("project", ""))},
-		{"caption": "VIEW", "value": _or_dash(fields.get("view", ""))},
-		{"caption": "SHEET", "value": _or_dash(fields.get("sheet", ""))},
-		{"caption": "SCALE / DATE", "value": "%s  %s" % [
-			_or_dash(fields.get("scale", "")), _or_dash(fields.get("date", "")),
-		]},
+		{ "caption": "PROJECT", "value": _or_dash(fields.get("project", "")) },
+		{ "caption": "VIEW", "value": _or_dash(fields.get("view", "")) },
+		{ "caption": "SHEET", "value": _or_dash(fields.get("sheet", "")) },
+		{
+			"caption": "SCALE / DATE",
+			"value": "%s  %s" % [_or_dash(fields.get("scale", "")), _or_dash(fields.get("date", ""))],
+		},
 	]
 	return pairs
 
@@ -177,7 +172,12 @@ static func title_rows(fields: Dictionary) -> Array[Dictionary]:
 ## A real single-page PDF: the sheet, the border, the picture embedded as an image, and
 ## the title block. Returns an empty array when there is nothing to place, so the caller
 ## names the refusal rather than writing a page with a hole in it.
-static func build_pdf(still: Image, paper_mm: Vector2, fields: Dictionary, options: Dictionary = {}) -> PackedByteArray:
+static func build_pdf(
+	still: Image,
+	paper_mm: Vector2,
+	fields: Dictionary,
+	options: Dictionary = { },
+) -> PackedByteArray:
 	if still == null or still.is_empty():
 		return PackedByteArray()
 	var plan := layout(paper_mm, still.get_size(), options)
@@ -219,7 +219,7 @@ static func render_image(
 	paper_mm: Vector2,
 	fields: Dictionary,
 	dpi_value: float = 150.0,
-	options: Dictionary = {}
+	options: Dictionary = { },
 ) -> Image:
 	var plan := layout(paper_mm, still.get_size() if still != null else Vector2i.ZERO, options)
 	var px := page_pixels(plan, dpi_value)
@@ -236,9 +236,7 @@ static func render_image(
 	_frame(page, title, border_w, INK)
 	if bool(plan["fits"]) and still != null and not still.is_empty():
 		var target: Rect2 = _to_pixels(plan["still_mm"], scale, px.y)
-		var fitted: Image = _scaled_copy(
-			still, Vector2i(maxi(1, int(target.size.x)), maxi(1, int(target.size.y)))
-		)
+		var fitted: Image = _scaled_copy(still, Vector2i(maxi(1, int(target.size.x)), maxi(1, int(target.size.y))))
 		# A rendered still may arrive with an alpha channel the page has not got, and
 		# `blend_rect` refuses a source whose format differs from its own.
 		if fitted.get_format() != page.get_format():
@@ -272,33 +270,30 @@ static func photo_bands(count: int, strip_mm: Rect2, max_count: int = PHOTO_MAX)
 	var bands: Array[Rect2] = []
 	var wanted: int = maxi(count, 0)
 	if wanted == 0 or strip_mm.size.x <= 0.0 or strip_mm.size.y <= 0.0:
-		return {"bands": bands, "shown": 0, "dropped": wanted}
+		return { "bands": bands, "shown": 0, "dropped": wanted }
 	var taken: int = mini(wanted, maxi(max_count, 0))
 	if taken == 0:
-		return {"bands": bands, "shown": 0, "dropped": wanted}
+		return { "bands": bands, "shown": 0, "dropped": wanted }
 	# Narrow enough to be a photograph rather than a field of paper, and never so wide that a row of them
 	# runs past the strip.
-	var width: float = minf(
-		(strip_mm.size.x - PHOTO_GAP_MM * float(taken - 1)) / float(taken), PHOTO_SLOT_MAX_MM
-	)
+	var width: float = minf((strip_mm.size.x - PHOTO_GAP_MM * float(taken - 1)) / float(taken), PHOTO_SLOT_MAX_MM)
 	if width <= 0.0:
-		return {"bands": bands, "shown": 0, "dropped": wanted}
+		return { "bands": bands, "shown": 0, "dropped": wanted }
 	var row: float = width * float(taken) + PHOTO_GAP_MM * float(taken - 1)
 	var left: float = strip_mm.position.x + (strip_mm.size.x - row) * 0.5
 	for index in range(taken):
-		bands.append(Rect2(
-			Vector2(left + float(index) * (width + PHOTO_GAP_MM), strip_mm.position.y),
-			Vector2(width, strip_mm.size.y)
-		))
-	return {"bands": bands, "shown": taken, "dropped": wanted - taken}
+		bands.append(
+			Rect2(
+				Vector2(left + float(index) * (width + PHOTO_GAP_MM), strip_mm.position.y),
+				Vector2(width, strip_mm.size.y),
+			)
+		)
+	return { "bands": bands, "shown": taken, "dropped": wanted - taken }
 
 
 ## The part of a band the picture itself goes in: the band less its caption, which lies along the foot.
 static func photo_picture_rect(band_mm: Rect2) -> Rect2:
-	return Rect2(
-		band_mm.position,
-		Vector2(band_mm.size.x, maxf(band_mm.size.y - PHOTO_CAPTION_MM, 0.0))
-	)
+	return Rect2(band_mm.position, Vector2(band_mm.size.x, maxf(band_mm.size.y - PHOTO_CAPTION_MM, 0.0)))
 
 
 ## A photograph fitted inside a band, centred, at one scale on both axes - the same rule as the still,
@@ -318,7 +313,11 @@ static func describe(plan: Dictionary) -> String:
 	if not bool(plan["fits"]):
 		return "a %.0f x %.0f mm sheet with no picture placed" % [page.x, page.y]
 	return "a %.0f x %.0f mm sheet with a %.0f x %.0f mm picture (%.2f mm per pixel)" % [
-		page.x, page.y, still.size.x, still.size.y, float(plan["scale"]),
+		page.x,
+		page.y,
+		still.size.x,
+		still.size.y,
+		float(plan["scale"]),
 	]
 
 
@@ -337,7 +336,10 @@ static func _to_points(rect: Rect2, per_mm: float) -> Rect2:
 static func _to_pixels(rect: Rect2, scale: float, page_height_px: int) -> Rect2:
 	var x := rect.position.x * scale
 	var top_from_top := (page_height_px / scale - rect.position.y - rect.size.y) * scale
-	return Rect2(Vector2(round(x), round(top_from_top)), Vector2(round(rect.size.x * scale), round(rect.size.y * scale)))
+	return Rect2(
+		Vector2(round(x), round(top_from_top)),
+		Vector2(round(rect.size.x * scale), round(rect.size.y * scale)),
+	)
 
 
 ## A copy of an image scaled to an exact size. A copy rather than a resize in place,
@@ -353,8 +355,10 @@ static func _scaled_copy(image: Image, size: Vector2i) -> Image:
 ## Draw a rectangle outline, `weight` pixels thick, by filling its four edges.
 static func _frame(image: Image, rect: Rect2, weight: int, colour: Color) -> void:
 	var r := Rect2i(
-		int(round(rect.position.x)), int(round(rect.position.y)),
-		int(round(rect.size.x)), int(round(rect.size.y))
+		int(round(rect.position.x)),
+		int(round(rect.position.y)),
+		int(round(rect.size.x)),
+		int(round(rect.size.y)),
 	)
 	if r.size.x <= 0 or r.size.y <= 0:
 		return
@@ -389,9 +393,7 @@ static func _emit_title_rules(page: Image, title: Rect2, scale: float, page_heig
 	var w: int = maxi(1, int(round(BORDER_WEIGHT_MM * scale)))
 	for index in range(1, bands):
 		var y := int(round(rect.position.y + rect.size.y / float(bands) * float(index)))
-		page.fill_rect(
-			Rect2i(Vector2i(int(rect.position.x), y), Vector2i(int(rect.size.x), w)), INK
-		)
+		page.fill_rect(Rect2i(Vector2i(int(rect.position.x), y), Vector2i(int(rect.size.x), w)), INK)
 
 
 ## The photographs into the PDF: each fitted inside its band at one scale, framed, and captioned along its
@@ -410,7 +412,7 @@ static func _emit_photos(writer, strip: Rect2, options: Dictionary) -> void:
 	writer.set_fill_colour(INK)
 	var index := 0
 	for band: Rect2 in bands:
-		var entry: Dictionary = {}
+		var entry: Dictionary = { }
 		if photos[index] is Dictionary:
 			entry = photos[index]
 		var image: Image = entry.get("image") as Image
@@ -423,21 +425,20 @@ static func _emit_photos(writer, strip: Rect2, options: Dictionary) -> void:
 		# The words go under their own photograph and never over its neighbour: a caption too long for its
 		# band ends in dots, which is a page short of room rather than a sentence across the border.
 		var words: String = SheetExporterScript.clipped_text(
-			writer, String(entry.get("caption", "")), size, band.size.x * per_mm
+			writer,
+			String(entry.get("caption", "")),
+			size,
+			band.size.x * per_mm,
 		)
 		if not words.is_empty():
-			writer.draw_text(
-				Vector2(band.position.x * per_mm, band.position.y * per_mm + size), words, size
-			)
+			writer.draw_text(Vector2(band.position.x * per_mm, band.position.y * per_mm + size), words, size)
 		index += 1
 
 
 ## The same bands in the raster preview: each photograph fitted and framed where the PDF puts it, and a box
 ## where its caption will be printed. The words themselves are the PDF's job - see the class note, drawing
 ## glyphs needs a canvas item - so the preview shows where the sentence lands and the file carries it.
-static func _render_photos(
-	page: Image, strip: Rect2, scale: float, page_height_px: int, options: Dictionary
-) -> void:
+static func _render_photos(page: Image, strip: Rect2, scale: float, page_height_px: int, options: Dictionary) -> void:
 	var photos: Array = options.get("photos", [])
 	var laid: Dictionary = photo_bands(photos.size(), strip, int(options.get("photo_max", PHOTO_MAX)))
 	var bands: Array = laid["bands"]
@@ -446,7 +447,7 @@ static func _render_photos(
 	var frame_w: int = maxi(1, int(round(PICTURE_FRAME_MM * scale)))
 	var index := 0
 	for band: Rect2 in bands:
-		var entry: Dictionary = {}
+		var entry: Dictionary = { }
 		if photos[index] is Dictionary:
 			entry = photos[index]
 		var image: Image = entry.get("image") as Image
@@ -455,22 +456,18 @@ static func _render_photos(
 			# Fitted the same way the PDF fits it, so the preview and the file cannot disagree about where
 			# a photograph sits or how much of its band it fills.
 			var target: Rect2 = _to_pixels(_fit_rect(picture, image.get_size()), scale, page_height_px)
-			var fitted: Image = _scaled_copy(
-				image, Vector2i(maxi(1, int(target.size.x)), maxi(1, int(target.size.y)))
-			)
+			var fitted: Image = _scaled_copy(image, Vector2i(maxi(1, int(target.size.x)), maxi(1, int(target.size.y))))
 			if fitted.get_format() != page.get_format():
 				fitted.convert(page.get_format())
-			page.blend_rect(
-				fitted, Rect2i(Vector2i.ZERO, fitted.get_size()), Vector2i(target.position)
-			)
+			page.blend_rect(fitted, Rect2i(Vector2i.ZERO, fitted.get_size()), Vector2i(target.position))
 			_frame(page, target, frame_w, INK)
 		var caption: Rect2 = _to_pixels(
-			Rect2(band.position, Vector2(band.size.x, PHOTO_CAPTION_MM)), scale, page_height_px
+			Rect2(band.position, Vector2(band.size.x, PHOTO_CAPTION_MM)),
+			scale,
+			page_height_px,
 		)
 		# A tint rather than an empty box: a proof of the page shows where the sentence will be printed, and
 		# an outlined box with nothing in it reads as a mistake to anybody looking at the preview.
 		if caption.size.x >= 1.0 and caption.size.y >= 1.0:
-			page.fill_rect(
-				Rect2i(Vector2i(caption.position), Vector2i(caption.size)), PHOTO_PLACEHOLDER
-			)
+			page.fill_rect(Rect2i(Vector2i(caption.position), Vector2i(caption.size)), PHOTO_PLACEHOLDER)
 		index += 1

@@ -35,7 +35,6 @@ func _three_steps(schedule: BillingScript) -> void:
 	assert(schedule.add_milestone(_step("Rough grade", 300000)))
 	assert(schedule.add_milestone(_step("Final", 400000)))
 
-
 # --- the method comes from the contract --------------------------------------------------------
 
 
@@ -48,7 +47,6 @@ func test_a_method_nobody_has_falls_back_to_the_contracts_default_and_says_so() 
 	var schedule := _schedule(99)
 	assert(schedule.method == JobScript.FIXED)
 	assert(schedule.method_name() == "fixed price")
-
 
 # --- fixed price -------------------------------------------------------------------------------
 
@@ -69,7 +67,12 @@ func test_a_fixed_price_job_bills_the_whole_contract_once() -> void:
 
 func test_a_negative_billing_is_a_credit_note_and_not_a_billing() -> void:
 	var schedule := _schedule(JobScript.FIXED)
-	var recorded: Dictionary = schedule.record_billed(_contract(), MoneyScript.of(-50000), "2026-06-01", "INV-2026-0001")
+	var recorded: Dictionary = schedule.record_billed(
+		_contract(),
+		MoneyScript.of(-50000),
+		"2026-06-01",
+		"INV-2026-0001",
+	)
 	assert(not bool(recorded["ok"]))
 	assert(schedule.billed_to_date.is_zero())
 
@@ -79,7 +82,6 @@ func test_a_billing_with_no_moment_or_no_number_is_not_recorded() -> void:
 	assert(not bool(schedule.record_billed(_contract(), MoneyScript.of(100), "", "INV-2026-0001")["ok"]))
 	assert(not bool(schedule.record_billed(_contract(), MoneyScript.of(100), "2026-06-01", "")["ok"]))
 	assert(schedule.billed_to_date.is_zero())
-
 
 # --- percentage complete: the double-billing guard ----------------------------------------------
 
@@ -111,8 +113,10 @@ func test_a_percent_nobody_measured_is_refused_rather_than_taken_as_nothing() ->
 	var schedule := _schedule()
 	var refused: Dictionary = schedule.amount_due(_contract())
 	assert(not bool(refused["ok"]))
-	assert(String(refused["reason"]) == "nobody has measured the percent complete of this job",
-		String(refused["reason"]))
+	assert(
+		String(refused["reason"]) == "nobody has measured the percent complete of this job",
+		String(refused["reason"]),
+	)
 
 
 func test_a_percent_nobody_could_have_measured_is_refused_and_the_basis_is_required() -> void:
@@ -135,12 +139,9 @@ func test_the_basis_travels_with_the_number() -> void:
 
 
 func test_a_measured_percent_whose_basis_did_not_survive_is_named_rather_than_guessed_at() -> void:
-	var broken: BillingScript = BillingScript.from_dict({
-		"job": "J1",
-		"method": "PERCENTAGE_COMPLETE",
-		"complete_ppm": 500000,
-		"percent_basis": -1,
-	})
+	var broken: BillingScript = BillingScript.from_dict(
+		{ "job": "J1", "method": "PERCENTAGE_COMPLETE", "complete_ppm": 500000, "percent_basis": -1 }
+	)
 	assert(not broken.is_sound())
 	assert(broken.problems().has("a measured percent complete with no basis stated"), str(broken.problems()))
 
@@ -149,7 +150,6 @@ func test_the_contract_sum_being_unreadable_is_refused_rather_than_billed() -> v
 	var schedule := _schedule(JobScript.FIXED)
 	assert(not bool(schedule.amount_due(MoneyScript.invalid())["ok"]))
 	assert(not bool(schedule.amount_due(null)["ok"]))
-
 
 # --- milestones --------------------------------------------------------------------------------
 
@@ -169,7 +169,11 @@ func test_a_milestone_schedule_bills_the_next_step_and_only_that_one() -> void:
 func test_a_step_can_be_billed_by_name_and_one_already_billed_is_refused() -> void:
 	var schedule := _schedule(JobScript.MILESTONE)
 	_three_steps(schedule)
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
 	var again: Dictionary = schedule.amount_due(_contract(), null, null, "Deposit")
 	assert(not bool(again["ok"]))
 	assert(String(again["reason"]).contains("was billed on INV-2026-0001"), String(again["reason"]))
@@ -186,8 +190,18 @@ func test_a_step_the_schedule_does_not_have_is_refused_by_name() -> void:
 func test_a_step_cannot_be_billed_twice_through_the_records_either() -> void:
 	var schedule := _schedule(JobScript.MILESTONE)
 	_three_steps(schedule)
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
-	var second: Dictionary = schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-02", "INV-2026-0002", "Deposit")
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
+	var second: Dictionary = schedule.record_billed(
+		_contract(),
+		MoneyScript.of(300000),
+		"2026-06-02",
+		"INV-2026-0002",
+		"Deposit",
+	)
 	assert(not bool(second["ok"]))
 	assert(schedule.billed_to_date.cents == 300000)
 
@@ -239,12 +253,15 @@ func test_two_steps_with_one_name_is_two_answers_to_one_question() -> void:
 func test_a_schedule_with_every_step_billed_has_nothing_left_to_bill() -> void:
 	var schedule := _schedule(JobScript.MILESTONE)
 	assert(schedule.add_milestone(_step("Deposit", 1000000)))
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(1000000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(1000000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
 	var done: Dictionary = schedule.amount_due(_contract())
 	assert(bool(done["ok"]))
 	assert((done["amount"] as MoneyScript).is_zero())
 	assert(String(done["reason"]).contains("every step"), String(done["reason"]))
-
 
 # --- retainage --------------------------------------------------------------------------------
 
@@ -255,7 +272,11 @@ func test_a_steps_retainage_is_withheld_when_it_is_billed_and_accumulates() -> v
 	assert(step.set_percent(250000))
 	step.retainage_ppm = 100000
 	assert(schedule.add_milestone(step))
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(225000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(225000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
 	assert(schedule.billed_to_date.cents == 225000)
 	assert(schedule.retainage_held.cents == 25000)
 
@@ -266,7 +287,11 @@ func test_retainage_is_released_only_by_an_explicit_act_at_closeout() -> void:
 	assert(step.set_percent(250000))
 	step.retainage_ppm = 100000
 	assert(schedule.add_milestone(step))
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(225000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(225000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
 	assert(schedule.retainage_held.cents == 25000)
 	assert(not schedule.release_retainage("").is_valid())
 	assert(schedule.release_retainage("2026-09-01").cents == 25000)
@@ -282,7 +307,6 @@ func test_a_schedule_that_has_no_steps_withholds_its_own_rate() -> void:
 	schedule.retainage_ppm = 100000
 	assert(schedule.retainage_due(_contract(), MoneyScript.of(300000)).cents == 30000)
 	assert(schedule.retainage_due(_contract(), MoneyScript.invalid()).is_valid() == false)
-
 
 # --- the two methods with no schedule ---------------------------------------------------------
 
@@ -317,14 +341,17 @@ func test_an_unreadable_period_is_refused_rather_than_billed_as_nothing() -> voi
 	assert(not bool(schedule.amount_due(_contract(), MoneyScript.invalid())["ok"]))
 	assert(BillingScript.time_and_materials_amount(null, null, 0).is_valid() == false)
 
-
 # --- the record ---------------------------------------------------------------------------------
 
 
 func test_the_schedule_survives_the_file_with_its_steps_and_its_money() -> void:
 	var schedule := _schedule(JobScript.MILESTONE)
 	_three_steps(schedule)
-	assert(bool(schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]))
+	assert(
+		bool(
+			schedule.record_billed(_contract(), MoneyScript.of(300000), "2026-06-01", "INV-2026-0001", "Deposit")["ok"]
+		)
+	)
 	schedule.markup_ppm = 200000
 	schedule.fee_ppm = 150000
 	schedule.retainage_ppm = 50000
@@ -342,22 +369,18 @@ func test_the_schedule_survives_the_file_with_its_steps_and_its_money() -> void:
 
 
 func test_a_damaged_step_is_kept_and_named_rather_than_dropped() -> void:
-	var schedule: BillingScript = BillingScript.from_dict({
-		"job": "J1",
-		"method": "MILESTONE",
-		"milestones": [{"name": "Deposit", "percent_ppm": 1200000}],
-	})
+	var schedule: BillingScript = BillingScript.from_dict(
+		{ "job": "J1", "method": "MILESTONE", "milestones": [{ "name": "Deposit", "percent_ppm": 1200000 }] }
+	)
 	assert(schedule.step_count() == 1)
 	assert(not schedule.is_sound())
 	assert(schedule.problems().has("'Deposit' claims 120% of the contract"), str(schedule.problems()))
 
 
 func test_a_record_that_is_not_a_step_is_dropped_and_the_rest_reads() -> void:
-	var schedule: BillingScript = BillingScript.from_dict({
-		"job": "J1",
-		"method": "MILESTONE",
-		"milestones": ["Deposit", {"name": "Final", "percent_ppm": 1000000}],
-	})
+	var schedule: BillingScript = BillingScript.from_dict(
+		{ "job": "J1", "method": "MILESTONE", "milestones": ["Deposit", { "name": "Final", "percent_ppm": 1000000 }] }
+	)
 	assert(schedule.step_count() == 1)
 	var names: Array[String] = schedule.milestone_names()
 	var expected: Array[String] = ["Final"]
@@ -369,5 +392,7 @@ func test_what_has_been_billed_moves_in_exactly_one_place() -> void:
 	assert(schedule.billed_to_date.is_zero())
 	assert(not bool(schedule.record_billed(_contract(), MoneyScript.invalid(), "2026-06-01", "INV-2026-0001")["ok"]))
 	assert(schedule.billed_to_date.is_zero())
-	assert(not bool(schedule.record_billed(_contract(), MoneyScript.of(100), "2026-06-01", "INV-2026-0001", "Nope")["ok"]))
+	assert(
+		not bool(schedule.record_billed(_contract(), MoneyScript.of(100), "2026-06-01", "INV-2026-0001", "Nope")["ok"])
+	)
 	assert(schedule.billed_to_date.is_zero())

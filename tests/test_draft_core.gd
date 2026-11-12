@@ -13,7 +13,6 @@ const Layer := preload("res://scripts/draft/draft_layer.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const History := preload("res://scripts/draft/gesture_history.gd")
 
-
 # --- units --------------------------------------------------------------------------
 
 
@@ -131,8 +130,10 @@ func test_an_area_is_written_in_the_drawings_own_units() -> void:
 func test_the_area_words_seam_is_one_function_with_one_default() -> void:
 	var imperial: DraftUnits = Units.new()
 	imperial.system = Units.System.IMPERIAL
-	assert(Units.area_words_in(18.0, null) == Units.area_words(18.0),
-		"a caller with no units gets the metre default rather than a second rule")
+	assert(
+		Units.area_words_in(18.0, null) == Units.area_words(18.0),
+		"a caller with no units gets the metre default rather than a second rule",
+	)
 	assert(Units.area_words_in(18.0, Units.new()) == "18 m2", "and a metric drawing its own")
 	assert(Units.area_words_in(18.0, imperial) == "193.8 ft2", Units.area_words_in(18.0, imperial))
 
@@ -142,12 +143,16 @@ func test_the_area_words_seam_is_one_function_with_one_default() -> void:
 func test_a_row_is_worded_from_its_own_text_or_from_its_number() -> void:
 	var imperial: DraftUnits = Units.new()
 	imperial.system = Units.System.IMPERIAL
-	assert(Units.row_area_text({"area_m2": 18.0, "area_text": "18 m2"}, imperial) == "18 m2",
-		"the row's own words win, because whoever made it knew the drawing")
-	assert(Units.row_area_text({"area_m2": 18.0}, imperial) == "193.8 ft2",
-		"a hand-built row falls back to the units in hand")
-	assert(Units.row_area_text({"area_m2": 18.0}, null) == "18 m2", "or to the metre default")
-	assert(Units.row_area_text({}, null) == "0 m2", "and a row with no area in it is still an area")
+	assert(
+		Units.row_area_text({ "area_m2": 18.0, "area_text": "18 m2" }, imperial) == "18 m2",
+		"the row's own words win, because whoever made it knew the drawing",
+	)
+	assert(
+		Units.row_area_text({ "area_m2": 18.0 }, imperial) == "193.8 ft2",
+		"a hand-built row falls back to the units in hand",
+	)
+	assert(Units.row_area_text({ "area_m2": 18.0 }, null) == "18 m2", "or to the metre default")
+	assert(Units.row_area_text({ }, null) == "0 m2", "and a row with no area in it is still an area")
 
 
 func test_display_precision_follows_zoom() -> void:
@@ -156,7 +161,6 @@ func test_display_precision_follows_zoom() -> void:
 	assert(Units.display_decimals(0.0) == 0)
 	# Never claims more precision than is resolvable.
 	assert(Units.display_decimals(1.0) == 1)
-
 
 # --- geometry kernel ----------------------------------------------------------------
 
@@ -263,8 +267,7 @@ func test_nearest_point_on_arc_falls_back_to_an_end() -> void:
 
 
 func test_polygon_measures() -> void:
-	var square := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
+	var square := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
 	assert(is_equal_approx(Geom.polygon_area(square), 100.0))
 	assert(is_equal_approx(Geom.polygon_perimeter(square, true), 40.0))
 	assert(is_equal_approx(Geom.polygon_perimeter(square, false), 30.0))
@@ -273,11 +276,9 @@ func test_polygon_measures() -> void:
 
 
 func test_self_intersecting_polygon_is_rejected() -> void:
-	var bow_tie := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)])
+	var bow_tie := PackedVector2Array([Vector2(0, 0), Vector2(10, 10), Vector2(10, 0), Vector2(0, 10)])
 	assert(not Geom.polygon_is_simple(bow_tie))
-	assert(Geom.polygon_is_simple(PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])))
+	assert(Geom.polygon_is_simple(PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])))
 
 
 func test_significant_digits_survive_a_double_round_trip() -> void:
@@ -288,8 +289,7 @@ func test_significant_digits_survive_a_double_round_trip() -> void:
 
 
 func test_hatch_spacing_and_clipping() -> void:
-	var square := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
+	var square := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
 	var lines := Geom.hatch_lines([square], 2.0, 0.0)
 	# Scanlines at y = 0, 2, 4, 6, 8 cross the square; y = 10 does not, because
 	# the half-open rule counts a vertex once.
@@ -302,10 +302,8 @@ func test_hatch_spacing_and_clipping() -> void:
 
 
 func test_hatch_does_not_fill_a_hole() -> void:
-	var outer := PackedVector2Array([
-		Vector2(0, 0), Vector2(30, 0), Vector2(30, 30), Vector2(0, 30)])
-	var hole := PackedVector2Array([
-		Vector2(12, 12), Vector2(18, 12), Vector2(18, 18), Vector2(12, 18)])
+	var outer := PackedVector2Array([Vector2(0, 0), Vector2(30, 0), Vector2(30, 30), Vector2(0, 30)])
+	var hole := PackedVector2Array([Vector2(12, 12), Vector2(18, 12), Vector2(18, 18), Vector2(12, 18)])
 	var lines := Geom.hatch_lines([outer, hole], 3.0, 0.0)
 	# Some scanline must be split into two runs by the hole.
 	var outside := 0
@@ -316,8 +314,7 @@ func test_hatch_does_not_fill_a_hole() -> void:
 
 
 func test_fill_grid_stays_inside() -> void:
-	var square := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
+	var square := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
 	var points := Geom.fill_grid(square, 3.0)
 	assert(points.size() == 16)
 	for point: Vector2 in points:
@@ -352,12 +349,10 @@ func test_aabb_of_an_arc_is_not_its_bounding_circle() -> void:
 
 
 func test_offset_polygon_insets_exactly() -> void:
-	var square := PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
+	var square := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10), Vector2(0, 10)])
 	var result := Geom.offset_polygon(square, -1.0, false)
 	assert(result.size() == 1)
 	assert(is_equal_approx(Geom.polygon_area(result[0]), 64.0))
-
 
 # --- entities -----------------------------------------------------------------------
 
@@ -388,15 +383,13 @@ func test_rectangle_entity_measures() -> void:
 
 
 func test_polygon_entity_measures() -> void:
-	var polygon := Entity.make_polyline(PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]), true)
+	var polygon := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]), true)
 	assert(is_equal_approx(polygon.area(), 50.0))
 	assert(is_equal_approx(polygon.length(), 20.0 + sqrt(200.0)))
 
 
 func test_bulge_expands_into_an_arc_in_the_outline() -> void:
-	var polyline := Entity.make_polyline(PackedVector2Array([
-		Vector2(0, 0), Vector2(10, 0)]), false)
+	var polyline := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0)]), false)
 	polyline.bulges = PackedFloat64Array([Geom.bulge_from_sweep(PI * 0.5)])
 	# A quarter-circle bulge is longer than the straight chord.
 	assert(polyline.outline().size() > 3)
@@ -410,13 +403,14 @@ func test_bulge_expands_into_an_arc_in_the_outline() -> void:
 ## nowhere near `b`, which is a curve drawn hundreds of metres from the plan.
 func test_a_bulged_segment_arrives_at_its_own_vertex() -> void:
 	for bulge: float in [0.5, -0.5, 2.0, -2.0, 1.0]:
-		var polyline := Entity.make_polyline(PackedVector2Array([
-			Vector2(0, 0), Vector2(10, 0)]), false)
+		var polyline := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0)]), false)
 		polyline.bulges = PackedFloat64Array([bulge, 0.0])
 		var outline: PackedVector2Array = polyline.outline()
 		var last: Vector2 = outline[outline.size() - 1]
-		assert(last.is_equal_approx(Vector2(10, 0)),
-			"a chord of 10 with bulge %f ends on its own second vertex, not at %s" % [bulge, str(last)])
+		assert(
+			last.is_equal_approx(Vector2(10, 0)),
+			"a chord of 10 with bulge %f ends on its own second vertex, not at %s" % [bulge, str(last)],
+		)
 
 
 ## The sagitta - how far the arc stands off its chord at the apex - is half the chord
@@ -425,8 +419,7 @@ func test_a_bulged_segment_arrives_at_its_own_vertex() -> void:
 ## the same 2.5 m on the wrong side.
 func test_a_bulged_segment_rises_by_half_the_chord_times_the_bulge() -> void:
 	for bulge: float in [0.5, -0.5]:
-		var polyline := Entity.make_polyline(PackedVector2Array([
-			Vector2(0, 0), Vector2(10, 0)]), false)
+		var polyline := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0)]), false)
 		polyline.bulges = PackedFloat64Array([bulge, 0.0])
 		var lowest := 0.0
 		var highest := 0.0
@@ -436,11 +429,9 @@ func test_a_bulged_segment_rises_by_half_the_chord_times_the_bulge() -> void:
 		var sagitta := highest if bulge < 0.0 else -lowest
 		# Within the chord tolerance: the sampled points straddle the apex, so the measured
 		# rise is the ideal 2.5 less at most one sagitta of tessellation.
-		assert(absf(sagitta - 2.5) <= 0.005,
-			"a chord of 10 with bulge %f rises 2.5, not %f" % [bulge, sagitta])
+		assert(absf(sagitta - 2.5) <= 0.005, "a chord of 10 with bulge %f rises 2.5, not %f" % [bulge, sagitta])
 		# And it stays on its own side: a positive bulge never crosses above the chord.
-		assert((highest <= 0.0001) if bulge > 0.0 else (lowest >= -0.0001),
-			"bulge %f bulges one way only" % bulge)
+		assert((highest <= 0.0001) if bulge > 0.0 else (lowest >= -0.0001), "bulge %f bulges one way only" % bulge)
 
 
 func test_translate_moves_every_kind() -> void:
@@ -468,16 +459,14 @@ func test_a_turn_is_rigid_for_every_kind() -> void:
 	var angle := deg_to_rad(37.0)
 	# A bulged polyline belongs in here: a bulge is tan(sweep / 4), which a rotation leaves alone, so
 	# the sampled arc has to turn with its chord.
-	var bulged := Entity.make_polyline(PackedVector2Array([
-		Vector2(0, 0), Vector2(6, 0), Vector2(6, 4)]), false)
+	var bulged := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(6, 0), Vector2(6, 4)]), false)
 	bulged.bulges = PackedFloat64Array([0.4, 0.0, 0.0])
 	var shapes: Array = [
 		Entity.make_line(Vector2(0, 0), Vector2(4, 2)),
 		Entity.make_arc(Vector2(0, 0), 3.0, 0.2, 1.1),
 		Entity.make_rectangle(Vector2(2, 1), Vector2(4, 3), 0.3),
 		Entity.make_regular_polygon(Vector2(1, -2), 2.0, 6, 0.4),
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0, 0), Vector2(5, 0), Vector2(5, 3)]), true),
+		Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(5, 0), Vector2(5, 3)]), true),
 		bulged,
 		Entity.make_dimension(Vector2(0, 0), Vector2(4, 0)),
 	]
@@ -489,9 +478,10 @@ func test_a_turn_is_rigid_for_every_kind() -> void:
 		assert(after.size() == before.size(), "a turn does not change how finely a shape is sampled")
 		for index in before.size():
 			var want: Vector2 = pivot + (before[index] - pivot).rotated(angle)
-			assert(after[index].distance_to(want) < 0.0001,
-				"point %d of kind %d turned by 37 degrees lands at %s, not %s"
-					% [index, shape.kind, after[index], want])
+			assert(
+				after[index].distance_to(want) < 0.0001,
+				"point %d of kind %d turned by 37 degrees lands at %s, not %s" % [index, shape.kind, after[index], want],
+			)
 
 
 ## A circle is the one shape that cannot be checked point for point, and it is the shape that proves
@@ -504,8 +494,10 @@ func test_a_turn_moves_a_circles_centre_and_leaves_its_radius() -> void:
 	var circle := Entity.make_circle(Vector2(1, 1), 2.5)
 	circle.rotate_about(pivot, angle)
 	var want: Vector2 = pivot + (Vector2(1, 1) - pivot).rotated(angle)
-	assert(Vector2(circle.params[0], circle.params[1]).is_equal_approx(want),
-		"a circle's centre is carried around the pivot")
+	assert(
+		Vector2(circle.params[0], circle.params[1]).is_equal_approx(want),
+		"a circle's centre is carried around the pivot",
+	)
 	assert(is_equal_approx(circle.params[2], 2.5), "and a turn does not change its radius")
 	for sampled: Vector2 in circle.outline():
 		assert(is_equal_approx(sampled.distance_to(want), 2.5), "so it is still a circle of radius 2.5")
@@ -517,13 +509,11 @@ func test_text_turns_about_its_own_anchor() -> void:
 	var text := Entity.make_text(Vector2(2, 2), "bed", 0.25)
 	text.rotate_about(Vector2(2, 2), deg_to_rad(90.0))
 	assert(text.point(0).is_equal_approx(Vector2(2, 2)), "a turn about its own anchor leaves it there")
-	assert(is_equal_approx(text.params[2], 0.25 + deg_to_rad(90.0)),
-		"and its baseline turns by the angle as well")
+	assert(is_equal_approx(text.params[2], 0.25 + deg_to_rad(90.0)), "and its baseline turns by the angle as well")
 
 
 func test_entity_round_trips_through_serialisation() -> void:
-	var original := Entity.make_polyline(PackedVector2Array([
-		Vector2(1.25, 2.5), Vector2(3.75, 4.125)]), false)
+	var original := Entity.make_polyline(PackedVector2Array([Vector2(1.25, 2.5), Vector2(3.75, 4.125)]), false)
 	original.layer = LayerSet.NEW_BED
 	original.bulges = PackedFloat64Array([0.0, 0.5])
 	var restored := Entity.from_dict(original.to_dict())
@@ -540,7 +530,6 @@ func test_entity_copy_is_independent() -> void:
 	duplicate.translate(Vector2(10, 10))
 	assert(original.point(0).is_equal_approx(Vector2(0, 0)))
 	assert(duplicate.point(0).is_equal_approx(Vector2(10, 10)))
-
 
 # --- line style ---------------------------------------------------------------------
 
@@ -609,7 +598,6 @@ func test_nearest_standard_weight() -> void:
 	# thickens a drawing unexpectedly.
 	assert(is_equal_approx(Style.nearest_weight(0.60), 0.50))
 
-
 # --- layers -------------------------------------------------------------------------
 
 
@@ -639,8 +627,7 @@ func test_tracing_aids_do_not_plot() -> void:
 
 func test_bed_outline_outweighs_plant_symbols() -> void:
 	var set := LayerSet.default_set()
-	assert(set.get_layer(LayerSet.NEW_BED).plot_weight_mm
-		> set.get_layer(LayerSet.NEW_PLANTING).plot_weight_mm)
+	assert(set.get_layer(LayerSet.NEW_BED).plot_weight_mm > set.get_layer(LayerSet.NEW_PLANTING).plot_weight_mm)
 	# And the sheet border outranks everything else on the sheet.
 	for layer in set.layers():
 		assert(set.get_layer(LayerSet.SHEET_BORDER).plot_weight_mm >= layer.plot_weight_mm)
@@ -694,25 +681,24 @@ func test_every_layer_has_a_purpose_and_a_weight() -> void:
 		assert(not layer.purpose.is_empty(), "layer %s has no purpose" % layer.name)
 		assert(layer.plot_weight_mm >= Style.HAIRLINE)
 
-
 # --- undo ---------------------------------------------------------------------------
 
 
 func test_undo_and_redo_round_trip() -> void:
 	var history := History.new()
-	history.push({"value": 1})
+	history.push({ "value": 1 })
 	assert(history.can_undo())
 	assert(not history.can_redo())
-	var restored: Dictionary = history.undo({"value": 2})
+	var restored: Dictionary = history.undo({ "value": 2 })
 	assert(restored["value"] == 1)
 	assert(history.can_redo())
-	assert(history.redo({"value": 1})["value"] == 2)
+	assert(history.redo({ "value": 1 })["value"] == 2)
 
 
 func test_undo_on_an_empty_stack_is_a_no_op() -> void:
 	var history := History.new()
-	assert(history.undo({}).is_empty())
-	assert(history.redo({}).is_empty())
+	assert(history.undo({ }).is_empty())
+	assert(history.redo({ }).is_empty())
 	assert(not history.can_undo())
 
 
@@ -720,14 +706,14 @@ func test_the_gesture_history_is_capped() -> void:
 	var history := History.new()
 	history.limit = 3
 	for index in 10:
-		history.push({"value": index})
+		history.push({ "value": index })
 	assert(history.depth() == 3)
 
 
 func test_new_edits_clear_the_redo_branch() -> void:
 	var history := History.new()
-	history.push({"value": 1})
-	history.undo({"value": 2})
+	history.push({ "value": 1 })
+	history.undo({ "value": 2 })
 	assert(history.can_redo())
-	history.push({"value": 3})
+	history.push({ "value": 3 })
 	assert(not history.can_redo())

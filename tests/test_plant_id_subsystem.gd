@@ -34,18 +34,20 @@ func _catalogue_with(plants: Array[PlantSpecies]) -> PlantCatalogue:
 
 
 func test_sun_hours_become_the_right_mask() -> void:
-	assert(BitMaskScript.sun_hours_to_bitmask(7.0) & BitMaskScript.SUN_FULL_SUN != 0,
-		"seven hours of sun must ask for full sun")
-	assert(BitMaskScript.sun_hours_to_bitmask(4.5) & BitMaskScript.SUN_PART_SHADE != 0,
-		"four and a half hours must ask for part shade")
-	assert(BitMaskScript.sun_hours_to_bitmask(0.0) == 0,
-		"nothing stated is no mask at all")
+	assert(
+		BitMaskScript.sun_hours_to_bitmask(7.0) & BitMaskScript.SUN_FULL_SUN != 0,
+		"seven hours of sun must ask for full sun",
+	)
+	assert(
+		BitMaskScript.sun_hours_to_bitmask(4.5) & BitMaskScript.SUN_PART_SHADE != 0,
+		"four and a half hours must ask for part shade",
+	)
+	assert(BitMaskScript.sun_hours_to_bitmask(0.0) == 0, "nothing stated is no mask at all")
 
 
 func test_edible_parts_become_the_right_mask() -> void:
 	var mask: int = BitMaskScript.parse_edible_parts(["leaf", "fruit"])
-	assert(mask == (BitMaskScript.EAT_LEAF | BitMaskScript.EAT_FRUIT),
-		"leaf and fruit are both eaten")
+	assert(mask == (BitMaskScript.EAT_LEAF | BitMaskScript.EAT_FRUIT), "leaf and fruit are both eaten")
 
 
 ## Nothing named is zero, and zero is not a value. A plant whose edible parts nobody wrote down is not
@@ -53,17 +55,14 @@ func test_edible_parts_become_the_right_mask() -> void:
 ## capture carrying that answer would reach the checks as though a person had listed them all.
 func test_a_plant_whose_parts_nobody_listed_is_not_edible_by_default() -> void:
 	assert(BitMaskScript.parse_edible_parts([]) == 0, "an empty list states nothing")
-	assert(
-		BitMaskScript.parse_edible_parts(["bark"]) == 0,
-		"and neither does a part this program does not know"
-	)
+	assert(BitMaskScript.parse_edible_parts(["bark"]) == 0, "and neither does a part this program does not know")
 	assert(
 		BitMaskScript.parse_edible_parts(["leaf"]) != BitMaskScript.EDIBLE_ANY,
-		"one part named is one part eaten, never all of them"
+		"one part named is one part eaten, never all of them",
 	)
 	assert(
 		BitMaskScript.parse_edible_parts(["fruits"]) & BitMaskScript.EAT_FRUIT != 0,
-		"a typist's plural is still the part"
+		"a typist's plural is still the part",
 	)
 
 
@@ -84,7 +83,7 @@ func test_only_one_converter_answers_sun_hours_and_edible_parts() -> void:
 	]:
 		assert(
 			not converter.has_method(gone),
-			"%s is gone rather than left beside the one that answers honestly" % gone
+			"%s is gone rather than left beside the one that answers honestly" % gone,
 		)
 
 
@@ -94,8 +93,7 @@ func test_the_resolver_matches_an_id_a_name_and_refuses_a_stranger() -> void:
 
 	var by_id: Dictionary = resolver.resolve_identification("acer rubrum", 0.95)
 	assert(String(by_id["status"]) == "exact_match", "a spaced name reaches the id")
-	assert(by_id["species"] != null and by_id["species"].id == &"acer_rubrum",
-		"and it is the right plant")
+	assert(by_id["species"] != null and by_id["species"].id == &"acer_rubrum", "and it is the right plant")
 
 	var by_common: Dictionary = resolver.resolve_identification("Red Maple", 0.88)
 	assert(String(by_common["status"]) == "exact_match", "the common name matches")

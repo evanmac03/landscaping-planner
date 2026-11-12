@@ -16,9 +16,20 @@ const MAIN := preload("res://scenes/main.tscn")
 const Hud := preload("res://scripts/hud.gd")
 
 const PANELS: Array[String] = [
-	"TopBar", "Hints", "DraftHints", "Palette", "Presentation", "PaintedSheet",
-	"KeysPanel", "SiteReportPanel", "SurveyPanel", "DxfPanel",
-	"HatchPanel", "WaterPanel", "LightPanel", "PlantWindow",
+	"TopBar",
+	"Hints",
+	"DraftHints",
+	"Palette",
+	"Presentation",
+	"PaintedSheet",
+	"KeysPanel",
+	"SiteReportPanel",
+	"SurveyPanel",
+	"DxfPanel",
+	"HatchPanel",
+	"WaterPanel",
+	"LightPanel",
+	"PlantWindow",
 ]
 
 ## Panels that are on screen with nothing opened: a collision with one of these is one a person sees.
@@ -30,8 +41,13 @@ const OVERLAY_MODE: Array[String] = ["PaintedSheet"]
 ## Panels built as a full-rect centering wrapper: the wrapper is a transparent, click-through device
 ## that spans the screen, so measuring it would report a clash with everything. Measure the page inside.
 const PAGE_OF: Dictionary = {
-	"KeysPanel": "Page", "SiteReportPanel": "Page", "SurveyPanel": "Page", "DxfPanel": "Page",
-	"HatchPanel": "Page", "WaterPanel": "Page", "LightPanel": "Page",
+	"KeysPanel": "Page",
+	"SiteReportPanel": "Page",
+	"SurveyPanel": "Page",
+	"DxfPanel": "Page",
+	"HatchPanel": "Page",
+	"WaterPanel": "Page",
+	"LightPanel": "Page",
 }
 
 
@@ -60,8 +76,7 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 	var root: Control = main.get_node_or_null(^"Hud/Root") as Control
 	if root == null:
 		print("LAYOUT: no Hud/Root")
-		return {"name": "HUD layout", "ok": false, "clashes": 0, "overflow": 1,
-			"summary": "no Hud/Root in the scene"}
+		return { "name": "HUD layout", "ok": false, "clashes": 0, "overflow": 1, "summary": "no Hud/Root in the scene" }
 	# The Hud rewrites panel visibility every frame; stop it so a forced panel stays forced.
 	var hud: Node = main.get_node_or_null(^"Hud")
 	if hud != null:
@@ -70,8 +85,8 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 
 	print("=== HUD LAYOUT (viewport %d x %d) ===" % [int(root.size.x), int(root.size.y)])
 
-	var measured: Dictionary = {}
-	var shown: Dictionary = {}
+	var measured: Dictionary = { }
+	var shown: Dictionary = { }
 	# A panel whose contents do not fit is a fault the same way a clash is, and it is the fault the
 	# rectangles cannot see: every panel can be clear of every other one while the legend runs off the
 	# side of the panel it is in.
@@ -94,10 +109,17 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		node.visible = was
 		measured[panel_name] = r
 		shown[panel_name] = was
-		print("  %-16s x %7.1f .. %-7.1f  y %7.1f .. %-7.1f   (%s)" % [
-			panel_name, r.position.x, r.end.x, r.position.y, r.end.y,
-			"on by default" if was else "opened from a menu",
-		])
+		print(
+			"  %-16s x %7.1f .. %-7.1f  y %7.1f .. %-7.1f   (%s)"
+			% [
+				panel_name,
+				r.position.x,
+				r.end.x,
+				r.position.y,
+				r.end.y,
+				"on by default" if was else "opened from a menu",
+			]
+		)
 
 	var top_bar: Control = root.get_node_or_null(^"TopBar") as Control
 	var row: Control = root.get_node_or_null(^"TopBar/Row") as Control
@@ -106,9 +128,7 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		var row_fits: String = _fits(wants, top_bar.size.x)
 		if row_fits != FITS:
 			overflow += 1
-		print("  TopBar row wants %.1f px, panel is %.1f px  ->  %s" % [
-			wants, top_bar.size.x, row_fits,
-		])
+		print("  TopBar row wants %.1f px, panel is %.1f px  ->  %s" % [wants, top_bar.size.x, row_fits])
 
 	# What is *inside* the panels, because a panel's own rectangle says nothing about whether its
 	# contents fit: the palette's grids are as wide as the tables that build them, and the legend is one
@@ -124,9 +144,10 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		var column_fits: String = _fits(column_wants, palette_panel.size.x)
 		if column_fits != FITS:
 			overflow += 1
-		print("  PaletteColumn wants %6.1f px, Palette panel is %6.1f px  ->  %s" % [
-			column_wants, palette_panel.size.x, column_fits,
-		])
+		print(
+			"  PaletteColumn wants %6.1f px, Palette panel is %6.1f px  ->  %s"
+			% [column_wants, palette_panel.size.x, column_fits]
+		)
 		palette_panel.visible = palette_was
 	var hints_panel: Control = root.get_node_or_null(^"DraftHints") as Control
 	var legend: Control = root.find_child("DraftHintsLabel", true, false) as Control
@@ -139,9 +160,10 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		var legend_fits: String = _fits(legend_wants, hints_panel.size.x)
 		if legend_fits != FITS:
 			overflow += 1
-		print("  widest legend line wants %6.1f px, DraftHints panel is %6.1f px over %d lines  ->  %s" % [
-			legend_wants, hints_panel.size.x, legend_lines, legend_fits,
-		])
+		print(
+			"  widest legend line wants %6.1f px, DraftHints panel is %6.1f px over %d lines  ->  %s"
+			% [legend_wants, hints_panel.size.x, legend_lines, legend_fits]
+		)
 		hints_panel.visible = hints_was
 
 	# The line at the foot of the screen is the one line whose words change with what is in hand, so the
@@ -161,9 +183,10 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		var foot_fits: String = _fits(foot_wants, foot_panel.size.x)
 		if foot_fits != FITS:
 			overflow += 1
-		print("  longest tool line wants %6.1f px, Hints panel is %6.1f px  ->  %s" % [
-			foot_wants, foot_panel.size.x, foot_fits,
-		])
+		print(
+			"  longest tool line wants %6.1f px, Hints panel is %6.1f px  ->  %s"
+			% [foot_wants, foot_panel.size.x, foot_fits]
+		)
 		print("    it reads: %s" % worst)
 		(foot_label as Label).text = words_was
 		foot_panel.visible = foot_was
@@ -187,9 +210,9 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 				clashes += 1
 			else:
 				touching += 1
-			print("  %-14s x %-14s   %s" % [
-				a, b, "BOTH CAN BE UP -> a real clash" if live else "not up at the same time",
-			])
+			print(
+				"  %-14s x %-14s   %s" % [a, b, "BOTH CAN BE UP -> a real clash" if live else "not up at the same time"]
+			)
 	if clashes == 0:
 		print("  no clash with a panel that is always on screen")
 	if touching > 0:
@@ -208,7 +231,7 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		summary = "no clash with a panel that is always on screen, and no contents wider than their panel"
 	else:
 		summary = "%d clash(es) with a panel that is always on screen, %d thing(s) wider than their panel" % [
-			clashes, overflow,
+			clashes,
+			overflow,
 		]
-	return {"name": "HUD layout", "ok": ok, "clashes": clashes, "overflow": overflow,
-		"summary": summary}
+	return { "name": "HUD layout", "ok": ok, "clashes": clashes, "overflow": overflow, "summary": summary }

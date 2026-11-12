@@ -12,7 +12,11 @@ extends RefCounted
 
 ## Which answer to give, so a demonstration or a test can ask what a phone, a tablet or a desk would be
 ## told without being one. `AUTO` reads the machine it is running on.
-enum Answer { AUTO, FINGER, MOUSE }
+enum Answer {
+	AUTO,
+	FINGER,
+	MOUSE,
+}
 
 ## The height a row of answers has on a desk, in logical pixels, and the size a finger needs: the two
 ## numbers the whole question is a comparison between. A row this tall is 1.6 mm on a phone's screen and
@@ -61,7 +65,10 @@ static func has_a_touchscreen() -> bool:
 ## read resizes nothing at all: a size worked out from a number that does not exist is worse than the size
 ## the program already drew, so an unread density leaves the layout exactly as it was built.
 static func answered_by_a_thumb(
-	has_touchscreen: bool, density: float, desk_row_mm: float, thumb_mm: float = THUMB_MM
+	has_touchscreen: bool,
+	density: float,
+	desk_row_mm: float,
+	thumb_mm: float = THUMB_MM,
 ) -> bool:
 	if not has_touchscreen:
 		return false
@@ -83,9 +90,7 @@ const PHONE_ACROSS_INCHES := 7.0
 
 ## Whether the canvas should be drawn up as well as sized for a finger - which is only true of a screen
 ## held in one hand. A screen nobody could measure is not drawn up: the canvas keeps the scale it has.
-static func needs_zooming(
-	across_inches: float, phone_across_inches: float = PHONE_ACROSS_INCHES
-) -> bool:
+static func needs_zooming(across_inches: float, phone_across_inches: float = PHONE_ACROSS_INCHES) -> bool:
 	if across_inches <= 0.0 or phone_across_inches <= 0.0:
 		return false
 	return across_inches < phone_across_inches

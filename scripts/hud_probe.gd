@@ -92,12 +92,14 @@ static func device_lines(
 	native: Vector2i,
 	touchscreen: bool,
 	foot: String,
-	tool: String
+	tool: String,
 ) -> PackedStringArray:
 	var lines := PackedStringArray()
 	lines.append("--- what is on the screen ---")
-	lines.append("device   finger=%s zooming=%s touchscreen=%s dpi=%.1f scale=%.2f" % [
-		str(finger), str(zooming), str(touchscreen), dpi, scale])
+	lines.append(
+		"device   finger=%s zooming=%s touchscreen=%s dpi=%.1f scale=%.2f"
+		% [str(finger), str(zooming), str(touchscreen), dpi, scale]
+	)
 	lines.append("room     viewport=%s native=%s" % [str(room), str(native)])
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)
@@ -116,8 +118,10 @@ static func row_lines(row: Control, what: String, room: float) -> PackedStringAr
 	var lines := PackedStringArray()
 	if row == null:
 		return lines
-	lines.append("row      %s  room=%.0f  min=%s  size=%s  at=%s" % [
-		what, room, str(row.get_combined_minimum_size()), str(row.size), _point_words(row.position)])
+	lines.append(
+		"row      %s  room=%.0f  min=%s  size=%s  at=%s"
+		% [what, room, str(row.get_combined_minimum_size()), str(row.size), _point_words(row.position)]
+	)
 	for child: Node in row.get_children():
 		var control: Control = child as Control
 		if control == null:
@@ -127,10 +131,19 @@ static func row_lines(row: Control, what: String, room: float) -> PackedStringAr
 			words = (control as Button).text
 		elif control is Label:
 			words = (control as Label).text
-		lines.append("row      %s  %-14s  min=%s  size=%s  at=%s  font=%d  shown=%s  \"%s\"" % [
-			what, control.name, str(control.get_combined_minimum_size()), str(control.size),
-			_point_words(control.position), control.get_theme_font_size(&"font_size"),
-			str(control.is_visible_in_tree()), words])
+		lines.append(
+			"row      %s  %-14s  min=%s  size=%s  at=%s  font=%d  shown=%s  \"%s\""
+			% [
+				what,
+				control.name,
+				str(control.get_combined_minimum_size()),
+				str(control.size),
+				_point_words(control.position),
+				control.get_theme_font_size(&"font_size"),
+				str(control.is_visible_in_tree()),
+				words,
+			]
+		)
 	return lines
 
 
@@ -146,8 +159,10 @@ static func tap_lines(root: Node, scope: String) -> PackedStringArray:
 		var rect: Rect2 = screen_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
-		lines.append("tap      %-28s %-34s screen %s  centre %s" % [
-			scope, "\"%s\"" % _caption(control), _rect_words(rect), _point_words(rect.get_center())])
+		lines.append(
+			"tap      %-28s %-34s screen %s  centre %s"
+			% [scope, "\"%s\"" % _caption(control), _rect_words(rect), _point_words(rect.get_center())]
+		)
 	return lines
 
 
@@ -156,9 +171,16 @@ static func page_lines(page: Window) -> PackedStringArray:
 	var lines := PackedStringArray()
 	if page == null:
 		return lines
-	lines.append("page     %s  \"%s\"  at %s size %s  ->  screen %s" % [
-		PageLayoutScript.page_name(page), page.title, str(page.position), str(page.size),
-		_rect_words(window_rect(page))])
+	lines.append(
+		"page     %s  \"%s\"  at %s size %s  ->  screen %s"
+		% [
+			PageLayoutScript.page_name(page),
+			page.title,
+			str(page.position),
+			str(page.size),
+			_rect_words(window_rect(page)),
+		]
+	)
 	lines.append_array(tap_lines(page, PageLayoutScript.page_name(page)))
 	return lines
 
@@ -209,7 +231,13 @@ static func window_rect(page: Window) -> Rect2:
 ## wants one, and `(x, y)` so that a line can be read straight off.
 static func _rect_words(rect: Rect2) -> String:
 	return "(%.0f, %.0f) .. (%.0f, %.0f) %0.fx%0.f px" % [
-		rect.position.x, rect.position.y, rect.end.x, rect.end.y, rect.size.x, rect.size.y]
+		rect.position.x,
+		rect.position.y,
+		rect.end.x,
+		rect.end.y,
+		rect.size.x,
+		rect.size.y,
+	]
 
 
 static func _point_words(point: Vector2) -> String:

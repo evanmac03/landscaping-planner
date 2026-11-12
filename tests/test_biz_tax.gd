@@ -37,13 +37,16 @@ func test_a_compounding_component_is_charged_on_the_rounded_amount_before_it() -
 	# No Canadian jurisdiction compounds today, so this adds one to the table - which is the point
 	# of the codes being data rather than code: a business working somewhere that does can add it
 	# without touching the engine.
-	TaxScript.add_code(&"TEST-COMPOUND", {
-		"name": "Test, compounding",
-		"components": [
-			{"name": "A", "rate_ppm": 50000, "compounds": false},
-			{"name": "B", "rate_ppm": 70000, "compounds": true},
-		],
-	})
+	TaxScript.add_code(
+		&"TEST-COMPOUND",
+		{
+			"name": "Test, compounding",
+			"components": [
+				{ "name": "A", "rate_ppm": 50000, "compounds": false },
+				{ "name": "B", "rate_ppm": 70000, "compounds": true },
+			],
+		},
+	)
 	var grossed: Dictionary = TaxScript.gross(MoneyScript.of(10000, &"CAD"), &"TEST-COMPOUND")
 	assert(bool(grossed["ok"]))
 	# 5% of 100.00 is 5.00; 7% of the 105.00 that results is 7.35; the tax is 12.35.
@@ -55,13 +58,16 @@ func test_a_compounding_component_is_charged_on_the_rounded_amount_before_it() -
 	assert(TaxScript.erase_code(&"TEST-COMPOUND"))
 	# The flag marks the component that *does* the compounding. Marking the earlier one instead is a
 	# different table with a different answer, and the engine must not read the two as one.
-	TaxScript.add_code(&"TEST-COMPOUND-A", {
-		"name": "Test, flag on the first",
-		"components": [
-			{"name": "A", "rate_ppm": 50000, "compounds": true},
-			{"name": "B", "rate_ppm": 70000, "compounds": false},
-		],
-	})
+	TaxScript.add_code(
+		&"TEST-COMPOUND-A",
+		{
+			"name": "Test, flag on the first",
+			"components": [
+				{ "name": "A", "rate_ppm": 50000, "compounds": true },
+				{ "name": "B", "rate_ppm": 70000, "compounds": false },
+			],
+		},
+	)
 	var other: Dictionary = TaxScript.gross(MoneyScript.of(10000, &"CAD"), &"TEST-COMPOUND-A")
 	var other_tax: MoneyScript = other["tax"]
 	assert(other_tax.cents == 1200, "an unmarked component is charged on the price")
@@ -72,14 +78,17 @@ func test_a_compounding_component_is_charged_on_everything_the_others_added() ->
 	# Three components: two charged on the price, and a third charged on the price plus both of
 	# them. It is the arithmetic of a tax on a tax, and the accumulator has to carry the unmarked
 	# components forward too, not only the marked ones.
-	TaxScript.add_code(&"TEST-THREE", {
-		"name": "Test, three components",
-		"components": [
-			{"name": "A", "rate_ppm": 50000, "compounds": false},
-			{"name": "B", "rate_ppm": 70000, "compounds": false},
-			{"name": "C", "rate_ppm": 100000, "compounds": true},
-		],
-	})
+	TaxScript.add_code(
+		&"TEST-THREE",
+		{
+			"name": "Test, three components",
+			"components": [
+				{ "name": "A", "rate_ppm": 50000, "compounds": false },
+				{ "name": "B", "rate_ppm": 70000, "compounds": false },
+				{ "name": "C", "rate_ppm": 100000, "compounds": true },
+			],
+		},
+	)
 	var grossed: Dictionary = TaxScript.gross(MoneyScript.of(10000, &"CAD"), &"TEST-THREE")
 	var tax: MoneyScript = grossed["tax"]
 	# 5.00 + 7.00 charged on 100.00, then 10% of the 112.00 those two make: 11.20. Tax 23.20.
@@ -94,10 +103,10 @@ func test_a_compounding_component_is_charged_on_everything_the_others_added() ->
 func test_a_half_written_code_is_refused() -> void:
 	# A code with a rate but no name, or with no components at all, would charge nothing and look
 	# like an exemption. It is refused at the door.
-	assert(not TaxScript.add_code(&"TEST-HALF", {"name": "Half"}))
-	assert(not TaxScript.add_code(&"TEST-HALF", {"components": []}))
+	assert(not TaxScript.add_code(&"TEST-HALF", { "name": "Half" }))
+	assert(not TaxScript.add_code(&"TEST-HALF", { "components": [] }))
 	assert(not TaxScript.has(&"TEST-HALF"))
-	assert(TaxScript.add_code(&"TEST-ZERO", {"name": "Deliberate zero", "components": []}))
+	assert(TaxScript.add_code(&"TEST-ZERO", { "name": "Deliberate zero", "components": [] }))
 	assert(TaxScript.has(&"TEST-ZERO"))
 	assert(TaxScript.erase_code(&"TEST-ZERO"))
 	assert(not TaxScript.erase_code(&"NEVER-WAS"))

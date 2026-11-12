@@ -29,12 +29,7 @@ enum Mark {
 	NONE,
 }
 
-const MARK_NAMES := {
-	Mark.ARROW: "arrow",
-	Mark.TICK: "tick",
-	Mark.DOT: "dot",
-	Mark.NONE: "none",
-}
+const MARK_NAMES := { Mark.ARROW: "arrow", Mark.TICK: "tick", Mark.DOT: "dot", Mark.NONE: "none" }
 
 ## Half-width of an arrowhead as a fraction of its length. A drafting arrow is
 ## long and slim; a fat triangle reads as a road sign.
@@ -78,7 +73,6 @@ var extension_overshoot_mm: float = 1.5
 static func _new() -> DraftDimensionStyle:
 	return (load("res://scripts/draft/dimension_style.gd") as GDScript).new()
 
-
 # --- the shipped standards ----------------------------------------------------------
 
 
@@ -106,7 +100,6 @@ static func minimal() -> DraftDimensionStyle:
 	style.mark = Mark.NONE
 	style.extension_lines = false
 	return style
-
 
 # --- derived settings ---------------------------------------------------------------
 
@@ -142,7 +135,6 @@ func with_scale(plot_scale: float) -> DraftDimensionStyle:
 	var scaled := copy()
 	scaled.text_decimals = decimals_for_scale(plot_scale)
 	return scaled
-
 
 # --- copying and persistence --------------------------------------------------------
 
@@ -200,7 +192,9 @@ static func from_dict(data: Dictionary) -> DraftDimensionStyle:
 
 func describe() -> String:
 	return "dimension style: %s marks, %.2f mm, %s text, %s" % [
-		MARK_NAMES.get(mark, "?"), mark_size_mm, "above" if text_above else "below",
+		MARK_NAMES.get(mark, "?"),
+		mark_size_mm,
+		"above" if text_above else "below",
 		precision_description(),
 	]
 

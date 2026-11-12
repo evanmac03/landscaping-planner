@@ -17,7 +17,6 @@ const UnitsScript := preload("res://scripts/draft/units.gd")
 
 const PREFIX := "test-"
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -131,7 +130,6 @@ func _record(width_m: float = 10.0, name: String = "png") -> Dictionary:
 	assert(bool(kept["ok"]), String(kept["reason"]))
 	return RasterUnderlayScript.from_kept(kept, width_m)
 
-
 # --- what kind of file is this ---------------------------------------------------------
 
 
@@ -141,7 +139,10 @@ func test_a_file_is_judged_by_its_extension_before_anything_is_read() -> void:
 	assert(RasterUnderlayScript.is_image("a/b/c.jpeg"), "jpeg is a png's sibling")
 	assert(not RasterUnderlayScript.is_image("plan.dxf"), "a DXF is what the DXF reader is for")
 	assert(not RasterUnderlayScript.is_image("site-plan"), "no extension is no claim")
-	assert(RasterUnderlayScript.extension_of("site.plan.png") == "png", RasterUnderlayScript.extension_of("site.plan.png"))
+	assert(
+		RasterUnderlayScript.extension_of("site.plan.png") == "png",
+		RasterUnderlayScript.extension_of("site.plan.png"),
+	)
 	assert(RasterUnderlayScript.extension_of("no-extension") == "", "and no extension reads as none")
 	var filter := RasterUnderlayScript.dialog_filter()
 	assert(filter.ends_with(" ; Pictures"), filter)
@@ -152,14 +153,19 @@ func test_a_file_is_judged_by_its_extension_before_anything_is_read() -> void:
 
 func test_a_name_is_boiled_down_to_something_a_file_system_keeps() -> void:
 	_clean()
-	assert(RasterUnderlayScript.slug("Backyard Scan (2024).png") == "backyard-scan-2024-png", RasterUnderlayScript.slug("Backyard Scan (2024).png"))
-	assert(RasterUnderlayScript.slug("site_plan--north") == "site-plan-north", RasterUnderlayScript.slug("site_plan--north"))
+	assert(
+		RasterUnderlayScript.slug("Backyard Scan (2024).png") == "backyard-scan-2024-png",
+		RasterUnderlayScript.slug("Backyard Scan (2024).png"),
+	)
+	assert(
+		RasterUnderlayScript.slug("site_plan--north") == "site-plan-north",
+		RasterUnderlayScript.slug("site_plan--north"),
+	)
 	assert(RasterUnderlayScript.slug("   ") == "picture", "a name of nothing still needs a name")
 	assert(RasterUnderlayScript.slug("///") == "picture", "separators alone are nothing")
 	var long := RasterUnderlayScript.slug("a".repeat(200))
 	assert(long.length() == RasterUnderlayScript.NAME_LIMIT, str(long.length()))
 	_clean()
-
 
 # --- reading the header ----------------------------------------------------------------
 
@@ -187,9 +193,7 @@ func test_every_format_in_the_list_states_its_own_size() -> void:
 	assert(bool(bmp["ok"]), String(bmp["reason"]))
 	assert(String(bmp["format"]) == "BMP", String(bmp["format"]))
 	assert(int(bmp["width_px"]) == 800 and int(bmp["height_px"]) == 600, str(bmp))
-	var extended: Dictionary = RasterUnderlayScript.sniff(
-		_bytes_file("vp8x.webp", _webp_vp8x_header(1024, 768))
-	)
+	var extended: Dictionary = RasterUnderlayScript.sniff(_bytes_file("vp8x.webp", _webp_vp8x_header(1024, 768)))
 	assert(bool(extended["ok"]), String(extended["reason"]))
 	assert(String(extended["format"]) == "WebP", String(extended["format"]))
 	assert(int(extended["width_px"]) == 1024 and int(extended["height_px"]) == 768, str(extended))
@@ -210,9 +214,11 @@ func test_a_file_that_is_not_a_picture_is_refused_and_told_so() -> void:
 	assert(not bool(text["ok"]), "a text file renamed is still a text file")
 	assert(String(text["reason"]).contains("is not a picture this can read"), String(text["reason"]))
 	assert(String(text["reason"]).contains("PNG"), "and it names what can be read: " + String(text["reason"]))
-	assert(String(RasterUnderlayScript.sniff("").get("reason", "")) == "no file was named", "and nothing named is its own answer")
+	assert(
+		String(RasterUnderlayScript.sniff("").get("reason", "")) == "no file was named",
+		"and nothing named is its own answer",
+	)
 	_clean()
-
 
 # --- taking one on ---------------------------------------------------------------------
 
@@ -227,7 +233,7 @@ func test_keeping_a_picture_copies_it_into_the_drawings_own_folder() -> void:
 	assert(FileAccess.file_exists(path), "the copy is on disk")
 	assert(
 		FileAccess.get_file_as_bytes(path) == FileAccess.get_file_as_bytes(source),
-		"and it is the picture, byte for byte"
+		"and it is the picture, byte for byte",
 	)
 	assert(String(kept["name"]) == PREFIX + "sunny-bed", String(kept["name"]))
 	_clean()
@@ -254,14 +260,14 @@ func test_a_file_that_is_not_a_picture_is_refused_before_anything_is_copied() ->
 	_clean()
 	var kept: Dictionary = RasterUnderlayScript.keep(
 		_text_file("not-a-picture.txt", "a notes file somebody picked by mistake, long enough to read"),
-		PREFIX + "hopeful"
+		PREFIX + "hopeful",
 	)
 	assert(not bool(kept["ok"]), "a notes file is not a picture")
 	assert(String(kept["reason"]).contains("is not a picture this can read"), String(kept["reason"]))
 	for path: String in _mine():
 		assert(
 			not path.get_file().begins_with(PREFIX + "hopeful"),
-			"and nothing reached the drawing's own folder: " + path
+			"and nothing reached the drawing's own folder: " + path,
 		)
 	_clean()
 
@@ -343,14 +349,12 @@ func test_how_see_through_it_is_clamps_rather_than_refuses() -> void:
 	assert(RasterUnderlayScript.set_opacity(record, 1.5), "a knob past the end is still a turn")
 	assert(float(record["opacity"]) == RasterUnderlayScript.MAX_OPACITY, str(record["opacity"]))
 	RasterUnderlayScript.set_opacity(record, -1.0)
-	assert(float(record["opacity"]) == RasterUnderlayScript.MIN_OPACITY, str(record["opacity"])
-	)
+	assert(float(record["opacity"]) == RasterUnderlayScript.MIN_OPACITY, str(record["opacity"]))
 	assert(not RasterUnderlayScript.set_opacity(record, NAN), "but a knob that is not a number is not a knob")
 	var hidden := _record(10.0, "hidden")
 	RasterUnderlayScript.set_visible(hidden, false)
 	assert(not bool(hidden["visible"]), "and a picture can be put away")
 	_clean()
-
 
 # --- what it is worth ------------------------------------------------------------------
 
@@ -358,8 +362,8 @@ func test_how_see_through_it_is_clamps_rather_than_refuses() -> void:
 func test_a_record_says_what_is_wrong_with_it_or_nothing_at_all() -> void:
 	_clean()
 	assert(
-		RasterUnderlayScript.describe_problem({}) == "no picture has been read",
-		RasterUnderlayScript.describe_problem({})
+		RasterUnderlayScript.describe_problem({ }) == "no picture has been read",
+		RasterUnderlayScript.describe_problem({ }),
 	)
 	var record := _record(10.0, "problem")
 	assert(RasterUnderlayScript.describe_problem(record) == "", RasterUnderlayScript.describe_problem(record))
@@ -370,13 +374,13 @@ func test_a_record_says_what_is_wrong_with_it_or_nothing_at_all() -> void:
 	assert(not RasterUnderlayScript.is_usable(record), "a picture whose file is gone cannot be drawn")
 	assert(
 		RasterUnderlayScript.describe_problem(record).contains("no longer at"),
-		RasterUnderlayScript.describe_problem(record)
+		RasterUnderlayScript.describe_problem(record),
 	)
 	var without: Dictionary = record.duplicate()
 	without["path"] = ""
 	assert(
 		RasterUnderlayScript.describe_problem(without) == "the picture has no file",
-		RasterUnderlayScript.describe_problem(without)
+		RasterUnderlayScript.describe_problem(without),
 	)
 	_clean()
 
@@ -397,7 +401,7 @@ func test_a_picture_is_described_in_the_drawings_own_units() -> void:
 	var words := RasterUnderlayScript.describe(record, imperial)
 	assert(words.contains("ft across"), words)
 	assert(not words.contains(" m across"), "an imperial drawing does not measure its underlay in metres: " + words)
-	assert(RasterUnderlayScript.describe({}) == "no picture", RasterUnderlayScript.describe({}))
+	assert(RasterUnderlayScript.describe({ }) == "no picture", RasterUnderlayScript.describe({ }))
 	_clean()
 
 
@@ -409,7 +413,7 @@ func test_the_report_says_what_was_read_and_where_the_copy_is() -> void:
 	assert(lines[0].contains("PNG") and lines[0].contains("64 x 32"), lines[0])
 	assert(lines[1].contains(RasterUnderlayScript.DIR), lines[1])
 	assert(lines[lines.size() - 1].contains("ready to go under the drawing"), lines[lines.size() - 1])
-	var nothing := RasterUnderlayScript.report_lines({})
+	var nothing := RasterUnderlayScript.report_lines({ })
 	assert(nothing == ["no picture has been read"], str(nothing))
 	_clean()
 
@@ -422,11 +426,11 @@ func test_the_texture_the_plan_draws_is_the_picture() -> void:
 	assert(texture.get_width() == 64 and texture.get_height() == 32, str(texture.get_size()))
 	assert(
 		RasterUnderlayScript.texture_of(RasterUnderlayScript.DIR.path_join("test-absent.png")) == null,
-		"and one that is not there is nothing to draw"
+		"and one that is not there is nothing to draw",
 	)
 	assert(
 		RasterUnderlayScript.texture_of(_text_file("texture-lied.png", "not a picture at all, honestly")) == null,
-		"and neither is a file that only claims to be one"
+		"and neither is a file that only claims to be one",
 	)
 	_clean()
 
@@ -447,7 +451,7 @@ func test_a_record_survives_a_save_and_a_load() -> void:
 	assert(int(back["width_px"]) == 64 and int(back["height_px"]) == 32, str(back))
 	assert(
 		RasterUnderlayScript.corners_of(back)[2].is_equal_approx(RasterUnderlayScript.corners_of(record)[2]),
-		"and it lies in the same place it did before it was written down"
+		"and it lies in the same place it did before it was written down",
 	)
 	_clean()
 
@@ -457,7 +461,8 @@ func test_what_is_kept_here_can_be_listed_and_forgotten() -> void:
 	assert(_mine().is_empty(), "and it starts with nothing of this file's")
 	_source("listed", "png")
 	var kept: Dictionary = RasterUnderlayScript.keep(
-		RasterUnderlayScript.DIR.path_join(PREFIX + "listed.png"), PREFIX + "listed-again"
+		RasterUnderlayScript.DIR.path_join(PREFIX + "listed.png"),
+		PREFIX + "listed-again",
 	)
 	assert(bool(kept["ok"]), String(kept["reason"]))
 	assert(_mine().size() == 2, str(_mine().size()))

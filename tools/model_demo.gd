@@ -44,10 +44,11 @@ func _ready() -> void:
 
 	print("--- a patio on the new-hard layer, so the model has a textured solid in it ---")
 	controller.document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(-6.0, -4.0), Vector2(-1.0, -4.0), Vector2(-1.0, 0.0), Vector2(-6.0, 0.0),
-		]), true),
-		LayerSet.NEW_HARDSCAPE
+		Entity.make_polyline(
+			PackedVector2Array([Vector2(-6.0, -4.0), Vector2(-1.0, -4.0), Vector2(-1.0, 0.0), Vector2(-6.0, 0.0)]),
+			true,
+		),
+		LayerSet.NEW_HARDSCAPE,
 	)
 	var frames := 0
 	while frames < SETTLE_FRAMES:

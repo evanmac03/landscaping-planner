@@ -82,9 +82,12 @@ func _ready() -> void:
 		var next: CostBook = written["book"]
 		print("read back: ", next.describe())
 		print("source: ", next.source)
-		print("bark mulch is now ", next.item(&"bed-mulch").rate.format_with_currency(),
+		print(
+			"bark mulch is now ",
+			next.item(&"bed-mulch").rate.format_with_currency(),
 			" and the project's own starter book still says ",
-			BookScript.load_from(DockScript.SHIPPED_BOOK)["book"].item(&"bed-mulch").rate.format_with_currency())
+			BookScript.load_from(DockScript.SHIPPED_BOOK)["book"].item(&"bed-mulch").rate.format_with_currency(),
+		)
 
 	print("")
 	print("--- a bulk update, and what it would do this time ---")
@@ -129,10 +132,16 @@ func _write_price_list() -> void:
 func _seed_a_quote() -> void:
 	var book: CostBook = BookScript.load_from(DockScript.SHIPPED_BOOK)["book"]
 	var store: BizStore = StoreScript.new(STORE_ROOT)
-	store.put(StoreScript.JOB_KIND, "J-1001", {
-		"number": "J-1001",
-		"label": "Smith, back garden",
-	}, "", -1, "evan", MOMENT, "the job was opened")
+	store.put(
+		StoreScript.JOB_KIND,
+		"J-1001",
+		{ "number": "J-1001", "label": "Smith, back garden" },
+		"",
+		-1,
+		"evan",
+		MOMENT,
+		"the job was opened",
+	)
 
 	var mulch: CostItem = book.item(&"bed-mulch")
 	var line: EstimateLine = LineScript.make(mulch, 20000)

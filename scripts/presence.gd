@@ -37,7 +37,6 @@ var _me_name: String = ""
 var _watching: String = ""
 var _cursor: Vector2 = Vector2.ZERO
 
-
 # --- the rule the whole session rests on --------------------------------------------
 
 
@@ -63,7 +62,6 @@ static func host_of(real_peers: Array, me: int, include_self: bool = true) -> in
 	candidates.sort()
 	return int(candidates[0]) if not candidates.is_empty() else 0
 
-
 # --- reaching the relay --------------------------------------------------------------
 
 
@@ -71,8 +69,8 @@ static func host_of(real_peers: Array, me: int, include_self: bool = true) -> in
 ## secret: they say which account and which game a connection belongs to.
 static func settings_present() -> bool:
 	return not String(ProjectSettings.get_setting(USER_SETTING, "")).is_empty() \
-		and not String(ProjectSettings.get_setting(GAME_SETTING, "")).is_empty() \
-		and not String(ProjectSettings.get_setting(RELAY_SETTING, "")).is_empty()
+			and not String(ProjectSettings.get_setting(GAME_SETTING, "")).is_empty() \
+			and not String(ProjectSettings.get_setting(RELAY_SETTING, "")).is_empty()
 
 
 ## The URL one room is opened on, or "" when the project has not been set up. A missing setting is
@@ -95,7 +93,6 @@ static func local_name() -> String:
 		if not value.is_empty():
 			return value
 	return "designer"
-
 
 # --- the session ---------------------------------------------------------------------
 
@@ -184,7 +181,6 @@ func host() -> int:
 func am_host() -> bool:
 	return _host > 1 and multiplayer.get_unique_id() == _host
 
-
 # --- what this person is doing -------------------------------------------------------
 
 
@@ -202,7 +198,6 @@ func _process(_delta: float) -> void:
 	var mine := _members.get_node_or_null(MemberScript.node_name_for(multiplayer.get_unique_id()))
 	if mine != null:
 		(mine as MemberScript).say(_me_name, _watching, _cursor)
-
 
 # --- the roster ----------------------------------------------------------------------
 
@@ -232,16 +227,13 @@ func roster_text() -> String:
 	var lines := roster()
 	if lines.is_empty():
 		return "in '%s', waiting to hear who else is here" % _room
-	return "%d in '%s': %s" % [
-		lines.size(), _room, ", ".join(PackedStringArray(lines)),
-	]
+	return "%d in '%s': %s" % [lines.size(), _room, ", ".join(PackedStringArray(lines))]
 
 
 func describe() -> String:
 	if not _on:
 		return "no session"
 	return "%d in '%s'" % [count(), _room]
-
 
 # --- the relay's callbacks -----------------------------------------------------------
 

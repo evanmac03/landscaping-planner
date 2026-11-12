@@ -32,19 +32,24 @@ signal closed
 ## did fall off it. Measured, they want 741 px, so 750.
 const SIZE := Vector2i(940, 750)
 
-const EXPLANATION := ("Say when you mean to sow, and the season works out the rest. A crop takes a "
+const EXPLANATION := (
+	"Say when you mean to sow, and the season works out the rest. A crop takes a "
 	+ "stated number of days from sowing to its first harvest, so sown on a given day it is ready on a "
 	+ "day you can count, and that day either comes before the first frost or it does not. Sow the same "
 	+ "crop again every few weeks and its harvest moves on rather than ripening all at once - that is a "
-	+ "succession, and its last sowing is the last one with time to finish.")
+	+ "succession, and its last sowing is the last one with time to finish."
+)
 
 const NO_DOCUMENT := "there is no drawing open, so there is no season to sow into"
-const NOT_STATED_HINT := ("the drawing does not state a growing season yet: open Site > How long the "
-	+ "season is and set the frost dates, and every sowing date is then measured against them")
+const NOT_STATED_HINT := (
+	"the drawing does not state a growing season yet: open Site > How long the "
+	+ "season is and set the frost dates, and every sowing date is then measured against them"
+)
 const NO_CROPS := "this plant list has no food in it yet"
 const NO_CROP_CHOSEN := "choose a crop to work out when to sow it"
-const ANSWER_HINT := ("move the sowing date to see when a crop would ripen, and the interval to see how "
-	+ "long you can keep it coming")
+const ANSWER_HINT := (
+	"move the sowing date to see when a crop would ripen, and the interval to see how " + "long you can keep it coming"
+)
 
 ## The day the sowing field starts on when the drawing states no season. A temperate garden's last
 ## frost - the middle of May - offered as a starting point rather than as a claim.
@@ -72,7 +77,6 @@ var _crops_list: ItemList = null
 var _summary_label: Label = null
 var _hint_label: Label = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -127,7 +131,9 @@ func build() -> void:
 	every_caption.custom_minimum_size = Vector2(120.0, 0.0)
 	every_row.add_child(every_caption)
 	_every_box = _day_box(
-		"EveryBox", PlannerScript.DEFAULT_INTERVAL, "Days between one sowing of the crop and the next."
+		"EveryBox",
+		PlannerScript.DEFAULT_INTERVAL,
+		"Days between one sowing of the crop and the next.",
 	)
 	_every_box.min_value = float(PlannerScript.MIN_INTERVAL)
 	_every_box.max_value = float(PlannerScript.MAX_INTERVAL)
@@ -229,7 +235,6 @@ func _day_box(node_name: String, start: int, tip: String) -> SpinBox:
 	box.value_changed.connect(_on_field_changed)
 	return box
 
-
 # --- binding ------------------------------------------------------------------------------
 
 
@@ -265,7 +270,6 @@ func set_catalogue(new_catalogue: PlantCatalogue) -> void:
 	_rebuild_crop_choices()
 	refresh()
 
-
 # --- the drawing --------------------------------------------------------------------------
 
 
@@ -289,7 +293,6 @@ func season_line() -> String:
 	if document == null:
 		return NO_DOCUMENT
 	return PlannerScript.GrowingSeasonScript.season_text(last_frost(), first_frost())
-
 
 # --- the fields ---------------------------------------------------------------------------
 
@@ -317,11 +320,8 @@ func interval() -> int:
 
 func set_interval(days: int) -> void:
 	if _every_box != null:
-		_every_box.set_value_no_signal(
-			clampi(days, PlannerScript.MIN_INTERVAL, PlannerScript.MAX_INTERVAL)
-		)
+		_every_box.set_value_no_signal(clampi(days, PlannerScript.MIN_INTERVAL, PlannerScript.MAX_INTERVAL))
 	_refresh_answers()
-
 
 # --- the crop -----------------------------------------------------------------------------
 
@@ -382,8 +382,10 @@ func _rebuild_crop_choices() -> void:
 		for plant: PlantSpecies in catalogue.all():
 			if plant.is_edible():
 				crops.append(plant)
-	crops.sort_custom(func(a: PlantSpecies, b: PlantSpecies) -> bool:
-		return a.display_name() < b.display_name())
+	crops.sort_custom(
+		func(a: PlantSpecies, b: PlantSpecies) -> bool:
+			return a.display_name() < b.display_name(),
+	)
 	for crop: PlantSpecies in crops:
 		_crop_option.add_item(crop.display_name())
 		_crop_option.set_item_metadata(_crop_option.item_count - 1, crop.id)
@@ -394,7 +396,6 @@ func _rebuild_crop_choices() -> void:
 	if found >= 0:
 		index = found
 	_crop_option.select(index)
-
 
 # --- what the crop comes to -----------------------------------------------------------------
 
@@ -470,7 +471,6 @@ func hint() -> String:
 		return NO_CROP_CHOSEN
 	return ANSWER_HINT
 
-
 # --- what the page says --------------------------------------------------------------------
 
 
@@ -501,7 +501,6 @@ func request_close() -> void:
 
 func _on_close_requested() -> void:
 	request_close()
-
 
 # --- the refresh -------------------------------------------------------------------------
 
@@ -538,9 +537,7 @@ func _sow_words() -> String:
 ## hundred strings a frame.
 func _write_rows() -> void:
 	var texts: Array[String] = row_texts()
-	var signature: String = "%d|%d|%d|%s" % [
-		last_frost(), first_frost(), sow(), "+".join(PackedStringArray(texts))
-	]
+	var signature: String = "%d|%d|%d|%s" % [last_frost(), first_frost(), sow(), "+".join(PackedStringArray(texts))]
 	if signature == _rows_signature_seen:
 		return
 	_rows_signature_seen = signature

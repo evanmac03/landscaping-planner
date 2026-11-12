@@ -17,7 +17,10 @@ const PlacementScript := preload("res://scripts/plant_placement.gd")
 
 ## The shapes the pack draws, as the plan symbol each is drawn as.
 const PULLED: Array[StringName] = [
-	SymbolsScript.CANOPY, SymbolsScript.SHRUB, SymbolsScript.GRASS, SymbolsScript.GROUNDCOVER,
+	SymbolsScript.CANOPY,
+	SymbolsScript.SHRUB,
+	SymbolsScript.GRASS,
+	SymbolsScript.GROUNDCOVER,
 ]
 
 ## A model's triangle ceiling. A planting bed of fifty plants at this is a hundred thousand
@@ -37,7 +40,6 @@ const BASE_CEILING := 0.02
 ## centimetre clump, which is the model being a plant rather than a fault. A model authored in a
 ## corner of its own space is out by half its width and is what this catches.
 const CENTRE_SLACK := 0.15
-
 
 # --- helpers ------------------------------------------------------------------------------------
 
@@ -65,7 +67,6 @@ func _model_of(catalogue: PlantCatalogue, id: String) -> String:
 	assert(species != null, "%s is in the list" % id)
 	return species.model_scene.get_file().get_basename()
 
-
 # --- the files ----------------------------------------------------------------------------------
 
 
@@ -76,7 +77,7 @@ func test_every_model_the_pack_names_is_on_disk_as_a_loadable_scene() -> void:
 		# node does not know where it came from would be drawn at the placeholder size by both views.
 		assert(
 			node.scene_file_path == Packs.path_for(id),
-			"%s knows the file it came from: %s" % [id, node.scene_file_path]
+			"%s knows the file it came from: %s" % [id, node.scene_file_path],
 		)
 		node.free()
 
@@ -89,10 +90,7 @@ func test_no_model_in_the_folder_is_one_the_table_does_not_name() -> void:
 	for file: String in folder.get_files():
 		if not file.ends_with(Packs.SUFFIX):
 			continue
-		assert(
-			Packs.ids().has(file.get_basename()),
-			"%s is a model this table names" % file
-		)
+		assert(Packs.ids().has(file.get_basename()), "%s is a model this table names" % file)
 	assert(Packs.ids().size() >= 4, "and the table is not empty: %d models" % Packs.ids().size())
 
 
@@ -114,11 +112,11 @@ func test_every_model_is_the_size_its_plan_style_entry_declares() -> void:
 		var measured: float = found["footprint_m"]
 		assert(
 			absf(declared.x - measured) <= declared.x * 0.05 + 0.01,
-			"%s is %.3f m across and its entry says %.2f m" % [id, measured, declared.x]
+			"%s is %.3f m across and its entry says %.2f m" % [id, measured, declared.x],
 		)
 		assert(
 			is_equal_approx(declared.x, declared.y),
-			"%s is declared square, which is what a round symbol is drawn from" % id
+			"%s is declared square, which is what a round symbol is drawn from" % id,
 		)
 
 
@@ -132,13 +130,13 @@ func test_every_model_stands_on_its_own_origin_and_is_centred_on_it() -> void:
 		var base: float = found["base_y"]
 		assert(
 			base >= BASE_FLOOR and base <= BASE_CEILING,
-			"%s stands on its origin: its lowest point is %.3f m off it" % [id, base]
+			"%s stands on its origin: its lowest point is %.3f m off it" % [id, base],
 		)
 		assert(float(found["height_m"]) > 0.1, "%s has a height to it: %.3f m" % [id, found["height_m"]])
 		var across: float = found["footprint_m"]
 		assert(
 			absf(found["offset_x"]) <= across * CENTRE_SLACK and absf(found["offset_z"]) <= across * CENTRE_SLACK,
-			"%s is centred: (%.3f, %.3f) of %.2f m" % [id, found["offset_x"], found["offset_z"], across]
+			"%s is centred: (%.3f, %.3f) of %.2f m" % [id, found["offset_x"], found["offset_z"], across],
 		)
 
 
@@ -148,7 +146,7 @@ func test_every_model_is_light_enough_to_plant_a_bed_of() -> void:
 		var found: Dictionary = Packs.measurement_of(id)
 		assert(
 			int(found["tris"]) <= TRI_CEILING,
-			"%s is %d triangles, under the %d a garden can draw" % [id, found["tris"], TRI_CEILING]
+			"%s is %d triangles, under the %d a garden can draw" % [id, found["tris"], TRI_CEILING],
 		)
 		total += int(found["tris"])
 	assert(total <= 5000, "and the whole pack is %d triangles" % total)
@@ -162,7 +160,6 @@ func test_the_pack_is_one_licence_and_one_source() -> void:
 	assert(Packs.ARCHIVE.begins_with("https://"), "and where a copy is: %s" % Packs.ARCHIVE)
 	assert(not Packs.ARCHIVE_PATH.is_empty(), "and where the models are in it: %s" % Packs.ARCHIVE_PATH)
 	assert(Packs.DIR.begins_with("res://assets/plants/"), "and they live with the other plant assets")
-
 
 # --- the catalogue points at them ---------------------------------------------------------------
 
@@ -178,7 +175,7 @@ func test_a_tree_shrub_grass_or_mat_is_planted_as_one_of_the_packs_models() -> v
 		shaped += 1
 		assert(
 			plant.model_scene.begins_with(Packs.DIR + "/"),
-			"%s is drawn as %s and planted as %s" % [id, drawn, plant.model_scene]
+			"%s is drawn as %s and planted as %s" % [id, drawn, plant.model_scene],
 		)
 	assert(shaped >= 40, "and the pack's shapes are the ones the list is full of: %d" % shaped)
 
@@ -191,7 +188,7 @@ func test_the_shipped_list_is_the_assignment_this_tool_builds() -> void:
 	for id: StringName in catalogue.ids():
 		assert(
 			catalogue.get_species(id).model_scene == String(chosen[id]),
-			"%s is planted as %s in the list" % [id, String(chosen[id])]
+			"%s is planted as %s in the list" % [id, String(chosen[id])],
 		)
 
 
@@ -200,8 +197,8 @@ func test_the_shapes_are_shared_out_between_the_genera_that_use_them() -> void:
 	# props already were. So the genera of a shape are spread across its models - in order, from the
 	# list, so the assignment is a function of the catalogue rather than of when it was run.
 	var catalogue: PlantCatalogue = _catalogue()
-	var used: Dictionary = {}
-	var by_genus: Dictionary = {}
+	var used: Dictionary = { }
+	var by_genus: Dictionary = { }
 	for id: StringName in catalogue.ids():
 		var plant: PlantSpecies = catalogue.get_species(id)
 		if not PULLED.has(Packs.symbol_of_species(plant)):
@@ -211,14 +208,13 @@ func test_the_shapes_are_shared_out_between_the_genera_that_use_them() -> void:
 		if by_genus.has(key):
 			assert(
 				by_genus[key] == plant.model_scene,
-				"two %s share one model: %s and %s" % [Packs.genus_of(plant), by_genus[key], plant.model_scene]
+				"two %s share one model: %s and %s" % [Packs.genus_of(plant), by_genus[key], plant.model_scene],
 			)
 		by_genus[key] = plant.model_scene
 	assert(used.size() >= 8, "the shapes use %d models between them" % used.size())
 	var again: Dictionary = Packs.assignment(catalogue)
 	var chosen: Dictionary = Packs.assignment(catalogue)
 	assert(JSON.stringify(again) == JSON.stringify(chosen), "and the assignment is the same every time")
-
 
 # --- planting through the real pipeline ---------------------------------------------------------
 
@@ -242,18 +238,17 @@ func test_planting_a_maple_puts_a_tree_model_in_the_yard_at_the_catalogue_size()
 	assert(node.scene_file_path == model, "it is the pack's tree: %s" % node.scene_file_path)
 	assert(
 		is_equal_approx(node.scale.x, maple.spread_m() / footprint),
-		"scaled by the catalogue's spread over the model's own footprint: %.3f of %.3f" % [
-			node.scale.x, maple.spread_m() / footprint]
+		"scaled by the catalogue's spread over the model's own footprint: %.3f of %.3f"
+		% [node.scale.x, maple.spread_m() / footprint],
 	)
 	assert(
 		absf(footprint - measured) <= footprint * 0.05 + 0.01,
-		"and that footprint is the model's real one: %.3f against %.3f" % [footprint, measured]
+		"and that footprint is the model's real one: %.3f against %.3f" % [footprint, measured],
 	)
 	assert(node.position.is_equal_approx(Vector3(4.0, 0.0, 1.5)), "standing where it was asked to stand")
 	assert(PlanStyleScript.symbol_of(node) == SymbolsScript.CANOPY, "and the plan draws it as a canopy")
 	assert(
 		is_equal_approx(PlanStyleScript.footprint_size(node).x, maple.spread_m()),
-		"at its own %.2f m across, not the model's: %.2f" % [
-			maple.spread_m(), PlanStyleScript.footprint_size(node).x]
+		"at its own %.2f m across, not the model's: %.2f" % [maple.spread_m(), PlanStyleScript.footprint_size(node).x],
 	)
 	yard.free()

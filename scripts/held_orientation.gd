@@ -24,6 +24,7 @@ extends RefCounted
 ## held upright would be told without being one. `TouchInput.force` is the same door asked of a different
 ## question, and this file has no `force` of its own because it has no state to force.
 
+
 ## Whether the room stands up: taller than it is wide.
 ##
 ## The question a page that has to *fit* asks, and the one the camera's turn asks of the same room - asked

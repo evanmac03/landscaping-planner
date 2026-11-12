@@ -70,7 +70,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -175,7 +174,6 @@ func _act_button(words: String, handler: Callable) -> Button:
 	button.pressed.connect(handler)
 	return button
 
-
 # --- showing what is there ----------------------------------------------------------------------
 
 
@@ -254,7 +252,6 @@ func opening_words() -> String:
 		return "Every figure can be worked out over this window. Change the window to read another."
 	return "Change the window or the as-of date, and read the figures again."
 
-
 # --- reading back what the page is showing ------------------------------------------------------
 
 
@@ -323,14 +320,16 @@ func figure_rows() -> Array[Dictionary]:
 	if report == null:
 		return out
 	for figure: AnalyticsScript.Figure in report.figures(window_from(), window_to(), as_of()):
-		out.append({
-			"key": figure.key,
-			"label": figure.label,
-			"ok": figure.ok,
-			"text": figure.text(),
-			"missing": figure.missing,
-			"basis": figure.basis,
-		})
+		out.append(
+			{
+				"key": figure.key,
+				"label": figure.label,
+				"ok": figure.ok,
+				"text": figure.text(),
+				"missing": figure.missing,
+				"basis": figure.basis,
+			}
+		)
 	return out
 
 
@@ -393,7 +392,6 @@ func _all_buttons(node: Node) -> Array[Button]:
 		out.append_array(_all_buttons(child))
 	return out
 
-
 # --- the one act --------------------------------------------------------------------------------
 
 
@@ -402,33 +400,33 @@ func _all_buttons(node: Node) -> Array[Button]:
 ## nothing, and the figures about hours say so.
 func state_working_day() -> Dictionary:
 	if report == null:
-		return {"ok": false, "reason": "there is no report on this page", "minutes": 0}
+		return { "ok": false, "reason": "there is no report on this page", "minutes": 0 }
 	var typed: String = "" if _day_field == null else _day_field.text.strip_edges()
 	if not typed.is_valid_int():
 		_set_status("A working day is a number of minutes, like 480, and '%s' is not one." % typed)
-		return {"ok": false, "reason": "a working day is a number of minutes", "minutes": 0}
+		return { "ok": false, "reason": "a working day is a number of minutes", "minutes": 0 }
 	var minutes: int = typed.to_int()
 	if not report.set_working_day(minutes):
 		_set_status("A working day of %d minutes is not a day the figures can use." % minutes)
-		return {"ok": false, "reason": "a working day is more than no minutes", "minutes": minutes}
+		return { "ok": false, "reason": "a working day is more than no minutes", "minutes": minutes }
 	_after_change()
 	_set_status("A working day is stated as %s." % report.working_day_text())
-	return {"ok": true, "reason": "", "minutes": minutes}
+	return { "ok": true, "reason": "", "minutes": minutes }
 
 
 func _after_change() -> void:
 	var spoken: Array[String] = unavailable_texts()
 	refresh()
-	_set_status("A working day is stated as %s; %d figure(s) still cannot be worked out." % [
-		report.working_day_text(), spoken.size(),
-	])
+	_set_status(
+		"A working day is stated as %s; %d figure(s) still cannot be worked out."
+		% [report.working_day_text(), spoken.size()]
+	)
 	report_changed.emit()
 
 
 func _set_status(words: String) -> void:
 	if _status != null:
 		_status.text = words
-
 
 # --- the controls' own entry points -------------------------------------------------------------
 

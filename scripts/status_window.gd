@@ -53,7 +53,6 @@ func _ready() -> void:
 	if _list == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------
 
 
@@ -113,7 +112,6 @@ func _on_close_requested() -> void:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- what it shows ------------------------------------------------------------------
 
@@ -211,7 +209,6 @@ func opening_words() -> String:
 	if _history.is_empty():
 		return NOTHING_YET
 	return "the drawing last said: %s" % newest()
-
 
 # --- what it says about itself -------------------------------------------------------
 

@@ -71,7 +71,6 @@ static func system_author() -> String:
 			return who
 	return ""
 
-
 # --- keeping a revision ---------------------------------------------------------------
 
 
@@ -113,7 +112,6 @@ static func _plain(state: Dictionary) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(text)
 	return parsed if parsed is Dictionary else state
 
-
 # --- reading the log ------------------------------------------------------------------
 
 
@@ -125,7 +123,7 @@ func count() -> int:
 ## the snapshot is not something the rest of the program should reach for by accident - `snapshot()`
 ## hands out a copy and `record_at()` a description.
 func _revision(index: int) -> Dictionary:
-	return _records[index] if is_valid(index) else {}
+	return _records[index] if is_valid(index) else { }
 
 
 func is_valid(index: int) -> bool:
@@ -137,10 +135,10 @@ func is_valid(index: int) -> bool:
 ## cannot go stale.
 func record_at(index: int) -> Dictionary:
 	if not is_valid(index):
-		return {}
+		return { }
 	var stored: Dictionary = _records[index]
-	var state: Dictionary = stored.get("snapshot", {})
-	var entities: Dictionary = state.get("entities", {})
+	var state: Dictionary = stored.get("snapshot", { })
+	var entities: Dictionary = state.get("entities", { })
 	return {
 		"index": index,
 		"message": String(stored["message"]),
@@ -189,16 +187,15 @@ func gestures_since(index: int, serial: int) -> int:
 ## restores it cannot alter the revision it came from.
 func snapshot(index: int) -> Dictionary:
 	if not is_valid(index):
-		return {}
+		return { }
 	var stored: Dictionary = _records[index]
-	var state: Variant = stored.get("snapshot", {})
-	return (state as Dictionary).duplicate(true) if state is Dictionary else {}
+	var state: Variant = stored.get("snapshot", { })
+	return (state as Dictionary).duplicate(true) if state is Dictionary else { }
 
 
 func clear() -> void:
 	_records.clear()
 	dropped = 0
-
 
 # --- comparing two of them ------------------------------------------------------------
 
@@ -211,8 +208,12 @@ func clear() -> void:
 func diff(from_index: int, to_index: int) -> Dictionary:
 	if not is_valid(from_index) or not is_valid(to_index):
 		return {
-			"ok": false, "reason": "there is no such revision",
-			"added": [], "changed": [], "removed": [], "same": false,
+			"ok": false,
+			"reason": "there is no such revision",
+			"added": [],
+			"changed": [],
+			"removed": [],
+			"same": false,
 		}
 	var before: Dictionary = _plain(snapshot(from_index))
 	var after: Dictionary = _plain(snapshot(to_index))
@@ -252,8 +253,8 @@ static func compare(before: Dictionary, after: Dictionary) -> Dictionary:
 ## A drawing's shapes keyed by their id, whatever the ids arrived as. The document stores them as a
 ## JSON object, so an id is a string on the way in and an `int` in the rest of the program.
 static func _entities_of(state: Dictionary) -> Dictionary:
-	var out: Dictionary = {}
-	var entities: Variant = state.get("entities", {})
+	var out: Dictionary = { }
+	var entities: Variant = state.get("entities", { })
 	if not entities is Dictionary:
 		return out
 	for key: Variant in entities:
@@ -268,9 +269,7 @@ static func describe_diff(changes: Dictionary) -> String:
 	if bool(changes.get("same", false)):
 		return "the drawing is the same in both revisions"
 	var parts: Array[String] = []
-	for pair: Array in [
-		["added", "added"], ["changed", "changed"], ["removed", "removed"],
-	]:
+	for pair: Array in [["added", "added"], ["changed", "changed"], ["removed", "removed"]]:
 		var ids: Array = changes[pair[0]]
 		if not ids.is_empty():
 			parts.append("%d %s" % [ids.size(), String(pair[1])])
@@ -289,18 +288,17 @@ static func describe_diff(changes: Dictionary) -> String:
 		named.append("%s: %s" % [key, ", ".join(listed)])
 	return "%s  (%s)" % [words, "; ".join(named)]
 
-
 # --- what a file keeps ----------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var rows: Array = []
 	for stored: Dictionary in _records:
-		var kept: Dictionary = {}
+		var kept: Dictionary = { }
 		for field: String in FIELDS:
 			kept[field] = stored[field]
 		rows.append(kept)
-	return {"version": 1, "dropped": dropped, "records": rows}
+	return { "version": 1, "dropped": dropped, "records": rows }
 
 
 ## Read a history back. Anything it cannot understand is dropped rather than refused: a history is worth
@@ -323,13 +321,15 @@ static func from_dict(data: Variant) -> DraftRevisionLog:
 		if not entry_record.has("snapshot") or not (entry_record["snapshot"] is Dictionary):
 			continue
 		var state: Variant = entry_record["snapshot"]
-		history._records.append({
-			"message": String(entry_record.get("message", NO_MESSAGE)),
-			"author": String(entry_record.get("author", "")),
-			"when": String(entry_record.get("when", "")),
-			# A history written before gestures were counted has no serial in its file, and reads as
-			# unknown rather than as gesture zero - see `FIELDS`.
-			"serial": maxi(int(entry_record.get("serial", 0)), 0),
-			"snapshot": state,
-		})
+		history._records.append(
+			{
+				"message": String(entry_record.get("message", NO_MESSAGE)),
+				"author": String(entry_record.get("author", "")),
+				"when": String(entry_record.get("when", "")),
+				# A history written before gestures were counted has no serial in its file, and reads as
+				# unknown rather than as gesture zero - see `FIELDS`.
+				"serial": maxi(int(entry_record.get("serial", 0)), 0),
+				"snapshot": state,
+			}
+		)
 	return history

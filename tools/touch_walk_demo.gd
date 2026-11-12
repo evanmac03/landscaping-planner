@@ -59,9 +59,7 @@ func _ready() -> void:
 	_view.call("toggle_ground")
 	var landing: bool = await _wait_until_active()
 
-	print("ground view      %s" % (
-		"the walker is active" if landing else "THE WALKER NEVER TOOK OVER"
-	))
+	print("ground view      %s" % ("the walker is active" if landing else "THE WALKER NEVER TOOK OVER"))
 	if not landing:
 		print("TOUCH WALK: there is nothing to drive")
 		get_tree().quit(1)
@@ -72,10 +70,12 @@ func _ready() -> void:
 	var walked: bool = await _walk()
 	var turned: float = await _look()
 	var ok: bool = walked and absf(turned) > 0.05
-	print("TOUCH WALK: %s" % (
-		"a thumb walked the walker and a drag turned the head"
-		if ok else "A THUMB DID NOT REACH THE WALKER"
-	))
+	print(
+		"TOUCH WALK: %s"
+		% ("a thumb walked the walker and a drag turned the head"
+			if ok
+			else "A THUMB DID NOT REACH THE WALKER")
+	)
 	await get_tree().process_frame
 	get_tree().quit(0 if ok else 1)
 
@@ -89,10 +89,10 @@ func _ready() -> void:
 ## a phone the operating system is what answers it.
 func _walk() -> bool:
 	var pad: Control = _hud.get("_touch_pad") as Control
-	print("the pad          %s, size %s" % [
-		"visible" if (pad != null and pad.visible) else "NOT VISIBLE",
-		str(pad.size) if pad != null else "-",
-	])
+	print(
+		"the pad          %s, size %s"
+		% ["visible" if (pad != null and pad.visible) else "NOT VISIBLE", str(pad.size) if pad != null else "-"]
+	)
 	var before: Vector2 = _spot()
 
 	var touched := InputEventScreenTouch.new()
@@ -158,9 +158,10 @@ func _look() -> float:
 		await get_tree().process_frame
 
 	var turned: float = float(_player.call("get_yaw")) - yaw_before
-	print("looked           yaw %.3f -> %.3f rad on a %.0f px drag" % [
-		yaw_before, float(_player.call("get_yaw")), LOOK_DRAG.x,
-	])
+	print(
+		"looked           yaw %.3f -> %.3f rad on a %.0f px drag"
+		% [yaw_before, float(_player.call("get_yaw")), LOOK_DRAG.x]
+	)
 	return turned
 
 

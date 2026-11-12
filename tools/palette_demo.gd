@@ -102,7 +102,7 @@ func _ready() -> void:
 	print("after Enter the box is up: ", hud.is_command_palette_open())
 	print("and the key reference is up: ", hud.is_keys_open())
 	# Put the drawing back the way the demo found it before the next act.
-	hud._menu_keys({})
+	hud._menu_keys({ })
 	await _settle()
 	hud.open_command_palette()
 	await _settle()

@@ -60,7 +60,6 @@ static var CATEGORY_ITEMS: Dictionary = {
 	SpeciesScript.HERB: &"plant-perennial-1g",
 }
 
-
 # --- what one plant of this kind is priced with -------------------------------------------------
 
 
@@ -70,7 +69,6 @@ static var CATEGORY_ITEMS: Dictionary = {
 ## number.
 static func category_item(category: int) -> StringName:
 	return StringName(CATEGORY_ITEMS.get(category, &""))
-
 
 # --- the plan ----------------------------------------------------------------------------------
 
@@ -94,7 +92,7 @@ static func category_item(category: int) -> StringName:
 ##     unpriced     how many do not
 ##     plants       how many plants the lines stand for
 ##     currency     the book's currency, so every figure above is in one money
-static func plan(rows: Array, book: CostBook = null, item_for: Dictionary = {}) -> Dictionary:
+static func plan(rows: Array, book: CostBook = null, item_for: Dictionary = { }) -> Dictionary:
 	var currency: StringName = _currency(book)
 	var lines: Array[Dictionary] = []
 	var problems: Array[String] = []
@@ -113,8 +111,10 @@ static func plan(rows: Array, book: CostBook = null, item_for: Dictionary = {}) 
 			unpriced += 1
 			problems.append(String(held["problem"]))
 		lines.append(held)
-	lines.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return String(a["sort_key"]).naturalnocasecmp_to(String(b["sort_key"])) < 0)
+	lines.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return String(a["sort_key"]).naturalnocasecmp_to(String(b["sort_key"])) < 0,
+	)
 	var everything: Array = []
 	var priced_only: Array = []
 	for held: Dictionary in lines:
@@ -135,8 +135,13 @@ static func plan(rows: Array, book: CostBook = null, item_for: Dictionary = {}) 
 
 ## One kind of plant, priced or refused. `quantity_milli` is the quantity in the module's thousandths,
 ## which is what a purchase order line takes, so the count never has to be converted twice.
-static func _line_for(row: Dictionary, quantity: int, book: CostBook, item_for: Dictionary,
-		currency: StringName) -> Dictionary:
+static func _line_for(
+	row: Dictionary,
+	quantity: int,
+	book: CostBook,
+	item_for: Dictionary,
+	currency: StringName,
+) -> Dictionary:
 	var species: StringName = StringName(row.get("id", ""))
 	var category: int = int(row.get("category", -1))
 	var item_id: StringName = &""
@@ -169,12 +174,16 @@ static func _line_for(row: Dictionary, quantity: int, book: CostBook, item_for: 
 		return held
 	held["unit_cost"] = item.rate
 	held["amount"] = MoneyScript.round_div(
-		item.rate.cents * int(held["quantity_milli"]), OrderScript.QUANTITY_MILLI, currency
+		item.rate.cents * int(held["quantity_milli"]),
+		OrderScript.QUANTITY_MILLI,
+		currency,
 	)
 	held["priced"] = true
 	held["price_words"] = "%d at %s = %s (%s)" % [
-		quantity, item.rate.format_with_currency(),
-		(held["amount"] as MoneyScript).format_with_currency(), item.name,
+		quantity,
+		item.rate.format_with_currency(),
+		(held["amount"] as MoneyScript).format_with_currency(),
+		item.name,
 	]
 	return held
 
@@ -182,8 +191,7 @@ static func _line_for(row: Dictionary, quantity: int, book: CostBook, item_for: 
 ## Why a kind could not be priced, saying which of the two things is missing: an item for the category
 ## or an item in the book. "There is nothing in the book" and "nothing here knows what prices a fern"
 ## are different errands, and the office needs to know which one it is.
-static func _unpriced_words(species: StringName, category: int, item_id: StringName,
-		book: CostBook) -> String:
+static func _unpriced_words(species: StringName, category: int, item_id: StringName, book: CostBook) -> String:
 	if species.is_empty():
 		return "no species recorded, so there is nothing to price it with"
 	if item_id.is_empty():
@@ -226,7 +234,6 @@ static func _sort_key(row: Dictionary) -> String:
 static func _currency(book: CostBook) -> StringName:
 	return book.currency if book != null else &"CAD"
 
-
 # --- what a person reads -----------------------------------------------------------------------
 
 
@@ -257,8 +264,10 @@ static func summary(planned: Dictionary) -> String:
 	if unpriced == 0:
 		return "%s: %s" % [words, (planned["total"] as MoneyScript).format_with_currency()]
 	return "%s: %s priced, and %d kind%s the book cannot price, so that is not the whole order" % [
-		words, (planned["priced_total"] as MoneyScript).format_with_currency(),
-		unpriced, _plural(unpriced),
+		words,
+		(planned["priced_total"] as MoneyScript).format_with_currency(),
+		unpriced,
+		_plural(unpriced),
 	]
 
 
@@ -273,7 +282,6 @@ static func describe(planned: Dictionary, book: CostBook = null) -> String:
 static func _plural(number: int) -> String:
 	return "" if number == 1 else "s"
 
-
 # --- what to buy, from whom --------------------------------------------------------------------
 
 
@@ -284,10 +292,13 @@ static func _plural(number: int) -> String:
 ## `default_supplier` the person gave is used, so an office that buys everything from one grower states
 ## it once. A line with neither ends up in the group whose supplier is empty, and `write_orders` refuses
 ## that by name rather than writing an order addressed to nobody.
-static func by_supplier(lines: Array, default_supplier: String = "",
-		currency: StringName = &"CAD") -> Array[Dictionary]:
+static func by_supplier(
+	lines: Array,
+	default_supplier: String = "",
+	currency: StringName = &"CAD",
+) -> Array[Dictionary]:
 	var order: Array[String] = []
-	var groups: Dictionary = {}
+	var groups: Dictionary = { }
 	for held: Dictionary in lines:
 		var who := String(held.get("supplier", ""))
 		if who.strip_edges().is_empty():
@@ -302,11 +313,7 @@ static func by_supplier(lines: Array, default_supplier: String = "",
 		var amounts: Array = []
 		for line: Dictionary in held_lines:
 			amounts.append(line["amount"])
-		out.append({
-			"supplier": who,
-			"lines": held_lines,
-			"total": MoneyScript.sum(amounts, currency),
-		})
+		out.append({ "supplier": who, "lines": held_lines, "total": MoneyScript.sum(amounts, currency) })
 	return out
 
 
@@ -322,47 +329,57 @@ static func by_supplier(lines: Array, default_supplier: String = "",
 ##
 ## Returns `{ok, orders, reason}` - `orders` holds whatever was written, so a caller can say where it
 ## went even when the answer is no.
-static func write_orders(desk: DeskScript, job_id: String, planned: Dictionary,
-		supplier: String) -> Dictionary:
+static func write_orders(desk: DeskScript, job_id: String, planned: Dictionary, supplier: String) -> Dictionary:
 	var made: Array = []
 	if desk == null:
-		return {"ok": false, "orders": made, "reason": "there is no job desk to write an order on"}
+		return { "ok": false, "orders": made, "reason": "there is no job desk to write an order on" }
 	if desk.job(job_id) == null:
-		return {"ok": false, "orders": made,
-			"reason": "there is no job %s to order the plants for" % job_id}
+		return { "ok": false, "orders": made, "reason": "there is no job %s to order the plants for" % job_id }
 	var lines: Array = planned.get("lines", [])
 	if lines.is_empty():
-		return {"ok": false, "orders": made, "reason": "there is nothing planted to order"}
+		return { "ok": false, "orders": made, "reason": "there is nothing planted to order" }
 	for held: Dictionary in lines:
 		if not bool(held.get("priced", false)):
-			return {"ok": false, "orders": made,
-				"reason": "%s cannot be ordered: %s" % [
-					String(held["words"]), String(held["price_words"])]}
+			return {
+				"ok": false,
+				"orders": made,
+				"reason": "%s cannot be ordered: %s" % [String(held["words"]), String(held["price_words"])],
+			}
 	var currency: StringName = planned.get("currency", &"CAD")
 	for group: Dictionary in by_supplier(lines, supplier, currency):
 		var who := String(group["supplier"])
 		var group_lines: Array = group["lines"]
 		if who.is_empty():
-			return {"ok": false, "orders": made,
-				"reason": "say which nursery %s comes from" % String((group_lines[0] as Dictionary)["words"])}
+			return {
+				"ok": false,
+				"orders": made,
+				"reason": "say which nursery %s comes from" % String((group_lines[0] as Dictionary)["words"]),
+			}
 		var first: Dictionary = group_lines[0]
 		var rate: Money = first["unit_cost"]
 		var order: PurchaseOrder = desk.make_purchase_order(
-			job_id, PLANTING_CODE, String(first["words"]),
-			int(first["quantity_milli"]), rate, who, StringName(first["unit"])
+			job_id,
+			PLANTING_CODE,
+			String(first["words"]),
+			int(first["quantity_milli"]),
+			rate,
+			who,
+			StringName(first["unit"]),
 		)
 		if order == null:
-			return {"ok": false, "orders": made,
-				"reason": "the order for %s could not be written" % who}
+			return { "ok": false, "orders": made, "reason": "the order for %s could not be written" % who }
 		for index in range(1, group_lines.size()):
 			var held: Dictionary = group_lines[index]
 			var held_rate: Money = held["unit_cost"]
-			if not order.add_line(String(held["words"]), StringName(held["unit"]),
-					int(held["quantity_milli"]), held_rate):
-				return {"ok": false, "orders": made,
-					"reason": "a line for %s could not be added" % who}
+			if not order.add_line(
+				String(held["words"]),
+				StringName(held["unit"]),
+				int(held["quantity_milli"]),
+				held_rate,
+			):
+				return { "ok": false, "orders": made, "reason": "a line for %s could not be added" % who }
 		made.append(order)
-	return {"ok": true, "orders": made, "reason": ""}
+	return { "ok": true, "orders": made, "reason": "" }
 
 
 ## What the written orders say, for the line that reports where they went.
@@ -371,7 +388,5 @@ static func orders_words(orders: Array) -> String:
 		return "no order was written"
 	var parts: PackedStringArray = PackedStringArray()
 	for held: PurchaseOrder in orders:
-		parts.append("%s to %s for %s" % [
-			held.number, held.supplier, held.ordered_total().format_with_currency(),
-		])
+		parts.append("%s to %s for %s" % [held.number, held.supplier, held.ordered_total().format_with_currency()])
 	return ", ".join(parts)

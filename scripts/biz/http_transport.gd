@@ -19,7 +19,6 @@ extends BizSyncTransport
 ## and no token is configured but not ready, and every call refuses rather than sending an anonymous
 ## request the service would reject anyway.
 
-
 const BASE_URL := "base_url"
 const TOKEN := "token"
 ## How many records one pull asks for. A cursor advances by what was applied, so a page of 500 is 500
@@ -66,8 +65,8 @@ func capabilities() -> Array[String]:
 ## out (the same rule the ledger adapters follow).
 func settings() -> Array[Dictionary]:
 	return [
-		{"key": BASE_URL, "label": "the address of the sync service", "secret": false},
-		{"key": TOKEN, "label": "the token this device signs in with", "secret": true},
+		{ "key": BASE_URL, "label": "the address of the sync service", "secret": false },
+		{ "key": TOKEN, "label": "the token this device signs in with", "secret": true },
 	]
 
 
@@ -83,7 +82,7 @@ func configure(values: Dictionary) -> Dictionary:
 		base_url = String(values[BASE_URL]).strip_edges()
 	if values.has(TOKEN):
 		token = String(values[TOKEN])
-	return {"ok": true, "status": 0, "retry": false, "reason": ""}
+	return { "ok": true, "status": 0, "retry": false, "reason": "" }
 
 
 func describe() -> String:
@@ -92,7 +91,6 @@ func describe() -> String:
 	if is_configured():
 		return "the sync service at %s, which this device has no token for" % base_url
 	return "a sync service with no address yet"
-
 
 # --- what would be sent -------------------------------------------------------------------------
 
@@ -124,14 +122,13 @@ func request_for(which: String, args: Dictionary) -> Dictionary:
 				"kind": String(args.get("kind", "")),
 				"id": String(args.get("id", "")),
 				"job": String(args.get("job", "")),
-				"body": args.get("body", {}),
+				"body": args.get("body", { }),
 				"who": String(args.get("who", "")),
 			}
 			return {
 				"method": HTTPClient.METHOD_PUT,
-				"path": "%s/records/%s/%s" % [
-					prefix, String(args.get("kind", "")).uri_encode(), String(args.get("id", "")).uri_encode()
-				],
+				"path": "%s/records/%s/%s"
+				% [prefix, String(args.get("kind", "")).uri_encode(), String(args.get("id", "")).uri_encode()],
 				"headers": headers,
 				"body": JSON.stringify(payload),
 			}
@@ -145,15 +142,9 @@ func request_for(which: String, args: Dictionary) -> Dictionary:
 				"body": "",
 			}
 		HEALTH:
-			return {"method": HTTPClient.METHOD_GET, "path": "%s/health" % prefix, "headers": headers, "body": ""}
+			return { "method": HTTPClient.METHOD_GET, "path": "%s/health" % prefix, "headers": headers, "body": "" }
 		_:
-			return {
-				"method": HTTPClient.METHOD_GET,
-				"path": "%s/whoami" % prefix,
-				"headers": headers,
-				"body": "",
-			}
-
+			return { "method": HTTPClient.METHOD_GET, "path": "%s/whoami" % prefix, "headers": headers, "body": "" }
 
 # --- the four calls -----------------------------------------------------------------------------
 
@@ -162,7 +153,7 @@ func changes(since: int = 0, limit: int = 0) -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for(CHANGES, {"since": since, "limit": limit}))
+	var answer: Dictionary = _exchange(request_for(CHANGES, { "since": since, "limit": limit }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -191,7 +182,7 @@ func push(kind: String, id: String, job: String, body: Dictionary, rev: int, who
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var args: Dictionary = {"kind": kind, "id": id, "job": job, "body": body, "rev": rev, "who": who}
+	var args: Dictionary = { "kind": kind, "id": id, "job": job, "body": body, "rev": rev, "who": who }
 	var answer: Dictionary = _exchange(request_for(PUSH, args))
 	if not bool(answer["ok"]):
 		var status: int = int(answer["status"])
@@ -219,7 +210,7 @@ func attachment(attachment_name: String, bytes: PackedByteArray) -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var args: Dictionary = {"name": attachment_name}
+	var args: Dictionary = { "name": attachment_name }
 	var request: Dictionary = request_for(ATTACHMENTS, args)
 	request["body"] = bytes.get_string_from_utf8()
 	var answer: Dictionary = _exchange(request)
@@ -244,7 +235,7 @@ func health() -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for(HEALTH, {}))
+	var answer: Dictionary = _exchange(request_for(HEALTH, { }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -269,7 +260,7 @@ func whoami() -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for("whoami", {}))
+	var answer: Dictionary = _exchange(request_for("whoami", { }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -291,7 +282,6 @@ func whoami() -> Dictionary:
 		"user": String(body.get("user", "")),
 		"role": role,
 	}
-
 
 # --- the wire -----------------------------------------------------------------------------------
 
@@ -315,7 +305,7 @@ func _split_base() -> Dictionary:
 	if colon > 0:
 		host = authority.substr(0, colon)
 		port = int(authority.substr(colon + 1))
-	return {"tls": tls, "host": host, "port": port, "prefix": prefix}
+	return { "tls": tls, "host": host, "port": port, "prefix": prefix }
 
 
 ## Send one request and read the answer. **Failing to reach the service is a refusal that says so** -
@@ -367,8 +357,7 @@ func _exchange(request: Dictionary) -> Dictionary:
 			"body": _read_json(text),
 			"text": text,
 		}
-	return {"ok": true, "status": status, "retry": false, "reason": "", "body": _read_json(text), "text": text}
-
+	return { "ok": true, "status": status, "retry": false, "reason": "", "body": _read_json(text), "text": text }
 
 # --- help ---------------------------------------------------------------------------------------
 
@@ -378,12 +367,12 @@ func _exchange(request: Dictionary) -> Dictionary:
 ## would reject anyway.
 func _readiness() -> Dictionary:
 	if is_ready():
-		return {"ok": true, "status": 0, "retry": false, "reason": ""}
+		return { "ok": true, "status": 0, "retry": false, "reason": "" }
 	return refused("the sync address and a token have to both be set before this service can be used")
 
 
 static func _unreachable(why: String) -> Dictionary:
-	return {"ok": false, "status": 0, "retry": true, "reason": why, "body": {}}
+	return { "ok": false, "status": 0, "retry": true, "reason": why, "body": { } }
 
 
 ## Parse an answer body, tolerating one that is not JSON (a service that answers a sentence). A reader
@@ -391,11 +380,11 @@ static func _unreachable(why: String) -> Dictionary:
 static func _read_json(text: String) -> Dictionary:
 	var trimmed: String = text.strip_edges()
 	if trimmed.is_empty():
-		return {}
+		return { }
 	var reader := JSON.new()
 	if reader.parse(trimmed) != OK:
-		return {}
+		return { }
 	var data: Variant = reader.data
 	if data is Dictionary:
 		return data
-	return {}
+	return { }

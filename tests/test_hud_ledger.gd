@@ -40,12 +40,18 @@ func _hud() -> HudScript:
 func _invoice(number: String = "INV-2026-0001") -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV-%s" % number)
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "external_id": CLIENT}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(53550), &"HARDSCAPE", &"HST-ON")
+	invoice.customer = { "name": "Smith", "external_id": CLIENT }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(53550),
+		&"HARDSCAPE",
+		&"HST-ON",
+	)
 	assert(bool(invoice.issue("2026-06-10", 30, number)["ok"]))
 	return invoice
-
 
 # --- the menu line ------------------------------------------------------------------------------
 
@@ -81,7 +87,7 @@ func test_a_document_that_could_not_be_queued_is_on_the_menu_line_too() -> void:
 	# An invoice whose customer has no id in the ledger cannot be built at all: it is refused by name, and
 	# the menu line says something wants a person rather than saying nothing happened.
 	hud._billing_ledger.invoices.append(_invoice("INV-2026-0001"))
-	hud._billing_ledger.invoices[0].customer = {"name": "Smith"}
+	hud._billing_ledger.invoices[0].customer = { "name": "Smith" }
 	var handed: Dictionary = hud.queue_invoices_for_ledger()
 	assert(not bool(handed["ok"]))
 	assert(int(handed["queued"]) == 0)
@@ -93,7 +99,7 @@ func test_a_document_that_could_not_be_queued_is_on_the_menu_line_too() -> void:
 
 func test_the_menu_offers_the_outbox() -> void:
 	var items: Array[Dictionary] = HudScript.jobs_items()
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for held in items:
 		if String(held.get("id", "")) == "jobs.outbox":
 			found = held
@@ -132,7 +138,6 @@ func test_the_outbox_page_offers_every_registered_backend() -> void:
 	assert(hud._ledger_window.selected_backend() == "file")
 	hud.free()
 
-
 # --- the hand-over that happens as part of issuing ----------------------------------------------
 
 
@@ -162,9 +167,8 @@ func test_an_invoice_that_was_never_issued_is_not_handed_over() -> void:
 	var hud := _hud()
 	var draft: InvoiceScript = InvoiceScript.new("INV-1")
 	draft.job = "J1"
-	draft.customer = {"name": "Smith", "external_id": CLIENT}
-	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
+	draft.customer = { "name": "Smith", "external_id": CLIENT }
+	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH", MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
 	hud._billing_ledger.invoices.append(draft)
 	hud._on_billing_changed()
 	assert(hud._ledger_desk.count() == 0)

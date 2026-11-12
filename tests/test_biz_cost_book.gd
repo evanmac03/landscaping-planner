@@ -121,7 +121,7 @@ func test_a_book_with_no_version_is_refused() -> void:
 	# whose estimates cannot explain themselves, so it is refused rather than defaulted.
 	_clean()
 	var file := FileAccess.open(SCRATCH, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"effective_from": "2026-01-01", "items": {}}))
+	file.store_string(JSON.stringify({ "effective_from": "2026-01-01", "items": { } }))
 	file.close()
 	var read: Dictionary = BookScript.load_from(SCRATCH)
 	assert(not bool(read["ok"]), "a book with no version is not usable")
@@ -254,9 +254,7 @@ func test_a_nested_kit_expands_to_the_same_lines_as_writing_it_out() -> void:
 	assert(from_nested["lines"].size() == 4, "the base's two lines replaced its one line")
 	assert(
 		_lines_text(from_nested["lines"]) == _lines_text(from_flat["lines"]),
-		"nested:\n%s\nwritten out:\n%s" % [
-			_lines_text(from_nested["lines"]), _lines_text(from_flat["lines"])
-		]
+		"nested:\n%s\nwritten out:\n%s" % [_lines_text(from_nested["lines"]), _lines_text(from_flat["lines"])],
 	)
 
 
@@ -276,7 +274,7 @@ func test_a_kit_cycle_is_refused_naming_the_chain() -> void:
 	assert(expanded["lines"].is_empty(), "and nothing is priced from it")
 	assert(
 		String(expanded["reason"]).contains("TURF -> TOPSOIL -> TURF"),
-		"the chain is named: %s" % expanded["reason"]
+		"the chain is named: %s" % expanded["reason"],
 	)
 	# And the book says so before an estimate is priced from it, not while a customer waits.
 	var problems: Array[String] = book.problems()
@@ -324,29 +322,35 @@ func test_a_loaded_book_names_everything_wrong_with_it() -> void:
 		"version": 1,
 		"effective_from": "2026-01-01",
 		"currency": "CAD",
-		"items": {"PAVER-GRANITE": good, "ODD": bad_unit},
+		"items": { "PAVER-GRANITE": good, "ODD": bad_unit },
 		"kits": {
 			"BROKEN": {
-				"id": "BROKEN", "name": "Broken", "output_unit": "SQ_M", "yield_milli": 1000,
-				"lines": [{"item_id": "GHOST", "quantity_milli": 1000}],
+				"id": "BROKEN",
+				"name": "Broken",
+				"output_unit": "SQ_M",
+				"yield_milli": 1000,
+				"lines": [{ "item_id": "GHOST", "quantity_milli": 1000 }],
 			},
 			"LOOP-A": {
-				"id": "LOOP-A", "name": "Loop A", "output_unit": "SQ_M", "yield_milli": 1000,
-				"lines": [{"item_id": "LOOP-B", "quantity_milli": 1000}],
+				"id": "LOOP-A",
+				"name": "Loop A",
+				"output_unit": "SQ_M",
+				"yield_milli": 1000,
+				"lines": [{ "item_id": "LOOP-B", "quantity_milli": 1000 }],
 			},
 			"LOOP-B": {
-				"id": "LOOP-B", "name": "Loop B", "output_unit": "SQ_M", "yield_milli": 1000,
-				"lines": [{"item_id": "LOOP-A", "quantity_milli": 1000}],
+				"id": "LOOP-B",
+				"name": "Loop B",
+				"output_unit": "SQ_M",
+				"yield_milli": 1000,
+				"lines": [{ "item_id": "LOOP-A", "quantity_milli": 1000 }],
 			},
 		},
 	}
 	var book := BookScript.from_dict(data)
 	var problems: Array[String] = book.problems()
 	assert(problems.size() >= 4, "everything wrong is reported: %s" % " | ".join(problems))
-	assert(
-		_any_contains(problems, "FURLONG"),
-		"the unit that is not a unit: %s" % " | ".join(problems)
-	)
+	assert(_any_contains(problems, "FURLONG"), "the unit that is not a unit: %s" % " | ".join(problems))
 	assert(_any_contains(problems, "GHOST"), "the item that is not there")
 	assert(_any_contains(problems, "circular"), "the loop")
 	assert(not book.is_sound())
@@ -367,10 +371,7 @@ func test_a_new_version_is_a_new_book_and_the_old_one_does_not_move() -> void:
 
 	assert(next.put_item(_item(&"PAVER-GRANITE", &"SQ_M", 5900)), "the new book takes a new price")
 	assert(next.item(&"PAVER-GRANITE").rate.cents == 5900)
-	assert(
-		current.item(&"PAVER-GRANITE").rate.cents == 4200,
-		"and the old book still costs what it cost"
-	)
+	assert(current.item(&"PAVER-GRANITE").rate.cents == 4200, "and the old book still costs what it cost")
 	assert(current.problems().is_empty(), "the book in force is still sound")
 
 

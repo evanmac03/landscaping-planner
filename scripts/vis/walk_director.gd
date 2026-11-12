@@ -83,7 +83,14 @@ func is_done() -> bool:
 ## The whole state right now: `WalkRoute.stage_at` plus the share of the walk done.
 func stage() -> Dictionary:
 	if route == null:
-		return {"position": Vector3.ZERO, "look": Vector3.ZERO, "stop": -1, "travelling": false, "done": true, "progress": 1.0}
+		return {
+			"position": Vector3.ZERO,
+			"look": Vector3.ZERO,
+			"stop": -1,
+			"travelling": false,
+			"done": true,
+			"progress": 1.0,
+		}
 	return route.stage_at(elapsed, speed_mps)
 
 

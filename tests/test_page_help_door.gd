@@ -45,8 +45,10 @@ func test_with_no_page_open_there_is_no_subject_and_the_refusal_says_so() -> voi
 	var hud: Hud = _bare_hud()
 	assert(hud.page_in_front() == null, "a HUD with nothing open has no page in front")
 	assert(hud.page_help_subject() == "", "so there is no subject to show")
-	assert(hud.page_help_refusal().contains("no page is open"),
-		"and the refusal says that, rather than being empty: %s" % hud.page_help_refusal())
+	assert(
+		hud.page_help_refusal().contains("no page is open"),
+		"and the refusal says that, rather than being empty: %s" % hud.page_help_refusal(),
+	)
 	assert(not hud.open_page_help(), "and the door does not open")
 	_free_all()
 
@@ -57,8 +59,10 @@ func test_the_subject_is_the_one_the_page_in_front_points_at() -> void:
 	hud._snap_window = snap as SnapWindow
 	snap.visible = true
 	assert(hud.page_in_front() == snap, "the one page that is up is the page in front")
-	assert(hud.page_help_subject() == "Snapping and precision",
-		"and the manual's subject for it is the one the table maps: %s" % hud.page_help_subject())
+	assert(
+		hud.page_help_subject() == "Snapping and precision",
+		"and the manual's subject for it is the one the table maps: %s" % hud.page_help_subject(),
+	)
 	assert(hud.page_help_refusal() == "", "there is nothing to refuse")
 	_free_all()
 
@@ -78,8 +82,7 @@ func test_the_page_in_front_is_the_last_one_the_hud_has_up() -> void:
 	for page: Window in pages:
 		if page == snap or page == cost:
 			later = page
-	assert(hud.page_in_front() == later,
-		"the last of the two in the HUD's own list is the page in front")
+	assert(hud.page_in_front() == later, "the last of the two in the HUD's own list is the page in front")
 	_free_all()
 
 
@@ -91,8 +94,10 @@ func test_a_page_the_manual_has_not_reached_refuses_and_says_what_the_page_is_ab
 	assert(hud.page_help_subject() == "", "there is no subject to open")
 	var refusal: String = hud.page_help_refusal()
 	assert(refusal.contains("job_cost_window"), "the refusal names the page: %s" % refusal)
-	assert(refusal.contains(String(PageHelpScript.NOT_YET_WRITTEN["job_cost_window"])),
-		"and quotes what the table says the page is about, so the gap can be picked up: %s" % refusal)
+	assert(
+		refusal.contains(String(PageHelpScript.NOT_YET_WRITTEN["job_cost_window"])),
+		"and quotes what the table says the page is about, so the gap can be picked up: %s" % refusal,
+	)
 	assert(not hud.open_page_help(), "and the door does not open")
 	_free_all()
 
@@ -103,8 +108,10 @@ func test_a_page_that_needs_no_subject_says_why_rather_than_nothing() -> void:
 	hud._help_window = manual as HelpWindow
 	manual.visible = true
 	assert(hud.page_help_subject() == "", "the manual has no subject of its own to open")
-	assert(hud.page_help_refusal() == String(PageHelpScript.WITHOUT_NEED["help_window"]),
-		"and says the reason the table gives, rather than saying nothing: %s" % hud.page_help_refusal())
+	assert(
+		hud.page_help_refusal() == String(PageHelpScript.WITHOUT_NEED["help_window"]),
+		"and says the reason the table gives, rather than saying nothing: %s" % hud.page_help_refusal(),
+	)
 	_free_all()
 
 
@@ -112,12 +119,14 @@ func test_the_door_is_reachable_from_the_menu_as_well_as_the_key() -> void:
 	# The key is only discoverable if the menu says so, and a menu entry that runs something the key
 	# cannot is two answers to one question.
 	var hud: Hud = _bare_hud()
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for group: Dictionary in hud.menu_plan():
 		for entry: Dictionary in Array(group.get("items", [])):
 			if String(entry.get("id", "")) == "help.this_page":
 				found = entry
 	assert(not found.is_empty(), "the Help menu offers what the page in front of you is about")
-	assert(String(found.get("method", "")).contains("page_help"),
-		"and it runs the same door the key does: %s" % str(found))
+	assert(
+		String(found.get("method", "")).contains("page_help"),
+		"and it runs the same door the key does: %s" % str(found),
+	)
 	_free_all()

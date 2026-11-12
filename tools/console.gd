@@ -58,16 +58,27 @@ const PageLayoutScript := preload("res://scripts/page_layout.gd")
 ## because that is how the console takes them, and each method is reached by name rather than by anything
 ## the addon owns.
 const COMMANDS: Array[Dictionary] = [
-	{"name": &"where", "method": &"_where",
-		"help": "where <path> - the on-screen rectangle of a control, or a page's whole report"},
-	{"name": &"pages", "method": &"_pages",
-		"help": "pages - every page the project has; the ones that are up, where they stand, and whether they fit"},
-	{"name": &"probe", "method": &"_probe",
-		"help": "probe - say what is on the screen, in the very words a phone's PROBE block prints"},
-	{"name": &"mode", "method": &"_mode",
-		"help": "mode - the view, the tool in hand, the layer, and the status line"},
-	{"name": &"doc", "method": &"_doc",
-		"help": "doc - the drawing: how many entities, which layers, the file, and whether it is unsaved"},
+	{
+		"name": &"where",
+		"method": &"_where",
+		"help": "where <path> - the on-screen rectangle of a control, or a page's whole report",
+	},
+	{
+		"name": &"pages",
+		"method": &"_pages",
+		"help": "pages - every page the project has; the ones that are up, where they stand, and whether they fit",
+	},
+	{
+		"name": &"probe",
+		"method": &"_probe",
+		"help": "probe - say what is on the screen, in the very words a phone's PROBE block prints",
+	},
+	{ "name": &"mode", "method": &"_mode", "help": "mode - the view, the tool in hand, the layer, and the status line" },
+	{
+		"name": &"doc",
+		"method": &"_doc",
+		"help": "doc - the drawing: how many entities, which layers, the file, and whether it is unsaved",
+	},
 ]
 
 ## The game's root, once `_ready` has put it up. `where` reads its paths from here.
@@ -131,8 +142,7 @@ func _take_the_commands(the_console: Node) -> void:
 		if answer == null:
 			print("CONSOLE: this console took no :%s command - is add_custom_command not its door?" % verb)
 			continue
-		print("CONSOLE: :%s registered (%s)" % [
-			verb, "OK" if int(answer) == OK else "error %d" % int(answer)])
+		print("CONSOLE: :%s registered (%s)" % [verb, "OK" if int(answer) == OK else "error %d" % int(answer)])
 
 
 ## `:where <path>` - where a control is on the screen, in the pixels a person or `input tap` wants.
@@ -164,7 +174,13 @@ func _where(first: String = "", second: String = "", third: String = "") -> Stri
 	elif node is Control:
 		var rect: Rect2 = HudProbeScript.screen_rect(node as Control)
 		said = "%s  screen (%.0f, %.0f) .. (%.0f, %.0f)  %.0f x %.0f px" % [
-			wanted, rect.position.x, rect.position.y, rect.end.x, rect.end.y, rect.size.x, rect.size.y,
+			wanted,
+			rect.position.x,
+			rect.position.y,
+			rect.end.x,
+			rect.end.y,
+			rect.size.x,
+			rect.size.y,
 		]
 	else:
 		return "'%s' is a %s, which has no rectangle on the screen" % [wanted, node.get_class()]
@@ -213,8 +229,7 @@ func _pages(_first: String = "", _second: String = "", _third: String = "") -> S
 		up.append("         %s" % _how_the_contents_stand(page))
 	if up.is_empty():
 		return "no page is up right now; the project has %d page(s)" % known.size()
-	var lines := PackedStringArray([
-		"%d of the project's %d page(s) are up:" % [pages_up, known.size()]])
+	var lines := PackedStringArray(["%d of the project's %d page(s) are up:" % [pages_up, known.size()]])
 	lines.append_array(up)
 	return "\n".join(lines)
 
@@ -236,9 +251,9 @@ func _how_the_contents_stand(page: Window) -> String:
 		return "%s: this page has no contents to measure" % PageLayoutScript.UNKNOWN
 	var scrolling: ScrollContainer = PageLayoutScript.scroll_of(root)
 	var scrolls: bool = scrolling != null \
-		and scrolling.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
+			and scrolling.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
 	var wanted: Vector2 = PageLayoutScript.wanted_contents(root) \
-		+ PageLayoutScript.padding_of(root, scrolling)
+			+ PageLayoutScript.padding_of(root, scrolling)
 	var room: Vector2 = page.size
 	var across: bool = wanted.x <= room.x
 	var down: bool = wanted.y <= room.y
@@ -247,8 +262,7 @@ func _how_the_contents_stand(page: Window) -> String:
 		verdict = PageLayoutScript.FITS
 	elif across and scrolls:
 		verdict = PageLayoutScript.SCROLLS
-	return "contents want %.0f x %.0f in the %.0f x %.0f it has  ->  %s" % [
-		wanted.x, wanted.y, room.x, room.y, verdict]
+	return "contents want %.0f x %.0f in the %.0f x %.0f it has  ->  %s" % [wanted.x, wanted.y, room.x, room.y, verdict]
 
 
 ## `:probe` - say what is on the screen, in the words a phone prints.
@@ -280,9 +294,13 @@ func _mode(_first: String = "", _second: String = "", _third: String = "") -> St
 	if view != null:
 		lines.append("view    %s" % ViewController.ViewMode.keys()[int(view.get(&"mode"))])
 	if draft != null:
-		lines.append("tool    %s%s" % [
-			DraftTool.label_for(int(draft.call(&"current_tool"))),
-			"" if bool(draft.get(&"drawing")) else "   (the drawing tools are not armed)"])
+		lines.append(
+			"tool    %s%s"
+			% [
+				DraftTool.label_for(int(draft.call(&"current_tool"))),
+				"" if bool(draft.get(&"drawing")) else "   (the drawing tools are not armed)",
+			]
+		)
 		lines.append("layer   %s" % _the_layer_in_hand(draft))
 		lines.append("status  %s" % String(draft.call(&"status")))
 	return "\n".join(lines)
@@ -311,12 +329,16 @@ func _doc(_first: String = "", _second: String = "", _third: String = "") -> Str
 	for choice: Dictionary in draft.call(&"layer_choices"):
 		layers.append(String(choice["name"]))
 	var path: String = String(draft.get(&"drawing_path"))
-	return "\n".join([
-		"entities  %d" % int(draft.call(&"entity_count")),
-		"layers    %d: %s" % [layers.size(), ", ".join(layers)],
-		"file      %s" % (path if not path.is_empty() else "not saved yet"),
-		"unsaved   %s" % (
-			"yes - there are changes the file does not have"
-			if bool(draft.get(&"dirty"))
-			else "no - the file has everything the drawing has"),
-	])
+	return "\n".join(
+		[
+			"entities  %d" % int(draft.call(&"entity_count")),
+			"layers    %d: %s" % [layers.size(), ", ".join(layers)],
+			"file      %s" % (path if not path.is_empty() else "not saved yet"),
+			"unsaved   %s"
+			% (
+				"yes - there are changes the file does not have"
+				if bool(draft.get(&"dirty"))
+				else "no - the file has everything the drawing has"
+			),
+		]
+	)

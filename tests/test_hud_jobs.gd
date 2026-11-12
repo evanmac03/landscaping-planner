@@ -23,13 +23,13 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## An estimate with one priced line, so a job can be made of it.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith"}
+	estimate.customer = { "name": "Smith" }
 	var line: LineScript = LineScript.new()
 	line.cost_code = &"PLANTING"
 	line.kind = ItemScript.MATERIAL
@@ -39,7 +39,6 @@ func _estimate() -> EstimateScript:
 	line.unit_price = MoneyScript.of(1500)
 	estimate.lines.append(line)
 	return estimate
-
 
 # --- the way in ------------------------------------------------------------------------------
 
@@ -87,7 +86,6 @@ func test_a_board_built_but_not_shown_is_not_open() -> void:
 	assert(not hud.is_schedule_board_open())
 	_done(hud)
 
-
 # --- what the desk's words make the menu say --------------------------------------------------
 
 
@@ -123,6 +121,5 @@ func test_the_menu_line_counts_the_blocks_and_the_clashes() -> void:
 	hud._job_desk.book("E1", &"C1", "2026-06-10", 480, 960)
 	assert(hud._jobs_text() == "1 crew, 2 jobs, 1 block on the board", hud._jobs_text())
 	hud._job_desk.book("E2", &"C1", "2026-06-10", 900, 1020)
-	assert(hud._jobs_text() == "1 crew, 2 jobs, 2 blocks on the board, 1 conflict",
-		hud._jobs_text())
+	assert(hud._jobs_text() == "1 crew, 2 jobs, 2 blocks on the board, 1 conflict", hud._jobs_text())
 	_done(hud)

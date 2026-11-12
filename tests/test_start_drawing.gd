@@ -14,7 +14,7 @@ func test_it_offers_the_four_ways_to_begin_a_drawing() -> void:
 	var ids: Array[StringName] = StartScript.ids()
 	assert(
 		ids == [StartScript.NEW, StartScript.OPEN, StartScript.RECENT, StartScript.EXAMPLE],
-		"the four ways, in the order they are met: %s" % str(ids)
+		"the four ways, in the order they are met: %s" % str(ids),
 	)
 
 
@@ -24,10 +24,7 @@ func test_every_way_says_what_it_is_and_what_it_does() -> void:
 	for way: Dictionary in StartScript.WAYS:
 		var label := String(way.get("label", ""))
 		assert(not label.is_empty(), "a way with no words on its button")
-		assert(
-			not String(way.get("line", "")).is_empty(),
-			"%s has nothing said about what it does" % label
-		)
+		assert(not String(way.get("line", "")).is_empty(), "%s has nothing said about what it does" % label)
 
 
 func test_a_way_is_found_by_the_id_its_button_answers_with() -> void:
@@ -41,10 +38,9 @@ func test_a_way_that_is_not_offered_is_not_found() -> void:
 
 ## A remembered drawing is offered by the name a person recognises it by, and carries the path it opens.
 func test_the_recent_drawings_are_named_by_the_file_they_are() -> void:
-	var rows: Array[Dictionary] = StartScript.recent_rows([
-		"user://drawings/rose-bed.json",
-		"user://drawings/front lawn.json",
-	])
+	var rows: Array[Dictionary] = StartScript.recent_rows(
+		["user://drawings/rose-bed.json", "user://drawings/front lawn.json"]
+	)
 	assert(rows.size() == 2, "one row each: %d" % rows.size())
 	assert(rows[0]["label"] == "rose-bed", "named without the folder or the extension: %s" % rows[0]["label"])
 	assert(rows[0]["path"] == "user://drawings/rose-bed.json", "and carrying the path it opens")

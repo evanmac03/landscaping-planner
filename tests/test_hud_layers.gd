@@ -11,7 +11,7 @@ func _site_entry(id: String) -> Dictionary:
 	for entry: Dictionary in HudScript.items_for("Site"):
 		if String(entry.get("id", "")) == id:
 			return entry
-	return {}
+	return { }
 
 
 func test_the_site_menu_offers_the_layers_page() -> void:

@@ -28,10 +28,12 @@ const SIZE := Vector2i(940, 690)
 
 const HarvestCalendarScript := preload("res://scripts/harvest_calendar.gd")
 
-const EXPLANATION := ("Pick a month and read what is ready then. A crop's harvest window is the span "
+const EXPLANATION := (
+	"Pick a month and read what is ready then. A crop's harvest window is the span "
 	+ "of months the plant list records for it - some are cut for a single month, some stand through "
 	+ "the winter - and a crop the list says nothing about is counted apart rather than shown on a "
-	+ "month it was never given.")
+	+ "month it was never given."
+)
 
 const NO_CROPS := "this plant list has no food in it yet"
 
@@ -52,7 +54,6 @@ var _unstated_line: Label = null
 var _hint_label: Label = null
 var _close_button: Button = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -83,7 +84,10 @@ func build() -> void:
 	_month_option.focus_mode = Control.FOCUS_NONE
 	_month_option.tooltip_text = "The month to read"
 	_month_option.custom_minimum_size = Vector2(300.0, 0.0)
-	_month_option.item_selected.connect(func(index: int) -> void: _on_month_selected(index))
+	_month_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_month_selected(index),
+	)
 	# The shared chrome names the row after the control it carries, which is the `MonthRow` this page's own
 	# tests have always read the dropdown under.
 	column.add_child(PageChrome.labelled("Month", _month_option))
@@ -126,7 +130,6 @@ func build() -> void:
 
 	_rebuild_month_choices()
 	_refresh()
-
 
 # --- binding ------------------------------------------------------------------------------
 
@@ -174,9 +177,7 @@ func row_count() -> int:
 func month_line() -> String:
 	if catalogue == null:
 		return NO_CROPS
-	return HarvestCalendarScript.describe_rows(
-		HarvestCalendarScript.rows(catalogue, month()), month()
-	)
+	return HarvestCalendarScript.describe_rows(HarvestCalendarScript.rows(catalogue, month()), month())
 
 
 ## The shape of the whole year, in one sentence.
@@ -202,7 +203,6 @@ func hint() -> String:
 	if row_count() == 0:
 		return "nothing is ready this month; choose another"
 	return "choose another month to see what else is ready"
-
 
 # --- what it says -------------------------------------------------------------------------
 
@@ -231,7 +231,6 @@ func lists_are_keyboard_free() -> bool:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- the refresh --------------------------------------------------------------------------
 

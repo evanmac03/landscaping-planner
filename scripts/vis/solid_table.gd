@@ -38,38 +38,53 @@ const SOLIDS := {
 	# Paving. Barely proud of the ground and only a little below it, which is what makes
 	# a path read as a path rather than as a wall.
 	LayerSetScript.NEW_HARDSCAPE: {
-		"base_m": -0.02, "height_m": 0.05, "width_m": 0.60,
-		"material_set": "paver_granite", "collide": false,
+		"base_m": -0.02,
+		"height_m": 0.05,
+		"width_m": 0.60,
+		"material_set": "paver_granite",
+		"collide": false,
 		"what": "paving, paths, kerbs, steps",
 	},
 	# A deck is raised, so it is both taller and further off the ground, and it is
 	# something a person stands on: it collides.
 	LayerSetScript.NEW_STRUCTURE: {
-		"base_m": 0.02, "height_m": 0.32, "width_m": 0.20,
-		"material_set": "deck_timber", "collide": true,
+		"base_m": 0.02,
+		"height_m": 0.32,
+		"width_m": 0.20,
+		"material_set": "deck_timber",
+		"collide": true,
 		"what": "deck, pergola posts, structure",
 	},
 	# A bed is a mulch surface: six centimetres of it, no collider, because walking
 	# through a flower bed is something people do.
 	LayerSetScript.NEW_BED: {
-		"base_m": 0.0, "height_m": 0.06, "width_m": 0.60,
-		"material_set": "mulch_bark", "collide": false,
+		"base_m": 0.0,
+		"height_m": 0.06,
+		"width_m": 0.60,
+		"material_set": "mulch_bark",
+		"collide": false,
 		"what": "bed soil and mulch",
 	},
 	# Existing work is already built and is drawn as a fact about the site, so it gets a
 	# real solid — an existing patio is a step you can stand on — but a thin one, because
 	# nothing here is being proposed.
 	LayerSetScript.EXISTING_HARDSCAPE: {
-		"base_m": -0.02, "height_m": 0.04, "width_m": 0.50,
-		"material_set": "paver_sandstone", "collide": true,
+		"base_m": -0.02,
+		"height_m": 0.04,
+		"width_m": 0.50,
+		"material_set": "paver_sandstone",
+		"collide": true,
 		"what": "existing paving and walls",
 	},
 	# The one solid in the table with a height a person can see from across the garden.
 	# A building drawn on 100-EXIST-STRUCT becomes a mass, which is the single most
 	# useful thing the 3D view can derive from a plan.
 	LayerSetScript.EXISTING_STRUCTURE: {
-		"base_m": 0.0, "height_m": 2.60, "width_m": 0.30,
-		"material_set": "render_stucco", "collide": true,
+		"base_m": 0.0,
+		"height_m": 2.60,
+		"width_m": 0.30,
+		"material_set": "render_stucco",
+		"collide": true,
 		"what": "existing buildings",
 	},
 }
@@ -117,7 +132,7 @@ const MISSING := {
 ## deliberately flat, which is the same thing to a caller: no solid. `reason_for()`
 ## tells the two apart for a person.
 static func solid_for(layer_name: StringName) -> Dictionary:
-	return SOLIDS.get(StringName(layer_name), {})
+	return SOLIDS.get(StringName(layer_name), { })
 
 
 ## Whether a layer becomes solids at all.
@@ -164,8 +179,8 @@ static func describe() -> String:
 	var lines: Array[String] = []
 	for layer_name: StringName in SOLIDS:
 		var entry: Dictionary = SOLIDS[layer_name]
-		lines.append("%s: %.2f to %.2f m in %s" % [
-			layer_name, float(entry["base_m"]), float(entry["height_m"]),
-			String(entry["material_set"]),
-		])
+		lines.append(
+			"%s: %.2f to %.2f m in %s"
+			% [layer_name, float(entry["base_m"]), float(entry["height_m"]), String(entry["material_set"])]
+		)
 	return "\n".join(lines)

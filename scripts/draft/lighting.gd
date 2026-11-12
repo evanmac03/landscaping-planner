@@ -59,12 +59,12 @@ const KINDS: Array[String] = [PATH, UPLIGHT, FLOOD, WELL, STEP, LANTERN]
 ## lantern is the one line-voltage fixture, and it is here so the voltage check has something to
 ## refuse: a 120 V lantern will not run on a 12 V transformer.
 const FIXTURES := {
-	PATH: {"name": "path light", "watts": 4.0, "volts": 12.0, "throw": 2.5, "spread": 360.0},
-	UPLIGHT: {"name": "uplight", "watts": 7.0, "volts": 12.0, "throw": 6.0, "spread": 40.0},
-	FLOOD: {"name": "floodlight", "watts": 12.0, "volts": 12.0, "throw": 9.0, "spread": 90.0},
-	WELL: {"name": "well light", "watts": 5.0, "volts": 12.0, "throw": 3.0, "spread": 90.0},
-	STEP: {"name": "step light", "watts": 2.0, "volts": 12.0, "throw": 1.5, "spread": 180.0},
-	LANTERN: {"name": "lantern", "watts": 60.0, "volts": 120.0, "throw": 8.0, "spread": 180.0},
+	PATH: { "name": "path light", "watts": 4.0, "volts": 12.0, "throw": 2.5, "spread": 360.0 },
+	UPLIGHT: { "name": "uplight", "watts": 7.0, "volts": 12.0, "throw": 6.0, "spread": 40.0 },
+	FLOOD: { "name": "floodlight", "watts": 12.0, "volts": 12.0, "throw": 9.0, "spread": 90.0 },
+	WELL: { "name": "well light", "watts": 5.0, "volts": 12.0, "throw": 3.0, "spread": 90.0 },
+	STEP: { "name": "step light", "watts": 2.0, "volts": 12.0, "throw": 1.5, "spread": 180.0 },
+	LANTERN: { "name": "lantern", "watts": 60.0, "volts": 120.0, "throw": 8.0, "spread": 180.0 },
 }
 
 ## A full circle is the spread that has no aim: where the point is, a full fixture reaches it.
@@ -104,7 +104,6 @@ const DEFAULT_TRANSFORMER_VA := 100.0
 const DEFAULT_TRANSFORMER_VOLTS := 12.0
 
 const TOLERANCE := 1e-6
-
 
 # --- the fixture table --------------------------------------------------------------
 
@@ -185,27 +184,25 @@ static func spread_of_kind(kind: String) -> float:
 		return 0.0
 	return float(FIXTURES[kind]["spread"])
 
-
 # --- the transformer ----------------------------------------------------------------
 
 
 ## A transformer: a capacity in volt-amperes at a stated voltage.
 static func make_transformer(va: float, volts: float) -> Dictionary:
-	return {"va": va, "volts": volts}
+	return { "va": va, "volts": volts }
 
 
 ## Whether anything has actually been stated. A transformer with no capacity is not a transformer,
 ## and neither is a dictionary that never held one, so a circuit is checked against this first.
 static func has_transformer(transformer: Dictionary) -> bool:
 	return float(transformer.get("va", 0.0)) > TOLERANCE \
-		and float(transformer.get("volts", 0.0)) > TOLERANCE
+			and float(transformer.get("volts", 0.0)) > TOLERANCE
 
 
 static func transformer_words(transformer: Dictionary) -> String:
 	if not has_transformer(transformer):
 		return "no transformer stated"
-	return "%s VA at %s V" % [_number(float(transformer.get("va", 0.0))),
-		_number(float(transformer.get("volts", 0.0)))]
+	return "%s VA at %s V" % [_number(float(transformer.get("va", 0.0))), _number(float(transformer.get("volts", 0.0)))]
 
 
 ## How many fixtures of a kind the transformer can carry. This is the number a refusal quotes, and the
@@ -215,7 +212,6 @@ static func power_budget(transformer: Dictionary, kind: String) -> int:
 	if per_fixture <= TOLERANCE or not has_transformer(transformer):
 		return 0
 	return int(floor(float(transformer["va"]) / per_fixture + TOLERANCE))
-
 
 # --- a circuit ----------------------------------------------------------------------
 
@@ -269,7 +265,6 @@ static func set_area(circuit: Dictionary, ring: PackedVector2Array) -> void:
 static func area_m2(circuit: Dictionary) -> float:
 	return float(circuit.get("area_m2", 0.0))
 
-
 ## An area on this drawing is turned into words by `DraftUnits.area_words_in`, in the drawing's own
 ## units, and a row's own words by `DraftUnits.row_area_text`. Both used to be private copies here,
 ## and of two copies of one rule it is always one of them that stops being true.
@@ -282,16 +277,20 @@ static func has_area(circuit: Dictionary) -> bool:
 static func ring_of(circuit: Dictionary) -> PackedVector2Array:
 	return circuit.get("area", PackedVector2Array())
 
-
 # --- fixtures -----------------------------------------------------------------------
 
 
 ## Set a fixture at a position. `spread` of zero means the kind's own beam; the heading is the
 ## direction the fixture is aimed, in radians, and is ignored by a full-circle fixture.
-static func add_fixture(circuit: Dictionary, at: Vector2, kind: String = "",
-		heading: float = 0.0, spread: float = 0.0) -> Dictionary:
+static func add_fixture(
+	circuit: Dictionary,
+	at: Vector2,
+	kind: String = "",
+	heading: float = 0.0,
+	spread: float = 0.0,
+) -> Dictionary:
 	var use := kind if is_kind(kind) else String(circuit.get("kind", PATH))
-	var fixture := {"kind": use, "at": at, "heading": heading, "spread": spread}
+	var fixture := { "kind": use, "at": at, "heading": heading, "spread": spread }
 	(circuit["fixtures"] as Array).append(fixture)
 	return fixture
 
@@ -337,8 +336,7 @@ static func reaches(fixture: Dictionary, point: Vector2) -> bool:
 	if spread >= deg_to_rad(SPREAD_FULL) - TOLERANCE or distance <= TOLERANCE:
 		return true
 	var heading := float(fixture.get("heading", 0.0))
-	return Geom.angle_in_sweep(Geom.angle_of(away), heading - spread * 0.5 - BEAM_EDGE, spread
-		+ BEAM_EDGE * 2.0)
+	return Geom.angle_in_sweep(Geom.angle_of(away), heading - spread * 0.5 - BEAM_EDGE, spread + BEAM_EDGE * 2.0)
 
 
 static func covered_by(fixtures: Array, point: Vector2) -> bool:
@@ -364,7 +362,6 @@ static func aim_for(ring: PackedVector2Array, at: Vector2, kind: String) -> floa
 	if facing.length() <= TOLERANCE:
 		return 0.0
 	return Geom.angle_of(facing)
-
 
 # --- laying fixtures out ------------------------------------------------------------
 
@@ -410,9 +407,14 @@ static func clearance_for(kind: String, spacing: float) -> float:
 ## Returns `{ok, reason, placed, wanted, points, spacing, clearance, staggered}`. A refusal sets no
 ## fixtures at all: over the fixture cap, or an area the grid cannot land in, is refused in words and
 ## the circuit is left as it was.
-static func lay_out(circuit: Dictionary, kind: String = "", spacing: float = 0.0,
-		staggered: bool = false, clearance: float = -1.0,
-		origin: Vector2 = Vector2.INF) -> Dictionary:
+static func lay_out(
+	circuit: Dictionary,
+	kind: String = "",
+	spacing: float = 0.0,
+	staggered: bool = false,
+	clearance: float = -1.0,
+	origin: Vector2 = Vector2.INF,
+) -> Dictionary:
 	var use := kind if is_kind(kind) else String(circuit.get("kind", PATH))
 	var ring := ring_of(circuit)
 	var step := spacing if spacing > TOLERANCE else spacing_for(use, staggered)
@@ -426,13 +428,24 @@ static func lay_out(circuit: Dictionary, kind: String = "", spacing: float = 0.0
 	var arrangement := SpacingScript.TRIANGULAR if staggered else SpacingScript.SQUARE
 	var report := SpacingScript.plan_fill(ring, step, arrangement, edge, phase)
 	if not bool(report["ok"]) or int(report["wanted"]) > MAX_FIXTURES:
-		return _refused("at %s apart this area wants more than %d fixtures, which is more than one "
+		return _refused(
+			"at %s apart this area wants more than %d fixtures, which is more than one "
 			% [SpacingScript.spacing_words(step), MAX_FIXTURES]
-			+ "circuit is laid out with. Space them further apart.", step, edge, staggered)
+			+ "circuit is laid out with. Space them further apart.",
+			step,
+			edge,
+			staggered,
+		)
 	var points: PackedVector2Array = report["points"]
 	if points.is_empty():
-		return _refused("at %s apart no fixture of this grid lands in that area at all: no grid line "
-			% SpacingScript.spacing_words(step) + "falls inside it.", step, edge, staggered)
+		return _refused(
+			"at %s apart no fixture of this grid lands in that area at all: no grid line "
+			% SpacingScript.spacing_words(step)
+			+ "falls inside it.",
+			step,
+			edge,
+			staggered,
+		)
 	clear_fixtures(circuit)
 	circuit["kind"] = use
 	circuit["spacing"] = step
@@ -440,22 +453,31 @@ static func lay_out(circuit: Dictionary, kind: String = "", spacing: float = 0.0
 	for point: Vector2 in points:
 		add_fixture(circuit, point, use, aim_for(ring, point, use), 0.0)
 	return {
-		"ok": true, "reason": "", "placed": points.size(), "wanted": int(report["wanted"]),
-		"points": points, "spacing": step, "clearance": edge, "staggered": staggered,
+		"ok": true,
+		"reason": "",
+		"placed": points.size(),
+		"wanted": int(report["wanted"]),
+		"points": points,
+		"spacing": step,
+		"clearance": edge,
+		"staggered": staggered,
 	}
 
 
-static func _refused(reason: String, spacing: float, clearance: float,
-		staggered: bool) -> Dictionary:
+static func _refused(reason: String, spacing: float, clearance: float, staggered: bool) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "placed": 0, "wanted": 0,
-		"points": PackedVector2Array(), "spacing": spacing, "clearance": clearance,
+		"ok": false,
+		"reason": reason,
+		"placed": 0,
+		"wanted": 0,
+		"points": PackedVector2Array(),
+		"spacing": spacing,
+		"clearance": clearance,
 		"staggered": staggered,
 	}
 
 
 # --- a circuit on the plan ----------------------------------------------------------
-
 
 ## How wide a fixture is drawn on the sheet, in millimetres. A fixture on a plan is a *symbol* rather
 ## than a measurement: its circle is a fixed size on paper, so its model radius follows the plot
@@ -533,7 +555,6 @@ static func fixture_words(fixture: Dictionary) -> String:
 	var kind := String(fixture.get("kind", ""))
 	return "%s, %s" % [kind_name(kind), beam_words(spread_of_fixture(fixture))]
 
-
 # --- the load check -----------------------------------------------------------------
 
 
@@ -565,8 +586,10 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 	if fixtures.is_empty():
 		reasons.append("the circuit has no fixtures")
 	if fixtures.size() > MAX_FIXTURES:
-		reasons.append("the circuit holds %d fixtures, which is more than the %d one circuit is laid out with"
-			% [fixtures.size(), MAX_FIXTURES])
+		reasons.append(
+			"the circuit holds %d fixtures, which is more than the %d one circuit is laid out with"
+			% [fixtures.size(), MAX_FIXTURES]
+		)
 
 	# Voltage before load: a fixture that will not light is a refusal about voltage, not about how many
 	# there are. A circuit may hold several kinds - that is the difference from irrigation - but only
@@ -589,16 +612,26 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 		reasons.append("a fixture in the circuit is not a kind of fixture this knows")
 	if wrong_volts > 0 and stated:
 		if wrong_volts == 1:
-			reasons.append("a %s needs %s V and the transformer gives %s V"
-				% [kind_name(other_kind), _number(other_volts), _number(volts)])
+			reasons.append(
+				"a %s needs %s V and the transformer gives %s V"
+				% [kind_name(other_kind), _number(other_volts), _number(volts)]
+			)
 		else:
-			reasons.append("%d fixtures need %s V and the transformer gives %s V"
-				% [wrong_volts, _number(other_volts), _number(volts)])
+			reasons.append(
+				"%d fixtures need %s V and the transformer gives %s V"
+				% [wrong_volts, _number(other_volts), _number(volts)]
+			)
 
 	if stated and demand > capacity + TOLERANCE and is_kind(kind):
-		reasons.append("%s draw %s W and the transformer gives %s VA - %d of them fit"
-			% [kind_count_words(kind, fixtures.size()), _number(demand), _number(capacity),
-				power_budget(transformer, kind)])
+		reasons.append(
+			"%s draw %s W and the transformer gives %s VA - %d of them fit"
+			% [
+				kind_count_words(kind, fixtures.size()),
+				_number(demand),
+				_number(capacity),
+				power_budget(transformer, kind),
+			]
+		)
 
 	# A fixture outside the area it was put on a circuit for lights somewhere it was not set for.
 	if has_area(circuit):
@@ -609,8 +642,10 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 			if not Geom.point_in_polygon(at, ring):
 				outside_count += 1
 		if outside_count > 0:
-			reasons.append("%s stand outside the area this circuit lights"
-				% ("1 fixture" if outside_count == 1 else "%d fixtures" % outside_count))
+			reasons.append(
+				"%s stand outside the area this circuit lights"
+				% ("1 fixture" if outside_count == 1 else "%d fixtures" % outside_count)
+			)
 
 	# Not `cover`: that is the name of the function this asks, and a local may not shadow a method of
 	# its own class.
@@ -620,8 +655,10 @@ static func check(circuit: Dictionary, transformer: Dictionary) -> Dictionary:
 	elif not bool(lit["ok"]):
 		notes.append(String(lit["reason"]))
 	elif float(lit["fraction"]) < 1.0 - TOLERANCE:
-		notes.append("%d%% of the area is beyond every fixture - worst at %s"
-			% [int(round((1.0 - float(lit["fraction"])) * 100.0)), _point_words(lit["worst"])])
+		notes.append(
+			"%d%% of the area is beyond every fixture - worst at %s"
+			% [int(round((1.0 - float(lit["fraction"])) * 100.0)), _point_words(lit["worst"])]
+		)
 
 	return {
 		"ok": reasons.is_empty(),
@@ -650,15 +687,16 @@ static func verdict_words(circuit: Dictionary, transformer: Dictionary, units: D
 		var reasons: Array[String] = result["reasons"]
 		return "%s: %s" % [label, reasons[0]]
 	var line := "%s will run: %s, %s W of %s VA" % [
-		label, kind_count_words(String(circuit.get("kind", PATH)), int(result["fixtures"])),
-		_number(float(result["load"])), _number(float(result["capacity"])),
+		label,
+		kind_count_words(String(circuit.get("kind", PATH)), int(result["fixtures"])),
+		_number(float(result["load"])),
+		_number(float(result["capacity"])),
 	]
 	if float(result["area_m2"]) > TOLERANCE:
 		line += ", over %s" % DraftUnits.area_words_in(float(result["area_m2"]), units)
 	for note in (result["notes"] as Array[String]):
 		line += "; " + note
 	return line
-
 
 # --- cover --------------------------------------------------------------------------
 
@@ -670,13 +708,25 @@ static func verdict_words(circuit: Dictionary, transformer: Dictionary, units: D
 ## Returns `{ok, reason, sampled, covered, fraction, worst}`.
 static func cover(circuit: Dictionary) -> Dictionary:
 	if not has_area(circuit):
-		return {"ok": false, "reason": "the area has not been stated", "sampled": 0, "covered": 0,
-			"fraction": 0.0, "worst": null}
+		return {
+			"ok": false,
+			"reason": "the area has not been stated",
+			"sampled": 0,
+			"covered": 0,
+			"fraction": 0.0,
+			"worst": null,
+		}
 	var ring := ring_of(circuit)
 	var samples := Geom.fill_grid(ring, SAMPLE_GRID)
 	if samples.is_empty():
-		return {"ok": false, "reason": "the area is smaller than the %s m cover grid"
-			% _number(SAMPLE_GRID), "sampled": 0, "covered": 0, "fraction": 0.0, "worst": null}
+		return {
+			"ok": false,
+			"reason": "the area is smaller than the %s m cover grid" % _number(SAMPLE_GRID),
+			"sampled": 0,
+			"covered": 0,
+			"fraction": 0.0,
+			"worst": null,
+		}
 	var fixtures := fixtures_of(circuit)
 	var covered := 0
 	var worst: Variant = null
@@ -686,10 +736,13 @@ static func cover(circuit: Dictionary) -> Dictionary:
 		elif worst == null:
 			worst = point
 	return {
-		"ok": true, "reason": "", "sampled": samples.size(), "covered": covered,
-		"fraction": float(covered) / float(samples.size()), "worst": worst,
+		"ok": true,
+		"reason": "",
+		"sampled": samples.size(),
+		"covered": covered,
+		"fraction": float(covered) / float(samples.size()),
+		"worst": worst,
 	}
-
 
 # --- the schedule -------------------------------------------------------------------
 
@@ -700,18 +753,20 @@ static func schedule(circuits: Array, transformer: Dictionary, units: DraftUnits
 	for entry in circuits:
 		var circuit: Dictionary = entry
 		var result := check(circuit, transformer)
-		rows.append({
-			"number": int(circuit.get("number", 0)),
-			"label": circuit_label(circuit),
-			"tap": int(circuit.get("tap", 0)),
-			"kind": String(circuit.get("kind", PATH)),
-			"kind_name": kind_name(String(circuit.get("kind", PATH))),
-			"fixtures": int(result["fixtures"]),
-			"load": float(result["load"]),
-			"area_m2": float(result["area_m2"]),
-			"area_text": DraftUnits.area_words_in(float(result["area_m2"]), units),
-			"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
-		})
+		rows.append(
+			{
+				"number": int(circuit.get("number", 0)),
+				"label": circuit_label(circuit),
+				"tap": int(circuit.get("tap", 0)),
+				"kind": String(circuit.get("kind", PATH)),
+				"kind_name": kind_name(String(circuit.get("kind", PATH))),
+				"fixtures": int(result["fixtures"]),
+				"load": float(result["load"]),
+				"area_m2": float(result["area_m2"]),
+				"area_text": DraftUnits.area_words_in(float(result["area_m2"]), units),
+				"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
+			}
+		)
 	return rows
 
 
@@ -719,8 +774,10 @@ static func schedule(circuits: Array, transformer: Dictionary, units: DraftUnits
 static func schedule_row_words(row: Dictionary, units: DraftUnits = null) -> String:
 	var kind := String(row.get("kind", PATH))
 	var line := "%s   tap %d   %s   %s W" % [
-		String(row.get("label", "Circuit")), int(row.get("tap", 0)),
-		kind_count_words(kind, int(row.get("fixtures", 0))), _number(float(row.get("load", 0.0))),
+		String(row.get("label", "Circuit")),
+		int(row.get("tap", 0)),
+		kind_count_words(kind, int(row.get("fixtures", 0))),
+		_number(float(row.get("load", 0.0))),
 	]
 	if float(row.get("area_m2", 0.0)) > TOLERANCE:
 		line += "   %s" % DraftUnits.row_area_text(row, units)
@@ -732,7 +789,6 @@ static func schedule_lines(circuits: Array, transformer: Dictionary, units: Draf
 	for row in schedule(circuits, transformer, units):
 		out.append(schedule_row_words(row, units))
 	return out
-
 
 # --- the file -----------------------------------------------------------------------
 
@@ -747,27 +803,31 @@ static func to_dict(circuits: Array) -> Dictionary:
 		for fixture_entry in fixtures_of(circuit):
 			var fixture: Dictionary = fixture_entry
 			var at: Vector2 = fixture.get("at", Vector2.ZERO)
-			fixtures.append({
-				"kind": String(fixture.get("kind", "")),
-				"at": [at.x, at.y],
-				"heading": float(fixture.get("heading", 0.0)),
-				"spread": float(fixture.get("spread", 0.0)),
-			})
+			fixtures.append(
+				{
+					"kind": String(fixture.get("kind", "")),
+					"at": [at.x, at.y],
+					"heading": float(fixture.get("heading", 0.0)),
+					"spread": float(fixture.get("spread", 0.0)),
+				}
+			)
 		var ring := ring_of(circuit)
 		var flat := PackedFloat64Array()
 		for point: Vector2 in ring:
 			flat.append(point.x)
 			flat.append(point.y)
-		written.append({
-			"number": int(circuit.get("number", 0)),
-			"tap": int(circuit.get("tap", 0)),
-			"kind": String(circuit.get("kind", PATH)),
-			"area": flat,
-			"fixtures": fixtures,
-			"spacing": float(circuit.get("spacing", 0.0)),
-			"staggered": bool(circuit.get("staggered", false)),
-		})
-	return {"circuits": written}
+		written.append(
+			{
+				"number": int(circuit.get("number", 0)),
+				"tap": int(circuit.get("tap", 0)),
+				"kind": String(circuit.get("kind", PATH)),
+				"area": flat,
+				"fixtures": fixtures,
+				"spacing": float(circuit.get("spacing", 0.0)),
+				"staggered": bool(circuit.get("staggered", false)),
+			}
+		)
+	return { "circuits": written }
 
 
 ## The circuits back out of a file, and a record that is not a circuit is **dropped rather than
@@ -807,17 +867,17 @@ static func from_dict(data: Dictionary) -> Array[Dictionary]:
 
 static func _fixture_from(entry: Variant) -> Dictionary:
 	if not (entry is Dictionary):
-		return {}
+		return { }
 	var record: Dictionary = entry
 	var kind := String(record.get("kind", ""))
 	if not is_kind(kind):
-		return {}
+		return { }
 	var pair = record.get("at", null)
 	if not (pair is Array) or (pair as Array).size() < 2:
-		return {}
+		return { }
 	var at: Array = pair
 	if not (at[0] is float or at[0] is int) or not (at[1] is float or at[1] is int):
-		return {}
+		return { }
 	return {
 		"kind": kind,
 		"at": Vector2(float(at[0]), float(at[1])),
@@ -846,7 +906,6 @@ static func _ring_from(flat: Variant) -> PackedVector2Array:
 		out.append(Vector2(numbers[index], numbers[index + 1]))
 		index += 2
 	return out
-
 
 # --- words ---------------------------------------------------------------------------
 

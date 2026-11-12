@@ -33,7 +33,6 @@ const SECONDS_PER_DAY := 86400
 var leads: Array[Lead] = []
 var currency: StringName = &"CAD"
 
-
 # --- the list ------------------------------------------------------------------------------
 
 
@@ -75,13 +74,8 @@ func columns() -> Array[Dictionary]:
 		for held in leads:
 			if held.stage == stage_int:
 				column.append(held)
-		out.append({
-			"stage": stage_int,
-			"name": LeadScript.stage_name(stage_int),
-			"leads": column,
-		})
+		out.append({ "stage": stage_int, "name": LeadScript.stage_name(stage_int), "leads": column })
 	return out
-
 
 # --- the funnel ----------------------------------------------------------------------------
 
@@ -103,13 +97,15 @@ func funnel(from: String = "", to: String = "") -> Array[Dictionary]:
 			if _in_window(String(event.get("at", "")), from, to):
 				count += 1
 				cents += held.value().cents
-		out.append({
-			"stage": stage_int,
-			"name": LeadScript.stage_name(stage_int),
-			"count": count,
-			"value_cents": cents,
-			"currency": String(currency),
-		})
+		out.append(
+			{
+				"stage": stage_int,
+				"name": LeadScript.stage_name(stage_int),
+				"count": count,
+				"value_cents": cents,
+				"currency": String(currency),
+			}
+		)
 	return out
 
 
@@ -120,8 +116,13 @@ func funnel(from: String = "", to: String = "") -> Array[Dictionary]:
 ## window - a conversion out of no leads is not zero per cent, it is unknown.
 func conversion(from_stage: int, to_stage: int, from: String = "", to: String = "") -> Dictionary:
 	if not LeadScript.is_stage(from_stage) or not LeadScript.is_stage(to_stage):
-		return {"ok": false, "reached": 0, "converted": 0, "ppm": 0,
-			"reason": "conversion needs two stages, and one of these is not a stage"}
+		return {
+			"ok": false,
+			"reached": 0,
+			"converted": 0,
+			"ppm": 0,
+			"reason": "conversion needs two stages, and one of these is not a stage",
+		}
 	var reached := 0
 	var converted := 0
 	for held in leads:
@@ -134,11 +135,20 @@ func conversion(from_stage: int, to_stage: int, from: String = "", to: String = 
 		if not target_event.is_empty() and String(target_event.get("at", "")) >= arrival:
 			converted += 1
 	if reached == 0:
-		return {"ok": false, "reached": 0, "converted": 0, "ppm": 0,
-			"reason": "no leads reached %s in this window" % LeadScript.stage_name(from_stage)}
-	return {"ok": true, "reached": reached, "converted": converted,
-		"ppm": MoneyScript.rounded_div(converted * 1000000, reached), "reason": ""}
-
+		return {
+			"ok": false,
+			"reached": 0,
+			"converted": 0,
+			"ppm": 0,
+			"reason": "no leads reached %s in this window" % LeadScript.stage_name(from_stage),
+		}
+	return {
+		"ok": true,
+		"reached": reached,
+		"converted": converted,
+		"ppm": MoneyScript.rounded_div(converted * 1000000, reached),
+		"reason": "",
+	}
 
 # --- win, loss and why ---------------------------------------------------------------------
 
@@ -169,20 +179,40 @@ func win_rate(from: String = "", to: String = "") -> Dictionary:
 				withdrawn += 1
 	var closed := won + lost + withdrawn
 	if missing > 0:
-		return {"ok": false, "ppm": 0, "won": won, "lost": lost, "withdrawn": withdrawn,
+		return {
+			"ok": false,
+			"ppm": 0,
+			"won": won,
+			"lost": lost,
+			"withdrawn": withdrawn,
 			"closed": closed,
-			"reason": "win rate unavailable: %d of %d closed leads have no lost reason" % [missing, closed]}
+			"reason": "win rate unavailable: %d of %d closed leads have no lost reason" % [missing, closed],
+		}
 	if won + lost == 0:
-		return {"ok": false, "ppm": 0, "won": won, "lost": lost, "withdrawn": withdrawn,
-			"closed": closed, "reason": "no won or lost leads in this window"}
-	return {"ok": true, "ppm": MoneyScript.rounded_div(won * 1000000, won + lost), "won": won,
-		"lost": lost, "withdrawn": withdrawn, "closed": closed, "reason": ""}
+		return {
+			"ok": false,
+			"ppm": 0,
+			"won": won,
+			"lost": lost,
+			"withdrawn": withdrawn,
+			"closed": closed,
+			"reason": "no won or lost leads in this window",
+		}
+	return {
+		"ok": true,
+		"ppm": MoneyScript.rounded_div(won * 1000000, won + lost),
+		"won": won,
+		"lost": lost,
+		"withdrawn": withdrawn,
+		"closed": closed,
+		"reason": "",
+	}
 
 
 ## What was lost and why, by reason code, worth more knowing than the count alone (section 10).
 ## Returns rows `{reason, name, count, value_cents, currency}`, most frequent first.
 func lost_reasons(from: String = "", to: String = "") -> Array[Dictionary]:
-	var tally: Dictionary = {}
+	var tally: Dictionary = { }
 	for held in leads:
 		if held.stage != LeadScript.LOST or held.closed_at.is_empty():
 			continue
@@ -190,18 +220,20 @@ func lost_reasons(from: String = "", to: String = "") -> Array[Dictionary]:
 			continue
 		var key := String(held.lost_reason)
 		if not tally.has(key):
-			tally[key] = {"count": 0, "cents": 0}
+			tally[key] = { "count": 0, "cents": 0 }
 		tally[key]["count"] += 1
 		tally[key]["cents"] += held.value().cents
 	var out: Array[Dictionary] = []
 	for key in tally.keys():
-		out.append({
-			"reason": key,
-			"name": key if not key.is_empty() else "No reason given",
-			"count": int(tally[key]["count"]),
-			"value_cents": int(tally[key]["cents"]),
-			"currency": String(currency),
-		})
+		out.append(
+			{
+				"reason": key,
+				"name": key if not key.is_empty() else "No reason given",
+				"count": int(tally[key]["count"]),
+				"value_cents": int(tally[key]["cents"]),
+				"currency": String(currency),
+			}
+		)
 	out.sort_custom(_by_count_then_name)
 	return out
 
@@ -213,8 +245,10 @@ func source_performance(from: String = "", to: String = "") -> Array[Dictionary]
 	for key in LeadScript.SOURCES.keys():
 		tokens.append(StringName(key))
 	# Sorted by the *name a table prints*, not the token: "Yard sign" belongs after "Web".
-	tokens.sort_custom(func(a: StringName, b: StringName) -> bool:
-		return LeadScript.source_name(a) < LeadScript.source_name(b))
+	tokens.sort_custom(
+		func(a: StringName, b: StringName) -> bool:
+			return LeadScript.source_name(a) < LeadScript.source_name(b),
+	)
 	var out: Array[Dictionary] = []
 	for token in tokens:
 		var won := 0
@@ -241,18 +275,19 @@ func source_performance(from: String = "", to: String = "") -> Array[Dictionary]
 			ppm = 0
 		else:
 			ppm = MoneyScript.rounded_div(won * 1000000, closed)
-		out.append({
-			"source": String(token),
-			"name": LeadScript.source_name(token),
-			"won": won,
-			"closed": closed,
-			"ppm": ppm,
-			"average_cents": MoneyScript.rounded_div(cents, won) if won > 0 else 0,
-			"currency": String(currency),
-			"reason": reason,
-		})
+		out.append(
+			{
+				"source": String(token),
+				"name": LeadScript.source_name(token),
+				"won": won,
+				"closed": closed,
+				"ppm": ppm,
+				"average_cents": MoneyScript.rounded_div(cents, won) if won > 0 else 0,
+				"currency": String(currency),
+				"reason": reason,
+			}
+		)
 	return out
-
 
 # --- the present --------------------------------------------------------------------------
 
@@ -277,8 +312,13 @@ func pipeline_value() -> Dictionary:
 				missing.append(held.stage)
 			continue
 		weighted += MoneyScript.rounded_div(held.value().cents * int(ODDS_PPM[held.stage]), 1000000)
-	return {"raw_cents": raw, "weighted_cents": weighted, "count": count,
-		"currency": String(currency), "stages_missing_odds": missing}
+	return {
+		"raw_cents": raw,
+		"weighted_cents": weighted,
+		"count": count,
+		"currency": String(currency),
+		"stages_missing_odds": missing,
+	}
 
 
 ## Open leads whose expected close date has passed, with how many days late they are (section 10).
@@ -296,18 +336,21 @@ func slipped(now: String = "") -> Array[Dictionary]:
 		# Whole days late, and floor rather than truncate so the arithmetic matches the words: a lead
 		# one day and twenty-three hours late is one day late, not two.
 		var days_late := floori(float(now_unix - due_unix) / float(SECONDS_PER_DAY))
-		out.append({
-			"id": held.id,
-			"name": held.name,
-			"stage": held.stage,
-			"stage_name": LeadScript.stage_name(held.stage),
-			"due": held.expected_close_at,
-			"days_late": days_late,
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a["days_late"]) > int(b["days_late"]))
+		out.append(
+			{
+				"id": held.id,
+				"name": held.name,
+				"stage": held.stage,
+				"stage_name": LeadScript.stage_name(held.stage),
+				"due": held.expected_close_at,
+				"days_late": days_late,
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a["days_late"]) > int(b["days_late"]),
+	)
 	return out
-
 
 # --- the file ------------------------------------------------------------------------------
 
@@ -316,7 +359,7 @@ func to_dict() -> Dictionary:
 	var list: Array = []
 	for held in leads:
 		list.append(held.to_dict())
-	return {"currency": String(currency), "leads": list}
+	return { "currency": String(currency), "leads": list }
 
 
 static func from_dict(data: Dictionary) -> Pipeline:
@@ -330,7 +373,6 @@ static func from_dict(data: Dictionary) -> Pipeline:
 				if lead != null:
 					pipe.leads.append(lead)
 	return pipe
-
 
 # --- the arithmetic tail --------------------------------------------------------------------
 

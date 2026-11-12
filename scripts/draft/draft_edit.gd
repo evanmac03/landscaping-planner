@@ -23,7 +23,6 @@ const MIN_DISTANCE := 1e-6
 ## corner.
 const MIN_RADIUS := 1e-6
 
-
 # --- offset ---------------------------------------------------------------------------
 
 
@@ -60,10 +59,16 @@ static func offset(entity, distance: float) -> Dictionary:
 			var arc_radius: float = entity.params[2] + distance
 			if arc_radius <= MIN_DISTANCE:
 				return _ok([])
-			return _ok([EntityScript.make_arc(
-				Vector2(entity.params[0], entity.params[1]),
-				arc_radius, entity.params[3], entity.params[4]
-			)])
+			return _ok(
+				[
+					EntityScript.make_arc(
+						Vector2(entity.params[0], entity.params[1]),
+						arc_radius,
+						entity.params[3],
+						entity.params[4],
+					)
+				]
+			)
 		EntityScript.Kind.POLYLINE:
 			var pts := _ring(entity)
 			if pts.size() < 2:
@@ -157,7 +162,6 @@ static func _offset_open(points: PackedVector2Array, distance: float) -> PackedV
 	out.append(offset_segments[offset_segments.size() - 1][1])
 	return out
 
-
 # --- rotate ---------------------------------------------------------------------------
 
 
@@ -179,8 +183,8 @@ static func rotate(entity, centre: Vector2, angle: float) -> Dictionary:
 	turned.rotate_about(centre, angle)
 	return _ok([turned])
 
-
 # --- move and copy --------------------------------------------------------------------
+
 
 ## Move one entity by a displacement, returning the replacement.
 ##
@@ -226,7 +230,6 @@ static func copy(entity, delta: Vector2) -> Dictionary:
 	var duplicated = entity.copy()
 	duplicated.translate(delta)
 	return _ok([duplicated])
-
 
 # --- trim and extend ------------------------------------------------------------------
 
@@ -313,7 +316,6 @@ static func extend(target, pick: Vector2, boundaries: Array) -> Dictionary:
 		return _failed("nothing lies beyond this end to extend to")
 	return _ok([EntityScript.make_line(anchor, hit_point)])
 
-
 # --- fillet ---------------------------------------------------------------------------
 
 
@@ -361,10 +363,7 @@ static func fillet(a, b, radius: float, pick_a: Vector2, pick_b: Vector2) -> Dic
 		"ok": true,
 		"reason": "",
 		"arc": EntityScript.make_arc(centre, radius, start, sweep),
-		"lines": [
-			EntityScript.make_line(Vector2(far_a), tangent_a),
-			EntityScript.make_line(Vector2(far_b), tangent_b),
-		],
+		"lines": [EntityScript.make_line(Vector2(far_a), tangent_a), EntityScript.make_line(Vector2(far_b), tangent_b)],
 	}
 
 
@@ -402,11 +401,10 @@ static func _line_intersection(a, b) -> Dictionary:
 	var s: Vector2 = b.point(1) - q
 	var denominator: float = r.x * s.y - r.y * s.x
 	if absf(denominator) <= Geom.EPS:
-		return {"ok": false}
+		return { "ok": false }
 	var t: float = (q.x - p.x) * s.y - (q.y - p.y) * s.x
 	t /= denominator
-	return {"ok": true, "point": p + r * t}
-
+	return { "ok": true, "point": p + r * t }
 
 # --- intersections --------------------------------------------------------------------
 
@@ -433,13 +431,12 @@ static func _crossings(a: Vector2, b: Vector2, entity) -> PackedVector2Array:
 			out.append(hit["point"])
 	return out
 
-
 # --- results --------------------------------------------------------------------------
 
 
 static func _ok(entities: Array) -> Dictionary:
-	return {"ok": true, "reason": "", "entities": entities}
+	return { "ok": true, "reason": "", "entities": entities }
 
 
 static func _failed(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "entities": []}
+	return { "ok": false, "reason": reason, "entities": [] }

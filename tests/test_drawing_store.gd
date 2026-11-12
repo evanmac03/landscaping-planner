@@ -26,9 +26,7 @@ func _drawing() -> DraftDocument:
 	document.dimension_style.text_decimals = 2
 	# On a layer that really exists: a document given a layer name it does not know falls back to
 	# a default, and a test that did not know that would prove only that some layer round-trips.
-	document.add(
-		EntityScript.make_line(Vector2(1.0, 2.0), Vector2(4.5, 6.25)), LayerSetScript.NEW_HARDSCAPE
-	)
+	document.add(EntityScript.make_line(Vector2(1.0, 2.0), Vector2(4.5, 6.25)), LayerSetScript.NEW_HARDSCAPE)
 	document.add(EntityScript.make_circle(Vector2(9.0, 9.0), 2.5), LayerSetScript.NEW_TURF)
 	return document
 
@@ -259,10 +257,7 @@ func test_the_folder_is_made_before_it_is_written_to() -> void:
 	file.store_string("[]")
 	file.close()
 	assert(not StoreScript.list_drawings().has(legacy), "the recent list is not a drawing")
-	assert(
-		not FileAccess.file_exists(legacy),
-		"and does not stay in the folder a Save dialog opens on"
-	)
+	assert(not FileAccess.file_exists(legacy), "and does not stay in the folder a Save dialog opens on")
 	StoreScript.write(_drawing(), SCRATCH)
 	assert(StoreScript.list_drawings().has(SCRATCH), "a written drawing is listed")
 	DirAccess.remove_absolute(legacy)

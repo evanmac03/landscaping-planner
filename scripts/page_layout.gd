@@ -38,7 +38,6 @@ extends RefCounted
 ## A page with nothing to read comes back `read = false` saying `UNKNOWN`, never `FITS`. The one thing
 ## this must never do is report a page as sound because it failed to look at it.
 
-
 ## The node a page lays its own column into. Thirty pages name it "Column", and the convention is worth
 ## holding to: it is what lets one measurement find the contents of any page without a page declaring
 ## anything extra. A page that names its root something else is still measured - `content_root` falls
@@ -161,8 +160,7 @@ static func wanted_contents(root: Control) -> Vector2:
 ## it itself - `offset_left` is the pad on one side and `offset_right` the pad on the other, negative -
 ## and it is the control's rectangle rather than a pad when a container positioned it.
 static func _offsets(control: Control) -> Vector2:
-	return Vector2(
-		control.offset_left - control.offset_right, control.offset_top - control.offset_bottom)
+	return Vector2(control.offset_left - control.offset_right, control.offset_top - control.offset_bottom)
 
 
 ## Measure one page against the size it declares for itself, and against the screen it would land on.
@@ -195,11 +193,14 @@ static func measure(page: Window, tree: SceneTree, viewport: Vector2i) -> Dictio
 	}
 	var root: Control = content_root(page)
 	if root == null or declared == Vector2i.ZERO:
-		row["words"] = "%s: %s" % [UNKNOWN, (
-			"%s has no contents to measure" % name
-			if root == null
-			else "%s declares no size to measure it against" % name
-		)]
+		row["words"] = "%s: %s" % [
+			UNKNOWN,
+			(
+				"%s has no contents to measure" % name
+				if root == null
+				else "%s declares no size to measure it against" % name
+			),
+		]
 		page.visible = was_visible
 		return row
 
@@ -219,7 +220,11 @@ static func measure(page: Window, tree: SceneTree, viewport: Vector2i) -> Dictio
 	row["fits_height"] = fits_height
 	row["fits_declared"] = sound
 	row["words"] = "%s wants %5.0f x %-5.0f in %d x %-4d  ->  %s" % [
-		name, wanted.x, wanted.y, declared.x, declared.y,
+		name,
+		wanted.x,
+		wanted.y,
+		declared.x,
+		declared.y,
 		_verdict(wanted, declared, scrolls),
 	]
 	page.visible = was_visible

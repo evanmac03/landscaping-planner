@@ -27,10 +27,16 @@ func _ready() -> void:
 		await get_tree().process_frame
 	var page: Window = _the_page(hud)
 	if page != null:
-		print("PROBE pos=%s size=%s room=%s title_height=%d contents=%s" % [
-			page.position, page.size, PageChrome.room_for(page),
-			page.get_theme_constant(&"title_height", &"Window"), page.get_contents_minimum_size(),
-		])
+		print(
+			"PROBE pos=%s size=%s room=%s title_height=%d contents=%s"
+			% [
+				page.position,
+				page.size,
+				PageChrome.room_for(page),
+				page.get_theme_constant(&"title_height", &"Window"),
+				page.get_contents_minimum_size(),
+			]
+		)
 	await RenderingServer.frame_post_draw
 	var img: Image = get_viewport().get_texture().get_image()
 	print("PROBE screen %dx%d" % [img.get_width(), img.get_height()])

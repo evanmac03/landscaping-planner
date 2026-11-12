@@ -48,18 +48,14 @@ extends RefCounted
 
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 
+
 ## One degree of latitude, in metres, at a stated latitude. The standard WGS84 series: the meridian
 ## degree runs from 110 574 m at the equator to 111 694 m at the pole, and a site knows which of those
 ## it is near. Written out rather than taken as a mean because a mean is out by a kilometre of total
 ## error at either end of a country.
 static func metres_per_degree_latitude(latitude: float) -> float:
 	var phi := deg_to_rad(latitude)
-	return (
-		111132.92
-		- 559.82 * cos(2.0 * phi)
-		+ 1.175 * cos(4.0 * phi)
-		- 0.0023 * cos(6.0 * phi)
-	)
+	return (111132.92 - 559.82 * cos(2.0 * phi) + 1.175 * cos(4.0 * phi) - 0.0023 * cos(6.0 * phi))
 
 
 ## One degree of longitude, in metres, at a stated latitude - which is the whole reason a projection
@@ -84,8 +80,10 @@ static func place_words(centre: Dictionary) -> String:
 	var latitude := float(centre.get("latitude", 0.0))
 	var longitude := float(centre.get("longitude", 0.0))
 	return "%.4f°%s %.4f°%s" % [
-		absf(latitude), "N" if latitude >= 0.0 else "S",
-		absf(longitude), "E" if longitude >= 0.0 else "W",
+		absf(latitude),
+		"N" if latitude >= 0.0 else "S",
+		absf(longitude),
+		"E" if longitude >= 0.0 else "W",
 	]
 
 
@@ -94,12 +92,11 @@ static func place_words(centre: Dictionary) -> String:
 ## The `highway` values that are a way for people rather than for cars. A path is existing hardscape on
 ## a garden plan and a road is context, and the two are drawn and read differently, so they are told
 ## apart at the one place that reads the tags.
-const PATH_HIGHWAYS: Array[String] = [
-	"footway", "path", "steps", "pedestrian", "cycleway", "bridleway", "track",
-]
+const PATH_HIGHWAYS: Array[String] = ["footway", "path", "steps", "pedestrian", "cycleway", "bridleway", "track"]
 
 ## The `natural` values that are wooded or rough ground rather than water or a single tree.
 const WOOD_NATURAL: Array[String] = ["wood", "scrub", "heath", "grassland"]
+
 
 ## What an element's tags say it is, and where its geometry belongs.
 ##
@@ -112,32 +109,33 @@ const WOOD_NATURAL: Array[String] = ["wood", "scrub", "heath", "grassland"]
 ## conditions band. The default mode ignores this and puts everything on the underlay.
 static func feature_for(tags: Dictionary) -> Dictionary:
 	if tags.has("building"):
-		return {"kind": "building", "area": true, "layer": LayerSetScript.EXISTING_STRUCTURE}
+		return { "kind": "building", "area": true, "layer": LayerSetScript.EXISTING_STRUCTURE }
 	if tags.has("highway"):
 		if PATH_HIGHWAYS.has(String(tags.get("highway", ""))):
-			return {"kind": "path", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE}
-		return {"kind": "road", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE}
+			return { "kind": "path", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE }
+		return { "kind": "road", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE }
 	if tags.has("railway"):
-		return {"kind": "railway", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE}
+		return { "kind": "railway", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE }
 	if tags.has("waterway") or String(tags.get("natural", "")) == "water":
 		# A river is a line; a pond is a ring. The tag says which.
 		return {
-			"kind": "water", "area": String(tags.get("natural", "")) == "water",
+			"kind": "water",
+			"area": String(tags.get("natural", "")) == "water",
 			"layer": LayerSetScript.EXISTING_HARDSCAPE,
 		}
 	if String(tags.get("natural", "")) == "tree":
-		return {"kind": "tree", "area": false, "layer": LayerSetScript.EXISTING_PLANTING}
+		return { "kind": "tree", "area": false, "layer": LayerSetScript.EXISTING_PLANTING }
 	if WOOD_NATURAL.has(String(tags.get("natural", ""))) or String(tags.get("landuse", "")) == "forest":
-		return {"kind": "wood", "area": true, "layer": LayerSetScript.EXISTING_PLANTING}
+		return { "kind": "wood", "area": true, "layer": LayerSetScript.EXISTING_PLANTING }
 	if tags.has("barrier") or tags.has("wall"):
-		return {"kind": "wall", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE}
+		return { "kind": "wall", "area": false, "layer": LayerSetScript.EXISTING_HARDSCAPE }
 	if tags.has("leisure"):
-		return {"kind": "leisure", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE}
+		return { "kind": "leisure", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE }
 	if tags.has("landuse"):
-		return {"kind": "landuse", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE}
+		return { "kind": "landuse", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE }
 	if tags.has("amenity"):
-		return {"kind": "amenity", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE}
-	return {"kind": "", "area": false, "layer": LayerSetScript.UNDERLAY}
+		return { "kind": "amenity", "area": true, "layer": LayerSetScript.EXISTING_HARDSCAPE }
+	return { "kind": "", "area": false, "layer": LayerSetScript.UNDERLAY }
 
 
 # --- reading --------------------------------------------------------------------------
@@ -179,7 +177,7 @@ const TREE_RING_M := 1.5
 ##
 ## Returns a table of shapes and a table of things to say about them, like `SurveyFile` and `DxfFile`,
 ## rather than an object: a class would only be a second set of names for the same two tables.
-static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
+static func read_text(source: String, options: Dictionary = { }) -> Dictionary:
 	if source.strip_edges().is_empty():
 		return refused("the map is empty")
 	# `JSON.parse_string` is the convenience form and it prints to the console on damage, which would
@@ -199,7 +197,9 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 	if not (centre is Dictionary) or (centre as Dictionary).is_empty():
 		return refused("the map has to be told where the drawing's origin is, in degrees")
 	var plan := {
-		"ok": true, "reason": "", "source": "",
+		"ok": true,
+		"reason": "",
+		"source": "",
 		"generator": String(document.get("generator", "")),
 		"centre": centre,
 		"radius": float(options.get("radius", 0.0)),
@@ -208,8 +208,8 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 		"offset": options.get("offset", Vector2.ZERO),
 		"rotation": float(options.get("rotation", 0.0)),
 		"elements": (elements as Array).size(),
-		"counts": {},
-		"skipped": {},
+		"counts": { },
+		"skipped": { },
 		"outlying": 0,
 		"too_many": 0,
 		"layers": [] as Array[String],
@@ -222,7 +222,7 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 
 ## Read an extract from disk. A missing or unreadable file is refused with a reason rather than
 ## raising, because it is a path a person chose.
-static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
+static func of_file(path: String, options: Dictionary = { }) -> Dictionary:
 	if path.is_empty():
 		return refused("no file was named")
 	if not FileAccess.file_exists(path):
@@ -255,9 +255,13 @@ static func _finish(plan: Dictionary, elements: Array, centre: Dictionary) -> vo
 			_bump(skipped, "a relation, which this does not follow")
 			continue
 		if member_type != "node" and member_type != "way":
-			_bump(skipped, "a %s, which is not a node or a way" % (member_type if not member_type.is_empty() else "record with no type"))
+			_bump(
+				skipped,
+				"a %s, which is not a node or a way"
+				% (member_type if not member_type.is_empty() else "record with no type"),
+			)
 			continue
-		var tags: Dictionary = (element.get("tags", {}) as Dictionary) if element.get("tags") is Dictionary else {}
+		var tags: Dictionary = (element.get("tags", { }) as Dictionary) if element.get("tags") is Dictionary else { }
 		if tags.is_empty():
 			_bump(skipped, "an element with no tags, so nothing says what it is")
 			continue
@@ -290,8 +294,12 @@ static func _finish(plan: Dictionary, elements: Array, centre: Dictionary) -> vo
 ## `height`, `arc` - so the controller's one entity builder draws either, and there is one place where
 ## a shape becomes a drawing entity rather than two that can drift apart.
 static func _shape_for(
-	element: Dictionary, member_type: String, feature: Dictionary, tags: Dictionary,
-	centre: Dictionary, plan: Dictionary
+	element: Dictionary,
+	member_type: String,
+	feature: Dictionary,
+	tags: Dictionary,
+	centre: Dictionary,
+	plan: Dictionary,
 ) -> Dictionary:
 	var underlay := bool(plan["underlay"])
 	var layer: StringName = LayerSetScript.UNDERLAY if underlay else feature["layer"]
@@ -337,22 +345,41 @@ static func _shape_for(
 
 
 static func _shape(
-	kind: String, layer: StringName, points: PackedVector2Array, closed: bool, words: String, feature: String
+	kind: String,
+	layer: StringName,
+	points: PackedVector2Array,
+	closed: bool,
+	words: String,
+	feature: String,
 ) -> Dictionary:
 	# No `reason` on a shape that was drawn: a reason belongs to the refusal path (`_no_points`), and a
 	# key that is always empty on everything a reader produced is a key a caller has to wonder about.
 	return {
-		"kind": kind, "layer": layer, "feature": feature,
-		"points": points, "bulges": PackedFloat64Array(), "closed": closed,
-		"words": words, "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
+		"kind": kind,
+		"layer": layer,
+		"feature": feature,
+		"points": points,
+		"bulges": PackedFloat64Array(),
+		"closed": closed,
+		"words": words,
+		"height": 0.0,
+		"arc": Vector2.ZERO,
+		"radius": 0.0,
 	}
 
 
 static func _no_points(reason: String) -> Dictionary:
 	return {
-		"kind": "", "layer": LayerSetScript.UNDERLAY, "feature": "",
-		"points": PackedVector2Array(), "bulges": PackedFloat64Array(), "closed": false,
-		"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
+		"kind": "",
+		"layer": LayerSetScript.UNDERLAY,
+		"feature": "",
+		"points": PackedVector2Array(),
+		"bulges": PackedFloat64Array(),
+		"closed": false,
+		"words": "",
+		"height": 0.0,
+		"arc": Vector2.ZERO,
+		"radius": 0.0,
 		"reason": reason,
 	}
 
@@ -371,25 +398,35 @@ static func _bump(bucket: Dictionary, key: String) -> void:
 
 static func refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "source": "", "generator": "",
-		"centre": {}, "radius": 0.0, "underlay": true, "labels": true,
-		"offset": Vector2.ZERO, "rotation": 0.0, "elements": 0,
-		"counts": {}, "skipped": {}, "outlying": 0, "too_many": 0,
-		"layers": [] as Array[String], "warnings": [] as Array[String],
+		"ok": false,
+		"reason": reason,
+		"source": "",
+		"generator": "",
+		"centre": { },
+		"radius": 0.0,
+		"underlay": true,
+		"labels": true,
+		"offset": Vector2.ZERO,
+		"rotation": 0.0,
+		"elements": 0,
+		"counts": { },
+		"skipped": { },
+		"outlying": 0,
+		"too_many": 0,
+		"layers": [] as Array[String],
+		"warnings": [] as Array[String],
 		"shapes": [] as Array[Dictionary],
 	}
 
-
 # --- saying what was read -------------------------------------------------------------
+
 
 ## One line saying what the map holds.
 static func describe(plan: Dictionary) -> String:
 	if not bool(plan.get("ok", false)):
 		return String(plan.get("reason", "the map could not be read"))
 	var drawn := (plan.get("shapes", []) as Array).size()
-	return "%d feature%s from OpenStreetMap around %s" % [
-		drawn, "" if drawn == 1 else "s", place_words(plan["centre"]),
-	]
+	return "%d feature%s from OpenStreetMap around %s" % [drawn, "" if drawn == 1 else "s", place_words(plan["centre"])]
 
 
 ## Whether there is anything to put on the drawing.
@@ -404,15 +441,16 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 	if not bool(plan.get("ok", false)):
 		lines.append(String(plan.get("reason", "the map could not be read")))
 		return lines
-	lines.append("%s (%d element%s read)" % [
-		describe(plan), int(plan["elements"]), "" if int(plan["elements"]) == 1 else "s",
-	])
 	lines.append(
-		"placed at the origin: the site is the centre of the map"
-		if Vector2(plan["offset"]) == Vector2.ZERO
-		else "placed %.2f m east and %.2f m north of the origin" % [
-			Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y
-		]
+		"%s (%d element%s read)" % [describe(plan), int(plan["elements"]), "" if int(plan["elements"]) == 1 else "s"]
+	)
+	lines.append(
+		(
+			"placed at the origin: the site is the centre of the map"
+			if Vector2(plan["offset"]) == Vector2.ZERO
+			else "placed %.2f m east and %.2f m north of the origin"
+			% [Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y]
+		)
 	)
 	if not is_zero_approx(float(plan["rotation"])):
 		lines.append("turned %.1f degrees" % float(plan["rotation"]))
@@ -435,7 +473,7 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 			left.append("%s x%d" % [String(reason), int(skipped[reason])])
 		lines.append("not drawn: " + ", ".join(left))
 	# Where each kind's geometry went, which is the thing a person cannot see from the drawing.
-	var where := {}
+	var where := { }
 	for shape: Dictionary in (plan["shapes"] as Array):
 		where[String(shape["feature"])] = String(shape["layer"])
 	var names: Array = where.keys()
@@ -443,14 +481,9 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 	for feature: Variant in names:
 		lines.append("  %s -> %s" % [String(feature), String(where[feature])])
 	if int(plan["outlying"]) > 0:
-		lines.append(
-			"! %d feature(s) reach past the area that was asked for and were left out"
-			% int(plan["outlying"])
-		)
+		lines.append("! %d feature(s) reach past the area that was asked for and were left out" % int(plan["outlying"]))
 	if int(plan["too_many"]) > 0:
-		lines.append(
-			"! %d more feature(s) than one import draws were left out" % int(plan["too_many"])
-		)
+		lines.append("! %d more feature(s) than one import draws were left out" % int(plan["too_many"]))
 	for words: String in (plan["warnings"] as Array):
 		lines.append("! " + words)
 	return lines

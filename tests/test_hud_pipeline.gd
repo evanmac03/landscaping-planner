@@ -19,8 +19,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
-
+	return { }
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -47,7 +46,6 @@ func test_a_hud_with_no_board_reports_no_leads() -> void:
 	assert(not hud.is_pipeline_board_open(), "and nothing is open")
 	_done(hud)
 
-
 # --- what the board's words make the menu say -----------------------------------------
 
 
@@ -65,12 +63,10 @@ func test_a_lead_on_the_board_is_what_the_menu_line_says() -> void:
 	var hud := HudScript.new()
 	hud._build_pipeline_board()
 	var id: String = hud._pipeline_board.add_lead("Smith, patio", 500000)["id"]
-	assert(hud._pipeline_text() == "open: 1 leads worth 5,000.00, weighted 500.00",
-		hud._pipeline_text())
+	assert(hud._pipeline_text() == "open: 1 leads worth 5,000.00, weighted 500.00", hud._pipeline_text())
 	# Moving it up the funnel changes the weighted figure the menu advertises.
-	hud._pipeline_board.move_lead(id, 4)  # PROPOSED, weighed at 80%
-	assert(hud._pipeline_text() == "open: 1 leads worth 5,000.00, weighted 4,000.00",
-		hud._pipeline_text())
+	hud._pipeline_board.move_lead(id, 4) # PROPOSED, weighed at 80%
+	assert(hud._pipeline_text() == "open: 1 leads worth 5,000.00, weighted 4,000.00", hud._pipeline_text())
 	_done(hud)
 
 
@@ -78,7 +74,7 @@ func test_closing_a_lead_as_lost_leaves_it_out_of_the_open_line() -> void:
 	var hud := HudScript.new()
 	hud._build_pipeline_board()
 	var id: String = hud._pipeline_board.add_lead("Smith", 500000)["id"]
-	hud._pipeline_board.move_lead(id, 6)  # LOST, held for a reason
+	hud._pipeline_board.move_lead(id, 6) # LOST, held for a reason
 	hud._pipeline_board.confirm_move("price")
 	assert(hud._pipeline_text() == "no open leads", "a lost lead is not open")
 	_done(hud)

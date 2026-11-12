@@ -27,9 +27,7 @@ const DerivedScript := preload("res://scripts/vis/derived_builder.gd")
 
 ## A two-metre square, wound with a positive shoelace, which is the project's convention
 ## for an area and the assumption every face in cad_solid.gd is wound from.
-const SQUARE: Array[Vector2] = [
-	Vector2(0, 0), Vector2(2, 0), Vector2(2, 2), Vector2(0, 2),
-]
+const SQUARE: Array[Vector2] = [Vector2(0, 0), Vector2(2, 0), Vector2(2, 2), Vector2(0, 2)]
 
 
 func _square() -> PackedVector2Array:
@@ -41,7 +39,6 @@ func _square() -> PackedVector2Array:
 
 func _slab() -> ArrayMesh:
 	return CadSolidScript.slab(_square(), 0.0, 1.0)
-
 
 # --- the convention itself ------------------------------------------------------------
 
@@ -56,7 +53,6 @@ func test_the_front_normal_is_the_clockwise_answer() -> void:
 	var down := CadSolidScript.front_normal(Vector3(0, 1, 1), Vector3(1, 1, 0), Vector3(0, 1, 0))
 	assert(down.is_equal_approx(Vector3.DOWN), "expected down, got %s" % down)
 
-
 # --- a slab ---------------------------------------------------------------------------
 
 
@@ -69,27 +65,19 @@ func test_a_solid_is_whole_triangles() -> void:
 	var meshes: Array[ArrayMesh] = [
 		_slab(),
 		CadSolidScript.slab(_square(), -0.02, 0.05, 0.2),
-		CadSolidScript.ribbon(
-			PackedVector2Array([Vector2(0, 0), Vector2(3, 0), Vector2(3, 3)]), 0.4, 0.0, 0.1
-		),
+		CadSolidScript.ribbon(PackedVector2Array([Vector2(0, 0), Vector2(3, 0), Vector2(3, 3)]), 0.4, 0.0, 0.1),
 	]
 	for mesh: ArrayMesh in meshes:
 		assert(mesh != null)
 		var verts: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-		assert(
-			verts.size() % 3 == 0,
-			"a surface of %d vertices is not whole triangles" % verts.size()
-		)
+		assert(verts.size() % 3 == 0, "a surface of %d vertices is not whole triangles" % verts.size())
 
 
 func test_a_slab_has_a_top_a_bottom_and_a_wall_on_every_edge() -> void:
 	# Two triangles of top, two of bottom, and two per side on a four-sided ring.
 	var mesh: ArrayMesh = _slab()
 	assert(mesh != null, "a square should make a slab")
-	assert(
-		CadSolidScript.faces(mesh).size() == 12,
-		"expected 12 triangles, got %d" % CadSolidScript.faces(mesh).size()
-	)
+	assert(CadSolidScript.faces(mesh).size() == 12, "expected 12 triangles, got %d" % CadSolidScript.faces(mesh).size())
 	# It is as tall as it was asked to be, and it sits where it was asked to sit.
 	var bounds := mesh.get_aabb()
 	assert(is_equal_approx(bounds.position.y, 0.0), "base at %f" % bounds.position.y)
@@ -154,13 +142,10 @@ func test_the_sides_of_a_slab_face_away_from_it() -> void:
 		if outward.length() <= 0.01:
 			continue
 		var normal := CadSolidScript.front_normal(a, b, c)
-		assert(
-			is_zero_approx(normal.y),
-			"a wall at %s is not vertical: %s" % [centre, normal]
-		)
+		assert(is_zero_approx(normal.y), "a wall at %s is not vertical: %s" % [centre, normal])
 		assert(
 			normal.dot(outward.normalized()) > 0.5,
-			"a wall at %s faces %s, which is back into the slab" % [centre, normal]
+			"a wall at %s faces %s, which is back into the slab" % [centre, normal],
 		)
 
 
@@ -206,9 +191,7 @@ func test_a_slab_refuses_an_outline_that_is_not_a_ring() -> void:
 func test_a_slab_refuses_an_outline_that_crosses_itself() -> void:
 	# A bow tie: the triangulator answers with an empty array rather than a guess, and the
 	# refusal names the problem rather than reporting a count (REQ-V8.2).
-	var bow_tie := PackedVector2Array([
-		Vector2(0, 0), Vector2(2, 2), Vector2(2, 0), Vector2(0, 2),
-	])
+	var bow_tie := PackedVector2Array([Vector2(0, 0), Vector2(2, 2), Vector2(2, 0), Vector2(0, 2)])
 	assert(CadSolidScript.refusal_for(bow_tie).contains("crosses"))
 	assert(not CadSolidScript.is_fillable(bow_tie))
 
@@ -220,7 +203,6 @@ func test_two_slabs_from_one_outline_are_the_same_solid() -> void:
 	var second: ArrayMesh = _slab()
 	assert(CadSolidScript.faces(first).size() == CadSolidScript.faces(second).size())
 	assert(first.get_aabb().is_equal_approx(second.get_aabb()))
-
 
 # --- a ribbon -------------------------------------------------------------------------
 
@@ -262,7 +244,6 @@ func test_a_ribbon_needs_a_line_and_a_width_to_be_worth_building() -> void:
 	assert(not SolidTableScript.wants_ribbon(false, 0.0), "a line with no width has no sides")
 	assert(SolidTableScript.wants_ribbon(false, 0.4))
 
-
 # --- the table ------------------------------------------------------------------------
 
 
@@ -288,7 +269,7 @@ func test_every_layer_that_has_no_solid_says_why() -> void:
 	for name: StringName in real:
 		assert(
 			SolidTableScript.has_solid(name) or SolidTableScript.reason_for(name) != "",
-			"%s is in neither table" % name
+			"%s is in neither table" % name,
 		)
 
 
@@ -332,7 +313,6 @@ func test_a_thing_a_person_walks_on_collides_and_a_bed_does_not() -> void:
 func test_every_material_a_solid_asks_for_is_a_set_that_exists() -> void:
 	for set_name: String in SolidTableScript.material_sets():
 		assert(HardscapeScript.has_set(set_name), "%s is not a texture set" % set_name)
-
 
 # --- the material ---------------------------------------------------------------------
 
@@ -381,9 +361,8 @@ func test_every_set_has_a_normal_map_that_carries_a_surface() -> void:
 		assert(normal != null, "%s's normal map has no image" % set_name)
 		assert(
 			not BuilderScript.looks_flat(normal),
-			"%s's normal map is one flat colour, so its relief does nothing" % set_name
+			"%s's normal map is one flat colour, so its relief does nothing" % set_name,
 		)
-
 
 # --- the derivation -------------------------------------------------------------------
 
@@ -407,7 +386,7 @@ func test_a_normal_map_is_derived_from_the_albedo_it_was_given() -> void:
 	var level: Color = flat_normal.get_pixel(4, 4)
 	assert(
 		level.is_equal_approx(Color8(128, 128, 255)),
-		"a level surface should encode as (128, 128, 255), got %s" % level
+		"a level surface should encode as (128, 128, 255), got %s" % level,
 	)
 	# A step in the height field tilts it, and the tilt's direction follows the step.
 	var stepped := Image.create(8, 8, false, Image.FORMAT_RGB8)
@@ -418,10 +397,7 @@ func test_a_normal_map_is_derived_from_the_albedo_it_was_given() -> void:
 	var step_normal := BuilderScript.normal_from(stepped)
 	var at_edge: Color = step_normal.get_pixel(3, 4)
 	assert(at_edge.b > 0.5, "the blue channel stays outward, got %s" % at_edge)
-	assert(
-		not is_equal_approx(at_edge.r, 0.5),
-		"a step should tilt the map, got %s" % at_edge
-	)
+	assert(not is_equal_approx(at_edge.r, 0.5), "a step should tilt the map, got %s" % at_edge)
 	assert(BuilderScript.looks_flat(flat_normal), "a level albedo is a flat map")
 	assert(not BuilderScript.looks_flat(step_normal), "a stepped albedo is not")
 
@@ -454,11 +430,8 @@ func test_an_orm_map_is_occlusion_roughness_and_metallic() -> void:
 func test_deriving_a_set_with_no_albedo_has_nothing_to_derive_from() -> void:
 	# The albedo is the source: without it there is no normal map and no ORM map, and the
 	# derivation says so rather than inventing a surface.
-	assert(not FileAccess.file_exists(
-		HardscapeScript.TEXTURE_DIR + "no_such_set_albedo.png"
-	))
+	assert(not FileAccess.file_exists(HardscapeScript.TEXTURE_DIR + "no_such_set_albedo.png"))
 	assert(HardscapeScript.files_for("no_such_set").is_empty())
-
 
 # --- the builder ----------------------------------------------------------------------
 

@@ -26,7 +26,7 @@ func _catalogue() -> PlantCatalogue:
 ## colour that was never quantised does not compare equal to the one that comes back.
 func _nearly(first: Color, second: Color) -> bool:
 	return absf(first.r - second.r) < 0.01 and absf(first.g - second.g) < 0.01 \
-		and absf(first.b - second.b) < 0.01
+			and absf(first.b - second.b) < 0.01
 
 
 ## How many pixels of a swatch have anything in them. Every byte, because a picture can be wrong in a
@@ -38,7 +38,6 @@ func _opaque_pixels(image: Image) -> int:
 			if image.get_pixel(x, y).a > 0.0:
 				count += 1
 	return count
-
 
 # --- the swatch ---------------------------------------------------------------------------
 
@@ -53,8 +52,10 @@ func test_a_swatch_is_the_pigment_the_painted_plan_would_use() -> void:
 	var pigment: Color = PlanStyleScript.spec_for(catalogue.get_species(MAPLE).form)["wash"]
 	# `_nearly`, because the swatch is stored eight bits a channel and the colour it was drawn from
 	# was never quantised.
-	assert(_nearly(middle, pigment.darkened(0.45)) or _nearly(middle, pigment),
-		"and it is the plan's own pigment, or its edge: %s" % str(middle))
+	assert(
+		_nearly(middle, pigment.darkened(0.45)) or _nearly(middle, pigment),
+		"and it is the plan's own pigment, or its edge: %s" % str(middle),
+	)
 
 
 func test_a_swatch_is_not_blank_and_not_a_solid_square() -> void:
@@ -82,7 +83,6 @@ func test_a_bed_is_an_oblong_and_a_canopy_is_a_disc() -> void:
 	# the whole reason the swatch is drawn from the plan's own table.
 	assert(bed.get_pixel(centre, 12) != maple.get_pixel(centre, 12), "a bed is not a canopy")
 
-
 # --- one picture per prop, and the tint ---------------------------------------------------
 
 
@@ -93,17 +93,13 @@ func test_the_same_prop_in_the_same_category_is_one_picture() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var first: Texture2D = PlantIcons.texture_for(catalogue.get_species(MAPLE))
 	assert(first != null, "a tree has a picture")
-	assert(PlantIcons.texture_for(catalogue.get_species(MAPLE)) == first,
-		"asking twice gives the same picture")
+	assert(PlantIcons.texture_for(catalogue.get_species(MAPLE)) == first, "asking twice gives the same picture")
 	# The birch is drawn as the same form in the same category, so it shares it.
-	assert(PlantIcons.texture_for(catalogue.get_species(&"betula-papyrifera")) == first,
-		"another tree shares it")
+	assert(PlantIcons.texture_for(catalogue.get_species(&"betula-papyrifera")) == first, "another tree shares it")
 	# A bed is a different form, so it is a different picture.
-	assert(PlantIcons.texture_for(catalogue.get_species(RUDBECKIA)) != first,
-		"a bed is its own picture")
+	assert(PlantIcons.texture_for(catalogue.get_species(RUDBECKIA)) != first, "a bed is its own picture")
 	PlantIcons.clear_cache()
-	assert(PlantIcons.texture_for(catalogue.get_species(MAPLE)) != first,
-		"and clearing the cache really clears it")
+	assert(PlantIcons.texture_for(catalogue.get_species(MAPLE)) != first, "and clearing the cache really clears it")
 
 
 func test_the_tint_is_the_bloom_colour_and_a_foliage_plant_has_none() -> void:
@@ -112,8 +108,10 @@ func test_the_tint_is_the_bloom_colour_and_a_foliage_plant_has_none() -> void:
 	assert(tinted != Color.WHITE, "a flowering tree is tinted")
 	# Held towards white, so the pigment underneath still reads as foliage.
 	assert(tinted.r > catalogue.get_species(MAPLE).bloom_colour.r, "and the tint is a tint, not a fill")
-	assert(PlantIcons.tint(catalogue.get_species(BOXWOOD)) == Color.WHITE,
-		"a plant grown for its foliage is not tinted")
+	assert(
+		PlantIcons.tint(catalogue.get_species(BOXWOOD)) == Color.WHITE,
+		"a plant grown for its foliage is not tinted",
+	)
 	assert(PlantIcons.tint(null) == Color.WHITE, "and nothing at all is not tinted")
 
 

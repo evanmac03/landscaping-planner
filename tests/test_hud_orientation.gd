@@ -36,30 +36,30 @@ func test_the_window_follows_the_phone_while_either_doorway_page_is_up() -> void
 	assert(not hud.the_doorway_is_up(), "a HUD nobody has shown a page on has no doorway up")
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.PORTRAIT,
-		"so the window is asked for the board's own answer"
+		"so the window is asked for the board's own answer",
 	)
 	hud._build_start_window()
 	hud._start_window.visible = true
 	assert(hud.the_doorway_is_up(), "the front door standing up is a doorway up")
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.DOORWAY,
-		"and the window follows the phone while it stands there"
+		"and the window follows the phone while it stands there",
 	)
 	hud._build_start_drawing_window()
 	hud._start_window.visible = false
 	hud._start_drawing_window.visible = true
 	assert(
 		hud.the_doorway_is_up(),
-		"the begin-a-drawing page is the doorway too, and it is the page the board choice leads to"
+		"the begin-a-drawing page is the doorway too, and it is the page the board choice leads to",
 	)
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.DOORWAY,
-		"so the window still follows the phone once the door has handed over to it"
+		"so the window still follows the phone once the door has handed over to it",
 	)
 	hud._start_drawing_window.visible = false
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.PORTRAIT,
-		"and the board's own answer is asked for again once the doorway is over"
+		"and the board's own answer is asked for again once the doorway is over",
 	)
 	_free_huds()
 
@@ -74,19 +74,19 @@ func test_the_window_follows_the_phone_while_the_camera_is_up_as_well() -> void:
 	assert(not hud.is_camera_window_open(), "no camera on a HUD nobody has opened one on")
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.LANDSCAPE,
-		"so the board's own wide answer is the one asked for"
+		"so the board's own wide answer is the one asked for",
 	)
 	hud._build_camera_window()
 	hud._camera_window.visible = true
 	assert(hud.is_camera_window_open(), "the camera page standing up is the camera being up")
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.FOLLOW,
-		"and the window follows the phone while it is, which is what makes the viewfinder stand up"
+		"and the window follows the phone while it is, which is what makes the viewfinder stand up",
 	)
 	hud._camera_window.visible = false
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.LANDSCAPE,
-		"and the board's own answer is asked for again once the camera is put away"
+		"and the board's own answer is asked for again once the camera is put away",
 	)
 	_free_huds()
 
@@ -103,27 +103,21 @@ func test_the_window_follows_the_phone_while_the_capture_pages_own_camera_is_up(
 	hud._orientation = OrientationChoiceScript.LANDSCAPE
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.LANDSCAPE,
-		"the board's own wide answer, with no camera up anywhere"
+		"the board's own wide answer, with no camera up anywhere",
 	)
 	hud._build_capture_window()
-	assert(
-		not hud.is_camera_window_open(),
-		"a page that is built and hidden has no camera up"
-	)
+	assert(not hud.is_camera_window_open(), "a page that is built and hidden has no camera up")
 	hud._capture_window._camera = CameraWindowScript.new()
 	hud._capture_window._camera.visible = true
-	assert(
-		hud.is_camera_window_open(),
-		"the capture page's own camera standing up is a camera being up"
-	)
+	assert(hud.is_camera_window_open(), "the capture page's own camera standing up is a camera being up")
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.FOLLOW,
-		"so the window follows the phone for that door as well as the HUD's own"
+		"so the window follows the phone for that door as well as the HUD's own",
 	)
 	hud._capture_window._camera.visible = false
 	assert(
 		hud.the_shape_for_the_window() == OrientationChoiceScript.LANDSCAPE,
-		"and the board's own answer is asked for again once it is put away"
+		"and the board's own answer is asked for again once it is put away",
 	)
 	hud._capture_window._camera.free()
 	hud._capture_window._camera = null
@@ -135,23 +129,20 @@ func test_the_window_follows_the_phone_while_the_capture_pages_own_camera_is_up(
 ## so is not in `pages_in_windows`.
 func test_only_the_pages_that_are_up_are_the_ones_a_change_of_shape_reaches() -> void:
 	var hud: HudScript = _hud()
-	assert(
-		hud._pages_that_are_up().is_empty(),
-		"nothing is up on a HUD nobody has shown a page on"
-	)
+	assert(hud._pages_that_are_up().is_empty(), "nothing is up on a HUD nobody has shown a page on")
 	hud._build_start_window()
 	assert(
 		hud._pages_that_are_up().is_empty(),
-		"a page that is built and hidden is not a page a change of shape has to move"
+		"a page that is built and hidden is not a page a change of shape has to move",
 	)
 	assert(
 		hud._pages_that_can_be_up().has(hud._start_window),
 		"the front door is in the list a change of shape is walked over, though it is not one of the pages"
-		+ " that answer Escape with a node of their own"
+		+ " that answer Escape with a node of their own",
 	)
 	hud._start_window.visible = true
 	assert(
 		hud._pages_that_are_up().has(hud._start_window),
-		"and once it is standing up it is one of the pages that is put back"
+		"and once it is standing up it is one of the pages that is put back",
 	)
 	_free_huds()

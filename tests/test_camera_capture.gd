@@ -14,7 +14,7 @@ func test_a_device_with_no_camera_says_so() -> void:
 	assert(not CameraCaptureScript.usable(0, true), "no feeds is no picture")
 	assert(
 		CameraCaptureScript.refusal(0, true).contains("no camera"),
-		"and the sentence says which of the two is missing: %s" % CameraCaptureScript.refusal(0, true)
+		"and the sentence says which of the two is missing: %s" % CameraCaptureScript.refusal(0, true),
 	)
 
 
@@ -25,12 +25,9 @@ func test_a_camera_nobody_allowed_is_about_the_permission_and_not_about_the_devi
 	var said: String = CameraCaptureScript.refusal(0, false)
 	assert(
 		said.contains("camera") and said.contains("not been allowed"),
-		"and the sentence is about the permission: %s" % said
+		"and the sentence is about the permission: %s" % said,
 	)
-	assert(
-		not said.contains("no camera"),
-		"never about a device that has one: %s" % said
-	)
+	assert(not said.contains("no camera"), "never about a device that has one: %s" % said)
 
 
 ## Allowed, and the camera has answered: this is the only state with nothing to say.
@@ -60,16 +57,13 @@ func test_each_camera_has_a_word_for_it() -> void:
 func test_a_frame_is_written_where_the_store_can_read_it() -> void:
 	assert(
 		CameraCaptureScript.FRAME_PATH.begins_with("user://"),
-		"nothing outside the program can take it away mid-write: %s" % CameraCaptureScript.FRAME_PATH
+		"nothing outside the program can take it away mid-write: %s" % CameraCaptureScript.FRAME_PATH,
 	)
 	assert(
 		CameraCaptureScript.FRAME_PATH.ends_with(".png"),
-		"and the store reads it by its extension: %s" % CameraCaptureScript.FRAME_PATH
+		"and the store reads it by its extension: %s" % CameraCaptureScript.FRAME_PATH,
 	)
-	assert(
-		FieldPhotoStoreScript.EXTENSION_OF_FORMAT.has("PNG"),
-		"a format the store knows how to file"
-	)
+	assert(FieldPhotoStoreScript.EXTENSION_OF_FORMAT.has("PNG"), "a format the store knows how to file")
 
 
 ## A feed that carries colour alongside brightness cannot be drawn as it stands: drawing it shows the colour
@@ -82,23 +76,23 @@ func test_a_feed_that_carries_colour_with_brightness_has_to_be_decoded() -> void
 	assert(CameraCaptureScript.planes_for(RGB, RGB, YCBCR, SEPARATED) == 1, "a picture is one texture")
 	assert(
 		not CameraCaptureScript.needs_decoding(RGB, RGB),
-		"and it is drawn as it stands, or the colours would be run through a decoder that is not needed"
+		"and it is drawn as it stands, or the colours would be run through a decoder that is not needed",
 	)
 	assert(
 		CameraCaptureScript.planes_for(YCBCR, RGB, YCBCR, SEPARATED) == 1,
-		"brightness and colour together are still one texture"
+		"brightness and colour together are still one texture",
 	)
 	assert(
 		CameraCaptureScript.needs_decoding(YCBCR, RGB),
-		"but they have to be put back together: this is the magenta cloud, in one line"
+		"but they have to be put back together: this is the magenta cloud, in one line",
 	)
 	assert(
 		CameraCaptureScript.planes_for(SEPARATED, RGB, YCBCR, SEPARATED) == 2,
-		"and two textures when they arrive apart"
+		"and two textures when they arrive apart",
 	)
 	assert(
 		CameraCaptureScript.planes_for(NOIMAGE, RGB, YCBCR, SEPARATED) == 0,
-		"a camera that has not handed a picture over has nothing to draw, and is not decoded into one"
+		"a camera that has not handed a picture over has nothing to draw, and is not decoded into one",
 	)
 
 
@@ -112,19 +106,19 @@ func test_a_renderer_that_will_not_convert_a_camera_frame_leaves_the_whole_of_it
 	const SEPARATED := 3
 	assert(
 		CameraCaptureScript.reads_apart(false, RGB, SEPARATED),
-		"with no rendering device, a feed that calls itself a picture is read apart all the same"
+		"with no rendering device, a feed that calls itself a picture is read apart all the same",
 	)
 	assert(
 		CameraCaptureScript.reads_apart(false, YCBCR, SEPARATED),
-		"and one that carries colour alongside brightness, for the same reason"
+		"and one that carries colour alongside brightness, for the same reason",
 	)
 	assert(
 		not CameraCaptureScript.reads_apart(true, RGB, SEPARATED),
-		"with a rendering device the engine has already put it together, and it is drawn as it stands"
+		"with a rendering device the engine has already put it together, and it is drawn as it stands",
 	)
 	assert(
 		CameraCaptureScript.reads_apart(true, SEPARATED, SEPARATED),
-		"and only the frame that genuinely arrives split is read apart"
+		"and only the frame that genuinely arrives split is read apart",
 	)
 
 
@@ -139,7 +133,7 @@ func test_the_viewfinder_shader_is_one_that_actually_compiles() -> void:
 	var uniforms: Array = made.get_shader_uniform_list()
 	assert(
 		uniforms.size() >= 5,
-		"the shader parsed and declared its uniforms, or the feed is being drawn bare: %d" % uniforms.size()
+		"the shader parsed and declared its uniforms, or the feed is being drawn bare: %d" % uniforms.size(),
 	)
 	var named: Array[String] = []
 	for entry: Dictionary in uniforms:
@@ -159,7 +153,7 @@ func test_the_rectangle_is_scaled_from_the_layout_to_the_drawn_frame() -> void:
 	var unpainted: Rect2i = CameraCaptureScript.frame_region(Rect2(0.0, 0.0, 1.0, 1.0), 0.0)
 	assert(
 		unpainted.size.x >= 1 and unpainted.size.y >= 1,
-		"a scale nobody could read is not an empty picture: %s" % str(unpainted)
+		"a scale nobody could read is not an empty picture: %s" % str(unpainted),
 	)
 
 
@@ -186,19 +180,16 @@ func test_the_decoder_looks_for_both_colour_halves_in_the_one_channel_that_carri
 	var code: String = CameraWindowScript.DECODING_SHADER
 	assert(
 		code.contains("texture(luma, left).g") and code.contains("texture(luma, right).g"),
-		"both halves are read out of green, side by side"
+		"both halves are read out of green, side by side",
 	)
-	assert(
-		not code.contains(".gb"),
-		"and neither of them out of blue, which carries no colour on a packed feed"
-	)
+	assert(not code.contains(".gb"), "and neither of them out of blue, which carries no colour on a packed feed")
 	assert(
 		code.contains("TEXTURE_PIXEL_SIZE"),
-		"the pair is found by the texture's own columns, not by the width it is drawn at"
+		"the pair is found by the texture's own columns, not by the width it is drawn at",
 	)
 	assert(
 		CameraWindowScript.DECODING_SHADER.contains("interleaved"),
-		"and the feed that carries them apart is still decoded as it was"
+		"and the feed that carries them apart is still decoded as it was",
 	)
 
 
@@ -215,12 +206,9 @@ func test_the_page_asks_the_room_and_never_the_orientation_it_asked_the_phone_fo
 	assert(not code.is_empty(), "the page is there to read")
 	assert(
 		not code.contains("screen_get_orientation"),
-		"a request is not a reading: asking for one leaves a portrait phone's picture on its side"
+		"a request is not a reading: asking for one leaves a portrait phone's picture on its side",
 	)
-	assert(
-		code.contains("window_get_size"),
-		"it asks how big the room is instead, which is a fact"
-	)
+	assert(code.contains("window_get_size"), "it asks how big the room is instead, which is a fact")
 
 
 ## The camera is opened over two different things - a drawing board, and the doorway a person meets before
@@ -233,12 +221,9 @@ func test_the_way_out_of_the_camera_is_named_for_what_is_behind_it() -> void:
 	assert(over_a_drawing.contains("drawing"), "over a drawing it says where it goes: %s" % over_a_drawing)
 	assert(
 		not over_the_door.contains("drawing"),
-		"and over the doorway it does not promise a drawing there is not: %s" % over_the_door
+		"and over the doorway it does not promise a drawing there is not: %s" % over_the_door,
 	)
-	assert(
-		over_a_drawing != over_the_door,
-		"two things behind the camera, two different sentences"
-	)
+	assert(over_a_drawing != over_the_door, "two things behind the camera, two different sentences")
 	# And the button a person actually presses carries that word, rather than the page building one of its
 	# own: the page is built here and never shown, which is how every page in this program is held down.
 	# Built first and told second, in the same order the HUD does it - so what is held here is that being
@@ -249,10 +234,7 @@ func test_the_way_out_of_the_camera_is_named_for_what_is_behind_it() -> void:
 	page.show_over(CameraWindowScript.BEHIND_THE_DOOR)
 	var way_out: Button = page.way_out_button()
 	assert(way_out != null, "the page has a way out at all")
-	assert(
-		way_out.text == over_the_door,
-		"and it is the word for what is behind: %s" % way_out.text
-	)
+	assert(way_out.text == over_the_door, "and it is the word for what is behind: %s" % way_out.text)
 	page.free()
 
 
@@ -272,27 +254,21 @@ func test_the_way_out_of_the_camera_is_named_for_what_is_behind_it() -> void:
 func test_both_doors_onto_a_camera_place_it_through_the_one_answer() -> void:
 	var camera: String = FileAccess.get_file_as_string("res://scripts/camera_window.gd")
 	assert(not camera.is_empty(), "the page is there to read")
-	assert(
-		camera.contains("static func place(camera: CameraWindow)"),
-		"the camera keeps one door for the placing"
-	)
+	assert(camera.contains("static func place(camera: CameraWindow)"), "the camera keeps one door for the placing")
 	assert(
 		camera.contains("camera.wants_the_whole_room()"),
-		"and that one door is what asks the device, rather than each caller asking its own way"
+		"and that one door is what asks the device, rather than each caller asking its own way",
 	)
 	var board: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
-	assert(
-		board.contains("CameraWindowScript.place(_camera_window)"),
-		"the HUD's own camera goes through it"
-	)
+	assert(board.contains("CameraWindowScript.place(_camera_window)"), "the HUD's own camera goes through it")
 	var field: String = FileAccess.get_file_as_string("res://scripts/field_window.gd")
 	assert(
 		field.contains("CameraWindowScript.place(_camera)"),
-		"and so does the capture page's, which used to work it out for itself"
+		"and so does the capture page's, which used to work it out for itself",
 	)
 	assert(
 		not field.contains("show_centred(_camera)"),
-		"nothing in the capture page places a camera on its own any more"
+		"nothing in the capture page places a camera on its own any more",
 	)
 
 
@@ -312,19 +288,13 @@ func test_a_camera_is_not_added_inside_a_page() -> void:
 	page.add_child(camera)
 	assert(
 		CameraWindowScript.home_for(camera, room) == room,
-		"a camera sitting inside a page is given the room, not left where it cannot grow"
+		"a camera sitting inside a page is given the room, not left where it cannot grow",
 	)
 	var loose := CameraWindowScript.new()
-	assert(
-		CameraWindowScript.home_for(loose, room) == room,
-		"and one with no home at all gets the room as well"
-	)
+	assert(CameraWindowScript.home_for(loose, room) == room, "and one with no home at all gets the room as well")
 	var already_home := CameraWindowScript.new()
 	room.add_child(already_home)
-	assert(
-		CameraWindowScript.home_for(already_home, page) == room,
-		"while one already in the room is left where it is"
-	)
+	assert(CameraWindowScript.home_for(already_home, page) == room, "while one already in the room is left where it is")
 	already_home.free()
 	loose.free()
 	camera.free()

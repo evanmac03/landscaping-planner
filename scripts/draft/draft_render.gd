@@ -124,7 +124,7 @@ static func layout(
 	layer: LayerScript,
 	plot_scale: float,
 	units = null,
-	dimension_style = null
+	dimension_style = null,
 ) -> Dictionary:
 	var lines: Array[PackedVector2Array] = []
 	var marks: Array[Dictionary] = []
@@ -135,9 +135,7 @@ static func layout(
 			# Copied element by element rather than assigned across: a Dictionary
 			# value loses its static array type, so the assignment would be
 			# rejected and the caller's typing contract would be broken.
-			var parts: Dictionary = DimensionScript.layout(
-				entity, plot_scale, units, dimension_style
-			)
+			var parts: Dictionary = DimensionScript.layout(entity, plot_scale, units, dimension_style)
 			for part: PackedVector2Array in parts["lines"]:
 				lines.append(part)
 			for part: Dictionary in parts["marks"]:
@@ -145,12 +143,14 @@ static func layout(
 			for part: Dictionary in parts["labels"]:
 				labels.append(part)
 		EntityScript.Kind.TEXT:
-			labels.append({
-				"text": label_of(entity),
-				"position": label_position(entity),
-				"angle": text_rotation(entity),
-				"height": text_model_height(entity, plot_scale),
-			})
+			labels.append(
+				{
+					"text": label_of(entity),
+					"position": label_position(entity),
+					"angle": text_rotation(entity),
+					"height": text_model_height(entity, plot_scale),
+				}
+			)
 		_:
 			lines = strokes(entity, layer, plot_scale)
 

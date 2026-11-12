@@ -38,12 +38,11 @@ extends RefCounted
 ## on disk and **cannot be read** is never written over - a damaged record is a fault to name, not a
 ## thing to lose.
 
-
 ## Every kind of record this store keeps.
 const JOB_KIND := "job"
 const JOB_KINDS := ["estimate", "change_order", "purchase_order", "time_entry", "invoice"]
 ## Kinds that are filed flat, and the folder each lives in (§11.1).
-const FLAT_FOLDERS := {"lead": "leads", "crew": "crew"}
+const FLAT_FOLDERS := { "lead": "leads", "crew": "crew" }
 
 const ROOT := "user://biz"
 const JOURNAL_FOLDER := "journals"
@@ -59,12 +58,11 @@ const REMOVE_ACTION := "remove"
 var root: String
 ## from_version -> Callable(body: Dictionary) -> Dictionary. Empty until a schema changes, at which
 ## point a `1 -> 2` step is registered here and old records start reading again.
-var _upcasters: Dictionary[int, Callable] = {}
+var _upcasters: Dictionary[int, Callable] = { }
 
 
 func _init(root_path: String = ROOT) -> void:
 	root = root_path
-
 
 # --- what is a kind, and where does a record of it live ------------------------------------------
 
@@ -130,7 +128,6 @@ func _place_problem(kind: String, id: String, job_id: String) -> String:
 		return "a %s belongs to a job, and no job was named" % kind
 	return ""
 
-
 # --- writing ------------------------------------------------------------------------------------
 
 
@@ -149,14 +146,14 @@ func put(
 	expected_rev: int = -1,
 	who: String = "",
 	at: int = 0,
-	note: String = ""
+	note: String = "",
 ) -> Dictionary:
 	var problem: String = _place_problem(kind, id, job_id)
 	if not problem.is_empty():
 		return _refused(problem)
 	var path: String = record_path(kind, id, job_id)
 	var existing_rev: int = 0
-	var before: Dictionary = {}
+	var before: Dictionary = { }
 	if FileAccess.file_exists(path):
 		var read: Dictionary = _read_envelope(path)
 		if not bool(read["ok"]):
@@ -166,7 +163,7 @@ func put(
 			)
 		var held: Dictionary = read["envelope"]
 		existing_rev = int(held.get("rev", 0))
-		var held_body: Variant = held.get("body", {})
+		var held_body: Variant = held.get("body", { })
 		if held_body is Dictionary:
 			before = held_body
 	if expected_rev >= 0 and expected_rev != existing_rev:
@@ -188,19 +185,21 @@ func put(
 	var wrote: Dictionary = _write_envelope(path, wire)
 	if not bool(wrote["ok"]):
 		return _refused(String(wrote["reason"]))
-	_append_journal({
-		"at": at,
-		"who": who,
-		"kind": kind,
-		"id": id,
-		"job": job_id,
-		"action": PUT_ACTION,
-		"rev": new_rev,
-		"before_rev": existing_rev,
-		"changed": _changed(before, body),
-		"note": note,
-	})
-	return {"ok": true, "reason": "", "rev": new_rev, "conflict": false}
+	_append_journal(
+		{
+			"at": at,
+			"who": who,
+			"kind": kind,
+			"id": id,
+			"job": job_id,
+			"action": PUT_ACTION,
+			"rev": new_rev,
+			"before_rev": existing_rev,
+			"changed": _changed(before, body),
+			"note": note,
+		}
+	)
+	return { "ok": true, "reason": "", "rev": new_rev, "conflict": false }
 
 
 ## Write a record exactly as the service handed it over, at the revision the service gave it - the
@@ -218,19 +217,21 @@ func apply(record_env: Dictionary, who: String = "", at: int = 0) -> Dictionary:
 	var wrote: Dictionary = _write_envelope(path, record_env)
 	if not bool(wrote["ok"]):
 		return _refused(String(wrote["reason"]))
-	_append_journal({
-		"at": at,
-		"who": who,
-		"kind": kind,
-		"id": id,
-		"job": job_id,
-		"action": PULL_ACTION,
-		"rev": int(record_env.get("rev", 0)),
-		"before_rev": 0,
-		"changed": [],
-		"note": "applied from the service",
-	})
-	return {"ok": true, "reason": "", "rev": int(record_env.get("rev", 0))}
+	_append_journal(
+		{
+			"at": at,
+			"who": who,
+			"kind": kind,
+			"id": id,
+			"job": job_id,
+			"action": PULL_ACTION,
+			"rev": int(record_env.get("rev", 0)),
+			"before_rev": 0,
+			"changed": [],
+			"note": "applied from the service",
+		}
+	)
+	return { "ok": true, "reason": "", "rev": int(record_env.get("rev", 0)) }
 
 
 ## Take a record away. The journal keeps the fact, because a deletion is a change like any other and a
@@ -241,14 +242,14 @@ func discard(
 	job_id: String = "",
 	who: String = "",
 	at: int = 0,
-	note: String = ""
+	note: String = "",
 ) -> Dictionary:
 	var problem: String = _place_problem(kind, id, job_id)
 	if not problem.is_empty():
 		return _refused(problem)
 	var path: String = record_path(kind, id, job_id)
 	if not FileAccess.file_exists(path):
-		return {"ok": false, "reason": "there is no %s filed as '%s'" % [kind, id], "rev": 0}
+		return { "ok": false, "reason": "there is no %s filed as '%s'" % [kind, id], "rev": 0 }
 	var last_rev: int = 0
 	var read: Dictionary = _read_envelope(path)
 	if bool(read["ok"]):
@@ -256,20 +257,21 @@ func discard(
 	var error: int = DirAccess.remove_absolute(path)
 	if error != OK:
 		return _refused("cannot take %s away: %s" % [path.get_file(), error_string(error)])
-	_append_journal({
-		"at": at,
-		"who": who,
-		"kind": kind,
-		"id": id,
-		"job": job_id,
-		"action": REMOVE_ACTION,
-		"rev": last_rev + 1,
-		"before_rev": last_rev,
-		"changed": [],
-		"note": note,
-	})
-	return {"ok": true, "reason": "", "rev": last_rev + 1}
-
+	_append_journal(
+		{
+			"at": at,
+			"who": who,
+			"kind": kind,
+			"id": id,
+			"job": job_id,
+			"action": REMOVE_ACTION,
+			"rev": last_rev + 1,
+			"before_rev": last_rev,
+			"changed": [],
+			"note": note,
+		}
+	)
+	return { "ok": true, "reason": "", "rev": last_rev + 1 }
 
 # --- reading ------------------------------------------------------------------------------------
 
@@ -291,12 +293,12 @@ func fetch(kind: String, id: String, job_id: String = "") -> Dictionary:
 			"found": true,
 			"rev": 0,
 			"schema_version": 0,
-			"body": {},
+			"body": { },
 		}
 	var held: Dictionary = read["envelope"]
 	var stored: int = int(held.get("schema_version", SCHEMA_VERSION))
-	var body: Dictionary = {}
-	var held_body: Variant = held.get("body", {})
+	var body: Dictionary = { }
+	var held_body: Variant = held.get("body", { })
 	if held_body is Dictionary:
 		body = held_body
 	var migrated: Dictionary = upcast(stored, body)
@@ -307,7 +309,7 @@ func fetch(kind: String, id: String, job_id: String = "") -> Dictionary:
 			"found": true,
 			"rev": int(held.get("rev", 0)),
 			"schema_version": stored,
-			"body": {},
+			"body": { },
 		}
 	return {
 		"ok": true,
@@ -352,12 +354,9 @@ func records(kind: String, job_id: String = "") -> Array[Dictionary]:
 		var read: Dictionary = fetch(kind, id, job_id)
 		if not bool(read["ok"]):
 			continue
-		out.append({
-			"id": id,
-			"rev": int(read["rev"]),
-			"schema_version": int(read["schema_version"]),
-			"body": read["body"],
-		})
+		out.append(
+			{ "id": id, "rev": int(read["rev"]), "schema_version": int(read["schema_version"]), "body": read["body"] }
+		)
 	return out
 
 
@@ -366,7 +365,7 @@ func records(kind: String, job_id: String = "") -> Array[Dictionary]:
 func envelope(kind: String, id: String, job_id: String = "") -> Dictionary:
 	var read: Dictionary = fetch(kind, id, job_id)
 	if not bool(read["ok"]):
-		return {"ok": false, "reason": String(read["reason"]), "envelope": {}}
+		return { "ok": false, "reason": String(read["reason"]), "envelope": { } }
 	return {
 		"ok": true,
 		"reason": "",
@@ -380,7 +379,6 @@ func envelope(kind: String, id: String, job_id: String = "") -> Dictionary:
 			"deleted": false,
 		},
 	}
-
 
 # --- the journal --------------------------------------------------------------------------------
 
@@ -427,7 +425,6 @@ func history(kind: String, id: String, job_id: String = "") -> Array[Dictionary]
 		out.append(entry)
 	return out
 
-
 # --- schema versioning --------------------------------------------------------------------------
 
 
@@ -457,8 +454,8 @@ func upcast(stored_version: int, body: Dictionary, target: int = SCHEMA_VERSION)
 		return {
 			"ok": false,
 			"reason": "this record was written by a newer version of the program (schema %d; this build understands %d)"
-				% [stored_version, SCHEMA_VERSION],
-			"body": {},
+			% [stored_version, SCHEMA_VERSION],
+			"body": { },
 			"from": stored_version,
 			"to": stored_version,
 		}
@@ -469,7 +466,7 @@ func upcast(stored_version: int, body: Dictionary, target: int = SCHEMA_VERSION)
 			return {
 				"ok": false,
 				"reason": "there is no way here to bring a schema %d record up to %d" % [version, version + 1],
-				"body": {},
+				"body": { },
 				"from": version,
 				"to": version,
 			}
@@ -478,8 +475,7 @@ func upcast(stored_version: int, body: Dictionary, target: int = SCHEMA_VERSION)
 		if result is Dictionary:
 			work = result
 		version += 1
-	return {"ok": true, "reason": "", "body": work, "from": stored_version, "to": version}
-
+	return { "ok": true, "reason": "", "body": work, "from": stored_version, "to": version }
 
 # --- health -------------------------------------------------------------------------------------
 
@@ -510,10 +506,7 @@ func problems() -> Array[String]:
 
 
 func describe() -> String:
-	return "the records under %s: %d kept, %d journal entries" % [
-		root, _all_record_paths().size(), journal().size()
-	]
-
+	return "the records under %s: %d kept, %d journal entries" % [root, _all_record_paths().size(), journal().size()]
 
 # --- files --------------------------------------------------------------------------------------
 
@@ -521,26 +514,26 @@ func describe() -> String:
 func _write_envelope(path: String, record_env: Dictionary) -> Dictionary:
 	var folder: String = path.get_base_dir()
 	if not _ensure_folder(folder):
-		return {"ok": false, "reason": "cannot open %s" % folder}
+		return { "ok": false, "reason": "cannot open %s" % folder }
 	var temp: String = path + TEMP_SUFFIX
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "reason": "cannot write %s" % temp.get_file()}
+		return { "ok": false, "reason": "cannot write %s" % temp.get_file() }
 	file.store_string(JSON.stringify(record_env, "  "))
 	file.close()
 	var error: int = DirAccess.rename_absolute(temp, path)
 	if error != OK:
 		DirAccess.remove_absolute(temp)
-		return {"ok": false, "reason": "cannot put %s in place: %s" % [path.get_file(), error_string(error)]}
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": "cannot put %s in place: %s" % [path.get_file(), error_string(error)] }
+	return { "ok": true, "reason": "" }
 
 
 func _read_envelope(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return {"ok": false, "reason": "there is no record at %s" % path, "envelope": {}}
+		return { "ok": false, "reason": "there is no record at %s" % path, "envelope": { } }
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "reason": "cannot read %s" % path.get_file(), "envelope": {}}
+		return { "ok": false, "reason": "cannot read %s" % path.get_file(), "envelope": { } }
 	var text: String = file.get_as_text()
 	file.close()
 	# Parsed with a reader rather than `JSON.parse_string`, which logs an engine error to the console
@@ -549,15 +542,14 @@ func _read_envelope(path: String) -> Dictionary:
 	if reader.parse(text) != OK:
 		return {
 			"ok": false,
-			"reason": "%s is not readable: %s (line %d)" % [
-				path.get_file(), reader.get_error_message(), reader.get_error_line()
-			],
-			"envelope": {},
+			"reason": "%s is not readable: %s (line %d)"
+			% [path.get_file(), reader.get_error_message(), reader.get_error_line()],
+			"envelope": { },
 		}
 	var data: Variant = reader.data
 	if not data is Dictionary:
-		return {"ok": false, "reason": "%s is not a record" % path.get_file(), "envelope": {}}
-	return {"ok": true, "reason": "", "envelope": (data as Dictionary)}
+		return { "ok": false, "reason": "%s is not a record" % path.get_file(), "envelope": { } }
+	return { "ok": true, "reason": "", "envelope": (data as Dictionary) }
 
 
 func _append_journal(entry: Dictionary) -> bool:
@@ -648,7 +640,6 @@ static func _ensure_folder(folder: String) -> bool:
 		return true
 	return DirAccess.make_dir_recursive_absolute(folder) == OK
 
-
 # --- the journal's diff -------------------------------------------------------------------------
 
 
@@ -672,7 +663,7 @@ static func _changed(before: Dictionary, after: Dictionary) -> Array[Dictionary]
 		var now: Variant = after.get(field)
 		if was == now:
 			continue
-		out.append({"field": field, "before": _flatten(was), "after": _flatten(now)})
+		out.append({ "field": field, "before": _flatten(was), "after": _flatten(now) })
 	return out
 
 
@@ -691,8 +682,8 @@ static func _conflict_words(kind: String, id: String, expected: int, actual: int
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "rev": 0, "conflict": false}
+	return { "ok": false, "reason": reason, "rev": 0, "conflict": false }
 
 
 static func _missing(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "found": false, "rev": 0, "schema_version": 0, "body": {}}
+	return { "ok": false, "reason": reason, "found": false, "rev": 0, "schema_version": 0, "body": { } }

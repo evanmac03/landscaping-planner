@@ -40,12 +40,7 @@ const TOLERATED := 1
 const UNSUITABLE := 2
 const UNKNOWN := 3
 
-const VERDICT_NAMES := {
-	GOOD: "good",
-	TOLERATED: "tolerated",
-	UNSUITABLE: "wrong",
-	UNKNOWN: "unknown",
-}
+const VERDICT_NAMES := { GOOD: "good", TOLERATED: "tolerated", UNSUITABLE: "wrong", UNKNOWN: "unknown" }
 
 ## Green, amber, red, grey. The grey is not decoration: it is the "I cannot tell you" answer, and it
 ## has to be visibly not green or a designer reads a check that never ran as a pass.
@@ -83,7 +78,6 @@ const MOISTURE_RULE := {
 		UNSUITABLE: [PlantSpeciesScript.WATER_LOW],
 	},
 }
-
 
 # --- the check ----------------------------------------------------------------------------
 
@@ -153,7 +147,7 @@ static func _result(
 	findings: Array[Dictionary],
 	species: PlantSpecies,
 	place: String,
-	profile: TerrainProfile
+	profile: TerrainProfile,
 ) -> Dictionary:
 	var first: Dictionary = _first_not(findings, verdict)
 	var title: String = species.display_name() if species != null else "this plant"
@@ -176,7 +170,7 @@ static func _first_not(findings: Array[Dictionary], outcome: int) -> Dictionary:
 	for finding: Dictionary in findings:
 		if finding.get("outcome", GOOD) == outcome:
 			return finding
-	return findings[0] if not findings.is_empty() else {}
+	return findings[0] if not findings.is_empty() else { }
 
 
 static func colour_of(verdict: int) -> Color:
@@ -193,7 +187,6 @@ static func colour_of(verdict: int) -> Color:
 static func verdict_name(verdict: int) -> String:
 	return String(VERDICT_NAMES.get(verdict, "unknown"))
 
-
 # --- one property at a time ---------------------------------------------------------------
 
 
@@ -201,19 +194,34 @@ static func _sun_finding(species: PlantSpecies, profile: TerrainProfile) -> Dict
 	var wanted: String = species.sun_text()
 	if not profile.has("sun"):
 		return _finding(
-			"sun", "light", wanted, "not stated", UNKNOWN,
-			"nothing says how much sun this spot gets", "the plan doesn't say the sun"
+			"sun",
+			"light",
+			wanted,
+			"not stated",
+			UNKNOWN,
+			"nothing says how much sun this spot gets",
+			"the plan doesn't say the sun",
 		)
 	var level: int = profile.sun_level()
 	var found: String = profile.text_of("sun")
 	if species.takes_sun(level):
 		return _finding(
-			"sun", "light", wanted, found, GOOD,
-			"it takes %s and this spot is in %s" % [wanted, found], found
+			"sun",
+			"light",
+			wanted,
+			found,
+			GOOD,
+			"it takes %s and this spot is in %s" % [wanted, found],
+			found,
 		)
 	return _finding(
-		"sun", "light", wanted, found, UNSUITABLE,
-		"it wants %s and this spot is in %s" % [wanted, found], "wants %s" % wanted
+		"sun",
+		"light",
+		wanted,
+		found,
+		UNSUITABLE,
+		"it wants %s and this spot is in %s" % [wanted, found],
+		"wants %s" % wanted,
 	)
 
 
@@ -221,30 +229,49 @@ static func _moisture_finding(species: PlantSpecies, profile: TerrainProfile) ->
 	var wanted: String = species.water_text()
 	if not profile.has("moisture"):
 		return _finding(
-			"moisture", "moisture", wanted, "not stated", UNKNOWN,
-			"nothing says how wet this spot stays", "the plan doesn't say how wet it is"
+			"moisture",
+			"moisture",
+			wanted,
+			"not stated",
+			UNKNOWN,
+			"nothing says how wet this spot stays",
+			"the plan doesn't say how wet it is",
 		)
 	var level: int = profile.moisture_level()
 	var found: String = profile.text_of("moisture")
-	var rule: Dictionary = MOISTURE_RULE.get(species.water, {})
+	var rule: Dictionary = MOISTURE_RULE.get(species.water, { })
 	var outcome: int = GOOD
 	for candidate: int in [GOOD, TOLERATED, UNSUITABLE]:
 		if (rule.get(candidate, []) as Array).has(level):
 			outcome = candidate
 	if outcome == GOOD:
 		return _finding(
-			"moisture", "moisture", wanted, found, GOOD,
-			"it wants %s and this spot stays %s" % [wanted, found], found
+			"moisture",
+			"moisture",
+			wanted,
+			found,
+			GOOD,
+			"it wants %s and this spot stays %s" % [wanted, found],
+			found,
 		)
 	if outcome == TOLERATED:
 		return _finding(
-			"moisture", "moisture", wanted, found, TOLERATED,
+			"moisture",
+			"moisture",
+			wanted,
+			found,
+			TOLERATED,
 			"it will live on ground that %s" % _wet_words(level, species.water),
-			"wants %s, not %s" % [wanted, found]
+			"wants %s, not %s" % [wanted, found],
 		)
 	return _finding(
-		"moisture", "moisture", wanted, found, UNSUITABLE,
-		_wet_words(level, species.water), _wet_words(level, species.water, true)
+		"moisture",
+		"moisture",
+		wanted,
+		found,
+		UNSUITABLE,
+		_wet_words(level, species.water),
+		_wet_words(level, species.water, true),
 	)
 
 
@@ -259,43 +286,73 @@ static func _soil_finding(species: PlantSpecies, profile: TerrainProfile) -> Dic
 	if species.soils.is_empty():
 		# The catalogue does not say. Asking the question anyway would report the plant as wrong on
 		# every soil it has no opinion about.
-		return {}
+		return { }
 	var wanted: String = species.soil_text()
 	if not profile.has("soil"):
 		return _finding(
-			"soil", "soil", wanted, "not stated", UNKNOWN,
-			"nothing says what the soil is", "the plan doesn't say the soil"
+			"soil",
+			"soil",
+			wanted,
+			"not stated",
+			UNKNOWN,
+			"nothing says what the soil is",
+			"the plan doesn't say the soil",
 		)
 	var found: String = profile.text_of("soil")
 	if species.soils.has(profile.soil_name()):
 		return _finding(
-			"soil", "soil", wanted, found, GOOD,
-			"it grows on %s and this spot is %s" % [wanted, found], found
+			"soil",
+			"soil",
+			wanted,
+			found,
+			GOOD,
+			"it grows on %s and this spot is %s" % [wanted, found],
+			found,
 		)
 	return _finding(
-		"soil", "soil", wanted, found, UNSUITABLE,
-		"it grows on %s and this spot is %s" % [wanted, found], "not for %s" % found
+		"soil",
+		"soil",
+		wanted,
+		found,
+		UNSUITABLE,
+		"it grows on %s and this spot is %s" % [wanted, found],
+		"not for %s" % found,
 	)
 
 
 static func _drainage_finding(species: PlantSpecies, profile: TerrainProfile) -> Dictionary:
 	if species.drainage >= PlantSpeciesScript.DRAINS_ANY:
-		return {}
+		return { }
 	var wanted: String = species.drainage_text()
 	if not profile.has("drainage"):
 		return _finding(
-			"drainage", "drainage", wanted, "not stated", UNKNOWN,
-			"nothing says how freely this spot drains", "the plan doesn't say how it drains"
+			"drainage",
+			"drainage",
+			wanted,
+			"not stated",
+			UNKNOWN,
+			"nothing says how freely this spot drains",
+			"the plan doesn't say how it drains",
 		)
 	var found: String = profile.text_of("drainage")
 	if (species.drainage & profile.drainage_level()) != 0:
 		return _finding(
-			"drainage", "drainage", wanted, found, GOOD,
-			"it takes %s and this spot is %s" % [wanted, found], found
+			"drainage",
+			"drainage",
+			wanted,
+			found,
+			GOOD,
+			"it takes %s and this spot is %s" % [wanted, found],
+			found,
 		)
 	return _finding(
-		"drainage", "drainage", wanted, found, UNSUITABLE,
-		"it takes %s and this spot is %s" % [wanted, found], "not where it is %s" % found
+		"drainage",
+		"drainage",
+		wanted,
+		found,
+		UNSUITABLE,
+		"it takes %s and this spot is %s" % [wanted, found],
+		"not where it is %s" % found,
 	)
 
 
@@ -307,19 +364,25 @@ static func _drainage_finding(species: PlantSpecies, profile: TerrainProfile) ->
 ## garden, and then the species' hardiness range is exactly the right thing to compare against.
 static func _zone_finding(species: PlantSpecies, profile: TerrainProfile) -> Dictionary:
 	if not profile.has("zone") or profile.zone() <= 0:
-		return {}
+		return { }
 	if not species.hardy_in(profile.zone()):
 		return _finding(
-			"zone", "hardiness", "zone %d-%d" % [species.zone_min, species.zone_max],
-			"zone %d" % profile.zone(), UNSUITABLE,
+			"zone",
+			"hardiness",
+			"zone %d-%d" % [species.zone_min, species.zone_max],
+			"zone %d" % profile.zone(),
+			UNSUITABLE,
 			"it is hardy to zone %d and this spot is zone %d" % [species.zone_min, profile.zone()],
-			"not hardy here"
+			"not hardy here",
 		)
 	return _finding(
-		"zone", "hardiness", "zone %d-%d" % [species.zone_min, species.zone_max],
-		"zone %d" % profile.zone(), GOOD,
+		"zone",
+		"hardiness",
+		"zone %d-%d" % [species.zone_min, species.zone_max],
+		"zone %d" % profile.zone(),
+		GOOD,
 		"it is hardy to zone %d and this spot is zone %d" % [species.zone_min, profile.zone()],
-		"zone %d" % profile.zone()
+		"zone %d" % profile.zone(),
 	)
 
 
@@ -330,7 +393,7 @@ static func _finding(
 	found: String,
 	outcome: int,
 	because: String,
-	brief: String
+	brief: String,
 ) -> Dictionary:
 	return {
 		"key": key,
@@ -342,18 +405,11 @@ static func _finding(
 		"brief": brief,
 	}
 
-
 # --- saying it ----------------------------------------------------------------------------
 
 
 ## The sentence that goes in a status line: what the plant is and what this spot does for it.
-static func _summary(
-	verdict: int,
-	first: Dictionary,
-	title: String,
-	place: String,
-	profile: TerrainProfile
-) -> String:
+static func _summary(verdict: int, first: Dictionary, title: String, place: String, profile: TerrainProfile) -> String:
 	match verdict:
 		UNSUITABLE:
 			return "%s is the wrong plant for %s: %s." % [title, place, String(first.get("because", ""))]
@@ -391,7 +447,6 @@ static func colour_from(result: Dictionary) -> Color:
 	var colour: Variant = result.get("colour", null)
 	return colour if colour is Color else UNKNOWN_COLOUR
 
-
 # --- the planting that is already in the ground -------------------------------------------
 
 
@@ -406,10 +461,10 @@ static func colour_from(result: Dictionary) -> Color:
 ## `{node, name, species_id, title, at, verdict, colour, summary}` in the order the yard lists them.
 static func audit(catalogue: PlantCatalogue, yard: Node3D, zone_map: ZoneMap) -> Dictionary:
 	var rows: Array[Dictionary] = []
-	var counts: Dictionary = {GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0}
+	var counts: Dictionary = { GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0 }
 	var unnamed: int = 0
 	if yard == null:
-		return {"rows": rows, "counts": counts, "planted": 0, "unnamed": 0, "text": "no yard to check"}
+		return { "rows": rows, "counts": counts, "planted": 0, "unnamed": 0, "text": "no yard to check" }
 	for node: Node3D in PlantPlacementScript.planted(yard):
 		# The plan's metres are the yard's own - a planted prop hangs straight off `Yard/Plants` - so
 		# the global position is the point the zone map is asked about. A node that is not in the
@@ -431,16 +486,18 @@ static func audit(catalogue: PlantCatalogue, yard: Node3D, zone_map: ZoneMap) ->
 		var verdict: Dictionary = check_at(species, zone_map, point)
 		var level: int = int(verdict["verdict"])
 		counts[level] = int(counts[level]) + 1
-		rows.append({
-			"node": node,
-			"name": String(node.name),
-			"species_id": species_id,
-			"title": species.display_name(),
-			"at": point,
-			"verdict": level,
-			"colour": verdict["colour"],
-			"summary": verdict["summary"],
-		})
+		rows.append(
+			{
+				"node": node,
+				"name": String(node.name),
+				"species_id": species_id,
+				"title": species.display_name(),
+				"at": point,
+				"verdict": level,
+				"colour": verdict["colour"],
+				"summary": verdict["summary"],
+			}
+		)
 	return {
 		"rows": rows,
 		"counts": counts,
@@ -460,9 +517,7 @@ static func describe_audit(planted: int, counts: Dictionary, unnamed: int = 0) -
 		return "no plants on the plan to check"
 	var checked: int = planted - unnamed
 	if checked <= 0:
-		return "%d plant%s, and not one says which species it is" % [
-			planted, "" if planted == 1 else "s"
-		]
+		return "%d plant%s, and not one says which species it is" % [planted, "" if planted == 1 else "s"]
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("%d suit their spot" % int(counts.get(GOOD, 0)))
 	var tolerated: int = int(counts.get(TOLERATED, 0))
@@ -476,9 +531,7 @@ static func describe_audit(planted: int, counts: Dictionary, unnamed: int = 0) -
 		parts.append("%d cannot be checked" % unknown)
 	if unnamed > 0:
 		parts.append("%d have no species recorded" % unnamed)
-	return "%d plant%s: %s." % [
-		planted, "" if planted == 1 else "s", ", ".join(parts)
-	]
+	return "%d plant%s: %s." % [planted, "" if planted == 1 else "s", ", ".join(parts)]
 
 
 ## The audit's wrong and tolerated rows as lines, worst first, for a report somebody reads.
@@ -490,8 +543,10 @@ static func audit_lines(result: Dictionary, limit: int = 20) -> Array[String]:
 			continue
 		if int(row.get("verdict", GOOD)) in [UNSUITABLE, TOLERATED]:
 			ranked.append(row)
-	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a.get("verdict", GOOD)) > int(b.get("verdict", GOOD)))
+	ranked.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("verdict", GOOD)) > int(b.get("verdict", GOOD)),
+	)
 	var out: Array[String] = []
 	for row: Dictionary in ranked:
 		if out.size() >= limit:

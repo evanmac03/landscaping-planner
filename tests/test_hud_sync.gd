@@ -14,7 +14,7 @@ func _jobs_entry(id: String) -> Dictionary:
 	for entry: Dictionary in HudScript.items_for("Jobs"):
 		if String(entry.get("id", "")) == id:
 			return entry
-	return {}
+	return { }
 
 
 func test_the_jobs_menu_offers_syncing_with_the_office() -> void:

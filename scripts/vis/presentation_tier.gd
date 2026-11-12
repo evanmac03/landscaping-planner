@@ -23,21 +23,36 @@ const STILL := 2
 ## interactive tiers because the screen is the screen.
 const LOOKS := {
 	WORKING: {
-		"shadow_max_distance": 90.0, "shadow_blur": 0.0,
-		"ssao": false, "ssao_radius": 1.2, "ssao_intensity": 1.6,
-		"textured": false, "supersample": 1, "stylised": false,
+		"shadow_max_distance": 90.0,
+		"shadow_blur": 0.0,
+		"ssao": false,
+		"ssao_radius": 1.2,
+		"ssao_intensity": 1.6,
+		"textured": false,
+		"supersample": 1,
+		"stylised": false,
 	},
 	PRESENTATION: {
-		"shadow_max_distance": 45.0, "shadow_blur": 1.2,
-		"ssao": true, "ssao_radius": 1.2, "ssao_intensity": 1.6,
-		"textured": true, "supersample": 1, "stylised": false,
+		"shadow_max_distance": 45.0,
+		"shadow_blur": 1.2,
+		"ssao": true,
+		"ssao_radius": 1.2,
+		"ssao_intensity": 1.6,
+		"textured": true,
+		"supersample": 1,
+		"stylised": false,
 	},
 	STILL: {
 		# A still is allowed to be slow: it is rendered once and looked at for
 		# months, so this is where every budget is spent.
-		"shadow_max_distance": 30.0, "shadow_blur": 1.4,
-		"ssao": true, "ssao_radius": 1.0, "ssao_intensity": 2.0,
-		"textured": true, "supersample": 2, "stylised": true,
+		"shadow_max_distance": 30.0,
+		"shadow_blur": 1.4,
+		"ssao": true,
+		"ssao_radius": 1.0,
+		"ssao_intensity": 2.0,
+		"textured": true,
+		"supersample": 2,
+		"stylised": true,
 	},
 }
 

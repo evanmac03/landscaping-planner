@@ -36,12 +36,12 @@ func _ready() -> void:
 		print("  ", line.replace("\n", "  "))
 
 	print("--- moving two of them up the funnel ---")
-	board.move_lead(nguyen, 2)   # Site visit
-	board.move_lead(okafor, 4)   # Proposed
+	board.move_lead(nguyen, 2) # Site visit
+	board.move_lead(okafor, 4) # Proposed
 	print("the board says: ", board.status_text())
 
 	print("--- a drop into Lost, which holds the card and asks why ---")
-	board.move_lead(smith, 6)    # Lost - held, not made
+	board.move_lead(smith, 6) # Lost - held, not made
 	print("the board is asking: ", board.is_asking_for_a_reason(), " about ", board.pending_lead())
 	print("its reason row is shown: ", board.is_reason_row_visible())
 	print("the lead has not moved: the Lead column still holds ", board.card_count(0))
@@ -57,5 +57,12 @@ func _ready() -> void:
 	print("  ", hud._pipeline_text())
 
 	print("--- what is left on screen ---")
-	print("the board is up: ", hud.is_pipeline_board_open(),
-		", with ", board.card_count(4), " proposed and ", board.card_count(6), " lost")
+	print(
+		"the board is up: ",
+		hud.is_pipeline_board_open(),
+		", with ",
+		board.card_count(4),
+		" proposed and ",
+		board.card_count(6),
+		" lost",
+	)

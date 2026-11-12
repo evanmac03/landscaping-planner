@@ -62,8 +62,7 @@ static func band_reason(first: Vector2, second: Vector2) -> String:
 ## stops exactly on the band's edge has not left it.
 static func within(rect: Rect2, point: Vector2) -> bool:
 	return (
-		point.x >= rect.position.x and point.x <= rect.end.x
-		and point.y >= rect.position.y and point.y <= rect.end.y
+		point.x >= rect.position.x and point.x <= rect.end.x and point.y >= rect.position.y and point.y <= rect.end.y
 	)
 
 
@@ -91,12 +90,9 @@ static func inside(entity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
 
 ## Index-pairs of the band's four edges, as segments.
 static func _edges(rect: Rect2) -> Array:
-	var corners := PackedVector2Array([
-		rect.position,
-		Vector2(rect.end.x, rect.position.y),
-		rect.end,
-		Vector2(rect.position.x, rect.end.y),
-	])
+	var corners := PackedVector2Array(
+		[rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
+	)
 	var out: Array = []
 	for index in 4:
 		out.append([corners[index], corners[(index + 1) % 4]])
@@ -152,23 +148,25 @@ static func catches(entity, rect: Rect2, mode: StringName, tolerance: float = TO
 ## a selection that quietly dropped them would be a selection that lied about what
 ## is on the sheet. A label, which has a place and no linework, is caught by where
 ## it stands.
-static func pick(
-	entities: Array, rect: Rect2, mode: StringName, tolerance: float = TOLERANCE
-) -> Dictionary:
+static func pick(entities: Array, rect: Rect2, mode: StringName, tolerance: float = TOLERANCE) -> Dictionary:
 	var ids: Array[int] = []
 	for entity in entities:
 		if catches(entity, rect, mode, tolerance):
 			ids.append(int(entity.id))
-	return {"ok": true, "reason": "", "ids": ids, "mode": mode, "rect": rect}
+	return { "ok": true, "reason": "", "ids": ids, "mode": mode, "rect": rect }
 
 
 ## The same rule by corners, which is what a person picks.
 static func pick_between(
-	entities: Array, first: Vector2, second: Vector2, mode: StringName, tolerance: float = TOLERANCE
+	entities: Array,
+	first: Vector2,
+	second: Vector2,
+	mode: StringName,
+	tolerance: float = TOLERANCE,
 ) -> Dictionary:
 	var reason := band_reason(first, second)
 	if reason != "":
-		return {"ok": false, "reason": reason, "ids": [], "mode": mode, "rect": band(first, second)}
+		return { "ok": false, "reason": reason, "ids": [], "mode": mode, "rect": band(first, second) }
 	return pick(entities, band(first, second), mode, tolerance)
 
 

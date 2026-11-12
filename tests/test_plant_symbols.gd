@@ -46,7 +46,6 @@ func _first_of(catalogue: PlantCatalogue, category: int) -> PlantSpecies:
 	assert(false, "the shipped list has no plant of category %d" % category)
 	return null
 
-
 # --- the vocabulary ------------------------------------------------------------------------
 
 
@@ -57,15 +56,16 @@ func test_the_symbols_are_named_and_each_has_a_word_for_it() -> void:
 		assert(SymbolsScript.words(symbol).length() > 0, "%s has a word" % symbol)
 	# The words are the point of them - a label names a symbol, so two symbols said the same way
 	# would be two shapes a person cannot tell apart in the line that is supposed to explain them.
-	var said: Dictionary = {}
+	var said: Dictionary = { }
 	for symbol: StringName in SymbolsScript.NAMES:
 		var word: String = SymbolsScript.words(symbol)
 		assert(not said.has(word), "%s and %s are both \"%s\"" % [said.get(word, ""), symbol, word])
 		said[word] = symbol
 	assert(not SymbolsScript.is_symbol(&"triangle"), "something nobody has is not a symbol")
-	assert(SymbolsScript.words(&"triangle") == SymbolsScript.words(SymbolsScript.MARKER),
-		"and an unknown symbol is said as the marker rather than as nothing")
-
+	assert(
+		SymbolsScript.words(&"triangle") == SymbolsScript.words(SymbolsScript.MARKER),
+		"and an unknown symbol is said as the marker rather than as nothing",
+	)
 
 # --- the figures ----------------------------------------------------------------------------
 
@@ -115,7 +115,6 @@ func test_a_round_symbol_is_drawn_round_whatever_its_prop_says() -> void:
 	var bed: Vector2 = SymbolsScript.shape_for(SymbolsScript.BED, Vector2(2.6, 1.4))
 	assert(bed == Vector2(2.6, 1.4), "and an oblong one keeps the prop's proportions")
 
-
 # --- which symbol a species gets -------------------------------------------------------------
 
 
@@ -139,8 +138,7 @@ func test_a_conifer_is_asked_of_the_botanical_name_and_not_of_evergreen() -> voi
 	assert(boxwood.tags.has("evergreen"), "a boxwood is tagged evergreen: %s" % str(boxwood.tags))
 	assert(not boxwood.is_conifer(), "and it is not a conifer")
 	assert(SymbolsScript.described_for(boxwood) == SymbolsScript.SHRUB, "so it is a soft shrub")
-	assert(SymbolsScript.described_for(catalogue.get_species(CEDAR)) == SymbolsScript.CONIFER,
-		"while a cedar is")
+	assert(SymbolsScript.described_for(catalogue.get_species(CEDAR)) == SymbolsScript.CONIFER, "while a cedar is")
 
 
 func test_a_plant_is_drawn_as_what_it_is() -> void:
@@ -161,8 +159,10 @@ func test_a_plant_is_drawn_as_what_it_is() -> void:
 		var got: StringName = SymbolsScript.described_for(species)
 		# A tree or a shrub may legitimately be a conifer; the others have one answer.
 		if wanted == SymbolsScript.CANOPY or wanted == SymbolsScript.SHRUB:
-			assert(got == wanted or got == SymbolsScript.CONIFER,
-				"category %d is drawn as %s, not %s" % [int(pair[0]), wanted, got])
+			assert(
+				got == wanted or got == SymbolsScript.CONIFER,
+				"category %d is drawn as %s, not %s" % [int(pair[0]), wanted, got],
+			)
 		else:
 			assert(got == wanted, "category %d is drawn as %s, not %s" % [int(pair[0]), wanted, got])
 
@@ -192,10 +192,11 @@ func test_the_plan_s_table_and_this_one_agree() -> void:
 	# table is read before this script is built. A test is what holds the two together.
 	for path: Variant in PlanStyleScript.SYMBOLS.keys():
 		var spec: Dictionary = PlanStyleScript.SYMBOLS[path]
-		assert(SymbolsScript.is_symbol(spec["symbol"]),
-			"%s is drawn as %s, which is not a symbol" % [path, spec["symbol"]])
-	assert(SymbolsScript.is_symbol(PlanStyleScript.PLACEHOLDER["symbol"]),
-		"and the placeholder prop is a symbol too")
+		assert(
+			SymbolsScript.is_symbol(spec["symbol"]),
+			"%s is drawn as %s, which is not a symbol" % [path, spec["symbol"]],
+		)
+	assert(SymbolsScript.is_symbol(PlanStyleScript.PLACEHOLDER["symbol"]), "and the placeholder prop is a symbol too")
 	# Every symbol a species can be is drawn in inks, so there is no symbol the plan would draw in no
 	# colour at all. The marker is not in the table: it is the answer for a symbol nobody has, and it
 	# comes from the fallback.
@@ -208,7 +209,6 @@ func test_the_plan_s_table_and_this_one_agree() -> void:
 	assert(fallback["edge"] == CanvasScript.GENERIC.darkened(0.4), "with its own line brought down")
 	assert(fallback["mark"] == fallback["edge"], "and its marks the same")
 
-
 # --- the plan and the picture ------------------------------------------------------------------
 
 
@@ -218,8 +218,10 @@ func test_the_swatch_and_the_plan_reach_the_same_symbol() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	for species: PlantSpecies in catalogue.all():
 		var form_symbol: StringName = PlanStyleScript.spec_for(species.form)["symbol"]
-		assert(PlantIconsScript.symbol_of(species) == SymbolsScript.of(species, form_symbol),
-			"%s is one symbol in the grid and another on the plan" % species.id)
+		assert(
+			PlantIconsScript.symbol_of(species) == SymbolsScript.of(species, form_symbol),
+			"%s is one symbol in the grid and another on the plan" % species.id,
+		)
 
 
 func test_a_planted_node_carries_its_symbol() -> void:
@@ -231,10 +233,11 @@ func test_a_planted_node_carries_its_symbol() -> void:
 	var planted: Dictionary = PlacementScript.place(catalogue, SPRUCE, yard, Vector3.ZERO)
 	assert(bool(planted["ok"]), "the spruce planted: %s" % String(planted["reason"]))
 	var node: Node3D = planted["node"]
-	assert(PlanStyleScript.symbol_of(node) == SymbolsScript.CONIFER,
-		"the plan reads a conifer off the node: %s" % PlanStyleScript.symbol_of(node))
-	assert(PlanStyleScript.footprint_size(node).x == PlanStyleScript.footprint_size(node).y,
-		"and draws it round")
+	assert(
+		PlanStyleScript.symbol_of(node) == SymbolsScript.CONIFER,
+		"the plan reads a conifer off the node: %s" % PlanStyleScript.symbol_of(node),
+	)
+	assert(PlanStyleScript.footprint_size(node).x == PlanStyleScript.footprint_size(node).y, "and draws it round")
 	yard.free()
 
 
@@ -253,5 +256,7 @@ func test_a_spruce_and_a_maple_are_different_pictures() -> void:
 	assert(differing > 40, "they are different pictures: %d pixels" % differing)
 	# A needle crown leaves the corners outside it empty where a canopy reaches them.
 	var centre: int = int(PlantIconsScript.HALF)
-	assert(spruce.get_pixel(centre, 6) != maple.get_pixel(centre, 6),
-		"and not just by a pixel or two: the crowns differ where a needle ends")
+	assert(
+		spruce.get_pixel(centre, 6) != maple.get_pixel(centre, 6),
+		"and not just by a pixel or two: the crowns differ where a needle ends",
+	)

@@ -85,11 +85,15 @@ func _ready() -> void:
 
 	for complaint: String in wrong:
 		print("PHONE FILES: %s" % complaint)
-	print("PHONE FILES: %s" % (
-		"every door that reaches outside follows the picker, and every door into user:// stays the"
-		+ " program's own"
-		if wrong.is_empty() else "A DOOR IS NOT WHERE IT BELONGS"
-	))
+	print(
+		"PHONE FILES: %s"
+		% (
+			"every door that reaches outside follows the picker, and every door into user:// stays the"
+			+ " program's own"
+			if wrong.is_empty()
+			else "A DOOR IS NOT WHERE IT BELONGS"
+		)
+	)
 	await get_tree().process_frame
 	get_tree().quit(0 if wrong.is_empty() else 1)
 

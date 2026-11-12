@@ -49,7 +49,7 @@ func test_typing_a_word_narrows_the_list_and_clearing_brings_it_back() -> void:
 	page.type_search("")
 	assert(
 		page.shown_count() == controller.document.layers.layers().size(),
-		"emptying the box is the way back to every layer"
+		"emptying the box is the way back to every layer",
 	)
 	page.free()
 	controller.free()
@@ -127,7 +127,10 @@ func test_a_lock_and_a_change_of_current_layer_are_announced_apart() -> void:
 	page.build()
 	page.bind(controller)
 	var announced: Array[int] = []
-	page.layers_changed.connect(func() -> void: announced.append(1))
+	page.layers_changed.connect(
+		func() -> void:
+			announced.append(1),
+	)
 	assert(page.select_layer(LayersScript.NEW_BED))
 	page.toggle_lock()
 	page.make_current()

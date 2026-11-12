@@ -20,21 +20,36 @@ const SLOPE := GradingScript.SLOPE
 ## what it is given rather than sharing it.
 var _announced: Array[String] = []
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
 func _page() -> GradingWindow:
 	var window := GradingWindowScript.new()
 	window.build()
-	window.level_requested.connect(func(level: float) -> void: _announced.append("level:%s" % str(level)))
-	window.fall_requested.connect(func(percent: float) -> void: _announced.append("fall:%s" % str(percent)))
-	window.tool_requested.connect(func(kind: String) -> void: _announced.append("tool:" + kind))
-	window.change_requested.connect(func(kind: String, id: int, level: float) -> void:
-		_announced.append("change:%s:%d:%s" % [kind, id, str(level)]))
-	window.remove_requested.connect(func(kind: String, id: int) -> void:
-		_announced.append("remove:%s:%d" % [kind, id]))
-	window.closed.connect(func() -> void: _announced.append("close"))
+	window.level_requested.connect(
+		func(level: float) -> void:
+			_announced.append("level:%s" % str(level)),
+	)
+	window.fall_requested.connect(
+		func(percent: float) -> void:
+			_announced.append("fall:%s" % str(percent)),
+	)
+	window.tool_requested.connect(
+		func(kind: String) -> void:
+			_announced.append("tool:" + kind),
+	)
+	window.change_requested.connect(
+		func(kind: String, id: int, level: float) -> void:
+			_announced.append("change:%s:%d:%s" % [kind, id, str(level)]),
+	)
+	window.remove_requested.connect(
+		func(kind: String, id: int) -> void:
+			_announced.append("remove:%s:%d" % [kind, id]),
+	)
+	window.closed.connect(
+		func() -> void:
+			_announced.append("close"),
+	)
 	return window
 
 
@@ -60,7 +75,7 @@ func _ask(window: GradingWindow, caption: String) -> String:
 
 ## A record as the controller hands one over: what it is, which one it is, and how it reads.
 func _row(kind: String, id: int, text: String) -> Dictionary:
-	return {"kind": kind, "kind_name": GradingScript.kind_name(kind), "id": id, "text": text}
+	return { "kind": kind, "kind_name": GradingScript.kind_name(kind), "id": id, "text": text }
 
 
 func _three_rows() -> Array[Dictionary]:
@@ -69,7 +84,6 @@ func _three_rows() -> Array[Dictionary]:
 		_row(SPOT, 2, "101.95 m   (6, 0)"),
 		_row(CONTOUR, 1, "101.50 m   2 points   6.0 m"),
 	]
-
 
 # --- a page nobody has opened ----------------------------------------------------------
 
@@ -112,14 +126,13 @@ func test_the_page_carries_a_field_for_each_number_and_no_more() -> void:
 func test_every_button_says_what_it_does() -> void:
 	var window := _page()
 	var captions := window.button_texts()
-	for wanted: String in [
-		"Set the level", "Set the fall", "Spot level here", "Draw a contour", "Draw a slope arrow",
-	]:
+	for wanted: String in ["Set the level", "Set the fall", "Spot level here", "Draw a contour", "Draw a slope arrow"]:
 		assert(captions.has(wanted), "%s is on the page: %s" % [wanted, str(captions)])
-	assert(captions.has("Nothing chosen to take off"),
-		"and the one that cannot act yet says what is missing: %s" % str(captions))
+	assert(
+		captions.has("Nothing chosen to take off"),
+		"and the one that cannot act yet says what is missing: %s" % str(captions),
+	)
 	window.free()
-
 
 # --- the two numbers in hand ---------------------------------------------------------------
 
@@ -164,18 +177,21 @@ func test_each_of_the_three_tool_buttons_announces_its_own_kind() -> void:
 	assert(_ask(window, "Draw a slope arrow") == "tool:slope", str(_announced))
 	window.free()
 
-
 # --- the list ---------------------------------------------------------------------------------
 
 
 func test_the_records_are_listed_and_the_list_is_only_written_when_it_changes() -> void:
 	var window := _page()
 	assert(window.show_records(_three_rows()), "a list that has moved is written")
-	assert(window.record_texts() == [
-		"102.35 m   (0, 0)", "101.95 m   (6, 0)", "101.50 m   2 points   6.0 m",
-	], str(window.record_texts()))
-	assert(not window.show_records(_three_rows()), "**and the same list again is not**: a list rebuilt "
-		+ "under somebody's cursor every frame is a list they cannot click")
+	assert(
+		window.record_texts() == ["102.35 m   (0, 0)", "101.95 m   (6, 0)", "101.50 m   2 points   6.0 m"],
+		str(window.record_texts()),
+	)
+	assert(
+		not window.show_records(_three_rows()),
+		"**and the same list again is not**: a list rebuilt "
+		+ "under somebody's cursor every frame is a list they cannot click",
+	)
 	var moved := _three_rows()
 	moved[0]["text"] = "102.40 m   (0, 0)"
 	assert(window.show_records(moved), "but a level that has changed is a row that has changed")
@@ -227,25 +243,26 @@ func test_remove_announces_the_chosen_record() -> void:
 	assert(not window.remove_chosen(), "nothing chosen, nothing taken off")
 	window.free()
 
-
 # --- the report -------------------------------------------------------------------------------
 
 
 func test_the_report_reads_findings_first_and_then_what_is_worth_knowing() -> void:
 	var window := _page()
-	window.set_report({
-		"ok": false,
-		"findings": ["the arrow at (0, 0) says falling 2.5% (1 in 40) and the levels at its ends say "
-			+ "falling 6.7% (1 in 15)"],
-		"notes": ["the levels run from 101.95 m to 102.35 m, 0.4 m apart"],
-	})
-	assert(window.report_text().begins_with("- the arrow at (0, 0) says falling 2.5%"),
-		window.report_text())
+	window.set_report(
+		{
+			"ok": false,
+			"findings": [
+				"the arrow at (0, 0) says falling 2.5% (1 in 40) and the levels at its ends say "
+				+ "falling 6.7% (1 in 15)"
+			],
+			"notes": ["the levels run from 101.95 m to 102.35 m, 0.4 m apart"],
+		}
+	)
+	assert(window.report_text().begins_with("- the arrow at (0, 0) says falling 2.5%"), window.report_text())
 	assert(window.report_text().contains("\nthe levels run from"), "and the note follows it")
-	window.set_report({"ok": true, "findings": [], "notes": ["nothing to say"]})
-	assert(window.report_text() == "%s\nnothing to say" % GradingWindowScript.AGREES,
-		window.report_text())
-	window.set_report({})
+	window.set_report({ "ok": true, "findings": [], "notes": ["nothing to say"] })
+	assert(window.report_text() == "%s\nnothing to say" % GradingWindowScript.AGREES, window.report_text())
+	window.set_report({ })
 	assert(window.report_text() == GradingWindowScript.AGREES, window.report_text())
 	window.free()
 
@@ -254,8 +271,7 @@ func test_what_the_page_says_about_itself_is_the_controller_s_words() -> void:
 	var window := _page()
 	assert(window.said() == "", "it has said nothing")
 	window.say("102.35 m at (0, 0) is on the drawing, with 2 marks")
-	assert(window.status_text() == "102.35 m at (0, 0) is on the drawing, with 2 marks",
-		window.status_text())
+	assert(window.status_text() == "102.35 m at (0, 0) is on the drawing, with 2 marks", window.status_text())
 	assert(window.said() == window.status_text(), "and the status line is where it went")
 	window.show_records([])
 	window.say("")
@@ -265,7 +281,6 @@ func test_what_the_page_says_about_itself_is_the_controller_s_words() -> void:
 	assert(window.status_text() == "3 records on this drawing", window.status_text())
 	window.free()
 
-
 # --- closing -----------------------------------------------------------------------------------
 
 
@@ -274,6 +289,8 @@ func test_closing_the_page_by_the_button_or_by_the_x_announces_the_same_thing() 
 	assert(_ask(window, "Close") == "close", str(_announced))
 	var before := _announced.size()
 	window.close_requested.emit()
-	assert(_announced.size() == before + 1 and _announced[before] == "close",
-		"the X on the frame is the same act as the button: " + str(_announced))
+	assert(
+		_announced.size() == before + 1 and _announced[before] == "close",
+		"the X on the frame is the same act as the button: " + str(_announced),
+	)
 	window.free()

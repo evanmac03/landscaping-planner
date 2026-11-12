@@ -28,9 +28,7 @@ func _ready() -> void:
 		return
 
 	print("--- a plan worth pricing: a patio and a bed ---")
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE)
 	controller.document.add(Entity.make_circle(Vector2(20, 0), 1.5), LayerSet.NEW_PLANTING)
 	print("the drawing holds ", controller.document.count(), " shapes")
 
@@ -55,11 +53,23 @@ func _ready() -> void:
 	print("the Jobs menu says: ", hud._jobs_text())
 	var job_id: String = hud._job_desk.job_ids()[0]
 	var job: Job = hud._job_desk.job(job_id)
-	print("the job carries ", job.phases.size(), " phases and is contracted at ",
-		job.contract_sum.format_with_currency())
+	print(
+		"the job carries ",
+		job.phases.size(),
+		" phases and is contracted at ",
+		job.contract_sum.format_with_currency(),
+	)
 	for row: Dictionary in hud._job_desk.job_rows():
-		print("  ", row["name"], "  ", (row["contract_sum"] as MoneyScript).format(),
-			"  billed ", row["billing_name"], "  revision ", row["estimate_revision"])
+		print(
+			"  ",
+			row["name"],
+			"  ",
+			(row["contract_sum"] as MoneyScript).format(),
+			"  billed ",
+			row["billing_name"],
+			"  revision ",
+			row["estimate_revision"],
+		)
 
 	print("--- the board, and a crew on it ---")
 	hud.open_schedule_board()
@@ -90,8 +100,13 @@ func _ready() -> void:
 	print("--- what the board reports, and only reports ---")
 	for line: String in board.conflict_texts():
 		print("  ", line)
-	print("there are ", hud._job_desk.conflict_count(), " clashes and ",
-		hud._job_desk.block_count(), " blocks: nothing was rearranged to avoid one")
+	print(
+		"there are ",
+		hud._job_desk.conflict_count(),
+		" clashes and ",
+		hud._job_desk.block_count(),
+		" blocks: nothing was rearranged to avoid one",
+	)
 
 	print("--- moving Dana's second block to Tuesday ---")
 	var moved: bool = board.move_block(2, TUESDAY)
@@ -106,19 +121,20 @@ func _ready() -> void:
 		print("  ", text.replace("\n", "  "))
 
 	print("--- Dana's Monday, as a route ---")
-	var planned: Dictionary = hud._job_desk.route_for(
-		StringName(hud._job_desk.crew_ids()[0]), MONDAY
-	)
+	var planned: Dictionary = hud._job_desk.route_for(StringName(hud._job_desk.crew_ids()[0]), MONDAY)
 	if not bool(planned["ok"]):
 		print("no route: ", planned["reason"], " - so the job gets a place on the drawing")
 		hud._job_desk.set_job_place(job_id, Vector2(10.0, 10.0))
 		planned = hud._job_desk.route_for(StringName(hud._job_desk.crew_ids()[0]), MONDAY)
 	print("planned: ", planned["ok"], "  ", str((planned["route"] as Dictionary).get("note", "")))
 	print("the stops come in this order: ", (planned["route"] as Dictionary).get("order", []))
-	print("the day finishes at minute ",
+	print(
+		"the day finishes at minute ",
 		int((planned["route"] as Dictionary).get("finish_minute", 0)),
-		" of which ", snappedf(float((planned["route"] as Dictionary).get("total_drive_minutes", 0.0)), 0.1),
-		" are driving")
+		" of which ",
+		snappedf(float((planned["route"] as Dictionary).get("total_drive_minutes", 0.0)), 0.1),
+		" are driving",
+	)
 
 	print("--- taking a block off ---")
 	board._on_block_pressed(0)

@@ -30,11 +30,13 @@ const SIZE := Vector2i(940, 800)
 
 const CropRotationScript := preload("res://scripts/crop_rotation.gd")
 
-const EXPLANATION := ("Choose a bed and say what grew in it last. A crop belongs to a family - a "
+const EXPLANATION := (
+	"Choose a bed and say what grew in it last. A crop belongs to a family - a "
 	+ "brassica, a nightshade, a legume - and the one law of crop rotation is that the same family "
 	+ "shall not follow itself: a brassica after a brassica shares its pests and its diseases. A "
 	+ "legume before it is a gift, because beans leave the ground richer than they found it. The page "
-	+ "also says what each crop grows well beside.")
+	+ "also says what each crop grows well beside."
+)
 
 const NO_PLACES := "no ground has been described yet: draw or state a bed in the ground window"
 const NO_CROPS := "this plant list has no food in it yet"
@@ -47,7 +49,7 @@ var catalogue: PlantCatalogue = null
 var _places: Array[Dictionary] = []
 ## What grew in each bed last, by bed name. Kept here and nowhere else: the plan was never told a
 ## season, and the person standing in the garden is the one who knows it.
-var _previous: Dictionary = {}
+var _previous: Dictionary = { }
 var _built: bool = false
 var _status: String = ""
 
@@ -73,7 +75,6 @@ var _summary_label: Label = null
 var _hint_label: Label = null
 var _close_button: Button = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -110,7 +111,10 @@ func build() -> void:
 	_place_label.name = "PlaceLabel"
 	place_row.add_child(_place_label)
 	_place_option = _option(place_row, "Place", "The bed to plant")
-	_place_option.item_selected.connect(func(index: int) -> void: _on_place_selected(index))
+	_place_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_place_selected(index),
+	)
 	column.add_child(place_row)
 
 	var turn_row := HBoxContainer.new()
@@ -119,7 +123,10 @@ func build() -> void:
 	_turn_label.name = "TurnLabel"
 	turn_row.add_child(_turn_label)
 	_turn_option = _option(turn_row, "Turn", "The family that grew in this bed last")
-	_turn_option.item_selected.connect(func(index: int) -> void: _on_turn_selected(index))
+	_turn_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_turn_selected(index),
+	)
 	column.add_child(turn_row)
 
 	var crop_row := HBoxContainer.new()
@@ -128,7 +135,10 @@ func build() -> void:
 	_crop_label.name = "CropLabel"
 	crop_row.add_child(_crop_label)
 	_crop_option = _option(crop_row, "Crop", "The crop to try here")
-	_crop_option.item_selected.connect(func(index: int) -> void: _on_crop_selected(index))
+	_crop_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_crop_selected(index),
+	)
 	column.add_child(crop_row)
 
 	_place_line = PageChrome.text()
@@ -205,7 +215,6 @@ func _button(row: Node, node_name: String, caption: String) -> Button:
 	row.add_child(made)
 	return made
 
-
 # --- binding ------------------------------------------------------------------------------
 
 
@@ -237,14 +246,14 @@ func place_count() -> int:
 
 func place_at(index: int) -> Dictionary:
 	if index < 0 or index >= _places.size():
-		return {}
+		return { }
 	return _places[index]
 
 
 ## The bed in hand, or an empty dictionary when there is none.
 func selected_place() -> Dictionary:
 	if _place_option == null or _place_option.selected < 0:
-		return {}
+		return { }
 	return place_at(_place_option.selected)
 
 
@@ -349,7 +358,7 @@ func _rebuild_crop_choices() -> void:
 	for id: StringName in crop_ids():
 		var plant: PlantSpecies = catalogue.get_species(id)
 		var caption: String = plant.common_name if not plant.common_name.strip_edges().is_empty() \
-			else plant.botanical_name
+				else plant.botanical_name
 		_crop_option.add_item(caption)
 		_crop_option.set_item_metadata(_crop_option.item_count - 1, String(id))
 		if id == chosen:
@@ -357,7 +366,6 @@ func _rebuild_crop_choices() -> void:
 	# The first food crop in the list, so the page has something to check before anyone chooses.
 	if _crop_option.selected < 0 and _crop_option.item_count > 0:
 		_crop_option.selected = 0
-
 
 # --- the check, as the page shows it ------------------------------------------------------
 
@@ -379,9 +387,7 @@ func _beside() -> Array:
 
 ## The verdict for the crop and bed in hand. The whole page is read off this.
 func verdict() -> Dictionary:
-	return CropRotationScript.check(
-		selected_crop(), previous_family(), _beside(), _place_name()
-	)
+	return CropRotationScript.check(selected_crop(), previous_family(), _beside(), _place_name())
 
 
 ## The bed in hand and what grew there last.
@@ -391,9 +397,7 @@ func place_line() -> String:
 	var before: String = CropRotationScript.family_words(previous_family())
 	if before.is_empty():
 		return "%s: what grew here last is not stated" % _place_name()
-	return "%s: %s %s grew here last" % [
-		_place_name(), CropRotationScript.article(before), before
-	]
+	return "%s: %s %s grew here last" % [_place_name(), CropRotationScript.article(before), before]
 
 
 ## The crop's own facts: what of it is eaten, when it is harvested, the family, the sun and the days.
@@ -417,9 +421,7 @@ func company_line() -> String:
 	var crop: PlantSpecies = selected_crop()
 	if crop == null:
 		return "choose a crop to see what it grows well beside"
-	var line: String = CropRotationScript.company_line(
-		catalogue, CropRotationScript.subject_of(crop)
-	)
+	var line: String = CropRotationScript.company_line(catalogue, CropRotationScript.subject_of(crop))
 	if line.is_empty():
 		return "nothing is stated about what this plant grows beside"
 	return line
@@ -471,7 +473,6 @@ func hint() -> String:
 			return "state what grew in this bed last and it can be checked"
 	return "this one follows on well; try another crop to compare"
 
-
 # --- what it says -------------------------------------------------------------------------
 
 
@@ -499,7 +500,6 @@ func lists_are_keyboard_free() -> bool:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- the refresh --------------------------------------------------------------------------
 

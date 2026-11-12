@@ -33,7 +33,6 @@ func _page() -> YieldWindow:
 	page.build()
 	return page
 
-
 # --- the controls ---------------------------------------------------------------------------
 
 
@@ -54,7 +53,6 @@ func test_a_page_with_no_list_says_so_rather_than_failing() -> void:
 	assert(page.hint() == PageScript.NO_CROPS, page.hint())
 	page.free()
 
-
 # --- binding ------------------------------------------------------------------------------
 
 
@@ -65,7 +63,6 @@ func test_binding_hands_over_the_list_and_opens_on_a_household() -> void:
 	assert(page.spare() == YieldScript.DEFAULT_SPARE, "%d" % page.spare())
 	assert(page.row_count() == 4, "the boxwood is not a crop: %d" % page.row_count())
 	page.free()
-
 
 # --- what the plan comes to ------------------------------------------------------------------
 
@@ -121,10 +118,7 @@ func test_a_list_where_nothing_can_be_worked_out_says_so() -> void:
 	only_thyme.add(_crop(&"thyme", "Thyme", 0, 300))
 	page.bind(only_thyme)
 	assert(page.hint() == PageScript.NO_FACTS, page.hint())
-	assert(
-		page.feed_line() == "nothing on this list can be worked out into a number of plants",
-		page.feed_line()
-	)
+	assert(page.feed_line() == "nothing on this list can be worked out into a number of plants", page.feed_line())
 	page.free()
 
 
@@ -134,7 +128,6 @@ func test_the_hint_is_guidance_rather_than_the_feed_line_said_twice() -> void:
 	assert(page.hint() != page.feed_line(), "the guidance is not the headline again")
 	assert(not page.hint().contains("To feed"), page.hint())
 	page.free()
-
 
 # --- the hand-off to a nursery order --------------------------------------------------------
 
@@ -162,16 +155,17 @@ func test_pressing_it_hands_over_a_row_per_crop_that_worked_out() -> void:
 	var page: YieldWindow = _page()
 	page.bind(_catalogue())
 	var handed: Array = []
-	page.order_requested.connect(func(rows: Array) -> void: handed.append(rows))
+	page.order_requested.connect(
+		func(rows: Array) -> void:
+			handed.append(rows),
+	)
 	assert(page.order_enabled(), "some crops worked out, so there is an order to write")
 	page._on_order()
 	assert(handed.size() == 1, "it handed the rows over once")
 	var rows: Array = handed[0]
 	assert(rows.size() == 2, "one row per crop that worked out: %d" % rows.size())
-	assert(rows[0].has("count") and rows[0].has("botanical_name"),
-		"in the shape the nursery order prices")
+	assert(rows[0].has("count") and rows[0].has("botanical_name"), "in the shape the nursery order prices")
 	page.free()
-
 
 # --- closing -------------------------------------------------------------------------------
 
@@ -179,7 +173,10 @@ func test_pressing_it_hands_over_a_row_per_crop_that_worked_out() -> void:
 func test_closing_the_page_says_so_once() -> void:
 	var page: YieldWindow = _page()
 	var closed: Array = []
-	page.closed.connect(func() -> void: closed.append(1))
+	page.closed.connect(
+		func() -> void:
+			closed.append(1),
+	)
 	page.request_close()
 	assert(closed.size() == 1)
 	assert(not page.visible)

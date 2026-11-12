@@ -79,7 +79,6 @@ const HEAD_BYTES := 65536
 ## that the folder listing stays readable.
 const NAME_LIMIT := 48
 
-
 # --- what kind of file is this -------------------------------------------------------
 
 
@@ -117,9 +116,7 @@ static func slug(text: String) -> String:
 	var pending_dash := false
 	for index in text.length():
 		var code := text.unicode_at(index)
-		var alnum := (
-			(code >= 97 and code <= 122) or (code >= 65 and code <= 90) or (code >= 48 and code <= 57)
-		)
+		var alnum := ((code >= 97 and code <= 122) or (code >= 65 and code <= 90) or (code >= 48 and code <= 57))
 		if alnum:
 			if pending_dash and not out.is_empty():
 				out += "-"
@@ -131,7 +128,6 @@ static func slug(text: String) -> String:
 		out = out.substr(0, NAME_LIMIT)
 	out = out.rstrip("-")
 	return out if not out.is_empty() else "picture"
-
 
 # --- reading the file ----------------------------------------------------------------
 
@@ -154,7 +150,7 @@ static func sniff(path: String) -> Dictionary:
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "format": "", "width_px": 0, "height_px": 0}
+	return { "ok": false, "reason": reason, "format": "", "width_px": 0, "height_px": 0 }
 
 
 static func _head(path: String) -> PackedByteArray:
@@ -173,18 +169,18 @@ static func _read_header(bytes: PackedByteArray) -> Dictionary:
 	if _matches(bytes, 0, [0x89, 0x50, 0x4E, 0x47]):
 		# PNG: the IHDR chunk is always first, so the size is at a fixed offset.
 		if bytes.size() < 24 or not _matches(bytes, 12, [0x49, 0x48, 0x44, 0x52]):
-			return {}
+			return { }
 		return _size("PNG", _u32_be(bytes, 16), _u32_be(bytes, 20))
 	if _matches(bytes, 0, [0xFF, 0xD8]):
 		return _jpeg_size(bytes)
 	if _matches(bytes, 0, [0x42, 0x4D]):
 		# BMP: a signed height here means the rows run top-down; the size is the height either way.
 		if bytes.size() < 26:
-			return {}
+			return { }
 		return _size("BMP", _i32_le(bytes, 18), absi(_i32_le(bytes, 22)))
 	if _matches(bytes, 0, [0x52, 0x49, 0x46, 0x46]) and _matches(bytes, 8, [0x57, 0x45, 0x42, 0x50]):
 		return _webp_size(bytes)
-	return {}
+	return { }
 
 
 ## JPEG is the one format here with no fixed offset for the size: the header is a chain of
@@ -193,7 +189,7 @@ static func _jpeg_size(bytes: PackedByteArray) -> Dictionary:
 	var at := 2
 	while at + 8 < bytes.size():
 		if bytes[at] != 0xFF:
-			return {}
+			return { }
 		var marker := bytes[at + 1]
 		# A marker with no body of its own, so the next marker follows immediately.
 		if marker == 0x01 or (marker >= 0xD0 and marker <= 0xD7):
@@ -201,24 +197,21 @@ static func _jpeg_size(bytes: PackedByteArray) -> Dictionary:
 			continue
 		var length := _u16_be(bytes, at + 2)
 		if length < 2:
-			return {}
+			return { }
 		# SOF0 through SOF15, minus the three in that range that are not frame headers: DHT, JPG
 		# and DAC. This is the segment that states the picture's size.
-		var frame_header := (
-			marker >= 0xC0 and marker <= 0xCF
-			and marker != 0xC4 and marker != 0xC8 and marker != 0xCC
-		)
+		var frame_header := (marker >= 0xC0 and marker <= 0xCF and marker != 0xC4 and marker != 0xC8 and marker != 0xCC)
 		if frame_header:
 			return _size("JPEG", _u16_be(bytes, at + 7), _u16_be(bytes, at + 5))
 		at += 2 + length
-	return {}
+	return { }
 
 
 ## WebP has three shapes, and older files use the older two: a lossy frame, a lossless frame, and
 ## the extended container that can hold either.
 static func _webp_size(bytes: PackedByteArray) -> Dictionary:
 	if bytes.size() < 30:
-		return {}
+		return { }
 	if _matches(bytes, 12, [0x56, 0x50, 0x38, 0x58]):
 		# VP8X: the canvas size is stored as one less than it is, in 24 bits.
 		return _size("WebP", _u24_le(bytes, 24) + 1, _u24_le(bytes, 27) + 1)
@@ -229,18 +222,15 @@ static func _webp_size(bytes: PackedByteArray) -> Dictionary:
 	if _matches(bytes, 12, [0x56, 0x50, 0x38, 0x20]):
 		# VP8 (lossy): fourteen bits each, below the frame tag and the start code.
 		if not _matches(bytes, 23, [0x9D, 0x01, 0x2A]):
-			return {}
+			return { }
 		return _size("WebP", _u16_le(bytes, 26) & 0x3FFF, _u16_le(bytes, 28) & 0x3FFF)
-	return {}
+	return { }
 
 
 static func _size(format: String, width_px: int, height_px: int) -> Dictionary:
 	if width_px <= 0 or height_px <= 0:
-		return {}
-	return {
-		"ok": true, "reason": "", "format": format,
-		"width_px": width_px, "height_px": height_px,
-	}
+		return { }
+	return { "ok": true, "reason": "", "format": format, "width_px": width_px, "height_px": height_px }
 
 
 static func _matches(bytes: PackedByteArray, at: int, signature: Array) -> bool:
@@ -318,7 +308,6 @@ static func texture_of(path: String) -> ImageTexture:
 		return null
 	return ImageTexture.create_from_image(image)
 
-
 # --- taking one on -------------------------------------------------------------------
 
 
@@ -327,7 +316,7 @@ static func texture_of(path: String) -> ImageTexture:
 ## given, and what `sniff` read. A file that is not a picture is refused **before** anything is
 ## copied, so a folder of tracing aids cannot collect files the app cannot draw.
 static func keep(source: String, wanted_name: String = "") -> Dictionary:
-	var empty := {"ok": false, "reason": "", "path": "", "name": "", "info": {}}
+	var empty := { "ok": false, "reason": "", "path": "", "name": "", "info": { } }
 	var info := sniff(source)
 	if not bool(info.get("ok", false)):
 		empty["reason"] = String(info.get("reason", ""))
@@ -343,7 +332,7 @@ static func keep(source: String, wanted_name: String = "") -> Dictionary:
 		empty["reason"] = "%s could not be copied into the drawing's own folder" % source.get_file()
 		empty["info"] = info
 		return empty
-	return {"ok": true, "reason": "", "path": target, "name": base, "info": info}
+	return { "ok": true, "reason": "", "path": target, "name": base, "info": info }
 
 
 ## A path in the drawing's folder that is not taken yet, so keeping two scans of the same room
@@ -361,24 +350,23 @@ static func _free_path(base: String, extension: String) -> String:
 ## The whole act: copy the picture in and build the record the drawing keeps. `at` is the centre
 ## on the ground, in world XZ metres, and `width_m` is how wide across the ground it lies.
 ## Returns `{ok, reason, record}`.
-static func place(source: String, width_m: float, at: Vector2 = Vector2.ZERO,
-		wanted_name: String = "") -> Dictionary:
+static func place(source: String, width_m: float, at: Vector2 = Vector2.ZERO, wanted_name: String = "") -> Dictionary:
 	var kept := keep(source, wanted_name)
 	if not bool(kept.get("ok", false)):
-		return {"ok": false, "reason": String(kept.get("reason", "")), "record": {}}
+		return { "ok": false, "reason": String(kept.get("reason", "")), "record": { } }
 	var record := from_kept(kept, width_m, at)
 	if record.is_empty():
-		return {"ok": false, "reason": "a picture has to be more than nothing across", "record": {}}
-	return {"ok": true, "reason": "", "record": record}
+		return { "ok": false, "reason": "a picture has to be more than nothing across", "record": { } }
+	return { "ok": true, "reason": "", "record": record }
 
 
 ## The record for a picture already kept. Returns an empty Dictionary when the width says nothing,
 ## which is the one number the record cannot invent: every other field is a fact about the file or
 ## a presentation choice, and this one is how big the site is.
 static func from_kept(kept: Dictionary, width_m: float, at: Vector2 = Vector2.ZERO) -> Dictionary:
-	var info: Dictionary = kept.get("info", {})
+	var info: Dictionary = kept.get("info", { })
 	if not bool(kept.get("ok", false)) or not is_finite(width_m) or width_m <= 0.0:
-		return {}
+		return { }
 	return {
 		"id": 0,
 		"name": String(kept.get("name", "picture")),
@@ -420,7 +408,6 @@ static func forget_all() -> int:
 		if DirAccess.remove_absolute(path) == OK:
 			removed += 1
 	return removed
-
 
 # --- what the record is worth ---------------------------------------------------------
 
@@ -483,7 +470,6 @@ static func contains(record: Dictionary, point: Vector2) -> bool:
 	var local := (point - centre_of(record)).rotated(-turn)
 	return absf(local.x) <= half_width and absf(local.y) <= half_height
 
-
 # --- changing one --------------------------------------------------------------------
 
 
@@ -529,7 +515,6 @@ static func move_by(record: Dictionary, dx: float, dz: float) -> bool:
 static func set_visible(record: Dictionary, on: bool) -> void:
 	record["visible"] = on
 
-
 # --- saying what it is ---------------------------------------------------------------
 
 
@@ -563,7 +548,8 @@ static func describe(record: Dictionary, units: UnitsScript = null) -> String:
 	if record.is_empty():
 		return "no picture"
 	var pieces: Array[String] = [
-		"%s, %s across" % [String(record.get("name", "picture")), words.format_length(float(record.get("width_m", 0.0)))],
+		"%s, %s across"
+		% [String(record.get("name", "picture")), words.format_length(float(record.get("width_m", 0.0)))],
 	]
 	var turn := float(record.get("rotation_deg", 0.0))
 	if not is_zero_approx(turn):
@@ -582,12 +568,15 @@ static func report_lines(record: Dictionary) -> Array[String]:
 	if record.is_empty():
 		lines.append("no picture has been read")
 		return lines
-	lines.append("%s - %s, %d x %d pixels" % [
-		String(record.get("name", "picture")),
-		String(record.get("format", "?")),
-		int(record.get("width_px", 0)),
-		int(record.get("height_px", 0)),
-	])
+	lines.append(
+		"%s - %s, %d x %d pixels"
+		% [
+			String(record.get("name", "picture")),
+			String(record.get("format", "?")),
+			int(record.get("width_px", 0)),
+			int(record.get("height_px", 0)),
+		]
+	)
 	lines.append("copied into the drawing's own folder as %s" % String(record.get("path", "")))
 	var problem := describe_problem(record)
 	lines.append(problem if not problem.is_empty() else "ready to go under the drawing")

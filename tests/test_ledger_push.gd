@@ -15,31 +15,37 @@ const KEY := "file:invoice:INV1:INV-2026-0001@CAD 500.00"
 
 
 func _request() -> Dictionary:
-	var headers: Dictionary = {LedgerScript.KEY_HEADER: KEY}
+	var headers: Dictionary = { LedgerScript.KEY_HEADER: KEY }
 	return {
 		"method": "POST",
 		"url": "https://example.test/invoices",
 		"headers": headers,
-		"body": {"kind": "invoice", "number": "INV-2026-0001"},
+		"body": { "kind": "invoice", "number": "INV-2026-0001" },
 	}
 
 
 func _push() -> PushScript:
-	return PushScript.for_document("file", LedgerScript.INVOICE_KIND, "INV1", "INV-2026-0001",
-		KEY, _request(), "2026-06-01")
+	return PushScript.for_document(
+		"file",
+		LedgerScript.INVOICE_KIND,
+		"INV1",
+		"INV-2026-0001",
+		KEY,
+		_request(),
+		"2026-06-01",
+	)
 
 
 func _took_it() -> Dictionary:
-	return {"ok": true, "retry": false, "reason": "", "external_id": "42", "external_number": "INV-2026-0001"}
+	return { "ok": true, "retry": false, "reason": "", "external_id": "42", "external_number": "INV-2026-0001" }
 
 
 func _refused() -> Dictionary:
-	return {"ok": false, "retry": false, "reason": "401 unauthorized: check the API token"}
+	return { "ok": false, "retry": false, "reason": "401 unauthorized: check the API token" }
 
 
 func _busy() -> Dictionary:
-	return {"ok": false, "retry": true, "reason": "503 the ledger had a server error; try again"}
-
+	return { "ok": false, "retry": true, "reason": "503 the ledger had a server error; try again" }
 
 # --- queueing it --------------------------------------------------------------------------------
 
@@ -64,20 +70,26 @@ func test_the_request_is_stored_rather_than_rebuilt() -> void:
 	# A retry must send what the first attempt sent: a rebuilt body could carry a document that moved
 	# under it, and the idempotency key would then de-duplicate the wrong thing (AC-B15).
 	var source: Dictionary = _request()
-	var push: PushScript = PushScript.for_document("file", LedgerScript.INVOICE_KIND, "INV1",
-		"INV-2026-0001", KEY, source, "2026-06-01")
+	var push: PushScript = PushScript.for_document(
+		"file",
+		LedgerScript.INVOICE_KIND,
+		"INV1",
+		"INV-2026-0001",
+		KEY,
+		source,
+		"2026-06-01",
+	)
 	source["url"] = "https://somewhere.else"
 	source["body"]["number"] = "MOVED"
 	assert(String(push.request["url"]) == "https://example.test/invoices")
 	assert(String(push.request["body"]["number"]) == "INV-2026-0001")
-
 
 # --- what came of it ----------------------------------------------------------------------------
 
 
 func test_a_ledger_that_took_the_document_records_where_it_went() -> void:
 	var push := _push()
-	assert(push.record_response({"status": 201, "body": {"id": "42"}}, _took_it(), "2026-06-01"))
+	assert(push.record_response({ "status": 201, "body": { "id": "42" } }, _took_it(), "2026-06-01"))
 	assert(push.is_pushed())
 	assert(push.state() == PushScript.PUSHED)
 	assert(push.state_name() == "pushed")
@@ -92,13 +104,13 @@ func test_a_ledger_that_took_the_document_records_where_it_went() -> void:
 
 func test_a_refusal_makes_it_failed_and_a_busy_server_leaves_it_queued() -> void:
 	var refused := _push()
-	assert(not refused.record_response({"status": 401, "body": {}}, _refused(), "2026-06-02"))
+	assert(not refused.record_response({ "status": 401, "body": { } }, _refused(), "2026-06-02"))
 	assert(refused.state() == PushScript.FAILED)
 	assert(refused.needs_a_person(), "a refused push is somebody's to fix, not the queue's to re-send")
 	assert(not refused.can_retry())
 	assert(refused.failure.contains("401 unauthorized"), refused.failure)
 	var busy := _push()
-	assert(not busy.record_response({"status": 503, "error": "connection reset", "body": {}}, _busy(), "2026-06-02"))
+	assert(not busy.record_response({ "status": 503, "error": "connection reset", "body": { } }, _busy(), "2026-06-02"))
 	# A server that was busy is not a document that is wrong: this one goes again by itself.
 	assert(busy.state() == PushScript.QUEUED)
 	assert(busy.can_retry())
@@ -109,16 +121,15 @@ func test_a_refusal_makes_it_failed_and_a_busy_server_leaves_it_queued() -> void
 func test_a_push_that_keeps_failing_stops_retrying_and_asks_for_a_person() -> void:
 	var push := _push()
 	for step in range(PushScript.MAX_ATTEMPTS - 1):
-		push.record_response({"status": 503, "body": {}}, _busy(), "2026-06-0%d" % (step + 2))
+		push.record_response({ "status": 503, "body": { } }, _busy(), "2026-06-0%d" % (step + 2))
 	assert(push.state() == PushScript.QUEUED, "still worth one more try")
 	assert(push.can_retry())
-	push.record_response({"status": 503, "body": {}}, _busy(), "2026-06-09")
+	push.record_response({ "status": 503, "body": { } }, _busy(), "2026-06-09")
 	assert(push.attempt_count() == PushScript.MAX_ATTEMPTS)
 	# "Try again" has stopped being advice by now, so the office is told instead of re-sent.
 	assert(push.state() == PushScript.FAILED)
 	assert(push.needs_a_person())
 	assert(not push.can_retry())
-
 
 # --- soundness ----------------------------------------------------------------------------------
 
@@ -128,8 +139,15 @@ func test_a_push_with_nothing_to_send_is_not_sound() -> void:
 	var problems: Array[String] = empty.problems()
 	assert(problems.size() == 5, str(problems))
 	assert(not empty.is_sound())
-	var nowhere: PushScript = PushScript.for_document("file", LedgerScript.INVOICE_KIND, "INV1",
-		"INV-2026-0001", KEY, {"method": "POST", "url": "", "headers": {}, "body": {}}, "2026-06-01")
+	var nowhere: PushScript = PushScript.for_document(
+		"file",
+		LedgerScript.INVOICE_KIND,
+		"INV1",
+		"INV-2026-0001",
+		KEY,
+		{ "method": "POST", "url": "", "headers": { }, "body": { } },
+		"2026-06-01",
+	)
 	assert(nowhere.problems().size() == 1, str(nowhere.problems()))
 	assert(nowhere.problems()[0].contains("goes nowhere"), nowhere.problems()[0])
 
@@ -137,10 +155,9 @@ func test_a_push_with_nothing_to_send_is_not_sound() -> void:
 func test_a_record_with_no_key_is_dropped_rather_than_invented() -> void:
 	# The key is this record's identity, so a push without one cannot be de-duplicated and must not be
 	# queued at all.
-	assert(PushScript.from_dict({}) == null)
-	assert(PushScript.from_dict({"key": "   "}) == null)
-	assert(PushScript.from_dict({"adapter": "file", "document_id": "INV1"}) == null)
-
+	assert(PushScript.from_dict({ }) == null)
+	assert(PushScript.from_dict({ "key": "   " }) == null)
+	assert(PushScript.from_dict({ "adapter": "file", "document_id": "INV1" }) == null)
 
 # --- the state is a function of the records ------------------------------------------------------
 
@@ -160,7 +177,7 @@ func test_the_state_is_a_function_of_the_records_and_not_a_field() -> void:
 
 func test_a_push_survives_the_file_with_its_request_and_what_it_learned() -> void:
 	var push := _push()
-	push.record_response({"status": 503, "error": "connection reset", "body": {}}, _busy(), "2026-06-02")
+	push.record_response({ "status": 503, "error": "connection reset", "body": { } }, _busy(), "2026-06-02")
 	var back: PushScript = PushScript.from_dict(push.to_dict())
 	assert(back != null)
 	assert(back.key == KEY)
@@ -178,8 +195,18 @@ func test_a_push_survives_the_file_with_its_request_and_what_it_learned() -> voi
 func test_describe_reads_as_a_push() -> void:
 	var push := _push()
 	assert(push.describe() == "queued, invoice to file, INV-2026-0001", push.describe())
-	push.record_response({"status": 401, "body": {}}, _refused(), "2026-06-02")
-	assert(push.describe() == "failed, invoice to file, INV-2026-0001, try 1 of 5, 401 unauthorized: check the API token", push.describe())
-	var credit: PushScript = PushScript.for_document("file", LedgerScript.CREDIT_KIND, "CN1",
-		"CN-2026-0001", "k", _request(), "2026-06-01")
+	push.record_response({ "status": 401, "body": { } }, _refused(), "2026-06-02")
+	assert(
+		push.describe() == "failed, invoice to file, INV-2026-0001, try 1 of 5, 401 unauthorized: check the API token",
+		push.describe(),
+	)
+	var credit: PushScript = PushScript.for_document(
+		"file",
+		LedgerScript.CREDIT_KIND,
+		"CN1",
+		"CN-2026-0001",
+		"k",
+		_request(),
+		"2026-06-01",
+	)
 	assert(credit.describe() == "queued, credit note to file, CN-2026-0001", credit.describe())

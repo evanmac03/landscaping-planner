@@ -143,9 +143,7 @@ static func column(page: Window, separation: int = 8, inset: Vector2 = Vector2.Z
 ## `ScrollContainer` positions the child it holds and would overwrite an offset written on it. `PageLayout`
 ## reads the padding off whichever of the two is the page's own child, so the size a page declares for
 ## itself still has to hold the words *and* the space around them.
-static func scrolling_column(
-	page: Window, separation: int = 8, inset: Vector2 = Vector2.ZERO
-) -> VBoxContainer:
+static func scrolling_column(page: Window, separation: int = 8, inset: Vector2 = Vector2.ZERO) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = SCROLL_NAME
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -252,7 +250,6 @@ static func button_row() -> HBoxContainer:
 	row.alignment = BoxContainer.ALIGNMENT_END
 	return row
 
-
 # --- putting a page on the screen ------------------------------------------------------------------
 
 
@@ -308,10 +305,7 @@ static func content_room(page: Window) -> Vector2i:
 	if room.x <= 0 or room.y <= 0:
 		return room
 	var insets: Vector4i = PhoneHud.cutout_here(room)
-	return Vector2i(
-		room.x - insets.x - insets.z,
-		room.y - chrome_above(page) - insets.y - insets.w,
-	)
+	return Vector2i(room.x - insets.x - insets.z, room.y - chrome_above(page) - insets.y - insets.w)
 
 
 ## Put a page on the screen: centred, with everything it asked for kept inside the room it lands in.
@@ -566,8 +560,7 @@ static func size_for_a_finger(page: Window) -> int:
 	var drawn_at: float = PhoneHud.canvas_scale(page)
 	var density: float = PhoneHud.dpi()
 	return (
-		size_buttons_for_a_finger(page, drawn_at, density)
-		+ size_the_words_for_a_finger(page, drawn_at, density)
+		size_buttons_for_a_finger(page, drawn_at, density) + size_the_words_for_a_finger(page, drawn_at, density)
 		+ inset_the_contents_for_a_finger(page, drawn_at, density)
 	)
 
@@ -595,8 +588,7 @@ static func size_the_words_for_a_finger(page: Window, drawn_at: float, density: 
 		if line != null and PhoneHud.size_its_words_for_a_finger(line, drawn_at, density):
 			measured += 1
 	return (
-		measured
-		+ _size_the_menus_for_a_finger(page, drawn_at, density)
+		measured + _size_the_menus_for_a_finger(page, drawn_at, density)
 		+ _size_the_title_bar_for_a_finger(page, drawn_at, density)
 	)
 
@@ -682,9 +674,7 @@ static func _size_the_title_bar_for_a_finger(page: Window, drawn_at: float, dens
 		return 0
 	var was_bar: int = maxi(page.get_theme_constant(&"title_height", &"Window"), 0)
 	page.add_theme_font_size_override(&"title_font_size", size)
-	page.add_theme_constant_override(
-		&"title_height", PhoneHud.grown_for_a_finger(was_bar, was, size)
-	)
+	page.add_theme_constant_override(&"title_height", PhoneHud.grown_for_a_finger(was_bar, was, size))
 	return 1
 
 

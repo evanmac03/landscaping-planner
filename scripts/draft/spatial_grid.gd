@@ -20,8 +20,8 @@ const MAX_BUCKETS_PER_ENTITY := 64
 
 var cell_size: float = DEFAULT_CELL_SIZE
 
-var _buckets: Dictionary[Vector2i, PackedInt32Array] = {}   # Vector2i -> PackedInt32Array
-var _boxes: Dictionary[int, Rect2] = {}                     # id -> Rect2
+var _buckets: Dictionary[Vector2i, PackedInt32Array] = { } # Vector2i -> PackedInt32Array
+var _boxes: Dictionary[int, Rect2] = { } # id -> Rect2
 var _overflow: PackedInt32Array = PackedInt32Array()
 
 
@@ -72,7 +72,7 @@ func remove(id: int) -> void:
 
 ## Ids whose stored box overlaps `box`.
 func query(box: Rect2) -> PackedInt32Array:
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for cell: Vector2i in cells_for(box):
 		if not _buckets.has(cell):
 			continue

@@ -16,7 +16,7 @@ func _present_entry(id: String) -> Dictionary:
 	for entry: Dictionary in HudScript.items_for("Present"):
 		if String(entry.get("id", "")) == id:
 			return entry
-	return {}
+	return { }
 
 
 func test_the_present_menu_offers_a_walk_through() -> void:
@@ -58,7 +58,9 @@ func test_the_page_has_no_walk_until_a_presentation_is_bound() -> void:
 	hud._fill_walk_window()
 	# The HUD built off-tree holds no presentation node, so the page honestly has no garden to walk.
 	assert(hud._walk_window.stop_rows().is_empty(), "no presenter, no route")
-	assert(hud._walk_window.summary_text().contains("no walk-through"),
-		"and it says so: %s" % hud._walk_window.summary_text())
+	assert(
+		hud._walk_window.summary_text().contains("no walk-through"),
+		"and it says so: %s" % hud._walk_window.summary_text(),
+	)
 	assert(hud._walk_window.play_button().disabled, "with nothing to walk")
 	hud.free()

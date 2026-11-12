@@ -21,9 +21,7 @@ const TRANSFORMER_VOLTS := 12.0
 
 ## A square area of `metres` a side with its corner at the origin.
 func _square(metres: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres),
-	])
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres)])
 
 
 func _transformer(va: float = TRANSFORMER_VA, volts: float = TRANSFORMER_VOLTS) -> Dictionary:
@@ -41,7 +39,6 @@ func _circuit_of(count: int, kind: String) -> Dictionary:
 func _reasons(result: Dictionary) -> Array:
 	return result["reasons"]
 
-
 # --- the fixture table --------------------------------------------------------------
 
 
@@ -56,8 +53,10 @@ func test_every_kind_is_named_and_carries_its_numbers() -> void:
 		assert(LightingScript.volts_of_kind(kind) > 0.0, "%s has a voltage" % kind)
 		assert(LightingScript.throw_of_kind(kind) > 0.0, "%s throws somewhere" % kind)
 		assert(LightingScript.spread_of_kind(kind) > 0.0, "%s has a beam" % kind)
-		assert(LightingScript.kind_for_name(LightingScript.kind_name(kind)) == kind,
-			"the name a drop-down shows turns back into %s" % kind)
+		assert(
+			LightingScript.kind_for_name(LightingScript.kind_name(kind)) == kind,
+			"the name a drop-down shows turns back into %s" % kind,
+		)
 
 
 func test_a_kind_nobody_has_is_refused_rather_than_guessed() -> void:
@@ -78,34 +77,35 @@ func test_the_layer_comes_from_the_layer_set() -> void:
 	assert(LightingScript.layer() == LayerSet.LIGHTING, "fixtures live on the lighting layer")
 	assert(String(LightingScript.layer()) == "501-LIGHTING", "and it is 501")
 
-
 # --- the transformer -----------------------------------------------------------------
 
 
 func test_a_transformer_that_is_not_stated_is_not_a_transformer() -> void:
-	assert(not LightingScript.has_transformer({}), "no dictionary is no transformer")
-	assert(not LightingScript.has_transformer(LightingScript.make_transformer(0.0, 12.0)),
-		"no capacity is no transformer")
-	assert(not LightingScript.has_transformer(LightingScript.make_transformer(100.0, 0.0)),
-		"no voltage is no transformer")
+	assert(not LightingScript.has_transformer({ }), "no dictionary is no transformer")
+	assert(
+		not LightingScript.has_transformer(LightingScript.make_transformer(0.0, 12.0)),
+		"no capacity is no transformer",
+	)
+	assert(
+		not LightingScript.has_transformer(LightingScript.make_transformer(100.0, 0.0)),
+		"no voltage is no transformer",
+	)
 	assert(LightingScript.has_transformer(_transformer()), "a stated one is a transformer")
-	assert(LightingScript.transformer_words({}) == "no transformer stated", "and says so")
-	assert(LightingScript.transformer_words(_transformer()).contains("100 VA at 12 V"),
-		"a stated one reads as itself")
+	assert(LightingScript.transformer_words({ }) == "no transformer stated", "and says so")
+	assert(LightingScript.transformer_words(_transformer()).contains("100 VA at 12 V"), "a stated one reads as itself")
 
 
 func test_the_budget_is_how_many_of_a_kind_fit() -> void:
 	assert(LightingScript.power_budget(_transformer(), LightingScript.FLOOD) == 8, "100 / 12 = 8")
 	assert(LightingScript.power_budget(_transformer(), LightingScript.PATH) == 25, "100 / 4 = 25")
 	assert(LightingScript.power_budget(_transformer(), LightingScript.LANTERN) == 1, "100 / 60 = 1")
-	assert(LightingScript.power_budget({}, LightingScript.FLOOD) == 0, "no transformer, no budget")
-
+	assert(LightingScript.power_budget({ }, LightingScript.FLOOD) == 0, "no transformer, no budget")
 
 # --- what a fixture reaches -----------------------------------------------------------
 
 
 func test_a_full_circle_fixture_reaches_its_throw_in_every_direction() -> void:
-	var fixture := {"kind": LightingScript.PATH, "at": Vector2.ZERO, "heading": 0.0, "spread": 0.0}
+	var fixture := { "kind": LightingScript.PATH, "at": Vector2.ZERO, "heading": 0.0, "spread": 0.0 }
 	assert(LightingScript.reaches(fixture, Vector2(2.4, 0.0)), "inside the throw")
 	assert(LightingScript.reaches(fixture, Vector2(0.0, -2.4)), "and the other way")
 	assert(not LightingScript.reaches(fixture, Vector2(2.6, 0.0)), "beyond the throw, no")
@@ -113,7 +113,7 @@ func test_a_full_circle_fixture_reaches_its_throw_in_every_direction() -> void:
 
 func test_a_half_beam_fixture_lights_only_its_own_half() -> void:
 	# A step light throws 1.5 m over a half circle; aimed along +x it lights +x and not -x.
-	var fixture := {"kind": LightingScript.STEP, "at": Vector2.ZERO, "heading": 0.0, "spread": 0.0}
+	var fixture := { "kind": LightingScript.STEP, "at": Vector2.ZERO, "heading": 0.0, "spread": 0.0 }
 	assert(LightingScript.reaches(fixture, Vector2(1.0, 0.0)), "in front is lit")
 	assert(not LightingScript.reaches(fixture, Vector2(-1.0, 0.0)), "behind is dark")
 	assert(LightingScript.reaches(fixture, Vector2(0.0, 1.0)), "on the edge counts as lit")
@@ -124,7 +124,6 @@ func test_a_beam_as_a_person_says_it() -> void:
 	assert(LightingScript.beam_words(90.0) == "a wide beam", "90 is wide")
 	assert(LightingScript.beam_words(180.0) == "a half circle", "180 is a half")
 	assert(LightingScript.beam_words(360.0) == "a full circle", "360 is full")
-
 
 # --- the load check -----------------------------------------------------------------
 
@@ -137,9 +136,9 @@ func test_the_load_is_the_sum_of_the_fixtures() -> void:
 
 func test_a_circuit_with_no_transformer_is_refused_and_never_sound() -> void:
 	var circuit := _circuit_of(2, LightingScript.PATH)
-	var result := LightingScript.check(circuit, {})
+	var result := LightingScript.check(circuit, { })
 	assert(not bool(result["ok"]), "not sound")
-	assert(not LightingScript.sound(circuit, {}), "sound() agrees")
+	assert(not LightingScript.sound(circuit, { }), "sound() agrees")
 	assert(String(_reasons(result)[0]).contains("transformer"), "and names the transformer")
 
 
@@ -190,7 +189,6 @@ func test_a_fixture_outside_the_area_is_refused() -> void:
 	assert(not bool(result["ok"]), "a fixture off its own area is refused")
 	assert(" ".join(_reasons(result)).contains("outside"), "and says so")
 
-
 # --- laying fixtures out --------------------------------------------------------------
 
 
@@ -216,8 +214,10 @@ func test_laying_a_circuit_out_again_replaces_its_fixtures() -> void:
 	LightingScript.set_area(circuit, _square(9.0))
 	LightingScript.lay_out(circuit)
 	LightingScript.lay_out(circuit, LightingScript.WELL, 4.5)
-	assert(LightingScript.fixture_count(circuit) == 9, "the second layout is the only one: %d"
-		% LightingScript.fixture_count(circuit))
+	assert(
+		LightingScript.fixture_count(circuit) == 9,
+		"the second layout is the only one: %d" % LightingScript.fixture_count(circuit),
+	)
 
 
 func test_a_triangular_layout_sets_fewer_fixtures() -> void:
@@ -227,7 +227,12 @@ func test_a_triangular_layout_sets_fewer_fixtures() -> void:
 	LightingScript.lay_out(square, LightingScript.UPLIGHT, LightingScript.spacing_for(LightingScript.UPLIGHT, false))
 	var staggered := LightingScript.make_circuit(2, LightingScript.UPLIGHT)
 	LightingScript.set_area(staggered, wide)
-	LightingScript.lay_out(staggered, LightingScript.UPLIGHT, LightingScript.spacing_for(LightingScript.UPLIGHT, true), true)
+	LightingScript.lay_out(
+		staggered,
+		LightingScript.UPLIGHT,
+		LightingScript.spacing_for(LightingScript.UPLIGHT, true),
+		true,
+	)
 	var square_count := LightingScript.fixture_count(square)
 	var staggered_count := LightingScript.fixture_count(staggered)
 	assert(staggered_count < square_count, "staggered sets fewer: %d < %d" % [staggered_count, square_count])
@@ -249,7 +254,6 @@ func test_an_outline_that_is_not_an_area_is_refused_in_words() -> void:
 	var report := LightingScript.lay_out(circuit)
 	assert(not bool(report["ok"]), "two points are not an area")
 	assert(not String(report["reason"]).is_empty(), "and it says why")
-
 
 # --- cover --------------------------------------------------------------------------
 
@@ -282,7 +286,6 @@ func test_cover_needs_an_area() -> void:
 	assert(not bool(lit["ok"]), "no area, no cover")
 	assert(String(lit["reason"]).contains("area"), "and it says so")
 
-
 # --- the plan and the file ------------------------------------------------------------
 
 
@@ -292,8 +295,7 @@ func test_a_fixture_is_drawn_at_a_paper_size() -> void:
 	var entity := LightingScript.fixture_entity(fixture, 3, 100.0)
 	assert(entity != null, "a fixture makes an entity")
 	assert(entity.layer == LayerSet.LIGHTING, "on the lighting layer")
-	assert(is_equal_approx(entity.params[2], 0.3),
-		"3 mm of paper at 1:100 is 0.3 m: %f" % entity.params[2])
+	assert(is_equal_approx(entity.params[2], 0.3), "3 mm of paper at 1:100 is 0.3 m: %f" % entity.params[2])
 	var big := LightingScript.fixture_entity(fixture, 3, 200.0)
 	assert(is_equal_approx(big.params[2], 0.6), "and 0.6 m at 1:200")
 	assert(LightingScript.is_fixture_entity(entity), "and it is recognised")
@@ -317,41 +319,49 @@ func test_a_circuit_round_trips_through_the_file() -> void:
 	assert(back.size() == 1, "one circuit came back")
 	assert(int(back[0]["number"]) == 2, "its number survived")
 	assert(int(back[0]["tap"]) == 1, "its tap survived")
-	assert(LightingScript.fixture_count(back[0]) == LightingScript.fixture_count(circuit),
-		"every fixture came back")
+	assert(LightingScript.fixture_count(back[0]) == LightingScript.fixture_count(circuit), "every fixture came back")
 
 
 func test_a_record_that_is_not_a_circuit_is_dropped() -> void:
-	var data := {"circuits": [
-		{"number": 1, "kind": "path", "fixtures": []},
-		{"kind": "path"},                       # no number
-		{"number": 2, "kind": "chandelier"},    # not a kind
-		"nonsense",
-	]}
+	var data := {
+		"circuits": [
+			{ "number": 1, "kind": "path", "fixtures": [] },
+			{ "kind": "path" }, # no number
+			{ "number": 2, "kind": "chandelier" }, # not a kind
+			"nonsense",
+		]
+	}
 	var back := LightingScript.from_dict(data)
 	assert(back.size() == 1, "only the sound record survives: %d" % back.size())
 	assert(int(back[0]["number"]) == 1, "and it is the one that was sound")
 
 
 func test_a_damaged_fixture_is_dropped_without_losing_its_circuit() -> void:
-	var data := {"circuits": [
-		{"number": 1, "kind": "path", "fixtures": [
-			{"kind": "path", "at": [1.0, 2.0]},
-			{"kind": "path"},                    # no position
-			{"kind": "chandelier", "at": [3.0, 4.0]},  # not a kind
-			{"kind": "path", "at": [5.0, 6.0]},
-		]},
-	]}
+	var data := {
+		"circuits": [
+			{
+				"number": 1,
+				"kind": "path",
+				"fixtures": [
+					{ "kind": "path", "at": [1.0, 2.0] },
+					{ "kind": "path" }, # no position
+					{ "kind": "chandelier", "at": [3.0, 4.0] }, # not a kind
+					{ "kind": "path", "at": [5.0, 6.0] },
+				],
+			},
+		]
+	}
 	var back := LightingScript.from_dict(data)
 	assert(back.size() == 1, "the circuit is kept")
-	assert(LightingScript.fixture_count(back[0]) == 2, "with its two sound fixtures: %d"
-		% LightingScript.fixture_count(back[0]))
+	assert(
+		LightingScript.fixture_count(back[0]) == 2,
+		"with its two sound fixtures: %d" % LightingScript.fixture_count(back[0]),
+	)
 
 
 func test_a_file_that_is_not_a_file_reads_as_no_circuits() -> void:
-	assert(LightingScript.from_dict({}).is_empty(), "nothing there is nothing")
-	assert(LightingScript.from_dict({"circuits": "nonsense"}).is_empty(), "and rubbish is nothing")
-
+	assert(LightingScript.from_dict({ }).is_empty(), "nothing there is nothing")
+	assert(LightingScript.from_dict({ "circuits": "nonsense" }).is_empty(), "and rubbish is nothing")
 
 # --- the schedule ---------------------------------------------------------------------
 
@@ -376,14 +386,20 @@ func test_an_area_is_written_in_the_drawings_own_units() -> void:
 	var imperial := DraftUnits.new()
 	imperial.system = DraftUnits.System.IMPERIAL
 	var row := LightingScript.schedule([circuit], _transformer(), imperial)[0]
-	assert(String(row["area_text"]).ends_with(" ft2"), "an imperial drawing says square feet: %s"
-		% String(row["area_text"]))
-	assert(LightingScript.schedule_row_words(row).contains("ft2"),
-		"and the row a sheet carries says so too: %s" % LightingScript.schedule_row_words(row))
+	assert(
+		String(row["area_text"]).ends_with(" ft2"),
+		"an imperial drawing says square feet: %s" % String(row["area_text"]),
+	)
+	assert(
+		LightingScript.schedule_row_words(row).contains("ft2"),
+		"and the row a sheet carries says so too: %s" % LightingScript.schedule_row_words(row),
+	)
 	# Handed nothing - a panel row built by hand - the words are the metre default.
 	var metric := LightingScript.schedule([circuit], _transformer())[0]
-	assert(String(metric["area_text"]).ends_with(" m2"),
-		"with no drawing handed over it is metres: %s" % String(metric["area_text"]))
+	assert(
+		String(metric["area_text"]).ends_with(" m2"),
+		"with no drawing handed over it is metres: %s" % String(metric["area_text"]),
+	)
 
 
 func test_the_verdict_reads_as_one_line() -> void:

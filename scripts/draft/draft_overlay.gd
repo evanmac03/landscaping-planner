@@ -105,7 +105,7 @@ func _collect_entities(entities: Array, quads: Array) -> void:
 		_collect_stroke(
 			quads,
 			DraftRenderScript.strokes(entity, layer, display_scale),
-			DraftRenderScript.screen_colour(layer)
+			DraftRenderScript.screen_colour(layer),
 		)
 
 
@@ -118,7 +118,7 @@ func _collect_stroke(quads: Array, strokes: Array, colour: Color) -> void:
 			var b: Vector2 = stroke[index + 1]
 			if (b - a).length_squared() < 1e-12:
 				continue
-			quads.append({"a": a, "b": b, "colour": colour})
+			quads.append({ "a": a, "b": b, "colour": colour })
 
 
 ## Godot raises an error for a surface with no vertices, so an empty drawing
@@ -139,14 +139,7 @@ func _add_ribbon_segment(mesh: ImmediateMesh, a: Vector2, b: Vector2, colour: Co
 	_add_quad(mesh, a - normal, a + normal, b + normal, b - normal, colour)
 
 
-func _add_quad(
-	mesh: ImmediateMesh,
-	p0: Vector2,
-	p1: Vector2,
-	p2: Vector2,
-	p3: Vector2,
-	colour: Color
-) -> void:
+func _add_quad(mesh: ImmediateMesh, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, colour: Color) -> void:
 	mesh.surface_set_color(colour)
 	mesh.surface_add_vertex(_to_world(p0))
 	mesh.surface_set_color(colour)

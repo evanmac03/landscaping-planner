@@ -37,7 +37,9 @@ func test_a_cutout_is_measured_on_every_side_of_the_screen() -> void:
 ## page moves towards the side that has more of it.
 func test_a_phone_held_sideways_gives_ground_where_the_camera_is() -> void:
 	var insets: Vector4i = PhoneHudScript.cutout_insets(
-		Vector2i(2567, 1185), Vector2i(2340, 1080), Rect2i(120, 0, 2220, 1080)
+		Vector2i(2567, 1185),
+		Vector2i(2340, 1080),
+		Rect2i(120, 0, 2220, 1080),
 	)
 	assert(insets.x == roundi(2567.0 * (120.0 / 2340.0)), "the left takes the cutout's share of the width")
 	assert(insets.z == 0, "the right takes none of it")
@@ -97,9 +99,7 @@ func test_the_device_is_asked_where_the_chrome_is_sized_and_not_in_ready() -> vo
 	hud._size_the_chrome_for_the_device()
 	assert(hud.shows_touch_controls(), "asking where the chrome is sized gets the device right")
 	# And that is the answer the foot of the screen is built from - the same switch, named as a finger's.
-	var line: String = PlannerHudScript._hints_for(
-		ViewController.ViewMode.PLAN_2D, hud.shows_touch_controls()
-	)
+	var line: String = PlannerHudScript._hints_for(ViewController.ViewMode.PLAN_2D, hud.shows_touch_controls())
 	assert(line == PlannerHudScript.HINTS_OVERHEAD_ON_A_FINGER, "so the line is a finger's: %s" % line)
 	hud.free()
 	PhoneHudScript.force_density(0.0)
@@ -147,7 +147,7 @@ func test_on_a_phone_a_row_is_what_a_thumb_needs() -> void:
 	var measured: float = PhoneHudScript.millimetres(height, PHONE_SCALE, PHONE_DPI)
 	assert(
 		is_equal_approx(measured, PhoneHudScript.TOUCH_MM),
-		"a row of %.1f px comes to %.2f mm, not %.2f" % [height, measured, PhoneHudScript.TOUCH_MM]
+		"a row of %.1f px comes to %.2f mm, not %.2f" % [height, measured, PhoneHudScript.TOUCH_MM],
 	)
 	assert(height > 29.0, "and it is taller than the row a desk was drawn with: %.1f px" % height)
 
@@ -174,15 +174,11 @@ func test_the_font_a_phone_gets_reads_a_capital_at_the_text_size() -> void:
 	_reset()
 	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
 	var size: int = PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI)
-	var capital: float = PhoneHudScript.millimetres(
-		float(size) * PhoneHudScript.CAP_RATIO, PHONE_SCALE, PHONE_DPI
-	)
+	var capital: float = PhoneHudScript.millimetres(float(size) * PhoneHudScript.CAP_RATIO, PHONE_SCALE, PHONE_DPI)
 	assert(size > 12, "bigger than the twelve-pixel text a desk gets: %d" % size)
 	assert(
 		capital >= PhoneHudScript.TEXT_MM - 0.001,
-		"a capital of %.2f mm is short of the %.2f mm it has to read at" % [
-			capital, PhoneHudScript.TEXT_MM,
-		]
+		"a capital of %.2f mm is short of the %.2f mm it has to read at" % [capital, PhoneHudScript.TEXT_MM],
 	)
 
 
@@ -197,7 +193,7 @@ func test_a_control_keeps_its_width_and_gains_the_row_and_the_text() -> void:
 	assert(button.custom_minimum_size.y > 0.0, "and the height is the thumb's")
 	assert(
 		button.get_theme_font_size("font_size") == PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI),
-		"and the text is the size a phone is told"
+		"and the text is the size a phone is told",
 	)
 	button.free()
 
@@ -212,7 +208,7 @@ func test_the_canvas_is_drawn_up_for_a_finger_and_left_alone_for_a_mouse() -> vo
 	PhoneHudScript.apply_if(window, true)
 	assert(
 		is_equal_approx(window.content_scale_factor, PhoneHudScript.UI_SCALE),
-		"a finger draws the canvas at %.2f" % window.content_scale_factor
+		"a finger draws the canvas at %.2f" % window.content_scale_factor,
 	)
 	window.free()
 
@@ -233,11 +229,11 @@ func test_a_row_of_six_edit_words_needs_two_rows_of_three_at_a_thumbs_size() -> 
 		phone.append(100.0)
 	assert(
 		PhoneHudScript.columns_that_fit(desk, 6, 368.0, 4.0, 3) == 6,
-		"a computer's six still fit the 368 px the panel leaves them"
+		"a computer's six still fit the 368 px the panel leaves them",
 	)
 	assert(
 		PhoneHudScript.columns_that_fit(phone, 6, 368.0, 4.0, 3) == 3,
-		"a phone's six do not, and three of them still do"
+		"a phone's six do not, and three of them still do",
 	)
 
 
@@ -245,7 +241,7 @@ func test_a_row_of_six_edit_words_needs_two_rows_of_three_at_a_thumbs_size() -> 
 func test_a_row_is_never_squeezed_below_the_palettes_own_column_count() -> void:
 	assert(
 		PhoneHudScript.columns_that_fit([300.0, 300.0], 6, 368.0, 4.0, 3) == 3,
-		"two cells of 300 px do not fit, and three columns is the narrowest allowed"
+		"two cells of 300 px do not fit, and three columns is the narrowest allowed",
 	)
 
 
@@ -253,11 +249,11 @@ func test_a_row_is_never_squeezed_below_the_palettes_own_column_count() -> void:
 func test_no_room_worked_out_leaves_the_row_as_it_was_built() -> void:
 	assert(
 		PhoneHudScript.columns_that_fit([100.0], 6, 0.0, 4.0, 3) == 6,
-		"a panel that has been given no room at all is not a measurement"
+		"a panel that has been given no room at all is not a measurement",
 	)
 	assert(
 		PhoneHudScript.columns_that_fit([], 6, 368.0, 4.0, 3) == 6,
-		"a row with no cells in it is not re-flowed either"
+		"a row with no cells in it is not re-flowed either",
 	)
 
 
@@ -284,12 +280,12 @@ func test_a_two_line_button_is_as_wide_as_its_longest_line() -> void:
 	var two_lines: float = PhoneHudScript.button_width(button)
 	assert(
 		is_equal_approx(one_line, two_lines),
-		"a key under the word does not widen it: %.1f against %.1f" % [two_lines, one_line]
+		"a key under the word does not widen it: %.1f against %.1f" % [two_lines, one_line],
 	)
 	button.text = "Move\nLONGKEY"
 	assert(
 		PhoneHudScript.button_width(button) > two_lines,
-		"but a key longer than the word is what the button is measured by"
+		"but a key longer than the word is what the button is measured by",
 	)
 	button.free()
 
@@ -307,7 +303,7 @@ func test_a_finger_gets_the_row_for_what_it_presses_and_a_grown_size_for_what_it
 	assert(button.custom_minimum_size.y > 29.0, "in the row a thumb needs to hit")
 	assert(
 		button.get_theme_font_size("font_size") == PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI),
-		"with its caption at the one flat size a phone is told"
+		"with its caption at the one flat size a phone is told",
 	)
 
 	assert(PhoneHudScript.fit_for_a_finger(line, PHONE_SCALE, PHONE_DPI), "a line is fitted too")
@@ -315,7 +311,7 @@ func test_a_finger_gets_the_row_for_what_it_presses_and_a_grown_size_for_what_it
 	assert(
 		line.get_theme_font_size("font_size") > legible,
 		"and a line the surface drew bigger than its body is still the bigger of the two: %d against %d"
-			% [line.get_theme_font_size("font_size"), legible]
+		% [line.get_theme_font_size("font_size"), legible],
 	)
 	button.free()
 	line.free()
@@ -346,7 +342,7 @@ func test_fitting_a_control_twice_grows_it_once() -> void:
 	assert(
 		line.get_theme_font_size("font_size") == once,
 		"a control fitted twice is left at the size it was grown to: %d, was %d"
-			% [line.get_theme_font_size("font_size"), once]
+		% [line.get_theme_font_size("font_size"), once],
 	)
 	line.free()
 
@@ -371,9 +367,8 @@ func test_a_huds_own_chrome_is_fitted_and_a_page_inside_it_is_left_to_the_page()
 	assert(toolbar.custom_minimum_size.y > 0.0, "the HUD's own button is a thumb's size")
 	assert(menu.get_theme_font_size("font_size") > 12, "and the menu's items are drawn legibly")
 	assert(
-		in_page.custom_minimum_size == Vector2.ZERO and
-			not in_page.has_theme_font_size_override("font_size"),
-		"while the button inside the page is still exactly as the page left it"
+		in_page.custom_minimum_size == Vector2.ZERO and not in_page.has_theme_font_size_override("font_size"),
+		"while the button inside the page is still exactly as the page left it",
 	)
 	hud.free()
 

@@ -64,7 +64,10 @@ const DRAINAGE_BITS := PlantSpecies.DRAINS_FAST | PlantSpecies.DRAINS_MEDIUM | P
 ## photographed it, and could not say what it is. This is a record rather than a failure - it is the
 ## one thing they knew.
 static func unidentified(
-	position: Vector3, photo_path: String = "", note: String = "", part: StringName = PART_WHOLE
+	position: Vector3,
+	photo_path: String = "",
+	note: String = "",
+	part: StringName = PART_WHOLE,
 ) -> Dictionary:
 	return {
 		"species_id": "",
@@ -100,7 +103,7 @@ static func identify(
 	position: Vector3 = Vector3.ZERO,
 	photo_path: String = "",
 	note: String = "",
-	part: StringName = PART_WHOLE
+	part: StringName = PART_WHOLE,
 ) -> Dictionary:
 	var offered: String = raw_taxon.strip_edges()
 	var capture: Dictionary = unidentified(position, photo_path, note, part)
@@ -120,10 +123,10 @@ static func identify(
 				"nothing in the list is close enough to '%s' at %d%% confidence to file it as a species"
 				% [offered, roundi(confidence * 100.0)]
 			),
-			capture
+			capture,
 		)
 	capture["species_id"] = String(species.id)
-	return {"ok": true, "reason": "", "capture": capture}
+	return { "ok": true, "reason": "", "capture": capture }
 
 
 ## Whether a capture names a species. The one question the rest of the program asks of a capture, so
@@ -157,14 +160,10 @@ static func from_record(feature: Dictionary) -> Dictionary:
 		# drawing it has nothing to do with. A record that does not say where cannot go on the plan.
 		return _refuse(
 			"this record does not say where the plant is, so putting it on the plan would be a guess",
-			capture
+			capture,
 		)
 	var checked: Dictionary = validate(capture)
-	return {
-		"ok": bool(checked["ok"]),
-		"reason": String(checked["reason"]),
-		"capture": capture,
-	}
+	return { "ok": bool(checked["ok"]), "reason": String(checked["reason"]), "capture": capture }
 
 
 ## Whether this can be a capture at all, and if not, which part of it cannot. The same rules on the
@@ -173,20 +172,19 @@ static func from_record(feature: Dictionary) -> Dictionary:
 static func validate(capture: Dictionary) -> Dictionary:
 	var point: Vector3 = _point(capture.get("position", null))
 	if not (is_finite(point.x) and is_finite(point.y) and is_finite(point.z)):
-		return {"ok": false, "reason": "a capture whose position is not a number cannot go on a plan"}
+		return { "ok": false, "reason": "a capture whose position is not a number cannot go on a plan" }
 	var confidence: float = _number(capture.get("confidence", 0.0))
 	if confidence < 0.0 or confidence > 1.0:
 		return {
 			"ok": false,
-			"reason": "a confidence of %d%% is not a confidence: it runs from 0 to 100"
-					% roundi(confidence * 100.0),
+			"reason": "a confidence of %d%% is not a confidence: it runs from 0 to 100" % roundi(confidence * 100.0),
 		}
 	var sun: int = _bits(capture.get("sun_mask", 0))
 	if (sun & ~SUN_BITS) != 0:
 		return {
 			"ok": false,
 			"reason": "a sun mask of %d holds a bit that is not a light level, which are %d, %d and %d"
-					% [sun, PlantSpecies.FULL_SUN, PlantSpecies.PART_SHADE, PlantSpecies.FULL_SHADE],
+			% [sun, PlantSpecies.FULL_SUN, PlantSpecies.PART_SHADE, PlantSpecies.FULL_SHADE],
 		}
 	var drainage: int = _bits(capture.get("drainage_mask", 0))
 	if (drainage & ~DRAINAGE_BITS) != 0:
@@ -202,9 +200,9 @@ static func validate(capture: Dictionary) -> Dictionary:
 		return {
 			"ok": false,
 			"reason": "'%s' is not a part of a plant this program knows, which are %s"
-					% [part, ", ".join(PackedStringArray(PART_NAMES.values()))],
+			% [part, ", ".join(PackedStringArray(PART_NAMES.values()))],
 		}
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## One line saying what a capture is, for a page or a status line. The plant is named the way a person
@@ -222,8 +220,10 @@ static func words(capture: Dictionary, catalogue: PlantCatalogue = null) -> Stri
 	if catalogue != null:
 		var species: PlantSpecies = catalogue.get_species(StringName(named))
 		if species != null:
-			named = species.botanical_name if species.common_name.is_empty() else (
-				"%s (%s)" % [species.common_name, species.botanical_name]
+			named = (
+				species.botanical_name
+				if species.common_name.is_empty()
+				else ("%s (%s)" % [species.common_name, species.botanical_name])
 			)
 	return "%s at %d%% confidence%s" % [named, read_at, where]
 
@@ -243,9 +243,7 @@ static func size_of(capture: Dictionary, species: PlantSpecies) -> Dictionary:
 	if height <= 0.0 and spread <= 0.0:
 		return {
 			"ok": false,
-			"reason": (
-				"nothing says how big this plant is: nobody measured it and the list does not state it"
-			),
+			"reason": ("nothing says how big this plant is: nobody measured it and the list does not state it"),
 			"height_m": 0.0,
 			"spread_m": 0.0,
 			"source": "",
@@ -272,8 +270,8 @@ static func _place_words(point: Vector3) -> String:
 	return " at %.1f, %.1f m" % [point.x, point.z]
 
 
-static func _refuse(reason: String, capture: Dictionary = {}) -> Dictionary:
-	return {"ok": false, "reason": reason, "capture": capture}
+static func _refuse(reason: String, capture: Dictionary = { }) -> Dictionary:
+	return { "ok": false, "reason": reason, "capture": capture }
 
 
 static func _point(raw: Variant) -> Vector3:
@@ -281,11 +279,7 @@ static func _point(raw: Variant) -> Vector3:
 		return raw
 	if raw is Dictionary:
 		var given: Dictionary = raw
-		return Vector3(
-			_number(given.get("x", 0.0)),
-			_number(given.get("y", 0.0)),
-			_number(given.get("z", 0.0)),
-		)
+		return Vector3(_number(given.get("x", 0.0)), _number(given.get("y", 0.0)), _number(given.get("z", 0.0)))
 	return Vector3.ZERO
 
 

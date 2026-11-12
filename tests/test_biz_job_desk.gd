@@ -33,7 +33,7 @@ func _person(member_id: StringName = &"C1", person_name: String = "Dana") -> Cre
 ## An estimate over two cost codes: 10 x 15.00 of planting and 20 x 20.00 of hardscape.
 func _estimate(estimate_id: String = "E1") -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new(estimate_id)
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	estimate.lines.append(_line(&"PLANTING", 10000, 1500))
 	estimate.lines.append(_line(&"HARDSCAPE", 20000, 2000))
 	return estimate
@@ -61,7 +61,6 @@ func _entry(entry_id: String = "T1", member_id: StringName = &"C1", rate_cents: 
 	entry.break_minutes = 30
 	entry.loaded_rate = MoneyScript.of(rate_cents)
 	return entry
-
 
 # --- the people ------------------------------------------------------------------------------
 
@@ -101,7 +100,7 @@ func test_a_label_is_the_name_and_the_role_or_the_id() -> void:
 func test_crew_rows_read_a_person_on_a_date() -> void:
 	var desk := _desk()
 	var member := _person(&"C2", "Sam")
-	member.add_availability({"kind": "DAY_OFF", "weekday": 0})
+	member.add_availability({ "kind": "DAY_OFF", "weekday": 0 })
 	desk.add_crew(member)
 	var row: Dictionary = desk.crew_rows(WEDNESDAY)[0]
 	assert(row["id"] == "C2")
@@ -109,7 +108,6 @@ func test_crew_rows_read_a_person_on_a_date() -> void:
 	assert((row["loaded_rate"] as MoneyScript).format() == "45.00")
 	assert(bool(row["available"]), "a Wednesday is a working day")
 	assert(not bool(desk.crew_rows(SUNDAY)[0]["available"]), "a Sunday is not")
-
 
 # --- the jobs --------------------------------------------------------------------------------
 
@@ -168,7 +166,6 @@ func test_job_rows_carry_the_budget_the_revision_and_how_it_is_billed() -> void:
 	assert(int(row["estimate_revision"]) == 2)
 	assert(int(row["phase_count"]) == 2)
 
-
 # --- where a job is ----------------------------------------------------------------------------
 
 
@@ -180,7 +177,6 @@ func test_a_place_is_stated_and_a_place_for_nobody_is_refused() -> void:
 	assert(desk.set_job_place("E1", Vector2(3.0, 4.0)))
 	assert(desk.has_job_place("E1"))
 	assert(desk.job_place("E1") == Vector2(3.0, 4.0))
-
 
 # --- the board ---------------------------------------------------------------------------------
 
@@ -271,7 +267,7 @@ func test_the_board_reports_a_clash_and_moves_nothing() -> void:
 func test_a_crew_on_a_day_off_is_a_clash() -> void:
 	var desk := _desk()
 	var member := _person()
-	member.add_availability({"kind": "DAY_OFF", "weekday": 0})
+	member.add_availability({ "kind": "DAY_OFF", "weekday": 0 })
 	desk.add_crew(member)
 	desk.make_job_from(_estimate())
 	desk.book("E1", &"C1", SUNDAY, 480, 960)
@@ -290,7 +286,6 @@ func test_the_summary_counts_the_crew_the_jobs_the_blocks_and_the_clashes() -> v
 	desk.book("E2", &"C1", WEDNESDAY, 900, 1020)
 	assert(desk.describe() == "1 crew, 2 jobs, 2 blocks on the board, 1 conflict", desk.describe())
 
-
 # --- a crew's day ------------------------------------------------------------------------------
 
 
@@ -303,7 +298,7 @@ func test_a_route_is_proposed_from_where_the_crew_starts_and_says_its_assumption
 	desk.add_job(JobScript.new("E2"))
 	desk.set_job_place("E1", Vector2(100.0, 0.0))
 	desk.set_job_place("E2", Vector2(10.0, 0.0))
-	desk.book("E1", &"C1", WEDNESDAY, 780, 900)   # placed first, furthest away
+	desk.book("E1", &"C1", WEDNESDAY, 780, 900) # placed first, furthest away
 	desk.book("E2", &"C1", WEDNESDAY, 480, 600)
 	var planned: Dictionary = desk.route_for(&"C1", WEDNESDAY)
 	assert(bool(planned["ok"]), String(planned["reason"]))
@@ -340,7 +335,6 @@ func test_a_route_over_a_day_with_nothing_on_it_is_the_day_it_started() -> void:
 	assert(bool(planned["ok"]))
 	assert(int((planned["route"] as Dictionary)["finish_minute"]) == 420)
 	assert((planned["route"] as Dictionary)["order"].is_empty())
-
 
 # --- the time ----------------------------------------------------------------------------------
 
@@ -402,7 +396,6 @@ func test_time_rows_read_the_way_a_timesheet_does() -> void:
 	assert(String(row["problem"]).is_empty())
 	assert(row["source_name"] == "typed in")
 
-
 # --- the file ----------------------------------------------------------------------------------
 
 
@@ -431,26 +424,32 @@ func test_the_desk_survives_the_file() -> void:
 
 
 func test_a_damaged_record_is_dropped_and_the_rest_of_the_desk_reads() -> void:
-	var good := {
-		"job": "E1", "crew": "C1", "date": WEDNESDAY,
-		"start_minute": 480, "end_minute": 960, "note": "",
-	}
-	var desk: DeskScript = DeskScript.from_dict({
-		"crews": [{"id": "C1", "name": "Dana"}, {}, {"name": "nobody"}],
-		"jobs": [{"id": "E1"}, {}],
-		"schedule": {"entries": [good, {
-			"job": "E1", "crew": "C1", "date": WEDNESDAY,
-			"start_minute": 960, "end_minute": 480,
-		}, {
-			"job": "gone", "crew": "C1", "date": WEDNESDAY,
-			"start_minute": 480, "end_minute": 960,
-		}]},
-		"time_entries": [{
-			"id": "T1", "job": "E1", "crew_member": "C1",
-			"started_at": "2026-06-10T08:00:00", "ended_at": "2026-06-10T16:00:00",
-		}, {}, {"id": "T2"}],
-		"job_places": {"E1": [1.0, 2.0], "gone": [5.0, 6.0]},
-	})
+	var good := { "job": "E1", "crew": "C1", "date": WEDNESDAY, "start_minute": 480, "end_minute": 960, "note": "" }
+	var desk: DeskScript = DeskScript.from_dict(
+		{
+			"crews": [{ "id": "C1", "name": "Dana" }, { }, { "name": "nobody" }],
+			"jobs": [{ "id": "E1" }, { }],
+			"schedule": {
+				"entries": [
+					good,
+					{ "job": "E1", "crew": "C1", "date": WEDNESDAY, "start_minute": 960, "end_minute": 480 },
+					{ "job": "gone", "crew": "C1", "date": WEDNESDAY, "start_minute": 480, "end_minute": 960 },
+				]
+			},
+			"time_entries": [
+				{
+					"id": "T1",
+					"job": "E1",
+					"crew_member": "C1",
+					"started_at": "2026-06-10T08:00:00",
+					"ended_at": "2026-06-10T16:00:00",
+				},
+				{ },
+				{ "id": "T2" },
+			],
+			"job_places": { "E1": [1.0, 2.0], "gone": [5.0, 6.0] },
+		}
+	)
 	assert(desk.crew_ids() == [&"C1"], str(desk.crew_ids()))
 	assert(desk.job_ids() == ["E1"])
 	assert(desk.block_count() == 1, "a block that cannot place is not a block")

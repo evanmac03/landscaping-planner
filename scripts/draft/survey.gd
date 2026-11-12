@@ -27,13 +27,16 @@ const AREA_TOLERANCE := 0.005
 const MIN_LOT_AREA_M2 := 20.0
 const MAX_LOT_AREA_M2 := 1000000.0
 
-
 # --- bearings -----------------------------------------------------------------------
 
 
 ## Azimuth in degrees clockwise from north, from a quadrantal bearing.
 static func bearing_to_azimuth(
-	quadrant_first: String, degrees: float, minutes: float, seconds: float, quadrant_second: String
+	quadrant_first: String,
+	degrees: float,
+	minutes: float,
+	seconds: float,
+	quadrant_second: String,
 ) -> float:
 	var dms := degrees + minutes / 60.0 + seconds / 3600.0
 	if quadrant_first == "S":
@@ -124,7 +127,7 @@ static func azimuth_to_bearing(azimuth: float) -> String:
 
 static func _pad(value: float, digits: int) -> String:
 	var text := String.num(value, 2)
-	while text.length() < digits + 3:   # digits + "." + 2 decimals
+	while text.length() < digits + 3: # digits + "." + 2 decimals
 		text = "0" + text
 	return text
 
@@ -135,7 +138,6 @@ static func leg(bearing_text: String, distance: float, us_survey_foot: bool = fa
 		"azimuth": parse_bearing(bearing_text),
 		"distance": distance * (UnitsScript.US_SURVEY_FOOT if us_survey_foot else UnitsScript.FOOT),
 	}
-
 
 # --- traverse -----------------------------------------------------------------------
 
@@ -207,15 +209,16 @@ static func bowditch_adjust(legs: Array, misclosure_east: float, misclosure_nort
 		var radians := deg_to_rad(float(leg_data.get("azimuth", 0.0)))
 		var adjusted_east := sin(radians) * distance - misclosure_east * share
 		var adjusted_north := cos(radians) * distance - misclosure_north * share
-		out.append({
-			"azimuth": fposmod(rad_to_deg(atan2(adjusted_east, adjusted_north)), 360.0),
-			"distance": sqrt(adjusted_east * adjusted_east + adjusted_north * adjusted_north),
-			"adjusted": true,
-			"was_azimuth": float(leg_data.get("azimuth", 0.0)),
-			"was_distance": distance,
-		})
+		out.append(
+			{
+				"azimuth": fposmod(rad_to_deg(atan2(adjusted_east, adjusted_north)), 360.0),
+				"distance": sqrt(adjusted_east * adjusted_east + adjusted_north * adjusted_north),
+				"adjusted": true,
+				"was_azimuth": float(leg_data.get("azimuth", 0.0)),
+				"was_distance": distance,
+			}
+		)
 	return out
-
 
 # --- alignment ----------------------------------------------------------------------
 
@@ -228,7 +231,7 @@ static func bowditch_adjust(legs: Array, misclosure_east: float, misclosure_nort
 static func similarity_fit(source: PackedVector2Array, target: PackedVector2Array) -> Dictionary:
 	var count := source.size()
 	if count < 2 or target.size() != count:
-		return {"ok": false, "reason": "need at least two corresponding points"}
+		return { "ok": false, "reason": "need at least two corresponding points" }
 	var source_centre := Vector2.ZERO
 	var target_centre := Vector2.ZERO
 	for index in count:
@@ -247,7 +250,7 @@ static func similarity_fit(source: PackedVector2Array, target: PackedVector2Arra
 		a += float(u.x) * float(v.x) + float(u.y) * float(v.y)
 		b += float(u.x) * float(v.y) - float(u.y) * float(v.x)
 	if norm <= Geom.EPS:
-		return {"ok": false, "reason": "source points coincide"}
+		return { "ok": false, "reason": "source points coincide" }
 	a /= norm
 	b /= norm
 
@@ -272,10 +275,7 @@ static func similarity_fit(source: PackedVector2Array, target: PackedVector2Arra
 
 static func _transform(point: Vector2, source_centre: Vector2, target_centre: Vector2, a: float, b: float) -> Vector2:
 	var u := point - source_centre
-	return Vector2(
-		target_centre.x + a * float(u.x) - b * float(u.y),
-		target_centre.y + b * float(u.x) + a * float(u.y)
-	)
+	return Vector2(target_centre.x + a * float(u.x) - b * float(u.y), target_centre.y + b * float(u.x) + a * float(u.y))
 
 
 ## Map a source point through a solved fit.
@@ -292,7 +292,6 @@ static func apply_fit_points(fit: Dictionary, points: PackedVector2Array) -> Pac
 		out.append(apply_fit(fit, point))
 	return out
 
-
 # --- validation ---------------------------------------------------------------------
 
 
@@ -302,12 +301,15 @@ static func apply_fit_points(fit: Dictionary, points: PackedVector2Array) -> Pac
 static func check_alignment(
 	fit: Dictionary,
 	tolerance: float = RESIDUAL_TOLERANCE_M,
-	fail_above: float = RESIDUAL_FAIL_M
+	fail_above: float = RESIDUAL_FAIL_M,
 ) -> Dictionary:
 	if not fit.get("ok", false):
 		return {
-			"name": "Alignment", "value": NAN, "tolerance": tolerance,
-			"status": "fail", "unit": "m",
+			"name": "Alignment",
+			"value": NAN,
+			"tolerance": tolerance,
+			"status": "fail",
+			"unit": "m",
 			"message": String(fit.get("reason", "the fit could not be solved")),
 		}
 	var rms: float = fit["rms"]
@@ -320,8 +322,12 @@ static func check_alignment(
 		status = "warn"
 		message = "fit is looser than " + String.num(tolerance * 1000.0, 0) + " mm"
 	return {
-		"name": "Alignment residual", "value": rms, "tolerance": tolerance,
-		"status": status, "unit": "m", "message": message,
+		"name": "Alignment residual",
+		"value": rms,
+		"tolerance": tolerance,
+		"status": status,
+		"unit": "m",
+		"message": message,
 	}
 
 
@@ -331,8 +337,12 @@ static func check_closure(result: Dictionary, ratio_warn: float = CLOSURE_RATIO_
 	var ratio := float(result.get("closure_ratio", INF))
 	if misclosure <= Geom.EPS:
 		return {
-			"name": "Traverse closure", "value": 0.0, "tolerance": 0.0,
-			"status": "pass", "unit": "m", "message": "closed exactly",
+			"name": "Traverse closure",
+			"value": 0.0,
+			"tolerance": 0.0,
+			"status": "pass",
+			"unit": "m",
+			"message": "closed exactly",
 		}
 	var status := "pass"
 	var message := "closure ratio 1:" + String.num(ratio, 0)
@@ -340,8 +350,12 @@ static func check_closure(result: Dictionary, ratio_warn: float = CLOSURE_RATIO_
 		status = "warn"
 		message += ", looser than 1:" + String.num(ratio_warn, 0)
 	return {
-		"name": "Traverse closure", "value": misclosure, "tolerance": 0.0,
-		"status": status, "unit": "m", "message": message,
+		"name": "Traverse closure",
+		"value": misclosure,
+		"tolerance": 0.0,
+		"status": status,
+		"unit": "m",
+		"message": message,
 	}
 
 
@@ -358,25 +372,30 @@ static func check_area(
 	computed_m2: float,
 	stated_m2: float,
 	tolerance: float = AREA_TOLERANCE,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> Dictionary:
 	var words := UnitsScript.or_default(units)
 	if stated_m2 <= 0.0:
 		return {
-			"name": "Area cross-check", "value": computed_m2, "tolerance": tolerance,
-			"status": "pass", "unit": "m2", "area_text": words.format_area(computed_m2),
+			"name": "Area cross-check",
+			"value": computed_m2,
+			"tolerance": tolerance,
+			"status": "pass",
+			"unit": "m2",
+			"area_text": words.format_area(computed_m2),
 			"message": "no stated area to compare",
 		}
 	var difference := absf(computed_m2 / stated_m2 - 1.0)
 	return {
-		"name": "Area cross-check", "value": difference, "tolerance": tolerance,
+		"name": "Area cross-check",
+		"value": difference,
+		"tolerance": tolerance,
 		"status": "pass" if difference <= tolerance else "warn",
 		"unit": "ratio",
 		"computed_text": words.format_area(computed_m2),
 		"stated_text": words.format_area(stated_m2),
 		"area_text": words.format_area(computed_m2),
-		"message": "computed " + words.format_area(computed_m2) + " vs stated "
-			+ words.format_area(stated_m2),
+		"message": "computed " + words.format_area(computed_m2) + " vs stated " + words.format_area(stated_m2),
 	}
 
 
@@ -384,10 +403,14 @@ static func check_area(
 static func check_simple(polygon: PackedVector2Array) -> Dictionary:
 	var simple := Geom.polygon_is_simple(polygon)
 	return {
-		"name": "Parcel self-intersection", "value": 0.0, "tolerance": 0.0,
+		"name": "Parcel self-intersection",
+		"value": 0.0,
+		"tolerance": 0.0,
 		"status": "pass" if simple else "fail",
-		"unit": "", "message": "parcel outline is simple" if simple
-			else "parcel outline crosses itself; re-trace it",
+		"unit": "",
+		"message": ("parcel outline is simple"
+			if simple
+			else "parcel outline crosses itself; re-trace it"),
 	}
 
 
@@ -398,14 +421,17 @@ static func check_extent(
 	bounds: Rect2,
 	minimum: float = MIN_LOT_AREA_M2,
 	maximum: float = MAX_LOT_AREA_M2,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> Dictionary:
 	var area := absf(bounds.size.x * bounds.size.y)
 	var words := UnitsScript.or_default(units)
 	return {
-		"name": "Parcel extent", "value": area, "tolerance": maximum,
+		"name": "Parcel extent",
+		"value": area,
+		"tolerance": maximum,
 		"status": "pass" if area >= minimum and area <= maximum else "warn",
-		"unit": "m2", "area_text": words.format_area(area),
+		"unit": "m2",
+		"area_text": words.format_area(area),
 		"message": "parcel covers about " + words.format_area(area),
 	}
 
@@ -421,9 +447,4 @@ static func summarise(records: Array) -> Dictionary:
 				failures += 1
 			"warn":
 				warnings += 1
-	return {
-		"records": records,
-		"failures": failures,
-		"warnings": warnings,
-		"passed": failures == 0,
-	}
+	return { "records": records, "failures": failures, "warnings": warnings, "passed": failures == 0 }

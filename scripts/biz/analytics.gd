@@ -46,8 +46,19 @@ const BUCKET_LAST_DAY: Array[int] = [30, 60, 90]
 ## The figures, in the order §10 lists them. `average sale, average cycle` is one row there and two
 ## figures here, because they are two numbers with two windows of their own.
 const KEYS: Array[String] = [
-	"funnel", "win_rate", "lost_reasons", "average_sale", "average_cycle", "source_performance",
-	"pipeline_value", "slipped", "job_profitability", "cost_tracking", "backlog", "wip", "ar_aging",
+	"funnel",
+	"win_rate",
+	"lost_reasons",
+	"average_sale",
+	"average_cycle",
+	"source_performance",
+	"pipeline_value",
+	"slipped",
+	"job_profitability",
+	"cost_tracking",
+	"backlog",
+	"wip",
+	"ar_aging",
 	"crew_utilisation",
 ]
 
@@ -98,18 +109,19 @@ class Figure extends RefCounted:
 	var window: String = ""
 	var missing: String = ""
 
+
 	## The line a report prints: the figure, its basis and its window, or what it is missing.
 	func text() -> String:
 		if ok:
 			return "%s: %s. %s, %s." % [label, words, basis, window]
 		return "%s unavailable: %s" % [label, missing]
 
+
 	## The same line cut back to the figure, for a list of what is missing.
 	func short_text() -> String:
 		if ok:
 			return "%s: %s" % [label, words]
 		return "%s unavailable: %s" % [label, missing]
-
 
 # --- what it reads ------------------------------------------------------------------------------
 
@@ -121,15 +133,13 @@ var billing: BillingDesk = null
 var working_day_minutes: int = 0
 
 
-func _init(pipeline_desk: Pipeline = null, job_records: JobDesk = null,
-		billing_ledger: BillingDesk = null) -> void:
+func _init(pipeline_desk: Pipeline = null, job_records: JobDesk = null, billing_ledger: BillingDesk = null) -> void:
 	pipeline = pipeline_desk
 	jobs = job_records
 	billing = billing_ledger
 
 
-func bind(pipeline_desk: Pipeline = null, job_records: JobDesk = null,
-		billing_ledger: BillingDesk = null) -> void:
+func bind(pipeline_desk: Pipeline = null, job_records: JobDesk = null, billing_ledger: BillingDesk = null) -> void:
 	pipeline = pipeline_desk
 	jobs = job_records
 	billing = billing_ledger
@@ -154,7 +164,6 @@ func working_day_text() -> String:
 	var hours := floori(float(working_day_minutes) / float(MINUTES_PER_HOUR))
 	var rest := working_day_minutes - hours * MINUTES_PER_HOUR
 	return "%d hours %d minutes" % [hours, rest]
-
 
 # --- the figures --------------------------------------------------------------------------------
 
@@ -261,7 +270,6 @@ static func window_text(from: String, to: String) -> String:
 		return "everything from %s" % start
 	return "%s to %s" % [start, finish]
 
-
 # --- the pipeline figures -----------------------------------------------------------------------
 
 
@@ -302,8 +310,11 @@ func _win_rate(from: String, to: String) -> Figure:
 	if not bool(rate["ok"]):
 		return _blank("win_rate", String(rate["reason"]))
 	var words := "%s (%d won, %d lost, %d withdrawn, %d closed)" % [
-		_percent_text(int(rate["ppm"])), int(rate["won"]), int(rate["lost"]),
-		int(rate["withdrawn"]), int(rate["closed"]),
+		_percent_text(int(rate["ppm"])),
+		int(rate["won"]),
+		int(rate["lost"]),
+		int(rate["withdrawn"]),
+		int(rate["closed"]),
 	]
 	return _found("win_rate", rate, words, window_text(from, to))
 
@@ -317,10 +328,10 @@ func _lost_reasons(from: String, to: String) -> Figure:
 	for held in rows:
 		var count := int(held["count"])
 		lost += count
-		parts.append("%d %s (%s)" % [
-			count, String(held["name"]),
-			_money_text(int(held["value_cents"]), StringName(held["currency"])),
-		])
+		parts.append(
+			"%d %s (%s)"
+			% [count, String(held["name"]), _money_text(int(held["value_cents"]), StringName(held["currency"]))]
+		)
 	var words := "nothing was lost in this window"
 	if lost > 0:
 		words = ", ".join(parts)
@@ -342,18 +353,24 @@ func _average_sale(from: String, to: String) -> Figure:
 			valued += 1
 	var unvalued := won.size() - valued
 	var words := "%s over %d won lead(s)" % [
-		_money_text(MoneyScript.rounded_div(cents, won.size()), pipeline.currency), won.size(),
+		_money_text(MoneyScript.rounded_div(cents, won.size()), pipeline.currency),
+		won.size(),
 	]
 	if unvalued > 0:
 		words += ", of which %d had no estimate and count as nothing" % unvalued
-	return _found("average_sale", {
-		"cents": cents,
-		"mean_cents": MoneyScript.rounded_div(cents, won.size()),
-		"won": won.size(),
-		"valued": valued,
-		"unvalued": unvalued,
-		"currency": String(pipeline.currency),
-	}, words, window_text(from, to))
+	return _found(
+		"average_sale",
+		{
+			"cents": cents,
+			"mean_cents": MoneyScript.rounded_div(cents, won.size()),
+			"won": won.size(),
+			"valued": valued,
+			"unvalued": unvalued,
+			"currency": String(pipeline.currency),
+		},
+		words,
+		window_text(from, to),
+	)
 
 
 func _average_cycle(from: String, to: String) -> Figure:
@@ -382,21 +399,29 @@ func _average_cycle(from: String, to: String) -> Figure:
 	var words := "no won lead has both dates readable"
 	if open_count > 0:
 		words = "lead to close %d day(s) over %d of %d won leads" % [
-			_mean_days(open_seconds, open_count), open_count, won.size(),
+			_mean_days(open_seconds, open_count),
+			open_count,
+			won.size(),
 		]
 	if proposed_count > 0:
 		words += "; estimate to decision %d day(s) over %d" % [
-			_mean_days(proposed_seconds, proposed_count), proposed_count,
+			_mean_days(proposed_seconds, proposed_count),
+			proposed_count,
 		]
 	else:
 		words += "; no won lead recorded a proposal date, so estimate to decision is unknown"
-	return _found("average_cycle", {
-		"won": won.size(),
-		"open_to_close_days": _mean_days(open_seconds, open_count),
-		"open_count": open_count,
-		"proposed_to_close_days": _mean_days(proposed_seconds, proposed_count),
-		"proposed_count": proposed_count,
-	}, words, window_text(from, to))
+	return _found(
+		"average_cycle",
+		{
+			"won": won.size(),
+			"open_to_close_days": _mean_days(open_seconds, open_count),
+			"open_count": open_count,
+			"proposed_to_close_days": _mean_days(proposed_seconds, proposed_count),
+			"proposed_count": proposed_count,
+		},
+		words,
+		window_text(from, to),
+	)
 
 
 func _source_performance(from: String, to: String) -> Figure:
@@ -411,15 +436,19 @@ func _source_performance(from: String, to: String) -> Figure:
 		if closed == 0:
 			parts.append("%s: nothing decided" % String(held["name"]))
 			continue
-		parts.append("%s: %s of %d, average %s" % [
-			String(held["name"]), _percent_text(int(held["ppm"])), closed,
-			_money_text(int(held["average_cents"]), StringName(held["currency"])),
-		])
+		parts.append(
+			"%s: %s of %d, average %s"
+			% [
+				String(held["name"]),
+				_percent_text(int(held["ppm"])),
+				closed,
+				_money_text(int(held["average_cents"]), StringName(held["currency"])),
+			]
+		)
 	var words := "nothing was decided in this window"
 	if decided > 0:
 		words = ", ".join(parts)
 	return _found("source_performance", rows, words, window_text(from, to))
-
 
 # --- the "now" figures --------------------------------------------------------------------------
 
@@ -438,9 +467,7 @@ func _pipeline_value(now: String) -> Figure:
 	]
 	var missing: Array = held["stages_missing_odds"]
 	if not missing.is_empty():
-		words += "; %d stage(s) have no stated odds and were left out of the weighted figure" % (
-			missing.size()
-		)
+		words += "; %d stage(s) have no stated odds and were left out of the weighted figure" % (missing.size())
 	return _found("pipeline_value", held, words, "as at %s" % moment)
 
 
@@ -454,7 +481,8 @@ func _slipped(now: String) -> Figure:
 	var words := "nothing open is past its expected close"
 	if not rows.is_empty():
 		words = "%d open lead(s) past their expected close, worst %d day(s) late" % [
-			rows.size(), int(rows[0]["days_late"]),
+			rows.size(),
+			int(rows[0]["days_late"]),
 		]
 	return _found("slipped", rows, words, "as at %s" % moment)
 
@@ -486,18 +514,20 @@ func _job_profitability(now: String) -> Figure:
 			margins.append(job_margin)
 		else:
 			unknown_margin += 1
-		rows.append({
-			"job_id": held.id,
-			"job": jobs.job_label(held.id),
-			"agreed": job_agreed,
-			"billed": job_billed,
-			"billed_known": bool(totals["billed_known"]),
-			"cost": job_cost,
-			"margin": job_margin,
-			"margin_known": known,
-			"percent_ppm": int(totals["percent_ppm"]),
-			"percent_known": bool(totals["percent_known"]),
-		})
+		rows.append(
+			{
+				"job_id": held.id,
+				"job": jobs.job_label(held.id),
+				"agreed": job_agreed,
+				"billed": job_billed,
+				"billed_known": bool(totals["billed_known"]),
+				"cost": job_cost,
+				"margin": job_margin,
+				"margin_known": known,
+				"percent_ppm": int(totals["percent_ppm"]),
+				"percent_known": bool(totals["percent_known"]),
+			}
+		)
 	var currency: StringName = jobs.currency
 	var words := "%d job(s): agreed %s, cost %s, margin to date %s" % [
 		rows.size(),
@@ -528,18 +558,20 @@ func _cost_tracking(now: String) -> Figure:
 			var overspent: bool = bool(line["over_committed"])
 			if overspent:
 				over += 1
-			rows.append({
-				"job_id": held.id,
-				"job": jobs.job_label(held.id),
-				"cost_code": String(line["cost_code"]),
-				"basis": String(line["basis_name"]),
-				"budget": line["budget"],
-				"revised_budget": line["revised_budget"],
-				"committed": line["committed"],
-				"actual": line["actual"],
-				"projection": line["projection"],
-				"over_committed": overspent,
-			})
+			rows.append(
+				{
+					"job_id": held.id,
+					"job": jobs.job_label(held.id),
+					"cost_code": String(line["cost_code"]),
+					"basis": String(line["basis_name"]),
+					"budget": line["budget"],
+					"revised_budget": line["revised_budget"],
+					"committed": line["committed"],
+					"actual": line["actual"],
+					"projection": line["projection"],
+					"over_committed": overspent,
+				}
+			)
 	var words := "%d job(s), %d cost code(s)" % [jobs.jobs.size(), codes]
 	if over > 0:
 		words += ", %d of them committed past budget" % over
@@ -553,7 +585,7 @@ func _backlog(now: String) -> Figure:
 	if moment.is_empty():
 		return _blank("backlog", "an as-of date is needed, because what is left is left now")
 	if jobs.jobs.is_empty():
-		return _found("backlog", {"cents": 0, "jobs": []}, "no jobs are on the desk", "as at %s" % moment)
+		return _found("backlog", { "cents": 0, "jobs": [] }, "no jobs are on the desk", "as at %s" % moment)
 	var unstated := PackedStringArray()
 	var rows: Array[Dictionary] = []
 	var cents := 0
@@ -564,18 +596,22 @@ func _backlog(now: String) -> Figure:
 			continue
 		var left: Money = (totals["agreed_sum"] as Money).sub(totals["billed"] as Money)
 		cents += left.cents
-		rows.append({
-			"job_id": held.id,
-			"job": jobs.job_label(held.id),
-			"agreed": totals["agreed_sum"],
-			"billed": totals["billed"],
-			"left": left,
-		})
+		rows.append(
+			{
+				"job_id": held.id,
+				"job": jobs.job_label(held.id),
+				"agreed": totals["agreed_sum"],
+				"billed": totals["billed"],
+				"left": left,
+			}
+		)
 	if not unstated.is_empty():
-		return _blank("backlog", "nothing is recorded as billed against %s, so what is left of those contracts cannot be worked out" % ", ".join(unstated))
-	var words := "%s of approved work not yet billed over %d job(s)" % [
-		_money_text(cents, jobs.currency), rows.size(),
-	]
+		return _blank(
+			"backlog",
+			"nothing is recorded as billed against %s, so what is left of those contracts cannot be worked out"
+			% ", ".join(unstated),
+		)
+	var words := "%s of approved work not yet billed over %d job(s)" % [_money_text(cents, jobs.currency), rows.size()]
 	words += _billed_from_the_desk()
 	var behind := PackedStringArray()
 	for held in rows:
@@ -584,7 +620,7 @@ func _backlog(now: String) -> Figure:
 			behind.append(String(held["job"]))
 	if not behind.is_empty():
 		words += "; %s has been billed past what was agreed" % ", ".join(behind)
-	return _found("backlog", {"cents": cents, "jobs": rows}, words, "as at %s" % moment)
+	return _found("backlog", { "cents": cents, "jobs": rows }, words, "as at %s" % moment)
 
 
 func _wip(now: String) -> Figure:
@@ -605,22 +641,26 @@ func _wip(now: String) -> Figure:
 		var billed: Money = totals["billed"]
 		var over_under := cost.sub(billed)
 		ahead += over_under.cents
-		rows.append({
-			"job_id": held.id,
-			"job": jobs.job_label(held.id),
-			"cost": cost,
-			"billed": billed,
-			"worked_ahead": over_under,
-		})
+		rows.append(
+			{
+				"job_id": held.id,
+				"job": jobs.job_label(held.id),
+				"cost": cost,
+				"billed": billed,
+				"worked_ahead": over_under,
+			}
+		)
 	if not unstated.is_empty():
-		return _blank("wip", "nothing is recorded as billed against %s, so cost against billing cannot be worked out" % ", ".join(unstated))
+		return _blank(
+			"wip",
+			"nothing is recorded as billed against %s, so cost against billing cannot be worked out"
+			% ", ".join(unstated),
+		)
 	var words := "no jobs are on the desk"
 	if not rows.is_empty():
-		words = "%s worked ahead of billing over %d job(s)" % [
-			_money_text(ahead, jobs.currency), rows.size(),
-		]
+		words = "%s worked ahead of billing over %d job(s)" % [_money_text(ahead, jobs.currency), rows.size()]
 		words += _billed_from_the_desk()
-	return _found("wip", {"cents": ahead, "jobs": rows}, words, "as at %s" % moment)
+	return _found("wip", { "cents": ahead, "jobs": rows }, words, "as at %s" % moment)
 
 
 func _ar_aging(now: String) -> Figure:
@@ -654,37 +694,34 @@ func _ar_aging(now: String) -> Figure:
 	var unpaid := 0
 	for index in range(BUCKETS.size()):
 		unpaid += int(counts[index])
-		rows.append({
-			"bucket": BUCKETS[index],
-			"count": int(counts[index]),
-			"cents": int(cents[index]),
-		})
+		rows.append({ "bucket": BUCKETS[index], "count": int(counts[index]), "cents": int(cents[index]) })
 	var words := "nothing is unpaid"
 	if unpaid > 0:
 		var parts := PackedStringArray()
 		for held in rows:
 			if int(held["count"]) == 0:
 				continue
-			parts.append("%s: %s over %d invoice(s)" % [
-				String(held["bucket"]), _money_text(int(held["cents"]), currency),
-				int(held["count"]),
-			])
-		words = "%d invoice(s) unpaid, %s (%s)" % [
-			unpaid, _money_text(total, currency), ", ".join(parts),
-		]
-	return _found("ar_aging", {
-		"buckets": rows,
-		"count": unpaid,
-		"cents": total,
-		"currency": String(currency),
-	}, words, "as at %s" % moment)
+			parts.append(
+				"%s: %s over %d invoice(s)"
+				% [String(held["bucket"]), _money_text(int(held["cents"]), currency), int(held["count"])]
+			)
+		words = "%d invoice(s) unpaid, %s (%s)" % [unpaid, _money_text(total, currency), ", ".join(parts)]
+	return _found(
+		"ar_aging",
+		{ "buckets": rows, "count": unpaid, "cents": total, "currency": String(currency) },
+		words,
+		"as at %s" % moment,
+	)
 
 
 func _crew_utilisation(from: String, to: String) -> Figure:
 	if jobs == null:
 		return _blank("crew_utilisation", "no job desk is loaded, so there are no crews or timesheets")
 	if not working_day_stated():
-		return _blank("crew_utilisation", "no working day is stated, so the hours anybody was available cannot be counted")
+		return _blank(
+			"crew_utilisation",
+			"no working day is stated, so the hours anybody was available cannot be counted",
+		)
 	var start := _unix(from)
 	var finish := _unix(to)
 	if start <= 0 or finish <= 0 or finish < start:
@@ -712,25 +749,29 @@ func _crew_utilisation(from: String, to: String) -> Figure:
 				continue
 			minutes += entry.minutes()
 		worked += minutes
-		rows.append({
-			"crew": String(held.id),
-			"name": held.name,
-			"approved_minutes": minutes,
-			"available_minutes": theirs,
-			"ppm": MoneyScript.rounded_div(minutes * PPM, theirs) if theirs > 0 else 0,
-		})
-	var words := "%s of %s available on approved timesheets" % [
-		_hours_text(worked), _hours_text(available),
-	]
+		rows.append(
+			{
+				"crew": String(held.id),
+				"name": held.name,
+				"approved_minutes": minutes,
+				"available_minutes": theirs,
+				"ppm": MoneyScript.rounded_div(minutes * PPM, theirs) if theirs > 0 else 0,
+			}
+		)
+	var words := "%s of %s available on approved timesheets" % [_hours_text(worked), _hours_text(available)]
 	if available > 0:
 		words = "%s, %s worked" % [_percent_text(MoneyScript.rounded_div(worked * PPM, available)), words]
-	return _found("crew_utilisation", {
-		"approved_minutes": worked,
-		"available_minutes": available,
-		"working_day_minutes": working_day_minutes,
-		"rows": rows,
-	}, words, window_text(from, to))
-
+	return _found(
+		"crew_utilisation",
+		{
+			"approved_minutes": worked,
+			"available_minutes": available,
+			"working_day_minutes": working_day_minutes,
+			"rows": rows,
+		},
+		words,
+		window_text(from, to),
+	)
 
 # --- the records underneath ---------------------------------------------------------------------
 
@@ -753,8 +794,11 @@ func _billed_for(job_id: String) -> Money:
 ## figure when it is here, which is the one thing a cost report deliberately leaves alone (§8.4).
 func _report_for(job: Job) -> JobCost:
 	return JobCostScript.of(
-		job, jobs.purchase_orders_for(job.id), jobs.change_orders_for(job.id),
-		jobs.entries_for(job.id), _billed_for(job.id)
+		job,
+		jobs.purchase_orders_for(job.id),
+		jobs.change_orders_for(job.id),
+		jobs.entries_for(job.id),
+		_billed_for(job.id),
 	)
 
 
@@ -765,7 +809,6 @@ func _billed_from_the_desk() -> String:
 	if billing != null:
 		return ""
 	return " (from the job desk's own billed figures, as no ledger is loaded)"
-
 
 # --- making a figure ----------------------------------------------------------------------------
 
@@ -790,7 +833,6 @@ func _found(key: String, value: Variant, words: String, window: String) -> Figur
 	made.words = words
 	made.window = window
 	return made
-
 
 # --- reading dates ------------------------------------------------------------------------------
 
@@ -868,7 +910,6 @@ static func _bucket_of(days_late: int) -> int:
 		if days_late <= BUCKET_LAST_DAY[index]:
 			return index
 	return BUCKETS.size() - 1
-
 
 # --- saying numbers -----------------------------------------------------------------------------
 

@@ -52,9 +52,9 @@ func _ready() -> void:
 	for row: Dictionary in rows:
 		if bool(row["ok"]):
 			passed += 1
-		print("  %-4s  %-22s  %s" % [
-			"PASS" if bool(row["ok"]) else "FAIL", String(row["name"]), String(row["summary"]),
-		])
+		print(
+			"  %-4s  %-22s  %s" % ["PASS" if bool(row["ok"]) else "FAIL", String(row["name"]), String(row["summary"])]
+		)
 	print("  %d of %d checks passed" % [passed, rows.size()])
 	if passed == rows.size():
 		print("AUDIT: all checks passed")
@@ -100,7 +100,7 @@ func _resources_load() -> Dictionary:
 		print("  all of them load")
 	else:
 		summary = "%d of %d will not load: %s" % [broken.size(), paths.size(), ", ".join(broken)]
-	return {"name": "every scene loads", "ok": broken.is_empty(), "summary": summary}
+	return { "name": "every scene loads", "ok": broken.is_empty(), "summary": summary }
 
 
 func _count(node: Node) -> int:

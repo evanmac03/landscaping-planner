@@ -30,27 +30,36 @@ func _two_nursery_book() -> CostBook:
 	var tree: CostItem = ItemScript.make(TREE_ITEM, "Tree, 50 mm caliper, installed", &"EACH", 14500)
 	tree.supplier = &"Greenwood Nursery"
 	book.add_item(tree)
-	var perennial: CostItem = ItemScript.make(
-		PERENNIAL_ITEM, "Perennial, 1 gallon, installed", &"EACH", 1200
-	)
+	var perennial: CostItem = ItemScript.make(PERENNIAL_ITEM, "Perennial, 1 gallon, installed", &"EACH", 1200)
 	perennial.supplier = &"Valley Perennials"
 	book.add_item(perennial)
 	return book
 
 
-func _row(species: String, count: int, botanical: String, category: int, cultivar: String = "",
-		common: String = "", spread_cm: int = 0) -> Dictionary:
+func _row(
+	species: String,
+	count: int,
+	botanical: String,
+	category: int,
+	cultivar: String = "",
+	common: String = "",
+	spread_cm: int = 0,
+) -> Dictionary:
 	return {
-		"id": StringName(species), "count": count, "botanical_name": botanical,
-		"common_name": common, "cultivar": cultivar, "category": category,
+		"id": StringName(species),
+		"count": count,
+		"botanical_name": botanical,
+		"common_name": common,
+		"cultivar": cultivar,
+		"category": category,
 		"category_name": String(SpeciesScript.CATEGORY_NAMES.get(category, "")),
-		"spread_cm": spread_cm, "height_cm": 0,
+		"spread_cm": spread_cm,
+		"height_cm": 0,
 	}
 
 
 func _maple(count: int = 3) -> Dictionary:
-	return _row("acer-rubrum-autumn-blaze", count, "Acer rubrum", SpeciesScript.TREE,
-		"Autumn Blaze", "Red maple", 900)
+	return _row("acer-rubrum-autumn-blaze", count, "Acer rubrum", SpeciesScript.TREE, "Autumn Blaze", "Red maple", 900)
 
 
 func _hosta(count: int = 12) -> Dictionary:
@@ -58,10 +67,7 @@ func _hosta(count: int = 12) -> Dictionary:
 
 
 func _plan(rows: Array = [], book: CostBook = null) -> Dictionary:
-	return OrderScript.plan(
-		rows if not rows.is_empty() else [_maple(), _hosta()],
-		book if book != null else _book()
-	)
+	return OrderScript.plan(rows if not rows.is_empty() else [_maple(), _hosta()], book if book != null else _book())
 
 
 func _desk() -> DeskScript:
@@ -72,7 +78,7 @@ func _desk() -> DeskScript:
 
 func _estimate(estimate_id: String = "E1") -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new(estimate_id)
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	var line: LineScript = LineScript.new()
 	line.cost_code = OrderScript.PLANTING_CODE
 	line.kind = ItemScript.MATERIAL
@@ -93,7 +99,6 @@ func _page(with_desk: bool = true) -> WindowScript:
 	page.set_plan(_plan())
 	page.set_supplier("Greenwood Nursery")
 	return page
-
 
 # --- building the page -------------------------------------------------------------------------
 
@@ -118,8 +123,21 @@ func test_building_the_page_twice_builds_it_once() -> void:
 func test_the_page_has_the_controls_a_page_like_this_has() -> void:
 	var page: WindowScript = WindowScript.new()
 	page.build()
-	for wanted: String in ["Column", "Heading", "Explanation", "WhoRow", "JobOption", "Supplier",
-			"Lines", "Problems", "Summary", "Hint", "OrderButton", "CloseButton", "Status"]:
+	for wanted: String in [
+		"Column",
+		"Heading",
+		"Explanation",
+		"WhoRow",
+		"JobOption",
+		"Supplier",
+		"Lines",
+		"Problems",
+		"Summary",
+		"Hint",
+		"OrderButton",
+		"CloseButton",
+		"Status",
+	]:
 		assert(page.find_child(wanted, true, false) != null, "%s is on the page" % wanted)
 	page.free()
 
@@ -132,7 +150,6 @@ func test_only_the_nursery_field_is_built_with_a_keyboard_of_its_own() -> void:
 	var field: LineEdit = page.find_child("Supplier", true, false) as LineEdit
 	assert(field != null and field.focus_mode != Control.FOCUS_NONE, "the one field is typeable")
 	page.free()
-
 
 # --- what it is handed -------------------------------------------------------------------------
 
@@ -182,13 +199,14 @@ func test_being_handed_a_plan_announces_nothing() -> void:
 	var page: WindowScript = WindowScript.new()
 	page.build()
 	var heard: Array = []
-	page.order_requested.connect(func(_job: String, _who: String) -> void:
-		heard.append("ordered"))
+	page.order_requested.connect(
+		func(_job: String, _who: String) -> void:
+			heard.append("ordered"),
+	)
 	page.set_plan(_plan())
 	page.set_supplier("Greenwood Nursery")
 	assert(heard.is_empty(), "reading a plan is not ordering one")
 	page.free()
-
 
 # --- the job and the nursery -------------------------------------------------------------------
 
@@ -240,7 +258,7 @@ func test_the_order_button_is_dead_until_there_is_a_job_a_nursery_and_something_
 	var page: WindowScript = WindowScript.new()
 	page.build()
 	page.bind(_desk())
-	page.set_plan({})
+	page.set_plan({ })
 	assert(not page.order_enabled(), "nothing planted, nothing to order")
 	page.set_plan(_plan())
 	assert(not page.order_enabled(), "no nursery named")
@@ -259,15 +277,16 @@ func test_a_plan_the_book_cannot_price_cannot_be_ordered() -> void:
 	assert(page.order_hint() == WindowScript.NOT_ORDERABLE, page.order_hint())
 	page.free()
 
-
 # --- what pressing it announces -----------------------------------------------------------------
 
 
 func test_pressing_the_button_announces_the_job_and_the_nursery() -> void:
 	var page: WindowScript = _page()
 	var heard: Array = []
-	page.order_requested.connect(func(job_id: String, who: String) -> void:
-		heard.append([job_id, who]))
+	page.order_requested.connect(
+		func(job_id: String, who: String) -> void:
+			heard.append([job_id, who]),
+	)
 	page._on_order()
 	assert(heard.size() == 1, "one announcement")
 	assert(heard[0] == [page.selected_job(), "Greenwood Nursery"], str(heard[0]))
@@ -280,8 +299,10 @@ func test_pressing_it_when_it_cannot_order_announces_nothing_and_says_why() -> v
 	page.bind(_desk())
 	page.set_plan(_plan())
 	var heard: Array = []
-	page.order_requested.connect(func(_job: String, _who: String) -> void:
-		heard.append("ordered"))
+	page.order_requested.connect(
+		func(_job: String, _who: String) -> void:
+			heard.append("ordered"),
+	)
 	page._on_order()
 	assert(heard.is_empty(), "nothing was announced")
 	assert(not page.status_text().is_empty(), "and the page says what is missing: %s" % page.status_text())
@@ -291,8 +312,10 @@ func test_pressing_it_when_it_cannot_order_announces_nothing_and_says_why() -> v
 func test_closing_the_page_by_the_button_or_by_the_x_announces_the_same_thing() -> void:
 	var page: WindowScript = _page()
 	var heard: Array = []
-	page.closed.connect(func() -> void:
-		heard.append("closed"))
+	page.closed.connect(
+		func() -> void:
+			heard.append("closed"),
+	)
 	page.request_close()
 	page._on_close_requested()
 	assert(heard.size() == 2, "both ways announce it: %d" % heard.size())

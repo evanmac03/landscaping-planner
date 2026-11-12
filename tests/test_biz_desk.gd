@@ -95,9 +95,7 @@ func test_a_line_the_book_cannot_price_is_named_rather_than_dropped() -> void:
 	# A contour line is work the takeoff deliberately does not measure (grading is a volume), and a
 	# note has to exist for it, because "why is nothing on my drawing in the proposal" is the question
 	# every designer asks.
-	desk.document.add(
-		Entity.make_line(Vector2(0, 20), Vector2(30, 20)), LayerSet.GRADING_CONTOUR
-	)
+	desk.document.add(Entity.make_line(Vector2(0, 20), Vector2(30, 20)), LayerSet.GRADING_CONTOUR)
 	desk.take_off()
 	var notes: Array[String] = desk.notes()
 	assert(notes.size() == 1, "one thing was left out: %s" % str(notes))
@@ -117,26 +115,28 @@ func test_a_line_the_book_cannot_price_is_named_rather_than_dropped() -> void:
 	assert(desk.book.erase_item(&"irr-zone-valve"), "and it can lose that one too")
 	desk.take_off()
 	assert(desk.refused.size() == 1, "with the item gone it is refused: %s" % str(desk.refused))
-	assert(desk.refused[0].contains("nothing in the cost book is priced by"), "in the takeoff's words: %s" % desk.refused[0])
+	assert(
+		desk.refused[0].contains("nothing in the cost book is priced by"),
+		"in the takeoff's words: %s" % desk.refused[0],
+	)
 	assert(not desk.check()["ok"], "and the check is not clean")
 	assert(desk.check()["problems"].size() == 1, "one thing to fix, said once")
-	assert(
-		desk.estimate_lines().has(desk.refused[0]) == false,
-		"nothing in the proposal is the refusal itself"
-	)
+	assert(desk.estimate_lines().has(desk.refused[0]) == false, "nothing in the proposal is the refusal itself")
 
 
 func test_a_planting_list_with_no_species_is_refused_by_name_and_counted_once() -> void:
 	var desk: DeskScript = _desk()
-	desk.plant_rows = [{
-		"id": &"",
-		"count": 30,
-		"botanical_name": "no species recorded",
-		"common_name": "",
-		"cultivar": "",
-		"spread_cm": 0,
-		"height_cm": 0,
-	}]
+	desk.plant_rows = [
+		{
+			"id": &"",
+			"count": 30,
+			"botanical_name": "no species recorded",
+			"common_name": "",
+			"cultivar": "",
+			"spread_cm": 0,
+			"height_cm": 0,
+		}
+	]
 	var result: Dictionary = desk.take_off()
 	assert(int(result["priced"]) == 1, "the paving is priced and the thirty are not")
 	# One fault, one sentence: the takeoff's fuller explanation is the one that is printed, not it and
@@ -163,8 +163,8 @@ func test_the_tax_is_the_estimate_s_own_and_re_prices_every_line() -> void:
 	# re-prices rather than editing the estimate's default in place.
 	assert(
 		desk.estimate.total(desk.book).cents
-			== desk.estimate.price_before_tax().cents + desk.estimate.tax(desk.book).cents,
-		"and the total is the price plus the tax"
+		== desk.estimate.price_before_tax().cents + desk.estimate.tax(desk.book).cents,
+		"and the total is the price plus the tax",
 	)
 	assert(not desk.set_tax_code(&"NOT-A-CODE"), "a code that is not a code is refused")
 	assert(desk.tax_code == &"HST-ON", "and the choice is unchanged")
@@ -223,7 +223,7 @@ func test_the_totals_block_is_the_estimate_s_own_figures() -> void:
 	assert(paving.line_text().contains("+5.0% waste"), paving.line_text())
 	assert(
 		paving.line_text().contains(paving.extension().format_with_currency()),
-		"and the extension beside it is the one it prints: %s" % paving.line_text()
+		"and the extension beside it is the one it prints: %s" % paving.line_text(),
 	)
 
 
@@ -267,9 +267,10 @@ func test_the_desk_names_the_codes_the_tax_table_and_the_book_hold() -> void:
 	assert(codes.has(&"NONE") and codes.has(&"HST-ON"), "the shipped codes: %s" % str(codes))
 	assert(desk.tax_code_name(&"HST-ON") == "HST 13%", desk.tax_code_name(&"HST-ON"))
 	# A code a business added to its own book is offered too, which is the point of tax being data.
-	desk.book.add_tax_code(&"CITY-LEVY", {
-		"name": "City levy 2%", "components": [{"name": "Levy", "rate_ppm": 20000, "compounds": false}],
-	})
+	desk.book.add_tax_code(
+		&"CITY-LEVY",
+		{ "name": "City levy 2%", "components": [{ "name": "Levy", "rate_ppm": 20000, "compounds": false }] },
+	)
 	assert(desk.tax_codes().has(&"CITY-LEVY"), "the book's own code is offered")
 	assert(desk.tax_code_name(&"CITY-LEVY") == "City levy 2%", desk.tax_code_name(&"CITY-LEVY"))
 	assert(desk.set_tax_code(&"CITY-LEVY"), "and can be chosen")
@@ -284,10 +285,7 @@ func test_the_desk_does_not_recompute_a_figure_the_estimate_owns() -> void:
 	desk.estimate.lines[0].waste_ppm = 100000
 	var second: String = desk.totals_text()
 	assert(first != second, "the desk followed the estimate")
-	assert(
-		second.contains(desk.estimate.subtotal().format_with_currency()),
-		"and its subtotal is the estimate's"
-	)
+	assert(second.contains(desk.estimate.subtotal().format_with_currency()), "and its subtotal is the estimate's")
 	var summary: Dictionary = desk.estimate.summary(desk.book)
 	var amounts: Array = [summary["subtotal"] as MoneyScript]
 	assert(amounts[0] is MoneyScript, "the summary hands back money and not numbers")

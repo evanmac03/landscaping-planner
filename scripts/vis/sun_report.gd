@@ -64,16 +64,39 @@ const OPPOSITE_DEG := 180.0
 
 ## The sixteen points of the compass, so a shadow's direction is said the way a person says it.
 const COMPASS: Array[String] = [
-	"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-	"S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+	"N",
+	"NNE",
+	"NE",
+	"ENE",
+	"E",
+	"ESE",
+	"SE",
+	"SSE",
+	"S",
+	"SSW",
+	"SW",
+	"WSW",
+	"W",
+	"WNW",
+	"NW",
+	"NNW",
 ]
 
 ## The months, for naming a day of the year the way a client reads it.
 const MONTHS: Array[String] = [
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
 ]
-
 
 # --- the moments a study is made of --------------------------------------------------
 
@@ -140,7 +163,6 @@ static func preset(name: StringName) -> Array[Dictionary]:
 			return moments_on_days([JUNE_SOLSTICE, DECEMBER_SOLSTICE], SOLSTICE_HOURS)
 		_:
 			return [] as Array[Dictionary]
-
 
 # --- naming a day and an hour --------------------------------------------------------
 
@@ -219,11 +241,12 @@ static func site_words(site_dict: Dictionary) -> String:
 	if is_equal_approx(offset, roundf(offset)):
 		offset_words = "UTC%+d" % int(roundf(offset))
 	return "%.1f°%s %.1f°%s, %s" % [
-		absf(latitude), "N" if latitude >= 0.0 else "S",
-		absf(longitude), "E" if longitude >= 0.0 else "W",
+		absf(latitude),
+		"N" if latitude >= 0.0 else "S",
+		absf(longitude),
+		"E" if longitude >= 0.0 else "W",
 		offset_words,
 	]
-
 
 # --- one shadow ----------------------------------------------------------------------
 
@@ -236,9 +259,7 @@ static func site_words(site_dict: Dictionary) -> String:
 ## to be read as "the sun is straight overhead", which is not what it means. The sun's own
 ## bearing is reported beside the shadow's, so a row can be checked without doing the half turn
 ## in one's head.
-static func shadow(
-	site_dict: Dictionary, moment_dict: Dictionary, height_m: float = DEFAULT_HEIGHT_M
-) -> Dictionary:
+static func shadow(site_dict: Dictionary, moment_dict: Dictionary, height_m: float = DEFAULT_HEIGHT_M) -> Dictionary:
 	var out: Dictionary = {
 		"ok": false,
 		"reason": "",
@@ -271,9 +292,7 @@ static func shadow(
 		# The sun can be visible with its centre still under the horizon - half a degree of
 		# refraction and the sun's own width - and a shadow cast by a sun on the horizon has no
 		# end at all. Dividing by that tangent gives an enormous number that reads as an answer.
-		out["reason"] = (
-			"the sun's centre is on the horizon at %s, so the shadow has no end" % out["clock_text"]
-		)
+		out["reason"] = ("the sun's centre is on the horizon at %s, so the shadow has no end" % out["clock_text"])
 		return out
 	var length: float = height_m / tan(deg_to_rad(altitude))
 	out["ok"] = true
@@ -281,10 +300,7 @@ static func shadow(
 	out["bearing_deg"] = fposmod(float(sun["azimuth_deg"]) + OPPOSITE_DEG, 360.0)
 	out["compass"] = bearing_words(float(out["bearing_deg"]))
 	if altitude < MIN_ALTITUDE_DEG:
-		out["note"] = (
-			"the sun is only %.0f° up, so this length says more about the hour than the garden"
-			% altitude
-		)
+		out["note"] = ("the sun is only %.0f° up, so this length says more about the hour than the garden" % altitude)
 	return out
 
 
@@ -293,10 +309,7 @@ static func shadow(
 static func shadow_words(cast: Dictionary, units: DraftUnits = null) -> String:
 	if not bool(cast["ok"]):
 		return String(cast["reason"])
-	return "%s to the %s" % [
-		height_words(float(cast["length_m"]), units), String(cast["compass"]),
-	]
-
+	return "%s to the %s" % [height_words(float(cast["length_m"]), units), String(cast["compass"])]
 
 # --- the study, as rows --------------------------------------------------------------
 
@@ -307,7 +320,7 @@ static func row_for(
 	site_dict: Dictionary,
 	moment_dict: Dictionary,
 	height_m: float = DEFAULT_HEIGHT_M,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> Dictionary:
 	var sun: Dictionary = SunStudyScript.position_for(site_dict, moment_dict)
 	var cast: Dictionary = shadow(site_dict, moment_dict, height_m)
@@ -335,9 +348,7 @@ static func _row_text(row: Dictionary, height_m: float, units: DraftUnits) -> St
 	var head: String = "%s %s" % [row["day"], row["clock_text"]]
 	if not bool(row["sun_up"]):
 		return "%s  the sun is below the horizon, so there is no shadow" % head
-	var sun: String = "sun %2.0f° up at bearing %3.0f°" % [
-		float(row["altitude_deg"]), float(row["bearing_deg"]),
-	]
+	var sun: String = "sun %2.0f° up at bearing %3.0f°" % [float(row["altitude_deg"]), float(row["bearing_deg"])]
 	var cast: String = "%s casts %s" % [height_words(height_m, units), String(row["shadow_words"])]
 	var text: String = "%s  %s  %s" % [head, sun, cast]
 	if String(row["note"]) != "":
@@ -350,7 +361,7 @@ static func rows(
 	site_dict: Dictionary,
 	moments: Array,
 	height_m: float = DEFAULT_HEIGHT_M,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for moment_dict: Dictionary in moments:
@@ -363,13 +374,12 @@ static func row_texts(
 	site_dict: Dictionary,
 	moments: Array,
 	height_m: float = DEFAULT_HEIGHT_M,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in rows(site_dict, moments, height_m, units):
 		out.append(String(row["text"]))
 	return out
-
 
 # --- the days a study covers ---------------------------------------------------------
 
@@ -378,9 +388,7 @@ static func row_texts(
 ## day has. A polar day or a polar night is reported as itself rather than given a time it does
 ## not have, and how much light is then the whole day or none of it.
 static func day_for(site_dict: Dictionary, day_of_year: int) -> Dictionary:
-	var hours: Dictionary = SunStudyScript.daylight_for(
-		site_dict, SunStudyScript.moment(day_of_year, 12.0)
-	)
+	var hours: Dictionary = SunStudyScript.daylight_for(site_dict, SunStudyScript.moment(day_of_year, 12.0))
 	var out: Dictionary = {
 		"day_of_year": day_of_year,
 		"day": day_short(day_of_year),
@@ -401,7 +409,10 @@ static func _day_text(day: Dictionary) -> String:
 	if bool(day["polar_night"]):
 		return "%s  the sun does not rise at all" % day["day_text"]
 	return "%s  sunrise %s, sunset %s, %.1f h of daylight" % [
-		day["day_text"], day["sunrise_clock"], day["sunset_clock"], float(day["day_length_hours"]),
+		day["day_text"],
+		day["sunrise_clock"],
+		day["sunset_clock"],
+		float(day["day_length_hours"]),
 	]
 
 
@@ -425,7 +436,6 @@ static func day_texts(site_dict: Dictionary, moments: Array) -> Array[String]:
 		out.append(String(day["text"]))
 	return out
 
-
 # --- what it comes to -----------------------------------------------------------------
 
 
@@ -438,7 +448,7 @@ static func summary(
 	site_dict: Dictionary,
 	moments: Array,
 	height_m: float = DEFAULT_HEIGHT_M,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> String:
 	if moments.is_empty():
 		return "no moments have been chosen, so there is nothing to study"
@@ -462,19 +472,23 @@ static func summary(
 		else:
 			down += 1
 	var head: String = "%d moment%s over %d day%s: %d with the sun up" % [
-		moments.size(), _plural(moments.size()), day_count, _plural(day_count), up,
+		moments.size(),
+		_plural(moments.size()),
+		day_count,
+		_plural(day_count),
+		up,
 	]
 	if down > 0:
 		head += ", %d below the horizon" % down
 	if up == 0:
-		return (
-			"%s. No moment in this study has the sun above the horizon, so it casts nothing."
-			% head
-		)
+		return ("%s. No moment in this study has the sun above the horizon, so it casts nothing." % head)
 	var shortest: float = height_m / tan(deg_to_rad(highest_deg))
 	return "%s. The highest sun stands %.0f° at %s, where %s casts %s." % [
-		head, highest_deg, highest_text,
-		height_words(height_m, units), height_words(shortest, units),
+		head,
+		highest_deg,
+		highest_text,
+		height_words(height_m, units),
+		height_words(shortest, units),
 	]
 
 
@@ -484,7 +498,7 @@ static func describe(
 	site_dict: Dictionary,
 	moments: Array,
 	height_m: float = DEFAULT_HEIGHT_M,
-	units: DraftUnits = null
+	units: DraftUnits = null,
 ) -> String:
 	if moments.is_empty():
 		return "%s: a shadow study with no moments in it yet" % site_words(site_dict)

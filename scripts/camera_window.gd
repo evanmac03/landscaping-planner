@@ -50,6 +50,7 @@ const BEHIND_THE_DOOR := &"door"
 static func way_out_word(behind_it: StringName) -> String:
 	return "Back to the drawing" if behind_it == BEHIND_A_DRAWING else "Back to the menu"
 
+
 ## Where a photograph is filed. Stated rather than fixed so a test can be given a folder of its own and
 ## leave the photographs really taken alone.
 var folder: String = PhotoStoreScript.DIR
@@ -97,7 +98,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _column == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------------------
 
@@ -152,7 +152,6 @@ func _make_viewfinder() -> Control:
 	a_picture.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	return a_picture
 
-
 # --- opening and closing ------------------------------------------------------------------------
 
 
@@ -177,7 +176,6 @@ func shut() -> void:
 	feed = null
 	_texture = null
 	_colour = null
-
 
 # --- the camera itself --------------------------------------------------------------------------
 
@@ -241,7 +239,7 @@ func _choose_a_format() -> void:
 	var best: int = 0
 	var best_area: int = -1
 	for i: int in offered.size():
-		var said: Dictionary = offered[i] if offered[i] is Dictionary else {}
+		var said: Dictionary = offered[i] if offered[i] is Dictionary else { }
 		var wide: int = int(said.get("width", 0))
 		var tall: int = int(said.get("height", 0))
 		var area: int = wide * tall
@@ -250,8 +248,8 @@ func _choose_a_format() -> void:
 		if area > best_area:
 			best_area = area
 			best = i
-	feed.set_format(best, {})
-	var chosen: Dictionary = offered[best] if offered[best] is Dictionary else {}
+	feed.set_format(best, { })
+	var chosen: Dictionary = offered[best] if offered[best] is Dictionary else { }
 	_picture_size = Vector2(float(chosen.get("width", 0)), float(chosen.get("height", 0)))
 
 
@@ -265,7 +263,10 @@ func _make_textures() -> void:
 		return
 	var datatype: int = int(feed.get_datatype())
 	var planes: int = CameraCaptureScript.planes_for(
-		datatype, int(CameraFeed.FEED_RGB), int(CameraFeed.FEED_YCBCR), int(CameraFeed.FEED_YCBCR_SEP)
+		datatype,
+		int(CameraFeed.FEED_RGB),
+		int(CameraFeed.FEED_YCBCR),
+		int(CameraFeed.FEED_YCBCR_SEP),
 	)
 	if planes <= 0:
 		# The device has listed a camera but has not handed a picture over yet. Nothing to draw, and
@@ -287,7 +288,7 @@ func _make_textures() -> void:
 	var apart: bool = CameraCaptureScript.reads_apart(
 		RenderingServer.get_rendering_device() != null,
 		datatype,
-		int(CameraFeed.FEED_YCBCR_SEP)
+		int(CameraFeed.FEED_YCBCR_SEP),
 	)
 	if not apart and not CameraCaptureScript.needs_decoding(datatype, int(CameraFeed.FEED_RGB)):
 		return
@@ -395,11 +396,15 @@ func _caption_line() -> String:
 		return ""
 	return "showing %s, %s, %s" % [
 		CameraCaptureScript.position_word(
-			int(feed.get_position()), int(CameraFeed.FEED_BACK), int(CameraFeed.FEED_FRONT)
+			int(feed.get_position()),
+			int(CameraFeed.FEED_BACK),
+			int(CameraFeed.FEED_FRONT),
 		),
 		CameraCaptureScript.datatype_word(
 			int(feed.get_datatype()),
-			int(CameraFeed.FEED_RGB), int(CameraFeed.FEED_YCBCR), int(CameraFeed.FEED_YCBCR_SEP)
+			int(CameraFeed.FEED_RGB),
+			int(CameraFeed.FEED_YCBCR),
+			int(CameraFeed.FEED_YCBCR_SEP),
 		),
 		HeldOrientationScript.words_for_a_room(_room),
 	]
@@ -423,9 +428,7 @@ func _showing(turns: int) -> Vector2:
 		return Vector2.ONE
 	if _viewfinder.size.x <= 0.0 or _viewfinder.size.y <= 0.0:
 		return Vector2.ONE
-	return CameraCaptureScript.cover_scale(
-		CameraCaptureScript.turned_size(_picture_size, turns), _viewfinder.size
-	)
+	return CameraCaptureScript.cover_scale(CameraCaptureScript.turned_size(_picture_size, turns), _viewfinder.size)
 
 
 ## The material the viewfinder draws through, or nothing when there is no picture yet.
@@ -434,7 +437,6 @@ func _material() -> ShaderMaterial:
 		return null
 	var rectangle: TextureRect = _viewfinder as TextureRect
 	return null if rectangle == null else rectangle.material as ShaderMaterial
-
 
 # --- the photograph -----------------------------------------------------------------------------
 
@@ -515,7 +517,6 @@ func _drawn_at() -> float:
 	if shown.x <= 0.0:
 		return 1.0
 	return maxf(float(size.x) / shown.x, 1.0)
-
 
 # --- what it shows ------------------------------------------------------------------------------
 
@@ -616,7 +617,6 @@ func say(words: String) -> void:
 func _say(words: String) -> void:
 	if _status != null:
 		_status.text = words
-
 
 # --- stepping -----------------------------------------------------------------------------------
 

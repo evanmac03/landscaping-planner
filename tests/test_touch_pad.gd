@@ -15,7 +15,6 @@ const PlayerScript := preload("res://scripts/player.gd")
 const REACH := 90.0
 const DEAD_ZONE := 0.12
 
-
 # --- where a thumb points ----------------------------------------------------------------
 
 
@@ -43,16 +42,12 @@ func test_a_thumb_inside_the_dead_zone_asks_for_nothing() -> void:
 func test_a_thumb_pushed_past_the_rim_is_left_longer_than_one() -> void:
 	var pushed: Vector2 = TouchPadScript.drag_stick(Vector2(0.0, -REACH * 2.0), REACH, DEAD_ZONE)
 	assert(pushed.length() > 1.0, "past the rim: %s" % str(pushed))
-	assert(
-		pushed.length() >= TouchPadScript.RUN_AT,
-		"and far enough past it to be a run: %f" % pushed.length()
-	)
+	assert(pushed.length() >= TouchPadScript.RUN_AT, "and far enough past it to be a run: %f" % pushed.length())
 
 
 ## A rim of no width cannot divide, so it asks for nothing rather than for infinity.
 func test_a_rim_of_no_width_asks_for_nothing() -> void:
 	assert(TouchPadScript.drag_stick(Vector2(30.0, 10.0), 0.0, DEAD_ZONE) == Vector2.ZERO)
-
 
 # --- and how that composes with the keys -------------------------------------------------
 
@@ -84,7 +79,6 @@ func test_the_thumb_past_the_rim_is_what_asks_to_run() -> void:
 	assert(not MoveInputScript.sprinting(), "and now it did not")
 	MoveInputScript.set_touch_stick(Vector2.ZERO, false)
 
-
 # --- and which way a drag turns the head -------------------------------------------------
 
 
@@ -92,9 +86,7 @@ func test_the_thumb_past_the_rim_is_what_asks_to_run() -> void:
 ## dragging down looks down, which is a smaller pitch. The sensitivity is the player's own, so a phone and
 ## a mouse cannot disagree.
 func test_a_drag_turns_the_head_the_way_the_finger_went() -> void:
-	var looked: Vector2 = PlayerScript.look_after_drag(
-		0.0, 0.0, Vector2(100.0, 40.0), 0.0022, 88.0
-	)
+	var looked: Vector2 = PlayerScript.look_after_drag(0.0, 0.0, Vector2(100.0, 40.0), 0.0022, 88.0)
 	assert(looked.x < 0.0, "dragged right, so the yaw fell: %f" % looked.x)
 	assert(looked.y < 0.0, "dragged down, so the pitch fell: %f" % looked.y)
 	assert(is_equal_approx(looked.x, -0.22), "100 px at the player's own sensitivity: %f" % looked.x)
@@ -102,15 +94,10 @@ func test_a_drag_turns_the_head_the_way_the_finger_went() -> void:
 
 ## A finger that keeps pulling does not tip the world over: the pitch stops at the limit, both ways.
 func test_a_finger_that_keeps_pulling_stops_at_the_look_limit() -> void:
-	var down: Vector2 = PlayerScript.look_after_drag(
-		0.0, 0.0, Vector2(0.0, 100000.0), 0.0022, 88.0
-	)
+	var down: Vector2 = PlayerScript.look_after_drag(0.0, 0.0, Vector2(0.0, 100000.0), 0.0022, 88.0)
 	assert(is_equal_approx(down.y, -deg_to_rad(88.0)), "held at the limit: %f" % down.y)
-	var up: Vector2 = PlayerScript.look_after_drag(
-		0.0, 0.0, Vector2(0.0, -100000.0), 0.0022, 88.0
-	)
+	var up: Vector2 = PlayerScript.look_after_drag(0.0, 0.0, Vector2(0.0, -100000.0), 0.0022, 88.0)
 	assert(is_equal_approx(up.y, deg_to_rad(88.0)), "and the other way: %f" % up.y)
-
 
 # --- and when they are offered at all ----------------------------------------------------
 

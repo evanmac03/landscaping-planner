@@ -38,52 +38,52 @@ func _ready() -> void:
 
 func _shot_list() -> Array[Dictionary]:
 	if not PROBE_SUBJECT.is_empty():
-		return [{"name": "probe", "do": "help"}]
+		return [{ "name": "probe", "do": "help" }]
 	return [
 		# The view the program opens on, and the other two views of the same garden.
-		{"name": "view-overhead", "do": "none"},
-		{"name": "view-plan", "do": "plan"},
-		{"name": "view-ground", "do": "ground"},
+		{ "name": "view-overhead", "do": "none" },
+		{ "name": "view-plan", "do": "plan" },
+		{ "name": "view-ground", "do": "ground" },
 		# The drawing itself: a shape half made, with the palette that made it and the line saying where
 		# it has got to. Taken through the drafting controller, which is what a click on the plan does.
-		{"name": "drawing", "do": "drawing"},
+		{ "name": "drawing", "do": "drawing" },
 		# Drawing.
-		{"name": "snapping", "do": "window", "call": "open_snap_window"},
-		{"name": "layers", "do": "window", "call": "open_layer_window"},
-		{"name": "ground-page", "do": "window", "call": "open_ground_window"},
-		{"name": "grading", "do": "window", "call": "open_grading_window"},
-		{"name": "osm", "do": "window", "call": "open_osm_window"},
-		{"name": "underlay", "do": "window", "call": "open_underlay_window"},
+		{ "name": "snapping", "do": "window", "call": "open_snap_window" },
+		{ "name": "layers", "do": "window", "call": "open_layer_window" },
+		{ "name": "ground-page", "do": "window", "call": "open_ground_window" },
+		{ "name": "grading", "do": "window", "call": "open_grading_window" },
+		{ "name": "osm", "do": "window", "call": "open_osm_window" },
+		{ "name": "underlay", "do": "window", "call": "open_underlay_window" },
 		# Plants and food.
-		{"name": "plants", "do": "window", "call": "open_plant_browser"},
-		{"name": "food", "do": "window", "call": "open_food_window"},
-		{"name": "rotation", "do": "window", "call": "open_rotation_window"},
-		{"name": "harvest", "do": "window", "call": "open_harvest_window"},
-		{"name": "sowing", "do": "window", "call": "open_sowing_window"},
-		{"name": "yield", "do": "window", "call": "open_yield_window"},
-		{"name": "plant-order", "do": "window", "call": "open_plant_order_window"},
+		{ "name": "plants", "do": "window", "call": "open_plant_browser" },
+		{ "name": "food", "do": "window", "call": "open_food_window" },
+		{ "name": "rotation", "do": "window", "call": "open_rotation_window" },
+		{ "name": "harvest", "do": "window", "call": "open_harvest_window" },
+		{ "name": "sowing", "do": "window", "call": "open_sowing_window" },
+		{ "name": "yield", "do": "window", "call": "open_yield_window" },
+		{ "name": "plant-order", "do": "window", "call": "open_plant_order_window" },
 		# The business.
-		{"name": "estimate", "do": "window", "call": "open_estimate_window"},
-		{"name": "pipeline", "do": "window", "call": "open_pipeline_board"},
-		{"name": "schedule", "do": "window", "call": "open_schedule_board"},
-		{"name": "billing", "do": "window", "call": "open_billing_window"},
-		{"name": "cost", "do": "window", "call": "open_cost_window"},
-		{"name": "closeout", "do": "window", "call": "open_closeout_window"},
-		{"name": "ledger", "do": "window", "call": "open_ledger_window"},
-		{"name": "analytics", "do": "window", "call": "open_analytics_window"},
+		{ "name": "estimate", "do": "window", "call": "open_estimate_window" },
+		{ "name": "pipeline", "do": "window", "call": "open_pipeline_board" },
+		{ "name": "schedule", "do": "window", "call": "open_schedule_board" },
+		{ "name": "billing", "do": "window", "call": "open_billing_window" },
+		{ "name": "cost", "do": "window", "call": "open_cost_window" },
+		{ "name": "closeout", "do": "window", "call": "open_closeout_window" },
+		{ "name": "ledger", "do": "window", "call": "open_ledger_window" },
+		{ "name": "analytics", "do": "window", "call": "open_analytics_window" },
 		# Presenting and output.
-		{"name": "walk", "do": "window", "call": "open_walk_window"},
-		{"name": "sun", "do": "window", "call": "open_sun_window"},
-		{"name": "sheet", "do": "window", "call": "open_sheet_window"},
+		{ "name": "walk", "do": "window", "call": "open_walk_window" },
+		{ "name": "sun", "do": "window", "call": "open_sun_window" },
+		{ "name": "sheet", "do": "window", "call": "open_sheet_window" },
 		# History and other people.
-		{"name": "sync", "do": "window", "call": "open_sync_window"},
-		{"name": "revision", "do": "window", "call": "open_revision_window"},
-		{"name": "status", "do": "window", "call": "open_status_window"},
+		{ "name": "sync", "do": "window", "call": "open_sync_window" },
+		{ "name": "revision", "do": "window", "call": "open_revision_window" },
+		{ "name": "status", "do": "window", "call": "open_status_window" },
 		# Last, because these are not pages: a docked panel and the palette stand over everything, so
 		# each is put away by name once it has been shot.
-		{"name": "water", "do": "window", "call": "open_water_panel", "undo": "close_water_panel"},
-		{"name": "light", "do": "window", "call": "open_light_panel", "undo": "close_light_panel"},
-		{"name": "palette", "do": "window", "call": "open_command_palette", "undo": "toggle_command_palette"},
+		{ "name": "water", "do": "window", "call": "open_water_panel", "undo": "close_water_panel" },
+		{ "name": "light", "do": "window", "call": "open_light_panel", "undo": "close_light_panel" },
+		{ "name": "palette", "do": "window", "call": "open_command_palette", "undo": "toggle_command_palette" },
 	]
 
 

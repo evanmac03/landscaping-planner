@@ -14,8 +14,8 @@ extends RefCounted
 ## arguments is not something this project has.
 
 var _source: Object
-var _heard: Dictionary = {}   # StringName -> the array of argument lists heard, one per firing
-var _handlers: Array = []     # [StringName, Callable] pairs, so that `stop` can let go
+var _heard: Dictionary = { } # StringName -> the array of argument lists heard, one per firing
+var _handlers: Array = [] # [StringName, Callable] pairs, so that `stop` can let go
 
 
 ## Begin watching `source`. `signals` names the ones to listen for; a name the object does not carry is

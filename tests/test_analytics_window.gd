@@ -24,12 +24,19 @@ const FROM := "2026-01-01"
 const TO := "2026-03-31"
 const NOW := "2026-04-01"
 
-
 # --- fixtures -----------------------------------------------------------------------------------
 
 
-func _lead(lead_id: String, cents: int, arrived: String, stage: int, decided: String = "",
-		proposed: String = "", reason: StringName = &"", expected: String = "") -> LeadScript:
+func _lead(
+	lead_id: String,
+	cents: int,
+	arrived: String,
+	stage: int,
+	decided: String = "",
+	proposed: String = "",
+	reason: StringName = &"",
+	expected: String = "",
+) -> LeadScript:
 	var lead: LeadScript = LeadScript.new(lead_id, "Lead %s" % lead_id)
 	lead.source = &"web"
 	lead.value_estimate = MoneyScript.of(cents)
@@ -48,8 +55,7 @@ func _lead(lead_id: String, cents: int, arrived: String, stage: int, decided: St
 func _pipeline() -> PipelineScript:
 	var pipe: PipelineScript = PipelineScript.new()
 	pipe.add(_lead("A", 2000000, "2025-11-02", LeadScript.WON, "2026-02-10", "2026-01-05"))
-	pipe.add(_lead("B", 3000000, "2026-01-05", LeadScript.PROPOSED, "", "2026-01-20",
-		&"", "2026-03-20"))
+	pipe.add(_lead("B", 3000000, "2026-01-05", LeadScript.PROPOSED, "", "2026-01-20", &"", "2026-03-20"))
 	return pipe
 
 
@@ -58,10 +64,10 @@ func _job_desk() -> JobDeskScript:
 	var job: JobScript = JobScript.new("J1")
 	job.name = "Smith"
 	job.contract_sum = MoneyScript.of(2000000)
-	job.phases = [{"cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE}]
+	job.phases = [{ "cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE }]
 	desk.add_job(job)
 	var peter: CrewScript = CrewScript.new(&"P1", "Peter")
-	peter.add_availability({"kind": CrewScript.DAY_OFF, "weekday": 0})
+	peter.add_availability({ "kind": CrewScript.DAY_OFF, "weekday": 0 })
 	desk.add_crew(peter)
 	var entry: EntryScript = EntryScript.new("T1")
 	entry.job = "J1"
@@ -80,9 +86,16 @@ func _billing(desk: JobDeskScript) -> BillingDeskScript:
 	ledger.bind(desk)
 	var invoice: InvoiceScript = InvoiceScript.new("I-INV-1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith"}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(20000), &"HARDSCAPE", &"EXEMPT")
+	invoice.customer = { "name": "Smith" }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(20000),
+		&"HARDSCAPE",
+		&"EXEMPT",
+	)
 	invoice.issue("2026-01-10", 30, "INV-1")
 	ledger.invoices.append(invoice)
 	return ledger
@@ -126,7 +139,6 @@ func _row(page: WindowScript, key: String) -> String:
 	assert(texts.size() == AnalyticsScript.KEYS.size(), "one row per figure: %d" % texts.size())
 	return texts[at]
 
-
 # --- what the page shows ------------------------------------------------------------------------
 
 
@@ -152,8 +164,7 @@ func test_a_row_is_the_reports_own_sentence_and_nothing_the_page_added() -> void
 	var rows: Array[Dictionary] = page.figure_rows()
 	var at: int = AnalyticsScript.KEYS.find("win_rate")
 	assert(String(rows[at]["label"]) == "Win rate", String(rows[at]["label"]))
-	assert(String(rows[at]["text"]) == _report().figure("win_rate", FROM, TO, NOW).text(),
-		String(rows[at]["text"]))
+	assert(String(rows[at]["text"]) == _report().figure("win_rate", FROM, TO, NOW).text(), String(rows[at]["text"]))
 	assert(bool(rows[at]["ok"]), str(rows[at]))
 	# The sentence opens by naming the figure, so the page shows it once: a label column would be the
 	# page agreeing with itself.
@@ -186,8 +197,7 @@ func test_the_working_day_field_offers_a_day_as_a_placeholder_and_not_as_a_value
 func test_a_report_with_nothing_stated_reads_as_the_figures_about_hours_waiting() -> void:
 	var page := _page(_report_without_a_day())
 	assert(page.unavailable_texts().size() == 1, str(page.unavailable_texts()))
-	assert(_row(page, "crew_utilisation").contains("no working day is stated"),
-		_row(page, "crew_utilisation"))
+	assert(_row(page, "crew_utilisation").contains("no working day is stated"), _row(page, "crew_utilisation"))
 	# One lead was won and nothing was lost, so the rate is the whole of what was decided.
 	assert(_row(page, "win_rate").contains("100.0% (1 won, 0 lost"), _row(page, "win_rate"))
 	assert(page.opening_words().contains("State how long a working day is"), page.opening_words())
@@ -206,8 +216,7 @@ func test_a_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 
 func test_the_summary_is_the_reports_own_summary_of_this_window() -> void:
 	var page := _page()
-	assert(page.summary_text() == "14 figures for 2026-01-01 to 2026-03-31, all of them available",
-		page.summary_text())
+	assert(page.summary_text() == "14 figures for 2026-01-01 to 2026-03-31, all of them available", page.summary_text())
 	page.free()
 
 
@@ -220,7 +229,6 @@ func test_the_page_says_which_window_and_which_moment_it_is_reading() -> void:
 	page.set_as_of("")
 	assert(page.as_of_text() == "no as-of date", page.as_of_text())
 	page.free()
-
 
 # --- today, and the report's own refusal to read a clock ----------------------------------------
 
@@ -245,11 +253,12 @@ func test_the_page_may_know_today_while_the_report_still_will_not_be_told_a_cloc
 	page.set_window_fields("", "")
 	assert(_row(page, "pipeline_value").contains("$30,000.00 raw"), _row(page, "pipeline_value"))
 	page.set_as_of("")
-	assert(_row(page, "pipeline_value") ==
-		"Pipeline value unavailable: an as-of date is needed, because what is open is open now",
-		_row(page, "pipeline_value"))
+	assert(
+		_row(page, "pipeline_value")
+		== "Pipeline value unavailable: an as-of date is needed, because what is open is open now",
+		_row(page, "pipeline_value"),
+	)
 	page.free()
-
 
 # --- changing an argument reads the figures again ------------------------------------------------
 
@@ -266,8 +275,7 @@ func test_changing_the_window_reads_the_figures_again() -> void:
 func test_a_window_with_nothing_in_it_says_so_in_the_figures_and_in_the_summary() -> void:
 	var page := _page()
 	page.set_window_fields("2026-06-01", "2026-06-30")
-	assert(_row(page, "funnel").contains("nothing entered the funnel in this window"),
-		_row(page, "funnel"))
+	assert(_row(page, "funnel").contains("nothing entered the funnel in this window"), _row(page, "funnel"))
 	assert(page.status_text().is_empty() == false, "the page always has a line")
 	page.free()
 
@@ -291,7 +299,6 @@ func test_reading_the_figures_twice_gives_the_same_page() -> void:
 	assert(page.figure_texts() == first, "nothing is cached, so nothing drifts")
 	page.free()
 
-
 # --- what could not be worked out ---------------------------------------------------------------
 
 
@@ -299,8 +306,10 @@ func test_what_could_not_be_worked_out_is_listed_on_the_page() -> void:
 	var page := _page()
 	var missing: ItemList = page.find_child("Missing", true, false)
 	assert(missing != null, "the page lists what it could not work out")
-	assert(missing.item_count == page.unavailable_texts().size(),
-		"%d listed, %d said" % [missing.item_count, page.unavailable_texts().size()])
+	assert(
+		missing.item_count == page.unavailable_texts().size(),
+		"%d listed, %d said" % [missing.item_count, page.unavailable_texts().size()],
+	)
 	page.free()
 
 
@@ -317,11 +326,13 @@ func test_a_window_with_no_ends_refuses_the_hours_figure_by_name() -> void:
 	var page := _page()
 	page.set_window_fields("2026-03-01", "")
 	assert(_row(page, "crew_utilisation").contains("both ends readable"), _row(page, "crew_utilisation"))
-	assert(page.unavailable_texts().has(
-		"Crew utilisation unavailable: crew utilisation needs a window with both ends readable"
-	), str(page.unavailable_texts()))
+	assert(
+		page
+		.unavailable_texts()
+		.has("Crew utilisation unavailable: crew utilisation needs a window with both ends readable"),
+		str(page.unavailable_texts()),
+	)
 	page.free()
-
 
 # --- the one act --------------------------------------------------------------------------------
 
@@ -356,8 +367,7 @@ func test_stating_a_working_day_states_it_on_the_report_and_says_so() -> void:
 	# The figures about hours are read off the day that was stated: 77 available days in the first
 	# quarter of 2026, one Sunday a week off, at seven hours each.
 	assert(_row(page, "crew_utilisation") != before, _row(page, "crew_utilisation"))
-	assert(_row(page, "crew_utilisation").contains("539 hour(s) 0 minute(s) available"),
-		_row(page, "crew_utilisation"))
+	assert(_row(page, "crew_utilisation").contains("539 hour(s) 0 minute(s) available"), _row(page, "crew_utilisation"))
 	assert(page.unavailable_texts().is_empty(), str(page.unavailable_texts()))
 	page.free()
 
@@ -388,7 +398,10 @@ func test_stating_a_working_day_announces_itself() -> void:
 	var made: AnalyticsScript = _report_without_a_day()
 	var page := _page(made)
 	var heard: Array = []
-	page.report_changed.connect(func() -> void: heard.append(true))
+	page.report_changed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	page.set_working_day_field(480)
 	assert(bool(page.state_working_day()["ok"]))
 	assert(heard.size() == 1, str(heard))
@@ -412,7 +425,6 @@ func test_a_page_with_no_report_refuses_to_state_a_day_rather_than_failing() -> 
 	assert(built.status_text().contains("is not one"), built.status_text())
 	page.free()
 	built.free()
-
 
 # --- the page as the program builds it ----------------------------------------------------------
 
@@ -439,7 +451,10 @@ func test_pointing_the_page_at_another_report_reads_it_again() -> void:
 func test_closing_the_page_says_so() -> void:
 	var page := _page()
 	var heard: Array = []
-	page.closed.connect(func() -> void: heard.append(true))
+	page.closed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	page._on_close_requested()
 	assert(heard.size() == 1, str(heard))
 	assert(not page.visible, "closing hides the page")

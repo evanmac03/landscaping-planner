@@ -32,16 +32,13 @@ func _hud_with_drawing(controller: DraftController) -> Node:
 
 ## A four-metre square bed, which is all a zone needs to be a place.
 func _bed() -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)
-	])
-
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)])
 
 # --- the menu -----------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_it_with_no_key_and_needs_a_drawing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.plant_items():
 		if StringName(candidate.get("id", &"")) == &"plant.food":
 			entry = candidate
@@ -52,9 +49,8 @@ func test_the_plant_menu_offers_it_with_no_key_and_needs_a_drawing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_DRAFT,
-		"it needs the drawing, because a bed's light is stated on the plan"
+		"it needs the drawing, because a bed's light is stated on the plan",
 	)
-
 
 # --- the page -----------------------------------------------------------------------------
 
@@ -82,7 +78,6 @@ func test_it_is_a_page_the_escape_pass_has_to_reach() -> void:
 	assert(hud._food_window.get_node_or_null(^"PageEscape") != null, "and it can be escaped from")
 	hud.free()
 
-
 # --- the beds are the drawing's -----------------------------------------------------------------
 
 
@@ -103,16 +98,15 @@ func test_the_beds_are_the_ground_maps_own_merged_over_the_site() -> void:
 	assert(String(places[0]["name"]) == "the whole site", String(places[0]["name"]))
 	assert(
 		int((places[0]["profile"] as TerrainProfile).sun_level()) == SpeciesScript.FULL_SUN,
-		"the site's own light is the base"
+		"the site's own light is the base",
 	)
 	assert(String(places[1]["name"]) == "the north bed", String(places[1]["name"]))
 	assert(
 		int((places[1]["profile"] as TerrainProfile).sun_level()) == SpeciesScript.FULL_SHADE,
-		"and the bed's own light is the bed's"
+		"and the bed's own light is the bed's",
 	)
 	hud.free()
 	controller.free()
-
 
 # --- the join -----------------------------------------------------------------------------
 
@@ -138,9 +132,7 @@ func test_the_page_keeps_up_with_the_ground_while_it_is_up() -> void:
 	hud._fill_food_window()
 	assert(hud._food_window.place_count() == 1, "with no zones there is only the site")
 	hud._food_window.visible = true
-	controller.document.environment.add_zone(
-		"a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
-	)
+	controller.document.environment.add_zone("a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE))
 	hud._tick_food_window()
 	assert(hud._food_window.place_count() == 2, "the bed stated while the page was up was picked up")
 	hud._food_window.visible = false
@@ -153,9 +145,7 @@ func test_the_refresh_is_harmless_while_the_page_is_away() -> void:
 	var controller: DraftController = _drawing()
 	var hud: HudScript = _hud_with_drawing(controller)
 	hud._build_food_window()
-	controller.document.environment.add_zone(
-		"a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
-	)
+	controller.document.environment.add_zone("a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE))
 	hud._tick_food_window()
 	assert(hud._food_window.place_count() == 0, "a page that is not up was not written")
 	hud.free()

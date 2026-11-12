@@ -70,6 +70,7 @@ static func parse_edible_parts(parts: Array) -> int:
 				mask |= bit
 	return mask
 
+
 ## Hours of direct sun a day -> the `sun` mask. Seven hours takes full sun; four and
 ## a half is part shade; nothing stated is zero.
 static func sun_hours_to_bitmask(hours: float) -> int:
@@ -86,5 +87,3 @@ static func sun_hours_to_bitmask(hours: float) -> int:
 ## hour (60 = 6.0 h).
 static func sun_tenths_to_bitmask(tenths: int) -> int:
 	return sun_hours_to_bitmask(float(tenths) / 10.0)
-
-

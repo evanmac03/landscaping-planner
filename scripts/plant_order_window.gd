@@ -23,8 +23,8 @@ const SIZE := Vector2i(1080, 780)
 
 ## What the page is for, on the page, because a list of plant kinds does not explain itself.
 const EXPLANATION := "What is standing in the drawing, one line per kind of plant, priced from the cost " \
-	+ "book. Say which job it is for and which nursery the plants come from, and the page writes one " \
-	+ "draft order per grower. Nothing is ordered until it is issued from Jobs > What the job has cost."
+		+ "book. Say which job it is for and which nursery the plants come from, and the page writes one " \
+		+ "draft order per grower. Nothing is ordered until it is issued from Jobs > What the job has cost."
 
 const NOTHING_PLANTED := "nothing is planted on this drawing yet"
 const NO_JOB := "there is no job to order the plants for: an agreed estimate becomes a job"
@@ -53,14 +53,13 @@ var _status: Label = null
 var _job_ids: Array[String] = []
 ## The plan handed in, and the signature of the rows actually on the list, so writing the same list
 ## again is not writing it again.
-var _planned: Dictionary = {}
+var _planned: Dictionary = { }
 var _rows_signature: String = "<never written>"
 
 
 func _init() -> void:
 	title = "Order the plants"
 	size = SIZE
-
 
 # --- building it -------------------------------------------------------------------------------
 
@@ -114,7 +113,7 @@ func build() -> void:
 
 	if not close_requested.is_connected(_on_close_requested):
 		close_requested.connect(_on_close_requested)
-	set_plan({})
+	set_plan({ })
 	hide()
 
 
@@ -167,7 +166,6 @@ func _build_action_row() -> HBoxContainer:
 	row.add_child(_close_button)
 	return row
 
-
 # --- what it was handed ------------------------------------------------------------------------
 
 
@@ -189,7 +187,7 @@ func bind(job_desk: DeskScript) -> void:
 func set_plan(planned: Dictionary) -> void:
 	if _column == null:
 		build()
-	_planned = planned if planned != null else {}
+	_planned = planned if planned != null else { }
 	_rows_signature = "<never written>"
 	_refresh()
 
@@ -252,7 +250,6 @@ func set_summary(words: String) -> void:
 func summary_text() -> String:
 	return "" if _summary == null else _summary.text
 
-
 # --- the two facts a person knows -------------------------------------------------------------
 
 
@@ -309,7 +306,6 @@ func set_supplier_silently(words: String) -> void:
 func _on_supplier_typed(_typed: String) -> void:
 	_refresh()
 
-
 # --- what it says about itself ------------------------------------------------------------------
 
 
@@ -327,17 +323,19 @@ func order_hint() -> String:
 		return NOT_ORDERABLE
 	if selected_job().is_empty():
 		return "pick which job the plants are for"
-	var groups: Array[Dictionary] = OrderScript.by_supplier(
-		lines, supplier(), _planned.get("currency", &"CAD")
-	)
+	var groups: Array[Dictionary] = OrderScript.by_supplier(lines, supplier(), _planned.get("currency", &"CAD"))
 	if groups.size() == 1 and String(groups[0]["supplier"]).is_empty():
 		return NO_SUPPLIER
 	var parts: PackedStringArray = PackedStringArray()
 	for group: Dictionary in groups:
-		parts.append("%s (%d kind%s)" % [
-			String(group["supplier"]), (group["lines"] as Array).size(),
-			"" if (group["lines"] as Array).size() == 1 else "s",
-		])
+		parts.append(
+			"%s (%d kind%s)"
+			% [
+				String(group["supplier"]),
+				(group["lines"] as Array).size(),
+				"" if (group["lines"] as Array).size() == 1 else "s",
+			]
+		)
 	return "%d draft order%s: %s" % [groups.size(), "" if groups.size() == 1 else "s", ", ".join(parts)]
 
 
@@ -402,7 +400,6 @@ func _refresh() -> void:
 		_hint.text = order_hint()
 	if _order_button != null:
 		_order_button.disabled = not order_enabled()
-
 
 # --- the keyboard -----------------------------------------------------------------------------
 

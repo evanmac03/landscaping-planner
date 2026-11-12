@@ -24,9 +24,9 @@ func _line(code: StringName, units_milli: int, cost_cents: int, price_cents: int
 ## 50.00 = 390.00.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.lines.append(_line(&"PLANTING", 10000, 1000, 1500))     # 10 x 15.00
-	estimate.lines.append(_line(&"HARDSCAPE", 20000, 1200, 2000))    # 20 x 20.00
-	estimate.lines.append(_line(&"PLANTING", 5000, 1000, 1500))      # 5 x 15.00
+	estimate.lines.append(_line(&"PLANTING", 10000, 1000, 1500)) # 10 x 15.00
+	estimate.lines.append(_line(&"HARDSCAPE", 20000, 1200, 2000)) # 20 x 20.00
+	estimate.lines.append(_line(&"PLANTING", 5000, 1000, 1500)) # 5 x 15.00
 	return estimate
 
 
@@ -47,7 +47,7 @@ func test_the_basis_is_stated_and_cost_is_a_different_budget() -> void:
 
 func test_a_line_with_no_cost_code_is_unassigned_rather_than_dropped() -> void:
 	var estimate := _estimate()
-	estimate.lines.append(_line(&"", 1000, 1000, 1500))  # 1 x 15.00, nobody's code
+	estimate.lines.append(_line(&"", 1000, 1000, 1500)) # 1 x 15.00, nobody's code
 	var job: JobScript = JobScript.from_estimate(estimate)
 	assert(job.phase_codes().has("UNASSIGNED"), "a line nobody is paid for is still counted")
 	assert(job.phase("UNASSIGNED")["budget"].format() == "15.00")
@@ -85,7 +85,7 @@ func test_a_job_round_trips_through_the_file() -> void:
 	job.set_billing_method(JobScript.MILESTONE)
 	job.assign_crew(&"C1")
 	job.documents.append("proposal.pdf")
-	job.schedule.append({"date": "2026-06-01", "start_minute": 480, "end_minute": 600})
+	job.schedule.append({ "date": "2026-06-01", "start_minute": 480, "end_minute": 600 })
 	var restored: JobScript = JobScript.from_dict(job.to_dict())
 	assert(restored.id == "E1" and restored.number == "JOB-2026-0007")
 	assert(restored.billing_method == JobScript.MILESTONE)
@@ -98,12 +98,12 @@ func test_a_job_round_trips_through_the_file() -> void:
 
 
 func test_a_billing_method_nobody_has_becomes_the_common_one_through_a_file() -> void:
-	var made: JobScript = JobScript.from_dict({"id": "J1", "billing_method": "MAGIC"})
+	var made: JobScript = JobScript.from_dict({ "id": "J1", "billing_method": "MAGIC" })
 	assert(made.billing_method == JobScript.FIXED)
 
 
 func test_a_record_with_no_id_is_dropped() -> void:
-	assert(JobScript.from_dict({"name": "nobody"}) == null)
+	assert(JobScript.from_dict({ "name": "nobody" }) == null)
 
 
 func test_a_crew_member_is_assigned_once() -> void:

@@ -45,8 +45,12 @@ func _ready() -> void:
 
 	print("--- watering the bed, as the button does ---")
 	var row: Dictionary = controller.waterable_areas()[0]
-	hud._on_water_area(String(row["key"]), IrrigationScript.SPRAY,
-		IrrigationScript.throw_of_kind(IrrigationScript.SPRAY), false)
+	hud._on_water_area(
+		String(row["key"]),
+		IrrigationScript.SPRAY,
+		IrrigationScript.throw_of_kind(IrrigationScript.SPRAY),
+		false,
+	)
 	print("the page says: ", hud.water_status_text())
 	print("the drawing holds ", controller.document.count(), " shapes")
 	var heads := 0
@@ -56,11 +60,18 @@ func _ready() -> void:
 			continue
 		heads += 1
 		radius = float(entity.params[2])
-		print("  ", entity.layer, "  head for Zone ", IrrigationScript.zone_of_entity(entity),
-			"  kind ", entity.meta[IrrigationScript.META_KIND],
-			"  nozzle ", entity.meta[IrrigationScript.META_ARC], " deg")
-	print(heads, " heads on the plan, each drawn at ", snappedf(radius, 0.001),
-		" m of ground (3 mm on paper at 1:100)")
+		print(
+			"  ",
+			entity.layer,
+			"  head for Zone ",
+			IrrigationScript.zone_of_entity(entity),
+			"  kind ",
+			entity.meta[IrrigationScript.META_KIND],
+			"  nozzle ",
+			entity.meta[IrrigationScript.META_ARC],
+			" deg",
+		)
+	print(heads, " heads on the plan, each drawn at ", snappedf(radius, 0.001), " m of ground (3 mm on paper at 1:100)")
 	print("the zone list on the page holds ", hud._water_panel._zone_list.item_count, " row(s):")
 	for index in hud._water_panel._zone_list.item_count:
 		print("  ", hud._water_panel._zone_list.get_item_text(index))
@@ -69,13 +80,10 @@ func _ready() -> void:
 	print("  ", hud._water_text())
 
 	print("--- what is left on screen ---")
-	print("the page is up: ", hud.is_water_panel_open(),
-		", the drawing holds ", controller.document.count(), " shapes")
+	print("the page is up: ", hud.is_water_panel_open(), ", the drawing holds ", controller.document.count(), " shapes")
 
 
 ## An eighteen metre square: four spray throws each way, so a zone comes out five grid lines each way -
 ## the textbook twenty-five heads - and the whole zone draws 225 litres a minute.
 func _bed_ring() -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED),
-	])
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED)])

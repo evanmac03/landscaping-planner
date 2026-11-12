@@ -40,16 +40,12 @@ func test_a_conversion_and_back_returns_what_it_started_with() -> void:
 	# fails on correct code: a thousandth of a day is 1.44 minutes, so an hour taken to days and
 	# back lands within twelve thousandths of an hour rather than within one. The tolerance is the
 	# coarseness of the intermediate unit, named per pair.
-	for pair: Array in [
-		[&"LIN_M", &"LIN_FT", 1], [&"SQ_M", &"SQ_FT", 1], [&"CU_M", &"CU_YD", 1],
-		[&"HOUR", &"DAY", 12],
-	]:
+	for pair: Array in [[&"LIN_M", &"LIN_FT", 1], [&"SQ_M", &"SQ_FT", 1], [&"CU_M", &"CU_YD", 1], [&"HOUR", &"DAY", 12]]:
 		for quantity in [1000, 45000, 1234567]:
 			var there: Dictionary = WorkUnitScript.convert(quantity, pair[0], pair[1])
 			var back: Dictionary = WorkUnitScript.convert(int(there["quantity_milli"]), pair[1], pair[0])
 			var drift: int = absi(int(back["quantity_milli"]) - quantity)
-			assert(drift <= int(pair[2]),
-				"%d through %s came back %d away" % [quantity, String(pair[1]), drift])
+			assert(drift <= int(pair[2]), "%d through %s came back %d away" % [quantity, String(pair[1]), drift])
 
 
 func test_a_dimension_is_what_stops_a_perimeter_being_priced_as_paving() -> void:

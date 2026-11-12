@@ -46,7 +46,7 @@ const EntryScript := preload("res://scripts/biz/time_entry.gd")
 const BY_COST_INCURRED := "by cost incurred"
 const BY_MILESTONE := "by milestone"
 
-const BASIS_NAMES := {"cost": "by cost incurred", "milestone": "by milestone"}
+const BASIS_NAMES := { "cost": "by cost incurred", "milestone": "by milestone" }
 
 ## Parts per million, the module's one rate unit (§2.1).
 const PPM := 1000000
@@ -67,15 +67,20 @@ var notes: Array[String] = []
 ## the same records the rows were built from.
 var _pending: Array = []
 
-
 # --- building the report --------------------------------------------------------------------
 
 
 ## Read a job and its records into a report. Every argument is a list of records and nothing else: the
 ## orders, the changes and the entries can come from anywhere, which is what makes this testable
 ## without a database.
-static func of(contracted: Job, orders: Array, changes: Array, entries: Array,
-		invoiced: Money = null, received: Money = null) -> JobCost:
+static func of(
+	contracted: Job,
+	orders: Array,
+	changes: Array,
+	entries: Array,
+	invoiced: Money = null,
+	received: Money = null,
+) -> JobCost:
 	var report: JobCost = ReportScript.new()
 	report.job_reference = contracted
 	report.currency = _currency_of(contracted)
@@ -139,8 +144,14 @@ static func _collect(into: Array[String], code: String) -> void:
 		into.append(clean)
 
 
-static func _row_for(contracted: Job, orders: Array, changes: Array, entries: Array, code: String,
-		code_currency: StringName) -> Dictionary:
+static func _row_for(
+	contracted: Job,
+	orders: Array,
+	changes: Array,
+	entries: Array,
+	code: String,
+	code_currency: StringName,
+) -> Dictionary:
 	var basis := _basis_for(contracted, code)
 	var budget := MoneyScript.zero(code_currency)
 	var has_budget := false
@@ -152,9 +163,7 @@ static func _row_for(contracted: Job, orders: Array, changes: Array, entries: Ar
 	var approved := MoneyScript.sum(_change_amounts(changes, code), code_currency)
 	var revised := budget.add(approved)
 	var committed := MoneyScript.sum(_order_field(orders, code, "committed"), code_currency)
-	var actual := MoneyScript.sum(
-		_order_field(orders, code, "actual") + _entry_amounts(entries, code), code_currency
-	)
+	var actual := MoneyScript.sum(_order_field(orders, code, "actual") + _entry_amounts(entries, code), code_currency)
 	var variance := budget.sub(actual)
 	var projection := budget.sub(actual).sub(committed)
 	var row := {
@@ -238,13 +247,17 @@ static func _notes(contracted: Job, already_billed: Money) -> Array[String]:
 	var out: Array[String] = []
 	if contracted != null:
 		if _dominant_basis(contracted) == JobScript.PRICE:
-			out.append("the budget is the price the customer pays for each code, so a variance "
-				+ "against it is a margin to date and not a cost overrun")
+			out.append(
+				"the budget is the price the customer pays for each code, so a variance "
+				+ "against it is a margin to date and not a cost overrun"
+			)
 		else:
 			out.append("the budget is the cost the business pays for each code")
 	if not already_billed.is_valid():
-		out.append("nothing has been invoiced, so what has been billed and what is uncollected "
-			+ "are not known rather than nothing")
+		out.append(
+			"nothing has been invoiced, so what has been billed and what is uncollected "
+			+ "are not known rather than nothing"
+		)
 	return out
 
 
@@ -255,7 +268,6 @@ static func _dominant_basis(contracted: Job) -> int:
 		return JobScript.PRICE
 	return int(contracted.phases[0].get("basis", JobScript.PRICE))
 
-
 # --- reading it -------------------------------------------------------------------------------
 
 
@@ -263,7 +275,7 @@ func row_for(code: String) -> Dictionary:
 	for held in rows:
 		if String(held["cost_code"]) == code:
 			return held
-	return {}
+	return { }
 
 
 func codes() -> Array[String]:
@@ -354,8 +366,7 @@ func _pending_changes() -> Dictionary:
 	for change in _pending:
 		waiting += 1
 		amounts.append((change as ChangeScript).amount())
-	return {"total": MoneyScript.sum(amounts, currency), "count": waiting}
-
+	return { "total": MoneyScript.sum(amounts, currency), "count": waiting }
 
 # --- what is wrong with it --------------------------------------------------------------------
 
@@ -368,20 +379,24 @@ func problems() -> Array[String]:
 		var code := String(held["cost_code"])
 		var budget: Money = held["budget"]
 		if bool(held["over_committed"]):
-			out.append("%s is committed %s against a budget of %s" % [
-				code, (held["committed"] as Money).format_with_currency(),
-				budget.format_with_currency(),
-			])
+			out.append(
+				"%s is committed %s against a budget of %s"
+				% [code, (held["committed"] as Money).format_with_currency(), budget.format_with_currency()]
+			)
 		elif not bool(held["has_budget"]) and (held["actual"] as Money).cents > 0:
-			out.append("%s has cost %s and has no budget at all" % [
-				code, (held["actual"] as Money).format_with_currency(),
-			])
+			out.append(
+				"%s has cost %s and has no budget at all" % [code, (held["actual"] as Money).format_with_currency()]
+			)
 	if not _pending.is_empty():
 		var pending := _pending_changes()
-		out.append("%d change order%s pending, %s not yet agreed" % [
-			int(pending["count"]), "" if int(pending["count"]) == 1 else "s",
-			(pending["total"] as Money).format_with_currency(),
-		])
+		out.append(
+			"%d change order%s pending, %s not yet agreed"
+			% [
+				int(pending["count"]),
+				"" if int(pending["count"]) == 1 else "s",
+				(pending["total"] as Money).format_with_currency(),
+			]
+		)
 	return out
 
 
@@ -396,9 +411,7 @@ func describe() -> String:
 	parts.append("actual %s" % (figures["actual"] as Money).format_with_currency())
 	parts.append("projection %s" % (figures["projection"] as Money).format_with_currency())
 	if bool(figures["percent_known"]):
-		parts.append("%.1f%% complete %s" % [
-			float(int(figures["percent_ppm"])) / 10000.0, percent_basis,
-		])
+		parts.append("%.1f%% complete %s" % [float(int(figures["percent_ppm"])) / 10000.0, percent_basis])
 	else:
 		parts.append("no budget to measure completion against")
 	return ", ".join(parts)
@@ -412,28 +425,35 @@ func totals_text() -> String:
 	lines.append("%-22s %s" % ["contract sum", (figures["contract_sum"] as Money).format_with_currency()])
 	if (figures["changes_approved"] as Money).cents != 0 \
 			or (figures["changes_pending"] as Money).cents != 0:
-		lines.append("%-22s %s" % [
-			"change orders agreed", (figures["changes_approved"] as Money).format_with_currency(),
-		])
+		lines.append(
+			"%-22s %s" % ["change orders agreed", (figures["changes_approved"] as Money).format_with_currency()]
+		)
 		if int(figures["pending_count"]) > 0:
-			lines.append("%-22s %s  (%d pending, not agreed)" % [
-				"change orders pending", (figures["changes_pending"] as Money).format_with_currency(),
-				int(figures["pending_count"]),
-			])
+			lines.append(
+				"%-22s %s  (%d pending, not agreed)"
+				% [
+					"change orders pending",
+					(figures["changes_pending"] as Money).format_with_currency(),
+					int(figures["pending_count"]),
+				]
+			)
 	lines.append("%-22s %s" % ["cost incurred", (figures["cost"] as Money).format_with_currency()])
 	if bool(figures["margin_known"]):
-		lines.append("%-22s %s  (earned %s at percent complete, %s)" % [
-			"gross margin to date", (figures["margin_to_date"] as Money).format_with_currency(),
-			(figures["earned"] as Money).format_with_currency(), percent_basis,
-		])
+		lines.append(
+			"%-22s %s  (earned %s at percent complete, %s)"
+			% [
+				"gross margin to date",
+				(figures["margin_to_date"] as Money).format_with_currency(),
+				(figures["earned"] as Money).format_with_currency(),
+				percent_basis,
+			]
+		)
 	else:
 		lines.append("%-22s not known: %s" % ["gross margin", "no budget to measure it against"])
 	if bool(figures["billed_known"]):
 		lines.append("%-22s %s" % ["billed", (figures["billed"] as Money).format_with_currency()])
 		if bool(figures["uncollected_known"]):
-			lines.append("%-22s %s" % [
-				"uncollected", (figures["uncollected"] as Money).format_with_currency(),
-			])
+			lines.append("%-22s %s" % ["uncollected", (figures["uncollected"] as Money).format_with_currency()])
 	else:
 		lines.append("%-22s not known: nothing has been invoiced" % "billed")
 	for note in notes:
@@ -452,7 +472,6 @@ func row_text(code: String) -> String:
 		(held["actual"] as Money).format_with_currency(),
 		(held["variance"] as Money).format_with_currency(),
 	]
-
 
 # --- the question that matters before an order goes out -----------------------------------------
 
@@ -473,16 +492,18 @@ static func over_commitment(contracted: Job, orders: Array, cost_code: StringNam
 	var committed := MoneyScript.sum(_order_field(orders, code, "committed"), currency_code)
 	var remaining := budget.sub(committed)
 	if amount == null or not amount.is_valid():
-		return {"over": false, "remaining": remaining,
-			"reason": ""}
+		return { "over": false, "remaining": remaining, "reason": "" }
 	var after := committed.add(amount)
 	var over := after.cents > budget.cents
 	return {
 		"over": over,
 		"remaining": remaining,
-		"reason": "%s would be committed %s against a budget of %s" % [
-			code, after.format_with_currency(), budget.format_with_currency(),
-		] if over else "",
+		"reason": (
+			"%s would be committed %s against a budget of %s"
+			% [code, after.format_with_currency(), budget.format_with_currency()]
+			if over
+			else ""
+		),
 	}
 
 

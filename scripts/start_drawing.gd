@@ -36,28 +36,15 @@ const TITLE := "Begin a drawing"
 ## What it says before the four ways, in the page's own voice.
 const OPENING := (
 	"The drawing board is ready. Start with an empty sheet and draw the site from nothing, open a "
-	+ "drawing you saved earlier, come back to one you have opened recently, or lay out the example "
-	+ "garden."
+	+ "drawing you saved earlier, come back to one you have opened recently, or lay out the example " + "garden."
 )
 
 ## The four ways, in the order a person meets them. Each has the id its button answers with, the words on
 ## the button, and a line explaining what taking it does.
 const WAYS: Array[Dictionary] = [
-	{
-		"id": NEW,
-		"label": "New drawing",
-		"line": "Start with an empty sheet and draw the site from nothing.",
-	},
-	{
-		"id": OPEN,
-		"label": "Open drawing...",
-		"line": "Open a drawing you saved earlier, from a file.",
-	},
-	{
-		"id": RECENT,
-		"label": "Open recent",
-		"line": "Return to a drawing this program has opened before.",
-	},
+	{ "id": NEW, "label": "New drawing", "line": "Start with an empty sheet and draw the site from nothing." },
+	{ "id": OPEN, "label": "Open drawing...", "line": "Open a drawing you saved earlier, from a file." },
+	{ "id": RECENT, "label": "Open recent", "line": "Return to a drawing this program has opened before." },
 	{
 		"id": EXAMPLE,
 		"label": "The example garden",
@@ -85,7 +72,7 @@ static func way(id: StringName) -> Dictionary:
 	for entry: Dictionary in WAYS:
 		if StringName(entry["id"]) == id:
 			return entry
-	return {}
+	return { }
 
 
 ## The recent drawings as the rows the page shows: the name a person recognises each by, and the path it
@@ -94,5 +81,5 @@ static func way(id: StringName) -> Dictionary:
 static func recent_rows(paths: Array[String]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for path: String in paths:
-		out.append({"path": path, "label": DrawingStore.display_name(path)})
+		out.append({ "path": path, "label": DrawingStore.display_name(path) })
 	return out

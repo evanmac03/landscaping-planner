@@ -171,7 +171,7 @@ static func stored(path: String = FILE_PATH) -> StringName:
 ## Keep a hold, through a temporary file and a rename, so a save that fails never leaves a shorter
 ## file where the real one was - and so that a half-written file is never read back as a hold.
 static func remember(choice: StringName, path: String = FILE_PATH) -> bool:
-	var record: Dictionary = {KEY: String(choice_for(choice))}
+	var record: Dictionary = { KEY: String(choice_for(choice)) }
 	var temp: String = path + ".writing"
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:

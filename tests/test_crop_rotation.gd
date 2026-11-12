@@ -21,13 +21,10 @@ const SuitabilityScript := preload("res://scripts/plant_suitability.gd")
 
 ## An edible crop of a stated family.
 func _crop(id: StringName, family: StringName) -> PlantSpecies:
-	var plant: PlantSpecies = SpeciesScript.make(
-		id, "%s sp." % String(id), String(id), 150, 60, SpeciesScript.ANNUAL
-	)
+	var plant: PlantSpecies = SpeciesScript.make(id, "%s sp." % String(id), String(id), 150, 60, SpeciesScript.ANNUAL)
 	plant.edible_parts = SpeciesScript.EAT_LEAF
 	plant.family = family
 	return plant
-
 
 # --- the families ---------------------------------------------------------------------------
 
@@ -47,11 +44,7 @@ func test_a_family_reads_with_the_article_it_wants() -> void:
 	assert(CropRotationScript.article("") == "")
 	var chives: PlantSpecies = _crop(&"chives", CropRotationScript.ALLIUM)
 	var verdict: Dictionary = CropRotationScript.check(chives, CropRotationScript.ALLIUM)
-	assert(
-		String(verdict["summary"]).contains("an allium after an allium"),
-		String(verdict["summary"])
-	)
-
+	assert(String(verdict["summary"]).contains("an allium after an allium"), String(verdict["summary"]))
 
 # --- companion planting ---------------------------------------------------------------------
 
@@ -77,29 +70,20 @@ func test_a_crops_companions_read_as_a_line() -> void:
 
 
 func test_a_companion_is_reported_only_where_there_is_a_stated_pairing() -> void:
-	var apart: Dictionary = CropRotationScript.companion_finding(
-		CropRotationScript.ALLIUM, CropRotationScript.LEGUME
-	)
+	var apart: Dictionary = CropRotationScript.companion_finding(CropRotationScript.ALLIUM, CropRotationScript.LEGUME)
 	assert(not apart.is_empty(), "an allium beside a legume is worth reporting")
 	assert(int(apart["outcome"]) == CropRotationScript.UNSUITABLE, String(apart["because"]))
-	var together: Dictionary = CropRotationScript.companion_finding(
-		CropRotationScript.LEAFY, CropRotationScript.LEGUME
-	)
+	var together: Dictionary = CropRotationScript.companion_finding(CropRotationScript.LEAFY, CropRotationScript.LEGUME)
 	assert(int(together["outcome"]) == CropRotationScript.GOOD, String(together["because"]))
 	# A herb beside a root crop is not a pairing anybody stated, so nothing is claimed about it.
 	assert(
-		CropRotationScript.companion_finding(
-			CropRotationScript.HERB_FAMILY, CropRotationScript.ROOT_CROP
-		).is_empty(),
-		"a pairing nobody stated is passed over rather than invented"
+		CropRotationScript.companion_finding(CropRotationScript.HERB_FAMILY, CropRotationScript.ROOT_CROP).is_empty(),
+		"a pairing nobody stated is passed over rather than invented",
 	)
 	assert(
-		CropRotationScript.companion_finding(
-			CropRotationScript.LEGUME, CropRotationScript.LEGUME
-		).is_empty(),
-		"and the same family beside itself is not a companion question"
+		CropRotationScript.companion_finding(CropRotationScript.LEGUME, CropRotationScript.LEGUME).is_empty(),
+		"and the same family beside itself is not a companion question",
 	)
-
 
 # --- the plants a pairing names -------------------------------------------------------------
 
@@ -107,9 +91,7 @@ func test_a_companion_is_reported_only_where_there_is_a_stated_pairing() -> void
 ## A species with a common name, a botanical name and a family. The two names matter: a pairing kept by
 ## name has to find a plant the way a person would write it.
 func _plant(id: StringName, common: String, family: StringName, edible: bool = true) -> PlantSpecies:
-	var plant: PlantSpecies = SpeciesScript.make(
-		id, "Botanical %s" % common, common, 100, 60, SpeciesScript.ANNUAL
-	)
+	var plant: PlantSpecies = SpeciesScript.make(id, "Botanical %s" % common, common, 100, 60, SpeciesScript.ANNUAL)
 	plant.family = family
 	if edible:
 		plant.edible_parts = SpeciesScript.EAT_LEAF
@@ -142,7 +124,7 @@ func _pair_about(id: StringName) -> Dictionary:
 		var b: Dictionary = pair["b"]
 		if StringName(a.get("id", &"")) == id or StringName(b.get("id", &"")) == id:
 			return pair
-	return {}
+	return { }
 
 
 func test_a_pairing_that_names_a_plant_is_read_before_the_family_it_sits_in() -> void:
@@ -157,12 +139,10 @@ func test_a_pairing_that_names_a_plant_is_read_before_the_family_it_sits_in() ->
 	assert(String(apart["because"]).contains("does not grow well"), String(apart["because"]))
 	# And the herb row still speaks for a herb that is not excepted, so this is one plant and not the
 	# family: basil beside the same tomato is the good pairing the row claims.
-	var basil: Dictionary = CropRotationScript.subject_of(
-		catalogue.get_species(&"ocimum-basilicum-genovese")
-	)
+	var basil: Dictionary = CropRotationScript.subject_of(catalogue.get_species(&"ocimum-basilicum-genovese"))
 	assert(
 		int(CropRotationScript.company_finding(basil, tomato)["outcome"]) == CropRotationScript.GOOD,
-		String(CropRotationScript.company_finding(basil, tomato).get("because", ""))
+		String(CropRotationScript.company_finding(basil, tomato).get("because", "")),
 	)
 
 
@@ -173,7 +153,8 @@ func test_a_plant_with_no_family_can_still_be_a_companion() -> void:
 	var marigold: Dictionary = CropRotationScript.subject_of(catalogue.get_species(&"tagetes-patula"))
 	assert(marigold["family"] == CropRotationScript.FAMILY_NONE, "it has no family to be grouped by")
 	var line: String = CropRotationScript.company_line(
-		catalogue, CropRotationScript.subject_of(catalogue.get_species(&"bean"))
+		catalogue,
+		CropRotationScript.subject_of(catalogue.get_species(&"bean")),
 	)
 	assert(line.contains("Marigold"), line)
 	assert(not line.contains("Botanical"), "named as a person says it, not by its whole label: %s" % line)
@@ -190,23 +171,26 @@ func test_a_warning_is_read_before_an_encouragement_when_both_are_stated() -> vo
 	assert(_outcome_of(named, "Marigold") == CropRotationScript.GOOD, str(named))
 	assert(_outcome_of(named, "Fennel") == CropRotationScript.UNSUITABLE, str(named))
 	assert(
-		int(CropRotationScript.company_finding(bean, CropRotationScript.subject_of(
-			catalogue.get_species(&"fennel")
-		))["outcome"]) == CropRotationScript.UNSUITABLE,
-		"and asked the other way round it is the same answer"
+		int(
+			CropRotationScript.company_finding(bean, CropRotationScript.subject_of(catalogue.get_species(&"fennel")))[
+				"outcome"
+			]
+		)
+		== CropRotationScript.UNSUITABLE,
+		"and asked the other way round it is the same answer",
 	)
 
 
 func test_a_pairing_nobody_stated_is_passed_over_rather_than_invented() -> void:
 	var boxwood: PlantSpecies = SpeciesScript.make(&"buxus", "Buxus sempervirens", "Boxwood", 200, 150)
 	assert(
-		CropRotationScript.company_finding(
-			CropRotationScript.subject_of(boxwood), CropRotationScript.subject_of(boxwood)
-		).is_empty(),
-		"nothing is stated about a boxwood beside a boxwood"
+		CropRotationScript.company_finding(CropRotationScript.subject_of(boxwood), CropRotationScript.subject_of(
+			boxwood
+		)).is_empty(),
+		"nothing is stated about a boxwood beside a boxwood",
 	)
-	assert(CropRotationScript.company_names(_companion_catalogue(), {}).is_empty())
-	assert(CropRotationScript.company_line(_companion_catalogue(), {}).is_empty())
+	assert(CropRotationScript.company_names(_companion_catalogue(), { }).is_empty())
+	assert(CropRotationScript.company_line(_companion_catalogue(), { }).is_empty())
 	assert(CropRotationScript.company_names(null, CropRotationScript.subject_of(boxwood)).is_empty())
 
 
@@ -217,11 +201,7 @@ func test_the_family_table_is_still_the_whole_answer_for_a_caller_holding_only_f
 	assert(not herb.contains("Marigold"), herb)
 	assert(not herb.contains("growing"), herb)
 	assert(CropRotationScript.companion_line(CropRotationScript.FAMILY_NONE) == "")
-	assert(
-		CropRotationScript.universal_pair(
-			CropRotationScript.family_subject(CropRotationScript.HERB_FAMILY)
-		).is_empty()
-	)
+	assert(CropRotationScript.universal_pair(CropRotationScript.family_subject(CropRotationScript.HERB_FAMILY)).is_empty())
 
 
 func test_a_line_with_no_list_is_the_family_answer_and_names_no_plant() -> void:
@@ -232,7 +212,7 @@ func test_a_line_with_no_list_is_the_family_answer_and_names_no_plant() -> void:
 	assert(CropRotationScript.company_names(null, family).is_empty())
 	assert(
 		CropRotationScript.company_reason(null, family).is_empty(),
-		"and no plant was named, so there is no reason to give"
+		"and no plant was named, so there is no reason to give",
 	)
 
 
@@ -244,18 +224,16 @@ func test_a_plant_whose_rule_asks_nothing_of_the_other_plant_is_answered_by_that
 	var fennel: Dictionary = CropRotationScript.subject_of(catalogue.get_species(&"fennel"))
 	assert(
 		CropRotationScript.company_line(catalogue, fennel) == "should be kept from whatever is growing",
-		CropRotationScript.company_line(catalogue, fennel)
+		CropRotationScript.company_line(catalogue, fennel),
 	)
 	var marigold: Dictionary = CropRotationScript.subject_of(catalogue.get_species(&"tagetes-patula"))
 	assert(
 		CropRotationScript.company_line(catalogue, marigold) == "grows well with whatever is growing",
-		CropRotationScript.company_line(catalogue, marigold)
+		CropRotationScript.company_line(catalogue, marigold),
 	)
 	assert(
-		CropRotationScript.universal_pair(
-			CropRotationScript.subject_of(catalogue.get_species(&"bean"))
-		).is_empty(),
-		"the ordinary plant has no such rule, and the family table speaks for it"
+		CropRotationScript.universal_pair(CropRotationScript.subject_of(catalogue.get_species(&"bean"))).is_empty(),
+		"the ordinary plant has no such rule, and the family table speaks for it",
 	)
 
 
@@ -266,16 +244,13 @@ func test_a_rule_about_a_plant_this_list_has_not_got_is_carried_rather_than_lost
 	var dill: Dictionary = CropRotationScript.subject_of(catalogue.get_species(&"anethum-graveolens"))
 	var carrot: PlantSpecies = _plant(&"carrot", "Carrot", CropRotationScript.ROOT_CROP)
 	assert(
-		int(CropRotationScript.company_finding(
-			dill, CropRotationScript.subject_of(carrot)
-		)["outcome"]) == CropRotationScript.UNSUITABLE,
-		"a rule kept by name answers a carrot that was never in the file"
+		int(CropRotationScript.company_finding(dill, CropRotationScript.subject_of(carrot))["outcome"])
+		== CropRotationScript.UNSUITABLE,
+		"a rule kept by name answers a carrot that was never in the file",
 	)
 	assert(
-		CropRotationScript.company_finding(
-			{}, CropRotationScript.subject_of(carrot)
-		).is_empty(),
-		"and there is nothing to match against a subject that is not a plant"
+		CropRotationScript.company_finding({ }, CropRotationScript.subject_of(carrot)).is_empty(),
+		"and there is nothing to match against a subject that is not a plant",
 	)
 	catalogue.add(carrot)
 	assert(CropRotationScript.company_line(catalogue, dill).contains("Carrot"), "the day it arrives it is named")
@@ -286,23 +261,23 @@ func test_every_pairing_says_where_it_came_from_and_how_it_is_known() -> void:
 		var outcome: int = int(pair.get("outcome", CropRotationScript.UNKNOWN))
 		assert(
 			outcome == CropRotationScript.GOOD or outcome == CropRotationScript.UNSUITABLE,
-			"a pairing is a good one or a warning, and nothing else: %s" % str(pair)
+			"a pairing is a good one or a warning, and nothing else: %s" % str(pair),
 		)
 		var nature: String = String(pair.get("nature", ""))
 		assert(
 			nature == CropRotationScript.NATURE_KNOWN or nature == CropRotationScript.NATURE_TRADITION,
-			"and it says whether it is a mechanism or a tradition: %s" % str(pair)
+			"and it says whether it is a mechanism or a tradition: %s" % str(pair),
 		)
 		var ref: Variant = pair.get("source", "")
 		var ids: Array = ref if ref is Array else [ref]
 		for one: Variant in ids:
 			assert(
 				CropRotationScript.COMPANION_SOURCES.has(String(one)),
-				"%s is named as a source and is not written down" % one
+				"%s is named as a source and is not written down" % one,
 			)
 		assert(
 			not CropRotationScript.source_title(ref).is_empty(),
-			"and the work has a title a page can print: %s" % str(pair)
+			"and the work has a title a page can print: %s" % str(pair),
 		)
 		assert(not String(pair.get("why", "")).is_empty(), "and every pairing can say why it is said")
 
@@ -316,11 +291,11 @@ func test_a_mechanism_is_given_as_a_mechanism_and_a_tradition_as_a_tradition() -
 	assert(String(marigold["why"]).contains("alpha-terthienyl"), String(marigold["why"]))
 	assert(
 		CropRotationScript.source_title(marigold["source"]).contains("Wisconsin"),
-		CropRotationScript.source_title(marigold["source"])
+		CropRotationScript.source_title(marigold["source"]),
 	)
 	# And the dill beside the carrot is what the other kind looks like: repeated, unexplained, and
 	# carried anyway, because saying so is the honest thing to do with it.
-	var kept_from: Dictionary = {}
+	var kept_from: Dictionary = { }
 	for pair: Dictionary in CropRotationScript.COMPANION_PLANTS:
 		if String((pair["b"] as Dictionary).get("name", "")) == "Carrot":
 			kept_from = pair
@@ -328,7 +303,7 @@ func test_a_mechanism_is_given_as_a_mechanism_and_a_tradition_as_a_tradition() -
 	assert(String(kept_from["nature"]) == CropRotationScript.NATURE_TRADITION, str(kept_from))
 	assert(
 		not String(kept_from["why"]).contains("alpha-terthienyl"),
-		"and a tradition is not dressed up as a mechanism"
+		"and a tradition is not dressed up as a mechanism",
 	)
 
 
@@ -341,9 +316,8 @@ func test_the_reason_says_why_and_names_the_work_it_came_from() -> void:
 	assert(reason.contains("Mississippi State"), "both works that say it are cited: %s" % reason)
 	assert(
 		reason.find("Marigold") < reason.find("Fennel"),
-		"what goes with it is said before what it is kept from: %s" % reason
+		"what goes with it is said before what it is kept from: %s" % reason,
 	)
-
 
 # --- the turn -------------------------------------------------------------------------------
 
@@ -372,11 +346,12 @@ func test_something_against_the_crop_outranks_a_gap_the_way_suitability_orders_t
 	# wrong is the verdict, not the gap the unstated history left.
 	var bean: PlantSpecies = _crop(&"bean", CropRotationScript.LEGUME)
 	var verdict: Dictionary = CropRotationScript.check(
-		bean, CropRotationScript.FAMILY_NONE, [CropRotationScript.ALLIUM]
+		bean,
+		CropRotationScript.FAMILY_NONE,
+		[CropRotationScript.ALLIUM],
 	)
 	assert(int(verdict["verdict"]) == CropRotationScript.UNSUITABLE, CropRotationScript.summary_of(verdict))
 	assert(verdict["findings"].size() == 1, "only the company question could be asked")
-
 
 # --- a question nobody answered -------------------------------------------------------------
 
@@ -386,14 +361,8 @@ func test_a_bed_whose_history_is_unstated_leaves_the_turn_unknown_never_green() 
 	var verdict: Dictionary = CropRotationScript.check(kale, CropRotationScript.FAMILY_NONE)
 	assert(int(verdict["verdict"]) == CropRotationScript.UNKNOWN, CropRotationScript.summary_of(verdict))
 	assert(verdict["findings"].is_empty(), "nothing was asked, so there is no finding")
-	assert(
-		String(verdict["summary"]).contains("nothing says what grew there before"),
-		String(verdict["summary"])
-	)
-	assert(
-		CropRotationScript.colour_from(verdict) != SuitabilityScript.GOOD_COLOUR,
-		"and it is drawn grey, not green"
-	)
+	assert(String(verdict["summary"]).contains("nothing says what grew there before"), String(verdict["summary"]))
+	assert(CropRotationScript.colour_from(verdict) != SuitabilityScript.GOOD_COLOUR, "and it is drawn grey, not green")
 
 
 func test_a_crop_that_names_no_family_cannot_be_rotated() -> void:
@@ -407,7 +376,6 @@ func test_a_crop_that_names_no_family_cannot_be_rotated() -> void:
 func test_a_null_crop_is_unknown_rather_than_a_crash() -> void:
 	var verdict: Dictionary = CropRotationScript.check(null, CropRotationScript.BRASSICA)
 	assert(int(verdict["verdict"]) == CropRotationScript.UNKNOWN)
-
 
 # --- what would follow in a bed -------------------------------------------------------------
 

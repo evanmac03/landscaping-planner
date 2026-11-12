@@ -49,7 +49,11 @@ func _run() -> void:
 
 	var bytes: int = output.to_utf8_buffer().size()
 	print("Context written to %s/%s" % [OS.get_user_data_dir(), path.trim_prefix("user://")])
-	print("  %s - %d lines, %d KB - and copied to the clipboard, ready to paste." % [
+	print(
+		"  %s - %d lines, %d KB - and copied to the clipboard, ready to paste."
+		% [
 			"the whole snapshot" if SUBJECT.is_empty() else "the '%s' pack" % SUBJECT,
-			output.count("\n") + 1, int(round(bytes / 1024.0)),
-	])
+			output.count("\n") + 1,
+			int(round(bytes / 1024.0)),
+		]
+	)

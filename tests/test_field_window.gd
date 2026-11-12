@@ -73,10 +73,30 @@ func _png(path: String) -> String:
 func test_the_page_builds_the_controls_a_person_records_with() -> void:
 	var page: Window = _page()
 	for control_name: String in [
-		"Heading", "Explanation", "NameField", "SpeciesLine", "PartOption", "SunOption",
-		"DrainageOption", "XField", "ZField", "PhotoField", "ChoosePhoto", "TakePhoto", "NoteField",
-		"AddButton", "CloseButton", "SurveyLine", "Status", "PhotoHint", "HeightField", "SpreadField",
-		"IdModeOption", "IdSettings", "ReadPhoto", "Candidates",
+		"Heading",
+		"Explanation",
+		"NameField",
+		"SpeciesLine",
+		"PartOption",
+		"SunOption",
+		"DrainageOption",
+		"XField",
+		"ZField",
+		"PhotoField",
+		"ChoosePhoto",
+		"TakePhoto",
+		"NoteField",
+		"AddButton",
+		"CloseButton",
+		"SurveyLine",
+		"Status",
+		"PhotoHint",
+		"HeightField",
+		"SpreadField",
+		"IdModeOption",
+		"IdSettings",
+		"ReadPhoto",
+		"Candidates",
 	]:
 		assert(page.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	page.free()
@@ -88,7 +108,7 @@ func test_a_name_the_list_knows_is_read_back_as_that_plant() -> void:
 	assert(page.species_line().contains("Thymus serpyllum"), page.species_line())
 	assert(
 		String(page.capture()["species_id"]) == THYME,
-		"and the capture is that species: %s" % String(page.capture()["species_id"])
+		"and the capture is that species: %s" % String(page.capture()["species_id"]),
 	)
 	page.free()
 
@@ -112,11 +132,11 @@ func test_the_sun_and_the_drainage_are_recorded_as_the_bits_they_read_back_as() 
 	assert(page.set_choice(page.drainage_option(), "fast-draining"), "so is fast-draining")
 	assert(
 		int(page.capture()["sun_mask"]) == PlantSpecies.PART_SHADE,
-		"the sun is the model's own bit: %d" % int(page.capture()["sun_mask"])
+		"the sun is the model's own bit: %d" % int(page.capture()["sun_mask"]),
 	)
 	assert(
 		int(page.capture()["drainage_mask"]) == PlantSpecies.DRAINS_FAST,
-		"and so is the drainage: %d" % int(page.capture()["drainage_mask"])
+		"and so is the drainage: %d" % int(page.capture()["drainage_mask"]),
 	)
 	page.free()
 
@@ -127,7 +147,7 @@ func test_the_part_photographed_is_recorded_as_the_key_behind_the_words() -> voi
 	page.set_choice(page.part_option(), "a leaf")
 	assert(
 		String(page.capture()["part"]) == "leaf",
-		"the record holds the key rather than the words: %s" % String(page.capture()["part"])
+		"the record holds the key rather than the words: %s" % String(page.capture()["part"]),
 	)
 	page.free()
 
@@ -138,7 +158,7 @@ func test_a_record_with_neither_a_name_nor_a_photograph_is_refused_by_name() -> 
 	assert(not bool(result["ok"]), "it is refused")
 	assert(
 		page.status_text().contains("position on its own"),
-		"and the page says what is missing: %s" % page.status_text()
+		"and the page says what is missing: %s" % page.status_text(),
 	)
 	assert(not FileAccess.file_exists(SCRATCH), "nothing was written")
 	page.free()
@@ -150,10 +170,7 @@ func test_a_position_that_is_not_a_number_is_refused_in_words() -> void:
 	page.set_place("west", "0.0")
 	var result: Dictionary = page.add_capture()
 	assert(not bool(result["ok"]), "it is refused")
-	assert(
-		page.status_text().contains("east-west"),
-		"naming which number is the trouble: %s" % page.status_text()
-	)
+	assert(page.status_text().contains("east-west"), "naming which number is the trouble: %s" % page.status_text())
 	page.free()
 
 
@@ -211,7 +228,7 @@ func test_the_page_says_what_the_seam_says_about_reading_a_photograph() -> void:
 	var page: Window = _page()
 	assert(
 		page.photo_hint() == IdentifierScript.photo_hint_for(page.id_settings()),
-		"the page shows the seam's own words for the mode in force: %s" % page.photo_hint()
+		"the page shows the seam's own words for the mode in force: %s" % page.photo_hint(),
 	)
 	assert(page.photo_hint().contains("no identification model"), page.photo_hint())
 	page.free()
@@ -232,7 +249,7 @@ func test_a_measurement_typed_on_the_page_reaches_the_record() -> void:
 	var record: Dictionary = ExporterScript.read_manifest(SCRATCH)["data"]["features"][0]
 	assert(
 		is_equal_approx(float(record["measured_spread_m"]), 0.4),
-		"which reaches the survey: %s" % str(record.get("measured_spread_m", "<absent>"))
+		"which reaches the survey: %s" % str(record.get("measured_spread_m", "<absent>")),
 	)
 	_clean()
 	page.free()
@@ -246,7 +263,7 @@ func test_a_measurement_that_is_not_a_number_is_refused_in_words() -> void:
 	assert(not bool(result["ok"]), "it is refused")
 	assert(
 		page.status_text().contains("number of metres"),
-		"and the page says what a measurement has to be: %s" % page.status_text()
+		"and the page says what a measurement has to be: %s" % page.status_text(),
 	)
 	page.free()
 
@@ -258,14 +275,8 @@ func test_a_photograph_is_kept_and_the_record_points_at_it() -> void:
 	var kept: Dictionary = page.keep_photo(source)
 	assert(bool(kept["ok"]), "the photograph is kept: %s" % String(kept["reason"]))
 	assert(page.photo_path() == String(kept["path"]), "and the page points at the kept copy")
-	assert(
-		String(page.capture()["photo_path"]) == String(kept["path"]),
-		"which is what the record will carry"
-	)
-	assert(
-		String(kept["path"]).begins_with(PHOTOS),
-		"kept in the page's own folder: %s" % String(kept["path"])
-	)
+	assert(String(page.capture()["photo_path"]) == String(kept["path"]), "which is what the record will carry")
+	assert(String(kept["path"]).begins_with(PHOTOS), "kept in the page's own folder: %s" % String(kept["path"]))
 	_clean()
 	page.free()
 
@@ -304,11 +315,10 @@ func test_a_photograph_that_is_not_a_picture_is_refused_and_nothing_is_kept() ->
 	assert(page.photo_path().is_empty(), "and the record points at no photograph")
 	assert(
 		page.status_text().contains("is not a picture this can read"),
-		"in the reader's own words: %s" % page.status_text()
+		"in the reader's own words: %s" % page.status_text(),
 	)
 	_clean()
 	page.free()
-
 
 # --- reading the photograph --------------------------------------------------------------------------
 
@@ -323,7 +333,7 @@ func _forget_questions() -> void:
 func _transport(request: Dictionary) -> Dictionary:
 	_asked.append(request)
 	if _answers.is_empty():
-		return {"status": 0, "body": ""}
+		return { "status": 0, "body": "" }
 	return _answers.pop_front()
 
 
@@ -334,16 +344,14 @@ func _reader() -> PlantIdentifier:
 
 
 func _plant(plant_name: String, confidence: float) -> Dictionary:
-	return {"raw_taxon": plant_name, "confidence": confidence, "reason": "what the photograph showed"}
+	return { "raw_taxon": plant_name, "confidence": confidence, "reason": "what the photograph showed" }
 
 
 ## What a service answers: the model's own JSON inside the envelope a chat completion comes in.
 func _answer(plants: Array) -> Dictionary:
 	return {
 		"status": 200,
-		"body": JSON.stringify({
-			"choices": [{"message": {"content": JSON.stringify({"candidates": plants})}}],
-		}),
+		"body": JSON.stringify({ "choices": [{ "message": { "content": JSON.stringify({ "candidates": plants }) } }] }),
 	}
 
 
@@ -351,23 +359,14 @@ func test_the_controls_a_person_reads_a_photograph_with() -> void:
 	var page: Window = _page()
 	page.set_id_mode(ChoiceScript.LOCAL)
 	assert(page.id_field(ChoiceScript.LOCAL_URL) != null, "a model on this machine is asked where it is")
-	assert(
-		page.id_field(ChoiceScript.ONLINE_API_KEY) == null,
-		"and is never shown a box for a key it has no use for"
-	)
+	assert(page.id_field(ChoiceScript.ONLINE_API_KEY) == null, "and is never shown a box for a key it has no use for")
 	page.set_id_mode(ChoiceScript.HYBRID)
 	assert(page.id_field(ChoiceScript.ONLINE_API_KEY) != null, "the mixed mode does need one")
 	assert(page.id_field(ChoiceScript.ONLINE_API_KEY).secret, "and masks it")
 	assert(not page.id_field(ChoiceScript.LOCAL_URL).secret, "while an address is read as it is typed")
-	assert(
-		page.id_field(ChoiceScript.SHORTLIST_SIZE) != null,
-		"and it says how long the local shortlist may be"
-	)
+	assert(page.id_field(ChoiceScript.SHORTLIST_SIZE) != null, "and it says how long the local shortlist may be")
 	page.set_id_mode(ChoiceScript.NONE)
-	assert(
-		page.id_field(ChoiceScript.LOCAL_URL) == null,
-		"and off asks for nothing at all"
-	)
+	assert(page.id_field(ChoiceScript.LOCAL_URL) == null, "and off asks for nothing at all")
 	page.free()
 
 
@@ -379,15 +378,12 @@ func test_the_reading_line_says_what_will_happen_to_the_photograph() -> void:
 	page.set_id_mode(ChoiceScript.ONLINE)
 	assert(
 		page.photo_hint().contains("key"),
-		"a service with no key says what it is still waiting for: %s" % page.photo_hint()
+		"a service with no key says what it is still waiting for: %s" % page.photo_hint(),
 	)
-	assert(
-		page.set_id_field(ChoiceScript.ONLINE_API_KEY, "sk-a-key"),
-		"the key can be typed"
-	)
+	assert(page.set_id_field(ChoiceScript.ONLINE_API_KEY, "sk-a-key"), "the key can be typed")
 	assert(
 		page.photo_hint().contains("goes to the online service"),
-		"and then the line says the photograph goes there: %s" % page.photo_hint()
+		"and then the line says the photograph goes there: %s" % page.photo_hint(),
 	)
 	page.free()
 
@@ -407,18 +403,18 @@ func test_a_photograph_is_read_and_the_record_says_which_model_said_so() -> void
 	assert(
 		is_equal_approx(float(made["confidence"]), 0.88),
 		"and the record carries the model's own confidence rather than the page's certainty: %f"
-				% float(made["confidence"])
+		% float(made["confidence"]),
 	)
 	assert(
 		String(made.get("model_id", "")) == ChoiceScript.DEFAULT_LOCAL_MODEL,
-		"with the model that said so on it: %s" % str(made.get("model_id", "<absent>"))
+		"with the model that said so on it: %s" % str(made.get("model_id", "<absent>")),
 	)
 	page.set_place("1.0", "1.0")
 	assert(int(page.add_capture()["added"]) == 1, "and it reaches the survey")
 	var record: Dictionary = ExporterScript.read_manifest(SCRATCH)["data"]["features"][0]
 	assert(
 		String(record.get("model_id", "")) == ChoiceScript.DEFAULT_LOCAL_MODEL,
-		"still saying which model read it: %s" % str(record.get("model_id", "<absent>"))
+		"still saying which model read it: %s" % str(record.get("model_id", "<absent>")),
 	)
 	_clean()
 	page.free()
@@ -436,12 +432,11 @@ func test_a_name_the_person_edits_after_a_reading_is_their_own_name_again() -> v
 	var made: Dictionary = page.capture()
 	assert(
 		is_equal_approx(float(made["confidence"]), 1.0),
-		"somebody who says a name is certain of it: %f" % float(made["confidence"])
+		"somebody who says a name is certain of it: %f" % float(made["confidence"]),
 	)
 	assert(
 		String(made.get("model_id", "")).is_empty(),
-		"and no model is named for a name the model did not give: %s"
-				% str(made.get("model_id", "<absent>"))
+		"and no model is named for a name the model did not give: %s" % str(made.get("model_id", "<absent>")),
 	)
 	page.free()
 
@@ -454,12 +449,12 @@ func test_a_shortlist_is_a_button_per_plant_and_choosing_one_fills_the_name() ->
 	page.set_photo_path(_png("user://test_capture_shot.png"))
 	_forget_questions()
 	_answers.append(_answer([_plant(THYME_NAME, 0.6), _plant(BOX, 0.3)]))
-	_answers.append({"status": 0, "body": ""})
+	_answers.append({ "status": 0, "body": "" })
 	var answer: Dictionary = page.identify_photo()
 	assert(not bool(answer["ok"]), "half the work is not an identification")
 	assert(
 		page.candidate_count() == 2,
-		"and both plants the first model found are on offer: %d" % page.candidate_count()
+		"and both plants the first model found are on offer: %d" % page.candidate_count(),
 	)
 	assert(page.choose_candidate(0), "one of them can be chosen")
 	var made: Dictionary = page.capture()
@@ -468,7 +463,7 @@ func test_a_shortlist_is_a_button_per_plant_and_choosing_one_fills_the_name() ->
 	assert(
 		String(made.get("model_id", "")) == ChoiceScript.DEFAULT_LOCAL_MODEL,
 		"with the model that found it named, not the one that could not be reached: %s"
-				% str(made.get("model_id", "<absent>"))
+		% str(made.get("model_id", "<absent>")),
 	)
 	page.free()
 
@@ -482,7 +477,7 @@ func test_reading_with_nothing_chosen_refuses_by_name_and_asks_nobody() -> void:
 	assert(not bool(answer["ok"]), "a program nobody has chosen anything for reads nothing")
 	assert(
 		String(answer["reason"]).contains("name is yours to type"),
-		"and the refusal says what happens instead: %s" % String(answer["reason"])
+		"and the refusal says what happens instead: %s" % String(answer["reason"]),
 	)
 	assert(_asked.is_empty(), "no model was asked at all: %d" % _asked.size())
 	page.free()
@@ -498,8 +493,7 @@ func test_what_the_page_answers_before_a_model_has_answered_is_a_refusal_saying_
 	assert(not bool(answer["ok"]), "so there is no answer to read")
 	assert(
 		String(answer["reason"]) == PageScript.READING_NOW,
-		"and the page says it is reading rather than showing a reading of nothing: %s"
-			% String(answer["reason"])
+		"and the page says it is reading rather than showing a reading of nothing: %s" % String(answer["reason"]),
 	)
 	page.free()
 
@@ -512,13 +506,10 @@ func test_the_page_is_not_reading_once_a_model_has_answered() -> void:
 	_forget_questions()
 	_answers.append(_answer([_plant(THYME_NAME, 0.88)]))
 	page.identify_photo()
-	assert(
-		not page.is_reading(),
-		"a reading no wire is involved in is over by the time a caller asks for it"
-	)
+	assert(not page.is_reading(), "a reading no wire is involved in is over by the time a caller asks for it")
 	assert(bool(page.the_reading()["ok"]), "and the page holds the answer it landed with")
 	assert(
 		String(page.the_reading()["raw_taxon"]) == THYME_NAME,
-		"naming the plant the model gave: %s" % String(page.the_reading()["raw_taxon"])
+		"naming the plant the model gave: %s" % String(page.the_reading()["raw_taxon"]),
 	)
 	page.free()

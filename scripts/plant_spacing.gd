@@ -43,17 +43,11 @@ const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const SQUARE := "square"
 const TRIANGULAR := "triangular"
 const ARRANGEMENTS: Array[String] = [SQUARE, TRIANGULAR]
-const ARRANGEMENT_NAMES := {
-	SQUARE: "Square",
-	TRIANGULAR: "Staggered",
-}
+const ARRANGEMENT_NAMES := { SQUARE: "Square", TRIANGULAR: "Staggered" }
 
 ## The layers a planting goes in. Taken from the layer set rather than written out here, so a layer
 ## renamed in one place cannot leave a fill planting into a driveway.
-const PLANTABLE: Array[StringName] = [
-	LayerSetScript.NEW_BED,
-	LayerSetScript.EXISTING_PLANTING,
-]
+const PLANTABLE: Array[StringName] = [LayerSetScript.NEW_BED, LayerSetScript.EXISTING_PLANTING]
 
 ## The tightest spacing worth drawing. A plant 5 cm from its neighbour is a seed bed, not a plan,
 ## and a grid finer than this is also how a fill would turn into a million points by accident.
@@ -72,7 +66,6 @@ const MAX_GRID := 250000
 ## Numbers here are compared against geometry the drawing produced, so equality is to a millimetre and
 ## not to the last bit of a double.
 const TOLERANCE := 1e-6
-
 
 # --- the numbers a fill is asked for ------------------------------------------------------
 
@@ -119,7 +112,6 @@ static func spread_of(species: PlantSpecies) -> float:
 ## the lawn.
 static func clearance_of(species: PlantSpecies) -> float:
 	return spread_of(species) * 0.5
-
 
 # --- where the plants go ------------------------------------------------------------------
 
@@ -169,12 +161,15 @@ static func problem(outline: PackedVector2Array, spacing: float, clearance: floa
 ## The grid's phase comes from `origin`, so two beds filled one after another carry on one grid rather
 ## than each starting a pattern of its own at its own corner.
 static func plan_fill(
-	outline: PackedVector2Array, spacing: float, arrangement: String = SQUARE,
-	clearance: float = 0.0, origin: Vector2 = Vector2.ZERO
+	outline: PackedVector2Array,
+	spacing: float,
+	arrangement: String = SQUARE,
+	clearance: float = 0.0,
+	origin: Vector2 = Vector2.ZERO,
 ) -> Dictionary:
 	var refuse := problem(outline, spacing, clearance)
 	if not refuse.is_empty():
-		return {"ok": false, "reason": refuse, "points": PackedVector2Array(), "wanted": 0}
+		return { "ok": false, "reason": refuse, "points": PackedVector2Array(), "wanted": 0 }
 	var row_step := spacing
 	if arrangement == TRIANGULAR:
 		row_step = spacing * sqrt(3.0) * 0.5
@@ -200,7 +195,7 @@ static func plan_fill(
 			budget -= 1
 			var candidate := Vector2(x, y)
 			var keeps_clear := clearance <= 0.0 \
-				or distance_to_outline(candidate, outline) >= clearance - TOLERANCE
+					or distance_to_outline(candidate, outline) >= clearance - TOLERANCE
 			if keeps_clear and Geom.point_in_polygon(candidate, outline):
 				wanted += 1
 				if points.size() < MAX_PLANTS:
@@ -222,19 +217,21 @@ static func plan_fill(
 		# a lie that reads like precision.
 		return {
 			"ok": false,
-			"reason": "at %s apart this bed takes more than %d plants, which is more than one fill puts down. Space them further apart." % [
-				spacing_words(spacing), MAX_PLANTS
-			],
+			"reason": "at %s apart this bed takes more than %d plants, which is more than one fill puts down. Space them further apart."
+			% [spacing_words(spacing), MAX_PLANTS],
 			"points": points,
 			"wanted": wanted,
 		}
-	return {"ok": true, "reason": "", "points": points, "wanted": wanted}
+	return { "ok": true, "reason": "", "points": points, "wanted": wanted }
 
 
 ## The positions a fill would plant at, for a caller that wants only them.
 static func positions(
-	outline: PackedVector2Array, spacing: float, arrangement: String = SQUARE,
-	clearance: float = 0.0, origin: Vector2 = Vector2.ZERO
+	outline: PackedVector2Array,
+	spacing: float,
+	arrangement: String = SQUARE,
+	clearance: float = 0.0,
+	origin: Vector2 = Vector2.ZERO,
 ) -> PackedVector2Array:
 	return plan_fill(outline, spacing, arrangement, clearance, origin)["points"]
 
@@ -244,11 +241,13 @@ static func positions(
 ## carrying. Over the cap it is `MAX_PLANTS + 1`, which is the question "is this too many" answered
 ## rather than a count nobody needs - the working-out stops as soon as the answer is "too many".
 static func count_for(
-	outline: PackedVector2Array, spacing: float, arrangement: String = SQUARE,
-	clearance: float = 0.0, origin: Vector2 = Vector2.ZERO
+	outline: PackedVector2Array,
+	spacing: float,
+	arrangement: String = SQUARE,
+	clearance: float = 0.0,
+	origin: Vector2 = Vector2.ZERO,
 ) -> int:
 	return int(plan_fill(outline, spacing, arrangement, clearance, origin)["wanted"])
-
 
 # --- planting it ----------------------------------------------------------------------------
 
@@ -263,8 +262,11 @@ static func count_for(
 ## reason `PlantPlacement` gave, because a species whose scene is not on disk is a refusal about the
 ## plant and not about the spacing.
 static func fill(
-	catalogue: PlantCatalogue, yard: Node, species_id: StringName, outline: PackedVector2Array,
-	options: Dictionary = {}
+	catalogue: PlantCatalogue,
+	yard: Node,
+	species_id: StringName,
+	outline: PackedVector2Array,
+	options: Dictionary = { },
 ) -> Dictionary:
 	if catalogue == null:
 		return _report("there is no plant list open", species_id)
@@ -310,9 +312,7 @@ static func fill(
 		# Model metres to world: the draft's y runs south and the world's -Z is north, so a point
 		# becomes `Vector3(x, 0, y)` - the mapping `CadSolid` builds its meshes with, so a filled bed
 		# stands under the same drawing the plan shows.
-		var landed: Dictionary = PlacementScript.place(
-			catalogue, species_id, yard, Vector3(point.x, 0.0, point.y)
-		)
+		var landed: Dictionary = PlacementScript.place(catalogue, species_id, yard, Vector3(point.x, 0.0, point.y))
 		if bool(landed["ok"]):
 			nodes.append(landed["node"])
 		elif first_reason.is_empty():
@@ -326,9 +326,7 @@ static func fill(
 	# A plant that would not go in is named even when the rest of the bed did: a bed with three gaps
 	# in it and a status line about the fourteen that landed is a bed somebody has to count.
 	if not first_reason.is_empty():
-		report["reason"] = "%d of %d went in: %s" % [
-			nodes.size(), int(worked["wanted"]), first_reason
-		]
+		report["reason"] = "%d of %d went in: %s" % [nodes.size(), int(worked["wanted"]), first_reason]
 	return report
 
 
@@ -362,11 +360,11 @@ static func report_words(report: Dictionary) -> String:
 	if species != null:
 		who = species.display_name()
 	return "%d x %s at %s, %s" % [
-		int(report.get("placed", 0)), who,
+		int(report.get("placed", 0)),
+		who,
 		spacing_words(float(report.get("spacing", 0.0))),
 		arrangement_words(String(report.get("arrangement", SQUARE))).to_lower(),
 	]
-
 
 # --- the beds a plan offers ----------------------------------------------------------------
 

@@ -46,7 +46,6 @@ const INTERVAL := 30.0
 ## refused rather than restored as a drawing with no shapes in it.
 const VERSION := 1
 
-
 # --- where a copy lives -----------------------------------------------------------------
 
 
@@ -84,7 +83,6 @@ static func list() -> Array[String]:
 			out.append(DIR.path_join(file_name))
 	return out
 
-
 # --- keeping one ------------------------------------------------------------------------
 
 
@@ -102,7 +100,7 @@ static func is_due(dirty: bool, since_last: float, interval: float = INTERVAL) -
 ## are read with the shapes rather than counted separately: they describe a garden, and a drawing with
 ## no garden in it yet is not one.
 static func has_work(state: Dictionary) -> bool:
-	var entities: Variant = state.get("entities", {})
+	var entities: Variant = state.get("entities", { })
 	return entities is Dictionary and not (entities as Dictionary).is_empty()
 
 
@@ -113,7 +111,10 @@ static func has_work(state: Dictionary) -> bool:
 ## hold. The gesture serial travels with it: it is what says, later, that the copy is of *this*
 ## drawing rather than of one that happens to share its name.
 static func write(
-	state: Dictionary, drawing_path: String = "", project_name: String = "", serial: int = 0
+	state: Dictionary,
+	drawing_path: String = "",
+	project_name: String = "",
+	serial: int = 0,
 ) -> Dictionary:
 	if state.is_empty():
 		return _refused("there is no drawing to keep a copy of")
@@ -142,7 +143,7 @@ static func write(
 	if error != OK:
 		DirAccess.remove_absolute(temp)
 		return _refused("cannot put %s in place: %s" % [target.get_file(), error_string(error)])
-	return {"ok": true, "reason": "", "path": target, "when": String(kept["when"])}
+	return { "ok": true, "reason": "", "path": target, "when": String(kept["when"]) }
 
 
 ## Forget the copy of a drawing: what it held has been saved, or has been deliberately left behind.
@@ -164,7 +165,6 @@ static func clear_all() -> int:
 			removed += 1
 	return removed
 
-
 # --- reading one ------------------------------------------------------------------------
 
 
@@ -185,9 +185,9 @@ static func read(path: String) -> Dictionary:
 	# already being told in a sentence what is wrong, and a console line nobody can act on is noise.
 	var reader := JSON.new()
 	if reader.parse(text) != OK:
-		return _refused("%s is not readable: %s (line %d)" % [
-			path.get_file(), reader.get_error_message(), reader.get_error_line()
-		])
+		return _refused(
+			"%s is not readable: %s (line %d)" % [path.get_file(), reader.get_error_message(), reader.get_error_line()]
+		)
 	if not (reader.data is Dictionary):
 		return _refused("%s is not a copy of a drawing" % path.get_file())
 	var data: Dictionary = reader.data
@@ -208,8 +208,14 @@ static func read(path: String) -> Dictionary:
 
 static func _refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "path": "",
-		"drawing_path": "", "project_name": "", "serial": 0, "when": "", "state": {},
+		"ok": false,
+		"reason": reason,
+		"path": "",
+		"drawing_path": "",
+		"project_name": "",
+		"serial": 0,
+		"when": "",
+		"state": { },
 	}
 
 
@@ -230,8 +236,8 @@ static func still_wanted(copy: Dictionary) -> bool:
 	var saved: Dictionary = DrawingStore.read(where)
 	if not bool(saved.get("ok", false)):
 		return true
-	var state: Variant = copy.get("state", {})
-	var file_state: Variant = saved.get("data", {})
+	var state: Variant = copy.get("state", { })
+	var file_state: Variant = saved.get("data", { })
 	if not (state is Dictionary) or not (file_state is Dictionary):
 		return true
 	return not same_state(state, file_state)
@@ -252,7 +258,7 @@ static func same_state(left: Dictionary, right: Dictionary) -> bool:
 ## only copies that are `still_wanted`, so a leftover from a drawing that has since been saved is
 ## passed over rather than offered.
 static func newest_wanted() -> Dictionary:
-	var best: Dictionary = {}
+	var best: Dictionary = { }
 	for path: String in list():
 		var found: Dictionary = read(path)
 		if not bool(found["ok"]) or not still_wanted(found):
@@ -262,7 +268,6 @@ static func newest_wanted() -> Dictionary:
 		if best.is_empty() or String(found["when"]) > String(best["when"]):
 			best = found
 	return best
-
 
 # --- saying what one is ------------------------------------------------------------------
 
@@ -280,8 +285,8 @@ static func clock_of(when: String) -> String:
 ## What a copy holds, the way a person is told about it: what the drawing was called, how much is in
 ## it, and when the copy was kept.
 static func describe(copy: Dictionary) -> String:
-	var state: Variant = copy.get("state", {})
-	var entities: Variant = (state as Dictionary).get("entities", {}) if state is Dictionary else {}
+	var state: Variant = copy.get("state", { })
+	var entities: Variant = (state as Dictionary).get("entities", { }) if state is Dictionary else { }
 	var shapes: int = (entities as Dictionary).size() if entities is Dictionary else 0
 	var where := String(copy.get("drawing_path", ""))
 	var called := DrawingStore.display_name(where)

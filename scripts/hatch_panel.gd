@@ -88,7 +88,10 @@ func build() -> void:
 	close_button.name = "CloseButton"
 	close_button.text = "Close"
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.pressed.connect(func() -> void: close_requested.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			close_requested.emit(),
+	)
 	buttons.add_child(close_button)
 
 	_refresh_detail()
@@ -116,7 +119,6 @@ func _row(caption_text: String, tip: String) -> OptionButton:
 
 func _ready() -> void:
 	build()
-
 
 # --- what it shows --------------------------------------------------------------------
 
@@ -179,7 +181,7 @@ func selected_region() -> Dictionary:
 	for row: Dictionary in _regions:
 		if String(row.get("key", "")) == _region_key:
 			return row
-	return {}
+	return { }
 
 
 func pattern_choice() -> StringName:
@@ -283,8 +285,8 @@ func list_is_keyboard_free() -> bool:
 	if _angle_option == null or _symbol_option == null or _fill_button == null:
 		return false
 	return _region_option.focus_mode == Control.FOCUS_NONE \
-		and _pattern_option.focus_mode == Control.FOCUS_NONE \
-		and _spacing_option.focus_mode == Control.FOCUS_NONE \
-		and _angle_option.focus_mode == Control.FOCUS_NONE \
-		and _symbol_option.focus_mode == Control.FOCUS_NONE \
-		and _fill_button.focus_mode == Control.FOCUS_NONE
+			and _pattern_option.focus_mode == Control.FOCUS_NONE \
+			and _spacing_option.focus_mode == Control.FOCUS_NONE \
+			and _angle_option.focus_mode == Control.FOCUS_NONE \
+			and _symbol_option.focus_mode == Control.FOCUS_NONE \
+			and _fill_button.focus_mode == Control.FOCUS_NONE

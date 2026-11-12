@@ -87,7 +87,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building ----------------------------------------------------------------------------------
 
 
@@ -318,7 +317,6 @@ func _act_button(words: String, handler: Callable) -> Button:
 	button.pressed.connect(handler)
 	return button
 
-
 # --- showing what is there ---------------------------------------------------------------------
 
 
@@ -370,7 +368,7 @@ func opening_words() -> String:
 		return "Pick a job to see what it has been billed."
 	if not ledger.has_billing(job_id):
 		return "Start billing this job by the method the contract agreed to: " + \
-			JobScript.billing_name(ledger.job_of(job_id).billing_method) + "."
+				JobScript.billing_name(ledger.job_of(job_id).billing_method) + "."
 	return "The page says what the job can bill before the invoice goes out."
 
 
@@ -411,11 +409,7 @@ func _invoice_label(held: Dictionary) -> String:
 	var number := String(held["number"])
 	if number.strip_edges().is_empty():
 		number = String(held["id"])
-	return "%s  %s  %s" % [
-		number,
-		(held["total"] as MoneyScript).format_with_currency(),
-		String(held["state_name"]),
-	]
+	return "%s  %s  %s" % [number, (held["total"] as MoneyScript).format_with_currency(), String(held["state_name"])]
 
 
 func _fill_tax_codes() -> void:
@@ -480,7 +474,7 @@ func _no_steps_words() -> String:
 	var schedule: BillingScript = ledger.billing_for(selected_job())
 	if schedule == null:
 		return "This job is not being billed yet. Start it, and the schedule below is the method the " \
-			+ "contract agreed to."
+				+ "contract agreed to."
 	if schedule.method != JobScript.MILESTONE:
 		return "This job is billed by %s, which has no steps of its own." % schedule.method_name()
 	return "A job billed by milestones with no milestones can bill nothing. Add the first step above."
@@ -534,7 +528,6 @@ func _fill_buttons() -> void:
 		_raise_button.disabled = raise_button_disabled()
 	if _payment_button != null:
 		_payment_button.disabled = payment_button_disabled()
-
 
 # --- what the fields say -----------------------------------------------------------------------
 
@@ -639,7 +632,6 @@ func payment_button_disabled() -> bool:
 	var amount: MoneyScript = MoneyScript.parse(_amount_field.text, _currency())
 	return not amount.is_valid()
 
-
 # --- the things a person does ------------------------------------------------------------------
 
 
@@ -663,11 +655,11 @@ func begin_billing() -> bool:
 ## Returns `{ok, reason}`.
 func add_step() -> Dictionary:
 	if ledger == null or selected_job().is_empty():
-		return {"ok": false, "reason": "pick a job first"}
+		return { "ok": false, "reason": "pick a job first" }
 	var step_name := _step_field.text.strip_edges() if _step_field != null else ""
 	var share := RateScript.parse_percent(_share_field.text if _share_field != null else "")
 	if not RateScript.is_valid(share):
-		var refused := {"ok": false, "reason": "a step is a share of the contract, as \"25\" or \"25%\""}
+		var refused := { "ok": false, "reason": "a step is a share of the contract, as \"25\" or \"25%\"" }
 		_set_status(String(refused["reason"]))
 		return refused
 	# An empty retainage field is no retainage, which is the common answer; a written one that cannot
@@ -677,12 +669,10 @@ func add_step() -> Dictionary:
 	if not written.is_empty():
 		withheld = RateScript.parse_percent(written)
 		if not RateScript.is_valid(withheld):
-			var bad := {"ok": false, "reason": "a retainage is a percent of the step, as \"10\" or \"10%\""}
+			var bad := { "ok": false, "reason": "a retainage is a percent of the step, as \"10\" or \"10%\"" }
 			_set_status(String(bad["reason"]))
 			return bad
-	var added: Dictionary = ledger.add_milestone(
-		selected_job(), step_name, share, MilestoneScript.DATE, "", withheld
-	)
+	var added: Dictionary = ledger.add_milestone(selected_job(), step_name, share, MilestoneScript.DATE, "", withheld)
 	if bool(added["ok"]):
 		var words := "'%s' is %s of the contract" % [step_name, RateScript.percent_text(share)]
 		if withheld > 0:
@@ -698,17 +688,17 @@ func add_step() -> Dictionary:
 ## Returns `{ok, reason}`.
 func measure() -> Dictionary:
 	if ledger == null or selected_job().is_empty():
-		return {"ok": false, "reason": "pick a job first"}
+		return { "ok": false, "reason": "pick a job first" }
 	var ppm := RateScript.parse_percent(_percent_field.text if _percent_field != null else "")
 	var basis := selected_basis()
 	if not ledger.set_percent_complete(selected_job(), ppm, basis):
-		var refused := {"ok": false, "reason": "a percent somebody could have measured, and a basis to measure it on"}
+		var refused := { "ok": false, "reason": "a percent somebody could have measured, and a basis to measure it on" }
 		_set_status(String(refused["reason"]))
 		return refused
 	var schedule: BillingScript = ledger.billing_for(selected_job())
 	_set_status("%s complete %s." % [RateScript.percent_text(ppm), schedule.basis_name()])
 	_after_change()
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Write what the schedule says the job can bill now, number it, and issue it. One act, because the
@@ -716,11 +706,9 @@ func measure() -> Dictionary:
 ## Returns `{ok, reason, invoice}`.
 func raise_invoice() -> Dictionary:
 	if ledger == null or selected_job().is_empty():
-		return {"ok": false, "reason": "pick a job first", "invoice": null}
+		return { "ok": false, "reason": "pick a job first", "invoice": null }
 	_remember_terms()
-	var raised: Dictionary = ledger.raise_invoice(
-		selected_job(), _today(), "", "", "", selected_tax_code()
-	)
+	var raised: Dictionary = ledger.raise_invoice(selected_job(), _today(), "", "", "", selected_tax_code())
 	_said_raise(raised)
 	_after_change()
 	return raised
@@ -730,11 +718,9 @@ func raise_invoice() -> Dictionary:
 ## has gone out is refused by name rather than quietly billing the next one.
 func bill_step(step_name: String) -> Dictionary:
 	if ledger == null or selected_job().is_empty():
-		return {"ok": false, "reason": "pick a job first", "invoice": null}
+		return { "ok": false, "reason": "pick a job first", "invoice": null }
 	_remember_terms()
-	var raised: Dictionary = ledger.raise_invoice(
-		selected_job(), _today(), step_name, "", "", selected_tax_code()
-	)
+	var raised: Dictionary = ledger.raise_invoice(selected_job(), _today(), step_name, "", "", selected_tax_code())
 	_said_raise(raised)
 	_after_change()
 	return raised
@@ -743,11 +729,7 @@ func bill_step(step_name: String) -> Dictionary:
 func _said_raise(raised: Dictionary) -> void:
 	if bool(raised["ok"]):
 		var invoice: InvoiceScript = raised["invoice"]
-		_set_status("%s written: %s due %s." % [
-			invoice.number,
-			invoice.total().format_with_currency(),
-			invoice.due_at,
-		])
+		_set_status("%s written: %s due %s." % [invoice.number, invoice.total().format_with_currency(), invoice.due_at])
 	else:
 		_set_status("nothing went out: %s" % String(raised["reason"]))
 
@@ -757,11 +739,15 @@ func _said_raise(raised: Dictionary) -> void:
 ## Returns `{ok, reason, payment}`.
 func record_payment() -> Dictionary:
 	if ledger == null or selected_invoice().is_empty():
-		return {"ok": false, "reason": "pick the invoice it is against", "payment": null}
+		return { "ok": false, "reason": "pick the invoice it is against", "payment": null }
 	var amount: MoneyScript = MoneyScript.parse(_amount_field.text, _currency())
 	var bank_reference := _reference_field.text.strip_edges() if _reference_field != null else ""
 	var taken: Dictionary = ledger.record_payment(
-		selected_invoice(), _today(), amount, selected_method(), bank_reference
+		selected_invoice(),
+		_today(),
+		amount,
+		selected_method(),
+		bank_reference,
 	)
 	if bool(taken["ok"]):
 		_set_status("%s received." % (taken["payment"] as PaymentScript).describe())
@@ -776,13 +762,13 @@ func record_payment() -> Dictionary:
 ## Returns `{ok, reason}`.
 func void_invoice() -> Dictionary:
 	if ledger == null or selected_invoice().is_empty():
-		return {"ok": false, "reason": "pick the invoice to call back"}
+		return { "ok": false, "reason": "pick the invoice to call back" }
 	var why := _why_field.text.strip_edges() if _why_field != null else ""
 	var called: Dictionary = ledger.void_invoice(selected_invoice(), _today(), why)
 	if bool(called["ok"]):
-		_set_status("%s was called back and the schedule is where it was: %s" % [
-			_invoice_number_of(selected_invoice()), why,
-		])
+		_set_status(
+			"%s was called back and the schedule is where it was: %s" % [_invoice_number_of(selected_invoice()), why]
+		)
 	else:
 		_set_status("nothing was called back: %s" % String(called["reason"]))
 	_after_change()
@@ -793,12 +779,10 @@ func void_invoice() -> Dictionary:
 ## Returns `{ok, path, reason}`.
 func print_invoice() -> Dictionary:
 	if ledger == null or selected_invoice().is_empty():
-		return {"ok": false, "path": "", "reason": "pick the invoice to print"}
+		return { "ok": false, "path": "", "reason": "pick the invoice to print" }
 	var written: Dictionary = ledger.write_invoice(selected_invoice())
 	if bool(written["ok"]):
-		_set_status("%s is written to %s" % [
-			_invoice_number_of(selected_invoice()), String(written["path"]),
-		])
+		_set_status("%s is written to %s" % [_invoice_number_of(selected_invoice()), String(written["path"])])
 	else:
 		_set_status("nothing was written: %s" % String(written["reason"]))
 	return written
@@ -832,7 +816,6 @@ func _remember_terms() -> void:
 func _after_change() -> void:
 	refresh()
 	billing_changed.emit()
-
 
 # --- what it says ------------------------------------------------------------------------------
 

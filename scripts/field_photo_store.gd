@@ -37,12 +37,7 @@ const NAME_CHARS := 16
 ## The file extension for each format `sniff` establishes. The format comes from the picture's header
 ## and the extension follows from the format rather than from the name it arrived under, so a JPEG
 ## called `.png` is kept as a JPEG.
-const EXTENSION_OF_FORMAT := {
-	"PNG": "png",
-	"JPEG": "jpg",
-	"WebP": "webp",
-	"BMP": "bmp",
-}
+const EXTENSION_OF_FORMAT := { "PNG": "png", "JPEG": "jpg", "WebP": "webp", "BMP": "bmp" }
 
 
 ## Keep a photograph and answer with the project path it is kept under. Returns
@@ -65,7 +60,7 @@ static func add(source_path: String, folder: String = DIR) -> Dictionary:
 		return _refused("%s could not be read, so no name could be made for it" % source_path)
 	var kept_path: String = "%s/%s.%s" % [folder, content_hash.substr(0, NAME_CHARS), extension]
 	if FileAccess.file_exists(kept_path):
-		return {"ok": true, "reason": "", "path": kept_path, "duplicate": true}
+		return { "ok": true, "reason": "", "path": kept_path, "duplicate": true }
 
 	var made: Error = DirAccess.make_dir_recursive_absolute(folder)
 	if made != OK and made != ERR_ALREADY_EXISTS:
@@ -82,7 +77,7 @@ static func add(source_path: String, folder: String = DIR) -> Dictionary:
 	if DirAccess.rename_absolute(temp, kept_path) != OK:
 		DirAccess.remove_absolute(temp)
 		return _refused("the photograph could not be moved into place at %s" % kept_path)
-	return {"ok": true, "reason": "", "path": kept_path, "duplicate": false}
+	return { "ok": true, "reason": "", "path": kept_path, "duplicate": false }
 
 
 ## Whether this path is one the store made. A HUD line can then say "kept" about its own file and
@@ -132,14 +127,13 @@ static func for_page(captures: Array, catalogue) -> Dictionary:
 		if image == null or image.is_empty():
 			missing.append("%s: the photograph at %s opened as nothing" % [words, path])
 			continue
-		photos.append({"image": image, "caption": _caption_of(words, capture), "path": path})
+		photos.append({ "image": image, "caption": _caption_of(words, capture), "path": path })
 	var reason := ""
 	if photos.is_empty():
-		reason = (
-			"none of these captures names a photograph" if missing.is_empty()
-			else " ".join(missing)
-		)
-	return {"ok": not photos.is_empty(), "reason": reason, "photos": photos, "missing": missing}
+		reason = ("none of these captures names a photograph"
+			if missing.is_empty()
+			else " ".join(missing))
+	return { "ok": not photos.is_empty(), "reason": reason, "photos": photos, "missing": missing }
 
 
 ## What a photograph is of, in words: what the capture says the plant is and which part was photographed.
@@ -151,4 +145,4 @@ static func _caption_of(words: String, capture: Dictionary) -> String:
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "path": "", "duplicate": false}
+	return { "ok": false, "reason": reason, "path": "", "duplicate": false }

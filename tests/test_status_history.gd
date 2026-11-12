@@ -14,7 +14,6 @@ const HistoryScript := preload("res://scripts/draft/status_history.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
-
 # --- the list itself ------------------------------------------------------------------
 
 
@@ -83,7 +82,6 @@ func test_forgetting_leaves_nothing_behind() -> void:
 	assert(history.note("shape added"), "and the next answer is kept")
 	var wanted: Array[String] = ["shape added"]
 	assert(history.lines() == wanted, "as the only one")
-
 
 # --- the drawing that says it ---------------------------------------------------------
 

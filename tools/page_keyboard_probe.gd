@@ -64,8 +64,7 @@ func _ready() -> void:
 	# rather than the page would be the thing that is wrong.
 	var bare_mode: int = _controller.mode
 	await _press_key(KEY_Q)
-	_view_row("nothing up", "Q", bare_mode, _controller.mode, true,
-		"the drawing answers its own key")
+	_view_row("nothing up", "Q", bare_mode, _controller.mode, true, "the drawing answers its own key")
 	# Back where it started, so every row below is read from the same view.
 	await _press_key(KEY_Q)
 	print("  view is back to %s" % _mode_words(_controller.mode))
@@ -80,47 +79,80 @@ func _ready() -> void:
 
 	var before_page_key: int = _controller.mode
 	await _press_key(KEY_Q)
-	_view_row("page up", "Q", before_page_key, _controller.mode, false,
-		"the page holds it and the drawing does not see it")
+	_view_row(
+		"page up",
+		"Q",
+		before_page_key,
+		_controller.mode,
+		false,
+		"the page holds it and the drawing does not see it",
+	)
 
 	# Tab, with the page up: what the page's own order can be reached by, and whether Tab leaks past
 	# the page to whatever is behind it.
 	var focus_before: Control = page.gui_get_focus_owner()
 	await _press_key(KEY_TAB)
 	var focus_after: Control = page.gui_get_focus_owner()
-	_fact_row("page up", "Tab", "%s -> %s" % [
-		_control_words(focus_before), _control_words(focus_after),
-	], focus_before != focus_after, "the page's own order moves")
+	_fact_row(
+		"page up",
+		"Tab",
+		"%s -> %s" % [_control_words(focus_before), _control_words(focus_after)],
+		focus_before != focus_after,
+		"the page's own order moves",
+	)
 
 	# A button in the page, given the keyboard by hand - which is the change the pages are about to be
 	# given - to answer the question the whole keyboard pass rests on. Only the focus mode is set, and
 	# only at run time: nothing in the project is changed by asking this.
 	var button: Button = _first_live_button(page)
 	if button == null:
-		_fact_row("page button", "none", "the page has no button to give the keyboard to", false,
-			"so nothing is answered here")
+		_fact_row(
+			"page button",
+			"none",
+			"the page has no button to give the keyboard to",
+			false,
+			"so nothing is answered here",
+		)
 	else:
 		# An array, because a GDScript lambda takes a copy of a plain local and the count would never
 		# leave the closure.
 		var hits: Array[int] = [0]
 		button.focus_mode = Control.FOCUS_ALL
-		button.pressed.connect(func() -> void: hits[0] += 1)
+		button.pressed.connect(
+			func() -> void:
+				hits[0] += 1,
+		)
 		button.grab_focus()
 		for i: int in SETTLE_FRAMES:
 			await get_tree().process_frame
 		var holds: bool = page.gui_get_focus_owner() == button
-		_fact_row("page button", "focus", "the button has the keyboard: %s" % holds, holds,
-			"a page's button can hold it")
+		_fact_row(
+			"page button",
+			"focus",
+			"the button has the keyboard: %s" % holds,
+			holds,
+			"a page's button can hold it",
+		)
 
 		var before_button_key: int = _controller.mode
 		await _press_key(KEY_Q)
-		_view_row("page button", "Q", before_button_key, _controller.mode, false,
-			"and the drawing behind it still sees nothing")
+		_view_row(
+			"page button",
+			"Q",
+			before_button_key,
+			_controller.mode,
+			false,
+			"and the drawing behind it still sees nothing",
+		)
 
 		await _press_key(KEY_ENTER)
-		_fact_row("page button", "Enter", "it pressed %d time(s)%s" % [
-			hits[0], ", and the page went away" if not _page_up(page) else "",
-		], hits[0] >= 1, "Enter presses the button that has the keyboard")
+		_fact_row(
+			"page button",
+			"Enter",
+			"it pressed %d time(s)%s" % [hits[0], ", and the page went away" if not _page_up(page) else ""],
+			hits[0] >= 1,
+			"Enter presses the button that has the keyboard",
+		)
 
 	# Escape, with the page up: the page answers for itself from inside its own viewport, because the
 	# HUD's own ladder can never see a key while a window holds the keyboard. **Two** presses are sent,
@@ -135,8 +167,13 @@ func _ready() -> void:
 	if _page_up(page):
 		await _press_key(KEY_ESCAPE)
 		after_two = "away" if not _page_up(page) else "up"
-	_fact_row("page up", "Esc", "after one: %s, after two: %s" % [after_one, after_two],
-		not _page_up(page), "the page answers Escape for itself")
+	_fact_row(
+		"page up",
+		"Esc",
+		"after one: %s, after two: %s" % [after_one, after_two],
+		not _page_up(page),
+		"the page answers Escape for itself",
+	)
 
 	# And back to the drawing. The keyboard has to be the drawing's again once the page is gone, or a
 	# page has taken it for good and the drawing is dead until the program is restarted. A page Escape
@@ -149,8 +186,7 @@ func _ready() -> void:
 			await get_tree().process_frame
 	var bare_again: int = _controller.mode
 	await _press_key(KEY_Q)
-	_view_row("page closed", "Q", bare_again, _controller.mode, true,
-		"the keyboard was given back")
+	_view_row("page closed", "Q", bare_again, _controller.mode, true, "the keyboard was given back")
 
 	if _failures == 0:
 		print("PAGE KEYBOARD: every key went where the design says it goes")
@@ -168,9 +204,10 @@ func _view_row(what: String, key_name: String, before: int, after: int, wanted_m
 	var ok: bool = moved == wanted_move
 	if not ok:
 		_failures += 1
-	print("  %-12s %-4s %-20s -> %-20s  %-4s  %s" % [
-		what, key_name, _mode_words(before), _mode_words(after), "OK" if ok else "NO", detail,
-	])
+	print(
+		"  %-12s %-4s %-20s -> %-20s  %-4s  %s"
+		% [what, key_name, _mode_words(before), _mode_words(after), "OK" if ok else "NO", detail]
+	)
 
 
 ## One key whose effect is a sentence rather than a view: whether the page's focus moved, whether the
@@ -178,9 +215,7 @@ func _view_row(what: String, key_name: String, before: int, after: int, wanted_m
 func _fact_row(what: String, key_name: String, fact: String, ok: bool, detail: String) -> void:
 	if not ok:
 		_failures += 1
-	print("  %-12s %-4s %-40s  %-4s  %s" % [
-		what, key_name, fact, "OK" if ok else "NO", detail,
-	])
+	print("  %-12s %-4s %-40s  %-4s  %s" % [what, key_name, fact, "OK" if ok else "NO", detail])
 
 
 ## One page opened the way a person opens one - through the menu plan, which is the one door a command

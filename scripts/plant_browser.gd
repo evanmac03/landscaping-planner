@@ -85,9 +85,9 @@ var _built: bool = false
 var _selected_id: StringName = &""
 var _results: Array[PlantSpecies] = []
 ## Tag name -> its chip. Kept so a refresh does not throw away what is ticked.
-var _chips: Dictionary[String, CheckBox] = {}
+var _chips: Dictionary[String, CheckBox] = { }
 ## Tag name -> how many species carry it, so a chip says how much it will leave.
-var _chip_counts: Dictionary = {}
+var _chip_counts: Dictionary = { }
 
 
 func _ready() -> void:
@@ -137,14 +137,23 @@ func _build_search_row() -> void:
 	_query.clear_button_enabled = true
 	_query.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_query.custom_minimum_size = Vector2(220.0, 0.0)
-	_query.text_changed.connect(func(_text: String) -> void: refresh())
+	_query.text_changed.connect(
+		func(_text: String) -> void:
+			refresh(),
+	)
 	_search_row.add_child(_query)
 
 	_sort_option = _add_option(_search_row, "Sort", sort_labels(), 130.0)
-	_sort_option.item_selected.connect(func(_index: int) -> void: refresh())
+	_sort_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
+	)
 
 	_collection_option = _add_option(_search_row, "In", ["Any plant"], 130.0)
-	_collection_option.item_selected.connect(func(_index: int) -> void: refresh())
+	_collection_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
+	)
 
 	# The horticultural filters, on a line of their own: eight controls in one row do not fit a
 	# readable width, and a filter squeezed into a sixty-pixel drop-down is one nobody can read.
@@ -156,33 +165,44 @@ func _build_search_row() -> void:
 	_category_option = _add_option(_filter_row, "Type", ["Any type"], 110.0)
 	for kind: int in PlantSpecies.CATEGORY_NAMES.keys():
 		_add_choice(_category_option, String(PlantSpecies.CATEGORY_NAMES[kind]), kind)
-	_category_option.item_selected.connect(func(_index: int) -> void: refresh())
-
-	_light_option = _add_option(
-		_filter_row, "Light", ["Any light", "Full sun", "Part shade", "Full shade"], 110.0
+	_category_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
 	)
+
+	_light_option = _add_option(_filter_row, "Light", ["Any light", "Full sun", "Part shade", "Full shade"], 110.0)
 	_set_choice_value(_light_option, 1, PlantSpecies.FULL_SUN)
 	_set_choice_value(_light_option, 2, PlantSpecies.PART_SHADE)
 	_set_choice_value(_light_option, 3, PlantSpecies.FULL_SHADE)
-	_light_option.item_selected.connect(func(_index: int) -> void: refresh())
-
-	_water_option = _add_option(
-		_filter_row, "Water", ["Any water", "Low or less", "Medium or less", "High"], 110.0
+	_light_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
 	)
+
+	_water_option = _add_option(_filter_row, "Water", ["Any water", "Low or less", "Medium or less", "High"], 110.0)
 	_set_choice_value(_water_option, 1, PlantSpecies.WATER_LOW)
 	_set_choice_value(_water_option, 2, PlantSpecies.WATER_MEDIUM)
 	_set_choice_value(_water_option, 3, PlantSpecies.WATER_HIGH)
-	_water_option.item_selected.connect(func(_index: int) -> void: refresh())
+	_water_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
+	)
 
 	_zone_option = _add_option(_filter_row, "Zone", ["Any zone"], 100.0)
 	for zone: int in range(PlantSpecies.ZONE_MIN, PlantSpecies.ZONE_MAX + 1):
 		_add_choice(_zone_option, "Zone %d" % zone, zone)
-	_zone_option.item_selected.connect(func(_index: int) -> void: refresh())
+	_zone_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
+	)
 
 	_bloom_option = _add_option(_filter_row, "Bloom", ["Any month"], 110.0)
 	for month: int in range(1, 13):
 		_add_choice(_bloom_option, String(PlantSpecies.MONTH_NAMES[month - 1]), month)
-	_bloom_option.item_selected.connect(func(_index: int) -> void: refresh())
+	_bloom_option.item_selected.connect(
+		func(_index: int) -> void:
+			refresh(),
+	)
 
 	# Food is a check rather than a drop-down because it is one question with one answer: either you
 	# want only what you can eat, or you do not. It reads the catalogue's own `is_edible` - the parts
@@ -193,7 +213,10 @@ func _build_search_row() -> void:
 	_edible_chip.text = "Food"
 	_edible_chip.focus_mode = Control.FOCUS_NONE
 	_edible_chip.tooltip_text = "Only plants the catalogue says you can eat"
-	_edible_chip.toggled.connect(func(_pressed: bool) -> void: refresh())
+	_edible_chip.toggled.connect(
+		func(_pressed: bool) -> void:
+			refresh(),
+	)
 	_filter_row.add_child(_edible_chip)
 
 
@@ -339,13 +362,19 @@ func _build_footer() -> void:
 	_import_button = Button.new()
 	_import_button.name = "Import"
 	_import_button.text = "Import a list..."
-	_import_button.pressed.connect(func() -> void: import_requested.emit())
+	_import_button.pressed.connect(
+		func() -> void:
+			import_requested.emit(),
+	)
 	_footer.add_child(_import_button)
 
 	_export_button = Button.new()
 	_export_button.name = "Export"
 	_export_button.text = "Export the list..."
-	_export_button.pressed.connect(func() -> void: export_requested.emit())
+	_export_button.pressed.connect(
+		func() -> void:
+			export_requested.emit(),
+	)
 	_footer.add_child(_export_button)
 
 	_status_label = Label.new()
@@ -353,7 +382,6 @@ func _build_footer() -> void:
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_footer.add_child(_status_label)
-
 
 # --- the catalogue ------------------------------------------------------------------------
 
@@ -383,7 +411,10 @@ func _rebuild_chips() -> void:
 		chip.name = "Tag_" + tag_name.replace(" ", "_")
 		chip.text = "%s (%d)" % [tag_name, int(_chip_counts.get(tag_name, 0))]
 		chip.focus_mode = Control.FOCUS_NONE
-		chip.toggled.connect(func(_pressed: bool) -> void: refresh())
+		chip.toggled.connect(
+			func(_pressed: bool) -> void:
+				refresh(),
+		)
 		_tags_row.add_child(chip)
 		_chips[tag_name] = chip
 
@@ -446,7 +477,6 @@ func _build_collection_boxes() -> void:
 		box.toggled.connect(_on_collection_toggled.bind(collection_name))
 		_collections_box.add_child(box)
 
-
 # --- filtering ----------------------------------------------------------------------------
 
 
@@ -454,7 +484,7 @@ func _build_collection_boxes() -> void:
 ## actually set is named, so an unfiltered browser asks for everything rather than for everything
 ## matching a pile of sentinels.
 func criteria() -> Dictionary:
-	var out: Dictionary = {"text": _query.text if _query != null else ""}
+	var out: Dictionary = { "text": _query.text if _query != null else "" }
 	if _sort_option != null:
 		var orders: Array[Dictionary] = sort_orders()
 		var chosen: int = clampi(_sort_option.selected, 0, orders.size() - 1)
@@ -560,7 +590,7 @@ func _rebuild_grid() -> void:
 	_grid.clear()
 	for plant: PlantSpecies in _results:
 		var title: String = plant.common_name if not plant.common_name.strip_edges().is_empty() \
-			else plant.botanical_name
+				else plant.botanical_name
 		var cell: int = _grid.add_item(title, icon_for(plant.id))
 		_grid.set_item_metadata(cell, String(plant.id))
 		_grid.set_item_tooltip(cell, plant.display_name())
@@ -578,7 +608,6 @@ func _rebuild_detail() -> void:
 	_detail_label.text = detail_text()
 	_place_button.disabled = species == null
 	_build_collection_boxes()
-
 
 # --- the selection ------------------------------------------------------------------------
 
@@ -630,7 +659,6 @@ func place_selected() -> bool:
 	plant_chosen.emit(species.id)
 	return true
 
-
 # --- collections --------------------------------------------------------------------------
 
 
@@ -653,9 +681,7 @@ func _on_collection_toggled(pressed: bool, collection_name: String) -> void:
 	# The boxes are deliberately **not** rebuilt here. This runs from a box's own `toggled` signal,
 	# and a rebuild would free the control that is in the middle of emitting - so the box that was
 	# clicked stays as it is, which is also what it already says.
-	set_status("%s %s %s" % [
-		species.display_name(), "is in" if pressed else "is out of", collection_name
-	])
+	set_status("%s %s %s" % [species.display_name(), "is in" if pressed else "is out of", collection_name])
 
 
 func _on_make_collection() -> void:
@@ -775,12 +801,12 @@ func set_sort(by: String, descending: bool = false) -> bool:
 ## `set_sort`, so a row cannot be labelled "Tallest first" and sort by something else.
 static func sort_orders() -> Array[Dictionary]:
 	return [
-		{"label": "Botanical A-Z", "sort": "botanical", "descending": false},
-		{"label": "Botanical Z-A", "sort": "botanical", "descending": true},
-		{"label": "Shortest first", "sort": "height", "descending": false},
-		{"label": "Tallest first", "sort": "height", "descending": true},
-		{"label": "Earliest bloom", "sort": "bloom", "descending": false},
-		{"label": "Widest first", "sort": "spread", "descending": true},
+		{ "label": "Botanical A-Z", "sort": "botanical", "descending": false },
+		{ "label": "Botanical Z-A", "sort": "botanical", "descending": true },
+		{ "label": "Shortest first", "sort": "height", "descending": false },
+		{ "label": "Tallest first", "sort": "height", "descending": true },
+		{ "label": "Earliest bloom", "sort": "bloom", "descending": false },
+		{ "label": "Widest first", "sort": "spread", "descending": true },
 	]
 
 
@@ -789,7 +815,6 @@ static func sort_labels() -> Array[String]:
 	for order: Dictionary in sort_orders():
 		out.append(String(order["label"]))
 	return out
-
 
 # --- what it says -------------------------------------------------------------------------
 
@@ -845,9 +870,7 @@ func _drawn_as(species: PlantSpecies) -> String:
 	# species with a model of its own is still drawn in the plan's own vocabulary and a line naming
 	# only the file would not say what shape stands on the paper.
 	var scene: String = species.model_scene if not species.model_scene.is_empty() else species.form
-	var symbol: StringName = PlantSymbolsScript.of(
-		species, PlanStyleScript.spec_for(scene)["symbol"]
-	)
+	var symbol: StringName = PlantSymbolsScript.of(species, PlanStyleScript.spec_for(scene)["symbol"])
 	return "%s (%s)" % [scene.get_file(), PlantSymbolsScript.words(symbol)]
 
 
@@ -886,7 +909,6 @@ func focus_search() -> void:
 	if _query != null:
 		_query.grab_focus()
 
-
 # --- the pictures -------------------------------------------------------------------------
 
 
@@ -900,7 +922,6 @@ func focus_search() -> void:
 func icon_for(species_id: StringName) -> Texture2D:
 	build()
 	return PlantIcons.textured(catalogue, species_id)
-
 
 ## Whether two species are drawn as the same picture. The browser keeps no cache of its own: the
 ## picture belongs to `PlantIcons`, keyed by the form and category a species is drawn as.

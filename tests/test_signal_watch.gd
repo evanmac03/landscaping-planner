@@ -16,11 +16,14 @@ class Talker:
 	signal nothing()
 	signal triple(a, b, c)
 
+
 	func say(word: String) -> void:
 		said.emit(word)
 
+
 	func say_nothing() -> void:
 		nothing.emit()
+
 
 	func say_three(a: int, b: int, c: int) -> void:
 		triple.emit(a, b, c)

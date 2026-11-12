@@ -14,17 +14,12 @@ const NESTED := "user://test_field_manifest_folder/survey/manifest.json"
 
 
 func _clean() -> void:
-	for path: String in [
-		SCRATCH,
-		SCRATCH + ExporterScript.TEMP_SUFFIX,
-		NESTED,
-		NESTED + ExporterScript.TEMP_SUFFIX,
-	]:
+	for path: String in [SCRATCH, SCRATCH + ExporterScript.TEMP_SUFFIX, NESTED, NESTED + ExporterScript.TEMP_SUFFIX]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 
 
-func _feature(overrides: Dictionary = {}) -> Dictionary:
+func _feature(overrides: Dictionary = { }) -> Dictionary:
 	var feature: Dictionary = {
 		"instance_id": "cap-001",
 		"species_id": "thymus-serpyllum",
@@ -55,7 +50,7 @@ func test_the_temporary_file_is_gone_once_the_manifest_is_written() -> void:
 	assert(FileAccess.file_exists(SCRATCH), "the manifest is there")
 	assert(
 		not FileAccess.file_exists(SCRATCH + ExporterScript.TEMP_SUFFIX),
-		"and no half-written manifest is left lying beside it"
+		"and no half-written manifest is left lying beside it",
 	)
 	_clean()
 
@@ -70,7 +65,7 @@ func test_a_field_record_carries_the_photo_it_was_taken_from() -> void:
 	assert(features.size() == 1, "one record")
 	assert(
 		String(features[0]["photo_path"]) == "user://field_photos/ab12cd.png",
-		"and it names the photograph: %s" % str(features[0].get("photo_path", "<absent>"))
+		"and it names the photograph: %s" % str(features[0].get("photo_path", "<absent>")),
 	)
 	_clean()
 
@@ -99,11 +94,11 @@ func test_a_feature_nobody_could_identify_is_written_and_kept_rather_than_droppe
 	# problem, and a format that silently dropped it would lose the one thing the person knew - where
 	# it was.
 	_clean()
-	ExporterScript.export_manifest("Elm Street", [_feature({
-		"species_id": "",
-		"confidence": 0.0,
-		"notes": "did not recognise it",
-	})], SCRATCH)
+	ExporterScript.export_manifest(
+		"Elm Street",
+		[_feature({ "species_id": "", "confidence": 0.0, "notes": "did not recognise it" })],
+		SCRATCH,
+	)
 	var read: Dictionary = ExporterScript.read_manifest(SCRATCH)
 	var record: Dictionary = read["data"]["features"][0]
 	assert(String(record["species_id"]).is_empty(), "it is written with no species named")
@@ -117,7 +112,7 @@ func test_there_is_one_way_to_write_a_manifest() -> void:
 	var exporter: RefCounted = ExporterScript.new()
 	assert(
 		not exporter.has_method("save_to_file"),
-		"the only way a manifest reaches the disk is the writer that renames it into place"
+		"the only way a manifest reaches the disk is the writer that renames it into place",
 	)
 
 
@@ -126,19 +121,27 @@ func test_the_classifiers_own_words_and_the_part_photographed_travel_with_the_re
 	# plant that was photographed is what makes a second attempt at the same plant a fair comparison
 	# rather than a different question.
 	_clean()
-	ExporterScript.export_manifest("Elm Street", [_feature({
-		"species_id": "",
-		"raw_taxon": "something ferny",
-		"part": "leaf",
-		"photo_path": "user://field_photos/ab12cd.png",
-	})], SCRATCH)
+	ExporterScript.export_manifest(
+		"Elm Street",
+		[
+			_feature(
+				{
+					"species_id": "",
+					"raw_taxon": "something ferny",
+					"part": "leaf",
+					"photo_path": "user://field_photos/ab12cd.png",
+				}
+			)
+		],
+		SCRATCH,
+	)
 	var read: Dictionary = ExporterScript.read_manifest(SCRATCH)
 	var record: Dictionary = read["data"]["features"][0]
 	assert(String(record["raw_taxon"]) == "something ferny", "the name that was offered")
 	assert(String(record["part"]) == "leaf", "and the part it was a picture of")
 	assert(
 		int(read["data"]["format_version"]) == ExporterScript.FORMAT_VERSION,
-		"written at the version this build writes"
+		"written at the version this build writes",
 	)
 	_clean()
 
@@ -149,17 +152,18 @@ func test_a_manifest_from_a_newer_field_tool_is_refused_by_name() -> void:
 	_clean()
 	var file := FileAccess.open(SCRATCH, FileAccess.WRITE)
 	assert(file != null, "the scratch file opens")
-	file.store_string(JSON.stringify({
-		"format_version": ExporterScript.FORMAT_VERSION + 3,
-		"site_name": "Elm Street",
-		"features": [],
-	}, "  "))
+	file.store_string(
+		JSON.stringify(
+			{ "format_version": ExporterScript.FORMAT_VERSION + 3, "site_name": "Elm Street", "features": [] },
+			"  ",
+		)
+	)
 	file.close()
 	var read: Dictionary = ExporterScript.read_manifest(SCRATCH)
 	assert(not bool(read["ok"]), "it is refused")
 	assert(
 		String(read["reason"]).contains(str(ExporterScript.FORMAT_VERSION + 3)),
-		"naming the version it found: %s" % String(read["reason"])
+		"naming the version it found: %s" % String(read["reason"]),
 	)
 	_clean()
 
@@ -167,11 +171,19 @@ func test_a_manifest_from_a_newer_field_tool_is_refused_by_name() -> void:
 func test_appending_a_capture_keeps_what_the_survey_already_held() -> void:
 	_clean()
 	ExporterScript.export_manifest("Elm Street", [_feature()], SCRATCH)
-	var result: Dictionary = ExporterScript.append("Elm Street", [_feature({
-		"instance_id": "cap-002",
-		"species_id": "rudbeckia-fulgida-goldsturm",
-		"position": Vector3(4.0, 0.0, 0.0),
-	})], SCRATCH)
+	var result: Dictionary = ExporterScript.append(
+		"Elm Street",
+		[
+			_feature(
+				{
+					"instance_id": "cap-002",
+					"species_id": "rudbeckia-fulgida-goldsturm",
+					"position": Vector3(4.0, 0.0, 0.0),
+				}
+			)
+		],
+		SCRATCH,
+	)
 	assert(bool(result["ok"]), "it appends: %s" % String(result["reason"]))
 	assert(int(result["added"]) == 1, "one record went in")
 	assert(int(result["total"]) == 2, "and the survey holds both")
@@ -186,9 +198,7 @@ func test_appending_a_capture_keeps_what_the_survey_already_held() -> void:
 
 func test_appending_the_same_capture_twice_is_one_record() -> void:
 	_clean()
-	var capture: Dictionary = _feature({
-		"instance_id": "", "photo_path": "user://field_photos/ab12cd.png",
-	})
+	var capture: Dictionary = _feature({ "instance_id": "", "photo_path": "user://field_photos/ab12cd.png" })
 	var first: Dictionary = ExporterScript.append("Elm Street", [capture], SCRATCH)
 	var again: Dictionary = ExporterScript.append("Elm Street", [capture], SCRATCH)
 	assert(int(first["added"]) == 1, "the first append records it")
@@ -201,12 +211,12 @@ func test_a_capture_that_brings_no_id_is_given_one_the_watcher_can_keep_it_by() 
 	# `SurveyWatcher` skips a feature with no instance id, so a record written without one would reach
 	# the file and never reach the plan - which is the quietest way there is to lose a capture.
 	_clean()
-	ExporterScript.append("Elm Street", [_feature({"instance_id": ""})], SCRATCH)
+	ExporterScript.append("Elm Street", [_feature({ "instance_id": "" })], SCRATCH)
 	var read: Dictionary = ExporterScript.read_manifest(SCRATCH)
 	var record: Dictionary = read["data"]["features"][0]
 	assert(
 		not String(record["instance_id"]).strip_edges().is_empty(),
-		"it was given a name of its own: %s" % str(record.get("instance_id", "<absent>"))
+		"it was given a name of its own: %s" % str(record.get("instance_id", "<absent>")),
 	)
 	_clean()
 
@@ -233,17 +243,24 @@ func test_a_manifest_written_at_an_older_version_still_reads() -> void:
 	_clean()
 	var file := FileAccess.open(SCRATCH, FileAccess.WRITE)
 	assert(file != null, "the scratch file opens")
-	file.store_string(JSON.stringify({
-		"format_version": 1,
-		"site_name": "Elm Street",
-		"features": [{"species_id": "thymus-serpyllum", "confidence": 0.9,
-				"position": {"x": 1.0, "y": 0.0, "z": 0.0}}],
-	}, "  "))
+	file.store_string(
+		JSON.stringify(
+			{
+				"format_version": 1,
+				"site_name": "Elm Street",
+				"features": [
+					{
+						"species_id": "thymus-serpyllum",
+						"confidence": 0.9,
+						"position": { "x": 1.0, "y": 0.0, "z": 0.0 },
+					}
+				],
+			},
+			"  ",
+		)
+	)
 	file.close()
 	var read: Dictionary = ExporterScript.read_manifest(SCRATCH)
 	assert(bool(read["ok"]), "an older manifest is read: %s" % String(read["reason"]))
-	assert(
-		String(read["data"]["features"][0]["species_id"]) == "thymus-serpyllum",
-		"with its records intact"
-	)
+	assert(String(read["data"]["features"][0]["species_id"]) == "thymus-serpyllum", "with its records intact")
 	_clean()

@@ -34,7 +34,6 @@ func _polyline_status() -> String:
 	tool.click(Vector2(3, 0))
 	return tool.status()
 
-
 # --- the legend names the right keys -------------------------------------------------
 
 
@@ -77,7 +76,6 @@ func test_a_modified_key_keeps_its_modifier() -> void:
 func test_an_unbound_action_has_no_key() -> void:
 	assert(Hud._key_label(&"a_binding_that_does_not_exist") == "")
 
-
 # --- every entry is backed by a binding ----------------------------------------------
 
 
@@ -88,10 +86,7 @@ func test_every_drafting_tool_is_named_with_its_own_key() -> void:
 		assert(InputMap.has_action(action), "%s is not an action" % action)
 		var key: String = Hud._key_label(action)
 		assert(key != "", "%s is bound to nothing" % action)
-		assert(
-			legend.contains("%s %s" % [key, pair[1]]),
-			"the legend does not say %s means %s" % [key, pair[1]]
-		)
+		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s means %s" % [key, pair[1]])
 
 
 func test_every_drafting_command_is_named_with_its_own_key() -> void:
@@ -101,10 +96,7 @@ func test_every_drafting_command_is_named_with_its_own_key() -> void:
 		assert(InputMap.has_action(action), "%s is not an action" % action)
 		var key: String = Hud._key_label(action)
 		assert(key != "", "%s is bound to nothing" % action)
-		assert(
-			legend.contains("%s %s" % [key, pair[1]]),
-			"the legend does not say %s means %s" % [key, pair[1]]
-		)
+		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s means %s" % [key, pair[1]])
 
 
 ## The editing commands get their own row of the legend, and each is bound to a key
@@ -137,7 +129,6 @@ func test_the_legend_row_is_the_controllers_own_edit_set() -> void:
 	expected.sort()
 	assert(offered == expected, "the legend offers %s, the commands are %s" % [offered, expected])
 
-
 # --- the layer lock ---------------------------------------------------------------
 
 
@@ -149,8 +140,7 @@ func test_locking_the_layer_in_hand_is_one_undoable_step() -> void:
 	controller.set_layer(LayerSet.NEW_BED)
 	var hud := Hud.new()
 	hud._draft = controller
-	assert(not controller.document.is_layer_locked(controller.current_layer()),
-		"a fresh drawing has nothing locked")
+	assert(not controller.document.is_layer_locked(controller.current_layer()), "a fresh drawing has nothing locked")
 	hud.set_layer_locked(true)
 	assert(controller.document.is_layer_locked(LayerSet.NEW_BED))
 	assert(controller.document.undo_last(), "a lock can be taken back")
@@ -184,7 +174,6 @@ func test_the_legend_covers_every_drafting_action_exactly() -> void:
 	covered.sort()
 	bound.sort()
 	assert(covered == bound, "legend covers %s, the project binds %s" % [covered, bound])
-
 
 # --- the drawing's own prompts --------------------------------------------------------
 
@@ -245,9 +234,7 @@ func test_an_editing_command_is_offered_only_the_key_that_cancels_it() -> void:
 ## The line reads as the tool's own words and then the keys that answer them, in that order, so a person
 ## reads what is being asked for before what to press.
 func test_the_line_at_the_foot_reads_as_the_prompt_and_then_its_keys() -> void:
-	var line := Hud.hand_hints(
-		"Line  ·  Specify the second point", Hud.hand_keys(Tool.Kind.LINE, false)
-	)
+	var line := Hud.hand_hints("Line  ·  Specify the second point", Hud.hand_keys(Tool.Kind.LINE, false))
 	assert(line.begins_with("Line  ·  Specify the second point"), line)
 	assert(line.ends_with("%s: cancel" % Hud._key_label(&"draft_cancel")), line)
 
@@ -258,7 +245,6 @@ func test_the_longest_line_the_foot_can_be_asked_to_carry_names_its_tool_and_its
 	var worst := Hud.worst_hint_line()
 	assert(worst.contains("Polyline"), worst)
 	assert(worst.contains("%s: close" % Hud._key_label(&"draft_close")), worst)
-
 
 # --- the instruction and the report are two different lines ---------------------------
 
@@ -286,7 +272,6 @@ func test_what_the_drawing_last_said_is_a_report_and_not_the_instruction() -> vo
 	assert(controller.status().contains("placed a line"), "the status line still carries it")
 	controller.free()
 
-
 # --- shape of the block --------------------------------------------------------------
 
 
@@ -298,12 +283,9 @@ func test_the_idle_status_advertises_the_key_that_arms_the_tools() -> void:
 	# The line reads its keys from the bindings rather than printing a letter, so it cannot go on
 	# naming a key that has moved - it did once, when the tools' key moved from D to 0. It is held
 	# to the same labels the legend's own rows are written from, so the two cannot disagree.
-	assert(controller.status().contains(Hud._key_label(&"draft_mode") + ": drawing tools"),
-		controller.status())
-	assert(controller.status().contains(Hud._key_label(&"draft_plot") + " plots a sheet"),
-		controller.status())
+	assert(controller.status().contains(Hud._key_label(&"draft_mode") + ": drawing tools"), controller.status())
+	assert(controller.status().contains(Hud._key_label(&"draft_plot") + " plots a sheet"), controller.status())
 	controller.free()
-
 
 # --- shape of the block --------------------------------------------------------------
 
@@ -321,7 +303,6 @@ func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
 	# No blank lines: every row has something on it.
 	for row: String in rows:
 		assert(row.strip_edges() != "")
-
 
 # --- the palette ----------------------------------------------------------------------
 
@@ -412,7 +393,6 @@ func test_the_palette_lists_every_layer_with_a_purpose() -> void:
 	assert(choices[choices.size() - 1]["name"] == LayerSet.GUIDES)
 	controller.free()
 
-
 # --- the view switch ------------------------------------------------------------------
 
 
@@ -439,7 +419,6 @@ func test_the_control_hints_name_the_key_that_really_switches_views() -> void:
 	assert(by_a_thumb.contains("Right thumb: drag"), by_a_thumb)
 	assert(not by_a_thumb.contains("Mouse"), by_a_thumb)
 	assert(not by_a_thumb.contains("W A S D"), by_a_thumb)
-
 
 # --- the keyboard belongs to the drawing ----------------------------------------------
 

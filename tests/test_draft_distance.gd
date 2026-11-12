@@ -19,13 +19,15 @@ const PPM := 39.0
 ## The part of the plan canvas a drafting controller talks to. The real one is a Node2D that reads the
 ## yard and draws it, which a test has no use for.
 class StubCanvas extends Node2D:
-	var snap: Dictionary = {}
-	var ghost: Dictionary = {}
+	var snap: Dictionary = { }
+	var ghost: Dictionary = { }
 	var status_text: String = ""
 	var pixels_per_metre: float = 39.0
 
+
 	func set_selection(_ids: Array) -> void:
 		pass
+
 
 	func screen_to_world(screen: Vector2) -> Vector2:
 		return screen / pixels_per_metre
@@ -65,7 +67,7 @@ func test_a_length_cannot_be_typed_before_the_first_point() -> void:
 	assert(not controller.has_distance_entry())
 	assert(
 		controller.status().contains("pick the first point"),
-		"and the line says what is missing: %s" % controller.status()
+		"and the line says what is missing: %s" % controller.status(),
 	)
 	controller.free()
 
@@ -96,10 +98,7 @@ func test_a_typed_angle_needs_no_cursor_at_all() -> void:
 	# nothing about direction - so an angle is the only way to place it.
 	_type(controller, "5")
 	assert(controller.commit_distance().is_empty(), "without a direction there is nothing to place")
-	assert(
-		controller.status().contains("point the cursor"),
-		"and the line says so: %s" % controller.status()
-	)
+	assert(controller.status().contains("point the cursor"), "and the line says so: %s" % controller.status())
 	assert(controller.has_distance_entry(), "while what was typed is still there to be finished")
 	_type(controller, "<90")
 	var placed: Dictionary = controller.commit_distance()
@@ -107,7 +106,7 @@ func test_a_typed_angle_needs_no_cursor_at_all() -> void:
 	var line = controller.document.entities()[0]
 	assert(
 		line.point(1).is_equal_approx(Vector2(10.0, 15.0)),
-		"five metres at ninety degrees, which is +y: %s" % line.point(1)
+		"five metres at ninety degrees, which is +y: %s" % line.point(1),
 	)
 	controller.free()
 
@@ -119,10 +118,7 @@ func test_an_impossible_length_is_refused_with_words_and_kept() -> void:
 	controller.hover(Vector2(780.0, 390.0))
 	_type(controller, "0")
 	assert(controller.commit_distance().is_empty(), "a length of nothing is not a point")
-	assert(
-		controller.status().contains("more than nothing"),
-		"and the line says why: %s" % controller.status()
-	)
+	assert(controller.status().contains("more than nothing"), "and the line says why: %s" % controller.status())
 	assert(controller.has_distance_entry(), "while what was typed is still there to be corrected")
 	controller.free()
 
@@ -140,7 +136,7 @@ func test_the_point_is_the_length_typed_even_with_snapping_on() -> void:
 	var line = controller.document.entities()[0]
 	assert(
 		line.point(1).is_equal_approx(Vector2(6.3, 0.0)),
-		"exactly 6.3 m, not the grid's nearest cell: %s" % line.point(1)
+		"exactly 6.3 m, not the grid's nearest cell: %s" % line.point(1),
 	)
 	controller.free()
 
@@ -156,7 +152,7 @@ func test_the_drawing_s_own_unit_is_the_unit_typed() -> void:
 	var line = controller.document.entities()[0]
 	assert(
 		line.point(1).is_equal_approx(Vector2(3.048, 0.0)),
-		"ten feet, because that is the unit the drawing measures in: %s" % line.point(1)
+		"ten feet, because that is the unit the drawing measures in: %s" % line.point(1),
 	)
 	controller.free()
 
@@ -203,11 +199,11 @@ func test_the_label_reads_as_the_length_and_the_key_that_places_it() -> void:
 	assert(controller.distance_label().contains("5"), "%s" % controller.distance_label())
 	assert(
 		controller.distance_label().contains("places it"),
-		"the key that finishes it is named: %s" % controller.distance_label()
+		"the key that finishes it is named: %s" % controller.distance_label(),
 	)
 	assert(
 		controller.status().contains(controller.distance_label()),
-		"and it leads the status line: %s" % controller.status()
+		"and it leads the status line: %s" % controller.status(),
 	)
 	# A `<` with nothing written after it yet is echoed rather than called a mistake, and the line does
 	# not offer the key that would refuse.
@@ -219,7 +215,7 @@ func test_the_label_reads_as_the_length_and_the_key_that_places_it() -> void:
 	assert(controller.distance_label().contains("at 4.0"), "%s" % controller.distance_label())
 	assert(
 		controller.distance_label().contains("places it"),
-		"and the key is offered again: %s" % controller.distance_label()
+		"and the key is offered again: %s" % controller.distance_label(),
 	)
 	_type(controller, "5")
 	assert(controller.distance_label().contains("at 45"), "%s" % controller.distance_label())

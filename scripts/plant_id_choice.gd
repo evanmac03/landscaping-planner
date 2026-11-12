@@ -166,30 +166,28 @@ static func fields_for(mode: StringName) -> Array[Dictionary]:
 	match mode_for(mode):
 		LOCAL:
 			fields = [
-				{"key": LOCAL_URL, "label": "where the local model is", "secret": false},
-				{"key": LOCAL_MODEL, "label": "which local model to ask", "secret": false},
+				{ "key": LOCAL_URL, "label": "where the local model is", "secret": false },
+				{ "key": LOCAL_MODEL, "label": "which local model to ask", "secret": false },
 			]
 		ONLINE:
 			fields = _online_fields()
 		HYBRID:
 			fields = [
-				{"key": LOCAL_URL, "label": "where the local model is", "secret": false},
-				{"key": LOCAL_MODEL, "label": "which local model to ask", "secret": false},
+				{ "key": LOCAL_URL, "label": "where the local model is", "secret": false },
+				{ "key": LOCAL_MODEL, "label": "which local model to ask", "secret": false },
 			]
 			fields.append_array(_online_fields())
-			fields.append({
-				"key": SHORTLIST_SIZE,
-				"label": "how many plants the local model may offer",
-				"secret": false,
-			})
+			fields.append(
+				{ "key": SHORTLIST_SIZE, "label": "how many plants the local model may offer", "secret": false }
+			)
 	return fields
 
 
 static func _online_fields() -> Array[Dictionary]:
 	return [
-		{"key": ONLINE_URL, "label": "where the online service is", "secret": false},
-		{"key": ONLINE_MODEL, "label": "which online model to ask", "secret": false},
-		{"key": ONLINE_API_KEY, "label": "the key this service is used with", "secret": true},
+		{ "key": ONLINE_URL, "label": "where the online service is", "secret": false },
+		{ "key": ONLINE_MODEL, "label": "which online model to ask", "secret": false },
+		{ "key": ONLINE_API_KEY, "label": "the key this service is used with", "secret": true },
 	]
 
 
@@ -219,12 +217,10 @@ static func readiness(settings: Dictionary) -> Dictionary:
 		HYBRID:
 			var local: Dictionary = _half_ready(LOCAL, settings)
 			if not bool(local["ok"]):
-				return _refuse("the local half of a shortlist-then-online is not ready: %s"
-						% String(local["reason"]))
+				return _refuse("the local half of a shortlist-then-online is not ready: %s" % String(local["reason"]))
 			var online: Dictionary = _half_ready(ONLINE, settings)
 			if not bool(online["ok"]):
-				return _refuse("the online half of a shortlist-then-online is not ready: %s"
-						% String(online["reason"]))
+				return _refuse("the online half of a shortlist-then-online is not ready: %s" % String(online["reason"]))
 			var size: Dictionary = shortlist_size(settings)
 			if not bool(size["ok"]):
 				return size
@@ -244,14 +240,14 @@ static func shortlist_size(settings: Dictionary) -> Dictionary:
 	if size == UNREADABLE:
 		return _refuse(
 			"how many plants the local model may offer has to be a whole number of plants, between %d and %d"
-					% [SHORTLIST_LEAST, SHORTLIST_MOST]
+			% [SHORTLIST_LEAST, SHORTLIST_MOST]
 		)
 	if size < SHORTLIST_LEAST or size > SHORTLIST_MOST:
 		return _refuse(
 			"a shortlist of %d plants is not a narrowing: it has to be between %d and %d"
 			% [size, SHORTLIST_LEAST, SHORTLIST_MOST]
 		)
-	return {"ok": true, "reason": "", "size": size}
+	return { "ok": true, "reason": "", "size": size }
 
 
 ## What one half of a mode needs, whether it is the local model or the online service.
@@ -260,20 +256,17 @@ static func _half_ready(half: StringName, settings: Dictionary) -> Dictionary:
 		var address: String = String(settings.get(LOCAL_URL, "")).strip_edges()
 		if not _is_address(address):
 			return _refuse(
-				"the local model needs an address beginning http:// or https://, such as %s"
-						% DEFAULT_LOCAL_URL
+				"the local model needs an address beginning http:// or https://, such as %s" % DEFAULT_LOCAL_URL
 			)
 		if String(settings.get(LOCAL_MODEL, "")).strip_edges().is_empty():
 			return _refuse(
-				"the local model needs a name to ask for - the one it is served under, such as %s"
-						% DEFAULT_LOCAL_MODEL
+				"the local model needs a name to ask for - the one it is served under, such as %s" % DEFAULT_LOCAL_MODEL
 			)
 		return _ready()
 	var online_address: String = String(settings.get(ONLINE_URL, "")).strip_edges()
 	if not _is_address(online_address):
 		return _refuse(
-			"the online service needs an address beginning http:// or https://, such as %s"
-					% DEFAULT_ONLINE_URL
+			"the online service needs an address beginning http:// or https://, such as %s" % DEFAULT_ONLINE_URL
 		)
 	if String(settings.get(ONLINE_MODEL, "")).strip_edges().is_empty():
 		return _refuse("the online service needs the name of the model to ask, such as %s" % DEFAULT_ONLINE_MODEL)
@@ -300,11 +293,11 @@ static func _whole(raw: Variant) -> int:
 
 
 static func _ready() -> Dictionary:
-	return {"ok": true, "reason": "", "size": DEFAULT_SHORTLIST_SIZE}
+	return { "ok": true, "reason": "", "size": DEFAULT_SHORTLIST_SIZE }
 
 
 static func _refuse(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "size": 0}
+	return { "ok": false, "reason": reason, "size": 0 }
 
 
 ## The record without anything secret in it, for a log, an export or a test to read.
@@ -313,7 +306,7 @@ static func _refuse(reason: String) -> Dictionary:
 ## set without seeing the key - a page that says "this service needs a key" is then telling the truth
 ## about a record that has one.
 static func sanitised(settings: Dictionary) -> Dictionary:
-	var clean: Dictionary = {}
+	var clean: Dictionary = { }
 	for key: Variant in settings.keys():
 		clean[String(key)] = settings[key]
 	if not String(clean.get(ONLINE_API_KEY, "")).strip_edges().is_empty():
@@ -333,7 +326,7 @@ static func sanitised(settings: Dictionary) -> Dictionary:
 ## says nothing about a key at all. Which keys these are is asked of `field_is_secret`, so the field a
 ## page masks and the field a file drops cannot come apart.
 static func storable(settings: Dictionary) -> Dictionary:
-	var kept: Dictionary = {}
+	var kept: Dictionary = { }
 	for key: Variant in settings.keys():
 		var named: String = String(key)
 		if field_is_secret(named):

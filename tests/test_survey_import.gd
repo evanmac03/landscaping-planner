@@ -25,25 +25,30 @@ func _controller():
 
 
 func _lot() -> Dictionary:
-	return SurveyFile.read_text("\n".join(PackedStringArray([
-		"name: 12 Maple Street",
-		"units: ft",
-		"N 90 0 0 E, 50.00",
-		"N 0 0 0 E, 120.00",
-		"N 90 0 0 W, 50.00",
-		"S 0 0 0 W, 120.00",
-	])))
+	return SurveyFile.read_text(
+		"\n".join(
+			PackedStringArray(
+				[
+					"name: 12 Maple Street",
+					"units: ft",
+					"N 90 0 0 E, 50.00",
+					"N 0 0 0 E, 120.00",
+					"N 90 0 0 W, 50.00",
+					"S 0 0 0 W, 120.00",
+				]
+			)
+		)
+	)
 
 
 func _loose() -> Dictionary:
-	return SurveyFile.read_text("\n".join(PackedStringArray([
-		"units: ft",
-		"N 90 0 0 E, 50.00",
-		"N 0 0 0 E, 120.00",
-		"N 90 0 0 W, 50.00",
-		"S 0 0 0 W, 120.50",
-	])))
-
+	return SurveyFile.read_text(
+		"\n".join(
+			PackedStringArray(
+				["units: ft", "N 90 0 0 E, 50.00", "N 0 0 0 E, 120.00", "N 90 0 0 W, 50.00", "S 0 0 0 W, 120.50"]
+			)
+		)
+	)
 
 # --- what lands -----------------------------------------------------------------------
 
@@ -79,10 +84,11 @@ func test_an_import_leaves_the_drawing_unsaved() -> void:
 func test_the_status_line_says_what_was_imported() -> void:
 	var controller = _controller()
 	controller.import_survey(_lot())
-	assert(controller.last_message.begins_with("imported 4 legs"),
-		"the drawing says what it took: " + controller.last_message)
+	assert(
+		controller.last_message.begins_with("imported 4 legs"),
+		"the drawing says what it took: " + controller.last_message,
+	)
 	controller.free()
-
 
 # --- what is refused ------------------------------------------------------------------
 
@@ -114,7 +120,6 @@ func test_a_survey_with_no_outline_cannot_be_placed() -> void:
 	assert(not bool(taken["ok"]), "two points are not a parcel")
 	assert(controller.document.count() == 0)
 	controller.free()
-
 
 # --- a warning is not a refusal -------------------------------------------------------
 

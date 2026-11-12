@@ -45,43 +45,29 @@ const COLOURS := {
 ## symbols rather than `PlantSymbols` constants on purpose: this table is read
 ## before that script is built, and a test holds the two together.
 const SYMBOLS := {
-	"res://scenes/props/tree.tscn": {
-		"symbol": &"canopy", "size": Vector2(3.7, 3.7), "wash": FOLIAGE_WASH,
-	},
-	"res://scenes/props/shrub.tscn": {
-		"symbol": &"shrub", "size": Vector2(1.5, 1.5), "wash": FOLIAGE_WASH,
-	},
-	"res://scenes/props/flower_bed.tscn": {
-		"symbol": &"bed", "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH,
-	},
+	"res://scenes/props/tree.tscn": { "symbol": &"canopy", "size": Vector2(3.7, 3.7), "wash": FOLIAGE_WASH },
+	"res://scenes/props/shrub.tscn": { "symbol": &"shrub", "size": Vector2(1.5, 1.5), "wash": FOLIAGE_WASH },
+	"res://scenes/props/flower_bed.tscn": { "symbol": &"bed", "size": Vector2(2.6, 1.4), "wash": BLOOM_WASH },
 	# The shapes the drawing already spoke, as models: `PlantSymbols` has drawn a spruce as a conifer
 	# and a fern as a fern since it was written, while the 3D view had three props for all nine of
 	# them, so a spruce stood in the garden as a maple's crown. Built by `tools/plant_models.gd`, and
 	# each size is the footprint that file measured rather than one typed in by hand - a plant is
 	# planted at `spread / size.x`, so a size that drifted would put every plant at the wrong size
 	# while every view still looked plausible. `tests/test_plant_models.gd` measures the assets.
-	"res://assets/plants/conifer.gltf": {
-		"symbol": &"conifer", "size": Vector2(2.6, 2.6), "wash": FOLIAGE_WASH,
-	},
-	"res://assets/plants/grass.gltf": {
-		"symbol": &"grass", "size": Vector2(1.09, 1.09), "wash": FOLIAGE_WASH,
-	},
+	"res://assets/plants/conifer.gltf": { "symbol": &"conifer", "size": Vector2(2.6, 2.6), "wash": FOLIAGE_WASH },
+	"res://assets/plants/grass.gltf": { "symbol": &"grass", "size": Vector2(1.09, 1.09), "wash": FOLIAGE_WASH },
 	"res://assets/plants/groundcover.gltf": {
-		"symbol": &"groundcover", "size": Vector2(0.64, 0.64), "wash": FOLIAGE_WASH,
+		"symbol": &"groundcover",
+		"size": Vector2(0.64, 0.64),
+		"wash": FOLIAGE_WASH,
 	},
-	"res://assets/plants/vine.gltf": {
-		"symbol": &"vine", "size": Vector2(0.91, 0.91), "wash": FOLIAGE_WASH,
-	},
-	"res://assets/plants/fern.gltf": {
-		"symbol": &"fern", "size": Vector2(1.13, 1.13), "wash": FOLIAGE_WASH,
-	},
+	"res://assets/plants/vine.gltf": { "symbol": &"vine", "size": Vector2(0.91, 0.91), "wash": FOLIAGE_WASH },
+	"res://assets/plants/fern.gltf": { "symbol": &"fern", "size": Vector2(1.13, 1.13), "wash": FOLIAGE_WASH },
 	# A perennial is drawn as the bed it is planted as, so its model is a bed too - the same oblong
 	# ground the raised bed prop occupied, and the oblong shape is what makes the `bed` symbol oblong
 	# rather than round (`PlantSymbols.shape_for`). The size is the one the builder *measured*, not one
 	# typed in: the sphere a bed's soil is made of reports a bounding box a shade inside its radius.
-	"res://assets/plants/perennial.gltf": {
-		"symbol": &"bed", "size": Vector2(2.56, 1.38), "wash": BLOOM_WASH,
-	},
+	"res://assets/plants/perennial.gltf": { "symbol": &"bed", "size": Vector2(2.56, 1.38), "wash": BLOOM_WASH },
 	# The shapes a low-poly kit draws better than three primitives do: pulled from **Kenney's Nature
 	# Kit** (CC0) by `tools/plant_packs.gd`, which records the pack, measures every file and decides
 	# which shape each model stands for. A tree, a shrub, a grass and a groundcover are shapes every
@@ -97,44 +83,66 @@ const SYMBOLS := {
 	# The names are *shapes* (`tree_oak`, `plant_bush`, `grass`) rather than some other species' name,
 	# which is what makes it honest to plant a red maple as one: the garden says "a small tree is
 	# here", not "a red maple looks like this".
-	"res://assets/plants/kenney/grass.glb": {
-		"symbol": &"grass", "size": Vector2(0.39, 0.39), "wash": FOLIAGE_WASH,
-	},
+	"res://assets/plants/kenney/grass.glb": { "symbol": &"grass", "size": Vector2(0.39, 0.39), "wash": FOLIAGE_WASH },
 	"res://assets/plants/kenney/grass_large.glb": {
-		"symbol": &"grass", "size": Vector2(0.41, 0.41), "wash": FOLIAGE_WASH,
+		"symbol": &"grass",
+		"size": Vector2(0.41, 0.41),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/grass_leafsLarge.glb": {
-		"symbol": &"grass", "size": Vector2(0.49, 0.49), "wash": FOLIAGE_WASH,
+		"symbol": &"grass",
+		"size": Vector2(0.49, 0.49),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_bush.glb": {
-		"symbol": &"shrub", "size": Vector2(0.40, 0.40), "wash": FOLIAGE_WASH,
+		"symbol": &"shrub",
+		"size": Vector2(0.40, 0.40),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_bushDetailed.glb": {
-		"symbol": &"shrub", "size": Vector2(0.60, 0.60), "wash": FOLIAGE_WASH,
+		"symbol": &"shrub",
+		"size": Vector2(0.60, 0.60),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_bushLarge.glb": {
-		"symbol": &"shrub", "size": Vector2(0.37, 0.37), "wash": FOLIAGE_WASH,
+		"symbol": &"shrub",
+		"size": Vector2(0.37, 0.37),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_bushTriangle.glb": {
-		"symbol": &"shrub", "size": Vector2(0.41, 0.41), "wash": FOLIAGE_WASH,
+		"symbol": &"shrub",
+		"size": Vector2(0.41, 0.41),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_bushSmall.glb": {
-		"symbol": &"groundcover", "size": Vector2(0.38, 0.38), "wash": FOLIAGE_WASH,
+		"symbol": &"groundcover",
+		"size": Vector2(0.38, 0.38),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/plant_flatTall.glb": {
-		"symbol": &"groundcover", "size": Vector2(0.27, 0.27), "wash": FOLIAGE_WASH,
+		"symbol": &"groundcover",
+		"size": Vector2(0.27, 0.27),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/tree_default.glb": {
-		"symbol": &"canopy", "size": Vector2(0.76, 0.76), "wash": FOLIAGE_WASH,
+		"symbol": &"canopy",
+		"size": Vector2(0.76, 0.76),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/tree_detailed.glb": {
-		"symbol": &"canopy", "size": Vector2(0.85, 0.85), "wash": FOLIAGE_WASH,
+		"symbol": &"canopy",
+		"size": Vector2(0.85, 0.85),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/tree_fat.glb": {
-		"symbol": &"canopy", "size": Vector2(0.76, 0.76), "wash": FOLIAGE_WASH,
+		"symbol": &"canopy",
+		"size": Vector2(0.76, 0.76),
+		"wash": FOLIAGE_WASH,
 	},
 	"res://assets/plants/kenney/tree_oak.glb": {
-		"symbol": &"canopy", "size": Vector2(0.74, 0.74), "wash": FOLIAGE_WASH,
+		"symbol": &"canopy",
+		"size": Vector2(0.74, 0.74),
+		"wash": FOLIAGE_WASH,
 	},
 }
 
@@ -148,7 +156,7 @@ const BLOOM_WASH := Color(0.89, 0.42, 0.6)
 ## painted plan's colour rather than washed in a guessed one, and it keeps its
 ## linework, so what is missing reads as a plant with no foliage wash rather than as
 ## a plant with the wrong one.
-const PLACEHOLDER := {"symbol": &"marker", "size": Vector2(1.2, 1.2)}
+const PLACEHOLDER := { "symbol": &"marker", "size": Vector2(1.2, 1.2) }
 const UNKNOWN_COLOUR := Color(0.55, 0.55, 0.58)
 
 
@@ -241,12 +249,14 @@ static func _disc_ring(centre: Vector2, radius: float) -> PackedVector2Array:
 
 static func _rectangle_ring(centre: Vector2, size: Vector2) -> PackedVector2Array:
 	var half := size * 0.5
-	return PackedVector2Array([
-		centre + Vector2(-half.x, -half.y),
-		centre + Vector2(half.x, -half.y),
-		centre + Vector2(half.x, half.y),
-		centre + Vector2(-half.x, half.y),
-	])
+	return PackedVector2Array(
+		[
+			centre + Vector2(-half.x, -half.y),
+			centre + Vector2(half.x, -half.y),
+			centre + Vector2(half.x, half.y),
+			centre + Vector2(-half.x, half.y),
+		]
+	)
 
 
 ## Plan colour for a material, by resource path. The 3D materials are

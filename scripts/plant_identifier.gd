@@ -131,7 +131,7 @@ var _read_exchange: HttpExchange = null
 
 ## The request `PlantIdLlm` built for the act in flight, kept so that `step_read` can hand the very same
 ## one to a caller's transport.
-var _read_built: Dictionary = {}
+var _read_built: Dictionary = { }
 
 ## Which model this act is asking, for the answer's own record and for reading what comes back.
 var _read_model: String = ""
@@ -144,12 +144,12 @@ var _read_note: String = ""
 var _read_catalogue: PlantCatalogue = null
 
 ## What the act in flight answered, the first act's answer, and the shortlist resolved from it.
-var _read_answer: Dictionary = {}
-var _read_first: Dictionary = {}
+var _read_answer: Dictionary = { }
+var _read_first: Dictionary = { }
 var _read_shortlist: Array[Dictionary] = []
 
 ## The reading's own answer, kept once it is over.
-var _read_result: Dictionary = {}
+var _read_result: Dictionary = { }
 
 
 ## Whether a model is **built into this program**. False, and honest about it: there is no inference
@@ -201,7 +201,7 @@ static func photo_hint_for(chosen: Dictionary) -> String:
 ## laid on top of them, so a record that states a little is given the rest rather than refused for the
 ## keys it does not have. This is why a caller who has never heard of any of this still gets a
 ## `PlantIdentifier` that behaves exactly as it did before there were modes: it sends nothing.
-func _init(given: Dictionary = {}) -> void:
+func _init(given: Dictionary = { }) -> void:
 	for key: Variant in given.keys():
 		settings[String(key)] = given[key]
 
@@ -262,7 +262,7 @@ func identify_with(
 	image: Image,
 	part: StringName = FieldCaptureScript.PART_WHOLE,
 	note: String = "",
-	catalogue: PlantCatalogue = null
+	catalogue: PlantCatalogue = null,
 ) -> Dictionary:
 	begin_read(image, part, note, catalogue)
 	while step_read(HttpExchange.PAUSE_MS) == WORKING:
@@ -283,21 +283,21 @@ func begin_read(
 	image: Image,
 	part: StringName = FieldCaptureScript.PART_WHOLE,
 	note: String = "",
-	catalogue: PlantCatalogue = null
+	catalogue: PlantCatalogue = null,
 ) -> StringName:
 	_read_stage = &""
 	_read_verdict = DONE
 	_read_exchange = null
-	_read_built = {}
+	_read_built = { }
 	_read_model = ""
 	_read_picture = ""
 	_read_part = part
 	_read_note = note
 	_read_catalogue = catalogue
-	_read_answer = {}
-	_read_first = {}
+	_read_answer = { }
+	_read_first = { }
 	_read_shortlist = []
-	_read_result = {}
+	_read_result = { }
 	var ready: Dictionary = can_read()
 	if not bool(ready["ok"]):
 		return _finished(_refusal(String(ready["reason"])))
@@ -307,13 +307,9 @@ func begin_read(
 	_read_picture = String(encoded["base64"])
 	match mode():
 		PlantIdChoiceScript.LOCAL:
-			return _start(
-				READING_ONE, PlantIdChoiceScript.LOCAL, PlantIdLlmScript.single_prompt(part, note)
-			)
+			return _start(READING_ONE, PlantIdChoiceScript.LOCAL, PlantIdLlmScript.single_prompt(part, note))
 		PlantIdChoiceScript.ONLINE:
-			return _start(
-				READING_ONE, PlantIdChoiceScript.ONLINE, PlantIdLlmScript.single_prompt(part, note)
-			)
+			return _start(READING_ONE, PlantIdChoiceScript.ONLINE, PlantIdLlmScript.single_prompt(part, note))
 		PlantIdChoiceScript.HYBRID:
 			var size: Dictionary = PlantIdChoiceScript.shortlist_size(settings)
 			if not bool(size["ok"]):
@@ -321,7 +317,7 @@ func begin_read(
 			return _start(
 				READING_NARROW,
 				PlantIdChoiceScript.LOCAL,
-				PlantIdLlmScript.shortlist_prompt(part, note, int(size["size"]))
+				PlantIdLlmScript.shortlist_prompt(part, note, int(size["size"])),
 			)
 	return _finished(_refusal(PlantIdChoiceScript.NOTHING_SENT))
 
@@ -386,12 +382,12 @@ func read_result() -> Dictionary:
 func _start(stage: StringName, half: StringName, prompt: String) -> StringName:
 	_read_stage = stage
 	var local: bool = half == PlantIdChoiceScript.LOCAL
-	var address: String = String(settings.get(
-		PlantIdChoiceScript.LOCAL_URL if local else PlantIdChoiceScript.ONLINE_URL, ""
-	))
-	_read_model = String(settings.get(
-		PlantIdChoiceScript.LOCAL_MODEL if local else PlantIdChoiceScript.ONLINE_MODEL, ""
-	))
+	var address: String = String(
+		settings.get(PlantIdChoiceScript.LOCAL_URL if local else PlantIdChoiceScript.ONLINE_URL, "")
+	)
+	_read_model = String(
+		settings.get(PlantIdChoiceScript.LOCAL_MODEL if local else PlantIdChoiceScript.ONLINE_MODEL, "")
+	)
 	var key: String = "" if local else String(settings.get(PlantIdChoiceScript.ONLINE_API_KEY, ""))
 	_read_built = PlantIdLlmScript.build_request(address, _read_model, key, prompt, _read_picture)
 	_read_verdict = WORKING
@@ -418,7 +414,7 @@ func _read_the_wire(sent: Dictionary) -> Dictionary:
 		int(sent.get("status", 0)),
 		String(sent.get("body", "")),
 		_read_model,
-		String(sent.get("why", ""))
+		String(sent.get("why", "")),
 	)
 
 
@@ -433,15 +429,15 @@ func _decide() -> StringName:
 			return _finished(_from_answer(_read_answer, _read_catalogue))
 		READING_NARROW:
 			if not bool(_read_answer["ok"]):
-				return _finished(_refusal(
-					"the local model could not make a shortlist: %s" % String(_read_answer["reason"])
-				))
+				return _finished(
+					_refusal("the local model could not make a shortlist: %s" % String(_read_answer["reason"]))
+				)
 			_read_first = _read_answer
 			_read_shortlist = _annotated(_read_answer["candidates"], _read_catalogue)
 			return _start(
 				READING_REFINE,
 				PlantIdChoiceScript.ONLINE,
-				PlantIdLlmScript.refine_prompt(_read_part, _read_note, _read_shortlist)
+				PlantIdLlmScript.refine_prompt(_read_part, _read_note, _read_shortlist),
 			)
 		READING_REFINE:
 			return _finished(_from_the_two(_read_answer))
@@ -455,7 +451,7 @@ func _finished(result: Dictionary) -> StringName:
 	_read_verdict = DONE
 	_read_stage = &""
 	_read_exchange = null
-	_read_built = {}
+	_read_built = { }
 	return DONE
 
 
@@ -468,13 +464,11 @@ func _finished(result: Dictionary) -> StringName:
 func _from_the_two(second: Dictionary) -> Dictionary:
 	if not bool(second["ok"]):
 		return _refusal(
-			(
-				"%d plants were narrowed down on this machine, but the online model could not be "
-				+ "reached: %s"
-			) % [_read_shortlist.size(), String(second["reason"])],
+			("%d plants were narrowed down on this machine, but the online model could not be " + "reached: %s")
+			% [_read_shortlist.size(), String(second["reason"])],
 			_read_shortlist,
 			String(_read_first["model_id"]),
-			String(_read_first["model_version"])
+			String(_read_first["model_version"]),
 		)
 	return {
 		"ok": true,
@@ -517,7 +511,6 @@ static func send_http(request: Dictionary, seconds: float = WAIT_SECONDS) -> Dic
 		while exchange.step(HttpExchange.PAUSE_MS) == HttpExchange.WORKING:
 			pass
 	return exchange.result()
-
 
 ## Where the wire work went, and why it is not here.
 ##
@@ -608,7 +601,7 @@ static func _refusal(
 	reason: String,
 	candidates: Array[Dictionary] = [],
 	who: String = "",
-	who_version: String = ""
+	who_version: String = "",
 ) -> Dictionary:
 	return {
 		"ok": false,
@@ -635,7 +628,7 @@ static func capture_from(
 	position: Vector3 = Vector3.ZERO,
 	photo_path: String = "",
 	note: String = "",
-	part: StringName = FieldCaptureScript.PART_WHOLE
+	part: StringName = FieldCaptureScript.PART_WHOLE,
 ) -> Dictionary:
 	var offered: String = String(identification.get("raw_taxon", "")).strip_edges()
 	if offered.is_empty():
@@ -651,13 +644,9 @@ static func capture_from(
 		position,
 		photo_path,
 		note,
-		part
+		part,
 	)
 	var capture: Dictionary = answer["capture"]
 	capture["model_id"] = String(identification.get("model_id", ""))
 	capture["model_version"] = String(identification.get("model_version", ""))
-	return {
-		"ok": bool(answer["ok"]),
-		"reason": String(answer["reason"]),
-		"capture": capture,
-	}
+	return { "ok": bool(answer["ok"]), "reason": String(answer["reason"]), "capture": capture }

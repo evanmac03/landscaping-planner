@@ -36,12 +36,7 @@ const AXIS_EPSILON := 1e-9
 ## Returns lines to stroke, marks to fill and labels to place. A view that only
 ## wants linework can ignore the other two, which is what the 3D overlay does: it
 ## has no way to draw filled triangles or text.
-static func layout(
-	entity,
-	plot_scale: float,
-	units = null,
-	style = null
-) -> Dictionary:
+static func layout(entity, plot_scale: float, units = null, style = null) -> Dictionary:
 	var looks: DraftDimensionStyle = style if style != null else DimensionStyleScript.architectural()
 	var from: Vector2 = entity.point(0)
 	var to: Vector2 = entity.point(1)
@@ -64,15 +59,27 @@ static func layout(
 		if absf(delta.x) >= absf(delta.y):
 			var line_y := from.y + offset
 			return _assemble(
-				from, to,
-				Vector2(from.x, line_y), Vector2(to.x, line_y),
-				absf(delta.x), plot_scale, units, "", looks
+				from,
+				to,
+				Vector2(from.x, line_y),
+				Vector2(to.x, line_y),
+				absf(delta.x),
+				plot_scale,
+				units,
+				"",
+				looks,
 			)
 		var line_x := from.x + offset
 		return _assemble(
-			from, to,
-			Vector2(line_x, from.y), Vector2(line_x, to.y),
-			absf(delta.y), plot_scale, units, "", looks
+			from,
+			to,
+			Vector2(line_x, from.y),
+			Vector2(line_x, to.y),
+			absf(delta.y),
+			plot_scale,
+			units,
+			"",
+			looks,
 		)
 
 	# Aligned: the dimension line runs parallel to the measured points.
@@ -85,9 +92,15 @@ static func layout(
 	var along := (to - from).normalized()
 	var sideways := Vector2(along.y, -along.x)
 	return _assemble(
-		from, to,
-		from + sideways * offset, to + sideways * offset,
-		from.distance_to(to), plot_scale, units, "", looks
+		from,
+		to,
+		from + sideways * offset,
+		to + sideways * offset,
+		from.distance_to(to),
+		plot_scale,
+		units,
+		"",
+		looks,
 	)
 
 
@@ -116,13 +129,15 @@ static func _radius(from: Vector2, to: Vector2, plot_scale: float, units, looks)
 	return {
 		"lines": lines,
 		"marks": marks,
-		"labels": [{
-			"text": "R" + _format(radius, units, looks, plot_scale),
-			"position": (from + to) * 0.5 \
-				+ normal * side * (_model(looks.text_gap_mm, plot_scale) + height),
-			"angle": direction.angle(),
-			"height": height,
-		}],
+		"labels": [
+			{
+				"text": "R" + _format(radius, units, looks, plot_scale),
+				"position": (from + to) * 0.5 \
+						+ normal * side * (_model(looks.text_gap_mm, plot_scale) + height),
+				"angle": direction.angle(),
+				"height": height,
+			}
+		],
 	}
 
 
@@ -156,7 +171,7 @@ static func _angular(entity, corner: Vector2, along_a: Vector2, plot_scale: floa
 	var side_a := along_a - corner
 	var side_b := along_b - corner
 	if side_a.length() <= AXIS_EPSILON or side_b.length() <= AXIS_EPSILON \
-		or radius <= AXIS_EPSILON:
+			or radius <= AXIS_EPSILON:
 		return empty_layout()
 	var from_angle := side_a.angle()
 	# `wrapf` folds the difference into (-pi, pi], which is exactly "the way round that is at most half
@@ -176,10 +191,7 @@ static func _angular(entity, corner: Vector2, along_a: Vector2, plot_scale: floa
 	# was picked along it, so the pick is visibly attached to the thing it measured.
 	for side: Vector2 in [side_a, side_b]:
 		var reach := maxf(side.length(), radius + overshoot)
-		lines.append(PackedVector2Array([
-			corner + side.normalized() * gap,
-			corner + side.normalized() * reach,
-		]))
+		lines.append(PackedVector2Array([corner + side.normalized() * gap, corner + side.normalized() * reach]))
 
 	var arc := Geom.arc_points(corner, radius, from_angle, sweep, EntityScript.DEFAULT_TOLERANCE)
 	if arc.size() < 2:
@@ -192,24 +204,22 @@ static func _angular(entity, corner: Vector2, along_a: Vector2, plot_scale: floa
 	var end_radial := Vector2.from_angle(from_angle + sweep)
 	var start_tangent := start_radial.rotated(turn * PI * 0.5)
 	var end_tangent := end_radial.rotated(turn * PI * 0.5)
-	_append_mark(
-		lines, marks, corner + start_radial * radius, -start_tangent, start_tangent, looks, plot_scale
-	)
-	_append_mark(
-		lines, marks, corner + end_radial * radius, end_tangent, end_tangent, looks, plot_scale
-	)
+	_append_mark(lines, marks, corner + start_radial * radius, -start_tangent, start_tangent, looks, plot_scale)
+	_append_mark(lines, marks, corner + end_radial * radius, end_tangent, end_tangent, looks, plot_scale)
 
 	var height := _model(looks.text_height_mm, plot_scale)
 	var outward := Vector2.from_angle(from_angle + sweep * 0.5)
 	return {
 		"lines": lines,
 		"marks": marks,
-		"labels": [{
-			"text": "%s°" % _fixed(rad_to_deg(absf(sweep)), maxi(looks.decimals_at(plot_scale), 0)),
-			"position": corner + outward * (radius + _model(looks.text_gap_mm, plot_scale) + height),
-			"angle": 0.0,
-			"height": height,
-		}],
+		"labels": [
+			{
+				"text": "%s°" % _fixed(rad_to_deg(absf(sweep)), maxi(looks.decimals_at(plot_scale), 0)),
+				"position": corner + outward * (radius + _model(looks.text_gap_mm, plot_scale) + height),
+				"angle": 0.0,
+				"height": height,
+			}
+		],
 	}
 
 
@@ -224,7 +234,7 @@ static func _assemble(
 	plot_scale: float,
 	units,
 	prefix: String,
-	looks
+	looks,
 ) -> Dictionary:
 	var axis := dimension_to - dimension_from
 	if axis.length_squared() <= AXIS_EPSILON:
@@ -236,7 +246,7 @@ static func _assemble(
 	# produces something drawable instead of a division by nothing.
 	var sideways := dimension_from - measured_from
 	sideways = sideways.normalized() if sideways.length_squared() > AXIS_EPSILON \
-		else Vector2(-direction.y, direction.x)
+			else Vector2(-direction.y, direction.x)
 
 	var lines: Array[PackedVector2Array] = []
 	var marks: Array[Dictionary] = []
@@ -247,14 +257,8 @@ static func _assemble(
 	if looks.extension_lines:
 		var gap := _model(looks.extension_gap_mm, plot_scale)
 		var overshoot := _model(looks.extension_overshoot_mm, plot_scale)
-		lines.append(PackedVector2Array([
-			measured_from + sideways * gap,
-			dimension_from + sideways * overshoot,
-		]))
-		lines.append(PackedVector2Array([
-			measured_to + sideways * gap,
-			dimension_to + sideways * overshoot,
-		]))
+		lines.append(PackedVector2Array([measured_from + sideways * gap, dimension_from + sideways * overshoot]))
+		lines.append(PackedVector2Array([measured_to + sideways * gap, dimension_to + sideways * overshoot]))
 
 	lines.append(PackedVector2Array([dimension_from, dimension_to]))
 	# Marks point outward at the ends, so an arrowhead's body lies inside the
@@ -274,13 +278,15 @@ static func _assemble(
 	return {
 		"lines": lines,
 		"marks": marks,
-		"labels": [{
-			"text": prefix + _format(measured, units, looks, plot_scale),
-			"position": (dimension_from + dimension_to) * 0.5 \
-				- sideways * side * (_model(looks.text_gap_mm, plot_scale) + height),
-			"angle": angle,
-			"height": height,
-		}],
+		"labels": [
+			{
+				"text": prefix + _format(measured, units, looks, plot_scale),
+				"position": (dimension_from + dimension_to) * 0.5 \
+						- sideways * side * (_model(looks.text_gap_mm, plot_scale) + height),
+				"angle": angle,
+				"height": height,
+			}
+		],
 	}
 
 
@@ -295,20 +301,22 @@ static func _append_mark(
 	outward: Vector2,
 	axis: Vector2,
 	looks,
-	plot_scale: float
+	plot_scale: float,
 ) -> void:
 	var size := _model(looks.mark_size_mm, plot_scale)
 	match looks.mark:
 		DimensionStyleScript.Mark.ARROW:
-			marks.append({
-				"kind": &"arrow",
-				"tip": at,
-				"direction": outward,
-				"size": size,
-				"width_ratio": looks.mark_width_ratio,
-			})
+			marks.append(
+				{
+					"kind": &"arrow",
+					"tip": at,
+					"direction": outward,
+					"size": size,
+					"width_ratio": looks.mark_width_ratio,
+				}
+			)
 		DimensionStyleScript.Mark.DOT:
-			marks.append({"kind": &"dot", "at": at, "size": size})
+			marks.append({ "kind": &"dot", "at": at, "size": size })
 		DimensionStyleScript.Mark.TICK:
 			lines.append(tick_stroke(at, axis, size))
 		_:
@@ -327,7 +335,7 @@ static func empty_layout() -> Dictionary:
 	var no_lines: Array[PackedVector2Array] = []
 	var no_marks: Array[Dictionary] = []
 	var no_labels: Array[Dictionary] = []
-	return {"lines": no_lines, "marks": no_marks, "labels": no_labels}
+	return { "lines": no_lines, "marks": no_marks, "labels": no_labels }
 
 
 ## The three corners of an arrowhead, so every view fills the same triangle. The
@@ -337,7 +345,7 @@ static func arrow_triangle(
 	tip: Vector2,
 	direction: Vector2,
 	size: float,
-	width_ratio: float = -1.0
+	width_ratio: float = -1.0,
 ) -> PackedVector2Array:
 	var ratio := width_ratio if width_ratio > 0.0 else DimensionStyleScript.DEFAULT_WIDTH_RATIO
 	var back := tip - direction * size

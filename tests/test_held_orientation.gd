@@ -27,25 +27,19 @@ const NOTHING_MEASURED := Vector2i.ZERO
 func test_a_room_that_stands_up_turns_the_picture_a_quarter_and_one_on_its_side_turns_it_none() -> void:
 	assert(
 		HeldOrientationScript.turns_for_a_room(HELD_UPRIGHT) == 1,
-		"held upright against a landscape sensor is one quarter turn"
+		"held upright against a landscape sensor is one quarter turn",
 	)
 	assert(
 		HeldOrientationScript.turns_for_a_room(ON_ITS_SIDE) == 0,
-		"the frame a phone's sensor makes is a landscape one, so a landscape room needs no turning"
+		"the frame a phone's sensor makes is a landscape one, so a landscape room needs no turning",
 	)
 
 
 ## A room nobody could measure leaves the picture alone, and so does one with no long side: a turn invented
 ## here would put a plant on its side in the one case where nothing at all is known.
 func test_a_room_nothing_can_be_said_about_leaves_the_picture_alone() -> void:
-	assert(
-		HeldOrientationScript.turns_for_a_room(NOTHING_MEASURED) == 0,
-		"a room nobody measured is not turned"
-	)
-	assert(
-		HeldOrientationScript.turns_for_a_room(SQUARE) == 0,
-		"and a square has no long side to stand up by"
-	)
+	assert(HeldOrientationScript.turns_for_a_room(NOTHING_MEASURED) == 0, "a room nobody measured is not turned")
+	assert(HeldOrientationScript.turns_for_a_room(SQUARE) == 0, "and a square has no long side to stand up by")
 
 
 ## Taller than wide is the question a page that has to fit asks, and the camera's turn asks the same one of
@@ -55,7 +49,7 @@ func test_a_room_taller_than_it_is_wide_stands_up() -> void:
 	assert(not HeldOrientationScript.stands_up(ON_ITS_SIDE), "a phone on its side does not")
 	assert(
 		not HeldOrientationScript.stands_up(NOTHING_MEASURED),
-		"and neither does a room nobody measured, rather than half of one"
+		"and neither does a room nobody measured, rather than half of one",
 	)
 
 
@@ -66,17 +60,14 @@ func test_a_room_taller_than_it_is_wide_stands_up() -> void:
 func test_the_words_say_how_the_room_stands_and_never_guess_at_which_end_is_up() -> void:
 	assert(
 		HeldOrientationScript.words_for_a_room(HELD_UPRIGHT) == "held upright",
-		"a room taller than it is wide is held upright"
+		"a room taller than it is wide is held upright",
 	)
 	assert(
 		HeldOrientationScript.words_for_a_room(ON_ITS_SIDE) == "held on its side",
-		"and one wider than it is tall is on its side"
+		"and one wider than it is tall is on its side",
 	)
 	assert(
 		not HeldOrientationScript.words_for_a_room(HELD_UPRIGHT).contains("upside"),
-		"a shape cannot see which end is up, so the words never claim it"
+		"a shape cannot see which end is up, so the words never claim it",
 	)
-	assert(
-		not HeldOrientationScript.words_for_a_room(ON_ITS_SIDE).contains("upside"),
-		"either way round"
-	)
+	assert(not HeldOrientationScript.words_for_a_room(ON_ITS_SIDE).contains("upside"), "either way round")

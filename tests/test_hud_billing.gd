@@ -25,14 +25,14 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## An estimate with one priced line, so a job can be made of it: 10 x $15.00 of PLANTING, a contract of
 ## $150.00, so a fixed-price job bills one round invoice.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith"}
+	estimate.customer = { "name": "Smith" }
 	var line: LineScript = LineScript.new()
 	line.description = "Buxus, 2 gal"
 	line.cost_code = &"PLANTING"
@@ -43,7 +43,6 @@ func _estimate() -> EstimateScript:
 	line.unit_price = MoneyScript.of(1500)
 	estimate.lines.append(line)
 	return estimate
-
 
 # --- the way in ------------------------------------------------------------------------------
 
@@ -92,7 +91,6 @@ func test_the_billing_ledger_and_the_board_are_both_pointed_at_the_one_desk() ->
 	assert(hud._schedule_board.desk == hud._job_desk, "and it is the HUD's own")
 	_done(hud)
 
-
 # --- what the ledger's words make the menu say -------------------------------------------------
 
 
@@ -104,8 +102,7 @@ func test_a_schedule_that_has_billed_nothing_says_nothing_on_the_menu_line() -> 
 	hud._job_desk.job("E1").set_billing_method(JobScript.FIXED)
 	assert(hud._billing_ledger.start_billing("E1") != null, "the schedule was started")
 	hud._billing_window.refresh()
-	assert(hud._jobs_text() == JOBS_LINE,
-		"a schedule with nothing on it is not news: " + hud._jobs_text())
+	assert(hud._jobs_text() == JOBS_LINE, "a schedule with nothing on it is not news: " + hud._jobs_text())
 	_done(hud)
 
 

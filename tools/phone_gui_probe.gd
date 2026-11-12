@@ -45,18 +45,15 @@ func _ready() -> void:
 	var here_dpi: float = PhoneHudScript.dpi()
 	var touch: bool = TouchInputScript.has_a_touchscreen()
 	var desk_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, here_dpi)
-	var thumb: bool = TouchInputScript.answered_by_a_thumb(
-		touch, here_dpi, desk_mm, PhoneHudScript.TOUCH_MM
+	var thumb: bool = TouchInputScript.answered_by_a_thumb(touch, here_dpi, desk_mm, PhoneHudScript.TOUCH_MM)
+	print(
+		"this device      touchscreen %s, %.0f dpi, a %.0f px row comes to %.2f mm, so a thumb is needed: %s"
+		% ["yes" if touch else "no", here_dpi, TouchInputScript.DESK_ROW_PX, desk_mm, "yes" if thumb else "no"]
 	)
-	print("this device      touchscreen %s, %.0f dpi, a %.0f px row comes to %.2f mm, so a thumb is needed: %s" % [
-		"yes" if touch else "no", here_dpi, TouchInputScript.DESK_ROW_PX, desk_mm, "yes" if thumb else "no",
-	])
-	print("the phone        a legible capital is %.1f mm, which is %d px of layout at %.2f drawn at %.1f dpi" % [
-		PhoneHudScript.TEXT_MM,
-		PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI),
-		PHONE_SCALE,
-		PHONE_DPI,
-	])
+	print(
+		"the phone        a legible capital is %.1f mm, which is %d px of layout at %.2f drawn at %.1f dpi"
+		% [PhoneHudScript.TEXT_MM, PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI), PHONE_SCALE, PHONE_DPI]
+	)
 
 	# State that this is a phone. The window is drawn up here - the program would not, because as far as *it*
 	# is concerned this is a desk - and the device is forced so that the passes under it do the sizing the
@@ -89,15 +86,14 @@ func _report_the_front_door() -> void:
 	var note: Label = _first(door, "Label") as Label
 	var heading: Label = _first(door, "Label", 1) as Label
 	var button: Button = _first(door, "Button") as Button
-	print("a page's note    was %s, is %s" % [
-		_written(note, PhoneHudScript.DESK_TEXT), _drawn(note),
-	])
+	print("a page's note    was %s, is %s" % [_written(note, PhoneHudScript.DESK_TEXT), _drawn(note)])
 	if heading != null:
 		print("a page's title   is %s - a page keeps its shape rather than collapsing onto one size" % _drawn(heading))
 	if button != null:
-		print("a page's button  was %s, is %s, in a row %.1f px tall" % [
-			PhoneHudScript.DESK_TEXT, _drawn(button), button.custom_minimum_size.y,
-		])
+		print(
+			"a page's button  was %s, is %s, in a row %.1f px tall"
+			% [PhoneHudScript.DESK_TEXT, _drawn(button), button.custom_minimum_size.y]
+		)
 
 
 ## The chrome this HUD draws for itself: the menu bar over the whole window, and the first words on whichever

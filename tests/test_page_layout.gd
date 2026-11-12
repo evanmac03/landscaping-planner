@@ -70,10 +70,14 @@ func _scrolling_page(lines: int, declared: Vector2i, line_width := 300.0) -> Win
 func test_a_page_with_room_for_its_own_contents_is_measured_as_fitting() -> void:
 	var row: Dictionary = await _measure(_plain_page(4, Vector2i(400, 300)))
 	assert(bool(row["read"]), "the page was read: %s" % String(row["words"]))
-	assert(bool(row["fits_declared"]),
-		"four 20px lines fit 300px, and the measurement says so: %s" % String(row["words"]))
-	assert(String(row["words"]).contains(PageLayoutScript.FITS),
-		"and it says so in the one word a verdict counts: %s" % String(row["words"]))
+	assert(
+		bool(row["fits_declared"]),
+		"four 20px lines fit 300px, and the measurement says so: %s" % String(row["words"]),
+	)
+	assert(
+		String(row["words"]).contains(PageLayoutScript.FITS),
+		"and it says so in the one word a verdict counts: %s" % String(row["words"]),
+	)
 	_free_pages()
 
 
@@ -83,8 +87,10 @@ func test_a_page_smaller_than_its_own_contents_is_reported_as_overflowing() -> v
 	var row: Dictionary = await _measure(_plain_page(12, Vector2i(400, 100)))
 	assert(bool(row["read"]), "the page was read: %s" % String(row["words"]))
 	assert(not bool(row["fits_declared"]), "100px of page cannot hold twelve lines: %s" % String(row["words"]))
-	assert(String(row["words"]).contains("OVERFLOWS BY"),
-		"the overflow is named rather than the page merely failing a boolean: %s" % String(row["words"]))
+	assert(
+		String(row["words"]).contains("OVERFLOWS BY"),
+		"the overflow is named rather than the page merely failing a boolean: %s" % String(row["words"]),
+	)
 	_free_pages()
 
 
@@ -97,8 +103,10 @@ func test_a_page_with_nothing_to_read_is_unknown_and_never_a_pass() -> void:
 	var row: Dictionary = await _measure(page)
 	assert(not bool(row["read"]), "nothing was read: %s" % String(row["words"]))
 	assert(not bool(row["fits_declared"]), "and it is not called a fit: %s" % String(row["words"]))
-	assert(String(row["words"]).begins_with(PageLayoutScript.UNKNOWN),
-		"it is refused by name, as UNKNOWN: %s" % String(row["words"]))
+	assert(
+		String(row["words"]).begins_with(PageLayoutScript.UNKNOWN),
+		"it is refused by name, as UNKNOWN: %s" % String(row["words"]),
+	)
 	_free_pages()
 
 
@@ -107,8 +115,10 @@ func test_the_measurement_is_held_to_the_size_the_page_declares_for_itself() -> 
 	var declared: Vector2i = PageLayoutScript.declared_size(page)
 	var named: Variant = page.get_script().get_script_constant_map().get("SIZE", null)
 	assert(named is Vector2i, "the page names its own size as a constant")
-	assert(declared == named,
-		"and the measurement holds the page to that number, not to one of its own: %s" % str(declared))
+	assert(
+		declared == named,
+		"and the measurement holds the page to that number, not to one of its own: %s" % str(declared),
+	)
 	page.free()
 
 
@@ -117,10 +127,11 @@ func test_a_real_page_of_the_project_has_room_for_its_own_contents() -> void:
 	page.build()
 	var row: Dictionary = await _measure(page)
 	assert(bool(row["read"]), "the status page was read: %s" % String(row["words"]))
-	assert(bool(row["fits_declared"]),
-		"and its declared size holds what it builds: %s" % String(row["words"]))
-	assert(String(row["name"]) == "status_window",
-		"the measurement is reported against the page's own name: %s" % String(row["name"]))
+	assert(bool(row["fits_declared"]), "and its declared size holds what it builds: %s" % String(row["words"]))
+	assert(
+		String(row["name"]) == "status_window",
+		"the measurement is reported against the page's own name: %s" % String(row["name"]),
+	)
 	_free_pages()
 
 
@@ -133,11 +144,12 @@ func test_a_page_whose_contents_scroll_is_not_called_a_page_that_clips_them() ->
 	var row: Dictionary = await _measure(page)
 	assert(bool(row["read"]), "the page was read: %s" % String(row["words"]))
 	assert(bool(row["scrolls"]), "its column scrolls: %s" % String(row["words"]))
-	assert(not bool(row["fits_height"]), "the contents are longer than the page declares: %s"
-		% String(row["words"]))
+	assert(not bool(row["fits_height"]), "the contents are longer than the page declares: %s" % String(row["words"]))
 	assert(bool(row["fits_declared"]), "and the page is still sound: %s" % String(row["words"]))
-	assert(String(row["words"]).contains(PageLayoutScript.SCROLLS),
-		"it says which of the two it does, rather than calling it a fit: %s" % String(row["words"]))
+	assert(
+		String(row["words"]).contains(PageLayoutScript.SCROLLS),
+		"it says which of the two it does, rather than calling it a fit: %s" % String(row["words"]),
+	)
 	_free_pages()
 
 
@@ -150,6 +162,5 @@ func test_a_page_that_scrolls_is_still_a_fault_when_one_of_its_rows_is_too_wide(
 	assert(bool(row["scrolls"]), "its column scrolls: %s" % String(row["words"]))
 	assert(not bool(row["fits_width"]), "a 300 px line in a 200 px page is too wide: %s" % String(row["words"]))
 	assert(not bool(row["fits_declared"]), "so the page is not sound: %s" % String(row["words"]))
-	assert(String(row["words"]).contains("too wide"),
-		"and the width is what is named: %s" % String(row["words"]))
+	assert(String(row["words"]).contains("too wide"), "and the width is what is named: %s" % String(row["words"]))
 	_free_pages()

@@ -45,13 +45,22 @@ class ErrorCapture:
 	var lines: PackedStringArray = PackedStringArray()
 	var capturing: bool = false
 
-	func _log_error(function: String, file: String, line: int, code: String, rationale: String,
-			_editor_notify: bool, error_type: int, _backtraces: Array) -> void:
+
+	func _log_error(
+		function: String,
+		file: String,
+		line: int,
+		code: String,
+		rationale: String,
+		_editor_notify: bool,
+		error_type: int,
+		_backtraces: Array,
+	) -> void:
 		if error_type != ERROR_TYPE_SCRIPT or not capturing:
 			return
-		lines.append("%s (%s:%d in %s)" % [
-				rationale if not rationale.is_empty() else code, file.get_file(), line, function])
-
+		lines.append(
+			"%s (%s:%d in %s)" % [rationale if not rationale.is_empty() else code, file.get_file(), line, function]
+		)
 
 # --- discovery, which is what the unit test holds down ----------------------------------------
 
@@ -96,12 +105,9 @@ static func test_methods(script: Script, filter: String = "") -> PackedStringArr
 		return names
 	for method: Dictionary in script.get_script_method_list():
 		var method_name := String(method["name"])
-		if method_name.begins_with("test_") and (
-			filter.is_empty() or method_name.contains(filter)
-		):
+		if method_name.begins_with("test_") and (filter.is_empty() or method_name.contains(filter)):
 			names.append(method_name)
 	return names
-
 
 # --- the run ----------------------------------------------------------------------------------
 
@@ -162,14 +168,16 @@ func _ready() -> void:
 	watchdog.stop()
 
 	var elapsed_ms := Time.get_ticks_msec() - started
-	print("Ran %d tests in %d files in %.1f s." % [
-			_passed + _failed, paths.size(), elapsed_ms / 1000.0])
+	print("Ran %d tests in %d files in %.1f s." % [_passed + _failed, paths.size(), elapsed_ms / 1000.0])
 	if quiet_files > 0:
 		print("  %d file(s) held no test matching the filter." % quiet_files)
 	for line: String in _failures:
 		printerr("FAILED: %s" % line)
 	var verdict := "VERDICT: %s - %d passed, %d failed" % [
-			"TESTS PASSED" if _failed == 0 else "TESTS FAILED", _passed, _failed]
+		"TESTS PASSED" if _failed == 0 else "TESTS FAILED",
+		_passed,
+		_failed,
+	]
 	print(verdict)
 	_write_log(paths.size(), elapsed_ms, verdict)
 	get_tree().quit(0 if _failed == 0 else 1)
@@ -179,12 +187,9 @@ func _ready() -> void:
 ## explain. Written to a temporary file and renamed, like every other write in this project, so a run
 ## killed mid-write cannot leave a shorter log than the last good one in its place.
 ## `where` is the log's own path, so a test can write somewhere harmless; a real run uses the default.
-func _write_log(
-		files_n: int, elapsed_ms: int, verdict: String, where: String = LOG_PATH
-) -> void:
+func _write_log(files_n: int, elapsed_ms: int, verdict: String, where: String = LOG_PATH) -> void:
 	var out := PackedStringArray()
-	out.append("Ran %d tests in %d files in %.1f s." % [
-			_passed + _failed, files_n, elapsed_ms / 1000.0])
+	out.append("Ran %d tests in %d files in %.1f s." % [_passed + _failed, files_n, elapsed_ms / 1000.0])
 	out.append(verdict)
 	for line: String in _failures:
 		out.append("FAILED: %s" % line)

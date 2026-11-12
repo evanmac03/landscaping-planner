@@ -42,13 +42,27 @@ func _process(delta: float) -> void:
 	if watcher == null:
 		print("CHECK: no SurveyWatcher under Main")
 	else:
-		print("CHECK watcher polls=", watcher.polls, " reads=", watcher.reads,
-				" imports=", watcher.imports, " placed_total=", watcher.placed_total)
+		print(
+			"CHECK watcher polls=",
+			watcher.polls,
+			" reads=",
+			watcher.reads,
+			" imports=",
+			watcher.imports,
+			" placed_total=",
+			watcher.placed_total,
+		)
 
 	var yard: Node = main.get_node_or_null(^"Yard")
 	var planted: Array = PlantPlacementScript.planted(yard)
 	print("CHECK planted in yard=", planted.size())
 	for node: Node3D in planted:
-		print("  CHECK plant ", node.name, " species=", node.get_meta(&"species", &"(none)"),
-				" at=", node.global_position)
+		print(
+			"  CHECK plant ",
+			node.name,
+			" species=",
+			node.get_meta(&"species", &"(none)"),
+			" at=",
+			node.global_position,
+		)
 	print("CHECK done")

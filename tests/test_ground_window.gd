@@ -54,7 +54,6 @@ func _line_named(window: GroundWindow, name: String) -> String:
 			return text
 	return ""
 
-
 # --- what it shows -------------------------------------------------------------------------
 
 
@@ -86,7 +85,6 @@ func test_a_window_with_no_drawing_says_so_rather_than_failing() -> void:
 	window.apply_area()
 	assert(window.status_text().contains("there is no drawing open"), "and nothing can be stated")
 	window.free()
-
 
 # --- what it states ------------------------------------------------------------------------
 
@@ -190,7 +188,6 @@ func test_reading_the_drawing_keeps_what_a_person_stated() -> void:
 	assert(String(at_bed["place"]) == "bed 1", "and it is what answers there")
 	window.free()
 
-
 # --- the dropdowns -------------------------------------------------------------------------
 
 
@@ -223,6 +220,7 @@ func test_every_value_a_dropdown_offers_is_a_value_the_model_accepts() -> void:
 	assert(WindowScript.text_for("sun", 0) == "not stated")
 	assert(WindowScript.text_for("soil", &"CLAY") == "clay")
 	assert(WindowScript.text_for("zone", 6) == "zone 6")
+
 
 ## Drainage is a condition of a *place*, not only of a plant: a boggy corner and a fast-draining bank
 ## in one garden are the whole reason conditions are stated per area. The window offers it at the site
@@ -260,8 +258,9 @@ func test_a_ground_zone_drawn_by_hand_is_listed_beside_the_plan_areas() -> void:
 	controller.document = document
 	controller.tool = Tool.new()
 	controller.snap = SnapScript.new()
-	var stated: Dictionary = controller.state_ground_zone(PackedVector2Array([
-		Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0), Vector2(40.0, 50.0)]))
+	var stated: Dictionary = controller.state_ground_zone(
+		PackedVector2Array([Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0), Vector2(40.0, 50.0)])
+	)
 	assert(bool(stated["ok"]), String(stated["reason"]))
 	var window: GroundWindow = _window(document)
 	assert(window.area_count() == 4, "three areas of the plan and the hand zone")
@@ -287,8 +286,7 @@ func test_a_hand_zone_is_not_an_area_of_the_plan() -> void:
 	controller.document = document
 	controller.tool = Tool.new()
 	controller.snap = SnapScript.new()
-	controller.state_ground_zone(PackedVector2Array([
-		Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0)]))
+	controller.state_ground_zone(PackedVector2Array([Vector2(40.0, 40.0), Vector2(50.0, 40.0), Vector2(50.0, 50.0)]))
 	assert(ZoneMapScript.areas_of(document).size() == 3, "areas_of sees only the plan's own areas")
 	controller.free()
 
@@ -307,7 +305,10 @@ func test_choosing_a_condition_for_an_area_states_it_at_once() -> void:
 	assert(_line_named(window, "bed 1").contains("stated: low water"), _line_named(window, "bed 1"))
 	# A second condition joins the first rather than replacing it.
 	window.choose_area("soil", Profile.SAND)
-	assert(document.environment.zones[0].profile.stated_keys() == ["moisture", "soil"], str(document.environment.zones[0].profile.stated_keys()))
+	assert(
+		document.environment.zones[0].profile.stated_keys() == ["moisture", "soil"],
+		str(document.environment.zones[0].profile.stated_keys()),
+	)
 	assert(document.environment.zone_count() == 1, "and it is still one zone")
 	# Choosing "not stated" for the last stated attribute is no statement at all, so the area goes back
 	# to following the site - not a zone that states nothing and changes no verdict.

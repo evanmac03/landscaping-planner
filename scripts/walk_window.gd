@@ -54,7 +54,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -126,7 +125,6 @@ func set_route(new_route: WalkRoute, new_camera: Camera3D = null) -> void:
 	walk.bind(route)
 	refresh()
 
-
 # --- what it shows ------------------------------------------------------------------------------
 
 
@@ -163,7 +161,6 @@ func play_button() -> Button:
 
 func stop_button() -> Button:
 	return _stop_button
-
 
 # --- what it does -------------------------------------------------------------------------------
 
@@ -220,7 +217,6 @@ func say(words: String) -> void:
 	if _status != null:
 		_status.text = words
 
-
 # --- stepping the clock -------------------------------------------------------------------------
 
 
@@ -255,7 +251,6 @@ func _on_close_requested() -> void:
 	hide()
 	closed.emit()
 
-
 # --- reading the presenter ----------------------------------------------------------------------
 
 
@@ -276,7 +271,6 @@ func _yard_bounds(node: Node3D) -> Rect2:
 		return Rect2()
 	return yard.get_bounds()
 
-
 # --- the small jobs -----------------------------------------------------------------------------
 
 
@@ -286,9 +280,10 @@ func _fill_stops() -> void:
 		return
 	for place: Dictionary in route.stops():
 		var at: Vector3 = place["at"]
-		_stops.add_item("%s · (%.1f, %.1f, %.1f) · %s s" % [
-			String(place["name"]), at.x, at.y, at.z, String.num(float(place["dwell"]), 1),
-		])
+		_stops.add_item(
+			"%s · (%.1f, %.1f, %.1f) · %s s"
+			% [String(place["name"]), at.x, at.y, at.z, String.num(float(place["dwell"]), 1)]
+		)
 
 
 func _update_summary() -> void:

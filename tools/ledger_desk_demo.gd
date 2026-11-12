@@ -34,9 +34,7 @@ func _ready() -> void:
 		return
 
 	print("--- the office: a plan, a job, and two invoices ---")
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE)
 	controller.document.add(Entity.make_circle(Vector2(20, 0), 1.5), LayerSet.NEW_PLANTING)
 	hud.open_estimate_window()
 	hud._estimate_window.take_off()
@@ -71,14 +69,24 @@ func _ready() -> void:
 	var handed: Dictionary = hud.queue_invoices_for_ledger()
 	print("handing over everything issued: queued ", handed["queued"], ", refused ", handed["refused"])
 	print("the menu line reads: ", hud._jobs_text())
-	print("queueing only builds and holds: ", hud._ledger_desk.pending().size(), " waiting, ",
-		hud._ledger_desk.count(), " in the outbox")
+	print(
+		"queueing only builds and holds: ",
+		hud._ledger_desk.pending().size(),
+		" waiting, ",
+		hud._ledger_desk.count(),
+		" in the outbox",
+	)
 	hud.open_ledger_window()
 	print("the page opens saying: ", hud._ledger_window.opening_words())
 	for row: String in hud._ledger_window.row_texts():
 		print("  ", row)
-	print("with ", hud._ledger_window.post_count(), " post button(s), and nothing on the page takes ",
-		"the keyboard: ", hud._ledger_window.buttons_are_focus_free())
+	print(
+		"with ",
+		hud._ledger_window.post_count(),
+		" post button(s), and nothing on the page takes ",
+		"the keyboard: ",
+		hud._ledger_window.buttons_are_focus_free(),
+	)
 	hud.close_ledger_window()
 
 	print("--- a desk of its own, with three ledgers to post to ---")
@@ -86,9 +94,7 @@ func _ready() -> void:
 	desk.bind(hud._billing_ledger)
 	desk.add_adapter(FileLedgerScript.new(FOLDER))
 	desk.add_adapter(NinjaScript.new("https://invoicing.co", "a-token"))
-	desk.add_adapter(AkauntingScript.new(
-		"https://books.example.test", "office@example.test", "a-password"
-	))
+	desk.add_adapter(AkauntingScript.new("https://books.example.test", "office@example.test", "a-password"))
 	print("it can post to: ", desk.adapter_names())
 	print("and it starts on ", desk.chosen_adapter().describe(), " because that one always works")
 	print("choosing a ledger it does not have is refused: ", desk.choose("quickbooks"))
@@ -103,8 +109,18 @@ func _ready() -> void:
 
 	print("--- the loop: send what the queue still owns, once each ---")
 	var ran: Dictionary = desk.post_due()
-	print("tried ", ran["tried"], ", taken ", ran["taken"], ", failed ", ran["failed"],
-		", waiting ", ran["waiting"], ", wanting a person ", ran["stranded"])
+	print(
+		"tried ",
+		ran["tried"],
+		", taken ",
+		ran["taken"],
+		", failed ",
+		ran["failed"],
+		", waiting ",
+		ran["waiting"],
+		", wanting a person ",
+		ran["stranded"],
+	)
 	for row: String in desk.row_texts():
 		print("  ", row)
 	print(desk.describe())
@@ -129,11 +145,14 @@ func _ready() -> void:
 	var as_written: Dictionary = desk.to_dict()
 	for row: Dictionary in as_written["pushes"]:
 		if String(row["adapter"]) == "akaunting":
-			print("written down, that header reads '",
-				String(row["request"]["headers"].get("Authorization", "")), "' - the document itself is ",
-				"untouched: ", String(row["request"]["url"]))
-	print("and nothing of the credential reaches the file: ",
-		not JSON.stringify(as_written).contains("a-password"))
+			print(
+				"written down, that header reads '",
+				String(row["request"]["headers"].get("Authorization", "")),
+				"' - the document itself is ",
+				"untouched: ",
+				String(row["request"]["url"]),
+			)
+	print("and nothing of the credential reaches the file: ", not JSON.stringify(as_written).contains("a-password"))
 	print("at the moment of sending it is put back: ", desk.post(held.key)["reason"])
 	print("so the queue still owns it: ", desk.describe())
 
@@ -155,8 +174,7 @@ func _ready() -> void:
 	print("writing it: ", desk.write(OUTBOX_FILE))
 	var reread: LedgerDesk = DeskScript.new()
 	reread.bind(hud._billing_ledger)
-	print("reading it back: ", reread.read(OUTBOX_FILE), " - ", reread.count(), " push(es), ",
-		reread.summary_text())
+	print("reading it back: ", reread.read(OUTBOX_FILE), " - ", reread.count(), " push(es), ", reread.summary_text())
 
 	print("--- the desk's last words ---")
 	print(desk.describe())

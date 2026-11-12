@@ -17,7 +17,6 @@ const LOCAL_MODEL := "llava:7b"
 const ONLINE_URL := "https://api.openai.com/v1/chat/completions"
 const ONLINE_MODEL := "gpt-4o-mini"
 
-
 # --- the things a test needs ---------------------------------------------------------------
 
 
@@ -34,16 +33,16 @@ func _encoded() -> String:
 
 
 func _candidate(taxon: String, confidence: float, reason: String = "") -> Dictionary:
-	return {"raw_taxon": taxon, "confidence": confidence, "reason": reason}
+	return { "raw_taxon": taxon, "confidence": confidence, "reason": reason }
 
 
 func _answer_of(candidates: Array) -> String:
-	return JSON.stringify({"candidates": candidates})
+	return JSON.stringify({ "candidates": candidates })
 
 
 ## What a service's answer looks like: the model's own words nested in the envelope around them.
 func _envelope(answer: String, served: String = "") -> String:
-	var record: Dictionary = {"choices": [{"message": {"content": answer}}]}
+	var record: Dictionary = { "choices": [{ "message": { "content": answer } }] }
 	if not served.is_empty():
 		record["model"] = served
 	return JSON.stringify(record)
@@ -55,7 +54,6 @@ func _header_named(headers: Array, prefix: String) -> String:
 			return String(header)
 	return ""
 
-
 # --- the photograph ------------------------------------------------------------------------
 
 
@@ -64,15 +62,12 @@ func test_an_image_that_is_not_there_is_refused_before_anything_is_built() -> vo
 	assert(not bool(missing["ok"]), "there is nothing to send")
 	assert(
 		String(missing["reason"]).contains("no photograph"),
-		"and the refusal says what is missing: %s" % String(missing["reason"])
+		"and the refusal says what is missing: %s" % String(missing["reason"]),
 	)
 
 	var blank: Dictionary = LlmScript.encode_image(Image.new())
 	assert(not bool(blank["ok"]), "an image with no pixels in it is not a photograph")
-	assert(
-		String(blank["reason"]).contains("no pixels"),
-		"and the refusal says which: %s" % String(blank["reason"])
-	)
+	assert(String(blank["reason"]).contains("no pixels"), "and the refusal says which: %s" % String(blank["reason"]))
 
 	# And the request builder refuses an unencoded photograph rather than sending a body with nothing in
 	# it, which a model would answer with a guess about nothing.
@@ -91,32 +86,32 @@ func test_a_large_photograph_is_shrunk_for_sending_and_the_one_on_the_page_is_le
 	# Not just "some bytes": the signature proves what was encoded is really a PNG.
 	assert(
 		String(encoded["base64"]).begins_with(LlmScript.PNG_IN_BASE64),
-		"and what is encoded begins with the signature of a PNG"
+		"and what is encoded begins with the signature of a PNG",
 	)
 	# The image the page is showing is the page's, and a photograph shrunk underneath it would come
 	# back smaller than the person left it.
 	assert(photo.get_width() == 1200 and photo.get_height() == 800, "while the page's own copy is untouched")
-
 
 # --- the request ---------------------------------------------------------------------------
 
 
 func test_a_request_to_a_model_on_this_machine_carries_no_key_and_is_built_for_its_host() -> void:
 	var request: Dictionary = LlmScript.build_request(
-		LOCAL_URL, LOCAL_MODEL, "", LlmScript.single_prompt(&"leaf", ""), _encoded()
+		LOCAL_URL,
+		LOCAL_MODEL,
+		"",
+		LlmScript.single_prompt(&"leaf", ""),
+		_encoded(),
 	)
 	assert(bool(request["ok"]), "the request is built: %s" % String(request["reason"]))
 	assert(int(request["method"]) == HTTPClient.METHOD_POST, "a photograph is posted")
 	assert(String(request["host"]) == "127.0.0.1", "to the host the address names: %s" % String(request["host"]))
 	assert(int(request["port"]) == 11434, "on the port it names: %d" % int(request["port"]))
 	assert(not bool(request["tls"]), "and not over TLS, because it is a plain local address")
-	assert(
-		String(request["path"]) == "/v1/chat/completions",
-		"at the path it names: %s" % String(request["path"])
-	)
+	assert(String(request["path"]) == "/v1/chat/completions", "at the path it names: %s" % String(request["path"]))
 	assert(
 		_header_named(request["headers"], "Authorization").is_empty(),
-		"a model on this machine is asked without a key: %s" % str(request["headers"])
+		"a model on this machine is asked without a key: %s" % str(request["headers"]),
 	)
 	var body: String = String(request["body"])
 	assert(body.contains(LOCAL_MODEL), "the body names the model to ask")
@@ -126,7 +121,11 @@ func test_a_request_to_a_model_on_this_machine_carries_no_key_and_is_built_for_i
 
 func test_a_request_to_a_service_carries_the_key_it_was_given() -> void:
 	var request: Dictionary = LlmScript.build_request(
-		ONLINE_URL, ONLINE_MODEL, "  sk-a-key  ", LlmScript.single_prompt(&"whole", ""), _encoded()
+		ONLINE_URL,
+		ONLINE_MODEL,
+		"  sk-a-key  ",
+		LlmScript.single_prompt(&"whole", ""),
+		_encoded(),
 	)
 	assert(bool(request["ok"]), "the request is built: %s" % String(request["reason"]))
 	assert(String(request["host"]) == "api.openai.com", "to the host the address names")
@@ -135,21 +134,24 @@ func test_a_request_to_a_service_carries_the_key_it_was_given() -> void:
 	assert(
 		_header_named(request["headers"], "Authorization") == "Authorization: Bearer sk-a-key",
 		"and the key travels as a bearer header, without the spaces a person typed round it: %s"
-				% _header_named(request["headers"], "Authorization")
+		% _header_named(request["headers"], "Authorization"),
 	)
 
 
 func test_an_address_that_is_not_one_is_refused_by_name() -> void:
 	for wrong: String in ["127.0.0.1:11434", "localhost", "", "   ", "ftp://example.test/v1"]:
 		var request: Dictionary = LlmScript.build_request(
-			wrong, LOCAL_MODEL, "", LlmScript.single_prompt(&"whole", ""), _encoded()
+			wrong,
+			LOCAL_MODEL,
+			"",
+			LlmScript.single_prompt(&"whole", ""),
+			_encoded(),
 		)
 		assert(not bool(request["ok"]), "\"%s\" is not an address a photograph is sent to" % wrong)
 		assert(
 			String(request["reason"]).contains("http://"),
-			"and the refusal says what an address has to look like: %s" % String(request["reason"])
+			"and the refusal says what an address has to look like: %s" % String(request["reason"]),
 		)
-
 
 # --- what is asked -------------------------------------------------------------------------
 
@@ -168,18 +170,16 @@ func test_the_shortlist_the_local_model_offered_is_named_back_to_the_online_mode
 	# A model told "pick one of these" picks one of these even when the photograph shows none of them.
 	assert(
 		prompt.contains("outside that list is a better answer"),
-		"and it is allowed to name a plant the list does not have: %s" % prompt
+		"and it is allowed to name a plant the list does not have: %s" % prompt,
 	)
 
 
 func test_a_model_that_says_it_cannot_tell_is_refused_rather_than_guessed_for() -> void:
-	var nothing: Dictionary = LlmScript.parse_response(
-		200, _envelope(_answer_of([])), LOCAL_MODEL
-	)
+	var nothing: Dictionary = LlmScript.parse_response(200, _envelope(_answer_of([])), LOCAL_MODEL)
 	assert(not bool(nothing["ok"]), "an empty list is not an identification")
 	assert(
 		String(nothing["reason"]).contains("could not tell"),
-		"and the refusal gives the model its own honesty back: %s" % String(nothing["reason"])
+		"and the refusal gives the model its own honesty back: %s" % String(nothing["reason"]),
 	)
 
 
@@ -196,11 +196,11 @@ func test_a_bare_empty_list_is_the_model_saying_it_cannot_tell_not_unreadable_js
 	assert(not bool(bare["ok"]), "a bare empty list is not an identification")
 	assert(
 		String(bare["reason"]).contains("could not tell"),
-		"it is the model's own honesty: %s" % String(bare["reason"])
+		"it is the model's own honesty: %s" % String(bare["reason"]),
 	)
 	assert(
 		not String(bare["reason"]).contains("could not be read as JSON"),
-		"and it must not be blamed for its formatting, because `[]` was read perfectly well"
+		"and it must not be blamed for its formatting, because `[]` was read perfectly well",
 	)
 
 
@@ -228,50 +228,52 @@ func test_the_prompt_asks_for_a_name_and_never_offers_the_model_an_empty_list() 
 	var asked: String = LlmScript.single_prompt(&"whole", "")
 	assert(
 		asked.contains("name the plant it most resembles"),
-		"an unsure model is asked for a name and a low confidence: %s" % asked
+		"an unsure model is asked for a name and a low confidence: %s" % asked,
 	)
 	assert(
 		not asked.contains("empty list"),
-		"and the empty list is never put in front of it, because that is the shape a small model takes: %s"
-			% asked
+		"and the empty list is never put in front of it, because that is the shape a small model takes: %s" % asked,
 	)
 	assert(
 		not asked.contains("does not show enough to name the plant"),
-		"neither is the first sentence that talked a small model out of looking"
+		"neither is the first sentence that talked a small model out of looking",
 	)
 	assert(
 		LlmScript.refine_prompt(&"leaf", "", []).contains("name the plant it most resembles"),
-		"the mixed mode's own question carries the same rule, because both come from one place"
+		"the mixed mode's own question carries the same rule, because both come from one place",
 	)
 	assert(
 		not LlmScript.refine_prompt(&"leaf", "", []).contains("empty list"),
-		"and the mixed mode's question offers no escape hatch either"
+		"and the mixed mode's question offers no escape hatch either",
 	)
 
 	var prose: Dictionary = LlmScript.parse_response(
-		200, _envelope("It looks like a kind of thyme, I think."), LOCAL_MODEL
+		200,
+		_envelope("It looks like a kind of thyme, I think."),
+		LOCAL_MODEL,
 	)
 	assert(not bool(prose["ok"]), "prose that is not an answer is not filed as one")
 	assert(
 		String(prose["reason"]).contains("could not be read as JSON"),
-		"and the refusal says what was wrong: %s" % String(prose["reason"])
+		"and the refusal says what was wrong: %s" % String(prose["reason"]),
 	)
 	assert(
 		String(prose["answer"]).contains("thyme"),
-		"while the model's own words are kept for a person to read: %s" % String(prose["answer"])
+		"while the model's own words are kept for a person to read: %s" % String(prose["answer"]),
 	)
-
 
 # --- the answer ----------------------------------------------------------------------------
 
 
 func test_an_answer_wrapped_in_a_markdown_fence_still_gives_up_its_candidates() -> void:
-	var fenced: String = "Here is the answer:\n```json\n" + _answer_of([
-		_candidate(THYME, 0.81, "creeping, small leaves"),
-	]) + "\n```\n"
+	var fenced: String = "Here is the answer:\n```json\n" + _answer_of(
+		[_candidate(THYME, 0.81, "creeping, small leaves")]
+	) + "\n```\n"
 	var answer: Dictionary = LlmScript.parse_response(200, _envelope(fenced), LOCAL_MODEL)
-	assert(bool(answer["ok"]), "a fence and a sentence in front of the answer do not hide it: %s"
-			% String(answer["reason"]))
+	assert(
+		bool(answer["ok"]),
+		"a fence and a sentence in front of the answer do not hide it: %s" % String(answer["reason"]),
+	)
 	assert(String(answer["raw_taxon"]) == THYME, "the plant is read")
 	assert(is_equal_approx(float(answer["confidence"]), 0.81), "with the confidence the model gave")
 
@@ -283,11 +285,19 @@ func test_an_answer_wrapped_in_a_markdown_fence_still_gives_up_its_candidates() 
 
 
 func test_the_plants_are_ordered_by_the_confidences_the_model_itself_gave() -> void:
-	var answer: Dictionary = LlmScript.parse_response(200, _envelope(_answer_of([
-		_candidate(BOX, 0.40, "second best"),
-		_candidate(THYME, 0.90, "best"),
-		_candidate("Acer rubrum", 0.10, "unlikely"),
-	])), LOCAL_MODEL)
+	var answer: Dictionary = LlmScript.parse_response(
+		200,
+		_envelope(
+			_answer_of(
+				[
+					_candidate(BOX, 0.40, "second best"),
+					_candidate(THYME, 0.90, "best"),
+					_candidate("Acer rubrum", 0.10, "unlikely"),
+				]
+			)
+		),
+		LOCAL_MODEL,
+	)
 	var candidates: Array = answer["candidates"]
 	assert(candidates.size() == 3, "every plant the model named is kept")
 	# The first candidate is the one a capture is filed as, so the order cannot be whatever order the
@@ -299,55 +309,58 @@ func test_the_plants_are_ordered_by_the_confidences_the_model_itself_gave() -> v
 
 	# A plant named twice is one candidate: a shortlist handed on with a duplicate, and a row of
 	# buttons built from it, would both be lying about how many plants there are.
-	var repeated: Dictionary = LlmScript.parse_response(200, _answer_of([
-		_candidate(THYME, 0.9), _candidate("thymus serpyllum", 0.8),
-	]))
+	var repeated: Dictionary = LlmScript.parse_response(
+		200,
+		_answer_of([_candidate(THYME, 0.9), _candidate("thymus serpyllum", 0.8)]),
+	)
 	assert((repeated["candidates"] as Array).size() == 1, "the same plant twice is one plant")
 
 
 func test_the_model_that_actually_answered_is_recorded_beside_the_one_that_was_asked_for() -> void:
 	var answer: Dictionary = LlmScript.parse_response(
-		200, _envelope(_answer_of([_candidate(THYME, 0.9)]), "gpt-4o-mini-2024-07-18"), ONLINE_MODEL
+		200,
+		_envelope(_answer_of([_candidate(THYME, 0.9)]), "gpt-4o-mini-2024-07-18"),
+		ONLINE_MODEL,
 	)
 	assert(
 		String(answer["model_id"]) == ONLINE_MODEL,
-		"the record says which model was asked for: %s" % String(answer["model_id"])
+		"the record says which model was asked for: %s" % String(answer["model_id"]),
 	)
 	assert(
 		String(answer["model_version"]) == "gpt-4o-mini-2024-07-18",
-		"and which build of it actually answered: %s" % String(answer["model_version"])
+		"and which build of it actually answered: %s" % String(answer["model_version"]),
 	)
 
-	var unstated: Dictionary = LlmScript.parse_response(
-		200, _answer_of([_candidate(THYME, 0.9)]), LOCAL_MODEL
-	)
+	var unstated: Dictionary = LlmScript.parse_response(200, _answer_of([_candidate(THYME, 0.9)]), LOCAL_MODEL)
 	assert(
 		String(unstated["model_version"]).is_empty(),
-		"a service that does not say which build it served has no version invented for it"
+		"a service that does not say which build it served has no version invented for it",
 	)
 
 
 func test_a_service_that_refuses_is_refused_in_its_own_words() -> void:
 	var refused: Dictionary = LlmScript.parse_response(
-		429, "{\"error\": {\"message\": \"rate limited, try again later\"}}", ONLINE_MODEL
+		429,
+		"{\"error\": {\"message\": \"rate limited, try again later\"}}",
+		ONLINE_MODEL,
 	)
 	assert(not bool(refused["ok"]), "a refusal from the service is a refusal here")
 	assert(String(refused["reason"]).contains("429"), "and names the status: %s" % String(refused["reason"]))
 	assert(
 		String(refused["reason"]).contains("rate limited"),
-		"in the service's own words rather than in this program's: %s" % String(refused["reason"])
+		"in the service's own words rather than in this program's: %s" % String(refused["reason"]),
 	)
 
 	var never: Dictionary = LlmScript.parse_response(0, "")
 	assert(not bool(never["ok"]), "a request that never arrived is not an answer either")
 	assert(
 		String(never["reason"]).contains("never reached"),
-		"and is a different thing from a service that answered: %s" % String(never["reason"])
+		"and is a different thing from a service that answered: %s" % String(never["reason"]),
 	)
 
 	var silent: Dictionary = LlmScript.parse_response(HTTPClient.RESPONSE_UNAUTHORIZED, "")
 	assert(not bool(silent["ok"]), "a service that refuses and says nothing still refuses")
 	assert(
 		String(silent["reason"]).contains("401"),
-		"and the status is all it has to go on: %s" % String(silent["reason"])
+		"and the status is all it has to go on: %s" % String(silent["reason"]),
 	)

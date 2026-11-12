@@ -32,7 +32,7 @@ func _done(parts: Array) -> void:
 
 
 func test_the_site_menu_offers_it_needing_a_drawing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.site_items():
 		if StringName(candidate.get("id", &"")) == &"site.capture":
 			entry = candidate
@@ -43,7 +43,7 @@ func test_the_site_menu_offers_it_needing_a_drawing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_DRAFT,
-		"a capture is a plant at a place on this site, and the site is the drawing"
+		"a capture is a plant at a place on this site, and the site is the drawing",
 	)
 
 
@@ -91,10 +91,7 @@ func test_opening_it_with_no_drawing_builds_the_page_without_showing_it() -> voi
 	assert(hud._draft == null, "there is no drawing at all")
 	hud.open_capture_window()
 	assert(hud._capture_window != null, "the page is built")
-	assert(
-		not hud.is_capture_window_open(),
-		"but it is not shown - there is no drawing to put a plant on"
-	)
+	assert(not hud.is_capture_window_open(), "but it is not shown - there is no drawing to put a plant on")
 	hud.free()
 
 
@@ -106,10 +103,10 @@ func test_filling_it_hands_over_the_list_the_browser_shows() -> void:
 	hud._capture_window.set_name_text("Thymus serpyllum")
 	assert(
 		hud._capture_window.species_line().contains("Thymus serpyllum"),
-		"the shipped list reaches the page: %s" % hud._capture_window.species_line()
+		"the shipped list reaches the page: %s" % hud._capture_window.species_line(),
 	)
 	assert(
 		String(hud._capture_window.capture()["species_id"]) == "thymus-serpyllum",
-		"and a name typed on the page resolves against it"
+		"and a name typed on the page resolves against it",
 	)
 	_done(parts)

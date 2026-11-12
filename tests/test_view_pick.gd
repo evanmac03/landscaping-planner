@@ -46,11 +46,12 @@ func test_a_put_away_plant_is_not_one_the_cursor_can_be_over() -> void:
 	var planting: Array[Node3D] = _the_yards_planting(controller)
 	assert(not planting.is_empty(), "the yard really does ship planting for a blank page to put away")
 	for plant: Node3D in planting:
-		assert(not plant.is_visible_in_tree(),
-			"%s was put away, so the page is not showing it" % plant.name)
+		assert(not plant.is_visible_in_tree(), "%s was put away, so the page is not showing it" % plant.name)
 	for pickable: Node3D in controller.placeables():
-		assert(pickable.is_visible_in_tree(),
-			"the planner offers only what the page shows, and %s is not shown" % pickable.name)
+		assert(
+			pickable.is_visible_in_tree(),
+			"the planner offers only what the page shows, and %s is not shown" % pickable.name,
+		)
 	await _tear_down()
 
 
@@ -64,8 +65,10 @@ func test_hovering_where_a_put_away_plant_stands_finds_nothing() -> void:
 	var plant: Node3D = planting[0]
 	assert(not plant.is_visible_in_tree(), "this is one of the plants that was put away")
 	var over_it: Vector2 = controller.plan_canvas.world_to_screen(plant.global_position)
-	assert(controller.nearest_placeable(over_it) == null,
-		"the cursor is over a plant the page is not showing, and nothing is under it")
+	assert(
+		controller.nearest_placeable(over_it) == null,
+		"the cursor is over a plant the page is not showing, and nothing is under it",
+	)
 	await _tear_down()
 
 

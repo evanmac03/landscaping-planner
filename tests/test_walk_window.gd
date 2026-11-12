@@ -64,7 +64,10 @@ func test_playing_marches_the_camera_along_the_route() -> void:
 	var camera := Camera3D.new()
 	page.set_route(route, camera)
 	var heard: Array[bool] = []
-	page.walk_changed.connect(func() -> void: heard.append(true))
+	page.walk_changed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	assert(page.play(), "the walk started")
 	assert(page.is_playing(), "and the clock is running")
 	var first := Vector3.ZERO
@@ -74,8 +77,10 @@ func test_playing_marches_the_camera_along_the_route() -> void:
 			first = camera.transform.origin
 	assert(not page.is_playing(), "the walk finished and stopped itself")
 	var last: Vector3 = Vector3(route.stops()[route.count() - 1]["at"])
-	assert(camera.transform.origin.is_equal_approx(last),
-		"the camera stands at the last stop: %s" % camera.transform.origin)
+	assert(
+		camera.transform.origin.is_equal_approx(last),
+		"the camera stands at the last stop: %s" % camera.transform.origin,
+	)
 	assert(camera.transform.origin != first, "and it walked there rather than jumping")
 	assert(heard.size() >= 2, "starting and finishing were both announced, got %d" % heard.size())
 	assert(page.status_text().contains("finished"), "and the page says so: %s" % page.status_text())
@@ -114,7 +119,10 @@ func test_closing_the_page_stops_the_walk_and_says_so() -> void:
 	var camera := Camera3D.new()
 	page.set_route(_yard_route(), camera)
 	var heard: Array[bool] = []
-	page.closed.connect(func() -> void: heard.append(true))
+	page.closed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	assert(page.play())
 	assert(page.is_playing())
 	page._on_close_requested()

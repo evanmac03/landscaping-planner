@@ -82,7 +82,6 @@ const NO_MATURITY := "no time to maturity stated"
 const NO_WINDOW := "no sowing date would ripen before the first frost"
 const NO_CROP := "there is no crop to sow"
 
-
 # --- days and dates -----------------------------------------------------------------------
 
 
@@ -97,7 +96,6 @@ static func day_words(day: int) -> String:
 	if not is_day(day):
 		return ""
 	return SunReportScript.day_words(day)
-
 
 # --- the sowing window --------------------------------------------------------------------
 
@@ -118,13 +116,13 @@ static func last_sow_day(first_frost: int, maturity_days: int) -> int:
 ## `days` is how many sowing days the window holds, which is what a gardener is really weighing.
 static func sow_window(last_frost: int, first_frost: int, maturity_days: int) -> Dictionary:
 	if not GrowingSeasonScript.is_stated(last_frost, first_frost):
-		return {"stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_SEASON}
+		return { "stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_SEASON }
 	if maturity_days <= 0:
-		return {"stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_MATURITY}
+		return { "stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_MATURITY }
 	var last: int = first_frost - maturity_days
 	if last < last_frost:
-		return {"stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_WINDOW}
-	return {"stated": true, "first": last_frost, "last": last, "days": last - last_frost + 1, "reason": ""}
+		return { "stated": false, "first": 0, "last": 0, "days": 0, "reason": NO_WINDOW }
+	return { "stated": true, "first": last_frost, "last": last, "days": last - last_frost + 1, "reason": "" }
 
 
 ## The sowing window in one phrase, for a page: "sow any time from 20 May to 1 August", "sow on 20 May"
@@ -135,9 +133,7 @@ static func window_text(last_frost: int, first_frost: int, maturity_days: int) -
 		return String(window["reason"])
 	if int(window["days"]) == 1:
 		return "sow on %s" % day_words(int(window["first"]))
-	return "sow any time from %s to %s" % [
-		day_words(int(window["first"])), day_words(int(window["last"]))
-	]
+	return "sow any time from %s to %s" % [day_words(int(window["first"])), day_words(int(window["last"]))]
 
 
 ## The day a crop sown on `sow` is ready: the sowing day plus the days to maturity. Zero when either
@@ -164,7 +160,6 @@ static func _when_text(day: int) -> String:
 		return "after the year turns"
 	return "on %s" % day_words(day)
 
-
 # --- the check ----------------------------------------------------------------------------
 
 
@@ -178,9 +173,7 @@ static func _when_text(day: int) -> String:
 ## Two questions, and **a question nobody answered is skipped, not answered**: the crop's own time to
 ## maturity missing means there is nothing to work out and the verdict is UNKNOWN with no findings, and
 ## so does a drawing whose season is not stated or a sowing date that is not a day.
-static func check(
-	crop: PlantSpecies, last_frost: int, first_frost: int, sow: int
-) -> Dictionary:
+static func check(crop: PlantSpecies, last_frost: int, first_frost: int, sow: int) -> Dictionary:
 	var findings: Array[Dictionary] = []
 	if (
 		crop == null or crop.maturity_days <= 0
@@ -200,25 +193,38 @@ static func _finish_finding(crop: PlantSpecies, first_frost: int, sow: int) -> D
 	var found: String = _ready_text(ready)
 	if ready > first_frost:
 		return _finding(
-			"finish", "ripening", wanted, found, UNSUITABLE,
+			"finish",
+			"ripening",
+			wanted,
+			found,
+			UNSUITABLE,
 			"it would ripen %s, after the first frost on %s" % [_when_text(ready), day_words(first_frost)],
-			"ripens too late"
+			"ripens too late",
 		)
 	var spare: int = first_frost - ready
 	if spare <= TIGHT_DAYS:
 		var tail: String = (
-			"on the very day of the first frost" if spare == 0
+			"on the very day of the first frost"
+			if spare == 0
 			else "only %d days before the first frost" % spare
 		)
 		return _finding(
-			"finish", "ripening", wanted, found, TOLERATED,
+			"finish",
+			"ripening",
+			wanted,
+			found,
+			TOLERATED,
 			"it would ripen %s, %s" % [_when_text(ready), tail],
-			"only just ripens"
+			"only just ripens",
 		)
 	return _finding(
-		"finish", "ripening", wanted, found, GOOD,
+		"finish",
+		"ripening",
+		wanted,
+		found,
+		GOOD,
 		"it would ripen %s, %d days before the first frost" % [_when_text(ready), spare],
-		"ripens in time"
+		"ripens in time",
 	)
 
 
@@ -228,20 +234,33 @@ static func _sow_finding(last_frost: int, sow: int) -> Dictionary:
 	var showed: String = day_words(sow)
 	if sow < last_frost:
 		return _finding(
-			"sow", "the sowing date", "", showed, TOLERATED,
+			"sow",
+			"the sowing date",
+			"",
+			showed,
+			TOLERATED,
 			"it would be sown on %s, before the last frost on %s" % [showed, day_words(last_frost)],
-			"sown before the last frost"
+			"sown before the last frost",
 		)
 	return _finding(
-		"sow", "the sowing date", "", showed, GOOD,
+		"sow",
+		"the sowing date",
+		"",
+		showed,
+		GOOD,
 		"it would be sown on %s, after the last frost on %s" % [showed, day_words(last_frost)],
-		"sown after the last frost"
+		"sown after the last frost",
 	)
 
 
 static func _finding(
-	key: String, label: String, wanted: String, found: String, outcome: int, because: String,
-	brief: String
+	key: String,
+	label: String,
+	wanted: String,
+	found: String,
+	outcome: int,
+	because: String,
+	brief: String,
 ) -> Dictionary:
 	return {
 		"key": key,
@@ -261,8 +280,12 @@ static func _worst(findings: Array[Dictionary]) -> int:
 
 
 static func _result(
-	verdict: int, findings: Array[Dictionary], crop: PlantSpecies,
-	last_frost: int, first_frost: int, sow: int
+	verdict: int,
+	findings: Array[Dictionary],
+	crop: PlantSpecies,
+	last_frost: int,
+	first_frost: int,
+	sow: int,
 ) -> Dictionary:
 	var title: String = crop.display_name() if crop != null else "this crop"
 	var stated: bool = GrowingSeasonScript.is_stated(last_frost, first_frost)
@@ -291,15 +314,20 @@ static func _first_not(findings: Array[Dictionary], outcome: int) -> Dictionary:
 	for finding: Dictionary in findings:
 		if int(finding.get("outcome", GOOD)) == outcome:
 			return finding
-	return findings[0] if not findings.is_empty() else {}
-
+	return findings[0] if not findings.is_empty() else { }
 
 # --- saying it ----------------------------------------------------------------------------
 
 
 static func _summary(
-	verdict: int, first: Dictionary, title: String, stated: bool, has_time: bool, has_sow: bool,
-	ready: int, sow: int
+	verdict: int,
+	first: Dictionary,
+	title: String,
+	stated: bool,
+	has_time: bool,
+	has_sow: bool,
+	ready: int,
+	sow: int,
 ) -> String:
 	if not stated:
 		return "The growing season is not stated, so there is no sowing date to work out for %s." % title
@@ -310,9 +338,7 @@ static func _summary(
 	var sow_words: String = day_words(sow)
 	match verdict:
 		UNSUITABLE:
-			return "%s sown on %s would not finish: %s." % [
-				title, sow_words, String(first.get("because", ""))
-			]
+			return "%s sown on %s would not finish: %s." % [title, sow_words, String(first.get("because", ""))]
 		TOLERATED:
 			return "%s may be sown on %s, but %s." % [title, sow_words, String(first.get("because", ""))]
 	return "%s sown on %s is %s." % [title, sow_words, _ready_text(ready)]
@@ -348,16 +374,13 @@ static func colour_from(result: Dictionary) -> Color:
 static func verdict_name(verdict: int) -> String:
 	return PlantSuitabilityScript.verdict_name(verdict)
 
-
 # --- succession ---------------------------------------------------------------------------
 
 
 ## Sow the same crop again every `interval` days, from `first_sow` while the sowing day still has time
 ## to ripen before the first frost. The sowing days themselves, in order; empty when there is no season,
 ## no time to maturity, or no day to begin on that ripens in time.
-static func sowings(
-	first_sow: int, last_frost: int, first_frost: int, maturity_days: int, interval: int
-) -> Array[int]:
+static func sowings(first_sow: int, last_frost: int, first_frost: int, maturity_days: int, interval: int) -> Array[int]:
 	var out: Array[int] = []
 	if not is_day(first_sow) or not GrowingSeasonScript.is_stated(last_frost, first_frost):
 		return out
@@ -375,7 +398,11 @@ static func sowings(
 ## A succession as a fact: `{stated, sowings, count, first_sow, last_sow, first_ready, last_ready,
 ## interval, reason}`. `stated` is false and `reason` names why when there is nothing to work out.
 static func succession(
-	crop: PlantSpecies, last_frost: int, first_frost: int, first_sow: int, interval: int
+	crop: PlantSpecies,
+	last_frost: int,
+	first_frost: int,
+	first_sow: int,
+	interval: int,
 ) -> Dictionary:
 	var days: Array[int] = []
 	var reason: String = ""
@@ -410,21 +437,26 @@ static func succession(
 ## cropping from 4 August to 13 October." A single sowing is said as one, and no succession at all
 ## gives its reason rather than an empty list.
 static func succession_text(
-	crop: PlantSpecies, last_frost: int, first_frost: int, first_sow: int, interval: int
+	crop: PlantSpecies,
+	last_frost: int,
+	first_frost: int,
+	first_sow: int,
+	interval: int,
 ) -> String:
 	var plan: Dictionary = succession(crop, last_frost, first_frost, first_sow, interval)
 	var count: int = int(plan["count"])
 	if count <= 0:
 		return String(plan["reason"])
 	if count == 1:
-		return "Sow on %s: one sowing, %s." % [
-			day_words(int(plan["first_sow"])), _ready_text(int(plan["first_ready"]))
-		]
+		return "Sow on %s: one sowing, %s." % [day_words(int(plan["first_sow"])), _ready_text(int(plan["first_ready"]))]
 	return "Sow every %d days from %s: %d sowings, the last on %s, cropping from %s to %s." % [
-		int(plan["interval"]), day_words(int(plan["first_sow"])), count, day_words(int(plan["last_sow"])),
-		day_words(int(plan["first_ready"])), day_words(int(plan["last_ready"])),
+		int(plan["interval"]),
+		day_words(int(plan["first_sow"])),
+		count,
+		day_words(int(plan["last_sow"])),
+		day_words(int(plan["first_ready"])),
+		day_words(int(plan["last_ready"])),
 	]
-
 
 # --- the crops of a sowing day ------------------------------------------------------------
 
@@ -442,20 +474,24 @@ static func rows(catalogue: PlantCatalogue, last_frost: int, first_frost: int, s
 		if not plant.is_edible():
 			continue
 		var verdict: Dictionary = check(plant, last_frost, first_frost, sow)
-		out.append({
-			"id": plant.id,
-			"title": plant.display_name(),
-			"needed": plant.maturity_text(),
-			"ready": String(verdict["ready_text"]),
-			"verdict": int(verdict["verdict"]),
-			"colour": verdict["colour"],
-			"summary": String(verdict["summary"]),
-			"label": String(verdict["label"]),
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["verdict"]) != int(b["verdict"]):
-			return int(a["verdict"]) < int(b["verdict"])
-		return String(a["title"]) < String(b["title"]))
+		out.append(
+			{
+				"id": plant.id,
+				"title": plant.display_name(),
+				"needed": plant.maturity_text(),
+				"ready": String(verdict["ready_text"]),
+				"verdict": int(verdict["verdict"]),
+				"colour": verdict["colour"],
+				"summary": String(verdict["summary"]),
+				"label": String(verdict["label"]),
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a["verdict"]) != int(b["verdict"]):
+				return int(a["verdict"]) < int(b["verdict"])
+			return String(a["title"]) < String(b["title"]),
+	)
 	return out
 
 
@@ -471,7 +507,7 @@ static func row_texts(catalogue: PlantCatalogue, last_frost: int, first_frost: i
 
 ## How many crops of each verdict a sowing day has, for a summary line.
 static func counts(rows_list: Array) -> Dictionary:
-	var out: Dictionary = {GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0}
+	var out: Dictionary = { GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0 }
 	for row: Dictionary in rows_list:
 		var level: int = int(row.get("verdict", UNKNOWN))
 		out[level] = int(out[level]) + 1
@@ -495,6 +531,4 @@ static func describe_rows(rows_list: Array) -> String:
 	var unknown: int = int(held.get(UNKNOWN, 0))
 	if unknown > 0:
 		parts.append("%d cannot be checked" % unknown)
-	return "%d crop%s: %s." % [
-		rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)
-	]
+	return "%d crop%s: %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)]

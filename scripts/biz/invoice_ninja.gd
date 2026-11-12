@@ -53,7 +53,6 @@ func _init(base_url: String = DEFAULT_URL, api_token: String = "") -> void:
 	url = base_url
 	token = api_token
 
-
 # --- what this backend is -----------------------------------------------------------------------
 
 
@@ -69,8 +68,8 @@ func describe() -> String:
 
 func settings() -> Array[Dictionary]:
 	return [
-		{"key": "url", "name": "Address", "secret": false},
-		{"key": "token", "name": "API token", "secret": true},
+		{ "key": "url", "name": "Address", "secret": false },
+		{ "key": "token", "name": "API token", "secret": true },
 	]
 
 
@@ -122,12 +121,11 @@ func secret_headers() -> Array[String]:
 
 func authorise(request: Dictionary) -> Dictionary:
 	var ready: Dictionary = request.duplicate(true)
-	var headers_in: Variant = ready.get("headers", {})
-	var sent: Dictionary = headers_in if headers_in is Dictionary else {}
+	var headers_in: Variant = ready.get("headers", { })
+	var sent: Dictionary = headers_in if headers_in is Dictionary else { }
 	sent[TOKEN_HEADER] = token
 	ready["headers"] = sent
 	return ready
-
 
 # --- building a push (pure) ---------------------------------------------------------------------
 
@@ -150,31 +148,34 @@ func invoice_request(invoice: Invoice, idempotency_key: String) -> Dictionary:
 		"line_items": line_items(document),
 		KEY_FIELD: idempotency_key,
 	}
-	return asked(INVOICE_KIND, make_request(
-		&"POST", url.strip_edges() + INVOICE_PATH, headers(idempotency_key), body
-	))
+	return asked(INVOICE_KIND, make_request(&"POST", url.strip_edges() + INVOICE_PATH, headers(idempotency_key), body))
 
 
-func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String,
-		external_invoice_id: String = "") -> Dictionary:
+func payment_request(
+	payment: Payment,
+	invoice: Invoice,
+	idempotency_key: String,
+	external_invoice_id: String = "",
+) -> Dictionary:
 	var document: Dictionary = payment_body(payment, invoice, idempotency_key)
 	var client: String = party_id_of(document, CLIENT_ID_KEY)
 	if client.is_empty():
 		return refused(missing_client_text())
 	if external_invoice_id.strip_edges().is_empty():
-		return refused("a payment needs the invoice's id in %s, which the ledger assigns when the invoice is first posted" % describe())
+		return refused(
+			"a payment needs the invoice's id in %s, which the ledger assigns when the invoice is first posted"
+			% describe()
+		)
 	var amount: float = major_units(payment.amount)
 	var body: Dictionary = {
 		"client_id": client,
 		"amount": amount,
 		"date": payment.received_at,
 		"transaction_reference": payment.bank_reference,
-		"invoices": [{"invoice_id": external_invoice_id.strip_edges(), "amount": amount}],
+		"invoices": [{ "invoice_id": external_invoice_id.strip_edges(), "amount": amount }],
 		KEY_FIELD: idempotency_key,
 	}
-	return asked(PAYMENT_KIND, make_request(
-		&"POST", url.strip_edges() + PAYMENT_PATH, headers(idempotency_key), body
-	))
+	return asked(PAYMENT_KIND, make_request(&"POST", url.strip_edges() + PAYMENT_PATH, headers(idempotency_key), body))
 
 
 ## How this service spells a line: one of one at the invoice's own amount. See the class note for why.
@@ -183,7 +184,7 @@ func line_items(document: Dictionary) -> Array:
 	for entry: Dictionary in lines_of(document):
 		var item: Dictionary = {
 			"quantity": 1,
-			"cost": major_units(MoneyScript.from_dict(entry.get("amount", {}))),
+			"cost": major_units(MoneyScript.from_dict(entry.get("amount", { }))),
 			"product_key": String(entry.get("cost_code", "")),
 			"notes": line_notes(entry),
 		}
@@ -208,9 +209,9 @@ func headers(idempotency_key: String) -> Dictionary:
 
 func missing_client_text() -> String:
 	return "a customer with no id in %s: create them there and record the id as '%s' on the customer" % [
-		describe(), CLIENT_ID_KEY,
+		describe(),
+		CLIENT_ID_KEY,
 	]
-
 
 # --- reading what came back ---------------------------------------------------------------------
 
@@ -231,10 +232,11 @@ func parse_payment_response(response: Dictionary) -> Dictionary:
 func self_test() -> Dictionary:
 	var missing: Array[String] = problems()
 	if not missing.is_empty():
-		return {"ok": false, "reason": "%s needs %s" % [describe(), ", ".join(missing)]}
+		return { "ok": false, "reason": "%s needs %s" % [describe(), ", ".join(missing)] }
 	return {
 		"ok": false,
-		"reason": "%s is configured, but a probe has to be sent and this build has no transport yet (phase 10)" % describe(),
+		"reason": "%s is configured, but a probe has to be sent and this build has no transport yet (phase 10)"
+		% describe(),
 	}
 
 
@@ -244,16 +246,16 @@ func send(_request: Dictionary) -> Dictionary:
 	return {
 		"status": 0,
 		"error": "posting to %s needs the HTTP transport, which arrives with sync (phase 10)" % describe(),
-		"body": {},
+		"body": { },
 	}
 
 
 func _parse_data(response: Dictionary, id_field: String, number_field: String) -> Dictionary:
 	var read: Dictionary = parse_common(response)
 	if bool(read["ok"]):
-		var made: Dictionary = {}
+		var made: Dictionary = { }
 		var body: Dictionary = read["body"]
-		var data_in: Variant = body.get("data", {})
+		var data_in: Variant = body.get("data", { })
 		if data_in is Dictionary:
 			made = data_in
 		read["external_id"] = String(made.get(id_field, ""))

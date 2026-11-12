@@ -98,13 +98,12 @@ const SCHEDULE_TEXT_GAP_MM := 2.0
 ## columns eating the sheet. The column is reserved as the width of the wider of the two.
 const IRRIGATION_WIDTH_MM := 104.0
 
-
 # --- layout -------------------------------------------------------------------------
 
 
 ## Work out the sheet without emitting anything, so a caller - or a test - can
 ## see the numbers the drawing will be plotted with.
-static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
+static func plan_sheet(document, options: Dictionary = { }) -> Dictionary:
 	var sheet_name: String = String(options.get("sheet", "A3"))
 	var margin_mm: float = float(options.get("margin_mm", PlotScaleScript.DEFAULT_MARGIN_MM))
 	var imperial: bool = bool(options.get("imperial", false))
@@ -151,20 +150,17 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		irrigation_rect = Rect2(
 			Vector2(
 				drawing_area.end.x - IRRIGATION_WIDTH_MM * POINTS_PER_MM,
-				column_bottom - irrigation_mm * POINTS_PER_MM
+				column_bottom - irrigation_mm * POINTS_PER_MM,
 			),
-			Vector2(IRRIGATION_WIDTH_MM, irrigation_mm) * POINTS_PER_MM
+			Vector2(IRRIGATION_WIDTH_MM, irrigation_mm) * POINTS_PER_MM,
 		)
 		column_bottom -= irrigation_mm * POINTS_PER_MM
 	var schedule_rect := Rect2()
 	if not schedule.is_empty():
 		var schedule_mm := _schedule_height_mm(schedule.size())
 		schedule_rect = Rect2(
-			Vector2(
-				drawing_area.end.x - SCHEDULE_WIDTH_MM * POINTS_PER_MM,
-				column_bottom - schedule_mm * POINTS_PER_MM
-			),
-			Vector2(SCHEDULE_WIDTH_MM, schedule_mm) * POINTS_PER_MM
+			Vector2(drawing_area.end.x - SCHEDULE_WIDTH_MM * POINTS_PER_MM, column_bottom - schedule_mm * POINTS_PER_MM),
+			Vector2(SCHEDULE_WIDTH_MM, schedule_mm) * POINTS_PER_MM,
 		)
 
 	var reserved := _reserved_mm(show_border, legend, column_width_mm)
@@ -175,7 +171,7 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 	# sheet is laid out: the drawing is not poured into whatever space is left, it
 	# is framed, and the frame can be moved, resized and turned. With none given,
 	# the sheet works one out and everything below is unchanged.
-	var viewport: Dictionary = options.get("viewport", {})
+	var viewport: Dictionary = options.get("viewport", { })
 	var rotation := deg_to_rad(float(viewport.get("rotation_degrees", 0.0)))
 	var frame := content if viewport.is_empty() else _viewport_frame(viewport, content)
 
@@ -187,7 +183,11 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		# turned viewport makes bigger: turning a drawing costs it a scale step or a
 		# sheet size, and pretending otherwise would leave it hanging off the border.
 		scale = PlotScaleScript.suggest(
-			_footprint(extent.size, rotation), sheet_name, effective_margin, imperial, reserved
+			_footprint(extent.size, rotation),
+			sheet_name,
+			effective_margin,
+			imperial,
+			reserved,
 		)["scale"]
 	scale = maxf(scale, 0.0001)
 
@@ -222,11 +222,8 @@ static func plan_sheet(document, options: Dictionary = {}) -> Dictionary:
 		if not rows.is_empty():
 			var legend_mm := _legend_height_mm(rows.size())
 			legend_rect = Rect2(
-				Vector2(
-					drawing_area.position.x,
-					drawing_area.end.y - legend_mm * POINTS_PER_MM
-				),
-				Vector2(LEGEND_WIDTH_MM, legend_mm) * POINTS_PER_MM
+				Vector2(drawing_area.position.x, drawing_area.end.y - legend_mm * POINTS_PER_MM),
+				Vector2(LEGEND_WIDTH_MM, legend_mm) * POINTS_PER_MM,
 			)
 
 	return {
@@ -342,7 +339,7 @@ static func fit_schedule(rows: Array, available_mm: float) -> Array:
 		kept.append(species[index])
 	var omitted := species.size() - kept.size()
 	if omitted > 0:
-		kept.append({"id": &"", "count": 0, "name": "%d species not shown" % omitted})
+		kept.append({ "id": &"", "count": 0, "name": "%d species not shown" % omitted })
 	kept.append_array(unnamed)
 	return kept
 
@@ -377,7 +374,7 @@ static func fit_irrigation(rows: Array, available_mm: float) -> Array:
 		kept.append(rows[index])
 	var omitted := rows.size() - kept.size()
 	if omitted > 0:
-		kept.append({"words": "%d zones not shown" % omitted})
+		kept.append({ "words": "%d zones not shown" % omitted })
 	return kept
 
 
@@ -403,7 +400,10 @@ static func _plot_extent(document) -> Rect2:
 		if entity.kind != EntityScript.Kind.DIMENSION:
 			continue
 		for stroke: PackedVector2Array in DimensionScript.layout(
-			entity, 1.0, null, DimensionScript.style_for(entity, document)
+			entity,
+			1.0,
+			null,
+			DimensionScript.style_for(entity, document),
 		)["lines"]:
 			for point in stroke:
 				extent = extent.expand(point)
@@ -441,10 +441,7 @@ static func _content_area(area: Rect2, reserved: Vector2) -> Rect2:
 	var claimed := reserved * POINTS_PER_MM
 	return Rect2(
 		area.position + claimed,
-		Vector2(
-			maxf(area.size.x - claimed.x, area.size.x * 0.25),
-			maxf(area.size.y - claimed.y, area.size.y * 0.25)
-		)
+		Vector2(maxf(area.size.x - claimed.x, area.size.x * 0.25), maxf(area.size.y - claimed.y, area.size.y * 0.25)),
 	)
 
 
@@ -475,10 +472,7 @@ static func north_direction(plan: Dictionary) -> Vector2:
 static func _footprint(size: Vector2, rotation: float) -> Vector2:
 	var across := absf(cos(rotation))
 	var down := absf(sin(rotation))
-	return Vector2(
-		across * size.x + down * size.y,
-		down * size.x + across * size.y
-	)
+	return Vector2(across * size.x + down * size.y, down * size.x + across * size.y)
 
 
 ## The frame a caller's viewport describes, in paper points. Anything left out
@@ -489,11 +483,10 @@ static func _viewport_frame(viewport: Dictionary, content: Rect2) -> Rect2:
 	var size_mm := Vector2(viewport.get("size_mm", content.size / POINTS_PER_MM))
 	return Rect2(origin_mm * POINTS_PER_MM, size_mm * POINTS_PER_MM)
 
-
 # --- emission -----------------------------------------------------------------------
 
 
-static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
+static func export_pdf(document, options: Dictionary = { }) -> PackedByteArray:
 	var plan := plan_sheet(document, options)
 	var sheet_mm: Vector2 = plan["sheet_mm"]
 	var writer = PdfWriterScript.new()
@@ -517,7 +510,6 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 		_emit_title_block(writer, plan, options)
 	return writer.build()
 
-
 # --- the layer key ------------------------------------------------------------------
 
 
@@ -529,7 +521,7 @@ static func export_pdf(document, options: Dictionary = {}) -> PackedByteArray:
 ## an oak would be guessing. The count is of the entities that plot, so a layer
 ## switched off is absent from the key rather than listed with nothing against it.
 static func legend_rows(document, pen_table) -> Array[Dictionary]:
-	var counts: Dictionary = {}
+	var counts: Dictionary = { }
 	for entity in document.plotting_entities():
 		counts[entity.layer] = int(counts.get(entity.layer, 0)) + 1
 	var rows: Array[Dictionary] = []
@@ -537,11 +529,7 @@ static func legend_rows(document, pen_table) -> Array[Dictionary]:
 		var count := int(counts.get(layer.name, 0))
 		if count <= 0:
 			continue
-		rows.append({
-			"name": String(layer.name),
-			"count": count,
-			"style": layer_pen(layer, pen_table),
-		})
+		rows.append({ "name": String(layer.name), "count": count, "style": layer_pen(layer, pen_table) })
 	return rows
 
 
@@ -554,13 +542,7 @@ static func layer_pen(layer, pen_table) -> LineStyleScript:
 	return pen_table.resolve_for(layer.screen_colour, fallback)
 
 
-static func _emit_legend(
-	writer,
-	document,
-	pen_table,
-	plan: Dictionary,
-	options: Dictionary
-) -> void:
+static func _emit_legend(writer, document, pen_table, plan: Dictionary, options: Dictionary) -> void:
 	var rect: Rect2 = plan["legend_pt"]
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
@@ -582,7 +564,8 @@ static func _emit_legend(
 	writer.set_fill_colour(Color.BLACK)
 	writer.draw_text(
 		Vector2(rect.position.x + pad, title_y),
-		String(options.get("legend_title", "KEY")), LEGEND_TITLE_MM * POINTS_PER_MM
+		String(options.get("legend_title", "KEY")),
+		LEGEND_TITLE_MM * POINTS_PER_MM,
 	)
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	var header := rect.end.y - LEGEND_HEADER_MM * POINTS_PER_MM
@@ -600,27 +583,20 @@ static func _emit_legend(
 		# whole point of a key is that its line looks like the drawing's.
 		var sample_y := baseline + row * 0.35
 		writer.move_to(Vector2(rect.position.x + pad, sample_y))
-		writer.line_to(
-			Vector2(rect.position.x + pad + LEGEND_SAMPLE_MM * POINTS_PER_MM, sample_y)
-		)
+		writer.line_to(Vector2(rect.position.x + pad + LEGEND_SAMPLE_MM * POINTS_PER_MM, sample_y))
 		writer.stroke()
 		writer.set_dash([])
 
 		writer.set_fill_colour(Color.BLACK)
 		writer.draw_text(
-			Vector2(
-				rect.position.x + pad + (LEGEND_SAMPLE_MM + LEGEND_TEXT_GAP_MM) * POINTS_PER_MM,
-				baseline
-			),
-			String(entry["name"]), size
+			Vector2(rect.position.x + pad + (LEGEND_SAMPLE_MM + LEGEND_TEXT_GAP_MM) * POINTS_PER_MM, baseline),
+			String(entry["name"]),
+			size,
 		)
 		var count := "%d" % int(entry["count"])
-		writer.draw_text(
-			Vector2(rect.end.x - pad - writer.text_width(count, size), baseline), count, size
-		)
+		writer.draw_text(Vector2(rect.end.x - pad - writer.text_width(count, size), baseline), count, size)
 		baseline -= row
 	writer.restore_state()
-
 
 # --- the planting schedule ----------------------------------------------------------
 
@@ -654,7 +630,7 @@ static func _emit_schedule(writer, plan: Dictionary, options: Dictionary) -> voi
 	writer.draw_text(
 		Vector2(rect.position.x + pad, title_y),
 		String(options.get("schedule_title", "PLANTING SCHEDULE")),
-		SCHEDULE_TITLE_MM * POINTS_PER_MM
+		SCHEDULE_TITLE_MM * POINTS_PER_MM,
 	)
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	var header := rect.end.y - SCHEDULE_HEADER_MM * POINTS_PER_MM
@@ -675,13 +651,13 @@ static func _emit_schedule(writer, plan: Dictionary, options: Dictionary) -> voi
 		writer.set_fill_colour(Color.BLACK)
 		writer.draw_text(
 			Vector2(rect.position.x + pad, baseline),
-			clipped_text(writer, schedule_row_text(row), size, name_room), size
+			clipped_text(writer, schedule_row_text(row), size, name_room),
+			size,
 		)
 		if not counted.is_empty():
 			writer.draw_text(Vector2(rect.end.x - pad - count_room, baseline), counted, size)
 		baseline -= row_height
 	writer.restore_state()
-
 
 # --- the irrigation schedule --------------------------------------------------------
 
@@ -714,7 +690,7 @@ static func _emit_irrigation(writer, plan: Dictionary, options: Dictionary) -> v
 	writer.draw_text(
 		Vector2(rect.position.x + pad, title_y),
 		String(options.get("irrigation_title", "IRRIGATION SCHEDULE")),
-		SCHEDULE_TITLE_MM * POINTS_PER_MM
+		SCHEDULE_TITLE_MM * POINTS_PER_MM,
 	)
 	writer.set_line_width_points(HAIRLINE_WEIGHT_MM * POINTS_PER_MM)
 	var header := rect.end.y - SCHEDULE_HEADER_MM * POINTS_PER_MM
@@ -727,7 +703,8 @@ static func _emit_irrigation(writer, plan: Dictionary, options: Dictionary) -> v
 		writer.set_fill_colour(Color.BLACK)
 		writer.draw_text(
 			Vector2(rect.position.x + pad, baseline),
-			clipped_text(writer, irrigation_row_text(row), size, rect.size.x - pad * 2.0), size
+			clipped_text(writer, irrigation_row_text(row), size, rect.size.x - pad * 2.0),
+			size,
 		)
 		baseline -= row_height
 	writer.restore_state()
@@ -755,7 +732,7 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 	var area: Rect2 = plan["printable_pt"]
 	var block := Rect2(
 		Vector2(area.end.x - TITLE_BLOCK_WIDTH_MM * POINTS_PER_MM, area.position.y),
-		Vector2(TITLE_BLOCK_WIDTH_MM, TITLE_BLOCK_HEIGHT_MM) * POINTS_PER_MM
+		Vector2(TITLE_BLOCK_WIDTH_MM, TITLE_BLOCK_HEIGHT_MM) * POINTS_PER_MM,
 	)
 
 	writer.save_state()
@@ -787,8 +764,11 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 
 	_field(writer, Vector2(block.position.x, block.end.y), "PROJECT", _project_name(options), TITLE_TEXT_MM)
 	_field(
-		writer, Vector2(block.position.x, block.end.y - row),
-		"DRAWING", String(options.get("drawing", "")), TITLE_TEXT_MM
+		writer,
+		Vector2(block.position.x, block.end.y - row),
+		"DRAWING",
+		String(options.get("drawing", "")),
+		TITLE_TEXT_MM,
 	)
 
 	var cells: Array = [
@@ -802,26 +782,23 @@ static func _emit_title_block(writer, plan: Dictionary, options: Dictionary) -> 
 		_field(
 			writer,
 			Vector2(block.position.x + block.size.x * bounds[index], numbering),
-			String(cells[index][0]), String(cells[index][1]), LABEL_TEXT_MM
+			String(cells[index][0]),
+			String(cells[index][1]),
+			LABEL_TEXT_MM,
 		)
 
 	_emit_scale_bar(
-		writer, plan,
+		writer,
+		plan,
 		Rect2(
-			Vector2(
-				block.position.x + SCALE_BAR_INSET_MM * POINTS_PER_MM,
-				block.position.y
-			),
-			Vector2(
-				north_x - block.position.x - SCALE_BAR_INSET_MM * 2.0 * POINTS_PER_MM,
-				foot - block.position.y
-			)
-		)
+			Vector2(block.position.x + SCALE_BAR_INSET_MM * POINTS_PER_MM, block.position.y),
+			Vector2(north_x - block.position.x - SCALE_BAR_INSET_MM * 2.0 * POINTS_PER_MM, foot - block.position.y),
+		),
 	)
 	_emit_north_arrow(
 		writer,
 		Rect2(Vector2(north_x, block.position.y), Vector2(block.end.x - north_x, foot - block.position.y)),
-		north_direction(plan)
+		north_direction(plan),
 	)
 	writer.restore_state()
 
@@ -845,10 +822,7 @@ static func _field(writer, at: Vector2, caption: String, value: String, value_mm
 	writer.set_fill_colour(CAPTION_COLOUR)
 	writer.draw_text(Vector2(at.x + inset, caption_y), caption, CAPTION_TEXT_MM * POINTS_PER_MM)
 	writer.set_fill_colour(Color.BLACK)
-	writer.draw_text(
-		Vector2(at.x + inset, caption_y - value_mm * POINTS_PER_MM),
-		value, value_mm * POINTS_PER_MM
-	)
+	writer.draw_text(Vector2(at.x + inset, caption_y - value_mm * POINTS_PER_MM), value, value_mm * POINTS_PER_MM)
 
 
 ## The scale bar: a bar drawn at its true length, so it can be checked against a
@@ -882,7 +856,7 @@ static func _emit_scale_bar(writer, plan: Dictionary, strip: Rect2) -> void:
 		writer.draw_text(
 			Vector2(start, base + height + POINTS_PER_MM),
 			scale_bar_label(float(choice["label_value"]) * float(index) / float(SCALE_BAR_DIVISIONS), step),
-			CAPTION_TEXT_MM * POINTS_PER_MM
+			CAPTION_TEXT_MM * POINTS_PER_MM,
 		)
 
 	writer.set_stroke_colour(Color.BLACK)
@@ -891,7 +865,7 @@ static func _emit_scale_bar(writer, plan: Dictionary, strip: Rect2) -> void:
 	writer.draw_text(
 		Vector2(left + bar + POINTS_PER_MM, base + height + POINTS_PER_MM),
 		"%s %s" % [scale_bar_label(float(choice["label_value"]), step), "ft" if imperial else "m"],
-		CAPTION_TEXT_MM * POINTS_PER_MM
+		CAPTION_TEXT_MM * POINTS_PER_MM,
 	)
 
 
@@ -919,10 +893,7 @@ static func _emit_north_arrow(writer, cell: Rect2, north: Vector2) -> void:
 	# The letter stays upright whatever the arrow does: a turning letter is a
 	# letter nobody reads.
 	var size := CAPTION_TEXT_MM * POINTS_PER_MM
-	writer.draw_text(
-		tip + north * POINTS_PER_MM - Vector2(writer.text_width("N", size) * 0.5, size * 0.5),
-		"N", size
-	)
+	writer.draw_text(tip + north * POINTS_PER_MM - Vector2(writer.text_width("N", size) * 0.5, size * 0.5), "N", size)
 
 
 ## A division is labelled to the precision it was divided by. Rounding a
@@ -979,7 +950,8 @@ static func _plot_style(entity: EntityScript, layer, pen_table) -> LineStyleScri
 	if pen_table == null:
 		return RenderScript.generated_linework_style(entity, fallback)
 	return RenderScript.generated_linework_style(
-		entity, pen_table.resolve_for(RenderScript.screen_colour(layer), fallback)
+		entity,
+		pen_table.resolve_for(RenderScript.screen_colour(layer), fallback),
 	)
 
 
@@ -1005,8 +977,11 @@ static func _dash_points(style: LineStyleScript) -> Array[float]:
 ## arrive here the same way they arrive on screen.
 static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Dictionary) -> void:
 	var parts: Dictionary = RenderScript.layout(
-		entity, layer, plan["scale"], document.units,
-		DimensionScript.style_for(entity, document)
+		entity,
+		layer,
+		plan["scale"],
+		document.units,
+		DimensionScript.style_for(entity, document),
 	)
 
 	for stroke: PackedVector2Array in parts["lines"]:
@@ -1024,7 +999,10 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 	for mark: Dictionary in parts["marks"]:
 		if mark["kind"] == &"arrow":
 			var triangle := DimensionScript.arrow_triangle(
-				mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
+				mark["tip"],
+				mark["direction"],
+				mark["size"],
+				mark["width_ratio"],
 			)
 			writer.move_to(model_to_paper(triangle[0], plan))
 			writer.line_to(model_to_paper(triangle[1], plan))
@@ -1033,10 +1011,7 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 			writer.fill()
 		elif mark["kind"] == &"dot":
 			var centre := model_to_paper(Vector2(mark["at"]), plan)
-			_emit_circle_path_pt(
-				writer, centre,
-				float(mark["size"]) * 0.5 * float(plan["pt_per_metre"])
-			)
+			_emit_circle_path_pt(writer, centre, float(mark["size"]) * 0.5 * float(plan["pt_per_metre"]))
 			writer.fill()
 
 	for label: Dictionary in parts["labels"]:
@@ -1053,7 +1028,7 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 			model_to_paper(label["position"], plan),
 			text,
 			float(label["height"]) * float(plan["pt_per_metre"]),
-			float(plan["rotation"]) - float(label["angle"])
+			float(plan["rotation"]) - float(label["angle"]),
 		)
 
 
@@ -1062,14 +1037,7 @@ static func _emit_layout(writer, entity: EntityScript, layer, document, plan: Di
 ## Circles and arcs are the shapes most likely to be large on a sheet, so they
 ## are emitted as real curves rather than sampled polylines: a client zooming
 ## into the PDF must not be able to see facets, and a tree pit has to stay round.
-static func _emit_arc(
-	writer,
-	centre: Vector2,
-	radius: float,
-	start: float,
-	sweep: float,
-	plan: Dictionary
-) -> void:
+static func _emit_arc(writer, centre: Vector2, radius: float, start: float, sweep: float, plan: Dictionary) -> void:
 	if radius <= 0.0 or absf(sweep) < 1e-9:
 		return
 	var segments := maxi(int(ceil(absf(sweep) / (PI * 0.5))), 1)
@@ -1092,7 +1060,7 @@ static func _emit_arc(
 		writer.curve_to(
 			model_to_paper(from_point + from_tangent, plan),
 			model_to_paper(to_point - to_tangent, plan),
-			model_to_paper(to_point, plan)
+			model_to_paper(to_point, plan),
 		)
 	writer.stroke()
 
@@ -1121,15 +1089,9 @@ static func _emit_circle_path_pt(writer, centre: Vector2, radius: float) -> void
 ## One quarter of that circle, from one radius vector to the next going
 ## anticlockwise. Each control point sits off its own radius along the tangent, so
 ## the same control length serves all four quarters.
-static func _circle_quarter(
-	writer,
-	centre: Vector2,
-	from_vector: Vector2,
-	to_vector: Vector2,
-	control: float
-) -> void:
+static func _circle_quarter(writer, centre: Vector2, from_vector: Vector2, to_vector: Vector2, control: float) -> void:
 	writer.curve_to(
 		centre + from_vector + Vector2(-from_vector.y, from_vector.x).normalized() * control,
 		centre + to_vector + Vector2(to_vector.y, -to_vector.x).normalized() * control,
-		centre + to_vector
+		centre + to_vector,
 	)

@@ -36,7 +36,7 @@ const BUTTON_PREFIX := "Choose"
 var _column: VBoxContainer = null
 var _opening: Label = null
 var _status: Label = null
-var _buttons: Dictionary = {}
+var _buttons: Dictionary = { }
 
 
 func _init() -> void:
@@ -49,7 +49,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _column == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------------------
 
@@ -98,7 +97,6 @@ func build() -> void:
 	_status = PageChrome.status("")
 	_column.add_child(_status)
 
-
 # --- what it offers -----------------------------------------------------------------------------
 
 
@@ -145,7 +143,6 @@ func status_text() -> String:
 func say(words: String) -> void:
 	if _status != null:
 		_status.text = words
-
 
 # --- the two ways out ---------------------------------------------------------------------------
 

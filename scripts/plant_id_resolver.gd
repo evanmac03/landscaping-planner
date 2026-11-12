@@ -23,6 +23,7 @@ func _init(catalogue: PlantCatalogue = null) -> void:
 
 # --- internal helpers --------------------------------------------------------
 
+
 ## A name as an id: lowercased, with runs of whitespace, `_` and `-` as single
 ## underscores, so "Acer rubrum" and "acer-rubrum" both reach the id "acer_rubrum".
 static func as_id(text: String) -> StringName:
@@ -82,8 +83,8 @@ static func rank_of(plant: PlantSpecies, needle: String) -> int:
 		return 6
 	return -1
 
-
 # --- public API ------------------------------------------------------------
+
 
 ## The best match for a name, or null. The catalogue is the one passed in, or the one
 ## this resolver was made with.

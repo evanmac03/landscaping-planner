@@ -61,24 +61,43 @@ const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 ## exact) and is not the international foot: they differ by 2.0 ppm, which is immaterial for a
 ## planting layout and material for a legal boundary (REQ 6.6.3).
 const LINEAR_UNITS := {
-	"meter": UnitsScript.METRE, "meters": UnitsScript.METRE,
-	"metre": UnitsScript.METRE, "metres": UnitsScript.METRE, "m": UnitsScript.METRE,
-	"millimeter": UnitsScript.MILLIMETRE, "millimeters": UnitsScript.MILLIMETRE,
-	"millimetre": UnitsScript.MILLIMETRE, "millimetres": UnitsScript.MILLIMETRE,
+	"meter": UnitsScript.METRE,
+	"meters": UnitsScript.METRE,
+	"metre": UnitsScript.METRE,
+	"metres": UnitsScript.METRE,
+	"m": UnitsScript.METRE,
+	"millimeter": UnitsScript.MILLIMETRE,
+	"millimeters": UnitsScript.MILLIMETRE,
+	"millimetre": UnitsScript.MILLIMETRE,
+	"millimetres": UnitsScript.MILLIMETRE,
 	"mm": UnitsScript.MILLIMETRE,
-	"centimeter": UnitsScript.CENTIMETRE, "centimeters": UnitsScript.CENTIMETRE,
-	"centimetre": UnitsScript.CENTIMETRE, "centimetres": UnitsScript.CENTIMETRE,
+	"centimeter": UnitsScript.CENTIMETRE,
+	"centimeters": UnitsScript.CENTIMETRE,
+	"centimetre": UnitsScript.CENTIMETRE,
+	"centimetres": UnitsScript.CENTIMETRE,
 	"cm": UnitsScript.CENTIMETRE,
-	"kilometer": UnitsScript.KILOMETRE, "kilometers": UnitsScript.KILOMETRE,
-	"kilometre": UnitsScript.KILOMETRE, "kilometres": UnitsScript.KILOMETRE,
+	"kilometer": UnitsScript.KILOMETRE,
+	"kilometers": UnitsScript.KILOMETRE,
+	"kilometre": UnitsScript.KILOMETRE,
+	"kilometres": UnitsScript.KILOMETRE,
 	"km": UnitsScript.KILOMETRE,
-	"foot": UnitsScript.FOOT, "feet": UnitsScript.FOOT, "ft": UnitsScript.FOOT,
-	"internationalfoot": UnitsScript.FOOT, "internationalfeet": UnitsScript.FOOT,
-	"ussurveyfoot": UnitsScript.US_SURVEY_FOOT, "ussurveyfeet": UnitsScript.US_SURVEY_FOOT,
+	"foot": UnitsScript.FOOT,
+	"feet": UnitsScript.FOOT,
+	"ft": UnitsScript.FOOT,
+	"internationalfoot": UnitsScript.FOOT,
+	"internationalfeet": UnitsScript.FOOT,
+	"ussurveyfoot": UnitsScript.US_SURVEY_FOOT,
+	"ussurveyfeet": UnitsScript.US_SURVEY_FOOT,
 	"usfoot": UnitsScript.US_SURVEY_FOOT,
-	"inch": UnitsScript.INCH, "inches": UnitsScript.INCH, "in": UnitsScript.INCH,
-	"yard": UnitsScript.YARD, "yards": UnitsScript.YARD, "yd": UnitsScript.YARD,
-	"mile": UnitsScript.MILE, "miles": UnitsScript.MILE, "mi": UnitsScript.MILE,
+	"inch": UnitsScript.INCH,
+	"inches": UnitsScript.INCH,
+	"in": UnitsScript.INCH,
+	"yard": UnitsScript.YARD,
+	"yards": UnitsScript.YARD,
+	"yd": UnitsScript.YARD,
+	"mile": UnitsScript.MILE,
+	"miles": UnitsScript.MILE,
+	"mi": UnitsScript.MILE,
 }
 
 ## What each of those lengths is *called* in a report. A file names its unit in its own single word -
@@ -87,19 +106,43 @@ const LINEAR_UNITS := {
 ## `LINEAR_UNITS` can read has a word here, and a test says so: a length this reader can read and
 ## cannot name is half a reader.
 const UNIT_WORDS := {
-	"meter": "metres", "meters": "metres", "metre": "metres", "metres": "metres", "m": "metres",
-	"millimeter": "millimetres", "millimeters": "millimetres",
-	"millimetre": "millimetres", "millimetres": "millimetres", "mm": "millimetres",
-	"centimeter": "centimetres", "centimeters": "centimetres",
-	"centimetre": "centimetres", "centimetres": "centimetres", "cm": "centimetres",
-	"kilometer": "kilometres", "kilometers": "kilometres",
-	"kilometre": "kilometres", "kilometres": "kilometres", "km": "kilometres",
-	"foot": "feet", "feet": "feet", "ft": "feet",
-	"internationalfoot": "feet", "internationalfeet": "feet",
-	"ussurveyfoot": "US survey feet", "ussurveyfeet": "US survey feet", "usfoot": "US survey feet",
-	"inch": "inches", "inches": "inches", "in": "inches",
-	"yard": "yards", "yards": "yards", "yd": "yards",
-	"mile": "miles", "miles": "miles", "mi": "miles",
+	"meter": "metres",
+	"meters": "metres",
+	"metre": "metres",
+	"metres": "metres",
+	"m": "metres",
+	"millimeter": "millimetres",
+	"millimeters": "millimetres",
+	"millimetre": "millimetres",
+	"millimetres": "millimetres",
+	"mm": "millimetres",
+	"centimeter": "centimetres",
+	"centimeters": "centimetres",
+	"centimetre": "centimetres",
+	"centimetres": "centimetres",
+	"cm": "centimetres",
+	"kilometer": "kilometres",
+	"kilometers": "kilometres",
+	"kilometre": "kilometres",
+	"kilometres": "kilometres",
+	"km": "kilometres",
+	"foot": "feet",
+	"feet": "feet",
+	"ft": "feet",
+	"internationalfoot": "feet",
+	"internationalfeet": "feet",
+	"ussurveyfoot": "US survey feet",
+	"ussurveyfeet": "US survey feet",
+	"usfoot": "US survey feet",
+	"inch": "inches",
+	"inches": "inches",
+	"in": "inches",
+	"yard": "yards",
+	"yards": "yards",
+	"yd": "yards",
+	"mile": "miles",
+	"miles": "miles",
+	"mi": "miles",
 }
 
 ## The containers whose `CoordGeom` this reader draws, and where each kind goes in the mode where the
@@ -109,9 +152,9 @@ const UNIT_WORDS := {
 ## coincide, so closure is taken from the container rather than inferred from the geometry - the
 ## opposite of how `OsmFile` has to do it.
 const FEATURES := {
-	"Parcel": {"kind": "parcel", "layer": LayerSetScript.SURVEY_PROPERTY, "area": true},
-	"Alignment": {"kind": "alignment", "layer": LayerSetScript.EXISTING_HARDSCAPE, "area": false},
-	"PlanFeature": {"kind": "plan feature", "layer": LayerSetScript.SURVEY_PROPERTY, "area": false},
+	"Parcel": { "kind": "parcel", "layer": LayerSetScript.SURVEY_PROPERTY, "area": true },
+	"Alignment": { "kind": "alignment", "layer": LayerSetScript.EXISTING_HARDSCAPE, "area": false },
+	"PlanFeature": { "kind": "plan feature", "layer": LayerSetScript.SURVEY_PROPERTY, "area": false },
 }
 
 ## What a `CoordGeom` is made of. Anything else found inside one is counted, named, and made to *break*
@@ -122,8 +165,14 @@ const SEGMENTS: Array[String] = ["Line", "Curve", "IrregularLine"]
 ## thousands of points, a pipe network is a graph of pipes: each is a whole problem of its own, and
 ## saying so is better than half-reading one.
 const SKIP_TAGS: Array[String] = [
-	"Surface", "PipeNetwork", "Roadway", "TypicalSection", "CrossSect", "GradeSurface",
-	"CoordinateSystem", "Monuments",
+	"Surface",
+	"PipeNetwork",
+	"Roadway",
+	"TypicalSection",
+	"CrossSect",
+	"GradeSurface",
+	"CoordinateSystem",
+	"Monuments",
 ]
 
 ## How many shapes one import will draw. A plat of a subdivision is tens; a corridor model's plan line
@@ -134,8 +183,8 @@ const MAX_SHAPES := 4000
 ## this is a hair at either metres or feet; a shape closes when its last point lands on its first.
 const SAME_POINT := 1.0e-9
 
-
 # --- reading --------------------------------------------------------------------------
+
 
 ## Read LandXML text. `options` may carry:
 ##
@@ -153,7 +202,7 @@ const SAME_POINT := 1.0e-9
 ##
 ## Returns a dictionary rather than an object, as `SurveyFile`, `DxfFile` and `OsmFile` do: what comes
 ## out is a table of shapes and a table of things to say about them.
-static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
+static func read_text(source: String, options: Dictionary = { }) -> Dictionary:
 	if source.strip_edges().is_empty():
 		return refused("the file is empty")
 	var parser := XMLParser.new()
@@ -169,16 +218,21 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 	if float(stated["factor"]) <= 0.0:
 		return refused(String(stated["reason"]))
 	var plan := {
-		"ok": true, "reason": "", "source": "",
-		"units": String(stated["name"]), "unit_factor": float(stated["factor"]),
-		"units_from": String(stated["source"]), "declared_unit": String(found["declared_unit"]),
+		"ok": true,
+		"reason": "",
+		"source": "",
+		"units": String(stated["name"]),
+		"unit_factor": float(stated["factor"]),
+		"units_from": String(stated["source"]),
+		"declared_unit": String(found["declared_unit"]),
 		"underlay": bool(options.get("underlay", true)),
 		"points": bool(options.get("points", false)),
 		"offset": options.get("offset", Vector2.ZERO),
 		"rotation": float(options.get("rotation", 0.0)),
 		"raw": found["shapes"],
 		"shapes": [] as Array[Dictionary],
-		"counts": found["counts"], "skipped": found["skipped"],
+		"counts": found["counts"],
+		"skipped": found["skipped"],
 		"layers": [] as Array[String],
 		"cg_points": int(found["cg_points"]),
 		"refs": int(found["refs"]),
@@ -195,7 +249,7 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 
 ## Read a plat from disk. A missing or unreadable file is refused with a reason rather than raising,
 ## because it is a path a person chose.
-static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
+static func of_file(path: String, options: Dictionary = { }) -> Dictionary:
 	if path.is_empty():
 		return refused("no file was named")
 	if not FileAccess.file_exists(path):
@@ -228,10 +282,13 @@ static func units_for(declared: String, asked: String = "") -> Dictionary:
 			return {
 				"name": String(UNIT_WORDS.get(stated, declared.strip_edges())),
 				"factor": float(LINEAR_UNITS[stated]),
-				"source": "the file's own linear unit", "reason": "",
+				"source": "the file's own linear unit",
+				"reason": "",
 			}
 		return {
-			"name": "", "factor": 0.0, "source": "",
+			"name": "",
+			"factor": 0.0,
+			"source": "",
 			"reason": "the file says its linear unit is \"%s\", which is not a unit this reads" % declared,
 		}
 	var wanted := _key(asked)
@@ -239,13 +296,15 @@ static func units_for(declared: String, asked: String = "") -> Dictionary:
 		return {
 			"name": String(UNIT_WORDS.get(wanted, asked.strip_edges())),
 			"factor": float(LINEAR_UNITS[wanted]),
-			"source": "what was asked for", "reason": "",
+			"source": "what was asked for",
+			"reason": "",
 		}
 	return {
-		"name": "", "factor": 0.0, "source": "",
+		"name": "",
+		"factor": 0.0,
+		"source": "",
 		"reason": "the file does not say whether it is in metres or feet, so it has to be asked about",
 	}
-
 
 # --- walking the document -------------------------------------------------------------
 
@@ -258,19 +317,29 @@ static func units_for(declared: String, asked: String = "") -> Dictionary:
 ## `Alignment`, and a stack is the cheapest way to know that.
 static func _walk(parser: XMLParser) -> Dictionary:
 	var found := {
-		"ok": true, "reason": "", "is_landxml": false, "declared_unit": "",
-		"shapes": [] as Array[Dictionary], "counts": {}, "skipped": {},
-		"cg_points": 0, "refs": 0, "curves": 0, "broken": 0, "too_many": 0,
-		"bad_refs": 0, "bad_points": 0,
+		"ok": true,
+		"reason": "",
+		"is_landxml": false,
+		"declared_unit": "",
+		"shapes": [] as Array[Dictionary],
+		"counts": { },
+		"skipped": { },
+		"cg_points": 0,
+		"refs": 0,
+		"curves": 0,
+		"broken": 0,
+		"too_many": 0,
+		"bad_refs": 0,
+		"bad_points": 0,
 	}
 	var state := {
 		"found": found,
 		"stack": [] as Array[String],
 		"skip_depth": -1,
-		"feature": {} as Dictionary,
-		"coord": {} as Dictionary,
-		"segment": {} as Dictionary,
-		"cg_points": {} as Dictionary,
+		"feature": { } as Dictionary,
+		"coord": { } as Dictionary,
+		"segment": { } as Dictionary,
+		"cg_points": { } as Dictionary,
 		"point_name": "",
 	}
 	while true:
@@ -349,7 +418,7 @@ static func _open_element(element: String, parser: XMLParser, state: Dictionary)
 		}
 		return
 	if element == "CoordGeom":
-		state["coord"] = {"segments": [] as Array[Dictionary], "owner": (state["feature"] as Dictionary).duplicate()}
+		state["coord"] = { "segments": [] as Array[Dictionary], "owner": (state["feature"] as Dictionary).duplicate() }
 		return
 	if depth < 2:
 		return
@@ -378,8 +447,12 @@ static func _open_element(element: String, parser: XMLParser, state: Dictionary)
 	# straight through it.
 	if SEGMENTS.has(element):
 		var segment := {
-			"kind": element.to_lower(), "rot": parser.get_named_attribute_value_safe("rot"),
-			"start": null, "center": null, "end": null, "list": PackedVector2Array(),
+			"kind": element.to_lower(),
+			"rot": parser.get_named_attribute_value_safe("rot"),
+			"start": null,
+			"center": null,
+			"end": null,
+			"list": PackedVector2Array(),
 		}
 		if element == "Curve":
 			state["found"]["curves"] = int(state["found"]["curves"]) + 1
@@ -395,7 +468,7 @@ static func _open_element(element: String, parser: XMLParser, state: Dictionary)
 ## Not called `break`: that is a reserved word in GDScript.
 static func _break_line(state: Dictionary, element: String) -> void:
 	var coord: Dictionary = state["coord"]
-	(coord["segments"] as Array).append({"kind": "break"})
+	(coord["segments"] as Array).append({ "kind": "break" })
 	state["found"]["broken"] = int(state["found"]["broken"]) + 1
 	_bump(state["found"]["skipped"], "a %s in a line, which broke it there" % element)
 
@@ -408,15 +481,15 @@ static func _close_element(element: String, state: Dictionary) -> void:
 		state["point_name"] = ""
 		return
 	if SEGMENTS.has(element):
-		state["segment"] = {}
+		state["segment"] = { }
 		return
 	if element != "CoordGeom":
 		if FEATURES.has(element):
-			state["feature"] = {}
+			state["feature"] = { }
 		return
 	var coord: Dictionary = state["coord"]
-	state["coord"] = {}
-	var owner: Dictionary = coord.get("owner", {})
+	state["coord"] = { }
+	var owner: Dictionary = coord.get("owner", { })
 	var segments: Array = coord.get("segments", [])
 	if owner.is_empty():
 		_bump(state["found"]["skipped"], "a line that is not inside a parcel, an alignment or a plan feature")
@@ -466,7 +539,6 @@ static func _text(words: String, state: Dictionary) -> void:
 	elif holder == "End":
 		segment["end"] = point_from_text(trimmed)
 
-
 # --- points and segments --------------------------------------------------------------
 
 
@@ -513,7 +585,10 @@ static func _numbers(words: String) -> PackedFloat64Array:
 ## person selects, and its curves are the bulges on it. A `break` ends the shape there and the rest
 ## begins another, which is how a spiral leaves the line it interrupted.
 static func _assemble(
-	segments: Array, cg_points: Dictionary, owner: Dictionary, found: Dictionary
+	segments: Array,
+	cg_points: Dictionary,
+	owner: Dictionary,
+	found: Dictionary,
 ) -> Array[Dictionary]:
 	var made: Array[Dictionary] = []
 	var points := PackedVector2Array()
@@ -602,9 +677,7 @@ static func _along(points: PackedVector2Array, bulges: PackedFloat64Array, point
 ## Come to `point` from the point already there, turning by `bulge` on the way. The bulge belongs to
 ## the segment, and a segment belongs to the point it leaves, so it is written onto the point already
 ## in the shape rather than onto the one being added.
-static func _turn_to(
-	points: PackedVector2Array, bulges: PackedFloat64Array, point: Vector2, bulge: float
-) -> void:
+static func _turn_to(points: PackedVector2Array, bulges: PackedFloat64Array, point: Vector2, bulge: float) -> void:
 	if points.is_empty():
 		_along(points, bulges, point)
 		return
@@ -617,7 +690,10 @@ static func _turn_to(
 
 ## A finished run of segments as a shape in the table, or nothing when there is not a shape in it.
 static func _add(
-	made: Array[Dictionary], points: PackedVector2Array, bulges: PackedFloat64Array, owner: Dictionary
+	made: Array[Dictionary],
+	points: PackedVector2Array,
+	bulges: PackedFloat64Array,
+	owner: Dictionary,
 ) -> void:
 	if points.size() < 2:
 		# A run of one point is not a line: nothing is dropped in silence, so it is the caller's
@@ -630,17 +706,26 @@ static func _add(
 		# is where it closes, not a corner, and its bulge entry goes with it.
 		points.remove_at(points.size() - 1)
 		bulges.remove_at(bulges.size() - 1)
-	made.append({
-		"kind": "LWPOLYLINE", "layer": row["layer"], "feature": String(row["kind"]),
-		"name": String(owner.get("name", "")),
-		"points": points, "bulges": bulges, "closed": closed,
-		"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0, "reason": "",
-	})
+	made.append(
+		{
+			"kind": "LWPOLYLINE",
+			"layer": row["layer"],
+			"feature": String(row["kind"]),
+			"name": String(owner.get("name", "")),
+			"points": points,
+			"bulges": bulges,
+			"closed": closed,
+			"words": "",
+			"height": 0.0,
+			"arc": Vector2.ZERO,
+			"radius": 0.0,
+			"reason": "",
+		}
+	)
 
 
 static func _bump(bucket: Dictionary, key: String) -> void:
 	bucket[key] = int(bucket.get(key, 0)) + 1
-
 
 # --- what the geometry becomes --------------------------------------------------------
 
@@ -667,13 +752,21 @@ static func _finish(plan: Dictionary) -> void:
 		for bulge: float in (entry["bulges"] as PackedFloat64Array):
 			# The reflection reverses handedness, so a bulge that turned left now turns right.
 			bulges.append(-bulge)
-		var layer: StringName = (LayerSetScript.UNDERLAY if bool(plan["underlay"])
+		var layer: StringName = (LayerSetScript.UNDERLAY
+			if bool(plan["underlay"])
 			else entry["layer"])
 		var shape: Dictionary = {
-			"kind": String(entry["kind"]), "layer": layer,
-			"feature": String(entry["feature"]), "name": String(entry.get("name", "")),
-			"points": points, "bulges": bulges, "closed": bool(entry["closed"]),
-			"words": "", "height": 0.0, "arc": Vector2.ZERO, "radius": 0.0,
+			"kind": String(entry["kind"]),
+			"layer": layer,
+			"feature": String(entry["feature"]),
+			"name": String(entry.get("name", "")),
+			"points": points,
+			"bulges": bulges,
+			"closed": bool(entry["closed"]),
+			"words": "",
+			"height": 0.0,
+			"arc": Vector2.ZERO,
+			"radius": 0.0,
 		}
 		shapes.append(shape)
 		if not layers.has(String(layer)):
@@ -683,25 +776,38 @@ static func _finish(plan: Dictionary) -> void:
 	var warnings: Array[String] = plan["warnings"]
 	if int(plan["bad_refs"]) > 0:
 		warnings.append(
-			"%d line(s) point at a CgPoint the file does not hold, and were left out"
-			% int(plan["bad_refs"])
+			"%d line(s) point at a CgPoint the file does not hold, and were left out" % int(plan["bad_refs"])
 		)
 	if int(plan["too_many"]) > 0:
-		warnings.append(
-			"! %d more shape(s) than one import draws were left out" % int(plan["too_many"])
-		)
+		warnings.append("! %d more shape(s) than one import draws were left out" % int(plan["too_many"]))
 
 
 static func refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "source": "", "units": "", "unit_factor": 0.0,
-		"units_from": "", "declared_unit": "", "underlay": true, "points": false,
-		"offset": Vector2.ZERO, "rotation": 0.0,
-		"shapes": [] as Array[Dictionary], "counts": {}, "skipped": {},
-		"layers": [] as Array[String], "cg_points": 0, "refs": 0, "curves": 0, "broken": 0,
-		"too_many": 0, "bad_refs": 0, "bad_points": 0, "warnings": [] as Array[String],
+		"ok": false,
+		"reason": reason,
+		"source": "",
+		"units": "",
+		"unit_factor": 0.0,
+		"units_from": "",
+		"declared_unit": "",
+		"underlay": true,
+		"points": false,
+		"offset": Vector2.ZERO,
+		"rotation": 0.0,
+		"shapes": [] as Array[Dictionary],
+		"counts": { },
+		"skipped": { },
+		"layers": [] as Array[String],
+		"cg_points": 0,
+		"refs": 0,
+		"curves": 0,
+		"broken": 0,
+		"too_many": 0,
+		"bad_refs": 0,
+		"bad_points": 0,
+		"warnings": [] as Array[String],
 	}
-
 
 # --- saying what was read -------------------------------------------------------------
 
@@ -711,9 +817,7 @@ static func describe(plan: Dictionary) -> String:
 	if not bool(plan.get("ok", false)):
 		return String(plan.get("reason", "the file could not be read"))
 	var shapes: Array = plan.get("shapes", [])
-	var words := "%d shape%s in %s" % [
-		shapes.size(), "" if shapes.size() == 1 else "s", String(plan["units"])
-	]
+	var words := "%d shape%s in %s" % [shapes.size(), "" if shapes.size() == 1 else "s", String(plan["units"])]
 	if String(plan["units_from"]) == "what was asked for":
 		words += ", because the file does not say"
 	return words
@@ -731,17 +835,19 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 	if not bool(plan.get("ok", false)):
 		lines.append(String(plan.get("reason", "the file could not be read")))
 		return lines
-	lines.append("%s, read as %s (x%s)" % [
-		describe(plan), String(plan["units_from"]), String.num(float(plan["unit_factor"]), 6)
-	])
+	lines.append(
+		"%s, read as %s (x%s)" % [describe(plan), String(plan["units_from"]), String.num(float(plan["unit_factor"]), 6)]
+	)
 	if int(plan["cg_points"]) > 0:
-		lines.append("the file's point database holds %d point%s, %d of them used by a line" % [
-			int(plan["cg_points"]), "" if int(plan["cg_points"]) == 1 else "s", int(plan["refs"]),
-		])
+		lines.append(
+			"the file's point database holds %d point%s, %d of them used by a line"
+			% [int(plan["cg_points"]), "" if int(plan["cg_points"]) == 1 else "s", int(plan["refs"])]
+		)
 	if int(plan["curves"]) > 0:
-		lines.append("%d curve%s read, as the bulge on the line they are part of" % [
-			int(plan["curves"]), "" if int(plan["curves"]) == 1 else "s",
-		])
+		lines.append(
+			"%d curve%s read, as the bulge on the line they are part of"
+			% [int(plan["curves"]), "" if int(plan["curves"]) == 1 else "s"]
+		)
 	var counts: Dictionary = plan["counts"]
 	if counts.is_empty():
 		lines.append("there is nothing in it that this draws")
@@ -761,17 +867,21 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 			left.append("%s x%d" % [String(reason), int(skipped[reason])])
 		lines.append("not drawn: " + ", ".join(left))
 	# Where each kind's geometry went, which is the thing a person cannot see from the drawing.
-	var where := {}
+	var where := { }
 	for shape: Dictionary in (plan["shapes"] as Array):
 		where[String(shape["feature"])] = String(shape["layer"])
 	var names: Array = where.keys()
 	names.sort()
 	for feature: Variant in names:
 		lines.append("  %s -> %s" % [String(feature), String(where[feature])])
-	lines.append("placed at the origin, at scale" if Vector2(plan["offset"]) == Vector2.ZERO
-		else "placed %.2f m east and %.2f m north of the origin" % [
-			Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y
-		])
+	lines.append(
+		(
+			"placed at the origin, at scale"
+			if Vector2(plan["offset"]) == Vector2.ZERO
+			else "placed %.2f m east and %.2f m north of the origin"
+			% [Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y]
+		)
+	)
 	if not is_zero_approx(float(plan["rotation"])):
 		lines.append("turned %.1f degrees" % float(plan["rotation"]))
 	for words: String in (plan["warnings"] as Array):

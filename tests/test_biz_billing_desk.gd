@@ -42,7 +42,7 @@ func _line(code: StringName, units_milli: int, cost_cents: int, price_cents: int
 ## quarter of it is a round $3,000.00.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new(JOB)
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	estimate.lines.append(_line(&"HARDSCAPE", 10000, 70000, 100000))
 	estimate.lines.append(_line(&"PLANTING", 10000, 15000, 20000))
 	return estimate
@@ -72,7 +72,6 @@ func _full_schedule(ledger: LedgerScript) -> void:
 	ledger.add_milestone(JOB, "Deposit", 250000)
 	ledger.add_milestone(JOB, "Balance", 750000)
 
-
 # --- starting to bill ---------------------------------------------------------------------------
 
 
@@ -83,10 +82,11 @@ func test_a_job_nobody_has_started_billing_has_no_schedule() -> void:
 	assert(ledger.billing_for(JOB) == null, "no schedule is invented by being read")
 	assert(ledger.has_billing(JOB) == false)
 	assert(ledger.amount_due(JOB)["ok"] == false)
-	assert(String(ledger.amount_due(JOB)["reason"]) == "this job is not being billed yet",
-		String(ledger.amount_due(JOB)["reason"]))
-	assert(ledger.amount_due(JOB)["amount"].is_valid() == false,
-		"an amount nobody can work out is not a zero")
+	assert(
+		String(ledger.amount_due(JOB)["reason"]) == "this job is not being billed yet",
+		String(ledger.amount_due(JOB)["reason"]),
+	)
+	assert(ledger.amount_due(JOB)["amount"].is_valid() == false, "an amount nobody can work out is not a zero")
 
 
 func test_starting_billing_takes_the_method_the_contract_agreed_to() -> void:
@@ -108,8 +108,10 @@ func test_one_job_has_one_schedule() -> void:
 func test_a_job_the_desk_does_not_have_cannot_be_billed() -> void:
 	var ledger := _ledger()
 	assert(ledger.start_billing("NOPE") == null)
-	assert(ledger.contract_sum_of("NOPE").is_valid() == false,
-		"a contract sum invented for a job nobody has would be an invoice out of nothing")
+	assert(
+		ledger.contract_sum_of("NOPE").is_valid() == false,
+		"a contract sum invented for a job nobody has would be an invoice out of nothing",
+	)
 	var refused: Dictionary = ledger.raise_invoice("NOPE", AT)
 	assert(refused["ok"] == false)
 	assert(String(refused["reason"]) == "there is no job NOPE on the desk", String(refused["reason"]))
@@ -126,8 +128,10 @@ func test_a_job_with_no_schedule_is_refused_and_says_so() -> void:
 
 func test_the_contract_sum_is_the_jobs_own_and_not_an_invoices() -> void:
 	var ledger := _ledger()
-	assert(ledger.contract_sum_of(JOB).format_with_currency() == "$12,000.00",
-		ledger.contract_sum_of(JOB).format_with_currency())
+	assert(
+		ledger.contract_sum_of(JOB).format_with_currency() == "$12,000.00",
+		ledger.contract_sum_of(JOB).format_with_currency(),
+	)
 	assert(ledger.currency_of(JOB) == &"CAD")
 
 
@@ -137,7 +141,6 @@ func test_the_desk_says_nothing_has_been_billed_until_something_has() -> void:
 	assert(ledger.billing_count() == 0)
 	assert(ledger.invoices.is_empty())
 
-
 # --- the schedule of steps ----------------------------------------------------------------------
 
 
@@ -146,8 +149,10 @@ func test_a_share_of_the_contract_is_a_step_and_the_schedule_bills_the_next_one(
 	_full_schedule(ledger)
 	var asked: Dictionary = ledger.amount_due(JOB)
 	assert(asked["ok"] == true, String(asked["reason"]))
-	assert((asked["amount"] as MoneyScript).format_with_currency() == "$3,000.00",
-		(asked["amount"] as MoneyScript).format_with_currency())
+	assert(
+		(asked["amount"] as MoneyScript).format_with_currency() == "$3,000.00",
+		(asked["amount"] as MoneyScript).format_with_currency(),
+	)
 	assert(String(asked["milestone"]) == "Deposit")
 	assert(ledger.billable_step(JOB) == "Deposit")
 	assert(ledger.amount_due_text(JOB).contains("$3,000.00"), ledger.amount_due_text(JOB))
@@ -163,8 +168,10 @@ func test_a_steps_row_reads_as_the_row_a_schedule_shows() -> void:
 	assert(String(rows[0]["amount_text"]) == "$3,000.00", String(rows[0]["amount_text"]))
 	assert(String(rows[0]["state"]) == "pending")
 	assert(String(rows[0]["trigger_name"]) == "on a date")
-	assert((rows[0]["retainage"] as MoneyScript).format_with_currency() == "$300.00",
-		"the retainage is a share of the step")
+	assert(
+		(rows[0]["retainage"] as MoneyScript).format_with_currency() == "$300.00",
+		"the retainage is a share of the step",
+	)
 	assert(String(rows[0]["describe"]).contains("25% of the contract"), String(rows[0]["describe"]))
 
 
@@ -180,8 +187,10 @@ func test_a_second_step_with_one_name_is_two_answers_to_one_question() -> void:
 func test_a_share_of_nothing_or_of_more_than_the_whole_is_not_a_step() -> void:
 	var ledger := _ledger()
 	assert(ledger.add_milestone(JOB, "Free", 0)["ok"] == false, "a step of 0% bills nothing")
-	assert(ledger.add_milestone(JOB, "Everything and more", 1200000)["ok"] == false,
-		"a step of 120% is a contract mis-written")
+	assert(
+		ledger.add_milestone(JOB, "Everything and more", 1200000)["ok"] == false,
+		"a step of 120% is a contract mis-written",
+	)
 	assert(ledger.milestone_rows(JOB).is_empty())
 
 
@@ -207,7 +216,6 @@ func test_a_step_on_a_job_with_no_schedule_is_refused() -> void:
 	assert(ledger.set_retainage_rate(JOB, 100000) == false)
 	assert(ledger.set_percent_complete(JOB, 500000, BillingScript.BY_COST_INCURRED) == false)
 
-
 # --- raising an invoice -------------------------------------------------------------------------
 
 
@@ -222,13 +230,14 @@ func test_an_invoice_is_written_numbered_issued_and_points_at_the_job() -> void:
 	assert(invoice.issued_at == AT)
 	assert(invoice.due_at == DUE, invoice.due_at)
 	assert(invoice.state() == InvoiceScript.ISSUED)
-	assert(invoice.subtotal().format_with_currency() == "$3,000.00",
-		invoice.subtotal().format_with_currency())
+	assert(invoice.subtotal().format_with_currency() == "$3,000.00", invoice.subtotal().format_with_currency())
 	assert(invoice.job == "Smith, back garden", "a document names the job a person knows: " + invoice.job)
 	assert(ledger.job_id_of_invoice(invoice) == JOB, "and the desk still finds it by that name")
 	assert(String(invoice.customer.get("name", "")) == "Smith, back garden")
-	assert(String(invoice.site.get("name", "")).is_empty(),
-		"the name is not said twice: the document's own reference already reads as it")
+	assert(
+		String(invoice.site.get("name", "")).is_empty(),
+		"the name is not said twice: the document's own reference already reads as it",
+	)
 	assert(ledger.invoices.size() == 1)
 	assert(ledger.invoice_for(invoice.id) == invoice)
 	assert(ledger.invoice_by_number("INV-2026-0001") == invoice)
@@ -246,37 +255,49 @@ func test_the_line_says_what_the_document_is_for() -> void:
 func test_a_fixed_job_bills_the_contract_and_the_line_says_so() -> void:
 	var ledger := _ledger(JobScript.FIXED)
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
-	assert(invoice.subtotal().format_with_currency() == "$12,000.00",
-		invoice.subtotal().format_with_currency())
+	assert(invoice.subtotal().format_with_currency() == "$12,000.00", invoice.subtotal().format_with_currency())
 	assert(int(invoice.line(0)["kind"]) == InvoiceScript.FIXED_LINE)
 	assert(String(invoice.line(0)["description"]) == "the contract")
 	var after: Dictionary = ledger.amount_due(JOB)
-	assert(after["ok"] == true && (after["amount"] as MoneyScript).is_zero(),
-		"the whole of the contract has been billed")
+	assert(
+		after["ok"] == true && (after["amount"] as MoneyScript).is_zero(),
+		"the whole of the contract has been billed",
+	)
 
 
 func test_a_period_job_bills_the_period_it_worked() -> void:
 	var ledger := _ledger(JobScript.TIME_AND_MATERIALS)
 	ledger.set_markup(JOB, 150000)
-	var raised: Dictionary = ledger.raise_invoice(JOB, AT, "", "2026-06-01", "2026-06-15", &"NONE", &"",
-		MoneyScript.of(100000), MoneyScript.of(50000))
+	var raised: Dictionary = ledger.raise_invoice(
+		JOB,
+		AT,
+		"",
+		"2026-06-01",
+		"2026-06-15",
+		&"NONE",
+		&"",
+		MoneyScript.of(100000),
+		MoneyScript.of(50000),
+	)
 	assert(raised["ok"] == true, String(raised["reason"]))
 	var invoice: InvoiceScript = raised["invoice"]
-	assert(invoice.subtotal().format_with_currency() == "$1,575.00",
-		invoice.subtotal().format_with_currency())
+	assert(invoice.subtotal().format_with_currency() == "$1,575.00", invoice.subtotal().format_with_currency())
 	assert(int(invoice.line(0)["kind"]) == InvoiceScript.PERIOD_LINE)
-	assert(String(invoice.line(0)["description"]) == "work from 2026-06-01 to 2026-06-15",
-		String(invoice.line(0)["description"]))
+	assert(
+		String(invoice.line(0)["description"]) == "work from 2026-06-01 to 2026-06-15",
+		String(invoice.line(0)["description"]),
+	)
 
 
 func test_a_cost_plus_job_bills_the_cost_and_the_fee() -> void:
 	var ledger := _ledger(JobScript.COST_PLUS)
 	ledger.set_fee(JOB, 150000)
-	var raised: Dictionary = ledger.raise_invoice(JOB, AT, "", "", "", &"NONE", &"",
-		MoneyScript.of(100000))
+	var raised: Dictionary = ledger.raise_invoice(JOB, AT, "", "", "", &"NONE", &"", MoneyScript.of(100000))
 	assert(raised["ok"] == true, String(raised["reason"]))
-	assert((raised["invoice"] as InvoiceScript).subtotal().format_with_currency() == "$1,150.00",
-		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency())
+	assert(
+		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency() == "$1,150.00",
+		(raised["invoice"] as InvoiceScript).subtotal().format_with_currency(),
+	)
 
 
 func test_the_tax_a_page_charges_is_the_code_own() -> void:
@@ -304,8 +325,7 @@ func test_nothing_left_to_bill_is_refused_with_the_schedules_own_reason() -> voi
 	var refused: Dictionary = ledger.raise_invoice(JOB, AT)
 	assert(refused["ok"] == false)
 	assert(String(refused["reason"]).contains("nothing to bill"), String(refused["reason"]))
-	assert(String(refused["reason"]).contains("every step of this schedule has been billed"),
-		String(refused["reason"]))
+	assert(String(refused["reason"]).contains("every step of this schedule has been billed"), String(refused["reason"]))
 	assert(ledger.invoices.size() == 1)
 
 
@@ -315,8 +335,11 @@ func test_a_step_that_has_already_gone_out_is_refused_by_name() -> void:
 	assert(ledger.raise_invoice(JOB, AT)["ok"] == true)
 	var refused: Dictionary = ledger.raise_invoice(JOB, AT, "Deposit")
 	assert(refused["ok"] == false)
-	assert(String(refused["reason"]).contains("'Deposit' was billed on") ||
-		String(refused["reason"]).contains("nothing to bill"), String(refused["reason"]))
+	assert(
+		String(refused["reason"]).contains("'Deposit' was billed on")
+		|| String(refused["reason"]).contains("nothing to bill"),
+		String(refused["reason"]),
+	)
 
 
 func test_a_step_the_schedule_does_not_have_is_refused_by_name() -> void:
@@ -326,7 +349,6 @@ func test_a_step_the_schedule_does_not_have_is_refused_by_name() -> void:
 	assert(refused["ok"] == false)
 	assert(String(refused["reason"]).contains("no step called 'Final'"), String(refused["reason"]))
 
-
 # --- the percentage the whole module exists for -------------------------------------------------
 
 
@@ -334,15 +356,18 @@ func test_two_billings_at_thirty_and_sixty_percent_bill_the_thirty_once() -> voi
 	var ledger := _ledger(JobScript.PERCENTAGE_COMPLETE)
 	assert(ledger.set_percent_complete(JOB, 300000, BillingScript.BY_COST_INCURRED))
 	var first: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
-	assert(first.subtotal().format_with_currency() == "$3,600.00",
-		first.subtotal().format_with_currency())
+	assert(first.subtotal().format_with_currency() == "$3,600.00", first.subtotal().format_with_currency())
 	assert(ledger.set_percent_complete(JOB, 600000, BillingScript.BY_COST_INCURRED))
 	var second: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
-	assert(second.subtotal().format_with_currency() == "$3,600.00",
-		"60% of $12,000.00 less the $3,600.00 already billed")
+	assert(
+		second.subtotal().format_with_currency() == "$3,600.00",
+		"60% of $12,000.00 less the $3,600.00 already billed",
+	)
 	assert(int(second.line(0)["kind"]) == InvoiceScript.PERCENTAGE_LINE)
-	assert(ledger.invoiced_total(JOB).format_with_currency() == "$7,200.00",
-		ledger.invoiced_total(JOB).format_with_currency())
+	assert(
+		ledger.invoiced_total(JOB).format_with_currency() == "$7,200.00",
+		ledger.invoiced_total(JOB).format_with_currency(),
+	)
 
 
 func test_a_percent_with_no_measurement_is_refused_and_says_so() -> void:
@@ -367,7 +392,6 @@ func test_the_basis_travels_with_the_number() -> void:
 	assert(ledger.amount_due_text(JOB).contains("by phase completion"), ledger.amount_due_text(JOB))
 	assert(schedule.describe().contains("50% complete by phase completion"), schedule.describe())
 
-
 # --- retainage ----------------------------------------------------------------------------------
 
 
@@ -378,8 +402,10 @@ func test_retainage_is_withheld_per_step_and_ridden_on_the_invoice() -> void:
 	assert(invoice.retainage.format_with_currency() == "$300.00", invoice.retainage.format_with_currency())
 	assert(invoice.total().format_with_currency() == "$2,700.00", invoice.total().format_with_currency())
 	assert(invoice.balance().format_with_currency() == "$2,700.00")
-	assert(ledger.retained_total(JOB).format_with_currency() == "$300.00",
-		ledger.retained_total(JOB).format_with_currency())
+	assert(
+		ledger.retained_total(JOB).format_with_currency() == "$300.00",
+		ledger.retained_total(JOB).format_with_currency(),
+	)
 
 
 func test_retainage_is_released_only_by_an_explicit_act_at_closeout() -> void:
@@ -388,11 +414,15 @@ func test_retainage_is_released_only_by_an_explicit_act_at_closeout() -> void:
 	ledger.add_milestone(JOB, "Balance", 750000)
 	ledger.raise_invoice(JOB, AT)
 	assert(ledger.retained_total(JOB).format_with_currency() == "$300.00")
-	assert(ledger.release_retainage(JOB, "2026-08-01").format_with_currency() == "$300.00",
-		"the release hands back what was held")
+	assert(
+		ledger.release_retainage(JOB, "2026-08-01").format_with_currency() == "$300.00",
+		"the release hands back what was held",
+	)
 	assert(ledger.retained_total(JOB).is_zero(), "and nothing is held any more")
-	assert(ledger.release_retainage(JOB, "2026-08-02").is_zero(),
-		"a second release releases nothing and does not restamp the date")
+	assert(
+		ledger.release_retainage(JOB, "2026-08-02").is_zero(),
+		"a second release releases nothing and does not restamp the date",
+	)
 	var schedule: BillingScript = ledger.billing_for(JOB)
 	assert(schedule.retainage_released_at == "2026-08-01", schedule.retainage_released_at)
 
@@ -404,7 +434,6 @@ func test_a_rate_nobody_has_is_refused_by_the_desk_too() -> void:
 	assert(ledger.set_markup(JOB, -1) == false)
 	assert(ledger.set_fee(JOB, -1) == false)
 
-
 # --- the money arriving -------------------------------------------------------------------------
 
 
@@ -412,8 +441,13 @@ func test_money_arrives_against_an_invoice_by_the_way_it_came() -> void:
 	var ledger := _ledger()
 	_full_schedule(ledger)
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
-	var taken: Dictionary = ledger.record_payment(invoice.id, "2026-07-01", MoneyScript.of(100000),
-		&"cheque", "chq 1041")
+	var taken: Dictionary = ledger.record_payment(
+		invoice.id,
+		"2026-07-01",
+		MoneyScript.of(100000),
+		&"cheque",
+		"chq 1041",
+	)
 	assert(taken["ok"] == true, String(taken["reason"]))
 	var payment: PaymentScript = taken["payment"]
 	assert(payment.id == "PMT-001", payment.id)
@@ -436,8 +470,10 @@ func test_a_second_payment_settles_it() -> void:
 	assert(taken["ok"] == true, String(taken["reason"]))
 	assert(invoice.state() == InvoiceScript.PAID)
 	assert(invoice.balance().is_zero())
-	assert(ledger.collected_total(JOB).format_with_currency() == "$3,000.00",
-		ledger.collected_total(JOB).format_with_currency())
+	assert(
+		ledger.collected_total(JOB).format_with_currency() == "$3,000.00",
+		ledger.collected_total(JOB).format_with_currency(),
+	)
 	assert(ledger.outstanding_total(JOB).is_zero())
 
 
@@ -466,8 +502,10 @@ func test_a_payment_of_nothing_or_by_no_method_is_refused() -> void:
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
 	assert(ledger.record_payment(invoice.id, "2026-07-01", MoneyScript.zero())["ok"] == false)
 	assert(ledger.record_payment(invoice.id, "2026-07-01", MoneyScript.of(10000), &"bitcoin")["ok"] == false)
-	assert(ledger.record_payment(invoice.id, "", MoneyScript.of(10000))["ok"] == false,
-		"a payment with no date is not a record")
+	assert(
+		ledger.record_payment(invoice.id, "", MoneyScript.of(10000))["ok"] == false,
+		"a payment with no date is not a record",
+	)
 
 
 func test_the_same_payment_cannot_be_applied_twice() -> void:
@@ -495,7 +533,6 @@ func test_a_payment_must_name_an_invoice_the_desk_has() -> void:
 	assert(String(refused["reason"]).contains("this desk does not have"), String(refused["reason"]))
 	assert(ledger.record_payment("no such invoice", "2026-07-01", MoneyScript.of(100))["ok"] == false)
 
-
 # --- calling one back ---------------------------------------------------------------------------
 
 
@@ -504,8 +541,10 @@ func test_voiding_keeps_the_number_and_takes_the_billing_off_the_schedule() -> v
 	_full_schedule(ledger)
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
 	var schedule: BillingScript = ledger.billing_for(JOB)
-	assert(schedule.billed_to_date.format_with_currency() == "$3,000.00",
-		schedule.billed_to_date.format_with_currency())
+	assert(
+		schedule.billed_to_date.format_with_currency() == "$3,000.00",
+		schedule.billed_to_date.format_with_currency(),
+	)
 	var called: Dictionary = ledger.void_invoice(invoice.id, AT, "the address was wrong")
 	assert(called["ok"] == true, String(called["reason"]))
 	assert(invoice.is_void())
@@ -514,8 +553,10 @@ func test_voiding_keeps_the_number_and_takes_the_billing_off_the_schedule() -> v
 	assert(schedule.billed_to_date.is_zero(), "the billing came back off the schedule")
 	assert(schedule.milestone("Deposit").is_billed() == false)
 	assert(ledger.billable_step(JOB) == "Deposit", "so the step can be billed again")
-	assert(ledger.next_invoice_number(AT) == "INV-2026-0002",
-		"the voided number is taken and is never handed out again")
+	assert(
+		ledger.next_invoice_number(AT) == "INV-2026-0002",
+		"the voided number is taken and is never handed out again",
+	)
 	assert(ledger.retained_total(JOB).is_zero())
 
 
@@ -538,8 +579,10 @@ func test_a_void_says_when_and_why() -> void:
 	_full_schedule(ledger)
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
 	assert(ledger.void_invoice(invoice.id, AT, "")["ok"] == false, "a void with no reason says nothing")
-	assert(ledger.void_invoice(invoice.id, "yesterday", "a reason")["ok"] == false,
-		"and a void on a day that is not a day says nothing either")
+	assert(
+		ledger.void_invoice(invoice.id, "yesterday", "a reason")["ok"] == false,
+		"and a void on a day that is not a day says nothing either",
+	)
 	assert(invoice.is_void() == false, "neither of them went through")
 
 
@@ -576,7 +619,6 @@ func test_a_call_back_that_would_empty_the_schedule_is_refused() -> void:
 	assert(String(refused["reason"]).contains("cannot be called back"), String(refused["reason"]))
 	assert(invoice.is_void() == false, "and nothing was changed")
 
-
 # --- numbering ----------------------------------------------------------------------------------
 
 
@@ -584,8 +626,10 @@ func test_a_number_is_a_fiscal_year_and_a_sequence_and_the_year_is_the_businesss
 	var ledger := _ledger()
 	assert(ledger.next_invoice_number(AT) == "INV-2026-0001", ledger.next_invoice_number(AT))
 	ledger.fiscal_start_month = 4
-	assert(ledger.next_invoice_number("2026-03-15") == "INV-2025-0001",
-		"a fiscal year that starts in April puts March in the year before")
+	assert(
+		ledger.next_invoice_number("2026-03-15") == "INV-2025-0001",
+		"a fiscal year that starts in April puts March in the year before",
+	)
 	assert(ledger.next_invoice_number("2026-04-15") == "INV-2026-0001")
 
 
@@ -595,8 +639,10 @@ func test_terms_are_the_desks_own_and_the_due_date_comes_out_of_them() -> void:
 	var invoice: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
 	assert(invoice.terms_days == 15)
 	assert(invoice.due_at == "2026-07-05", invoice.due_at)
-	assert(LedgerScript.new().terms_days == LedgerScript.DEFAULT_TERMS_DAYS,
-		"a desk states net 30 until somebody says otherwise")
+	assert(
+		LedgerScript.new().terms_days == LedgerScript.DEFAULT_TERMS_DAYS,
+		"a desk states net 30 until somebody says otherwise",
+	)
 
 
 func test_two_invoices_are_numbered_apart() -> void:
@@ -606,9 +652,10 @@ func test_two_invoices_are_numbered_apart() -> void:
 	var second: InvoiceScript = ledger.raise_invoice(JOB, AT)["invoice"]
 	assert(first.number == "INV-2026-0001")
 	assert(second.number == "INV-2026-0002", second.number)
-	assert(second.subtotal().format_with_currency() == "$9,000.00",
-		"the balance step is three quarters of the contract")
-
+	assert(
+		second.subtotal().format_with_currency() == "$9,000.00",
+		"the balance step is three quarters of the contract",
+	)
 
 # --- what the desk says -------------------------------------------------------------------------
 
@@ -689,7 +736,6 @@ func test_the_desk_summary_reads_the_schedule_and_the_contract() -> void:
 	assert(line.contains("$12,000.00"), line)
 	assert(ledger.summary_text("NOPE") == "no job chosen")
 
-
 # --- the page -----------------------------------------------------------------------------------
 
 
@@ -729,7 +775,6 @@ func test_the_page_holds_the_invoices_own_figures() -> void:
 	assert(String(header["name"]) == "", "no letterhead was stated")
 	assert(String(header["number_text"]) == "INV-2026-0001", String(header["number_text"]))
 
-
 # --- the file -----------------------------------------------------------------------------------
 
 
@@ -765,11 +810,11 @@ func test_a_damaged_document_is_dropped_and_the_rest_of_the_ledger_reads() -> vo
 	_full_schedule(ledger)
 	ledger.raise_invoice(JOB, AT)
 	var data: Dictionary = ledger.to_dict()
-	(data["invoices"] as Array).append({"number": "INV-2026-0009"})
+	(data["invoices"] as Array).append({ "number": "INV-2026-0009" })
 	(data["invoices"] as Array).append("not a document at all")
 	var read: LedgerScript = LedgerScript.from_dict(data)
 	assert(read.invoices.size() == 1, "a record with no id is dropped rather than invented")
-	var empty: LedgerScript = LedgerScript.from_dict({})
+	var empty: LedgerScript = LedgerScript.from_dict({ })
 	assert(empty.invoices.is_empty())
 	assert(empty.billing_count() == 0)
 	assert(empty.terms_days == LedgerScript.DEFAULT_TERMS_DAYS)
@@ -834,7 +879,6 @@ func _forget_logos() -> void:
 		if path.get_file().begins_with(LOGO_PREFIX):
 			DirAccess.remove_absolute(path)
 
-
 # --- the letterhead's picture --------------------------------------------------------------------
 
 
@@ -873,7 +917,7 @@ func test_the_logo_survives_the_file() -> void:
 	assert(not ledger.logo.is_empty())
 	var read: LedgerScript = LedgerScript.from_dict(ledger.to_dict(), jobs)
 	assert(read.logo == ledger.logo, read.logo)
-	assert(LedgerScript.from_dict({}).logo == "", "a ledger from before logos has none")
+	assert(LedgerScript.from_dict({ }).logo == "", "a ledger from before logos has none")
 	_forget_logos()
 
 

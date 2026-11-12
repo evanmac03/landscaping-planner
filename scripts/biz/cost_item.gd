@@ -79,11 +79,9 @@ static func make(
 	item_unit: StringName,
 	rate_cents: int,
 	item_kind: int = MATERIAL,
-	currency: StringName = &"CAD"
+	currency: StringName = &"CAD",
 ) -> CostItem:
-	var item: CostItem = (load("res://scripts/biz/cost_item.gd") as GDScript).new(
-		item_id, item_name, item_unit
-	)
+	var item: CostItem = (load("res://scripts/biz/cost_item.gd") as GDScript).new(item_id, item_name, item_unit)
 	item.kind = item_kind
 	item.rate = MoneyScript.of(rate_cents, currency)
 	return item
@@ -106,9 +104,7 @@ func problem() -> String:
 	if rate == null or not rate.is_valid():
 		return "cost item %s has no readable rate" % id
 	if waste_ppm < 0 or waste_ppm > MAX_WASTE_PPM:
-		return "cost item %s carries %d ppm of waste, which is outside 0..%d" % [
-			id, waste_ppm, MAX_WASTE_PPM
-		]
+		return "cost item %s carries %d ppm of waste, which is outside 0..%d" % [id, waste_ppm, MAX_WASTE_PPM]
 	return ""
 
 

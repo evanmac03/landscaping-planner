@@ -29,8 +29,7 @@ func _controller() -> DraftController:
 
 func test_the_page_builds_a_switch_for_everything_it_can_set() -> void:
 	var page := _page()
-	for control_name: String in ["SnapToggle", "Ortho", "Polar", "PolarStep", "GridSnap", "GridStep",
-			"Close", "Status"]:
+	for control_name: String in ["SnapToggle", "Ortho", "Polar", "PolarStep", "GridSnap", "GridStep", "Close", "Status"]:
 		assert(page.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	# One checkbox per object snap, named after the engine's own label for it.
 	for mode: int in WindowScript.mode_order():
@@ -78,7 +77,7 @@ func test_a_switch_writes_through_to_the_controller() -> void:
 	# the other page tests follow.
 	assert(
 		page.grid_step_field().value_changed.is_connected(page._on_grid_step_changed),
-		"the grid pitch field is wired to the page"
+		"the grid pitch field is wired to the page",
 	)
 	page._on_grid_step_changed(2.0)
 	assert(is_equal_approx(controller.grid_step(), 2.0), "a typed grid pitch reaches the drawing")
@@ -121,7 +120,10 @@ func test_a_setting_changed_elsewhere_moves_the_page() -> void:
 func test_closing_the_page_says_so() -> void:
 	var page := _page()
 	var heard: Array[bool] = []
-	page.closed.connect(func() -> void: heard.append(true))
+	page.closed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	page._on_close_requested()
 	assert(heard.size() == 1, "the close was announced once, got %d" % heard.size())
 	assert(not page.visible, "and the window is put away")

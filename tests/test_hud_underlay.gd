@@ -23,7 +23,6 @@ const UnitsScript := preload("res://scripts/draft/units.gd")
 const PREFIX := "test-"
 const SCRATCH := "user://drawings/test-hud-underlay.json"
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -56,7 +55,8 @@ func _drawn(count: int = 1) -> DraftController:
 	controller.snap.bind(controller.document.entities())
 	for index in count:
 		controller.document.add(
-			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE
+			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)),
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 	return controller
 
@@ -81,13 +81,12 @@ func _clean() -> void:
 	if FileAccess.file_exists(SCRATCH):
 		DirAccess.remove_absolute(SCRATCH)
 
-
 # --- the menu --------------------------------------------------------------------------
 
 
 func test_the_file_menu_offers_a_picture_under_the_drawing() -> void:
 	var entries: Array[Dictionary] = HudScript.file_items()
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for entry: Dictionary in entries:
 		if String(entry.get("id", "")) == "file.picture":
 			found = entry
@@ -99,7 +98,6 @@ func test_the_file_menu_offers_a_picture_under_the_drawing() -> void:
 	assert(hud.has_method("_menu_import_picture"), "and the method it names is there")
 	assert(hud.has_method("_menu_import_dxf"), "beside the three imports that read linework")
 	hud.free()
-
 
 # --- the page --------------------------------------------------------------------------
 
@@ -138,13 +136,10 @@ func test_a_picture_chosen_is_read_and_kept_before_anything_reaches_the_drawing(
 	assert(controller.underlays().is_empty(), "**and nothing is on the drawing yet**")
 	assert(hud._underlay_window.place_enabled(), "though it is ready to go on")
 	assert(hud._underlay_window.file_text() == PREFIX + "chosen", hud._underlay_window.file_text())
-	assert(
-		hud._underlay_window.report_text().contains("64 x 32 pixels"),
-		hud._underlay_window.report_text()
-	)
+	assert(hud._underlay_window.report_text().contains("64 x 32 pixels"), hud._underlay_window.report_text())
 	assert(
 		hud._underlay_window.report_text().contains("ready to go under the drawing"),
-		hud._underlay_window.report_text()
+		hud._underlay_window.report_text(),
 	)
 	assert(String(hud._underlay_window.said_text()).contains("m across"), hud._underlay_window.said_text())
 	controller.free()
@@ -168,7 +163,6 @@ func test_a_file_that_is_not_a_picture_is_shown_with_its_reason() -> void:
 	hud.free()
 	_clean()
 
-
 # --- the two acts ------------------------------------------------------------------------
 
 
@@ -180,7 +174,10 @@ func test_the_buttons_put_change_and_take_off_the_picture() -> void:
 	hud.place_the_picture()
 	assert(controller.underlays().size() == 1, "the picture is under the drawing")
 	var picture: Dictionary = controller.underlays()[0]
-	assert(is_equal_approx(float(picture["width_m"]), 4.0), "at the size the drawing suggested: %s" % str(picture["width_m"]))
+	assert(
+		is_equal_approx(float(picture["width_m"]), 4.0),
+		"at the size the drawing suggested: %s" % str(picture["width_m"]),
+	)
 	assert(hud._pending_picture.is_empty(), "and nothing is in hand any more")
 	assert(not hud._underlay_window.place_enabled(), "so the button goes off")
 	assert(hud._underlay_window.underlay_texts().size() == 2, str(hud._underlay_window.underlay_texts()))
@@ -199,7 +196,10 @@ func test_the_buttons_put_change_and_take_off_the_picture() -> void:
 	assert(String(hud._underlay_window.said_text()).contains("turned 45.0 degrees"), hud._underlay_window.said_text())
 	hud.take_the_picture_off()
 	assert(controller.underlays().is_empty(), "and off it comes")
-	assert(hud._underlay_window.underlay_texts() == [HudScript.UnderlayWindowScript.NOTHING_UNDER], str(hud._underlay_window.underlay_texts()))
+	assert(
+		hud._underlay_window.underlay_texts() == [HudScript.UnderlayWindowScript.NOTHING_UNDER],
+		str(hud._underlay_window.underlay_texts()),
+	)
 	controller.free()
 	hud.free()
 	_clean()
@@ -218,7 +218,10 @@ func test_closing_the_page_forgets_the_picture_in_hand() -> void:
 	# And a page that has been closed and filled again says nothing has been read rather than offering
 	# the picture it was showing a moment ago.
 	hud._fill_underlay_window()
-	assert(hud._underlay_window.file_text() == HudScript.UnderlayWindowScript.NO_PICTURE, hud._underlay_window.file_text())
+	assert(
+		hud._underlay_window.file_text() == HudScript.UnderlayWindowScript.NO_PICTURE,
+		hud._underlay_window.file_text(),
+	)
 	assert(not hud._underlay_window.place_enabled(), "and has nothing to lay down")
 	controller.free()
 	hud.free()
@@ -231,7 +234,10 @@ func test_the_width_reads_in_the_drawings_own_units() -> void:
 	controller.document.units.system = UnitsScript.System.IMPERIAL
 	var hud := _hud_for(controller)
 	hud._fill_underlay_window()
-	assert(hud._underlay_window._across_caption.text == "Across the ground (ft)", hud._underlay_window._across_caption.text)
+	assert(
+		hud._underlay_window._across_caption.text == "Across the ground (ft)",
+		hud._underlay_window._across_caption.text,
+	)
 	hud._on_underlay_chosen(_source("imperial"))
 	assert(hud._underlay_window.across_text() == "13.12", hud._underlay_window.across_text())
 	# Twelve feet, typed by somebody working in feet, is 3.6576 m on the drawing.
@@ -255,7 +261,7 @@ func test_a_drawing_with_nothing_on_it_still_has_a_size_to_offer() -> void:
 	hud._fill_underlay_window()
 	assert(
 		is_equal_approx(hud._picture_suggested_width(), RasterUnderlayScript.SUGGESTED_WIDTH),
-		str(hud._picture_suggested_width())
+		str(hud._picture_suggested_width()),
 	)
 	hud._on_underlay_chosen(_source("empty-sheet"))
 	assert(hud._underlay_window.place_enabled(), "and a picture can be laid at it")
@@ -264,7 +270,6 @@ func test_a_drawing_with_nothing_on_it_still_has_a_size_to_offer() -> void:
 	controller.free()
 	hud.free()
 	_clean()
-
 
 # --- the keyboard -------------------------------------------------------------------------
 

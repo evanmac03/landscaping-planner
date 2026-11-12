@@ -31,19 +31,24 @@ class Service extends BizSyncTransport:
 	var log_to_serve: Array = []
 	var cursor_to_report: int = 0
 	var received: Array = []
-	var answer: Dictionary = {}
+	var answer: Dictionary = { }
+
 
 	func name() -> String:
 		return "the demo service"
 
+
 	func is_configured() -> bool:
 		return true
+
 
 	func is_ready() -> bool:
 		return true
 
+
 	func describe() -> String:
 		return "the demo service"
+
 
 	func changes(_since: int = 0, _limit: int = 0) -> Dictionary:
 		return {
@@ -55,11 +60,12 @@ class Service extends BizSyncTransport:
 			"records": log_to_serve,
 		}
 
+
 	func push(kind: String, id: String, _job: String, _body: Dictionary, rev: int, who: String = "") -> Dictionary:
-		received.append({"kind": kind, "id": id, "rev": rev, "who": who})
+		received.append({ "kind": kind, "id": id, "rev": rev, "who": who })
 		if not answer.is_empty():
 			return answer
-		return {"ok": true, "status": 200, "retry": false, "conflict": false, "reason": "", "rev": rev + 1}
+		return { "ok": true, "status": 200, "retry": false, "conflict": false, "reason": "", "rev": rev + 1 }
 
 
 var _store: StoreScript
@@ -82,27 +88,51 @@ func _ready() -> void:
 
 	print("")
 	print("--- a morning's work done offline ---")
-	var invoice := {"number": "INV-2026-0001", "amount": {"cents": 128500, "currency": CAD}, "notes": "first draw"}
-	print("the invoice is written locally: ", _store.put("invoice", "INV-1", invoice, "J-1", -1, "evan", MAY, "raised")["ok"])
+	var invoice := { "number": "INV-2026-0001", "amount": { "cents": 128500, "currency": CAD }, "notes": "first draw" }
+	print(
+		"the invoice is written locally: ",
+		_store.put("invoice", "INV-1", invoice, "J-1", -1, "evan", MAY, "raised")["ok"],
+	)
 	_sync.use_transport(null)
-	print("queued with nowhere to send it: ", _sync.enqueue("invoice", "INV-1", "J-1", "raised the first draw", "evan", MAY)["ok"])
+	print(
+		"queued with nowhere to send it: ",
+		_sync.enqueue("invoice", "INV-1", "J-1", "raised the first draw", "evan", MAY)["ok"],
+	)
 	print(_sync.queue_text())
-	print("and a field change never blocks the next one: ", _store.put("time_entry", "T-1", {"minutes": 480}, "J-1", -1, "sam", MAY, "on the patio")["ok"])
+	print(
+		"and a field change never blocks the next one: ",
+		_store.put("time_entry", "T-1", { "minutes": 480 }, "J-1", -1, "sam", MAY, "on the patio")["ok"],
+	)
 	_sync.enqueue("time_entry", "T-1", "J-1", "the day on the patio", "sam", MAY)
 	print(_sync.queue_text())
 
 	print("")
 	print("--- the service now has the invoice, changed by somebody else ---")
 	_sync.use_transport(_service)
-	_service.log_to_serve = [{
-		"kind": "invoice", "id": "INV-1", "job": "J-1", "rev": 1,
-		"schema_version": StoreScript.SCHEMA_VERSION, "deleted": false,
-		"who": "sam", "at": LATER,
-		"body": {"number": "INV-2026-0001", "amount": {"cents": 145000, "currency": CAD}, "notes": "first draw"},
-	}]
+	_service.log_to_serve = [
+		{
+			"kind": "invoice",
+			"id": "INV-1",
+			"job": "J-1",
+			"rev": 1,
+			"schema_version": StoreScript.SCHEMA_VERSION,
+			"deleted": false,
+			"who": "sam",
+			"at": LATER,
+			"body": { "number": "INV-2026-0001", "amount": { "cents": 145000, "currency": CAD }, "notes": "first draw" },
+		}
+	]
 	_service.cursor_to_report = 41
 	var first: Dictionary = _sync.run(0, LATER)
-	print("the run read ", first["pulled"], " record(s), merged ", first["merged"], ", and settled on ", first["conflicts"], " conflict(s)")
+	print(
+		"the run read ",
+		first["pulled"],
+		" record(s), merged ",
+		first["merged"],
+		", and settled on ",
+		first["conflicts"],
+		" conflict(s)",
+	)
 	for note in (first["notes"] as Array):
 		print("  note: ", note)
 	print("the cursor is now ", _sync.cursor)
@@ -125,7 +155,13 @@ func _ready() -> void:
 	_service.log_to_serve = []
 	_service.cursor_to_report = 42
 	var second: Dictionary = _sync.run(0, LATER)
-	print("the second run pushed ", second["pushed"], " change(s) against ", _service.received.size(), " the service received")
+	print(
+		"the second run pushed ",
+		second["pushed"],
+		" change(s) against ",
+		_service.received.size(),
+		" the service received",
+	)
 	for entry in _service.received:
 		print("  ", entry)
 
@@ -141,8 +177,16 @@ func _ready() -> void:
 	print("--- the real transport, and what it would send ---")
 	var http: BizHttpTransport = HttpScript.new("https://sync.example.com/api/sync", "a-token")
 	print(http.describe())
-	print("a pull would be ", http.request_for(TransportScript.CHANGES, {"since": 0})["method"], " ", http.request_for(TransportScript.CHANGES, {"since": 0})["path"])
-	print("a push would be ", http.request_for(TransportScript.PUSH, {"kind": "invoice", "id": "INV-1", "rev": 3, "body": {}})["path"])
+	print(
+		"a pull would be ",
+		http.request_for(TransportScript.CHANGES, { "since": 0 })["method"],
+		" ",
+		http.request_for(TransportScript.CHANGES, { "since": 0 })["path"],
+	)
+	print(
+		"a push would be ",
+		http.request_for(TransportScript.PUSH, { "kind": "invoice", "id": "INV-1", "rev": 3, "body": { } })["path"],
+	)
 	print("with nowhere to reach, it answers: ", HttpScript.new("http://127.0.0.1:1", "t").health()["reason"])
 
 	print("")

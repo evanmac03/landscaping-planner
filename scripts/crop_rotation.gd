@@ -47,7 +47,6 @@ const UNKNOWN := PlantSuitabilityScript.UNKNOWN
 # Re-exported so a caller building a bed's history or a crop's neighbour writes the family the same
 # way the catalogue does, rather than reaching past this module into `PlantSpecies`.
 
-
 const FAMILY_NONE := PlantSpeciesScript.FAMILY_NONE
 const BRASSICA := PlantSpeciesScript.BRASSICA
 const NIGHTSHADE := PlantSpeciesScript.NIGHTSHADE
@@ -61,9 +60,7 @@ const HERB_FAMILY := PlantSpeciesScript.HERB_FAMILY
 
 ## The families a bed can be rotated through, in the order the catalogue names them. A person choosing
 ## "what grew here last" is choosing one of these, or leaving it unstated.
-const FAMILIES := [
-	BRASSICA, NIGHTSHADE, LEGUME, ALLIUM, ROOT_CROP, CUCURBIT, LEAFY, FRUITING, HERB_FAMILY,
-]
+const FAMILIES := [BRASSICA, NIGHTSHADE, LEGUME, ALLIUM, ROOT_CROP, CUCURBIT, LEAFY, FRUITING, HERB_FAMILY]
 
 ## The pairings that are **said to** grow well together: an unordered list, read as a symmetry so the
 ## table cannot disagree with itself about which way round a pairing goes.
@@ -91,10 +88,7 @@ const COMPANION_GOOD := [
 
 ## The pairings that should be kept apart. One entry, and it is the one worth having: an **allium**
 ## stunts a **legume**, which is the companion pairing a gardener acts on rather than repeats.
-const COMPANION_BAD := [
-	[LEGUME, ALLIUM],
-]
-
+const COMPANION_BAD := [[LEGUME, ALLIUM]]
 
 # --- the plants a pairing names -------------------------------------------------------------
 #
@@ -132,7 +126,7 @@ const COMPANION_SOURCES := {
 	&"psu": {
 		"title": "Penn State Extension, Herbs Make Good Plant Partners and Companions",
 		"note": "the mechanism, in its own words: an herb does not repel a pest, it confuses one - "
-			+ "masking the crop's smell, or drawing in the insects that eat the pest",
+		+ "masking the crop's smell, or drawing in the insects that eat the pest",
 	},
 	&"wisc": {
 		"title": "Wisconsin Horticulture, Root-Knot Nematode",
@@ -159,52 +153,51 @@ const COMPANION_SOURCES := {
 ## question, and the second would never be read.
 const COMPANION_PLANTS := [
 	{
-		"a": {"id": &"tagetes-patula"},
-		"b": {"any": true},
+		"a": { "id": &"tagetes-patula" },
+		"b": { "any": true },
 		"outcome": GOOD,
 		"nature": NATURE_KNOWN,
 		"source": [&"wisc", &"msstate"],
 		"why": "its roots give off alpha-terthienyl, which is poisonous to the root-knot nematode and "
-			+ "stops its eggs hatching - so it is given the ground for a season, as a solid bed of the "
-			+ "French marigolds, rather than set here and there among the vegetables",
+		+ "stops its eggs hatching - so it is given the ground for a season, as a solid bed of the "
+		+ "French marigolds, rather than set here and there among the vegetables",
 	},
 	{
-		"a": {"id": &"anethum-graveolens"},
-		"b": {"family": BRASSICA},
+		"a": { "id": &"anethum-graveolens" },
+		"b": { "family": BRASSICA },
 		"outcome": GOOD,
 		"nature": NATURE_KNOWN,
 		"source": &"psu",
 		"why": "dill, chamomile, hyssop and sage are recorded as putting the adult cabbageworm off "
-			+ "laying its eggs on the brassicas - the herb confuses the moth rather than poisoning it",
+		+ "laying its eggs on the brassicas - the herb confuses the moth rather than poisoning it",
 	},
 	{
-		"a": {"id": &"anethum-graveolens"},
-		"b": {"name": "Carrot"},
+		"a": { "id": &"anethum-graveolens" },
+		"b": { "name": "Carrot" },
 		"outcome": UNSUITABLE,
 		"nature": NATURE_TRADITION,
 		"source": &"ncat",
 		"why": "the chart that gathers the tradition keeps dill away from carrot, and nothing in the "
-			+ "research explains it - which is most of what a companion chart is",
+		+ "research explains it - which is most of what a companion chart is",
 	},
 	{
-		"a": {"id": &"ocimum-basilicum-genovese"},
-		"b": {"family": NIGHTSHADE},
+		"a": { "id": &"ocimum-basilicum-genovese" },
+		"b": { "family": NIGHTSHADE },
 		"outcome": GOOD,
 		"nature": NATURE_KNOWN,
 		"source": &"psu",
 		"why": "beside a tomato, basil masks the plant's own smell from the thrips that hunt it",
 	},
 	{
-		"a": {"name": "Fennel"},
-		"b": {"any": true},
+		"a": { "name": "Fennel" },
+		"b": { "any": true },
 		"outcome": UNSUITABLE,
 		"nature": NATURE_TRADITION,
 		"source": &"ncat",
 		"why": "the chart that gathers the tradition gives it as compatible with nothing, so it is grown "
-			+ "in a bed of its own - and it is the one plant a herb's family cannot speak for",
+		+ "in a bed of its own - and it is the one plant a herb's family cannot speak for",
 	},
 ]
-
 
 # --- reading the pairings ------------------------------------------------------------------
 
@@ -212,8 +205,8 @@ const COMPANION_PLANTS := [
 ## A plant as the pairings read it, so the page and the check cannot describe one plant two ways.
 static func subject_of(plant: PlantSpecies) -> Dictionary:
 	if plant == null:
-		return {}
-	var made: Dictionary = {"id": plant.id, "family": plant.family}
+		return { }
+	var made: Dictionary = { "id": plant.id, "family": plant.family }
 	made["name"] = plant.common_name
 	made["botanical"] = plant.botanical_name
 	return made
@@ -223,8 +216,8 @@ static func subject_of(plant: PlantSpecies) -> Dictionary:
 ## family of nothing, which is a plant nobody rotates rather than a family called nothing.
 static func family_subject(family: StringName) -> Dictionary:
 	if family.is_empty():
-		return {}
-	return {"family": family}
+		return { }
+	return { "family": family }
 
 
 ## Whether one side of a stated pairing is this plant. A side that names a family answers a subject with
@@ -236,7 +229,7 @@ static func _side_fits(side: Dictionary, subject: Dictionary) -> bool:
 		return false
 	if bool(side.get("any", false)):
 		return not StringName(subject.get("id", &"")).is_empty() \
-			or not String(subject.get("name", "")).strip_edges().is_empty()
+				or not String(subject.get("name", "")).strip_edges().is_empty()
 	var wanted_id: StringName = StringName(side.get("id", &""))
 	if not wanted_id.is_empty():
 		return StringName(subject.get("id", &"")) == wanted_id
@@ -256,7 +249,7 @@ static func _same_plant_name(wanted: String, subject: Dictionary) -> bool:
 	if needle.is_empty():
 		return false
 	return String(subject.get("name", "")).strip_edges().to_lower() == needle \
-		or String(subject.get("botanical", "")).strip_edges().to_lower() == needle
+			or String(subject.get("botanical", "")).strip_edges().to_lower() == needle
 
 
 ## How exactly a side states what it means: a plant by name or id (2) beats a family (1) beats "whatever
@@ -279,17 +272,17 @@ static func _family_pair(first: Dictionary, second: Dictionary) -> Dictionary:
 	var mine: StringName = StringName(first.get("family", &""))
 	var other: StringName = StringName(second.get("family", &""))
 	if mine.is_empty() or other.is_empty() or mine == other:
-		return {}
+		return { }
 	var outcome: int = UNKNOWN
 	if _has_pair(COMPANION_BAD, mine, other):
 		outcome = UNSUITABLE
 	elif _has_pair(COMPANION_GOOD, mine, other):
 		outcome = GOOD
 	else:
-		return {}
+		return { }
 	return {
-		"a": {"family": mine},
-		"b": {"family": other},
+		"a": { "family": mine },
+		"b": { "family": other },
 		"outcome": outcome,
 		"nature": NATURE_TRADITION,
 		"source": &"ncat",
@@ -310,13 +303,13 @@ static func _family_pair(first: Dictionary, second: Dictionary) -> Dictionary:
 ## encouragement. That last is the verdict's own rule, where something against the crop outranks
 ## something for it, and it is the reason a bean is told to keep away from fennel.
 static func company_pair(first: Dictionary, second: Dictionary) -> Dictionary:
-	var best: Dictionary = {}
+	var best: Dictionary = { }
 	var best_score: int = 0
 	for pair: Dictionary in COMPANION_PLANTS:
 		var a: Dictionary = pair["a"]
 		var b: Dictionary = pair["b"]
 		var fits: bool = (_side_fits(a, first) and _side_fits(b, second)) \
-			or (_side_fits(b, first) and _side_fits(a, second))
+				or (_side_fits(b, first) and _side_fits(a, second))
 		if not fits:
 			continue
 		var score: int = _pair_score(pair, first)
@@ -394,7 +387,7 @@ static func universal_pair(subject: Dictionary) -> Dictionary:
 		var b: Dictionary = pair["b"]
 		if bool(a.get("any", false)) or bool(b.get("any", false)):
 			return pair
-	return {}
+	return { }
 
 
 ## One reason as a sentence: what it is about, why, and the work it came from. Empty when there is no
@@ -424,14 +417,16 @@ static func company_names(catalogue: PlantCatalogue, subject: Dictionary) -> Arr
 		var pair: Dictionary = company_pair(subject, other)
 		if pair.is_empty() or _naming_weight(pair, other) < 2:
 			continue
-		out.append({
-			"id": plant.id,
-			"name": plant.common_name if not plant.common_name.is_empty() else plant.display_name(),
-			"outcome": int(pair.get("outcome", UNKNOWN)),
-			"nature": String(pair.get("nature", NATURE_TRADITION)),
-			"why": String(pair.get("why", "")),
-			"source": pair.get("source", ""),
-		})
+		out.append(
+			{
+				"id": plant.id,
+				"name": plant.common_name if not plant.common_name.is_empty() else plant.display_name(),
+				"outcome": int(pair.get("outcome", UNKNOWN)),
+				"nature": String(pair.get("nature", NATURE_TRADITION)),
+				"why": String(pair.get("why", "")),
+				"source": pair.get("source", ""),
+			}
+		)
 	return out
 
 
@@ -479,7 +474,9 @@ static func company_reason(catalogue: PlantCatalogue, subject: Dictionary) -> St
 	var universal: Dictionary = universal_pair(subject)
 	if not universal.is_empty():
 		var own: String = _reason_sentence(
-			"Whatever is growing there", String(universal.get("why", "")), universal.get("source", "")
+			"Whatever is growing there",
+			String(universal.get("why", "")),
+			universal.get("source", ""),
 		)
 		if int(universal.get("outcome", UNKNOWN)) == UNSUITABLE:
 			bad.append(own)
@@ -487,7 +484,9 @@ static func company_reason(catalogue: PlantCatalogue, subject: Dictionary) -> St
 			good.append(own)
 	for row: Dictionary in company_names(catalogue, subject):
 		var sentence: String = _reason_sentence(
-			"%s, in this list" % String(row["name"]), String(row["why"]), row["source"]
+			"%s, in this list" % String(row["name"]),
+			String(row["why"]),
+			row["source"],
 		)
 		if sentence.is_empty():
 			continue
@@ -508,29 +507,35 @@ static func company_reason(catalogue: PlantCatalogue, subject: Dictionary) -> St
 static func company_finding(first: Dictionary, second: Dictionary) -> Dictionary:
 	var pair: Dictionary = company_pair(first, second)
 	if pair.is_empty():
-		return {}
+		return { }
 	var mine: String = _name_of(first)
 	var other: String = _name_of(second)
 	if mine.is_empty() or other.is_empty():
-		return {}
+		return { }
 	var outcome: int = int(pair.get("outcome", UNKNOWN))
 	var found: String = "beside %s" % other
 	if outcome == UNSUITABLE:
 		return _finding(
-			"company", "company", mine, found, UNSUITABLE,
-			"%s %s beside %s %s does not grow well, and it is worth keeping them apart" % [
-				article(mine), mine, article(other), other
-			],
-			"kept from %s" % other
+			"company",
+			"company",
+			mine,
+			found,
+			UNSUITABLE,
+			"%s %s beside %s %s does not grow well, and it is worth keeping them apart"
+			% [article(mine), mine, article(other), other],
+			"kept from %s" % other,
 		)
 	if outcome == GOOD:
 		return _finding(
-			"company", "company", mine, found, GOOD,
+			"company",
+			"company",
+			mine,
+			found,
+			GOOD,
 			"%s %s and %s %s grow well together" % [article(mine), mine, article(other), other],
-			"good beside %s" % other
+			"good beside %s" % other,
 		)
-	return {}
-
+	return { }
 
 # --- the families as words ------------------------------------------------------------------
 
@@ -556,7 +561,6 @@ static func families() -> Array[StringName]:
 	for family: StringName in FAMILIES:
 		out.append(family)
 	return out
-
 
 # --- the companions of a family -------------------------------------------------------------
 
@@ -607,9 +611,9 @@ static func _list_words(words: Array) -> String:
 	if words.size() == 1:
 		return String(words[0])
 	return "%s and %s" % [
-		", ".join(PackedStringArray(words.slice(0, words.size() - 1))), String(words[words.size() - 1])
+		", ".join(PackedStringArray(words.slice(0, words.size() - 1))),
+		String(words[words.size() - 1]),
 	]
-
 
 # --- the check ----------------------------------------------------------------------------
 
@@ -629,7 +633,7 @@ static func check(
 	crop: PlantSpecies,
 	previous_family: StringName = FAMILY_NONE,
 	beside: Array = [],
-	place: String = "this spot"
+	place: String = "this spot",
 ) -> Dictionary:
 	var findings: Array[Dictionary] = []
 	if crop == null:
@@ -655,27 +659,39 @@ static func check(
 ## the crop names no family, or nobody has said what grew here before.
 static func turn_finding(crop: PlantSpecies, previous_family: StringName) -> Dictionary:
 	if crop == null or crop.family.is_empty() or previous_family.is_empty():
-		return {}
+		return { }
 	var mine: String = family_words(crop.family)
 	var before: String = family_words(previous_family)
 	var found: String = "%s last year" % before
 	if crop.family == previous_family:
 		return _finding(
-			"turn", "rotation", mine, found, UNSUITABLE,
-			"%s %s after %s %s shares the same pests and diseases, so it wants a different family here" % [
-				article(mine), mine, article(before), before
-			],
-			"same family twice"
+			"turn",
+			"rotation",
+			mine,
+			found,
+			UNSUITABLE,
+			"%s %s after %s %s shares the same pests and diseases, so it wants a different family here"
+			% [article(mine), mine, article(before), before],
+			"same family twice",
 		)
 	if previous_family == LEGUME:
 		return _finding(
-			"turn", "rotation", mine, found, GOOD,
+			"turn",
+			"rotation",
+			mine,
+			found,
+			GOOD,
 			"a legume went before it and leaves the ground richer than it found it",
-			"after a legume"
+			"after a legume",
 		)
 	return _finding(
-		"turn", "rotation", mine, found, GOOD,
-		"%s %s has not grown here, so this is a fresh start" % [article(mine), mine], "a fresh family"
+		"turn",
+		"rotation",
+		mine,
+		found,
+		GOOD,
+		"%s %s has not grown here, so this is a fresh start" % [article(mine), mine],
+		"a fresh family",
 	)
 
 
@@ -696,8 +712,13 @@ static func _has_pair(table: Array, a: StringName, b: StringName) -> bool:
 
 
 static func _finding(
-	key: String, label: String, wanted: String, found: String, outcome: int, because: String,
-	brief: String
+	key: String,
+	label: String,
+	wanted: String,
+	found: String,
+	outcome: int,
+	because: String,
+	brief: String,
 ) -> Dictionary:
 	return {
 		"key": key,
@@ -717,8 +738,11 @@ static func _worst(findings: Array[Dictionary]) -> int:
 
 
 static func _result(
-	verdict: int, findings: Array[Dictionary], crop: PlantSpecies, place: String,
-	previous_family: StringName
+	verdict: int,
+	findings: Array[Dictionary],
+	crop: PlantSpecies,
+	place: String,
+	previous_family: StringName,
 ) -> Dictionary:
 	var first: Dictionary = _first_not(findings, verdict)
 	var title: String = crop.display_name() if crop != null else "this crop"
@@ -741,15 +765,12 @@ static func _first_not(findings: Array[Dictionary], outcome: int) -> Dictionary:
 	for finding: Dictionary in findings:
 		if int(finding.get("outcome", GOOD)) == outcome:
 			return finding
-	return findings[0] if not findings.is_empty() else {}
-
+	return findings[0] if not findings.is_empty() else { }
 
 # --- saying it ----------------------------------------------------------------------------
 
 
-static func _summary(
-	verdict: int, first: Dictionary, title: String, place: String, crop: PlantSpecies
-) -> String:
+static func _summary(verdict: int, first: Dictionary, title: String, place: String, crop: PlantSpecies) -> String:
 	if first.is_empty():
 		if crop == null or crop.family.is_empty():
 			return "%s does not say which family it belongs to, so it cannot be rotated." % title
@@ -794,7 +815,6 @@ static func colour_from(result: Dictionary) -> Color:
 static func verdict_name(verdict: int) -> String:
 	return PlantSuitabilityScript.verdict_name(verdict)
 
-
 # --- what would follow in a bed -------------------------------------------------------------
 
 
@@ -805,8 +825,10 @@ static func verdict_name(verdict: int) -> String:
 ##
 ## Only edible species are listed: a question about what to grow has no row for a boxwood.
 static func rows(
-	catalogue: PlantCatalogue, previous_family: StringName = FAMILY_NONE, beside: Array = [],
-	place: String = "this spot"
+	catalogue: PlantCatalogue,
+	previous_family: StringName = FAMILY_NONE,
+	beside: Array = [],
+	place: String = "this spot",
 ) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if catalogue == null:
@@ -815,20 +837,24 @@ static func rows(
 		if not plant.is_edible():
 			continue
 		var verdict: Dictionary = check(plant, previous_family, beside, place)
-		out.append({
-			"id": plant.id,
-			"title": plant.display_name(),
-			"family": family_words(plant.family),
-			"after": family_words(previous_family),
-			"verdict": int(verdict["verdict"]),
-			"colour": verdict["colour"],
-			"summary": String(verdict["summary"]),
-			"label": String(verdict["label"]),
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["verdict"]) != int(b["verdict"]):
-			return int(a["verdict"]) < int(b["verdict"])
-		return String(a["title"]) < String(b["title"]))
+		out.append(
+			{
+				"id": plant.id,
+				"title": plant.display_name(),
+				"family": family_words(plant.family),
+				"after": family_words(previous_family),
+				"verdict": int(verdict["verdict"]),
+				"colour": verdict["colour"],
+				"summary": String(verdict["summary"]),
+				"label": String(verdict["label"]),
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a["verdict"]) != int(b["verdict"]):
+				return int(a["verdict"]) < int(b["verdict"])
+			return String(a["title"]) < String(b["title"]),
+	)
 	return out
 
 
@@ -836,8 +862,10 @@ static func rows(
 ## row's own `label` rather than a format assembled here, so the list and the summary cannot say two
 ## different things.
 static func row_texts(
-	catalogue: PlantCatalogue, previous_family: StringName = FAMILY_NONE, beside: Array = [],
-	place: String = "this spot"
+	catalogue: PlantCatalogue,
+	previous_family: StringName = FAMILY_NONE,
+	beside: Array = [],
+	place: String = "this spot",
 ) -> Array[String]:
 	var out: Array[String] = []
 	for row: Dictionary in rows(catalogue, previous_family, beside, place):
@@ -847,7 +875,7 @@ static func row_texts(
 
 ## How many crops of each verdict a bed has, for a summary line.
 static func counts(rows_list: Array) -> Dictionary:
-	var out: Dictionary = {GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0}
+	var out: Dictionary = { GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0 }
 	for row: Dictionary in rows_list:
 		var level: int = int(row.get("verdict", UNKNOWN))
 		out[level] = int(out[level]) + 1
@@ -871,6 +899,4 @@ static func describe_rows(rows_list: Array) -> String:
 	var unknown: int = int(held.get(UNKNOWN, 0))
 	if unknown > 0:
 		parts.append("%d cannot be checked" % unknown)
-	return "%d crop%s: %s." % [
-		rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)
-	]
+	return "%d crop%s: %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)]

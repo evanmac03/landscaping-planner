@@ -78,8 +78,7 @@ func _ready() -> void:
 	await _settle()
 	print("undo now says: ", _tooltip(hud, &"_undo_button"))
 	print("redo now says: ", _tooltip(hud, &"_redo_button"))
-	print("the count since the revision stands, because a count does not go backwards: \"",
-		window.since_text(), "\"")
+	print("the count since the revision stands, because a count does not go backwards: \"", window.since_text(), "\"")
 
 	print("--- a revision recorded before gestures were counted admits it does not know ---")
 	# Written straight onto the log the way a file from an older version would arrive: no `serial` field,

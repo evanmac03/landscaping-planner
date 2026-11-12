@@ -22,13 +22,14 @@ const Units := preload("res://scripts/draft/units.gd")
 
 
 func _square(centre: Vector2, half: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		centre + Vector2(-half, -half),
-		centre + Vector2(half, -half),
-		centre + Vector2(half, half),
-		centre + Vector2(-half, half),
-	])
-
+	return PackedVector2Array(
+		[
+			centre + Vector2(-half, -half),
+			centre + Vector2(half, -half),
+			centre + Vector2(half, half),
+			centre + Vector2(-half, half),
+		]
+	)
 
 # --- a profile says what it was told ------------------------------------------------------
 
@@ -54,10 +55,7 @@ func test_a_profile_states_one_thing_and_says_only_that() -> void:
 func test_a_zone_lays_only_its_own_statements_over_the_site() -> void:
 	# The site is part shade on loam. The bed by the wall is dry - and says nothing about light, so
 	# it inherits the site's, rather than claiming the sun for itself.
-	var site: TerrainProfile = Profile.make({
-		"sun": SpeciesScript.PART_SHADE,
-		"soil": Profile.LOAM,
-	})
+	var site: TerrainProfile = Profile.make({ "sun": SpeciesScript.PART_SHADE, "soil": Profile.LOAM })
 	var zone: TerrainProfile = Profile.of("moisture", SpeciesScript.WATER_LOW)
 	var together: TerrainProfile = zone.merged_over(site)
 	assert(together.sun_level() == SpeciesScript.PART_SHADE, "the site's light survives")
@@ -84,9 +82,8 @@ func test_a_profile_refuses_a_value_that_is_not_a_value() -> void:
 	assert(not set_drainage.is_valid(), "a place drains one way, not a set of ways")
 	var zone_thirteen: TerrainProfile = Profile.of("zone", 14)
 	assert(not zone_thirteen.is_valid(), "and zone 14 is not a zone")
-	var nonsense: TerrainProfile = Profile.make({"ph": 7})
+	var nonsense: TerrainProfile = Profile.make({ "ph": 7 })
 	assert(nonsense.is_empty(), "an attribute that is not a thing a place can state is dropped")
-
 
 # --- zones --------------------------------------------------------------------------------
 
@@ -94,7 +91,7 @@ func test_a_profile_refuses_a_value_that_is_not_a_value() -> void:
 func test_a_later_zone_wins_over_an_earlier_one() -> void:
 	# The whole garden is part shade; a bed inside it is in full sun. Drawn in that order, the bed is
 	# what answers for the middle.
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.PART_SHADE})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SpeciesScript.PART_SHADE })
 	map.add_zone("the garden", _square(Vector2.ZERO, 10.0), Profile.of("sun", SpeciesScript.PART_SHADE))
 	map.add_zone("the sunny bed", _square(Vector2.ZERO, 3.0), Profile.of("sun", SpeciesScript.FULL_SUN))
 	var middle: Dictionary = map.profile_at(Vector2(1.0, 1.0))
@@ -106,7 +103,7 @@ func test_a_later_zone_wins_over_an_earlier_one() -> void:
 
 
 func test_a_point_outside_every_zone_gets_the_site_itself() -> void:
-	var map: ZoneMapScript = ZoneMapScript.make({"soil": Profile.CLAY})
+	var map: ZoneMapScript = ZoneMapScript.make({ "soil": Profile.CLAY })
 	map.add_zone("the bed", _square(Vector2.ZERO, 2.0), Profile.of("moisture", SpeciesScript.WATER_HIGH))
 	var away: Dictionary = map.profile_at(Vector2(20.0, 20.0))
 	assert(away["zone"] == null, "no zone contains it")
@@ -133,10 +130,12 @@ func test_a_zone_with_no_area_is_refused_and_named() -> void:
 
 
 func test_the_map_survives_a_json_round_trip() -> void:
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.FULL_SHADE, "soil": Profile.CLAY})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SpeciesScript.FULL_SHADE, "soil": Profile.CLAY })
 	map.add_zone(
-		"the bed", _square(Vector2(1.5, -2.5), 2.0),
-		Profile.of("moisture", SpeciesScript.WATER_HIGH), "layer:400-NEW-BED#7"
+		"the bed",
+		_square(Vector2(1.5, -2.5), 2.0),
+		Profile.of("moisture", SpeciesScript.WATER_HIGH),
+		"layer:400-NEW-BED#7",
 	)
 	var text: String = JSON.stringify(map.to_dict())
 	# `parse()` answers with an error code and keeps the data: the parsed value is `get_data()`.
@@ -152,7 +151,6 @@ func test_the_map_survives_a_json_round_trip() -> void:
 	assert(back.zones[0].profile.moisture_level() == SpeciesScript.WATER_HIGH, "as levels, not as 2.0")
 	assert(back.zones[0].contains(Vector2(1.5, -2.5)), "and the outline still contains its middle")
 	assert(back.profile_at(Vector2(1.5, -2.5))["profile"].soil_name() == Profile.CLAY)
-
 
 # --- the drawing as evidence --------------------------------------------------------------
 
@@ -199,13 +197,12 @@ func test_a_drawing_with_nothing_on_it_says_nothing() -> void:
 	assert(document.environment.zone_count() == 0)
 	assert(document.environment.base.is_empty())
 
-
 # --- the map belongs to the drawing -------------------------------------------------------
 
 
 func test_the_ground_travels_in_the_file_and_moves_with_undo() -> void:
 	var document: DraftDocument = Document.new()
-	var stated: ZoneMapScript = ZoneMapScript.make({"soil": Profile.SAND})
+	var stated: ZoneMapScript = ZoneMapScript.make({ "soil": Profile.SAND })
 	assert(document.set_environment(stated), "stating the ground is a change")
 	assert(not document.set_environment(stated.copy()), "and stating the same thing again is not")
 	# A version 5 file carries it, and the version is what says so: 6 states the sheets as well, 7 the
@@ -232,7 +229,6 @@ func test_the_ground_travels_in_the_file_and_moves_with_undo() -> void:
 	assert(document.undo_last(), "the change can be undone")
 	assert(document.environment.base.soil_name() == Profile.SAND, "and the soil is back")
 	assert(not document.environment.base.has("moisture"), "and the moisture is unstated again")
-
 
 # --- areas on the plan, and what a person states about them ---------------------------------
 
@@ -285,7 +281,7 @@ func _area_row(rows: Array[Dictionary], name: String) -> Dictionary:
 	for row: Dictionary in rows:
 		if String(row["name"]) == name:
 			return row
-	return {}
+	return { }
 
 
 ## An area is offered **in the drawing's own units**, and the row carries the words.
@@ -309,12 +305,12 @@ func test_an_area_is_offered_in_the_drawings_own_units() -> void:
 
 	# A row built by hand - a ground zone, or a page's own list - has no words, and is written in the
 	# project's own units rather than left as a dangling comma.
-	assert(ZoneMapScript.row_area_text({"area_m2": 18.0}) == "18 m2", "a bare row")
+	assert(ZoneMapScript.row_area_text({ "area_m2": 18.0 }) == "18 m2", "a bare row")
 	assert(ZoneMapScript.row_area_text(metric[0]) == "18 m2", "a row that already has the words")
 
 
 func test_stating_an_area_by_hand_edits_one_zone_rather_than_stacking_two() -> void:
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.PART_SHADE})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SpeciesScript.PART_SHADE })
 	var outline: PackedVector2Array = _square(Vector2(2.0, 2.0), 3.0)
 	var key: String = ZoneMapScript.area_key(LayerSet.NEW_BED, 4)
 	map.state_zone(key, "bed 4", outline, Profile.of("moisture", SpeciesScript.WATER_LOW))
@@ -327,8 +323,10 @@ func test_stating_an_area_by_hand_edits_one_zone_rather_than_stacking_two() -> v
 	# And it keeps its place in the order: re-stating a bed must not move it above a bed drawn inside
 	# it, because the order the zones are in is the order they answer in.
 	map.state_zone(
-		ZoneMapScript.area_key(LayerSet.NEW_TURF, 9), "lawn 9", _square(Vector2(2.0, 2.0), 1.0),
-		Profile.of("sun", SpeciesScript.FULL_SUN)
+		ZoneMapScript.area_key(LayerSet.NEW_TURF, 9),
+		"lawn 9",
+		_square(Vector2(2.0, 2.0), 1.0),
+		Profile.of("sun", SpeciesScript.FULL_SUN),
 	)
 	var inside: Dictionary = map.profile_at(Vector2(2.0, 2.0))
 	assert(String(inside["place"]) == "lawn 9", "the later zone answers inside itself")
@@ -343,9 +341,10 @@ func test_reading_the_drawing_again_does_not_wipe_what_a_person_stated() -> void
 	# throw it away.
 	var areas: Array[Dictionary] = ZoneMapScript.areas_of(document)
 	document.environment.state_zone(
-		ZoneMapScript.area_key(LayerSet.NEW_BED, 1), "bed 1",
+		ZoneMapScript.area_key(LayerSet.NEW_BED, 1),
+		"bed 1",
 		_centre_of(_area_row(ZoneMapScript.describe_areas(areas, document.environment), "bed 1")),
-		Profile.of("moisture", SpeciesScript.WATER_LOW)
+		Profile.of("moisture", SpeciesScript.WATER_LOW),
 	)
 	assert(document.read_environment_from_drawing() == 2, "the building and the paving are read")
 	assert(document.environment.zone_count() == 3, "and the stated bed is still there")
@@ -367,15 +366,18 @@ func _centre_of(row: Dictionary) -> PackedVector2Array:
 func test_an_area_row_says_what_it_states_and_what_that_comes_to() -> void:
 	# `stated_profile` is what an editor puts in its boxes; `profile` is what it tells the designer the
 	# ground is now. Reading one into the other is how an area comes to store the whole site.
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SpeciesScript.FULL_SHADE, "soil": Profile.CLAY})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SpeciesScript.FULL_SHADE, "soil": Profile.CLAY })
 	var key: String = ZoneMapScript.area_key(LayerSet.NEW_BED, 7)
 	map.state_zone(key, "bed 7", _square(Vector2.ZERO, 2.0), Profile.of("moisture", SpeciesScript.WATER_LOW))
 	var rows: Array[Dictionary] = ZoneMapScript.describe_areas(
-		[{"name": "bed 7", "key": key, "label": "bed", "outline": _square(Vector2.ZERO, 2.0), "area_m2": 4.0}],
-		map
+		[{ "name": "bed 7", "key": key, "label": "bed", "outline": _square(Vector2.ZERO, 2.0), "area_m2": 4.0 }],
+		map,
 	)
 	assert(rows.size() == 1)
 	assert(bool(rows[0]["stated"]), "somebody stated it")
 	assert((rows[0]["stated_profile"] as TerrainProfile).stated_keys() == ["moisture"], "only what they stated")
-	assert((rows[0]["profile"] as TerrainProfile).stated_keys() == ["sun", "moisture", "soil"], "and the ground as it is")
+	assert(
+		(rows[0]["profile"] as TerrainProfile).stated_keys() == ["sun", "moisture", "soil"],
+		"and the ground as it is",
+	)
 	assert((rows[0]["profile"] as TerrainProfile).sun_level() == SpeciesScript.FULL_SHADE, "which includes the site")

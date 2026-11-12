@@ -35,7 +35,6 @@ func _with_item() -> CloseoutDesk:
 	desk.raise_item("J1", "back patio, north edge", "paver out of level", "Dana", RAISED)
 	return desk
 
-
 # --- the punch list, through the desk ---------------------------------------------------------
 
 
@@ -60,19 +59,19 @@ func test_an_item_that_cannot_be_read_says_which_field_is_missing() -> void:
 	var desk := make_desk()
 	assert(
 		String(desk.raise_item("J1", "", "something", "Dana", RAISED)["reason"]).contains("has to say where it is"),
-		"a place is required"
+		"a place is required",
 	)
 	assert(
 		String(desk.raise_item("J1", "here", "", "Dana", RAISED)["reason"]).contains("has to say what is wrong"),
-		"a description is required"
+		"a description is required",
 	)
 	assert(
 		String(desk.raise_item("J1", "here", "something", "", RAISED)["reason"]).contains("who raised it"),
-		"a name is required"
+		"a name is required",
 	)
 	assert(
 		String(desk.raise_item("J1", "here", "something", "Dana", "July")["reason"]).contains("not a date"),
-		"a date is required"
+		"a date is required",
 	)
 	assert(desk.items.is_empty(), "and nothing was stored")
 
@@ -101,11 +100,11 @@ func test_the_acts_refuse_what_the_record_refuses_and_say_why() -> void:
 	assert(String(desk.fix_item("PL-1", FIXED_ON)["reason"]).contains("cannot be fixed"), "already fixed")
 	assert(
 		String(desk.reject_item("PL-1", "Marc", "2026-07-16", "")["reason"]).contains("takes a reason"),
-		"a rejection with no reason on it"
+		"a rejection with no reason on it",
 	)
 	assert(
 		String(desk.reject_item("PL-1", "", "2026-07-16", "still proud")["reason"]).contains("somebody's name"),
-		"and one with nobody to ask"
+		"and one with nobody to ask",
 	)
 	assert(String(desk.reject_item("PL-1", "Marc", "2026-07-16", "still proud")["reason"]).is_empty())
 	assert(desk.item("PL-1").state() == ItemScript.OPEN, "and the rejection put it back on the list")
@@ -119,7 +118,6 @@ func test_taking_an_item_off_through_the_desk_keeps_it_on_the_record() -> void:
 	assert(not desk.withdraw_item("PL-1", "Dana", "2026-07-09", "again")["ok"], "and not twice")
 	assert(desk.outstanding_count() == 0)
 
-
 # --- the hand-over date ------------------------------------------------------------------------
 
 
@@ -127,7 +125,7 @@ func test_the_hand_over_date_is_stated_by_somebody_on_a_date() -> void:
 	var desk := make_desk()
 	assert(
 		String(desk.state_completion("J1", HANDED_OVER, "")["reason"]).contains("somebody to state it"),
-		"a date nobody stated"
+		"a date nobody stated",
 	)
 	assert(String(desk.state_completion("J1", "the 20th", "Dana")["reason"]).contains("not a date"))
 	assert(String(desk.state_completion("J9", HANDED_OVER, "Dana")["reason"]).contains("no job J9"))
@@ -141,7 +139,7 @@ func test_moving_the_date_needs_a_reason_and_both_dates_are_kept() -> void:
 	desk.state_completion("J1", HANDED_OVER, "Dana")
 	assert(
 		String(desk.state_completion("J1", "2026-07-24", "Dana")["reason"]).contains("needs a reason"),
-		"a correction with no reason"
+		"a correction with no reason",
 	)
 	assert(bool(desk.state_completion("J1", "2026-07-24", "Dana", "the walk was put off a week")["ok"]))
 	assert(desk.completed_on("J1") == "2026-07-24", "the new date is in force")
@@ -150,7 +148,6 @@ func test_moving_the_date_needs_a_reason_and_both_dates_are_kept() -> void:
 	assert(String(history[0]["at"]) == HANDED_OVER, "and the date it replaced is on the record")
 	assert(String(history[0]["why"]).is_empty(), "the first statement needs nothing explained")
 	assert(String(history[1]["why"]) == "the walk was put off a week")
-
 
 # --- the warranty ------------------------------------------------------------------------------
 
@@ -176,7 +173,7 @@ func test_a_term_that_cannot_be_read_is_refused_with_the_parts_it_could_cover() 
 	assert(wrong.contains("plant material"), "the refusal names what it can cover: %s" % wrong)
 	assert(
 		String(desk.state_warranty("J1", ["workmanship"], 400, HANDED_OVER)["reason"]).contains("between 1 and 120"),
-		"a term nobody meant"
+		"a term nobody meant",
 	)
 	assert(not desk.has_warranty("J1"), "and nothing was stated")
 
@@ -227,7 +224,6 @@ func test_a_claim_is_answered_and_then_put_right_through_the_desk() -> void:
 	uncovered.answer_claim("J1", "WC-1", "Marc", "2026-08-04", false, "the client's own gate")
 	assert(String(uncovered.finish_claim("J1", "WC-1", "2026-08-06")["reason"]).contains("nothing to do"))
 	assert(uncovered.claims_needing_attention() == 0, "an uncovered claim is finished by answering it")
-
 
 # --- the report a page asks for -----------------------------------------------------------------
 
@@ -346,7 +342,6 @@ func test_the_lines_a_page_draws_come_in_the_order_the_work_is_done() -> void:
 	assert(lines[1].contains("the punch list:"), lines[1])
 	assert(lines[2].contains("back patio, north edge"), lines[2])
 	assert(lines[3] == "no warranty has been stated for this job", lines[3])
-
 
 # --- the desk as a whole ------------------------------------------------------------------------
 

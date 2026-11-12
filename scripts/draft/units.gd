@@ -17,9 +17,9 @@ enum System {
 }
 
 enum LengthStyle {
-	DECIMAL,       ## 3.81 m, 12.50 ft
+	DECIMAL, ## 3.81 m, 12.50 ft
 	ARCHITECTURAL, ## 12'-6"
-	ENGINEERING,   ## 12.50 ft
+	ENGINEERING, ## 12.50 ft
 }
 
 const METRE := 1.0
@@ -37,7 +37,7 @@ const MILE := 1609.344
 ## difference is material for legal boundary work even though it is 0.6 mm/km.
 const US_SURVEY_FOOT := 1200.0 / 3937.0
 
-const ACRE := 4840.0 * YARD * YARD          ## 4046.8564224 m2, exact
+const ACRE := 4840.0 * YARD * YARD ## 4046.8564224 m2, exact
 const HECTARE := 10000.0
 const SQ_FOOT := FOOT * FOOT
 
@@ -51,17 +51,12 @@ var display_precision: int = 3
 var inch_denominator: int = DEFAULT_INCH_DENOMINATOR
 var use_us_survey_foot: bool = false
 
-
 # --- length: parsing ---------------------------------------------------------------
 
 
 ## Parse a length to metres. Returns NAN when the text cannot be read, so a
 ## caller can never mistake a failed parse for a zero.
-static func parse_length(
-	text: String,
-	default_system: System = System.METRIC,
-	us_survey_foot: bool = false
-) -> float:
+static func parse_length(text: String, default_system: System = System.METRIC, us_survey_foot: bool = false) -> float:
 	var t := text.strip_edges().to_lower()
 	if t.is_empty():
 		return NAN
@@ -175,7 +170,6 @@ static func feet_inches_to_metres(feet: float, inches: float, us_survey_foot: bo
 	var foot := US_SURVEY_FOOT if us_survey_foot else FOOT
 	return feet * foot + inches * INCH
 
-
 # --- length: formatting ------------------------------------------------------------
 
 
@@ -243,7 +237,6 @@ static func _gcd(a: int, b: int) -> int:
 		y = x % y
 		x = t
 	return maxi(x, 1)
-
 
 # --- area and volume ----------------------------------------------------------------
 
@@ -365,7 +358,6 @@ static func acres(square_metres: float) -> float:
 
 static func hectares(square_metres: float) -> float:
 	return square_metres / HECTARE
-
 
 # --- descriptions -------------------------------------------------------------------
 

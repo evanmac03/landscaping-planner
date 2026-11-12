@@ -62,8 +62,11 @@ static func plants_node(yard: Node) -> Node3D:
 ## drawn - and the node says where its size came from. An empty dictionary means the catalogue's own
 ## mature size, which is what every caller did before there was any other answer.
 static func place(
-	catalogue: PlantCatalogue, species_id: StringName, yard: Node, at: Vector3,
-	size: Dictionary = {}
+	catalogue: PlantCatalogue,
+	species_id: StringName,
+	yard: Node,
+	at: Vector3,
+	size: Dictionary = { },
 ) -> Dictionary:
 	if catalogue == null:
 		return _refuse("there is no plant list open")
@@ -120,13 +123,11 @@ static func place(
 	# planted species is draggable the moment it lands and needs no second registration.
 	node.add_to_group(Yard.PLACEABLE_GROUP)
 	parent.add_child(node)
-	return {
-		"ok": true, "reason": "", "node": node, "scale": planting_scale, "species": species,
-	}
+	return { "ok": true, "reason": "", "node": node, "scale": planting_scale, "species": species }
 
 
 static func _refuse(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "node": null, "scale": 1.0, "species": null}
+	return { "ok": false, "reason": reason, "node": null, "scale": 1.0, "species": null }
 
 
 ## A name that is not already taken under `parent`. Godot renames a duplicate by itself, but it
@@ -153,7 +154,6 @@ static func species_of(node: Node) -> StringName:
 		return &""
 	return StringName(node.get_meta(SPECIES_META))
 
-
 # --- the planting list ------------------------------------------------------------------
 
 
@@ -163,7 +163,7 @@ static func species_of(node: Node) -> StringName:
 ## named separately** rather than dropped - a plant on the plan that the catalogue cannot name is
 ## the one thing a planting list must not hide.
 static func schedule(catalogue: PlantCatalogue, yard: Node) -> Array[Dictionary]:
-	var counts: Dictionary = {}
+	var counts: Dictionary = { }
 	var unknown: int = 0
 	for node: Node3D in planted(yard):
 		var id: StringName = species_of(node)
@@ -174,30 +174,42 @@ static func schedule(catalogue: PlantCatalogue, yard: Node) -> Array[Dictionary]
 	var rows: Array[Dictionary] = []
 	for id: StringName in counts.keys():
 		var species: PlantSpecies = catalogue.get_species(id)
-		rows.append({
-			"id": id,
-			"count": int(counts[id]),
-			"botanical_name": species.botanical_name,
-			"common_name": species.common_name,
-			"cultivar": species.cultivar,
-			"category": species.category,
-			"category_name": species.category_name(),
-			"spread_cm": species.spread_cm,
-			"height_cm": species.height_cm,
-		})
-	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var order: int = String(a["botanical_name"]).naturalnocasecmp_to(String(b["botanical_name"]))
-		if order != 0:
-			return order < 0
-		return String(a["cultivar"]).naturalnocasecmp_to(String(b["cultivar"])) < 0)
+		rows.append(
+			{
+				"id": id,
+				"count": int(counts[id]),
+				"botanical_name": species.botanical_name,
+				"common_name": species.common_name,
+				"cultivar": species.cultivar,
+				"category": species.category,
+				"category_name": species.category_name(),
+				"spread_cm": species.spread_cm,
+				"height_cm": species.height_cm,
+			}
+		)
+	rows.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			var order: int = String(a["botanical_name"]).naturalnocasecmp_to(String(b["botanical_name"]))
+			if order != 0:
+				return order < 0
+			return String(a["cultivar"]).naturalnocasecmp_to(String(b["cultivar"])) < 0,
+	)
 	if unknown > 0:
 		# Named as the thing to go and fix rather than as a fact about the plant: these are the props
 		# that were placed before there was a catalogue to say what they are, and a schedule that
 		# called them "unidentified" would read as though the *plant* were the problem.
-		rows.append({
-			"id": &"", "count": unknown, "botanical_name": "no species recorded", "common_name": "",
-			"cultivar": "", "category_name": "", "spread_cm": 0, "height_cm": 0,
-		})
+		rows.append(
+			{
+				"id": &"",
+				"count": unknown,
+				"botanical_name": "no species recorded",
+				"common_name": "",
+				"cultivar": "",
+				"category_name": "",
+				"spread_cm": 0,
+				"height_cm": 0,
+			}
+		)
 	return rows
 
 

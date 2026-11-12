@@ -18,8 +18,7 @@ func test_every_page_points_at_a_subject_the_manual_actually_has() -> void:
 	var subjects: Array[String] = HelpDocScript.SUBJECTS
 	for page: String in PageHelpScript.SUBJECT_OF:
 		var subject: String = PageHelpScript.subject_for(page)
-		assert(subjects.has(subject),
-			"%s points at \"%s\", which the manual does not have" % [page, subject])
+		assert(subjects.has(subject), "%s points at \"%s\", which the manual does not have" % [page, subject])
 
 
 func test_every_page_of_the_project_is_accounted_for() -> void:
@@ -34,8 +33,7 @@ func test_every_page_of_the_project_is_accounted_for() -> void:
 		if PageHelpScript.WITHOUT_NEED.has(page) or PageHelpScript.NOT_YET_WRITTEN.has(page):
 			continue
 		unaccounted.append(page)
-	assert(unaccounted.is_empty(),
-		"these pages are in none of the three lists: %s" % ", ".join(unaccounted))
+	assert(unaccounted.is_empty(), "these pages are in none of the three lists: %s" % ", ".join(unaccounted))
 
 
 func test_a_page_that_needs_no_subject_is_a_page_that_exists() -> void:
@@ -52,10 +50,8 @@ func test_a_page_with_no_need_of_a_subject_is_not_also_missing_one() -> void:
 	# The two lists are different claims and a page cannot be both: "this needs none" and "this needs one
 	# and has not got it" are answers that contradict each other.
 	for page: String in PageHelpScript.WITHOUT_NEED:
-		assert(not PageHelpScript.SUBJECT_OF.has(page),
-			"%s is mapped to a subject and also has no need of one" % page)
-		assert(not PageHelpScript.NOT_YET_WRITTEN.has(page),
-			"%s cannot both need no subject and be missing one" % page)
+		assert(not PageHelpScript.SUBJECT_OF.has(page), "%s is mapped to a subject and also has no need of one" % page)
+		assert(not PageHelpScript.NOT_YET_WRITTEN.has(page), "%s cannot both need no subject and be missing one" % page)
 
 
 func test_a_page_the_manual_has_not_reached_says_what_it_is_about() -> void:
@@ -70,5 +66,8 @@ func test_the_shared_show_asks_the_manual_the_same_question_this_table_answers()
 	# The name a page is keyed by comes from the index and is the name the layout check reports; a page
 	# renamed to `x_window2` would be a row here that matches nothing.
 	for page: String in PageHelpScript.SUBJECT_OF:
-		assert(page.ends_with("_window") or page == "command_palette" or page == "pipeline_board"
-			or page == "schedule_board", "%s does not look like a page's script name" % page)
+		assert(
+			page.ends_with("_window") or page == "command_palette"
+			or page == "pipeline_board" or page == "schedule_board",
+			"%s does not look like a page's script name" % page,
+		)

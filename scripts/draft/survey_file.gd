@@ -42,24 +42,51 @@ const POINTS := "points"
 ## surveyor's file is silently lost; it is only a *data* line that cannot be read
 ## that refuses the file.
 const LENGTH_UNITS := {
-	"m": 1.0, "metre": 1.0, "meter": 1.0, "metres": 1.0, "meters": 1.0, "mtr": 1.0,
-	"ft": UnitsScript.FOOT, "foot": UnitsScript.FOOT, "feet": UnitsScript.FOOT,
-	"'": UnitsScript.FOOT, "feet (us)": UnitsScript.US_SURVEY_FOOT,
-	"usft": UnitsScript.US_SURVEY_FOOT, "us-ft": UnitsScript.US_SURVEY_FOOT,
-	"ftus": UnitsScript.US_SURVEY_FOOT, "us survey foot": UnitsScript.US_SURVEY_FOOT,
-	"us survey feet": UnitsScript.US_SURVEY_FOOT, "survey foot": UnitsScript.US_SURVEY_FOOT,
-	"in": UnitsScript.INCH, "inch": UnitsScript.INCH, "inches": UnitsScript.INCH,
-	"yd": UnitsScript.YARD, "yard": UnitsScript.YARD, "yards": UnitsScript.YARD,
+	"m": 1.0,
+	"metre": 1.0,
+	"meter": 1.0,
+	"metres": 1.0,
+	"meters": 1.0,
+	"mtr": 1.0,
+	"ft": UnitsScript.FOOT,
+	"foot": UnitsScript.FOOT,
+	"feet": UnitsScript.FOOT,
+	"'": UnitsScript.FOOT,
+	"feet (us)": UnitsScript.US_SURVEY_FOOT,
+	"usft": UnitsScript.US_SURVEY_FOOT,
+	"us-ft": UnitsScript.US_SURVEY_FOOT,
+	"ftus": UnitsScript.US_SURVEY_FOOT,
+	"us survey foot": UnitsScript.US_SURVEY_FOOT,
+	"us survey feet": UnitsScript.US_SURVEY_FOOT,
+	"survey foot": UnitsScript.US_SURVEY_FOOT,
+	"in": UnitsScript.INCH,
+	"inch": UnitsScript.INCH,
+	"inches": UnitsScript.INCH,
+	"yd": UnitsScript.YARD,
+	"yard": UnitsScript.YARD,
+	"yards": UnitsScript.YARD,
 }
 
 ## Area units accepted in an `area:` header, and how many square metres one is.
 const AREA_UNITS := {
-	"m2": 1.0, "sqm": 1.0, "sq m": 1.0, "square metre": 1.0, "square metres": 1.0,
-	"square meter": 1.0, "square meters": 1.0,
-	"ha": UnitsScript.HECTARE, "hectare": UnitsScript.HECTARE, "hectares": UnitsScript.HECTARE,
-	"ac": UnitsScript.ACRE, "acre": UnitsScript.ACRE, "acres": UnitsScript.ACRE,
-	"ft2": UnitsScript.SQ_FOOT, "sqft": UnitsScript.SQ_FOOT, "sq ft": UnitsScript.SQ_FOOT,
-	"square foot": UnitsScript.SQ_FOOT, "square feet": UnitsScript.SQ_FOOT,
+	"m2": 1.0,
+	"sqm": 1.0,
+	"sq m": 1.0,
+	"square metre": 1.0,
+	"square metres": 1.0,
+	"square meter": 1.0,
+	"square meters": 1.0,
+	"ha": UnitsScript.HECTARE,
+	"hectare": UnitsScript.HECTARE,
+	"hectares": UnitsScript.HECTARE,
+	"ac": UnitsScript.ACRE,
+	"acre": UnitsScript.ACRE,
+	"acres": UnitsScript.ACRE,
+	"ft2": UnitsScript.SQ_FOOT,
+	"sqft": UnitsScript.SQ_FOOT,
+	"sq ft": UnitsScript.SQ_FOOT,
+	"square foot": UnitsScript.SQ_FOOT,
+	"square feet": UnitsScript.SQ_FOOT,
 }
 
 
@@ -73,7 +100,7 @@ const AREA_UNITS := {
 ## The result is a dictionary rather than a class because the survey engine it
 ## feeds is a table of numbers and its report is a table of records, and a class
 ## here would only be a second set of field names for the same thing.
-static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
+static func read_text(text: String, options: Dictionary = { }) -> Dictionary:
 	var default_units := _unit_name(String(options.get("units", "")))
 	var display_units: DraftUnits = options.get("display_units") as DraftUnits
 	var forced_kind := ""
@@ -147,15 +174,15 @@ static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 				if unit_name == "":
 					return _failed("line %d: \"%s\" is not a unit" % [line_number, third])
 			if unit_name == "":
-				return _failed(
-					"line %d: say what unit the distances are in" % line_number
-				)
-			legs.append({
-				"azimuth": bearing,
-				"distance": second.to_float() * float(LENGTH_UNITS[unit_name]),
-				"unit": unit_name,
-				"line": line_number,
-			})
+				return _failed("line %d: say what unit the distances are in" % line_number)
+			legs.append(
+				{
+					"azimuth": bearing,
+					"distance": second.to_float() * float(LENGTH_UNITS[unit_name]),
+					"unit": unit_name,
+					"line": line_number,
+				}
+			)
 			if not leg_units.has(unit_name):
 				leg_units.append(unit_name)
 			continue
@@ -171,8 +198,7 @@ static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 					point_unit = named
 				elif not third.is_valid_float():
 					notes.append(
-						"line %d: \"%s\" is neither an elevation nor a unit, and is ignored"
-						% [line_number, third]
+						"line %d: \"%s\" is neither an elevation nor a unit, and is ignored" % [line_number, third]
 					)
 			if point_unit == "":
 				return _failed("line %d: say what unit the coordinates are in" % line_number)
@@ -180,11 +206,13 @@ static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 				points_unit = point_unit
 			else:
 				points_unit = "mixed"
-			raw_points.append({
-				"east": first.to_float() * float(LENGTH_UNITS[point_unit]),
-				"north": second.to_float() * float(LENGTH_UNITS[point_unit]),
-				"line": line_number,
-			})
+			raw_points.append(
+				{
+					"east": first.to_float() * float(LENGTH_UNITS[point_unit]),
+					"north": second.to_float() * float(LENGTH_UNITS[point_unit]),
+					"line": line_number,
+				}
+			)
 			continue
 
 		return _failed("line %d: \"%s\" is neither a bearing nor a coordinate" % [line_number, line])
@@ -197,15 +225,12 @@ static func read_text(text: String, options: Dictionary = {}) -> Dictionary:
 		unit_text = points_unit
 	elif kind == METES and not leg_units.is_empty():
 		unit_text = leg_units[0] if leg_units.size() == 1 else "mixed"
-	return _assemble(
-		kind, legs, raw_points, unit_text, default_units, stated_area, notes, header_name,
-		display_units
-	)
+	return _assemble(kind, legs, raw_points, unit_text, default_units, stated_area, notes, header_name, display_units)
 
 
 ## Read a survey file from disk. A missing or unreadable file is refused with a
 ## reason rather than raising, because it is a path a person typed.
-static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
+static func of_file(path: String, options: Dictionary = { }) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return _failed("there is no survey file at %s" % path)
 	var handle := FileAccess.open(path, FileAccess.READ)
@@ -216,7 +241,6 @@ static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
 	var parsed := read_text(text, options)
 	parsed["source"] = path
 	return parsed
-
 
 # --- the assembled result -----------------------------------------------------------
 
@@ -238,18 +262,15 @@ static func _assemble(
 	stated_area: float,
 	notes: Array[String],
 	header_name: String,
-	display_units: DraftUnits = null
+	display_units: DraftUnits = null,
 ) -> Dictionary:
 	var points := PackedVector2Array()
 	var ring := PackedVector2Array()
-	var traverse: Dictionary = {}
+	var traverse: Dictionary = { }
 	if kind == METES:
 		var engine_legs: Array = []
 		for entry: Dictionary in legs:
-			engine_legs.append({
-				"azimuth": float(entry["azimuth"]),
-				"distance": float(entry["distance"]),
-			})
+			engine_legs.append({ "azimuth": float(entry["azimuth"]), "distance": float(entry["distance"]) })
 		traverse = SurveyScript.traverse(engine_legs)
 		points = traverse["points"]
 		ring = traverse["ring"]
@@ -263,10 +284,15 @@ static func _assemble(
 	checks.append(SurveyScript.check_simple(ring))
 	if kind == METES:
 		checks.append(SurveyScript.check_closure(traverse))
-	checks.append(SurveyScript.check_extent(Geom.points_aabb(ring), SurveyScript.MIN_LOT_AREA_M2,
-		SurveyScript.MAX_LOT_AREA_M2, display_units))
-	checks.append(SurveyScript.check_area(area_m2, stated_area, SurveyScript.AREA_TOLERANCE,
-		display_units))
+	checks.append(
+		SurveyScript.check_extent(
+			Geom.points_aabb(ring),
+			SurveyScript.MIN_LOT_AREA_M2,
+			SurveyScript.MAX_LOT_AREA_M2,
+			display_units,
+		)
+	)
+	checks.append(SurveyScript.check_area(area_m2, stated_area, SurveyScript.AREA_TOLERANCE, display_units))
 
 	return {
 		"ok": true,
@@ -306,7 +332,7 @@ static func _failed(reason: String) -> Dictionary:
 		"points": PackedVector2Array(),
 		"ring": PackedVector2Array(),
 		"outline": PackedVector2Array(),
-		"traverse": {},
+		"traverse": { },
 		"area_m2": 0.0,
 		"perimeter_m": 0.0,
 		"stated_area_m2": 0.0,
@@ -333,7 +359,6 @@ static func _perimeter(ring: PackedVector2Array) -> float:
 		total += ring[index].distance_to(ring[(index + 1) % ring.size()])
 	return total
 
-
 # --- lines --------------------------------------------------------------------------
 
 
@@ -347,7 +372,7 @@ static func _data_rows(text: String) -> Array:
 		var line := raw.strip_edges()
 		if line.is_empty() or line.begins_with("#") or line.begins_with("//"):
 			continue
-		out.append({"line": number, "text": line})
+		out.append({ "line": number, "text": line })
 	return out
 
 
@@ -355,16 +380,16 @@ static func _data_rows(text: String) -> Array:
 static func _header(line: String) -> Dictionary:
 	var cut := line.find(":")
 	if cut <= 0:
-		return {}
+		return { }
 	var key := line.substr(0, cut).strip_edges().to_lower()
 	if key.is_empty() or key.contains(" ") or key.contains(",") or key.contains("\t"):
-		return {}
+		return { }
 	for index in key.length():
 		var character := key[index]
 		var is_letter := (character >= "a" and character <= "z") or character == "_"
 		if not is_letter:
-			return {}
-	return {"key": key, "value": line.substr(cut + 1).strip_edges()}
+			return { }
+	return { "key": key, "value": line.substr(cut + 1).strip_edges() }
 
 
 static func _cells(line: String) -> PackedStringArray:
@@ -443,7 +468,6 @@ static func _area_m2(text: String) -> float:
 		return 0.0
 	return number_text.to_float() * float(AREA_UNITS[unit_text])
 
-
 # --- words --------------------------------------------------------------------------
 
 
@@ -464,10 +488,12 @@ static func describe(parsed: Dictionary, units: DraftUnits = null) -> String:
 	var words := UnitsScript.or_default(in_force)
 	var kind := String(parsed["kind"])
 	var count: int = (parsed["legs"] as Array).size() if kind == METES \
-		else (parsed["raw_points"] as Array).size()
+			else (parsed["raw_points"] as Array).size()
 	var noun := "leg" if kind == METES else "point"
 	return "%d %s%s, %s around, %s" % [
-		count, noun, "" if count == 1 else "s",
+		count,
+		noun,
+		"" if count == 1 else "s",
 		words.format_length(float(parsed.get("perimeter_m", 0.0))),
 		words.format_area(float(parsed.get("area_m2", 0.0))),
 	]
@@ -486,11 +512,14 @@ static func report_lines(parsed: Dictionary) -> Array[String]:
 		return out
 	var report: Dictionary = parsed["report"]
 	for entry: Dictionary in report["records"]:
-		out.append("%s: %s - %s" % [
-			String(entry.get("status", "pass")).to_upper(),
-			String(entry.get("name", "")),
-			String(entry.get("message", "")),
-		])
+		out.append(
+			"%s: %s - %s"
+			% [
+				String(entry.get("status", "pass")).to_upper(),
+				String(entry.get("name", "")),
+				String(entry.get("message", "")),
+			]
+		)
 	for note: String in parsed["notes"]:
 		out.append("NOTE: " + note)
 	return out
@@ -502,7 +531,6 @@ static func is_sound(parsed: Dictionary) -> bool:
 	if not bool(parsed.get("ok", false)):
 		return false
 	return bool((parsed["report"] as Dictionary).get("passed", false))
-
 
 # --- persistence --------------------------------------------------------------------
 
@@ -529,33 +557,42 @@ static func to_dict(parsed: Dictionary) -> Dictionary:
 ## Read a survey back out of a file. `options` takes the same "display_units" `read_text` does, for
 ## the reason `to_dict` gives above: the units were never in the file, so whoever re-reads it has to
 ## say which drawing it is going on this time. With none, the checks are worded in metres.
-static func from_dict(data: Dictionary, options: Dictionary = {}) -> Dictionary:
+static func from_dict(data: Dictionary, options: Dictionary = { }) -> Dictionary:
 	var kind := String(data.get("kind", ""))
 	var legs: Array = []
 	for entry: Dictionary in data.get("legs", []):
-		legs.append({
-			"azimuth": float(entry.get("azimuth", 0.0)),
-			"distance": float(entry.get("distance", 0.0)),
-			"unit": String(entry.get("unit", "")),
-			"line": int(entry.get("line", 0)),
-		})
+		legs.append(
+			{
+				"azimuth": float(entry.get("azimuth", 0.0)),
+				"distance": float(entry.get("distance", 0.0)),
+				"unit": String(entry.get("unit", "")),
+				"line": int(entry.get("line", 0)),
+			}
+		)
 	var raw_points: Array = []
 	for entry: Dictionary in data.get("raw_points", []):
-		raw_points.append({
-			"east": float(entry.get("east", 0.0)),
-			"north": float(entry.get("north", 0.0)),
-			"line": int(entry.get("line", 0)),
-		})
+		raw_points.append(
+			{
+				"east": float(entry.get("east", 0.0)),
+				"north": float(entry.get("north", 0.0)),
+				"line": int(entry.get("line", 0)),
+			}
+		)
 	var notes: Array[String] = []
 	for note in data.get("notes", []):
 		notes.append(String(note))
 	if kind == "":
 		return _failed("a survey with no bearings and no coordinates in it")
 	var parsed := _assemble(
-		kind, legs, raw_points, String(data.get("units", "")),
-		String(data.get("units", "")), float(data.get("stated_area_m2", 0.0)),
-		notes, String(data.get("title", "")),
-		options.get("display_units") as DraftUnits
+		kind,
+		legs,
+		raw_points,
+		String(data.get("units", "")),
+		String(data.get("units", "")),
+		float(data.get("stated_area_m2", 0.0)),
+		notes,
+		String(data.get("title", "")),
+		options.get("display_units") as DraftUnits,
 	)
 	parsed["source"] = String(data.get("source", ""))
 	return parsed

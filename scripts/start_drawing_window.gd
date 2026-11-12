@@ -35,7 +35,7 @@ const BUTTON_PREFIX := "Choose"
 var _column: VBoxContainer = null
 var _opening: Label = null
 var _status: Label = null
-var _buttons: Dictionary = {}
+var _buttons: Dictionary = { }
 var _recent_section: VBoxContainer = null
 var _recent_list: VBoxContainer = null
 var _recent_paths: Array[String] = []
@@ -51,7 +51,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _column == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------------------
 
@@ -111,7 +110,6 @@ func build() -> void:
 	_column.add_child(_status)
 
 	_fill_recent()
-
 
 # --- what it offers -----------------------------------------------------------------------------
 
@@ -193,7 +191,6 @@ func say(words: String) -> void:
 	if _status != null:
 		_status.text = words
 
-
 # --- the recent rows ----------------------------------------------------------------------------
 
 
@@ -214,7 +211,6 @@ func _fill_recent() -> void:
 func _on_recent_pressed(path: String) -> void:
 	recent_chosen.emit(path)
 	request_close()
-
 
 # --- the way out --------------------------------------------------------------------------------
 

@@ -65,34 +65,13 @@ const SCALE := 1000
 ## layer because the same bed at 75 mm and at 150 mm is a different decision, made once for the whole
 ## garden rather than per outline. See `depth_of` and `set_depth`.
 static var LAYER_MEASURES: Dictionary = {
-	&"300-NEW-HARD": {
-		"measure": WorkUnitScript.AREA, "cost_code": &"HARDSCAPE",
-		"item": &"hard-paving-interlock",
-	},
-	&"301-NEW-STRUCT": {
-		"measure": WorkUnitScript.AREA, "cost_code": &"STRUCTURE",
-		"item": &"struct-deck-composite",
-	},
-	&"400-NEW-BED": {
-		"measure": WorkUnitScript.AREA, "cost_code": &"BEDS",
-		"item": &"bed-soil-amend",
-	},
-	&"401-NEW-PLANT": {
-		"measure": WorkUnitScript.COUNT, "cost_code": &"PLANTING",
-		"item": &"plant-shrub-2g",
-	},
-	&"402-NEW-TURF": {
-		"measure": WorkUnitScript.AREA, "cost_code": &"TURF",
-		"item": &"turf-sod",
-	},
-	&"500-IRRIGATION": {
-		"measure": WorkUnitScript.COUNT, "cost_code": &"IRRIGATION",
-		"item": &"irr-head-spray",
-	},
-	&"501-LIGHTING": {
-		"measure": WorkUnitScript.COUNT, "cost_code": &"LIGHTING",
-		"item": &"light-path-fixture",
-	},
+	&"300-NEW-HARD": { "measure": WorkUnitScript.AREA, "cost_code": &"HARDSCAPE", "item": &"hard-paving-interlock" },
+	&"301-NEW-STRUCT": { "measure": WorkUnitScript.AREA, "cost_code": &"STRUCTURE", "item": &"struct-deck-composite" },
+	&"400-NEW-BED": { "measure": WorkUnitScript.AREA, "cost_code": &"BEDS", "item": &"bed-soil-amend" },
+	&"401-NEW-PLANT": { "measure": WorkUnitScript.COUNT, "cost_code": &"PLANTING", "item": &"plant-shrub-2g" },
+	&"402-NEW-TURF": { "measure": WorkUnitScript.AREA, "cost_code": &"TURF", "item": &"turf-sod" },
+	&"500-IRRIGATION": { "measure": WorkUnitScript.COUNT, "cost_code": &"IRRIGATION", "item": &"irr-head-spray" },
+	&"501-LIGHTING": { "measure": WorkUnitScript.COUNT, "cost_code": &"LIGHTING", "item": &"light-path-fixture" },
 }
 
 ## Layers that are deliberately not measured, with the reason, so "why is nothing on my drawing in the
@@ -144,21 +123,21 @@ class TakeoffLine extends RefCounted:
 	var item_id: StringName = &""
 	var note: String = ""
 
+
 	func by_hand() -> bool:
 		return entity_ids.is_empty() and String(source).is_empty()
+
 
 	## The `takeoff` dictionary an `EstimateLine` carries (§4.8), or empty when there is no lineage.
 	func lineage() -> Dictionary:
 		if by_hand():
-			return {}
-		return {
-			"entities": entity_ids,
-			"measure": String(measure),
-			"value": value,
-		}
+			return { }
+		return { "entities": entity_ids, "measure": String(measure), "value": value }
+
 
 	func quantity_text() -> String:
 		return "%.3f %s" % [float(quantity_milli) / float(SCALE), WorkUnitScript.name_of(unit)]
+
 
 	func describe() -> String:
 		# "1 entities" is the kind of thing a line that only ever went to a log file can get away
@@ -170,6 +149,7 @@ class TakeoffLine extends RefCounted:
 		elif count > 1:
 			where = "%d entities" % count
 		return "%s  %s  (%s, %s)" % [quantity_text(), description, String(layer), where]
+
 
 	func copy() -> TakeoffLine:
 		var other: TakeoffLine = TakeoffLine.new()
@@ -185,6 +165,7 @@ class TakeoffLine extends RefCounted:
 		other.item_id = item_id
 		other.note = note
 		return other
+
 
 	func to_dict() -> Dictionary:
 		var ids: Array = []
@@ -203,6 +184,7 @@ class TakeoffLine extends RefCounted:
 			"item_id": String(item_id),
 			"note": note,
 		}
+
 
 	static func from_dict(data: Dictionary) -> TakeoffLine:
 		var line: TakeoffLine = TakeoffLine.new()
@@ -232,11 +214,10 @@ var problems: Array[String] = []
 var document_hash: String = ""
 var document_count: int = 0
 var layer_count: int = 0
-var site: Dictionary = {}
+var site: Dictionary = { }
 var metric: bool = true
 var book_version: int = 1
 var book_source: String = ""
-
 
 # --- measuring a drawing -------------------------------------------------------------------
 
@@ -254,15 +235,15 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 	takeoff.metric = document.units.system == DraftUnits.System.METRIC
 	takeoff.document_hash = _hash_document(document)
 	takeoff.document_count = document.count()
-	takeoff.site = {"latitude": document.site_latitude, "longitude": document.site_longitude}
+	takeoff.site = { "latitude": document.site_latitude, "longitude": document.site_longitude }
 	if book != null:
 		takeoff.book_version = book.version
 		takeoff.book_source = book.source
 
-	var buckets: Dictionary = {}
+	var buckets: Dictionary = { }
 	var order: Array = []
-	var unmeasured: Dictionary = {}
-	var depthless: Dictionary = {}
+	var unmeasured: Dictionary = { }
+	var depthless: Dictionary = { }
 	for entity: DraftEntity in document.plotting_entities():
 		var plan: Dictionary = measure_plan(entity.layer)
 		if plan.is_empty():
@@ -318,9 +299,7 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 		# and a key that named only the layer would make the second line overwrite the first - so a
 		# re-takeoff would report a growth in the paving that was really a change to the edging.
 		line.source = StringName("layer:%s|%s" % [String(line.layer), String(line.measure)])
-		line.description = "%s on %s" % [
-			_measure_words(line.measure), String(line.layer)
-		]
+		line.description = "%s on %s" % [_measure_words(line.measure), String(line.layer)]
 		line.item_id = suggest_item(line, book)
 		if line.item_id.is_empty():
 			# Said as a sentence a person reads, and it names the **unit** rather than only the
@@ -328,9 +307,8 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 			# the book prices the right work by the wrong dimension - an edging rate where the line
 			# is an area. This text is read in the estimate panel, not only in a log.
 			takeoff.problems.append(
-				"%s has no price: nothing in the cost book is priced by %s" % [
-					line.description, WorkUnitScript.name_of(line.unit)
-				]
+				"%s has no price: nothing in the cost book is priced by %s"
+				% [line.description, WorkUnitScript.name_of(line.unit)]
 			)
 		takeoff.lines.append(line)
 
@@ -345,9 +323,7 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 	for layer: Variant in unmeasured.keys():
 		var layer_name: StringName = StringName(layer)
 		var reason: String = String(NOT_MEASURED.get(layer_name, "no cost code for this layer"))
-		takeoff.notes.append("%d on %s not measured: %s" % [
-			int(unmeasured[layer]), String(layer_name), reason
-		])
+		takeoff.notes.append("%d on %s not measured: %s" % [int(unmeasured[layer]), String(layer_name), reason])
 	takeoff.layer_count = order.size()
 	return takeoff
 
@@ -361,7 +337,7 @@ static func of_document(document: DraftDocument, book: CostBook = null) -> Takeo
 ## `item_for` maps a species id to the cost book item that prices one of them, because a plant is not
 ## a rate - a 2 m tree and a 1 m tree are different money, and the office decides which item applies
 ## (§6: the office chooses, the software suggests).
-static func of_plants(rows: Array, book: CostBook = null, item_for: Dictionary = {}) -> Takeoff:
+static func of_plants(rows: Array, book: CostBook = null, item_for: Dictionary = { }) -> Takeoff:
 	var takeoff: Takeoff = (load("res://scripts/biz/takeoff.gd") as GDScript).new()
 	takeoff.metric = true
 	if book != null:
@@ -374,7 +350,7 @@ static func of_plants(rows: Array, book: CostBook = null, item_for: Dictionary =
 			continue
 		var line: TakeoffLine = TakeoffLine.new()
 		line.source = StringName("plant:%s" % String(species)) if not species.is_empty() \
-			else &"plant:unknown"
+				else &"plant:unknown"
 		line.layer = &"401-NEW-PLANT"
 		line.measure = WorkUnitScript.COUNT
 		line.unit = &"EACH"
@@ -407,7 +383,7 @@ static func of_plan(
 	document: DraftDocument,
 	plant_rows: Array,
 	book: CostBook = null,
-	item_for: Dictionary = {}
+	item_for: Dictionary = { },
 ) -> Takeoff:
 	var takeoff: Takeoff = of_document(document, book)
 	var counted: bool = false
@@ -433,14 +409,13 @@ static func of_plan(
 	takeoff.problems.append_array(planted.problems)
 	return takeoff
 
-
 # --- the layer table ------------------------------------------------------------------------
 
 
 ## How a layer is measured, or an empty dictionary when it is not measured at all.
 static func measure_plan(layer_name: StringName) -> Dictionary:
 	var entry: Variant = LAYER_MEASURES.get(layer_name)
-	return (entry as Dictionary) if entry is Dictionary else {}
+	return (entry as Dictionary) if entry is Dictionary else { }
 
 
 static func is_measured(layer_name: StringName) -> bool:
@@ -582,7 +557,6 @@ static func items_for(line: TakeoffLine, book: CostBook) -> Array[StringName]:
 		out.insert(0, chosen)
 	return out
 
-
 # --- pricing a line -------------------------------------------------------------------------
 
 
@@ -596,18 +570,16 @@ static func items_for(line: TakeoffLine, book: CostBook) -> Array[StringName]:
 ## Returns `{ok, reason, line}`.
 static func priced_line(line: TakeoffLine, item: CostItem) -> Dictionary:
 	if line == null or item == null:
-		return {"ok": false, "reason": "a line and an item are both needed", "line": null}
-	var quantity: Dictionary = WorkUnitScript.convert(
-		line.quantity_milli, line.unit, item.unit
-	)
+		return { "ok": false, "reason": "a line and an item are both needed", "line": null }
+	var quantity: Dictionary = WorkUnitScript.convert(line.quantity_milli, line.unit, item.unit)
 	if not bool(quantity["ok"]):
-		return {"ok": false, "reason": String(quantity["reason"]), "line": null}
+		return { "ok": false, "reason": String(quantity["reason"]), "line": null }
 	var priced: EstimateLine = LineScript.make(item, int(quantity["quantity_milli"]))
 	priced.description = line.description if priced.description.is_empty() else priced.description
 	priced.cost_code = line.cost_code if not line.cost_code.is_empty() else priced.cost_code
 	priced.takeoff = line.lineage()
 	priced.note = line.note
-	return {"ok": true, "reason": "", "line": priced}
+	return { "ok": true, "reason": "", "line": priced }
 
 
 ## Price every line the takeoff can price. Returns `{ok, estimate, refused}`: the estimate is a draft
@@ -632,8 +604,7 @@ func estimate(book: CostBook, tax_code: StringName = &"NONE", currency: StringNa
 			continue
 		if not priced.add_line(result["line"], book):
 			refused.append("%s was refused by the estimate" % line.description)
-	return {"ok": refused.is_empty(), "estimate": priced, "refused": refused}
-
+	return { "ok": refused.is_empty(), "estimate": priced, "refused": refused }
 
 # --- re-takeoff, which is a diff ------------------------------------------------------------
 
@@ -648,14 +619,14 @@ func estimate(book: CostBook, tax_code: StringName = &"NONE", currency: StringNa
 ## `delta_money` is `null` where the line has no priced item: a quantity nobody has priced yet has no
 ## money to report, and inventing zero would make it look like a line that did not change.
 func diff(previous: Takeoff, book: CostBook = null) -> Dictionary:
-	var before: Dictionary = {}
+	var before: Dictionary = { }
 	for line: TakeoffLine in previous.lines:
 		before[line.source] = line
 	var rows: Array = []
 	var delta_money: Money = MoneyScript.zero()
 	var added: int = 0
 	var removed: int = 0
-	var seen: Dictionary = {}
+	var seen: Dictionary = { }
 	for line: TakeoffLine in lines:
 		seen[line.source] = true
 		var was: TakeoffLine = before.get(line.source)
@@ -677,12 +648,12 @@ func diff(previous: Takeoff, book: CostBook = null) -> Dictionary:
 			var item_id: StringName = line.item_id if not line.item_id.is_empty() else was.item_id
 			var item: CostItem = book.item(item_id)
 			if item != null and WorkUnitScript.same_dimension(item.unit, line.unit):
-				var converted: Dictionary = WorkUnitScript.convert(
-					int(row["delta_milli"]), line.unit, item.unit
-				)
+				var converted: Dictionary = WorkUnitScript.convert(int(row["delta_milli"]), line.unit, item.unit)
 				if bool(converted["ok"]):
 					var money: Money = MoneyScript.round_div(
-						item.rate.cents * int(converted["quantity_milli"]), SCALE, item.rate.currency
+						item.rate.cents * int(converted["quantity_milli"]),
+						SCALE,
+						item.rate.currency,
 					)
 					row["delta_money"] = money
 					delta_money = delta_money.add(money)
@@ -690,16 +661,18 @@ func diff(previous: Takeoff, book: CostBook = null) -> Dictionary:
 	for source: Variant in before:
 		if not seen.has(source):
 			removed += 1
-			rows.append({
-				"source": source,
-				"description": (before[source] as TakeoffLine).description,
-				"was_milli": (before[source] as TakeoffLine).quantity_milli,
-				"now_milli": 0,
-				"delta_milli": -(before[source] as TakeoffLine).quantity_milli,
-				"unit": (before[source] as TakeoffLine).unit,
-				"item_id": (before[source] as TakeoffLine).item_id,
-				"delta_money": null,
-			})
+			rows.append(
+				{
+					"source": source,
+					"description": (before[source] as TakeoffLine).description,
+					"was_milli": (before[source] as TakeoffLine).quantity_milli,
+					"now_milli": 0,
+					"delta_milli": -(before[source] as TakeoffLine).quantity_milli,
+					"unit": (before[source] as TakeoffLine).unit,
+					"item_id": (before[source] as TakeoffLine).item_id,
+					"delta_money": null,
+				}
+			)
 	return {
 		"rows": rows,
 		"added": added,
@@ -719,16 +692,18 @@ func diff_text(previous: Takeoff, book: CostBook = null) -> String:
 			continue
 		var money: Variant = row["delta_money"]
 		var money_words: String = " unpriced" if money == null else " %s" % (money as Money).format_with_currency()
-		out.append("%s  %.3f -> %.3f %s, %+.3f%s" % [
-			row["description"],
-			float(int(row["was_milli"])) / float(SCALE),
-			float(int(row["now_milli"])) / float(SCALE),
-			WorkUnitScript.name_of(StringName(row["unit"])),
-			float(delta) / float(SCALE),
-			money_words,
-		])
+		out.append(
+			"%s  %.3f -> %.3f %s, %+.3f%s"
+			% [
+				row["description"],
+				float(int(row["was_milli"])) / float(SCALE),
+				float(int(row["now_milli"])) / float(SCALE),
+				WorkUnitScript.name_of(StringName(row["unit"])),
+				float(delta) / float(SCALE),
+				money_words,
+			]
+		)
 	return "\n".join(out)
-
 
 # --- describing it --------------------------------------------------------------------------
 
@@ -751,7 +726,10 @@ func priced_count() -> int:
 
 func describe() -> String:
 	return "%d measured, %d priced, %d not measured, %d problems" % [
-		lines.size(), priced_count(), notes.size(), problems.size()
+		lines.size(),
+		priced_count(),
+		notes.size(),
+		problems.size(),
 	]
 
 
@@ -787,13 +765,12 @@ static func from_dict(data: Dictionary) -> Takeoff:
 	takeoff.document_hash = String(data.get("document_hash", ""))
 	takeoff.document_count = int(data.get("document_count", 0))
 	takeoff.layer_count = int(data.get("layer_count", 0))
-	var where: Variant = data.get("site", {})
-	takeoff.site = (where as Dictionary).duplicate(true) if where is Dictionary else {}
+	var where: Variant = data.get("site", { })
+	takeoff.site = (where as Dictionary).duplicate(true) if where is Dictionary else { }
 	takeoff.metric = bool(data.get("metric", true))
 	takeoff.book_version = int(data.get("book_version", 1))
 	takeoff.book_source = String(data.get("book_source", ""))
 	return takeoff
-
 
 # --- the measuring itself -------------------------------------------------------------------
 
@@ -811,14 +788,9 @@ static func from_dict(data: Dictionary) -> Takeoff:
 ## on an area layer - a run of edging over a mulch bed is still a length of edging.
 static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool, depth_mm: int = 0) -> Dictionary:
 	if entity == null:
-		return {}
+		return { }
 	if wanted == WorkUnitScript.COUNT:
-		return {
-			"measure": WorkUnitScript.COUNT,
-			"unit": &"EACH",
-			"quantity_milli": SCALE,
-			"value": 1.0,
-		}
+		return { "measure": WorkUnitScript.COUNT, "unit": &"EACH", "quantity_milli": SCALE, "value": 1.0 }
 	var area: float = entity.area()
 	var length: float = entity.length()
 	if wanted == WorkUnitScript.VOLUME and area > 0.0 and depth_mm > 0:
@@ -848,7 +820,7 @@ static func _measure(entity: DraftEntity, wanted: StringName, in_metric: bool, d
 			"quantity_milli": int(ran["quantity_milli"]),
 			"value": length,
 		}
-	return {}
+	return { }
 
 
 ## A measurement in its canonical base - square metres, metres, cubic metres - **stated** in the unit
@@ -867,7 +839,7 @@ static func _stated(dimension: StringName, base_value: float, in_metric: bool) -
 		var converted: Dictionary = WorkUnitScript.convert(quantity_milli, base_unit, unit)
 		if bool(converted["ok"]):
 			quantity_milli = int(converted["quantity_milli"])
-	return {"unit": unit, "quantity_milli": quantity_milli}
+	return { "unit": unit, "quantity_milli": quantity_milli }
 
 
 static func _measure_words(measure: StringName) -> String:

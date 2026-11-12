@@ -20,9 +20,23 @@ func test_the_dock_builds_its_controls_and_says_where_to_start() -> void:
 
 	assert(dock.name == "AI Context", "the dock is named AI Context")
 	for control_name: String in [
-		"Heading", "Intro", "SubjectPicker", "ChosenLine", "TargetPath", "IncludeSource",
-		"IncludeGit", "IncludeRun", "SourceLine", "PromptBox", "CopyButton", "SaveButton",
-		"BuildButton", "OpenFolder", "Summary", "PreviewBox", "Status",
+		"Heading",
+		"Intro",
+		"SubjectPicker",
+		"ChosenLine",
+		"TargetPath",
+		"IncludeSource",
+		"IncludeGit",
+		"IncludeRun",
+		"SourceLine",
+		"PromptBox",
+		"CopyButton",
+		"SaveButton",
+		"BuildButton",
+		"OpenFolder",
+		"Summary",
+		"PreviewBox",
+		"Status",
 	]:
 		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	assert(dock.last_words.contains("Copy to clipboard"), "it opens with guidance on the status line")
@@ -49,15 +63,18 @@ func test_the_picker_offers_the_whole_snapshot_and_every_subject_pack() -> void:
 	var subjects: PackedStringArray = ContextReportScript.subject_names()
 
 	var scopes: int = 2
-	assert(picker.item_count == scopes + subjects.size(),
-			"an entry for the whole snapshot, one for the change in hand, and one per pack")
+	assert(
+		picker.item_count == scopes + subjects.size(),
+		"an entry for the whole snapshot, one for the change in hand, and one per pack",
+	)
 	assert(picker.get_item_text(0) == DockScript.WHOLE_LABEL, "the first entry is the whole snapshot")
-	assert(picker.get_item_text(1) == ContextReportScript.REVIEW_LABEL,
-			"the second is the change under review")
+	assert(picker.get_item_text(1) == ContextReportScript.REVIEW_LABEL, "the second is the change under review")
 	for index: int in subjects.size():
 		var name: String = subjects[index]
-		assert(picker.get_item_text(index + scopes).begins_with(name + " - "),
-				"entry %d names %s and its title" % [index + scopes, name])
+		assert(
+			picker.get_item_text(index + scopes).begins_with(name + " - "),
+			"entry %d names %s and its title" % [index + scopes, name],
+		)
 
 	dock.free()
 
@@ -90,13 +107,11 @@ func test_selecting_a_subject_points_at_its_pack_and_refuses_an_unknown_one() ->
 
 	assert(dock.select_subject("plant-id"), "a known subject is accepted")
 	assert(dock.current_subject == "plant-id", "current_subject updated")
-	assert(path_label.text.ends_with("user://gemini_context_plant-id.md"),
-			"the output path label tracks the subject")
+	assert(path_label.text.ends_with("user://gemini_context_plant-id.md"), "the output path label tracks the subject")
 
 	assert(not dock.select_subject("no-such-pack"), "an unknown subject is refused")
 	assert(dock.current_subject == "plant-id", "and does not disturb the previous selection")
-	assert(dock.last_words.contains("There is no 'no-such-pack' pack"),
-			"the refusal names what was asked for")
+	assert(dock.last_words.contains("There is no 'no-such-pack' pack"), "the refusal names what was asked for")
 
 	dock.free()
 
@@ -107,8 +122,10 @@ func test_a_second_pack_can_be_built_alongside_the_first() -> void:
 	var dock := _dock()
 	var second: OptionButton = dock.find_child("SecondPicker", true, false)
 	assert(second != null, "the second-pack row is built")
-	assert(second.item_count == 1 + ContextReportScript.subject_names().size(),
-			"offering nothing-else and every pack: %d" % second.item_count)
+	assert(
+		second.item_count == 1 + ContextReportScript.subject_names().size(),
+		"offering nothing-else and every pack: %d" % second.item_count,
+	)
 
 	dock.select_subject("estimating")
 	assert(not dock.has_second(), "one pack to begin with")
@@ -121,16 +138,16 @@ func test_a_second_pack_can_be_built_alongside_the_first() -> void:
 	assert(text.contains("## The 'estimating' pack"), "with the first subject's own blocks")
 	assert(text.contains("## The 'jobs-billing' pack"), "and the second's")
 	assert(text.count("## Conventions (from AGENTS.md)") == 1, "and the shared blocks printed once")
-	assert(dock.last_words.contains("the 'estimating' and 'jobs-billing' packs"),
-			"the status line names both: %s" % dock.last_words)
-	assert(dock.target_path().ends_with("gemini_context_estimating+jobs-billing.md"),
-			"and the file is named for both")
+	assert(
+		dock.last_words.contains("the 'estimating' and 'jobs-billing' packs"),
+		"the status line names both: %s" % dock.last_words,
+	)
+	assert(dock.target_path().ends_with("gemini_context_estimating+jobs-billing.md"), "and the file is named for both")
 
 	# Back to one pack, rather than leaving the second choice half applied.
 	dock.select_second("")
 	assert(not dock.has_second(), "the second pack is off again")
-	assert(not dock.refresh_preview().begins_with("# Context pack: two subjects"),
-			"and the payload is one pack again")
+	assert(not dock.refresh_preview().begins_with("# Context pack: two subjects"), "and the payload is one pack again")
 
 	# A name that is not a subject is refused by name, the way the first picker refuses one.
 	assert(not dock.select_second("no-such-pack"), "an unknown second pack is refused")
@@ -155,11 +172,14 @@ func test_building_the_preview_populates_the_box_and_appends_an_optional_prompt(
 
 	# Read from the report rather than written out again, so renaming a pack cannot leave this test
 	# asserting a title that no longer exists.
-	assert(text.begins_with("# Context pack: %s"
-			% String(ContextReportScript.SUBJECTS["plant-id"]["title"])),
-			"it builds the selected pack")
-	assert(text.ends_with("## Request\n\nWrite a helper that counts captures per species.\n"),
-			"and appends the optional prompt under ## Request")
+	assert(
+		text.begins_with("# Context pack: %s" % String(ContextReportScript.SUBJECTS["plant-id"]["title"])),
+		"it builds the selected pack",
+	)
+	assert(
+		text.ends_with("## Request\n\nWrite a helper that counts captures per species.\n"),
+		"and appends the optional prompt under ## Request",
+	)
 	assert(preview.text == text, "the preview box holds the built text")
 	assert(summary.text.contains("the 'plant-id' pack:"), "the summary states which pack was built")
 
@@ -170,15 +190,19 @@ func test_writing_to_file_saves_the_pack_and_announces_it() -> void:
 	var dock := _dock()
 	dock.output_dir = "user://demo_context"
 	var announced: Array[String] = []
-	dock.exported.connect(func(subject: String, path: String, chars: int) -> void:
-		announced.append("%s:%s:%d" % [subject, path, chars]))
+	dock.exported.connect(
+		func(subject: String, path: String, chars: int) -> void:
+			announced.append("%s:%s:%d" % [subject, path, chars]),
+	)
 
 	dock.select_subject("drafting")
 	assert(dock.write_to_file(), "the pack is written")
 	assert(dock.last_path == "user://demo_context/gemini_context_drafting.md", "to the subject's own file")
 	assert(FileAccess.file_exists(dock.last_path), "and the file is on disk")
-	assert(announced.size() == 1 and announced[0].begins_with("drafting:user://demo_context/gemini_context_drafting.md:"),
-			"the exported signal reports the subject, path and size")
+	assert(
+		announced.size() == 1 and announced[0].begins_with("drafting:user://demo_context/gemini_context_drafting.md:"),
+		"the exported signal reports the subject, path and size",
+	)
 
 	dock.free()
 
@@ -203,8 +227,10 @@ func test_the_open_script_is_carried_only_when_the_box_is_ticked() -> void:
 	check.button_pressed = true
 	assert(dock.include_source(), "ticking the box asks for it")
 	dock.select_subject("plant-id")
-	assert(dock.refresh_preview().contains("## Full source of `res://scripts/doubled.gd`"),
-			"and the build carries the code")
+	assert(
+		dock.refresh_preview().contains("## Full source of `res://scripts/doubled.gd`"),
+		"and the build carries the code",
+	)
 
 	check.button_pressed = false
 	assert(not dock.refresh_preview().contains("Full source of"), "unticking it takes it out again")
@@ -247,8 +273,10 @@ func test_the_dock_says_when_to_choose_the_pack_in_hand() -> void:
 	assert(chosen.text.begins_with("Everything."), "it opens explaining the whole snapshot")
 
 	dock.select_subject("food-garden")
-	assert(chosen.text == ContextReportScript.when_for("food-garden"),
-			"and follows the picker to that pack's own sentence")
+	assert(
+		chosen.text == ContextReportScript.when_for("food-garden"),
+		"and follows the picker to that pack's own sentence",
+	)
 	assert(chosen.text.contains("Growing food"), "which says what the pack is for")
 
 	dock.select_subject("")
@@ -264,7 +292,7 @@ func test_nothing_is_attached_until_a_box_is_ticked() -> void:
 	var reads := [0]
 	dock.git_reader = func() -> Dictionary:
 		reads[0] += 1
-		return {"status": " M a.gd", "diff": ""}
+		return { "status": " M a.gd", "diff": "" }
 	dock.run_reader = func() -> String:
 		reads[0] += 1
 		return "VERDICT: TESTS PASSED"
@@ -301,12 +329,13 @@ func test_the_git_box_carries_what_has_changed_lately_as_well() -> void:
 	# it. It rides on the git tick, because running git is work outside the dock and an unticked box
 	# has to touch nothing outside it.
 	var dock := _dock()
-	dock.git_reader = func() -> Dictionary: return {
-		"status": " M scripts/thing.gd\n",
-		"diff": "",
-		"commit": "abc1234 The last commit\n",
-		"recent": "abc1234 The last commit\n9f8e7d6 The one before\n",
-	}
+	dock.git_reader = func() -> Dictionary:
+		return {
+			"status": " M scripts/thing.gd\n",
+			"diff": "",
+			"commit": "abc1234 The last commit\n",
+			"recent": "abc1234 The last commit\n9f8e7d6 The one before\n",
+		}
 
 	assert(not dock.attachment().has("recent_commits"), "an unticked box attaches nothing")
 	dock.select_subject("plant-id")
@@ -322,7 +351,8 @@ func test_the_git_box_carries_what_has_changed_lately_as_well() -> void:
 
 func test_a_ticked_but_empty_git_box_says_so_rather_than_going_quiet() -> void:
 	var dock := _dock()
-	dock.git_reader = func() -> Dictionary: return {"status": "", "diff": ""}
+	dock.git_reader = func() -> Dictionary:
+		return { "status": "", "diff": "" }
 	(dock.find_child("IncludeGit", true, false) as CheckBox).button_pressed = true
 
 	dock.refresh_preview()
@@ -333,7 +363,7 @@ func test_a_ticked_but_empty_git_box_says_so_rather_than_going_quiet() -> void:
 
 
 func _canned_git() -> Dictionary:
-	return {"status": "?? scripts/new_thing.gd", "diff": ""}
+	return { "status": "?? scripts/new_thing.gd", "diff": "" }
 
 
 func _canned_run() -> String:
@@ -369,8 +399,10 @@ func test_the_summary_states_an_estimated_token_count() -> void:
 	var expected: int = dock.token_estimate()
 	assert(expected > 0, "the estimate is a real number")
 	assert(dock.last_tokens == expected, "last_tokens holds it for a caller")
-	assert(expected == int(round(dock.last_output.length() / float(DockScript.CHARS_PER_TOKEN))),
-			"it is four characters per token")
+	assert(
+		expected == int(round(dock.last_output.length() / float(DockScript.CHARS_PER_TOKEN))),
+		"it is four characters per token",
+	)
 	var phrase := RegEx.new()
 	phrase.compile("~[0-9][0-9,]* tokens")
 	assert(phrase.search(summary.text) != null, "the summary shows the estimate")
@@ -388,8 +420,7 @@ func test_a_snapshot_too_large_for_a_web_chat_is_flagged_and_a_pack_is_not() -> 
 
 	dock.select_subject("")
 	dock.refresh_preview()
-	assert(dock.last_tokens > DockScript.LARGE_TOKENS,
-			"the whole snapshot costs more than a web chat handles well")
+	assert(dock.last_tokens > DockScript.LARGE_TOKENS, "the whole snapshot costs more than a web chat handles well")
 	assert(summary.text.contains("Large for a web chat"), "so the summary says so in a sentence")
 
 	dock.select_subject("plant-id")

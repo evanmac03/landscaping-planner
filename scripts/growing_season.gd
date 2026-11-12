@@ -52,7 +52,6 @@ const TIGHT_DAYS := 14
 ## What a page says when there is no season to measure.
 const NO_SEASON := "the growing season is not stated"
 
-
 # --- the pair -----------------------------------------------------------------------------
 
 
@@ -83,7 +82,6 @@ static func day_words(day: int) -> String:
 		return ""
 	return SunReportScript.day_words(day)
 
-
 # --- the season in words ------------------------------------------------------------------
 
 
@@ -93,9 +91,10 @@ static func season_text(last_frost: int, first_frost: int) -> String:
 	if not is_stated(last_frost, first_frost):
 		return NO_SEASON
 	return "The growing season runs about %d days, from %s to %s." % [
-		length_days(last_frost, first_frost), day_words(last_frost), day_words(first_frost),
+		length_days(last_frost, first_frost),
+		day_words(last_frost),
+		day_words(first_frost),
 	]
-
 
 # --- whether a crop has time to finish ----------------------------------------------------
 
@@ -110,9 +109,7 @@ static func season_text(last_frost: int, first_frost: int) -> String:
 ## **A question nobody answered is skipped, not green:** a crop that records no time to maturity is
 ## UNKNOWN with no findings, and so is a drawing whose season is not stated - the season check has
 ## nothing to say about it rather than finding a fit that was never checked.
-static func check(
-	crop: PlantSpecies, last_frost: int, first_frost: int
-) -> Dictionary:
+static func check(crop: PlantSpecies, last_frost: int, first_frost: int) -> Dictionary:
 	var findings: Array[Dictionary] = []
 	if not is_stated(last_frost, first_frost) or crop == null:
 		return _result(UNKNOWN, findings, crop, last_frost, first_frost)
@@ -126,33 +123,50 @@ static func check(
 
 static func _fit_finding(crop: PlantSpecies, last_frost: int, first_frost: int) -> Dictionary:
 	if crop == null or crop.maturity_days <= 0:
-		return {}
+		return { }
 	var season: int = length_days(last_frost, first_frost)
 	var need: int = crop.maturity_days
 	var wanted: String = crop.maturity_text()
 	var found: String = "%d days" % season
 	if need > season:
 		return _finding(
-			"season", "the season", wanted, found, UNSUITABLE,
+			"season",
+			"the season",
+			wanted,
+			found,
+			UNSUITABLE,
 			"it needs %s and the growing season is only %s" % [wanted, found],
-			"the season is too short"
+			"the season is too short",
 		)
 	if season - need <= TIGHT_DAYS:
 		return _finding(
-			"season", "the season", wanted, found, TOLERATED,
+			"season",
+			"the season",
+			wanted,
+			found,
+			TOLERATED,
 			"it needs %s of a %s season, so it finishes only just before the frost" % [wanted, found],
-			"only %d days to spare" % (season - need)
+			"only %d days to spare" % (season - need),
 		)
 	return _finding(
-		"season", "the season", wanted, found, GOOD,
+		"season",
+		"the season",
+		wanted,
+		found,
+		GOOD,
 		"it needs %s and the growing season is %s" % [wanted, found],
-		"fits the season"
+		"fits the season",
 	)
 
 
 static func _finding(
-	key: String, label: String, wanted: String, found: String, outcome: int, because: String,
-	brief: String
+	key: String,
+	label: String,
+	wanted: String,
+	found: String,
+	outcome: int,
+	because: String,
+	brief: String,
 ) -> Dictionary:
 	return {
 		"key": key,
@@ -172,7 +186,11 @@ static func _worst(findings: Array[Dictionary]) -> int:
 
 
 static func _result(
-	verdict: int, findings: Array[Dictionary], crop: PlantSpecies, last_frost: int, first_frost: int
+	verdict: int,
+	findings: Array[Dictionary],
+	crop: PlantSpecies,
+	last_frost: int,
+	first_frost: int,
 ) -> Dictionary:
 	var stated: bool = is_stated(last_frost, first_frost)
 	var first: Dictionary = _first_not(findings, verdict)
@@ -195,8 +213,7 @@ static func _first_not(findings: Array[Dictionary], outcome: int) -> Dictionary:
 	for finding: Dictionary in findings:
 		if int(finding.get("outcome", GOOD)) == outcome:
 			return finding
-	return findings[0] if not findings.is_empty() else {}
-
+	return findings[0] if not findings.is_empty() else { }
 
 # --- saying it ----------------------------------------------------------------------------
 
@@ -242,7 +259,6 @@ static func colour_from(result: Dictionary) -> Color:
 static func verdict_name(verdict: int) -> String:
 	return PlantSuitabilityScript.verdict_name(verdict)
 
-
 # --- the crops of a season ------------------------------------------------------------------
 
 
@@ -260,20 +276,24 @@ static func rows(catalogue: PlantCatalogue, last_frost: int, first_frost: int) -
 		if not plant.is_edible():
 			continue
 		var verdict: Dictionary = check(plant, last_frost, first_frost)
-		out.append({
-			"id": plant.id,
-			"title": plant.display_name(),
-			"needed": plant.maturity_text(),
-			"days": int(verdict["days"]),
-			"verdict": int(verdict["verdict"]),
-			"colour": verdict["colour"],
-			"summary": String(verdict["summary"]),
-			"label": String(verdict["label"]),
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["verdict"]) != int(b["verdict"]):
-			return int(a["verdict"]) < int(b["verdict"])
-		return String(a["title"]) < String(b["title"]))
+		out.append(
+			{
+				"id": plant.id,
+				"title": plant.display_name(),
+				"needed": plant.maturity_text(),
+				"days": int(verdict["days"]),
+				"verdict": int(verdict["verdict"]),
+				"colour": verdict["colour"],
+				"summary": String(verdict["summary"]),
+				"label": String(verdict["label"]),
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a["verdict"]) != int(b["verdict"]):
+				return int(a["verdict"]) < int(b["verdict"])
+			return String(a["title"]) < String(b["title"]),
+	)
 	return out
 
 
@@ -289,7 +309,7 @@ static func row_texts(catalogue: PlantCatalogue, last_frost: int, first_frost: i
 
 ## How many crops of each verdict a season has, for a summary line.
 static func counts(rows_list: Array) -> Dictionary:
-	var out: Dictionary = {GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0}
+	var out: Dictionary = { GOOD: 0, TOLERATED: 0, UNSUITABLE: 0, UNKNOWN: 0 }
 	for row: Dictionary in rows_list:
 		var level: int = int(row.get("verdict", UNKNOWN))
 		out[level] = int(out[level]) + 1
@@ -313,6 +333,4 @@ static func describe_rows(rows_list: Array) -> String:
 	var unknown: int = int(held.get(UNKNOWN, 0))
 	if unknown > 0:
 		parts.append("%d cannot be checked" % unknown)
-	return "%d crop%s: %s." % [
-		rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)
-	]
+	return "%d crop%s: %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)]

@@ -110,10 +110,14 @@ func test_the_middle_it_gives_is_inside_the_rectangle_it_gives() -> void:
 	var outer: Rect2 = HudProbeScript.screen_rect(root)
 	var inner: Rect2 = HudProbeScript.screen_rect(button)
 	assert(outer.size.x > 0.0 and inner.size.x > 0.0, "both have a rectangle to speak of")
-	assert(inner.get_center().is_equal_approx(inner.position + inner.size * 0.5),
-		"the middle of a rectangle is the middle of a rectangle")
-	assert(inner.position.x >= outer.position.x and inner.position.y >= outer.position.y,
-		"a control placed inside its root stands inside it: %s in %s" % [str(inner), str(outer)])
+	assert(
+		inner.get_center().is_equal_approx(inner.position + inner.size * 0.5),
+		"the middle of a rectangle is the middle of a rectangle",
+	)
+	assert(
+		inner.position.x >= outer.position.x and inner.position.y >= outer.position.y,
+		"a control placed inside its root stands inside it: %s in %s" % [str(inner), str(outer)],
+	)
 	_free_made()
 
 
@@ -122,8 +126,7 @@ func test_something_to_read_is_not_something_to_tap() -> void:
 	var words := Label.new()
 	words.text = "A sentence."
 	_control(root, words, Vector2(10.0, 10.0), Vector2(200.0, 30.0))
-	assert(HudProbeScript.tap_lines(root, "a page").is_empty(),
-		"a line of words is read, not pressed")
+	assert(HudProbeScript.tap_lines(root, "a page").is_empty(), "a line of words is read, not pressed")
 	_free_made()
 
 
@@ -133,8 +136,7 @@ func test_a_control_that_is_not_on_the_screen_is_not_listed() -> void:
 	hidden.text = "Not shown"
 	hidden.visible = false
 	_control(root, hidden, Vector2(10.0, 10.0), Vector2(100.0, 40.0))
-	assert(HudProbeScript.tap_lines(root, "a page").is_empty(),
-		"a thing nobody can see is not a thing to tap")
+	assert(HudProbeScript.tap_lines(root, "a page").is_empty(), "a thing nobody can see is not a thing to tap")
 	_free_made()
 
 
@@ -154,10 +156,11 @@ func test_the_walk_round_a_page_does_not_descend_into_it() -> void:
 	# control inside a page is taken out by the walk **pruning the subtree**, where a control that is merely
 	# hidden is taken out later by the visibility test. Only the first is being held here, so the page does
 	# not have to be shown - which is what a window in a headless runner must not be asked to do.
-	assert(not HudProbeScript._controls_under(root).has(inside),
-		"a control inside a page is not swept up with the board's own")
-	assert(HudProbeScript._controls_under(root).size() == 0,
-		"and nothing else was invented on the way")
+	assert(
+		not HudProbeScript._controls_under(root).has(inside),
+		"a control inside a page is not swept up with the board's own",
+	)
+	assert(HudProbeScript._controls_under(root).size() == 0, "and nothing else was invented on the way")
 	_free_made()
 
 
@@ -179,8 +182,16 @@ func test_a_page_says_what_it_is_and_where_it_stands() -> void:
 
 func test_the_device_line_carries_what_the_program_answered() -> void:
 	var lines: PackedStringArray = HudProbeScript.device_lines(
-		true, false, 450.0, 1.62, Vector2i(1137, 2600), Vector2i(1080, 2340), true,
-		"Left-drag: move a plant     Two fingers: pan", "Line: click two ends")
+		true,
+		false,
+		450.0,
+		1.62,
+		Vector2i(1137, 2600),
+		Vector2i(1080, 2340),
+		true,
+		"Left-drag: move a plant     Two fingers: pan",
+		"Line: click two ends",
+	)
 	var all: String = "\n".join(lines)
 	assert(all.contains("finger=true"), "the device answer is said as it was answered: %s" % all)
 	assert(all.contains("dpi=450.0"), "with the density it was read from")

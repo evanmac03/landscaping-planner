@@ -23,7 +23,6 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 
 const NO_PRESENTATION := "there is no presentation to study the sun from"
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -76,14 +75,13 @@ func _drop(director: PresentationDirector) -> void:
 	if director != null and is_instance_valid(director):
 		director.free()
 
-
 # --- the menu -------------------------------------------------------------------------
 
 
 func test_the_present_menu_offers_the_study_and_its_own_line() -> void:
 	var entries: Array[Dictionary] = HudScript.present_items()
-	var study: Dictionary = {}
-	var line: Dictionary = {}
+	var study: Dictionary = { }
+	var line: Dictionary = { }
 	for entry: Dictionary in entries:
 		match String(entry.get("id", "")):
 			"present.sun_study":
@@ -102,10 +100,14 @@ func test_the_present_menu_offers_the_study_and_its_own_line() -> void:
 	assert(String(line["label"]) == "the sun", String(line["label"]))
 	var hud := HudScript.new()
 	assert(hud.has_method("_menu_sun_window"), "and the method the command names is there")
-	assert(hud.has_method("open_sun_window") and hud.has_method("is_sun_window_open"),
-		"beside the pair that opens and reports on the page")
-	assert(hud.has_method("apply_sun_moment") and hud.has_method("render_sun_study"),
-		"and the two the page's own signals call")
+	assert(
+		hud.has_method("open_sun_window") and hud.has_method("is_sun_window_open"),
+		"beside the pair that opens and reports on the page",
+	)
+	assert(
+		hud.has_method("apply_sun_moment") and hud.has_method("render_sun_study"),
+		"and the two the page's own signals call",
+	)
 	hud.free()
 
 
@@ -122,12 +124,10 @@ func test_a_scene_with_no_presentation_still_has_a_line_to_show() -> void:
 	var refused: Dictionary = hud.render_sun_study([SunStudyScript.moment(172, 12.0)])
 	assert(not bool(refused["ok"]), "and there is nothing to render from")
 	assert(String(refused["reason"]) == "there is no presentation to render from", String(refused["reason"]))
-	assert(hud._sun_window.said() == "there is no presentation to render from",
-		hud._sun_window.said())
+	assert(hud._sun_window.said() == "there is no presentation to render from", hud._sun_window.said())
 	assert(not hud.apply_sun_moment(SunStudyScript.moment(172, 12.0)), "nor a sun to aim")
 	assert(hud._sun_window.said() == "there is no presentation to aim", hud._sun_window.said())
 	hud.free()
-
 
 # --- the page, filled from the presentation -------------------------------------------
 
@@ -146,10 +146,7 @@ func test_the_page_is_built_and_filled_without_a_window_server() -> void:
 	assert(is_equal_approx(float(page.site()["utc_offset_hours"]), -5.0), str(page.site()))
 	assert(page.moment_count() == 6, "and it opens on a study rather than on nothing")
 	assert(page.height_words() == "1.8 m", page.height_words())
-	assert(
-		hud._sun_text() == "45.0°N 75.0°W, UTC-5: 6 moments, 6 with the sun up",
-		hud._sun_text()
-	)
+	assert(hud._sun_text() == "45.0°N 75.0°W, UTC-5: 6 moments, 6 with the sun up", hud._sun_text())
 	page.free()
 	hud.free()
 	_drop(director)
@@ -160,15 +157,12 @@ func test_the_page_reopens_to_the_study_it_was_left_with() -> void:
 	var built: Array = _studying(director)
 	var hud: Node = built[0]
 	var page: SunWindow = built[1]
-	assert(
-		SunReportScript.day_of(page.moments()[0]) == SunReportScript.JUNE_SOLSTICE,
-		"the page opens on a June day"
-	)
+	assert(SunReportScript.day_of(page.moments()[0]) == SunReportScript.JUNE_SOLSTICE, "the page opens on a June day")
 	assert(page.use_preset(&"december_day"), "a person asks for a December day instead")
 	hud._fill_sun_window()
 	assert(
 		SunReportScript.day_of(page.moments()[0]) == SunReportScript.DECEMBER_SOLSTICE,
-		"and opening the page again comes back to that study, not to a June day"
+		"and opening the page again comes back to that study, not to a June day",
 	)
 	assert(page.moment_count() == 6, "with the study whole")
 	page.free()
@@ -187,10 +181,9 @@ func test_the_line_is_in_the_snapshot_every_menu_refresh_is_drawn_from() -> void
 	page.clear_moments()
 	assert(
 		String(hud.menu_world()["sun"]) == "45.0°N 75.0°W, UTC-5: no moments chosen yet",
-		String(hud.menu_world()["sun"])
+		String(hud.menu_world()["sun"]),
 	)
-	assert(String(hud.menu_world()["sun"]) != String(world["sun"]),
-		"so emptying the study on the page moves the menu")
+	assert(String(hud.menu_world()["sun"]) != String(world["sun"]), "so emptying the study on the page moves the menu")
 	page.free()
 	hud.free()
 	_drop(director)
@@ -204,24 +197,27 @@ func test_a_page_left_open_keeps_up_with_the_site_moving_behind_it() -> void:
 	page.use_preset(&"december_day")
 	director.latitude = 60.0
 	hud._tick_sun_window()
-	assert(is_equal_approx(float(page.site()["latitude"]), 45.0),
-		"a page that is not up is not read again: %s" % str(page.site()))
+	assert(
+		is_equal_approx(float(page.site()["latitude"]), 45.0),
+		"a page that is not up is not read again: %s" % str(page.site()),
+	)
 	page.visible = true
 	hud._tick_sun_window()
-	assert(is_equal_approx(float(page.site()["latitude"]), 60.0),
-		"but one that is up catches up: %s" % str(page.site()))
+	assert(
+		is_equal_approx(float(page.site()["latitude"]), 60.0),
+		"but one that is up catches up: %s" % str(page.site()),
+	)
 	# The site is the page's to be told; the *study* is the page's own. Rebinding a site by itself
 	# must not throw away a study somebody is in the middle of building.
 	assert(
 		SunReportScript.day_of(page.moments()[0]) == SunReportScript.DECEMBER_SOLSTICE,
-		"and the study in hand is not thrown away"
+		"and the study in hand is not thrown away",
 	)
 	assert(page.moment_count() == 6, "whole")
 	page.visible = false
 	page.free()
 	hud.free()
 	_drop(director)
-
 
 # --- aiming the sun -------------------------------------------------------------------
 
@@ -255,12 +251,11 @@ func test_a_moment_the_sun_is_down_at_is_refused_by_the_presentation() -> void:
 	assert(page.said() == "the sun was not moved at 21 December 18:00", page.said())
 	assert(
 		page.hint().contains("18:00") or page.hint() == SunWindowScript.NO_CHOICE,
-		"and the page's guidance is about the study in hand: %s" % page.hint()
+		"and the page's guidance is about the study in hand: %s" % page.hint(),
 	)
 	page.free()
 	hud.free()
 	_drop(director)
-
 
 # --- rendering the study -------------------------------------------------------------
 
@@ -302,7 +297,7 @@ func test_a_study_with_nothing_to_render_is_refused_rather_than_started() -> voi
 	assert(not bool(refused["ok"]), "an empty study is refused")
 	assert(
 		String(refused["reason"]) == "no moment of this study has the sun up, so there is nothing to render",
-		String(refused["reason"])
+		String(refused["reason"]),
 	)
 	assert(page.said() == String(refused["reason"]), "and the page says why")
 	assert(hud._sun_render_index == 0, "and no walk was started")
@@ -323,16 +318,13 @@ func test_a_still_the_panel_asked_for_is_not_counted_as_one_of_the_study_s() -> 
 	hud._sun_render_waiting = false
 	assert(
 		not hud._sun_still_is_ours("user://proposals/sun-study-172-0800-1.png"),
-		"a still nobody asked for is not a step of the study"
+		"a still nobody asked for is not a step of the study",
 	)
 	hud._sun_render_waiting = true
-	assert(
-		hud._sun_still_is_ours("user://proposals/sun-study-172-0800-1.png"),
-		"the moment in hand is"
-	)
+	assert(hud._sun_still_is_ours("user://proposals/sun-study-172-0800-1.png"), "the moment in hand is")
 	assert(
 		not hud._sun_still_is_ours("user://proposals/presentation-1.png"),
-		"and a still the panel's own button asked for is not, however long the study runs"
+		"and a still the panel's own button asked for is not, however long the study runs",
 	)
 	# One of the study's stills landing starts the next moment; the rest fail by name, and the walk's
 	# closing sentence counts what it managed rather than claiming the whole study.

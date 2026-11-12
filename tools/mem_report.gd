@@ -52,15 +52,26 @@ func _process(_delta: float) -> void:
 
 
 func _say(tag: String) -> void:
-	print("MEM  ", tag,
-		"  static=", _mb(Performance.MEMORY_STATIC),
-		"  static_max=", _mb(Performance.MEMORY_STATIC_MAX),
-		"  obj=", int(Performance.get_monitor(Performance.OBJECT_COUNT)),
-		"  nodes=", int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
-		"  res=", int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
-		"  tex=", _mb(Performance.RENDER_TEXTURE_MEM_USED),
-		"  buf=", _mb(Performance.RENDER_BUFFER_MEM_USED),
-		"  vid=", _mb(Performance.RENDER_VIDEO_MEM_USED))
+	print(
+		"MEM  ",
+		tag,
+		"  static=",
+		_mb(Performance.MEMORY_STATIC),
+		"  static_max=",
+		_mb(Performance.MEMORY_STATIC_MAX),
+		"  obj=",
+		int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+		"  nodes=",
+		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"  res=",
+		int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+		"  tex=",
+		_mb(Performance.RENDER_TEXTURE_MEM_USED),
+		"  buf=",
+		_mb(Performance.RENDER_BUFFER_MEM_USED),
+		"  vid=",
+		_mb(Performance.RENDER_VIDEO_MEM_USED),
+	)
 
 
 func _mb(monitor: int) -> String:
@@ -75,8 +86,11 @@ func _attribute() -> void:
 		return
 	var rows: Array = []
 	for child: Node in _app.get_children():
-		rows.append({"name": child.name, "nodes": _subtree(child)})
-	rows.sort_custom(func(a, b): return int(a["nodes"]) > int(b["nodes"]))
+		rows.append({ "name": child.name, "nodes": _subtree(child) })
+	rows.sort_custom(
+		func(a, b):
+			return int(a["nodes"]) > int(b["nodes"]),
+	)
 	var parts: Array[String] = []
 	for row: Dictionary in rows.slice(0, 8):
 		parts.append("%s=%d" % [row["name"], int(row["nodes"])])
@@ -93,8 +107,11 @@ func _attribute() -> void:
 	var pages: Array = []
 	for node: Node in _walk(_app):
 		if node is Window:
-			pages.append({"name": node.name, "nodes": _subtree(node)})
-	pages.sort_custom(func(a, b): return int(a["nodes"]) > int(b["nodes"]))
+			pages.append({ "name": node.name, "nodes": _subtree(node) })
+	pages.sort_custom(
+		func(a, b):
+			return int(a["nodes"]) > int(b["nodes"]),
+	)
 	var top: Array[String] = []
 	for row: Dictionary in pages.slice(0, 10):
 		top.append("%s=%d" % [row["name"], int(row["nodes"])])

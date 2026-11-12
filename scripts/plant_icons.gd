@@ -24,7 +24,7 @@ const HALF := 32.0
 ## an outline is not clipped by the edge of the picture.
 const EXTENT := HALF * 0.8125
 
-static var CACHE := {}
+static var CACHE := { }
 
 
 ## The colour a species' swatch is tinted with: its bloom colour when it has one, and white when it is
@@ -106,9 +106,7 @@ static func swatch(species: PlantSpecies) -> Image:
 
 	for y in PIXELS:
 		for x in PIXELS:
-			var point := Vector2(
-				(float(x) + 0.5 - HALF) / half.x, (float(y) + 0.5 - HALF) / half.y
-			)
+			var point := Vector2((float(x) + 0.5 - HALF) / half.x, (float(y) + 0.5 - HALF) / half.y)
 			var colour: Color = Color(0, 0, 0, 0)
 			for part: Dictionary in parts:
 				if _inks(part, PlantSymbolsScript.INK_FILL) and _inside(part, point):
@@ -151,9 +149,9 @@ static func _stroked(part: Dictionary, point: Vector2) -> bool:
 		&"rect":
 			var rect_half: Vector2 = part["half"]
 			var outer: bool = absf(point.x - centre.x) <= rect_half.x + width \
-				and absf(point.y - centre.y) <= rect_half.y + width
+					and absf(point.y - centre.y) <= rect_half.y + width
 			var inner: bool = absf(point.x - centre.x) <= maxf(rect_half.x - width, 0.0) \
-				and absf(point.y - centre.y) <= maxf(rect_half.y - width, 0.0)
+					and absf(point.y - centre.y) <= maxf(rect_half.y - width, 0.0)
 			return outer and not inner
 		_:
 			var points: PackedVector2Array = part["points"]
@@ -187,7 +185,7 @@ static func _in_polygon(point: Vector2, ring: PackedVector2Array) -> bool:
 		var here: Vector2 = ring[index]
 		var before: Vector2 = ring[previous]
 		if (here.y > point.y) != (before.y > point.y) \
-			and point.x < (before.x - here.x) * (point.y - here.y) / (before.y - here.y) + here.x:
+				and point.x < (before.x - here.x) * (point.y - here.y) / (before.y - here.y) + here.x:
 			inside = not inside
 		previous = index
 	return inside

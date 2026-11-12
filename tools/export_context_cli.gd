@@ -43,8 +43,12 @@ func _init() -> void:
 	file.close()
 
 	print("Wrote %s" % file_path)
-	print("  %s - %d lines, %d KB" % [
+	print(
+		"  %s - %d lines, %d KB"
+		% [
 			"the whole snapshot" if subject.is_empty() else "the '%s' pack" % subject,
-			output.count("\n") + 1, int(round(output.to_utf8_buffer().size() / 1024.0)),
-	])
+			output.count("\n") + 1,
+			int(round(output.to_utf8_buffer().size() / 1024.0)),
+		]
+	)
 	quit()

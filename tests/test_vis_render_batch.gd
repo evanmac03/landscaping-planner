@@ -112,8 +112,10 @@ func test_a_finished_batch_refuses_to_run_again() -> void:
 
 func test_the_batch_can_be_driven_by_a_synchronous_executor() -> void:
 	var batch := _fake_batch()
-	var outcome: Dictionary = batch.run(func(job: Dictionary) -> String:
-		return "/p/%s.png" % String(job["name"]).to_lower().replace(" ", "-"))
+	var outcome: Dictionary = batch.run(
+		func(job: Dictionary) -> String:
+			return "/p/%s.png" % String(job["name"]).to_lower().replace(" ", "-"),
+	)
 	assert(bool(outcome["ok"]))
 	assert(int(outcome["succeeded"]) == 2)
 	assert(int(outcome["waiting"]) == 0)
@@ -122,8 +124,10 @@ func test_the_batch_can_be_driven_by_a_synchronous_executor() -> void:
 
 func test_the_executor_may_refuse_one_and_the_rest_still_run() -> void:
 	var batch := _fake_batch()
-	var outcome: Dictionary = batch.run(func(job: Dictionary) -> String:
-		return "" if String(job["name"]) == "3D presentation" else "/p/a.png")
+	var outcome: Dictionary = batch.run(
+		func(job: Dictionary) -> String:
+			return "" if String(job["name"]) == "3D presentation" else "/p/a.png",
+	)
 	assert(int(outcome["failed"]) == 1, "the refusal was counted")
 	assert(int(outcome["succeeded"]) == 1, "the other still was rendered")
 	assert(batch.is_done())
@@ -154,12 +158,21 @@ func test_a_refused_name_is_refused_in_words() -> void:
 	assert(batch.reason_against("Working plan") == "", "a name nobody has is free")
 	assert(batch.add("A new one", "hd", "Painted plan"))
 	assert(batch.reason_against("Working plan") == "", "and the old name is still free")
-	assert(batch.reason_against("A new one").contains("already"), "a taken name says so: %s" % batch.reason_against("A new one"))
+	assert(
+		batch.reason_against("A new one").contains("already"),
+		"a taken name says so: %s" % batch.reason_against("A new one"),
+	)
 	assert(batch.reason_against("A new one").contains("A new one"), "and names it")
-	assert(batch.reason_against("   ").contains("name"), "a blank one asks for a name: %s" % batch.reason_against("   "))
+	assert(
+		batch.reason_against("   ").contains("name"),
+		"a blank one asks for a name: %s" % batch.reason_against("   "),
+	)
 	# A full batch refuses the next one, and says how many it holds.
 	var small := Batch.new()
 	for index in small.MAX_JOBS:
 		assert(small.add("still %d" % index, "hd", "Painted plan"), "still %d fits" % index)
-	assert(small.reason_against("one too many").contains(str(small.MAX_JOBS)), "a full batch counts itself: %s" % small.reason_against("one too many"))
+	assert(
+		small.reason_against("one too many").contains(str(small.MAX_JOBS)),
+		"a full batch counts itself: %s" % small.reason_against("one too many"),
+	)
 	assert(not small.add("one too many", "hd", "Painted plan"))

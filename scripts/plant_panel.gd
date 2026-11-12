@@ -112,7 +112,10 @@ func build(library_words: String = "Library...") -> void:
 	_library_button.text = library_words
 	_library_button.tooltip_text = "Search the whole catalogue, with filters and detail"
 	_library_button.focus_mode = Control.FOCUS_NONE
-	_library_button.pressed.connect(func() -> void: library_requested.emit())
+	_library_button.pressed.connect(
+		func() -> void:
+			library_requested.emit(),
+	)
 	_header.add_child(_library_button)
 
 	_tag_row = HFlowContainer.new()
@@ -161,7 +164,10 @@ func build(library_words: String = "Library...") -> void:
 	_place_button.pressed.connect(place_selected)
 	_stop_button = _action_button(_actions, "Stop", true)
 	_stop_button.tooltip_text = "Put the plant away, so a click on the plan is a click on the plan"
-	_stop_button.pressed.connect(func() -> void: stop_requested.emit())
+	_stop_button.pressed.connect(
+		func() -> void:
+			stop_requested.emit(),
+	)
 
 	_build_fill_rows()
 
@@ -211,9 +217,7 @@ func _build_fill_rows() -> void:
 	_fill_row.add_child(_arrangement_option)
 	for arrangement: String in SpacingScript.ARRANGEMENTS:
 		_arrangement_option.add_item(SpacingScript.arrangement_words(arrangement))
-		_arrangement_option.set_item_metadata(
-			_arrangement_option.item_count - 1, arrangement
-		)
+		_arrangement_option.set_item_metadata(_arrangement_option.item_count - 1, arrangement)
 	# Staggered, because that is what a planting plan draws. Square is the arrangement for a hedge or a
 	# grid of paving, which is a different job.
 	_arrangement_option.selected = SpacingScript.ARRANGEMENTS.find(SpacingScript.TRIANGULAR)
@@ -270,7 +274,6 @@ func bind(new_catalogue: PlantCatalogue) -> void:
 	_rebuild_list()
 	_refresh_detail()
 
-
 # --- what it shows -------------------------------------------------------------------------
 
 
@@ -291,7 +294,7 @@ func _sync_tag_choices() -> void:
 	_tag_option.clear()
 	_tag_option.add_item("Any tag")
 	_tag_option.set_item_metadata(0, "")
-	var counts: Dictionary = catalogue.tag_counts() if catalogue != null else {}
+	var counts: Dictionary = catalogue.tag_counts() if catalogue != null else { }
 	for tag_name: String in wanted:
 		_tag_option.add_item("%s (%d)" % [tag_name, int(counts.get(tag_name, 0))])
 		_tag_option.set_item_metadata(_tag_option.item_count - 1, tag_name)
@@ -383,7 +386,6 @@ func _on_row_selected(_index: int) -> void:
 func _on_row_activated(_index: int) -> void:
 	place_selected()
 
-
 # --- what it says, and what it does ---------------------------------------------------------
 
 
@@ -399,7 +401,9 @@ func refresh(planting: StringName = &"", planted: int = 0) -> void:
 	_planted = planted
 	_sync_tag_choices()
 	var signature: String = "%s|%d|%s" % [
-		_tag, catalogue.count() if catalogue != null else -1, catalogue.source if catalogue != null else ""
+		_tag,
+		catalogue.count() if catalogue != null else -1,
+		catalogue.source if catalogue != null else "",
 	]
 	if signature != _list_signature:
 		_list_signature = signature
@@ -415,7 +419,7 @@ func _refresh_detail() -> void:
 	# for a frame and be gone.
 	_place_button.disabled = selected_species() == null
 	_place_button.tooltip_text = "Choose a plant first" if _place_button.disabled \
-		else "Put the chosen plant in hand, then click the plan"
+			else "Put the chosen plant in hand, then click the plan"
 	_stop_button.disabled = _planting.is_empty()
 	# A fill needs both halves: a plant to plant and a bed to put it in. Whichever is missing is named
 	# in the tooltip, because "Fill the bed" greyed out with no explanation is a dead end.
@@ -427,7 +431,8 @@ func _refresh_detail() -> void:
 		_fill_button.tooltip_text = "The drawing encloses no bed yet: draw one on a bed layer, or state the ground for one"
 	else:
 		_fill_button.tooltip_text = "Plant %s through %s at %s, %s" % [
-			_row_title(species), SpacingScript.bed_words(selected_bed()),
+			_row_title(species),
+			SpacingScript.bed_words(selected_bed()),
 			"Its own spread" if spacing_choice() <= 0.0 else SpacingScript.spacing_words(spacing_choice()),
 			SpacingScript.arrangement_words(arrangement_choice()).to_lower(),
 		]
@@ -447,9 +452,7 @@ func status_text() -> String:
 	if not _planting.is_empty():
 		var species: PlantSpecies = catalogue.get_species(_planting)
 		if species != null:
-			return "Planting %s. %d standing. Escape puts it away." % [
-				_row_title(species), _planted
-			]
+			return "Planting %s. %d standing. Escape puts it away." % [_row_title(species), _planted]
 	var total: int = catalogue.count()
 	if _capped:
 		return "Showing the first %d of %d. Open the library to search." % [_species.size(), total]
@@ -509,7 +512,6 @@ func place_selected() -> bool:
 func status_label() -> Label:
 	return _status
 
-
 # --- filling a bed ---------------------------------------------------------------------------
 
 
@@ -567,7 +569,7 @@ func selected_bed() -> Dictionary:
 	for row: Dictionary in _beds:
 		if String(row.get("key", "")) == _bed_key:
 			return row
-	return {}
+	return { }
 
 
 ## How far apart the plants will stand, in metres. Zero means the species' own spread, which is a
@@ -639,14 +641,17 @@ func library_label() -> String:
 func list_is_keyboard_free() -> bool:
 	if _list == null or _tag_option == null or _place_button == null or _stop_button == null:
 		return false
-	if _spacing_option == null or _arrangement_option == null \
-			or _bed_option == null or _fill_button == null:
+	if (
+		_spacing_option == null or _arrangement_option == null \
+				or _bed_option == null
+		or _fill_button == null
+	):
 		return false
 	return _list.focus_mode == Control.FOCUS_NONE \
-		and _tag_option.focus_mode == Control.FOCUS_NONE \
-		and _place_button.focus_mode == Control.FOCUS_NONE \
-		and _stop_button.focus_mode == Control.FOCUS_NONE \
-		and _spacing_option.focus_mode == Control.FOCUS_NONE \
-		and _arrangement_option.focus_mode == Control.FOCUS_NONE \
-		and _bed_option.focus_mode == Control.FOCUS_NONE \
-		and _fill_button.focus_mode == Control.FOCUS_NONE
+			and _tag_option.focus_mode == Control.FOCUS_NONE \
+			and _place_button.focus_mode == Control.FOCUS_NONE \
+			and _stop_button.focus_mode == Control.FOCUS_NONE \
+			and _spacing_option.focus_mode == Control.FOCUS_NONE \
+			and _arrangement_option.focus_mode == Control.FOCUS_NONE \
+			and _bed_option.focus_mode == Control.FOCUS_NONE \
+			and _fill_button.focus_mode == Control.FOCUS_NONE

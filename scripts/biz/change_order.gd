@@ -56,9 +56,7 @@ const REASONS := {
 
 ## How the agreement was recorded (REQ-B13). An approval in the app, a photograph of signed paper, or
 ## the reference of an e-mail that says yes are three different weights of evidence.
-const APPROVAL_HOWS: Array[String] = [
-	"in-app", "signed paper photo", "e-mail reference",
-]
+const APPROVAL_HOWS: Array[String] = ["in-app", "signed paper photo", "e-mail reference"]
 
 var id: String = ""
 var number: String = ""
@@ -133,7 +131,6 @@ func is_approved() -> bool:
 func enters_contract_sum() -> bool:
 	return state() == APPROVED and affects_contract_sum
 
-
 # --- what it is worth ------------------------------------------------------------------------
 
 
@@ -166,7 +163,7 @@ func add_line(line: EstimateLine, book: CostBook = null) -> bool:
 ## approved for a code beside what the code has cost.
 ## Returns `{code: Money}`.
 func code_amounts() -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	if estimate == null:
 		return out
 	for line in estimate.lines:
@@ -176,7 +173,6 @@ func code_amounts() -> Dictionary:
 		var running: Money = out.get(code, MoneyScript.zero(estimate.currency))
 		out[code] = running.add(line.extension())
 	return out
-
 
 # --- the workflow ---------------------------------------------------------------------------
 
@@ -203,32 +199,31 @@ func send(at: String) -> bool:
 ## Returns `{ok, reason}`.
 func approve(by: String, at: String, how: String, signature: String = "") -> Dictionary:
 	if not is_pending():
-		return {"ok": false, "reason": "it is %s, and that is not a question any more" % state_name()}
+		return { "ok": false, "reason": "it is %s, and that is not a question any more" % state_name() }
 	if by.strip_edges().is_empty():
-		return {"ok": false, "reason": "an approval says who agreed"}
+		return { "ok": false, "reason": "an approval says who agreed" }
 	if at.strip_edges().is_empty():
-		return {"ok": false, "reason": "an approval says when"}
+		return { "ok": false, "reason": "an approval says when" }
 	if how.strip_edges().is_empty() or not APPROVAL_HOWS.has(how):
-		return {"ok": false,
-			"reason": "an approval says how it was recorded: %s" % ", ".join(APPROVAL_HOWS)}
+		return { "ok": false, "reason": "an approval says how it was recorded: %s" % ", ".join(APPROVAL_HOWS) }
 	if estimate != null and estimate.line_count() == 0:
-		return {"ok": false, "reason": "there is nothing on it to approve"}
+		return { "ok": false, "reason": "there is nothing on it to approve" }
 	approved_by = by
 	approved_at = at
 	approved_how = how
 	approved_signature = signature
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 func decline(by: String, at: String, why: String) -> Dictionary:
 	if not is_pending():
-		return {"ok": false, "reason": "it is %s, and that is not a question any more" % state_name()}
+		return { "ok": false, "reason": "it is %s, and that is not a question any more" % state_name() }
 	if why.strip_edges().is_empty():
-		return {"ok": false, "reason": "a declined change order says why"}
+		return { "ok": false, "reason": "a declined change order says why" }
 	declined_by = by
 	declined_at = at
 	declined_why = why
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Void one that was never answered. **An approved change order is a contract document** and cannot be
@@ -236,16 +231,14 @@ func decline(by: String, at: String, why: String) -> Dictionary:
 ## Not named `void`, which is a keyword in this language.
 func mark_void(at: String, why: String) -> Dictionary:
 	if is_approved():
-		return {"ok": false,
-			"reason": "an approved change order is a contract document: agree a second one instead"}
+		return { "ok": false, "reason": "an approved change order is a contract document: agree a second one instead" }
 	if not voided_at.is_empty():
-		return {"ok": false, "reason": "it is already void"}
+		return { "ok": false, "reason": "it is already void" }
 	if why.strip_edges().is_empty():
-		return {"ok": false, "reason": "a void change order says why"}
+		return { "ok": false, "reason": "a void change order says why" }
 	voided_at = at
 	voided_why = why
-	return {"ok": true, "reason": ""}
-
+	return { "ok": true, "reason": "" }
 
 # --- what it says --------------------------------------------------------------------------
 
@@ -268,8 +261,10 @@ func problems(book: CostBook = null) -> Array[String]:
 	if estimate != null:
 		for held in estimate.problems(book):
 			out.append("%s: %s" % [_label(), String(held)])
-	if is_approved() and (approved_by.strip_edges().is_empty() or approved_at.is_empty()
-			or approved_how.strip_edges().is_empty()):
+	if (
+		is_approved()
+		and (approved_by.strip_edges().is_empty() or approved_at.is_empty() or approved_how.strip_edges().is_empty())
+	):
 		out.append("%s is approved with no record of who agreed, when or how" % _label())
 	return out
 
@@ -311,7 +306,6 @@ func _label() -> String:
 		return id
 	return "this change order"
 
-
 # --- the file ---------------------------------------------------------------------------------
 
 
@@ -322,7 +316,7 @@ func to_dict() -> Dictionary:
 		"job": job,
 		"reason": String(reason),
 		"state": String(state()),
-		"estimate": estimate.to_dict() if estimate != null else {},
+		"estimate": estimate.to_dict() if estimate != null else { },
 		"affects_contract_sum": affects_contract_sum,
 		"proposed_at": proposed_at,
 		"sent_at": sent_at,
@@ -353,7 +347,7 @@ static func from_dict(data: Dictionary) -> ChangeOrder:
 	# The stored "state" is written for whoever reads the JSON and deliberately **not** read back here:
 	# the state is derived from the dates below, so a record that says APPROVED with no approver is a
 	# proposed change order rather than an agreement nobody made.
-	var held = data.get("estimate", {})
+	var held = data.get("estimate", { })
 	if held is Dictionary and not (held as Dictionary).is_empty():
 		var read: Estimate = EstimateScript.from_dict(held)
 		if read != null:

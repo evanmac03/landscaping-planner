@@ -44,7 +44,7 @@ func test_a_term_has_to_be_readable() -> void:
 	assert(WarrantyScript.make("J1", ["plant material"], 0, STARTED) == null, "no term")
 	assert(
 		WarrantyScript.make("J1", ["plant material"], WarrantyScript.MAX_MONTHS + 1, STARTED) == null,
-		"a term longer than anything a plant warranty is"
+		"a term longer than anything a plant warranty is",
 	)
 	assert(WarrantyScript.make("J1", ["plant material"], 12, "June") == null, "no start")
 	assert(WarrantyScript.make("J1", ["plant material"], WarrantyScript.MAX_MONTHS, STARTED) != null)
@@ -63,7 +63,7 @@ func test_the_terms_line_is_the_sentence_a_contract_writes() -> void:
 	var record := _warranty()
 	assert(
 		record.terms_text() == "plant material and workmanship for 12 months from 2026-06-30, so until 2027-06-30",
-		record.terms_text()
+		record.terms_text(),
 	)
 	assert(_warranty(["plant material"], 1).terms_text().contains("1 month from"), "one month reads as one")
 	var bare := WarrantyScript.new("J1")

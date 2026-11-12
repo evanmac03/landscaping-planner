@@ -34,14 +34,18 @@ signal closed
 ## bottom edge.
 const SIZE := Vector2i(880, 640)
 
-const EXPLANATION := ("A growing season is two dates: the last frost of spring and the first frost "
+const EXPLANATION := (
+	"A growing season is two dates: the last frost of spring and the first frost "
 	+ "of autumn. State them here and they are kept with the drawing, and every food crop in the "
 	+ "list is then measured against the season they bound - a crop that takes longer to ripen than "
-	+ "the season lasts will not finish before the frost comes back.")
+	+ "the season lasts will not finish before the frost comes back."
+)
 
 const NO_DOCUMENT := "there is no drawing open, so there is no season to state"
-const NOT_STATED_HINT := ("the drawing does not state a growing season yet: set the frost dates and "
-	+ "press State the season to keep them with the drawing")
+const NOT_STATED_HINT := (
+	"the drawing does not state a growing season yet: set the frost dates and "
+	+ "press State the season to keep them with the drawing"
+)
 const NO_FOOD := "no food crops are recorded in the plant list, so there is nothing to check against the season"
 const BAD_DATES := "those dates are not a season: the last frost has to come before the first"
 
@@ -71,7 +75,6 @@ var _crops_list: ItemList = null
 var _summary_label: Label = null
 var _hint_label: Label = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -179,7 +182,6 @@ func _button(row: Node, node_name: String, caption: String) -> Button:
 	row.add_child(made)
 	return made
 
-
 # --- the drawing --------------------------------------------------------------------------
 
 
@@ -218,7 +220,6 @@ func season_line() -> String:
 		return NO_DOCUMENT
 	return GrowingSeasonScript.season_text(last_frost(), first_frost())
 
-
 # --- the fields ---------------------------------------------------------------------------
 
 
@@ -240,7 +241,6 @@ func set_fields(last: int, first: int) -> void:
 	_refresh_field_line()
 	_refresh_buttons()
 	_hint_label.text = hint()
-
 
 # --- what the buttons do -------------------------------------------------------------------
 
@@ -284,7 +284,6 @@ func clear_season() -> bool:
 	season_changed.emit()
 	return true
 
-
 # --- what the season comes to --------------------------------------------------------------
 
 
@@ -303,9 +302,7 @@ func row_count() -> int:
 func summary_text() -> String:
 	if _catalogue == null:
 		return "there is no plant list to check"
-	return GrowingSeasonScript.describe_rows(
-		GrowingSeasonScript.rows(_catalogue, last_frost(), first_frost())
-	)
+	return GrowingSeasonScript.describe_rows(GrowingSeasonScript.rows(_catalogue, last_frost(), first_frost()))
 
 
 ## The guidance: what the page is waiting for, or what it is doing. Kept apart from the status line,
@@ -318,7 +315,6 @@ func hint() -> String:
 	if _catalogue == null or row_count() == 0:
 		return NO_FOOD
 	return "each crop below is measured against this season: one that ripens later than the first frost will not finish"
-
 
 # --- what the page says ----------------------------------------------------------------------
 
@@ -359,7 +355,6 @@ func request_close() -> void:
 
 func _on_close_requested() -> void:
 	request_close()
-
 
 # --- the refresh -------------------------------------------------------------------------
 
@@ -414,9 +409,7 @@ func _refresh_field_line() -> void:
 ## hundred strings a frame.
 func _write_rows() -> void:
 	var texts: Array[String] = row_texts()
-	var signature: String = "%d|%d|%s" % [
-		last_frost(), first_frost(), "+".join(PackedStringArray(texts))
-	]
+	var signature: String = "%d|%d|%s" % [last_frost(), first_frost(), "+".join(PackedStringArray(texts))]
 	if signature == _rows_signature_seen:
 		return
 	_rows_signature_seen = signature
@@ -430,8 +423,8 @@ func _refresh_buttons() -> void:
 		return
 	# The same question asked twice: the button is dead when the page cannot do it, and the hint above
 	# says which fact is missing - which a disabled button cannot say for itself.
-	_state_button.disabled = document == null or not GrowingSeasonScript.is_stated(
-		field_last_frost(), field_first_frost()
+	_state_button.disabled = (
+		document == null or not GrowingSeasonScript.is_stated(field_last_frost(), field_first_frost())
 	)
 	_clear_button.disabled = not season_stated()
 

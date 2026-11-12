@@ -68,8 +68,21 @@ const ROUTE_WIFI_COMPUTER := &"wifi_computer"
 ## something that can read a photograph, because offering somebody a text model as a plant reader costs
 ## them an afternoon and teaches them not to trust the next suggestion.
 const VISION_MARKERS: PackedStringArray = [
-	"llava", "bakllava", "smolvlm", "moondream", "minicpm-v", "pixtral", "internvl", "vision",
-	"qwen2-vl", "qwen2vl", "qwen2.5vl", "qwen2.5-vl", "qwen3-vl", "gemma3", "llama4",
+	"llava",
+	"bakllava",
+	"smolvlm",
+	"moondream",
+	"minicpm-v",
+	"pixtral",
+	"internvl",
+	"vision",
+	"qwen2-vl",
+	"qwen2vl",
+	"qwen2.5vl",
+	"qwen2.5-vl",
+	"qwen3-vl",
+	"gemma3",
+	"llama4",
 ]
 
 ## The vision models this program can vouch for, smallest first, each with the sentence its size came
@@ -103,9 +116,7 @@ const MODELS: Array[Dictionary] = [
 		"needs_mmproj": false,
 		"weights_bytes": 3200627168,
 		"projector_bytes": 0,
-		"size_whence": (
-			"measured on this project's own machine: the size Ollama reports for qwen2.5vl:3b"
-		),
+		"size_whence": ("measured on this project's own machine: the size Ollama reports for qwen2.5vl:3b"),
 		"why": (
 			"the model that read this project's test photograph correctly in under three seconds, and "
 			+ "the one the page's own live checks used"
@@ -162,7 +173,7 @@ static func scan_this_device() -> Dictionary:
 		int(memory.get("physical", UNKNOWN)),
 		int(memory.get("free", UNKNOWN)),
 		disk,
-		RenderingServer.get_video_adapter_name()
+		RenderingServer.get_video_adapter_name(),
 	)
 
 
@@ -181,7 +192,7 @@ static func scan(
 	physical_bytes: int,
 	free_bytes: int,
 	disk_free_bytes: int,
-	gpu_name: String
+	gpu_name: String,
 ) -> Dictionary:
 	var physical: int = _said_number(physical_bytes)
 	var free_now: int = _said_number(free_bytes)
@@ -271,17 +282,18 @@ static func skip_reason(model: Dictionary, reading: Dictionary) -> String:
 		return "%s needs a disk this machine did not say the size of" % _label(model)
 	if files > disk:
 		return "%s needs %s of disk and this machine has %s free" % [
-			_label(model), bytes_words(files), bytes_words(disk),
+			_label(model),
+			bytes_words(files),
+			bytes_words(disk),
 		]
 	var room: int = memory_for_a_model(reading)
 	if room <= 0:
-		return (
-			"this machine did not say how much memory it has, so nothing can be told it fits %s"
-			% _label(model)
-		)
+		return ("this machine did not say how much memory it has, so nothing can be told it fits %s" % _label(model))
 	if needed > room:
 		return "%s needs about %s of memory and this machine can spare about %s" % [
-			_label(model), bytes_words(needed), bytes_words(room),
+			_label(model),
+			bytes_words(needed),
+			bytes_words(room),
 		]
 	return ""
 
@@ -301,17 +313,21 @@ static func suggest(reading: Dictionary) -> Dictionary:
 	for model: Dictionary in MODELS:
 		var why: String = skip_reason(model, reading)
 		if why.is_empty():
-			fits.append({
-				"model": model,
-				"label": _label(model),
-				"ram_needed_bytes": ram_needed_bytes(model),
-				"download_bytes": download_bytes(model),
-				"runs_from_what_is_free_now": _fits_what_is_free_now(model, reading),
-			})
+			fits.append(
+				{
+					"model": model,
+					"label": _label(model),
+					"ram_needed_bytes": ram_needed_bytes(model),
+					"download_bytes": download_bytes(model),
+					"runs_from_what_is_free_now": _fits_what_is_free_now(model, reading),
+				}
+			)
 		else:
-			refused.append({"model": model, "label": _label(model), "reason": why})
-	fits.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a["ram_needed_bytes"]) > int(b["ram_needed_bytes"]))
+			refused.append({ "model": model, "label": _label(model), "reason": why })
+	fits.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a["ram_needed_bytes"]) > int(b["ram_needed_bytes"]),
+	)
 
 	if tier == TIER_UNKNOWN:
 		return {
@@ -323,13 +339,13 @@ static func suggest(reading: Dictionary) -> Dictionary:
 			"steps": [] as Array[String],
 			"fits": fits,
 			"refused": refused,
-			"small_experiment": {} as Dictionary,
+			"small_experiment": { } as Dictionary,
 			"needs_network": false,
 		}
 
 	var tag: String = _best_ollama_tag()
 	if tier == TIER_TIGHT:
-		var experiment: Dictionary = {} as Dictionary
+		var experiment: Dictionary = { } as Dictionary
 		if not fits.is_empty():
 			experiment = fits[0].duplicate()
 			experiment["warning"] = (
@@ -351,8 +367,7 @@ static func suggest(reading: Dictionary) -> Dictionary:
 			"reason": (
 				"%s of memory is not enough to hold a model that can name a plant and this program at "
 				% bytes_words(int(reading.get("physical_bytes", UNKNOWN)))
-				+ "the same time - about %s of memory can be spared here."
-				% bytes_words(memory_for_a_model(reading))
+				+ "the same time - about %s of memory can be spared here." % bytes_words(memory_for_a_model(reading))
 			),
 			"steps": _wifi_steps(tag),
 			"fits": fits,
@@ -370,13 +385,12 @@ static func suggest(reading: Dictionary) -> Dictionary:
 				"No model this program can vouch for fits this machine, so a computer on the same Wi-Fi "
 				+ "is the way to read a photograph."
 			),
-			"reason": "Every model in this program's own table is too large for %s of memory." % bytes_words(
-				int(reading.get("physical_bytes", UNKNOWN))
-			),
+			"reason": "Every model in this program's own table is too large for %s of memory."
+			% bytes_words(int(reading.get("physical_bytes", UNKNOWN))),
 			"steps": _wifi_steps(tag),
 			"fits": fits,
 			"refused": refused,
-			"small_experiment": {} as Dictionary,
+			"small_experiment": { } as Dictionary,
 			"needs_network": true,
 		}
 
@@ -391,7 +405,8 @@ static func suggest(reading: Dictionary) -> Dictionary:
 		"ok": true,
 		"tier": tier,
 		"route": ROUTE_THIS_DEVICE,
-		"headline": "%s can run here: %s to download and about %s in memory.%s" % [
+		"headline": "%s can run here: %s to download and about %s in memory.%s"
+		% [
 			_label(best["model"]),
 			bytes_words(int(best["download_bytes"])),
 			bytes_words(int(best["ram_needed_bytes"])),
@@ -401,7 +416,7 @@ static func suggest(reading: Dictionary) -> Dictionary:
 		"steps": _this_device_steps(best["model"]),
 		"fits": fits,
 		"refused": refused,
-		"small_experiment": {} as Dictionary,
+		"small_experiment": { } as Dictionary,
 		"needs_network": false,
 	}
 
@@ -412,9 +427,7 @@ static func summary(reading: Dictionary) -> String:
 	var parts: Array[String] = []
 	parts.append(_platform_words(reading))
 	var cores: int = int(reading.get("cores", UNKNOWN))
-	parts.append(
-		"%d processors" % cores if cores != UNKNOWN else "the number of processors was not readable"
-	)
+	parts.append("%d processors" % cores if cores != UNKNOWN else "the number of processors was not readable")
 	var physical: int = int(reading.get("physical_bytes", UNKNOWN))
 	var free_now: int = int(reading.get("free_bytes", UNKNOWN))
 	if physical == UNKNOWN:
@@ -424,13 +437,14 @@ static func summary(reading: Dictionary) -> String:
 	else:
 		parts.append("%s of memory, %s of it free" % [bytes_words(physical), bytes_words(free_now)])
 	var disk: int = int(reading.get("disk_free_bytes", UNKNOWN))
-	parts.append(
-		"%s of disk free" % bytes_words(disk) if disk != UNKNOWN else "how much disk is free was not readable"
-	)
+	parts.append("%s of disk free" % bytes_words(disk) if disk != UNKNOWN else "how much disk is free was not readable")
 	var gpu: String = String(reading.get("gpu_name", ""))
 	parts.append(
-		"graphics %s" % gpu if not gpu.is_empty()
-		else "the graphics card was not readable, which is what a program with no screen reports"
+		(
+			"graphics %s" % gpu
+			if not gpu.is_empty()
+			else "the graphics card was not readable, which is what a program with no screen reports"
+		)
 	)
 	return "%s." % ", ".join(parts)
 
@@ -507,7 +521,8 @@ static func _wifi_steps(tag: String) -> Array[String]:
 	var steps: Array[String] = []
 	steps.append("Install Ollama on a computer connected to the same Wi-Fi.")
 	steps.append(
-		"On that computer, fetch the model: %s" % ("ollama pull %s" % tag if not tag.is_empty() else "ollama pull a vision model")
+		"On that computer, fetch the model: %s"
+		% ("ollama pull %s" % tag if not tag.is_empty() else "ollama pull a vision model")
 	)
 	steps.append(
 		"Start that computer's Ollama so another machine may reach it: the setting is OLLAMA_HOST, and "

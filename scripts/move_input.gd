@@ -15,7 +15,6 @@ extends RefCounted
 ## `.limit_length(1.0)` is what `get_vector` does to a diagonal, and dropping it would make
 ## walking north-east 1.4 times as fast as walking north - the oldest bug in the book.
 
-
 ## A virtual stick, for a device with a screen and no keyboard.
 ##
 ## Held here rather than read from the on-screen control's own state, because the walker above reads one
@@ -38,9 +37,7 @@ static func set_touch_stick(asked: Vector2, sprint: bool) -> void:
 
 
 static func stick() -> Vector2:
-	var keys := Vector2(
-		axis(&"move_left", &"move_right"), axis(&"move_forward", &"move_back")
-	)
+	var keys := Vector2(axis(&"move_left", &"move_right"), axis(&"move_forward", &"move_back"))
 	return (keys + _touch_stick).limit_length(1.0)
 
 

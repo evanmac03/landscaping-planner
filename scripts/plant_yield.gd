@@ -63,7 +63,6 @@ const NO_NEED := "no amount per person stated"
 const NO_CROP := "there is no crop to work out"
 const NO_CROPS := "no food crops are recorded in this plant list"
 
-
 # --- weights --------------------------------------------------------------------------------
 
 
@@ -77,7 +76,6 @@ static func is_grams(grams: int) -> bool:
 ## Read off `PlantSpecies.weight_text`, so a weight is only ever worded one way.
 static func weight_text(grams: int) -> String:
 	return PlantSpeciesScript.weight_text(grams)
-
 
 # --- whether the question can be answered ---------------------------------------------------
 
@@ -99,7 +97,6 @@ static func reason(crop: PlantSpecies) -> String:
 	if not is_grams(crop.need_per_person_g):
 		return NO_NEED
 	return ""
-
 
 # --- how many plants ------------------------------------------------------------------------
 
@@ -126,7 +123,6 @@ static func need_grams(crop: PlantSpecies, people: int) -> int:
 		return 0
 	return clampi(people, MIN_PEOPLE, MAX_PEOPLE) * crop.need_per_person_g
 
-
 # --- the plan ------------------------------------------------------------------------------
 
 
@@ -145,8 +141,10 @@ static func plan(catalogue: PlantCatalogue, people: int, spare_percent: int = DE
 		if not plant.is_edible():
 			continue
 		out.append(_row(plant, people, spare_percent))
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return String(a["title"]) < String(b["title"]))
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return String(a["title"]) < String(b["title"]),
+	)
 	return out
 
 
@@ -163,7 +161,6 @@ static func _row(crop: PlantSpecies, people: int, spare_percent: int) -> Diction
 		"stated": answerable,
 		"note": "" if answerable else reason(crop),
 	}
-
 
 # --- what a page reads ----------------------------------------------------------------------
 
@@ -189,7 +186,7 @@ static func counts(rows_list: Array) -> Dictionary:
 			worked += 1
 		else:
 			unstated += 1
-	return {"worked": worked, "unstated": unstated}
+	return { "worked": worked, "unstated": unstated }
 
 
 ## How many plants the whole plan comes to.
@@ -211,9 +208,7 @@ static func describe_rows(rows_list: Array) -> String:
 	var unstated: int = int(held["unstated"])
 	if unstated > 0:
 		parts.append("%d cannot be told" % unstated)
-	return "%d crop%s: %s." % [
-		rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)
-	]
+	return "%d crop%s: %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", ", ".join(parts)]
 
 
 ## The household in words: "4 people", or "1 person".
@@ -231,9 +226,13 @@ static func feed_text(rows_list: Array, people: int, spare_percent: int = DEFAUL
 	var kinds: int = int(counts(rows_list)["worked"])
 	var margin: String = "with no spare" if spare_percent <= 0 else "with %d%% spare" % spare_percent
 	return "To feed %s, about %d plant%s across %d kind%s, %s." % [
-		people_text(people), total, "" if total == 1 else "s", kinds, "" if kinds == 1 else "s", margin,
+		people_text(people),
+		total,
+		"" if total == 1 else "s",
+		kinds,
+		"" if kinds == 1 else "s",
+		margin,
 	]
-
 
 # --- the hand-off to a nursery order ---------------------------------------------------------
 
@@ -257,20 +256,24 @@ static func order_rows(rows_list: Array, catalogue: PlantCatalogue) -> Array[Dic
 		var species: PlantSpecies = catalogue.get_species(species_id)
 		if species == null:
 			continue
-		out.append({
-			"id": species_id,
-			"count": count,
-			"botanical_name": species.botanical_name,
-			"common_name": species.common_name,
-			"cultivar": species.cultivar,
-			"category": species.category,
-			"category_name": species.category_name(),
-			"spread_cm": species.spread_cm,
-			"height_cm": species.height_cm,
-		})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var order: int = String(a["botanical_name"]).naturalnocasecmp_to(String(b["botanical_name"]))
-		if order != 0:
-			return order < 0
-		return String(a["cultivar"]).naturalnocasecmp_to(String(b["cultivar"])) < 0)
+		out.append(
+			{
+				"id": species_id,
+				"count": count,
+				"botanical_name": species.botanical_name,
+				"common_name": species.common_name,
+				"cultivar": species.cultivar,
+				"category": species.category,
+				"category_name": species.category_name(),
+				"spread_cm": species.spread_cm,
+				"height_cm": species.height_cm,
+			}
+		)
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			var order: int = String(a["botanical_name"]).naturalnocasecmp_to(String(b["botanical_name"]))
+			if order != 0:
+				return order < 0
+			return String(a["cultivar"]).naturalnocasecmp_to(String(b["cultivar"])) < 0,
+	)
 	return out

@@ -73,8 +73,13 @@ func _ready() -> void:
 		return
 	var shot: Image = Image.load_from_file(page.photo_path())
 	var encoded: Dictionary = LlmScript.encode_image(shot)
-	print("  read back as pixels: ", shot.get_size(), ", encoded to ", String(encoded["base64"]).length(),
-		" characters of base64")
+	print(
+		"  read back as pixels: ",
+		shot.get_size(),
+		", encoded to ",
+		String(encoded["base64"]).length(),
+		" characters of base64",
+	)
 
 	print("--- reading with the model the program offers by default ---")
 	page.set_id_mode(ChoiceScript.LOCAL)
@@ -95,14 +100,21 @@ func _ready() -> void:
 	print("  the model's own words: ", answer["answer"])
 	for offered: Variant in (answer["candidates"] as Array):
 		var candidate: Dictionary = offered
-		print("    offered: ", candidate["raw_taxon"], " at ", candidate["confidence"],
-			"  -> species: ", candidate["species_id"], "  because: ", candidate["reason"])
+		print(
+			"    offered: ",
+			candidate["raw_taxon"],
+			" at ",
+			candidate["confidence"],
+			"  -> species: ",
+			candidate["species_id"],
+			"  because: ",
+			candidate["reason"],
+		)
 	print("  the page now says: ", page.photo_hint())
 
 	print("--- the record the page would file ---")
 	var made: Dictionary = page.capture()
-	print("  species: ", made["species_id"], "  at ", made["confidence"],
-		"  from ", made.get("model_id", "<no model>"))
+	print("  species: ", made["species_id"], "  at ", made["confidence"], "  from ", made.get("model_id", "<no model>"))
 	print("  in words: ", CaptureScript.words(made, read["catalogue"]))
 	var appended: Dictionary = page.add_capture()
 	print("  appended: ", str(appended))
@@ -132,7 +144,7 @@ func _read_and_wait(page: FieldCaptureWindow) -> Dictionary:
 		frames += 1
 	print(
 		"  answered after %.1f s, with %d frames drawn while it was waited for"
-			% [float(Time.get_ticks_msec() - started) / 1000.0, frames]
+		% [float(Time.get_ticks_msec() - started) / 1000.0, frames]
 	)
 	return page.the_reading()
 

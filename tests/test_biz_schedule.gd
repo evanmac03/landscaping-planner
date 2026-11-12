@@ -56,7 +56,7 @@ func test_the_same_job_with_two_crews_on_one_day_is_reported() -> void:
 func test_a_crew_member_scheduled_on_a_day_off_is_reported() -> void:
 	var board: ScheduleScript = ScheduleScript.new()
 	var dana: CrewScript = CrewScript.new(&"C1", "Dana")
-	dana.add_availability({"kind": "VACATION", "from": "2026-06-15", "to": "2026-06-22"})
+	dana.add_availability({ "kind": "VACATION", "from": "2026-06-15", "to": "2026-06-22" })
 	board.know_crew(dana)
 	board.place("J1", &"C1", "2026-06-18", 480, 600)
 	var conflicts := board.conflicts()
@@ -98,5 +98,6 @@ func test_the_board_round_trips_and_drops_a_block_that_will_not_place() -> void:
 	assert(String(restored.on_date("2026-06-01")[0]["job"]) == "J1")
 	# A block whose window is nonsense is a damaged record, not a block the board cannot point at.
 	var damaged: ScheduleScript = ScheduleScript.from_dict(
-		{"entries": [{"job": "J1", "crew": "C1", "date": "d", "start_minute": 600, "end_minute": 600}]})
+		{ "entries": [{ "job": "J1", "crew": "C1", "date": "d", "start_minute": 600, "end_minute": 600 }] }
+	)
 	assert(damaged.count() == 0)

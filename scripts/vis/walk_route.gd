@@ -66,12 +66,7 @@ func add_stop(stop_name: String, at: Vector3, aim_at: Vector3, dwell_s: float = 
 		return false
 	if not is_finite(dwell_s) or dwell_s < 0.0 or dwell_s > MAX_DWELL_S:
 		return false
-	_stops.append({
-		"name": stop_name,
-		"at": at,
-		"look": aim_at,
-		"dwell": dwell_s,
-	})
+	_stops.append({ "name": stop_name, "at": at, "look": aim_at, "dwell": dwell_s })
 	return true
 
 
@@ -177,7 +172,14 @@ func look_at(elapsed: float, speed_mps: float = WALK_SPEED_MPS) -> Vector3:
 ## `progress` is the walk as a share of its own duration, in 0..1.
 func stage_at(elapsed: float, speed_mps: float = WALK_SPEED_MPS) -> Dictionary:
 	if _stops.is_empty():
-		return {"position": Vector3.ZERO, "look": Vector3.ZERO, "stop": -1, "travelling": false, "done": true, "progress": 1.0}
+		return {
+			"position": Vector3.ZERO,
+			"look": Vector3.ZERO,
+			"stop": -1,
+			"travelling": false,
+			"done": true,
+			"progress": 1.0,
+		}
 	var pace: float = speed_mps if speed_mps >= MIN_SPEED_MPS else WALK_SPEED_MPS
 	var total: float = duration(pace)
 	var clock: float = maxf(elapsed, 0.0)
@@ -253,7 +255,10 @@ func describe() -> String:
 	if _stops.is_empty():
 		return "an empty walk-through"
 	return "%d stops, %.1f m of walking, %.1f s of standing, %.0f s in all" % [
-		_stops.size(), total_travel(), total_dwell(), duration(),
+		_stops.size(),
+		total_travel(),
+		total_dwell(),
+		duration(),
 	]
 
 
@@ -261,13 +266,15 @@ func describe() -> String:
 func to_dict() -> Dictionary:
 	var rows: Array = []
 	for stop: Dictionary in _stops:
-		rows.append({
-			"name": String(stop["name"]),
-			"at": [Vector3(stop["at"]).x, Vector3(stop["at"]).y, Vector3(stop["at"]).z],
-			"look": [Vector3(stop["look"]).x, Vector3(stop["look"]).y, Vector3(stop["look"]).z],
-			"dwell": float(stop["dwell"]),
-		})
-	return {"stops": rows}
+		rows.append(
+			{
+				"name": String(stop["name"]),
+				"at": [Vector3(stop["at"]).x, Vector3(stop["at"]).y, Vector3(stop["at"]).z],
+				"look": [Vector3(stop["look"]).x, Vector3(stop["look"]).y, Vector3(stop["look"]).z],
+				"dwell": float(stop["dwell"]),
+			}
+		)
+	return { "stops": rows }
 
 
 ## A route from data. A row that will not read is skipped rather than invented, and a
@@ -295,7 +302,7 @@ static func from_dict(data: Dictionary) -> WalkRoute:
 			String(entry.get("name", "")),
 			Vector3(float(at_v[0]), float(at_v[1]), float(at_v[2])),
 			Vector3(float(look_v[0]), float(look_v[1]), float(look_v[2])),
-			dwell
+			dwell,
 		)
 	return route
 

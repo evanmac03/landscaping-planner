@@ -69,13 +69,14 @@ func _ready() -> void:
 	var sheet: ColorRect = _door_screen()
 	var covers: Vector2 = Vector2.ZERO if sheet == null else sheet.size
 	var wanted: Vector2 = _app.get_viewport().get_visible_rect().size
-	print("the opening       the door's own screen: %s, covering %s" % [
-		_yes(sheet != null and sheet.visible), _sizes(covers),
-	])
+	print(
+		"the opening       the door's own screen: %s, covering %s"
+		% [_yes(sheet != null and sheet.visible), _sizes(covers)]
+	)
 	_check(sheet != null and sheet.visible, "the door stood with the drawing board showing behind it")
 	_check(
 		covers.is_equal_approx(wanted),
-		"the door's screen covers %s where the window is %s" % [_sizes(covers), _sizes(wanted)]
+		"the door's screen covers %s where the window is %s" % [_sizes(covers), _sizes(wanted)],
 	)
 
 	var offers: Array = page.call("choice_buttons")
@@ -85,7 +86,7 @@ func _ready() -> void:
 	print("it offers        %s" % ", ".join(PackedStringArray(names)))
 	_check(
 		PackedStringArray(names) == PackedStringArray(["design", "camera"]),
-		"the door offers %s rather than the drawing and the camera" % ", ".join(PackedStringArray(names))
+		"the door offers %s rather than the drawing and the camera" % ", ".join(PackedStringArray(names)),
 	)
 
 	# 2. The drawing board: the door is put away and the begin-a-drawing page takes its place, because the
@@ -96,9 +97,10 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var door_gone: bool = not bool(_hud.call("is_front_door_open"))
 	var begin_up: bool = bool(_hud.call("is_start_drawing_window_open"))
-	print("Design the garden  the door is away: %s, and the board asks how to begin: %s" % [
-		_yes(door_gone), _yes(begin_up),
-	])
+	print(
+		"Design the garden  the door is away: %s, and the board asks how to begin: %s"
+		% [_yes(door_gone), _yes(begin_up)]
+	)
 	_check(door_gone and begin_up, "the drawing board choice did not ask how the drawing should start")
 
 	var begin_page: Node = _hud.find_child("StartDrawingWindow", true, false)
@@ -106,12 +108,13 @@ func _ready() -> void:
 	if begin_page != null:
 		for id: StringName in begin_page.call("choice_buttons"):
 			ways.append(String(id))
-	print("the begin page    it offers %s, and its screen is still up: %s" % [
-		", ".join(PackedStringArray(ways)), _yes(_sheet_is_up()),
-	])
+	print(
+		"the begin page    it offers %s, and its screen is still up: %s"
+		% [", ".join(PackedStringArray(ways)), _yes(_sheet_is_up())]
+	)
 	_check(
 		PackedStringArray(ways) == PackedStringArray(["new", "open", "recent", "example"]),
-		"the begin page offers %s rather than the four ways to start" % ", ".join(PackedStringArray(ways))
+		"the begin page offers %s rather than the four ways to start" % ", ".join(PackedStringArray(ways)),
 	)
 	_check(_sheet_is_up(), "the begin page stood with the drawing board showing behind it")
 
@@ -122,9 +125,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var begin_gone: bool = not bool(_hud.call("is_start_drawing_window_open"))
 	var nothing_opened: bool = not bool(_hud.call("is_camera_window_open"))
-	print("New drawing        the page is away: %s, and nothing was opened: %s" % [
-		_yes(begin_gone), _yes(nothing_opened),
-	])
+	print(
+		"New drawing        the page is away: %s, and nothing was opened: %s" % [_yes(begin_gone), _yes(nothing_opened)]
+	)
 	_check(begin_gone and nothing_opened, "taking a way to begin left something open")
 	_check(not _sheet_is_up(), "the sheet stayed up after the begin page went")
 	# And the first way leaves an empty drawing rather than an example: the yard standing behind the board is
@@ -142,9 +145,9 @@ func _ready() -> void:
 		await get_tree().process_frame
 	var camera_up: bool = bool(_hud.call("is_camera_window_open"))
 	var door_behind: bool = bool(_hud.call("is_front_door_open"))
-	print("Take a photograph  the camera opened: %s, the door still behind it: %s" % [
-		_yes(camera_up), _yes(door_behind),
-	])
+	print(
+		"Take a photograph  the camera opened: %s, the door still behind it: %s" % [_yes(camera_up), _yes(door_behind)]
+	)
 	_check(camera_up, "the camera choice did not open the camera")
 	_check(door_behind, "the camera replaced the door instead of standing over it")
 
@@ -154,9 +157,10 @@ func _ready() -> void:
 		# instruction it opened with.
 		print("the camera says  %s" % String(camera_page.call("summary_text")))
 		var shutter: Button = camera_page.call("shutter_button") as Button
-		print("its shutter      %s" % (
-			"ready" if shutter != null and not shutter.disabled else "not ready on this machine"
-		))
+		print(
+			"its shutter      %s"
+			% ("ready" if shutter != null and not shutter.disabled else "not ready on this machine")
+		)
 
 	# 4. And the other way round: the drawing's own door onto the same camera, which is the entry the Site
 	#    menu runs. Closing the camera first, so this is the drawing opening it rather than the door.
@@ -167,18 +171,22 @@ func _ready() -> void:
 	for i in 3:
 		await get_tree().process_frame
 	var reopened: bool = bool(_hud.call("is_camera_window_open"))
-	print("the studio's door  the camera opened from the drawing: %s (after closing it: %s)" % [
-		_yes(reopened), _yes(closed),
-	])
+	print(
+		"the studio's door  the camera opened from the drawing: %s (after closing it: %s)"
+		% [_yes(reopened), _yes(closed)]
+	)
 	_check(closed and reopened, "the camera from the drawing did not open, or did not close")
 
-	print("FRONT DOOR: %s" % (
-		"two ways in, neither of them a mode, and the board asks how a drawing begins"
-		if _failed.is_empty() else "WRONG: %s" % "; ".join(_failed)
-	))
+	print(
+		"FRONT DOOR: %s"
+		% (
+			"two ways in, neither of them a mode, and the board asks how a drawing begins"
+			if _failed.is_empty()
+			else "WRONG: %s" % "; ".join(_failed)
+		)
+	)
 	await get_tree().process_frame
 	get_tree().quit(0 if _failed.is_empty() else 1)
-
 
 # --- driving it ---------------------------------------------------------------------------------
 

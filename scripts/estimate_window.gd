@@ -97,7 +97,6 @@ func _ready() -> void:
 	if _tabs == null:
 		build()
 
-
 # --- building --------------------------------------------------------------------------------
 
 
@@ -248,9 +247,7 @@ func _fill_depth_row() -> void:
 	for index in candidates.size():
 		var layer_name: StringName = candidates[index]
 		var depth: int = desk.layer_depth(layer_name)
-		_depth_layer.add_item(
-			"%s%s" % [String(layer_name), "   %d mm" % depth if depth > 0 else ""]
-		)
+		_depth_layer.add_item("%s%s" % [String(layer_name), "   %d mm" % depth if depth > 0 else ""])
 		if layer_name == wanted:
 			at = index
 	_depth_layer.select(at)
@@ -350,7 +347,6 @@ func _button(words: String, method: String) -> Button:
 	button.pressed.connect(Callable(self, method))
 	return button
 
-
 # --- showing what is there ---------------------------------------------------------------------
 
 
@@ -418,9 +414,11 @@ func _fill_takeoff() -> void:
 		told.append(
 			"%d line%s measured, %d priced. %d line%s on the drawing are not work and are named below "
 			% [
-				desk.takeoff.lines.size(), "" if desk.takeoff.lines.size() == 1 else "s",
+				desk.takeoff.lines.size(),
+				"" if desk.takeoff.lines.size() == 1 else "s",
 				desk.estimate.line_count() if desk.estimate != null else 0,
-				notes.size(), "" if notes.size() == 1 else "s",
+				notes.size(),
+				"" if notes.size() == 1 else "s",
 			]
 			+ "rather than dropped: a hatch or a dimension is a pattern over work measured elsewhere."
 		)
@@ -470,7 +468,8 @@ func _fill_book() -> void:
 		var index: int = _book_list.add_item("kit  %s  %s" % [String(kit_id), kit.describe()])
 		_book_list.set_item_disabled(index, true)
 	_book_note.text = "%s, read from %s. This tab reads; editing a price list is the cost book dock." % [
-		desk.book.describe(), desk.book_source
+		desk.book.describe(),
+		desk.book_source,
 	]
 	_book_note.name = "Note%s" % str(_book_note.text.hash())
 
@@ -481,13 +480,13 @@ func _fill_buttons() -> void:
 	var frozen: bool = desk.estimate != null and desk.estimate.is_frozen()
 	_send_button.disabled = desk.estimate == null or frozen
 	_send_button.tooltip_text = "there is nothing priced to send yet" if desk.estimate == null \
-		else ("it has already gone: start a revision to change it" if frozen else "")
+			else ("it has already gone: start a revision to change it" if frozen else "")
 	_revision_button.disabled = not frozen
 	_revision_button.tooltip_text = "a revision is what happens to a proposal that has already gone" \
-		if not frozen else ""
+			if not frozen else ""
 	_start_job_button.disabled = desk.estimate == null
 	_start_job_button.tooltip_text = "nothing is priced yet, so there is nothing to make a job of" \
-		if desk.estimate == null else ""
+			if desk.estimate == null else ""
 	_plan_status.text = _plan_words()
 
 
@@ -496,9 +495,7 @@ func _plan_words() -> String:
 		return "There is no drawing open. The takeoff measures a drawing, so there is nothing here to measure."
 	var parts := PackedStringArray()
 	parts.append(
-		"%s: %d entit%s on it" % [
-			"a drawing", desk.document.count(), "y" if desk.document.count() == 1 else "ies",
-		]
+		"%s: %d entit%s on it" % ["a drawing", desk.document.count(), "y" if desk.document.count() == 1 else "ies"]
 	)
 	if desk.book != null:
 		parts.append("priced from %s" % desk.book.describe())
@@ -511,7 +508,6 @@ func _plan_words() -> String:
 
 func _set_status(words: String) -> void:
 	_status.text = words
-
 
 # --- what the buttons do ---------------------------------------------------------------------
 
@@ -529,9 +525,8 @@ func _show_take_off(result: Dictionary) -> void:
 		return
 	var told := PackedStringArray()
 	told.append(
-		"%d line%s measured and %d priced" % [
-			int(result["measured"]), "" if int(result["measured"]) == 1 else "s", int(result["priced"]),
-		]
+		"%d line%s measured and %d priced"
+		% [int(result["measured"]), "" if int(result["measured"]) == 1 else "s", int(result["priced"])]
 	)
 	if int(result["refused"]) > 0:
 		told.append("%d not priced" % int(result["refused"]))
@@ -552,9 +547,10 @@ func _on_check() -> void:
 		told.append("the lines foot to the subtotal" if bool(checked["foots"]) else "it does not foot")
 		told.append("gross margin %s" % String(checked["margin"]))
 	if int(checked["notes"]) > 0:
-		told.append("%d line%s on the drawing are not work and are not in it" % [
-			int(checked["notes"]), "" if int(checked["notes"]) == 1 else "s",
-		])
+		told.append(
+			"%d line%s on the drawing are not work and are not in it"
+			% [int(checked["notes"]), "" if int(checked["notes"]) == 1 else "s"]
+		)
 	var problems: Array = checked["problems"]
 	if problems.is_empty():
 		_set_status("%s." % ", ".join(told))
@@ -634,24 +630,22 @@ func _on_close_requested() -> void:
 ## so by its revision rather than being impossible.
 func start_job() -> Dictionary:
 	if desk.estimate == null:
-		return {"ok": false, "reason": "there is nothing priced yet"}
+		return { "ok": false, "reason": "there is nothing priced yet" }
 	var offer: Estimate = desk.estimate
 	var lines := offer.line_count()
 	job_started.emit(offer)
 	_set_status(
 		"a job was started from this estimate: %d line%s, contracted at %s, revision %d. Jobs, crews "
-		% [lines, "" if lines == 1 else "s", offer.price_before_tax().format_with_currency(),
-			offer.revision]
+		% [lines, "" if lines == 1 else "s", offer.price_before_tax().format_with_currency(), offer.revision]
 		+ "and days are on the schedule board."
 	)
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 func _on_start_job() -> void:
 	var result: Dictionary = start_job()
 	if not bool(result["ok"]):
 		_set_status("No job was started: %s." % String(result["reason"]))
-
 
 # --- what a test reads -------------------------------------------------------------------
 

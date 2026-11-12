@@ -47,7 +47,7 @@ const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
 ## second one would silently win.
 var _busy: bool = false
 ## What the last image was a picture of.
-var _report: Dictionary = {}
+var _report: Dictionary = { }
 
 
 func is_busy() -> bool:
@@ -168,9 +168,7 @@ func render() -> Image:
 	var compositor := SketchCompositorScript.new()
 	compositor.name = "SketchCompositor"
 	add_child(compositor)
-	var composited: Image = await compositor.composite(
-		wash_layer, ink_layer, baked["pixel_size"], look, paper_mm
-	)
+	var composited: Image = await compositor.composite(wash_layer, ink_layer, baked["pixel_size"], look, paper_mm)
 	compositor.queue_free()
 	# The layers go once the composite has them: they are render targets, and holding
 	# them past their use is memory spent on a picture that already exists.
@@ -195,7 +193,7 @@ func render() -> Image:
 		image.resize(
 			maxi(1, int(float(image.get_width()) / float(scale_factor))),
 			maxi(1, int(float(image.get_height()) / float(scale_factor))),
-			Image.INTERPOLATE_LANCZOS
+			Image.INTERPOLATE_LANCZOS,
 		)
 	_report = _make_report(image, bounds)
 	painted.emit(image, _report)
@@ -237,7 +235,7 @@ func paper_colour() -> Color:
 ## What this image is a picture of: the sheet, the scale, and how much of the drawing
 ## reached the paper.
 func _make_report(image: Image, bounds: Rect2) -> Dictionary:
-	var by_layer: Dictionary = {}
+	var by_layer: Dictionary = { }
 	var regions := 0
 	var doc = document()
 	if doc != null:
@@ -271,7 +269,7 @@ func _record_for_file(image: Image) -> Dictionary:
 		"paper_mm": [paper_mm.x, paper_mm.y],
 		"plot_scale": plot_scale,
 		"look": _look().describe(),
-		"document": {"entities": _entity_count()},
+		"document": { "entities": _entity_count() },
 		"props": props().size(),
 		"godot": Engine.get_version_info()["string"],
 	}

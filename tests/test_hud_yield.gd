@@ -29,12 +29,11 @@ func _catalogue(gives_a: int) -> PlantCatalogue:
 	catalogue.add(_crop(&"b", "Second", 100, 100))
 	return catalogue
 
-
 # --- the menu ---------------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_it_with_no_key_and_needs_nothing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.plant_items():
 		if StringName(candidate.get("id", &"")) == &"plant.yield":
 			entry = candidate
@@ -45,7 +44,7 @@ func test_the_plant_menu_offers_it_with_no_key_and_needs_nothing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_NOTHING,
-		"it reads the list and a household, neither of which is on a drawing"
+		"it reads the list and a household, neither of which is on a drawing",
 	)
 
 
@@ -55,7 +54,6 @@ func test_every_menu_entry_still_names_a_method_this_hud_has() -> void:
 	assert(hud.has_method(&"_tick_yield_window"), "and so is the door the tick calls")
 	assert(hud.has_method(&"open_yield_window"), "and the one the menu entry runs")
 	hud.free()
-
 
 # --- the page ---------------------------------------------------------------------------------
 
@@ -107,7 +105,6 @@ func test_opening_it_is_not_done_off_tree() -> void:
 	assert(hud.has_method(&"open_yield_window"), "the door is there")
 	hud.free()
 
-
 # --- the join ---------------------------------------------------------------------------------
 
 
@@ -130,7 +127,7 @@ func test_the_page_keeps_up_with_the_list_while_it_is_up() -> void:
 	hud._tick_yield_window()
 	assert(
 		hud._yield_window.row_texts()[0] == "First crop: plant 6",
-		"the changed list reaches the page: %s" % hud._yield_window.row_texts()[0]
+		"the changed list reaches the page: %s" % hud._yield_window.row_texts()[0],
 	)
 	hud._yield_window.visible = false
 	hud.free()
@@ -143,7 +140,6 @@ func test_the_tick_is_harmless_while_the_page_is_away() -> void:
 	hud._tick_yield_window()
 	assert(not hud._yield_window.visible, "a page that is not up was not shown by the tick")
 	hud.free()
-
 
 # --- the hand-off to the nursery order -------------------------------------------------------
 
@@ -160,8 +156,10 @@ func test_the_count_hands_over_to_the_nursery_order() -> void:
 	var total := 0
 	for row: Dictionary in rows:
 		total += int(row["count"])
-	assert(int(planned.get("plants", 0)) == total, "the order's plants are the household's count: %d vs %d"
-		% [int(planned.get("plants", 0)), total])
+	assert(
+		int(planned.get("plants", 0)) == total,
+		"the order's plants are the household's count: %d vs %d" % [int(planned.get("plants", 0)), total],
+	)
 	hud.free()
 
 
@@ -170,12 +168,13 @@ func test_the_menu_door_is_the_drawings_planting_again() -> void:
 	hud._plants = _catalogue(2000)
 	hud._fill_yield_window()
 	hud._show_yield_order(hud._yield_window.order_rows())
-	assert(hud.plant_order_plan() == hud._plant_order_plan_override,
-		"the handed plan is what the page is about")
+	assert(hud.plant_order_plan() == hud._plant_order_plan_override, "the handed plan is what the page is about")
 	hud._forget_handed_plan()
 	assert(hud._plant_order_plan_override.is_empty(), "and the menu door forgets it")
-	assert(int(hud.plant_order_plan().get("plants", 0)) == 0,
-		"so the page is about the drawing's planting, and this drawing has none")
+	assert(
+		int(hud.plant_order_plan().get("plants", 0)) == 0,
+		"so the page is about the drawing's planting, and this drawing has none",
+	)
 	hud.free()
 
 
@@ -184,6 +183,6 @@ func test_the_page_is_wired_to_hand_its_count_over() -> void:
 	hud._build_yield_window()
 	assert(
 		hud._yield_window.order_requested.is_connected(Callable(hud, &"_on_yield_order_requested")),
-		"pressing the order button reaches this file"
+		"pressing the order button reaches this file",
 	)
 	hud.free()

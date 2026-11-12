@@ -41,8 +41,8 @@ func test_a_page_with_no_engine_says_so_instead_of_failing() -> void:
 
 func test_the_queue_shows_the_engines_own_rows() -> void:
 	var sync := SyncScript.new()
-	sync.pending.append({"kind": "time_entry", "id": "T1", "why": "delivered at the gate"})
-	sync.pending.append({"kind": "change_order", "id": "CO-2"})
+	sync.pending.append({ "kind": "time_entry", "id": "T1", "why": "delivered at the gate" })
+	sync.pending.append({ "kind": "change_order", "id": "CO-2" })
 	var page := _page(sync)
 	assert(page.queue_rows() == sync.pending_row_texts(), str(page.queue_rows()))
 	assert(page.queue_rows().size() == 2)
@@ -51,10 +51,9 @@ func test_the_queue_shows_the_engines_own_rows() -> void:
 
 func test_the_conflicts_shown_are_the_engines_own() -> void:
 	var sync := SyncScript.new()
-	sync.conflicts.append({
-		"kind": "time_entry", "id": "T1", "field": "rate", "class": "money",
-		"ours": 100, "theirs": 200,
-	})
+	sync.conflicts.append(
+		{ "kind": "time_entry", "id": "T1", "field": "rate", "class": "money", "ours": 100, "theirs": 200 }
+	)
 	var page := _page(sync)
 	assert(page.conflict_rows() == sync.conflict_texts(), str(page.conflict_rows()))
 	assert(page.conflict_rows().size() == 1)
@@ -66,7 +65,7 @@ func test_nothing_given_up_on_that_is_a_clean_sentence() -> void:
 	var page := _page(sync)
 	assert(page.stranded_text().contains("nothing has been given up on"), page.stranded_text())
 	# Five tries is a person's problem, so a change that has had them is named rather than hidden.
-	sync.pending.append({"kind": "time_entry", "id": "T9", "tries": int(SyncScript.MAX_TRIES), "last": "503"})
+	sync.pending.append({ "kind": "time_entry", "id": "T9", "tries": int(SyncScript.MAX_TRIES), "last": "503" })
 	page.refresh()
 	assert(page.stranded_text().contains("T9"), page.stranded_text())
 	page.free()
@@ -108,7 +107,10 @@ func test_syncing_with_nowhere_to_talk_says_so_rather_than_doing_nothing() -> vo
 	var sync := SyncScript.new()
 	var page := _page(sync)
 	var announced: Array[int] = []
-	page.sync_changed.connect(func() -> void: announced.append(1))
+	page.sync_changed.connect(
+		func() -> void:
+			announced.append(1),
+	)
 	var out: Dictionary = page.run_now()
 	assert(not bool(out["ok"]))
 	assert(page.status_text().contains("no sync service"), page.status_text())

@@ -42,9 +42,10 @@ func _drawing() -> DraftDocument:
 	extra.name = POND
 	extra.purpose = "A pond"
 	doc.layers.add(extra)
-	doc.add(Ent.make_polyline(PackedVector2Array([
-		Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8),
-	]), true), POND)
+	doc.add(
+		Ent.make_polyline(PackedVector2Array([Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8)]), true),
+		POND,
+	)
 	return doc
 
 
@@ -53,15 +54,27 @@ func _with_four_jobs() -> VisRenderBatch:
 	batch.add_every_view(PresetScript.PROPOSAL_DEFAULT, BatchScript.DEFAULT_VIEWS)
 	return batch
 
-
 # --- the controls a person works with ---------------------------------------------------------
 
 
 func test_the_dock_builds_the_controls_and_says_where_to_start() -> void:
 	var dock := _dock()
 	assert(dock.name == "Presentation", "the dock has a name: %s" % dock.name)
-	for control_name: String in ["SourceLine", "Findings", "Summary", "ShowNotes", "Check", "JobName",
-			"Preset", "View", "AddJob", "Jobs", "RenderAll", "Progress", "Status"]:
+	for control_name: String in [
+		"SourceLine",
+		"Findings",
+		"Summary",
+		"ShowNotes",
+		"Check",
+		"JobName",
+		"Preset",
+		"View",
+		"AddJob",
+		"Jobs",
+		"RenderAll",
+		"Progress",
+		"Status",
+	]:
 		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	assert(dock.last_words != "", "it has said something: %s" % dock.last_words)
 	dock.free()
@@ -87,13 +100,14 @@ func test_the_pickers_offer_the_sizes_and_the_views_the_modules_have() -> void:
 	var presets: OptionButton = dock.find_child("Preset", true, false)
 	assert(presets.item_count == PresetScript.ORDER.size(), "one entry per preset")
 	for index in PresetScript.ORDER.size():
-		assert(presets.get_item_text(index) == PresetScript.label(PresetScript.ORDER[index]),
-			"entry %d is labelled as the preset table labels it" % index)
+		assert(
+			presets.get_item_text(index) == PresetScript.label(PresetScript.ORDER[index]),
+			"entry %d is labelled as the preset table labels it" % index,
+		)
 	var views: OptionButton = dock.find_child("View", true, false)
 	assert(views.item_count == BatchScript.DEFAULT_VIEWS.size())
 	assert(views.get_item_text(0) == BatchScript.DEFAULT_VIEWS[0])
 	dock.free()
-
 
 # --- the diagnostics, on the page -------------------------------------------------------------
 
@@ -112,7 +126,10 @@ func test_checking_a_drawing_lists_the_findings_and_announces_them() -> void:
 	var dock := _dock()
 	var doc := _drawing()
 	var heard: Array[Dictionary] = []
-	dock.checked.connect(func(findings: Array) -> void: heard.append({"n": findings.size()}))
+	dock.checked.connect(
+		func(findings: Array) -> void:
+			heard.append({ "n": findings.size() }),
+	)
 	dock.bind_visuals(doc, doc.layers)
 	dock.check()
 	assert(dock.findings().size() == 3, "two warnings and a note, got %d" % dock.findings().size())
@@ -172,7 +189,6 @@ func test_the_source_line_says_what_is_being_checked() -> void:
 	assert(line.text.contains("its own layers"), "a bare drawing is checked against its own: %s" % line.text)
 	dock.free()
 
-
 # --- the batch, driven as a ledger -------------------------------------------------------------
 
 
@@ -206,7 +222,10 @@ func test_a_still_is_added_by_name_size_and_view_and_a_bad_one_is_refused() -> v
 	var batch: VisRenderBatch = BatchScript.new()
 	dock.bind_batch(batch)
 	assert(dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "the first is taken")
-	assert(not dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "a duplicate name is refused")
+	assert(
+		not dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"),
+		"a duplicate name is refused",
+	)
 	assert(dock.last_words.contains("Front garden"), "and the refusal names it: %s" % dock.last_words)
 	assert(not dock.add_job("", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "a blank name is refused")
 	assert(batch.count() == 1, "only the good one went in")
@@ -237,7 +256,10 @@ func test_one_job_is_in_flight_at_a_time() -> void:
 	var dock := _dock()
 	dock.bind_batch(_with_four_jobs())
 	var asked: Array[Dictionary] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(job))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(job),
+	)
 	var job: Dictionary = dock.render_next()
 	assert(not job.is_empty(), "the first job was handed out")
 	assert(asked.size() == 1, "and asked for once, got %d" % asked.size())
@@ -251,7 +273,10 @@ func test_a_result_asks_for_the_next_job_and_the_batch_runs_to_the_end() -> void
 	var dock := _dock()
 	dock.bind_batch(_with_four_jobs())
 	var asked: Array[String] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(String(job["name"])))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(String(job["name"])),
+	)
 	assert(dock.render_all(), "the batch started")
 	# Each answer is a still written, and pulls the next job; the last one stops.
 	var guard := 0
@@ -285,7 +310,10 @@ func test_running_a_batch_twice_is_refused_while_one_is_in_flight() -> void:
 	assert(dock.render_all(), "the batch started")
 	assert(not dock.render_all(), "and is not started again while a job is in flight")
 	var asked: Array[Dictionary] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(job))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(job),
+	)
 	assert(not dock.render_all(), "nor after a second press")
 	assert(asked.is_empty(), "nothing was asked for by the second press")
 	dock.free()
@@ -316,19 +344,34 @@ func test_the_last_thing_said_is_readable_without_looking_at_a_label() -> void:
 	dock.add_job("Another", PresetScript.PROPOSAL_DEFAULT, "Working plan")
 	assert(dock.last_words.contains("Another"), "adding one says which: %s" % dock.last_words)
 	var heard: Array[String] = []
-	dock.said.connect(func(line: String) -> void: heard.append(line))
+	dock.said.connect(
+		func(line: String) -> void:
+			heard.append(line),
+	)
 	dock.render_next()
 	assert(heard.size() >= 1, "and it is announced as well as kept")
 	dock.free()
-
 
 # --- the proposal page, on the dock -------------------------------------------------------------
 
 
 func test_the_proposal_controls_are_built_and_open_on_a_plan_sheet() -> void:
 	var dock := _dock()
-	for control_name: String in ["StillPath", "Paper", "Portrait", "Project", "View", "Sheet", "Scale",
-			"Date", "OutPath", "PreviewProposal", "WriteProposal", "Preview", "ProposalStatus"]:
+	for control_name: String in [
+		"StillPath",
+		"Paper",
+		"Portrait",
+		"Project",
+		"View",
+		"Sheet",
+		"Scale",
+		"Date",
+		"OutPath",
+		"PreviewProposal",
+		"WriteProposal",
+		"Preview",
+		"ProposalStatus",
+	]:
 		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	# A3 is what a plan is drawn on, so it is what the page opens on.
 	assert(dock.proposal_paper_mm() == Vector2(420.0, 297.0), "it opens on A3: %s" % dock.proposal_paper_mm())
@@ -353,8 +396,10 @@ func test_the_fields_feed_the_title_block() -> void:
 	assert(String(rows[3]["value"]).contains("1:100"), "the scale is on the scale row: %s" % rows[3]["value"])
 	# The block keeps its shape: a row with nothing is an em dash, not a missing row.
 	dock.set_proposal_field("project", "")
-	assert(String(ProposalScript.title_rows(dock.proposal_fields())[0]["value"]) != "Riverbend",
-		"clearing a field empties the row rather than removing it")
+	assert(
+		String(ProposalScript.title_rows(dock.proposal_fields())[0]["value"]) != "Riverbend",
+		"clearing a field empties the row rather than removing it",
+	)
 	dock.free()
 
 
@@ -427,5 +472,8 @@ func test_the_paper_and_the_turn_change_the_page() -> void:
 	assert(dock.proposal_paper_mm() == Vector2(297.0, 420.0), "the turn swaps it: %s" % dock.proposal_paper_mm())
 	var a3: int = PlotScript.sheet_names().find("A3")
 	picker.selected = (a3 - 1) if a3 > 0 else a3
-	assert(dock.proposal_paper_mm() != Vector2(297.0, 420.0), "another sheet is another page: %s" % dock.proposal_paper_mm())
+	assert(
+		dock.proposal_paper_mm() != Vector2(297.0, 420.0),
+		"another sheet is another page: %s" % dock.proposal_paper_mm(),
+	)
 	dock.free()

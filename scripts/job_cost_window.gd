@@ -72,7 +72,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building ----------------------------------------------------------------------------------
 
 
@@ -244,7 +243,6 @@ func _act_button(words: String, handler: Callable) -> Button:
 func _plain_button(words: String, handler: Callable) -> Button:
 	return _act_button(words, handler)
 
-
 # --- showing what is there ---------------------------------------------------------------------
 
 
@@ -289,7 +287,7 @@ func opening_words() -> String:
 	if selected_job().is_empty():
 		return "Pick a job to see what it has cost."
 	return "Put a quantity and a rate in and the page says what the order would commit the job to " \
-		+ "before it goes out."
+			+ "before it goes out."
 
 
 func _fill_pickers() -> void:
@@ -350,14 +348,16 @@ func _row_cells(held: Dictionary) -> PackedStringArray:
 	var percent := "not known"
 	if bool(held["percent_known"]):
 		percent = "%.1f%%" % (float(int(held["percent_ppm"])) / 10000.0)
-	return PackedStringArray([
-		String(held["cost_code"]),
-		(held["budget"] as MoneyScript).format_with_currency(),
-		(held["committed"] as MoneyScript).format_with_currency(),
-		(held["actual"] as MoneyScript).format_with_currency(),
-		(held["variance"] as MoneyScript).format_with_currency(),
-		percent,
-	])
+	return PackedStringArray(
+		[
+			String(held["cost_code"]),
+			(held["budget"] as MoneyScript).format_with_currency(),
+			(held["committed"] as MoneyScript).format_with_currency(),
+			(held["actual"] as MoneyScript).format_with_currency(),
+			(held["variance"] as MoneyScript).format_with_currency(),
+			percent,
+		]
+	)
 
 
 ## What the report says about one cost code, as one line. The same words the table draws, so what is
@@ -442,7 +442,6 @@ func _fill_buttons() -> void:
 	if _order_button != null:
 		_order_button.disabled = order_button_disabled()
 
-
 # --- what the fields say -----------------------------------------------------------------------
 
 
@@ -450,7 +449,7 @@ func _fill_buttons() -> void:
 func _order_amount() -> Dictionary:
 	var quantity := parse_quantity(_quantity_field.text if _quantity_field != null else "")
 	var rate: Money = MoneyScript.parse(_rate_field.text if _rate_field != null else "", _currency())
-	return {"quantity_milli": quantity, "rate": rate}
+	return { "quantity_milli": quantity, "rate": rate }
 
 
 func _currency() -> StringName:
@@ -476,9 +475,7 @@ func order_hint() -> String:
 	var asked: Dictionary = desk.order_would_commit(job_id, StringName(code), quantity, rate)
 	if bool(asked["over"]):
 		return String(asked["reason"])
-	return "%s has %s of its budget left." % [
-		code, (asked["remaining"] as MoneyScript).format_with_currency(),
-	]
+	return "%s has %s of its budget left." % [code, (asked["remaining"] as MoneyScript).format_with_currency()]
 
 
 func order_button_disabled() -> bool:
@@ -493,7 +490,6 @@ func order_button_disabled() -> bool:
 	var asked_fields := _order_amount()
 	return int(asked_fields["quantity_milli"]) <= 0 or not (asked_fields["rate"] as Money).is_valid()
 
-
 # --- the things a person does ------------------------------------------------------------------
 
 
@@ -505,7 +501,7 @@ func order_button_disabled() -> bool:
 ## Returns `{ok, reason, warning}`.
 func order_material() -> Dictionary:
 	if desk == null or desk.jobs.is_empty():
-		return {"ok": false, "reason": "there is no job to order for", "warning": ""}
+		return { "ok": false, "reason": "there is no job to order for", "warning": "" }
 	var job_id := selected_job()
 	var code := selected_code()
 	var supplier := _supplier_field.text.strip_edges() if _supplier_field != null else ""
@@ -514,17 +510,16 @@ func order_material() -> Dictionary:
 	var quantity := int(asked_fields["quantity_milli"])
 	var rate: Money = asked_fields["rate"]
 	if job_id.is_empty() or code.is_empty():
-		return {"ok": false, "reason": "pick a job and a cost code first", "warning": ""}
+		return { "ok": false, "reason": "pick a job and a cost code first", "warning": "" }
 	if supplier.is_empty():
-		return {"ok": false, "reason": "a purchase order needs a supplier", "warning": ""}
+		return { "ok": false, "reason": "a purchase order needs a supplier", "warning": "" }
 	if description.is_empty():
-		return {"ok": false, "reason": "there is nothing on it to order", "warning": ""}
+		return { "ok": false, "reason": "there is nothing on it to order", "warning": "" }
 	if quantity <= 0 or not rate.is_valid():
-		return {"ok": false, "reason": "a quantity and a readable rate", "warning": ""}
-	var made = desk.make_purchase_order(job_id, StringName(code), description, quantity, rate,
-		supplier)
+		return { "ok": false, "reason": "a quantity and a readable rate", "warning": "" }
+	var made = desk.make_purchase_order(job_id, StringName(code), description, quantity, rate, supplier)
 	if made == null:
-		return {"ok": false, "reason": "the order could not be written", "warning": ""}
+		return { "ok": false, "reason": "the order could not be written", "warning": "" }
 	var issued: Dictionary = desk.issue_purchase_order(made.id, _today())
 	var warning := String(issued.get("warning", ""))
 	if not bool(issued["ok"]):
@@ -535,13 +530,13 @@ func order_material() -> Dictionary:
 			words += " - %s" % warning
 		_set_status(words)
 	_after_change()
-	return {"ok": bool(issued["ok"]), "reason": String(issued["reason"]), "warning": warning}
+	return { "ok": bool(issued["ok"]), "reason": String(issued["reason"]), "warning": warning }
 
 
 ## Issue an order that was written but not sent.
 func issue_order(order_id: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no desk", "warning": ""}
+		return { "ok": false, "reason": "there is no desk", "warning": "" }
 	var issued: Dictionary = desk.issue_purchase_order(order_id, _today())
 	if bool(issued["ok"]):
 		var words := "%s is ordered." % order_id
@@ -557,7 +552,7 @@ func issue_order(order_id: String) -> Dictionary:
 ## What arrived, recorded as what was still outstanding.
 func receive_order(order_id: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no desk"}
+		return { "ok": false, "reason": "there is no desk" }
 	var taken: Dictionary = desk.receive_what_was_ordered(order_id, _today())
 	if bool(taken["ok"]):
 		_set_status("%s: what was ordered has arrived." % order_id)
@@ -571,8 +566,13 @@ func close_order(order_id: String) -> bool:
 	if desk == null:
 		return false
 	var done := desk.close_order(order_id, _today(), "invoiced and reconciled")
-	_set_status("%s is closed and reconciled." % order_id if done
-		else "%s could not be closed: nothing has arrived on it." % order_id)
+	_set_status(
+		(
+			"%s is closed and reconciled." % order_id
+			if done
+			else "%s could not be closed: nothing has arrived on it." % order_id
+		)
+	)
 	_after_change()
 	return done
 
@@ -581,7 +581,7 @@ func close_order(order_id: String) -> bool:
 ## Returns `{ok, reason}`.
 func agree_change(change_id: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no desk"}
+		return { "ok": false, "reason": "there is no desk" }
 	var by := _by_field.text.strip_edges() if _by_field != null else ""
 	var how := _how_option.get_item_text(_how_option.selected) if _how_option != null else "in-app"
 	var agreed: Dictionary = desk.approve_change(change_id, by, _today(), how)
@@ -595,7 +595,7 @@ func agree_change(change_id: String) -> Dictionary:
 
 func decline_change(change_id: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no desk"}
+		return { "ok": false, "reason": "there is no desk" }
 	var by := _by_field.text.strip_edges() if _by_field != null else ""
 	var why := _why_field.text.strip_edges() if _why_field != null else ""
 	var refused: Dictionary = desk.decline_change(change_id, by, _today(), why)
@@ -609,7 +609,7 @@ func decline_change(change_id: String) -> Dictionary:
 
 func void_change(change_id: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no desk"}
+		return { "ok": false, "reason": "there is no desk" }
 	var why := _why_field.text.strip_edges() if _why_field != null else ""
 	var withdrawn: Dictionary = desk.void_change(change_id, _today(), why)
 	if bool(withdrawn["ok"]):
@@ -631,7 +631,6 @@ func void_change(change_id: String) -> Dictionary:
 func _after_change() -> void:
 	refresh()
 	cost_changed.emit()
-
 
 # --- what it says ------------------------------------------------------------------------------
 

@@ -88,18 +88,15 @@ func test_without_an_angle_the_cursor_gives_the_direction_and_the_length_is_kept
 
 func test_a_cursor_sitting_on_the_first_point_says_nothing_about_direction() -> void:
 	var entry := _typed("10")
-	assert(
-		entry.direction(Vector2(3, 4), Vector2(3, 4)) == Vector2.ZERO,
-		"no direction has been said"
-	)
+	assert(entry.direction(Vector2(3, 4), Vector2(3, 4)) == Vector2.ZERO, "no direction has been said")
 	assert(
 		entry.point_at(Vector2(3, 4), Vector2(3, 4), _metric()).is_equal_approx(Vector2(3, 4)),
-		"and a point on top of the last one is not placed"
+		"and a point on top of the last one is not placed",
 	)
 	# A typed angle needs no cursor at all, which is the whole point of typing one.
 	assert(
 		_typed("10<30").direction(Vector2(3, 4), Vector2(3, 4)) != Vector2.ZERO,
-		"an angle is a direction without a cursor"
+		"an angle is a direction without a cursor",
 	)
 
 
@@ -185,10 +182,7 @@ func test_describe_reads_as_a_length_in_the_drawing_s_own_words() -> void:
 	var ten := _typed("10").describe(units)
 	assert(ten.contains("10"), "%s" % ten)
 	assert(ten.contains("m"), "a metre drawing words a length in metres: %s" % ten)
-	assert(
-		_typed("10<45").describe(units).contains("at 45"),
-		"%s" % _typed("10<45").describe(units)
-	)
+	assert(_typed("10<45").describe(units).contains("at 45"), "%s" % _typed("10<45").describe(units))
 	# A problem is the words instead, so the line on screen says what is wrong rather than showing a
 	# number that means nothing.
 	assert(_typed("0").describe(units) == "a length has to be more than nothing")

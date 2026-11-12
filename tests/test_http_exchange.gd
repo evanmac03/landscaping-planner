@@ -19,13 +19,8 @@ const CONNECT_SECONDS := 1.5
 
 
 ## What the machine says about a request in this state.
-func _move(
-	stage: StringName, status: int, since_stage_ms: int = 0, since_bytes_ms: int = 0
-) -> Dictionary:
-	return Exchange.next_move(
-		stage, status, since_stage_ms, since_bytes_ms, ANSWER_SECONDS, CONNECT_SECONDS
-	)
-
+func _move(stage: StringName, status: int, since_stage_ms: int = 0, since_bytes_ms: int = 0) -> Dictionary:
+	return Exchange.next_move(stage, status, since_stage_ms, since_bytes_ms, ANSWER_SECONDS, CONNECT_SECONDS)
 
 # --- connecting -------------------------------------------------------------------------------------
 
@@ -52,7 +47,7 @@ func test_a_socket_that_never_connected_is_given_up_on_at_its_own_short_budget()
 	assert(StringName(done["move"]) == Exchange.REFUSE, "and at the budget it is given up on: %s" % str(done))
 	assert(
 		StringName(done["because"]) == Exchange.LOST_CONNECTION,
-		"and what it gives up on is the connection: %s" % done["because"]
+		"and what it gives up on is the connection: %s" % done["because"],
 	)
 
 
@@ -62,7 +57,6 @@ func test_a_name_that_does_not_resolve_is_refused_before_its_budget_is_spent() -
 	var move: Dictionary = _move(Exchange.CONNECTING, HTTPClient.STATUS_CANT_RESOLVE)
 	assert(StringName(move["move"]) == Exchange.REFUSE, "it is a refusal immediately: %s" % str(move))
 	assert(StringName(move["because"]) == Exchange.LOST_CONNECTION, "and about the connection")
-
 
 # --- waiting to be answered -------------------------------------------------------------------------
 
@@ -74,7 +68,7 @@ func test_a_model_that_is_still_thinking_is_waited_for_within_its_budget_and_not
 	assert(StringName(gone["move"]) == Exchange.REFUSE, "and no longer: %s" % str(gone))
 	assert(
 		StringName(gone["because"]) == Exchange.LOST_ANSWER,
-		"the refusal is about the answer, not about the connection: %s" % gone["because"]
+		"the refusal is about the answer, not about the connection: %s" % gone["because"],
 	)
 
 
@@ -83,11 +77,21 @@ func test_the_patience_is_the_callers_and_not_a_constant_hidden_in_the_wire() ->
 	# second, and asking a vision model to read a photograph deserves minutes. One number in the wire
 	# would be a third opinion about both.
 	var impatient: Dictionary = Exchange.next_move(
-		Exchange.REQUESTING, HTTPClient.STATUS_REQUESTING, 10000, 0, 10.0, CONNECT_SECONDS
+		Exchange.REQUESTING,
+		HTTPClient.STATUS_REQUESTING,
+		10000,
+		0,
+		10.0,
+		CONNECT_SECONDS,
 	)
 	assert(StringName(impatient["move"]) == Exchange.REFUSE, "ten seconds of patience gives up at ten seconds")
 	var patient: Dictionary = Exchange.next_move(
-		Exchange.REQUESTING, HTTPClient.STATUS_REQUESTING, 10000, 0, ANSWER_SECONDS, CONNECT_SECONDS
+		Exchange.REQUESTING,
+		HTTPClient.STATUS_REQUESTING,
+		10000,
+		0,
+		ANSWER_SECONDS,
+		CONNECT_SECONDS,
 	)
 	assert(StringName(patient["move"]) == Exchange.WAIT, "and three minutes of it is still waiting")
 
@@ -96,7 +100,6 @@ func test_an_answer_that_has_started_arriving_is_read() -> void:
 	var move: Dictionary = _move(Exchange.REQUESTING, HTTPClient.STATUS_BODY)
 	assert(StringName(move["move"]) == Exchange.READ, "there are bytes to take: %s" % str(move))
 	assert(StringName(move["stage"]) == Exchange.READING, "and the request has become a body")
-
 
 # --- reading a body ---------------------------------------------------------------------------------
 
@@ -115,7 +118,7 @@ func test_a_body_that_has_gone_quiet_is_a_stall_and_is_refused_as_one() -> void:
 	assert(StringName(stalled["move"]) == Exchange.REFUSE, "a silent body is given up on: %s" % str(stalled))
 	assert(
 		StringName(stalled["because"]) == Exchange.LOST_STALLED,
-		"and the refusal says it stopped rather than that it was never sent: %s" % stalled["because"]
+		"and the refusal says it stopped rather than that it was never sent: %s" % stalled["because"],
 	)
 
 
@@ -134,9 +137,8 @@ func test_a_connection_that_breaks_while_the_body_is_arriving_says_that_rather_t
 	assert(StringName(broke["move"]) == Exchange.REFUSE, "a broken connection is a refusal: %s" % str(broke))
 	assert(
 		StringName(broke["because"]) == Exchange.LOST_BODY,
-		"and it is worded as the body breaking, not as the body going quiet: %s" % broke["because"]
+		"and it is worded as the body breaking, not as the body going quiet: %s" % broke["because"],
 	)
-
 
 # --- what a refusal says ----------------------------------------------------------------------------
 
@@ -148,16 +150,14 @@ func test_connect_refusal_names_where_and_what_rather_than_the_feature() -> void
 	assert(nothing.contains("nothing is listening"), "a refused socket is a server that is not up: %s" % nothing)
 	var broke: String = Exchange.connect_refusal(HTTPClient.STATUS_CONNECTION_ERROR, "example.invalid", 443)
 	assert(broke.contains("broke"), "a connection that broke says so: %s" % broke)
-	var refused_tls: String = Exchange.connect_refusal(
-		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR, "example.invalid", 443
-	)
+	var refused_tls: String = Exchange.connect_refusal(HTTPClient.STATUS_TLS_HANDSHAKE_ERROR, "example.invalid", 443)
 	assert(refused_tls.contains("secure"), "and a refused handshake says that: %s" % refused_tls)
 	var stuck: String = Exchange.connect_refusal(HTTPClient.STATUS_CONNECTING, "127.0.0.1", 8080)
 	assert(stuck.contains("nothing is listening"), "a socket stuck connecting is read as nothing there")
 	assert(stuck.contains("127.0.0.1:8080"), "and it names where: %s" % stuck)
 	assert(
 		not stuck.contains("seconds"),
-		"and does not blame the clock, which is what the first version of this said: %s" % stuck
+		"and does not blame the clock, which is what the first version of this said: %s" % stuck,
 	)
 
 
@@ -166,10 +166,19 @@ func test_every_way_a_request_can_fail_is_worded_differently() -> void:
 	# them would leave somebody trying the wrong one.
 	var said: Array[String] = []
 	for because: StringName in [
-		Exchange.LOST_CONNECTION, Exchange.LOST_SEND, Exchange.LOST_ANSWER, Exchange.LOST_BODY,
+		Exchange.LOST_CONNECTION,
+		Exchange.LOST_SEND,
+		Exchange.LOST_ANSWER,
+		Exchange.LOST_BODY,
 		Exchange.LOST_STALLED,
 	]:
-		var words: String = Exchange.refusal_words(because, HTTPClient.STATUS_CONNECTING, "127.0.0.1", 11434, ANSWER_SECONDS)
+		var words: String = Exchange.refusal_words(
+			because,
+			HTTPClient.STATUS_CONNECTING,
+			"127.0.0.1",
+			11434,
+			ANSWER_SECONDS,
+		)
 		assert(not words.is_empty(), "%s is worded rather than silent" % because)
 		assert(words.contains("127.0.0.1"), "%s names where it happened: %s" % [because, words])
 		assert(not said.has(words), "%s is not the same sentence as another: %s" % [because, words])
@@ -178,27 +187,37 @@ func test_every_way_a_request_can_fail_is_worded_differently() -> void:
 
 func test_a_budget_of_three_minutes_is_said_in_seconds_rather_than_as_a_count() -> void:
 	var answer: String = Exchange.refusal_words(
-		Exchange.LOST_ANSWER, HTTPClient.STATUS_REQUESTING, "127.0.0.1", 11434, ANSWER_SECONDS
+		Exchange.LOST_ANSWER,
+		HTTPClient.STATUS_REQUESTING,
+		"127.0.0.1",
+		11434,
+		ANSWER_SECONDS,
 	)
 	assert(answer.contains("180 seconds"), "how long was given is the useful half of it: %s" % answer)
 	var stopped: String = Exchange.refusal_words(
-		Exchange.LOST_STALLED, HTTPClient.STATUS_BODY, "127.0.0.1", 11434, 30.0
+		Exchange.LOST_STALLED,
+		HTTPClient.STATUS_BODY,
+		"127.0.0.1",
+		11434,
+		30.0,
 	)
 	assert(stopped.contains("30 seconds"), "and the same number said the same way: %s" % stopped)
-
 
 # --- lines out of a streamed body -------------------------------------------------------------------
 
 
 func test_complete_lines_are_split_off_a_streamed_body_and_the_rest_is_held() -> void:
-	var split: Dictionary = Exchange.split_lines(PackedByteArray(), "pulling manifest\ndownloading\npar".to_utf8_buffer())
+	var split: Dictionary = Exchange.split_lines(
+		PackedByteArray(),
+		"pulling manifest\ndownloading\npar".to_utf8_buffer(),
+	)
 	var lines: Array = split["lines"]
 	assert(lines.size() == 2, "the two complete lines: %s" % str(lines))
 	assert(String(lines[0]) == "pulling manifest", "the first one as it was written: %s" % lines[0])
 	assert(String(lines[1]) == "downloading", "and the second")
 	assert(
 		(split["pending"] as PackedByteArray) == "par".to_utf8_buffer(),
-		"and the start of a third is held rather than reported half-read"
+		"and the start of a third is held rather than reported half-read",
 	)
 
 
@@ -222,16 +241,12 @@ func test_a_character_cut_in_half_by_two_chunks_is_put_back_together() -> void:
 	assert(lines.size() == 1, "and then it is one line: %s" % str(lines))
 	assert(String(lines[0]) == "é", "with the character the server actually sent: %s" % lines[0])
 
-
 # --- the two halves that do touch the world ---------------------------------------------------------
 
 
 func test_a_request_that_was_never_begun_is_refused_rather_than_waited_on_forever() -> void:
 	var exchange: HttpExchange = Exchange.new()
-	assert(
-		exchange.step() == Exchange.REFUSED,
-		"an exchange nothing was begun on has nothing to wait for"
-	)
+	assert(exchange.step() == Exchange.REFUSED, "an exchange nothing was begun on has nothing to wait for")
 	assert(not String(exchange.result()["why"]).is_empty(), "and the refusal says so: %s" % exchange.result()["why"])
 
 
@@ -240,8 +255,9 @@ func test_a_request_that_could_not_be_built_is_refused_before_any_socket_is_open
 	# something about a connection that was never attempted.
 	var exchange: HttpExchange = Exchange.new()
 	var verdict: StringName = exchange.begin(
-		{"ok": false, "reason": "the address of a model has to begin http:// or https://"}, ANSWER_SECONDS,
-		CONNECT_SECONDS
+		{ "ok": false, "reason": "the address of a model has to begin http:// or https://" },
+		ANSWER_SECONDS,
+		CONNECT_SECONDS,
 	)
 	assert(verdict == Exchange.REFUSED, "there is nothing to send")
 	var sent: Dictionary = exchange.result()
@@ -254,7 +270,7 @@ func test_the_result_reads_the_way_the_sender_that_wraps_it_does() -> void:
 	# `PlantIdentifier.send_http` is this machine driven in a loop, and a caller reading one reads the
 	# other - so the shape has to be the one that pipeline has always understood.
 	var exchange: HttpExchange = Exchange.new()
-	exchange.begin({"ok": false, "reason": "nothing to send"}, ANSWER_SECONDS, CONNECT_SECONDS)
+	exchange.begin({ "ok": false, "reason": "nothing to send" }, ANSWER_SECONDS, CONNECT_SECONDS)
 	var sent: Dictionary = exchange.result()
 	for key: String in ["status", "body", "why", "reached"]:
 		assert(sent.has(key), "the result carries %s, which is what a reader of an answer reads" % key)

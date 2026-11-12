@@ -72,7 +72,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -167,7 +166,6 @@ func _act_button(words: String, handler: Callable) -> Button:
 	button.name = words.replace(" ", "")
 	button.pressed.connect(handler)
 	return button
-
 
 # --- showing what is there ----------------------------------------------------------------------
 
@@ -318,10 +316,9 @@ func _fill_buttons() -> void:
 		_run_button.disabled = desk == null or desk.pending().is_empty()
 	if _save_button != null:
 		_save_button.disabled = desk == null or desk.chosen_adapter() == null \
-			or desk.chosen_adapter().settings().is_empty()
+				or desk.chosen_adapter().settings().is_empty()
 	if _test_button != null:
 		_test_button.disabled = desk == null or desk.chosen_adapter() == null
-
 
 # --- reading back what the page is showing ------------------------------------------------------
 
@@ -367,12 +364,14 @@ func backend_text() -> String:
 	parts.append(backend.describe())
 	parts.append("configured" if backend.is_configured() else "needs " + ", ".join(backend.problems()))
 	var caps := PackedStringArray()
-	for what in [AdapterScript.INVOICES, AdapterScript.PAYMENTS, AdapterScript.CREDITS,
-			AdapterScript.IDEMPOTENCY]:
+	for what in [AdapterScript.INVOICES, AdapterScript.PAYMENTS, AdapterScript.CREDITS, AdapterScript.IDEMPOTENCY]:
 		if backend.can(what):
 			caps.append(String(AdapterScript.CAPABILITY_NAMES[String(what)]))
 	parts.append("can " + (", ".join(caps) if not caps.is_empty() else "nothing"))
-	return "%s - %s" % ["; ".join(parts), "%d document(s) for it in the outbox" % desk.count_for(String(backend.name()))]
+	return "%s - %s" % [
+		"; ".join(parts),
+		"%d document(s) for it in the outbox" % desk.count_for(String(backend.name())),
+	]
 
 
 func row_texts() -> Array[String]:
@@ -457,14 +456,13 @@ func set_setting_field(key: StringName, value: String) -> void:
 		if _setting_keys[at] == key:
 			_setting_fields[at].text = value
 
-
 # --- the acts -----------------------------------------------------------------------------------
 
 
 ## Post one document from its row. `{ok, reason, status, push}` as the desk's own.
 func post_one(key: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no outbox on this page", "status": 0, "push": null}
+		return { "ok": false, "reason": "there is no outbox on this page", "status": 0, "push": null }
 	var posted: Dictionary = desk.post(key)
 	_said_a_post(posted, 1)
 	_after_change()
@@ -475,7 +473,7 @@ func post_one(key: String) -> Dictionary:
 ## says how many it tried and what stood in the way, because "the button did nothing" is not a report.
 func post_all() -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no outbox on this page", "tried": 0, "taken": 0}
+		return { "ok": false, "reason": "there is no outbox on this page", "tried": 0, "taken": 0 }
 	var run: Dictionary = desk.post_due()
 	var words: String = ""
 	if int(run["tried"]) == 0:
@@ -484,7 +482,9 @@ func post_all() -> Dictionary:
 		words = "handed over %s." % _document_count(int(run["taken"]))
 	else:
 		words = "handed over %s, and %s did not go: %s" % [
-			_document_count(int(run["taken"])), _document_count(int(run["failed"])), String(run["reason"]),
+			_document_count(int(run["taken"])),
+			_document_count(int(run["failed"])),
+			String(run["reason"]),
 		]
 	var waiting: int = int(run["waiting"])
 	if waiting > 0:
@@ -497,7 +497,7 @@ func post_all() -> Dictionary:
 ## The backend's own test button, on the page.
 func test_backend() -> Dictionary:
 	if desk == null or desk.chosen_adapter() == null:
-		return {"ok": false, "reason": "no ledger is chosen"}
+		return { "ok": false, "reason": "no ledger is chosen" }
 	var tested: Dictionary = desk.chosen_adapter().self_test()
 	# The backend's own words, whatever they are: a success that names what it did ("wrote and read back
 	# ...") says more than "all well", and a refusal already says what is wrong.
@@ -513,7 +513,7 @@ func test_backend() -> Dictionary:
 func save_settings() -> Dictionary:
 	var backend: AdapterScript = desk.chosen_adapter() if desk != null else null
 	if backend == null:
-		return {"ok": false, "reason": "no ledger is chosen", "saved": 0}
+		return { "ok": false, "reason": "no ledger is chosen", "saved": 0 }
 	var saved: int = 0
 	var refused: Array[String] = []
 	for at in _setting_keys.size():
@@ -530,11 +530,12 @@ func save_settings() -> Dictionary:
 		_after_change()
 	if not refused.is_empty():
 		_set_status("%s would not take %s." % [backend.describe(), ", ".join(refused)])
-		return {"ok": false, "reason": "refused: " + ", ".join(refused), "saved": saved}
-	_set_status("%s is saved: %s" % [
-		backend.describe(), "configured" if backend.is_configured() else "needs " + ", ".join(backend.problems()),
-	])
-	return {"ok": true, "reason": "", "saved": saved}
+		return { "ok": false, "reason": "refused: " + ", ".join(refused), "saved": saved }
+	_set_status(
+		"%s is saved: %s"
+		% [backend.describe(), "configured" if backend.is_configured() else "needs " + ", ".join(backend.problems())]
+	)
+	return { "ok": true, "reason": "", "saved": saved }
 
 
 func _said_a_post(posted: Dictionary, how_many: int) -> void:
@@ -556,7 +557,6 @@ func _after_change() -> void:
 func _set_status(words: String) -> void:
 	if _status != null:
 		_status.text = words
-
 
 # --- the controls' own entry points -------------------------------------------------------------
 

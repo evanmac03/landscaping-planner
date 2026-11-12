@@ -25,9 +25,7 @@ func _controller():
 
 ## A square area of `metres` a side, with its corner at the origin.
 func _bed(metres: float = 9.0) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres),
-	])
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres)])
 
 
 ## A bed on the drawing, so the areas a panel offers are the drawing's own.
@@ -35,17 +33,17 @@ func _drawn_bed(controller, metres: float = 9.0, layer: StringName = LayerSet.NE
 	controller.document.add(Entity.make_polyline(_bed(metres), true), layer)
 	return controller.document.count()
 
-
 # --- the transformer ------------------------------------------------------------------
 
 
 func test_a_transformer_that_has_not_been_stated_is_not_a_transformer() -> void:
 	var controller = _controller()
 	assert(controller.lighting_transformer().is_empty(), "nothing is stated on a new drawing")
-	assert(Lighting.transformer_words(controller.lighting_transformer()) == "no transformer stated",
-		"and it says so in words")
-	assert(controller.lighting_fixture_budget(Lighting.FLOOD) == 0,
-		"so the budget is nothing rather than a guess")
+	assert(
+		Lighting.transformer_words(controller.lighting_transformer()) == "no transformer stated",
+		"and it says so in words",
+	)
+	assert(controller.lighting_fixture_budget(Lighting.FLOOD) == 0, "so the budget is nothing rather than a guess")
 	controller.free()
 
 
@@ -68,7 +66,6 @@ func test_a_transformer_of_nothing_is_refused() -> void:
 	assert(controller.lighting_transformer().is_empty(), "nothing was stated")
 	controller.free()
 
-
 # --- lighting an area -----------------------------------------------------------------
 
 
@@ -85,8 +82,7 @@ func test_lighting_a_bed_lays_the_fixtures_out_and_is_one_undo_step() -> void:
 	assert(int(circuits[0]["number"]) == 1, "numbered one")
 	assert(int(circuits[0]["tap"]) == 1, "on tap one")
 	assert(Lighting.fixture_count(circuits[0]) == 16, "holding its sixteen fixtures")
-	assert(String(lit["verdict"]).contains("will run"), "and it says the circuit runs: %s"
-		% String(lit["verdict"]))
+	assert(String(lit["verdict"]).contains("will run"), "and it says the circuit runs: %s" % String(lit["verdict"]))
 	assert(controller.document.undo_last(), "the whole lighting comes off in one step")
 	assert(controller.document.count() == before, "leaving the bed alone: %d" % controller.document.count())
 	assert(controller.lighting_circuits().is_empty(), "and no circuit")
@@ -110,14 +106,15 @@ func test_the_fixtures_land_on_the_lighting_layer_carrying_what_they_are() -> vo
 	assert(fixtures == 16, "sixteen fixtures: %d" % fixtures)
 	# A fixture is a *symbol*: three millimetres across on the sheet, so at 1:100 it is 0.3 m of ground
 	# and at 1:200 it is 0.6 m.
-	assert(absf(_first_fixture_radius(controller) - 0.3) < 1e-6,
-		"three millimetres on paper at 1:100 is 0.3 m of ground: %f" % _first_fixture_radius(controller))
+	assert(
+		absf(_first_fixture_radius(controller) - 0.3) < 1e-6,
+		"three millimetres on paper at 1:100 is 0.3 m of ground: %f" % _first_fixture_radius(controller),
+	)
 	controller.plot_scale = 200.0
 	controller.light_area(_bed(18.0), Lighting.WELL)
 	for entity in controller.document.entities():
 		if Lighting.circuit_of_entity(entity) == 2:
-			assert(absf(entity.params[2] - 0.6) < 1e-6,
-				"twice the paper size at half the scale: %f" % entity.params[2])
+			assert(absf(entity.params[2] - 0.6) < 1e-6, "twice the paper size at half the scale: %f" % entity.params[2])
 	controller.free()
 
 
@@ -137,8 +134,10 @@ func test_a_circuit_that_would_not_run_is_not_put_on_the_drawing() -> void:
 	var before: int = _drawn_bed(controller)
 	var lit: Dictionary = controller.light_area(_bed(), Lighting.FLOOD)
 	assert(not bool(lit["ok"]), "four floodlights will not run off 40 VA")
-	assert(String(lit["reason"]).contains("3 of them fit"), "and the refusal says what fits: %s"
-		% String(lit["reason"]))
+	assert(
+		String(lit["reason"]).contains("3 of them fit"),
+		"and the refusal says what fits: %s" % String(lit["reason"]),
+	)
 	assert(controller.document.count() == before, "nothing was put on the drawing")
 	assert(controller.lighting_circuits().is_empty(), "and no circuit was kept")
 	controller.free()
@@ -149,8 +148,10 @@ func test_lighting_with_a_transformer_nobody_stated_is_refused() -> void:
 	var before: int = _drawn_bed(controller)
 	var lit: Dictionary = controller.light_area(_bed(), Lighting.WELL)
 	assert(not bool(lit["ok"]), "a circuit cannot be blessed on a transformer nobody stated")
-	assert(String(lit["reason"]).contains("transformer has not been stated"),
-		"and the reason is the transformer: %s" % String(lit["reason"]))
+	assert(
+		String(lit["reason"]).contains("transformer has not been stated"),
+		"and the reason is the transformer: %s" % String(lit["reason"]),
+	)
 	assert(controller.document.count() == before, "nothing was put on the drawing")
 	controller.free()
 
@@ -170,9 +171,7 @@ func test_a_line_voltage_fixture_on_a_low_voltage_transformer_is_refused() -> vo
 func test_an_area_the_grid_cannot_be_laid_out_in_is_refused_in_words() -> void:
 	var controller = _controller()
 	controller.set_lighting_transformer(400.0, 12.0)
-	var tiny := PackedVector2Array([
-		Vector2(2.0, 1.6), Vector2(2.4, 2.0), Vector2(2.0, 2.4), Vector2(1.6, 2.0),
-	])
+	var tiny := PackedVector2Array([Vector2(2.0, 1.6), Vector2(2.4, 2.0), Vector2(2.0, 2.4), Vector2(1.6, 2.0)])
 	var lit: Dictionary = controller.light_area(tiny, Lighting.WELL)
 	assert(not bool(lit["ok"]), "an 0.8 m diamond takes no well light")
 	assert(String(lit["reason"]).contains("no grid line"), "and says why: %s" % String(lit["reason"]))
@@ -216,7 +215,6 @@ func test_the_transformer_is_stated_for_the_whole_drawing_not_for_a_circuit() ->
 	assert(int(controller.lighting_circuits().size()) == 1, "and only the first circuit is kept")
 	controller.free()
 
-
 # --- taking a circuit back off --------------------------------------------------------
 
 
@@ -245,8 +243,7 @@ func test_taking_off_a_circuit_that_is_not_there_says_so() -> void:
 	var controller = _controller()
 	var removed: Dictionary = controller.remove_circuit(7)
 	assert(not bool(removed["ok"]), "there is no Circuit 7")
-	assert(String(removed["reason"]) == "there is no Circuit 7", "and it says which: %s"
-		% String(removed["reason"]))
+	assert(String(removed["reason"]) == "there is no Circuit 7", "and it says which: %s" % String(removed["reason"]))
 	controller.free()
 
 
@@ -265,12 +262,11 @@ func _fixtures_of_circuit(controller, number: int) -> int:
 			found += 1
 	return found
 
-
 # --- a fixture and a run as the drawing holds them ------------------------------------
 
 
 func test_a_fixture_reads_as_a_line_and_is_marked_on_its_own_layer() -> void:
-	var fixture := {"kind": Lighting.UPLIGHT, "at": Vector2(2.0, 3.0), "heading": 0.0, "spread": 0.0}
+	var fixture := { "kind": Lighting.UPLIGHT, "at": Vector2(2.0, 3.0), "heading": 0.0, "spread": 0.0 }
 	var entity := Lighting.fixture_entity(fixture, 3, 100.0)
 	assert(entity.layer == LayerSet.LIGHTING, "on the lighting layer")
 	assert(Lighting.is_fixture_entity(entity), "and marked as a fixture")
@@ -279,8 +275,7 @@ func test_a_fixture_reads_as_a_line_and_is_marked_on_its_own_layer() -> void:
 	var words := Lighting.fixture_words(fixture)
 	assert(words.contains("uplight"), "the words name the kind: %s" % words)
 	assert(words.contains("a narrow beam"), "and the beam: %s" % words)
-	assert(Lighting.fixture_words({"kind": Lighting.PATH, "spread": 360.0}).contains("a full circle"),
-		"a path light with a full circle is a full circle")
+	assert(Lighting.fixture_words({ "kind": Lighting.PATH, "spread": 360.0 }).contains("a full circle"), "a path light with a full circle is a full circle")
 
 
 func test_a_run_is_a_polyline_and_a_run_of_one_point_is_nothing() -> void:
@@ -289,9 +284,7 @@ func test_a_run_is_a_polyline_and_a_run_of_one_point_is_nothing() -> void:
 	assert(entity.layer == LayerSet.LIGHTING, "on the lighting layer")
 	assert(entity.kind == Entity.Kind.POLYLINE, "drawn as a polyline")
 	assert(not Lighting.is_fixture_entity(entity), "and it is not a fixture")
-	assert(Lighting.run_entity(PackedVector2Array([Vector2.ZERO])) == null,
-		"a run of one point is not a run")
-
+	assert(Lighting.run_entity(PackedVector2Array([Vector2.ZERO])) == null, "a run of one point is not a run")
 
 # --- the schedule, and what a panel reads ---------------------------------------------
 
@@ -313,8 +306,10 @@ func test_the_rows_a_panel_reads_are_one_per_circuit() -> void:
 
 func test_the_summary_reads_as_one_line() -> void:
 	var controller = _controller()
-	assert(controller.lighting_summary() == "nothing on this drawing is lit yet",
-		"an unlit drawing says so: %s" % controller.lighting_summary())
+	assert(
+		controller.lighting_summary() == "nothing on this drawing is lit yet",
+		"an unlit drawing says so: %s" % controller.lighting_summary(),
+	)
 	controller.set_lighting_transformer(100.0, 12.0)
 	controller.light_area(_bed(9.0), Lighting.WELL)
 	var line := controller.lighting_summary()
@@ -323,8 +318,10 @@ func test_the_summary_reads_as_one_line() -> void:
 	assert(line.contains("80 W"), "drawing 80 watts: %s" % line)
 	assert(line.contains("every circuit runs off the transformer"), "and all of them run: %s" % line)
 	controller.set_lighting_transformer(40.0, 12.0)
-	assert(controller.lighting_summary().contains("8 of them fit"),
-		"a circuit that no longer fits the transformer is named: %s" % controller.lighting_summary())
+	assert(
+		controller.lighting_summary().contains("8 of them fit"),
+		"a circuit that no longer fits the transformer is named: %s" % controller.lighting_summary(),
+	)
 	controller.free()
 
 
@@ -337,7 +334,6 @@ func test_the_area_a_summary_states_is_the_drawings_own() -> void:
 	assert(line.contains("ft2"), "an imperial drawing states its area in square feet: %s" % line)
 	assert(not line.contains("m2"), "and never in square metres: %s" % line)
 	controller.free()
-
 
 # --- the file -------------------------------------------------------------------------
 
@@ -368,8 +364,10 @@ func test_a_drawing_from_before_the_lighting_existed_has_none() -> void:
 	var legacy: DraftDocument = Document.from_dict(old)
 	assert(legacy.lighting.is_empty(), "nothing stated rather than an invented transformer")
 	assert(Lighting.from_dict(legacy.lighting).is_empty(), "and no circuits")
-	assert(Lighting.transformer_words(legacy.lighting.get("transformer", {})) == "no transformer stated",
-		"which is what a check refuses on")
+	assert(
+		Lighting.transformer_words(legacy.lighting.get("transformer", { })) == "no transformer stated",
+		"which is what a check refuses on",
+	)
 	controller.free()
 
 
@@ -378,11 +376,7 @@ func test_a_damaged_lighting_record_is_dropped_rather_than_invented() -> void:
 	controller.set_lighting_transformer(100.0, 12.0)
 	controller.light_area(_bed(9.0), Lighting.WELL)
 	var lit: DraftDocument = controller.document
-	lit.lighting["circuits"] = [
-		"not a circuit",
-		{"kind": Lighting.WELL},
-		(lit.lighting["circuits"] as Array)[0],
-	]
+	lit.lighting["circuits"] = ["not a circuit", { "kind": Lighting.WELL }, (lit.lighting["circuits"] as Array)[0]]
 	var circuits := Lighting.from_dict(lit.lighting)
 	assert(circuits.size() == 1, "the one real circuit is read: %d" % circuits.size())
 	assert(Lighting.fixture_count(circuits[0]) == 16, "with its fixtures")

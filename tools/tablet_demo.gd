@@ -47,15 +47,16 @@ func _ready() -> void:
 
 	var window: Window = get_window()
 	var shown: Vector2 = window.get_visible_rect().size
-	print("window           %d x %d, canvas %d x %d of it" % [
-		int(window.size.x), int(window.size.y), int(shown.x), int(shown.y),
-	])
+	print(
+		"window           %d x %d, canvas %d x %d of it"
+		% [int(window.size.x), int(window.size.y), int(shown.x), int(shown.y)]
+	)
 
 	var finger: bool = PhoneHudScript.on_a_finger_here()
 	var zoomed: bool = PhoneHudScript.zooming_here()
-	print("answers          a thumb is needed: %s, drawn up: %s" % [
-		"yes" if finger else "no", "yes" if zoomed else "no",
-	])
+	print(
+		"answers          a thumb is needed: %s, drawn up: %s" % ["yes" if finger else "no", "yes" if zoomed else "no"]
+	)
 
 	var hud: Node = _find_scripted(_app, "hud.gd")
 	var palette: Control = null if hud == null else hud.get_node_or_null("%Palette") as Control
@@ -67,25 +68,28 @@ func _ready() -> void:
 	var wants: float = column.get_combined_minimum_size().x
 	var has: float = palette.size.x
 	var fits: bool = wants <= has + 0.5
-	print("palette panel    %.1f px wide, its column wants %.1f -> %s" % [
-		has, wants, "FITS" if fits else "TOO WIDE",
-	])
+	print("palette panel    %.1f px wide, its column wants %.1f -> %s" % [has, wants, "FITS" if fits else "TOO WIDE"])
 
 	var button: Button = null if hud == null else hud.find_child("draft_polyline", true, false) as Button
 	var row_mm: float = 0.0
 	if button != null:
 		var scale: float = PhoneHudScript.canvas_scale(window)
 		row_mm = PhoneHudScript.millimetres(button.custom_minimum_size.y, scale, TABLET_DPI)
-		print("palette row      %.1f px of layout = %.2f mm on a %d dpi screen" % [
-			button.custom_minimum_size.y, row_mm, int(TABLET_DPI),
-		])
+		print(
+			"palette row      %.1f px of layout = %.2f mm on a %d dpi screen"
+			% [button.custom_minimum_size.y, row_mm, int(TABLET_DPI)]
+		)
 
 	var sized: bool = row_mm >= PhoneHudScript.TOUCH_MM - 0.01
 	var ok: bool = finger and not zoomed and fits and sized
-	print("TABLET: %s" % (
-		"sized for a thumb at the tablet's own scale, and the canvas was not drawn up"
-		if ok else "A TABLET WOULD GET THE WRONG DEVICE"
-	))
+	print(
+		"TABLET: %s"
+		% (
+			"sized for a thumb at the tablet's own scale, and the canvas was not drawn up"
+			if ok
+			else "A TABLET WOULD GET THE WRONG DEVICE"
+		)
+	)
 	PhoneHudScript.force_density(0.0)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	await get_tree().process_frame

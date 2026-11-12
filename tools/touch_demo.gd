@@ -63,18 +63,20 @@ func _ready() -> void:
 
 	var zoomed: bool = size_after < size_before
 	var expect_focus: Vector2 = ViewMathScript.focus_after_screen_drag(
-		focus_after_pinch, DRAG_DELTA, size_after, get_viewport().get_visible_rect().size.y
+		focus_after_pinch,
+		DRAG_DELTA,
+		size_after,
+		get_viewport().get_visible_rect().size.y,
 	)
 	var panned: bool = focus_after_drag.is_equal_approx(expect_focus)
 	print("TOUCH DEMO: %s" % _verdict(zoomed, size_before, size_after))
 	if not panned:
-		print("TOUCH DEMO: the drag moved the focus to %s instead of the %s the same drag moves by hand" % [
-			focus_after_drag, expect_focus,
-		])
+		print(
+			"TOUCH DEMO: the drag moved the focus to %s instead of the %s the same drag moves by hand"
+			% [focus_after_drag, expect_focus]
+		)
 	var ok: bool = zoomed and panned
-	print("TOUCH DEMO: %s" % (
-		"both gestures reached the real view" if ok else "A GESTURE DID NOT REACH THE VIEW"
-	))
+	print("TOUCH DEMO: %s" % ("both gestures reached the real view" if ok else "A GESTURE DID NOT REACH THE VIEW"))
 	await get_tree().process_frame
 	get_tree().quit(0 if ok else 1)
 
@@ -82,9 +84,7 @@ func _ready() -> void:
 func _verdict(zoomed: bool, size_before: float, size_after: float) -> String:
 	if not zoomed:
 		return "the pinch did not zoom: %.2f m of plan before and after" % size_before
-	return "a pinch of %.2f zoomed the plan in from %.2f m to %.2f m" % [
-		PINCH_SPREAD, size_before, size_after,
-	]
+	return "a pinch of %.2f zoomed the plan in from %.2f m to %.2f m" % [PINCH_SPREAD, size_before, size_after]
 
 
 ## The running app's own view controller, found by the script it carries rather than by a node path that

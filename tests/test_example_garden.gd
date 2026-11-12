@@ -11,9 +11,15 @@ const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 
 ## The kinds a drafting tool can make, which is the whole vocabulary a plan is written in.
 const KINDS: Array[int] = [
-	EntityScript.Kind.LINE, EntityScript.Kind.CIRCLE, EntityScript.Kind.ARC,
-	EntityScript.Kind.POLYLINE, EntityScript.Kind.POLYGON, EntityScript.Kind.RECT,
-	EntityScript.Kind.REGULAR_POLY, EntityScript.Kind.DIMENSION, EntityScript.Kind.TEXT,
+	EntityScript.Kind.LINE,
+	EntityScript.Kind.CIRCLE,
+	EntityScript.Kind.ARC,
+	EntityScript.Kind.POLYLINE,
+	EntityScript.Kind.POLYGON,
+	EntityScript.Kind.RECT,
+	EntityScript.Kind.REGULAR_POLY,
+	EntityScript.Kind.DIMENSION,
+	EntityScript.Kind.TEXT,
 ]
 
 
@@ -30,7 +36,7 @@ func test_the_example_is_made_of_shapes_the_drawing_can_hold() -> void:
 ## A plan is not one kind of thing: the example has to show closed outlines, an open one, a canopy circle, a
 ## measurement and words - otherwise it teaches nothing about what a plan is.
 func test_the_example_shows_more_than_one_kind_of_shape() -> void:
-	var kinds: Dictionary = {}
+	var kinds: Dictionary = { }
 	for entity: DraftEntity in ExampleScript.parts():
 		kinds[int(entity.kind)] = true
 	assert(kinds.size() >= 5, "the example is a mixture, not a pile of one shape: %d kinds" % kinds.size())
@@ -56,9 +62,8 @@ func test_the_example_is_the_size_of_a_backyard() -> void:
 	assert(deep >= 5.0 and deep <= 60.0, "and metres deep, not %s" % String.num(deep, 1))
 	assert(
 		absf(across - ExampleScript.SITE.x) < 3.0,
-		"and the shapes stay inside the site the example states: %s by %s" % [
-			String.num(across, 1), String.num(deep, 1),
-		]
+		"and the shapes stay inside the site the example states: %s by %s"
+		% [String.num(across, 1), String.num(deep, 1)],
 	)
 
 
@@ -68,10 +73,7 @@ func test_the_example_names_and_counts_itself() -> void:
 	assert(not ExampleScript.NAME.is_empty(), "it has a name")
 	var said: String = ExampleScript.describe()
 	assert(said.contains(ExampleScript.NAME), "and the line begins with it: %s" % said)
-	assert(
-		said.contains(str(ExampleScript.parts().size())),
-		"and counts the shapes it actually has: %s" % said
-	)
+	assert(said.contains(str(ExampleScript.parts().size())), "and counts the shapes it actually has: %s" % said)
 
 
 ## The corners a shape reaches, near enough for a check on the size of a garden: a rectangle's own box, a
@@ -83,16 +85,13 @@ func _corners(entity: DraftEntity) -> Array[Vector2]:
 		int(EntityScript.Kind.RECT):
 			var centre := Vector2(params[0], params[1])
 			var half := Vector2(params[2], params[3]) * 0.5
-			out.append_array([
-				centre - half, centre + Vector2(half.x, -half.y),
-				centre + half, centre + Vector2(-half.x, half.y),
-			])
+			out.append_array(
+				[centre - half, centre + Vector2(half.x, -half.y), centre + half, centre + Vector2(-half.x, half.y)]
+			)
 		int(EntityScript.Kind.CIRCLE):
 			var centre := Vector2(params[0], params[1])
 			var radius: float = params[2]
-			out.append_array([
-				centre + Vector2(-radius, -radius), centre + Vector2(radius, radius),
-			])
+			out.append_array([centre + Vector2(-radius, -radius), centre + Vector2(radius, radius)])
 		int(EntityScript.Kind.LINE):
 			out.append(Vector2(params[0], params[1]))
 			out.append(Vector2(params[2], params[3]))

@@ -23,14 +23,15 @@ func _board() -> BoardScript:
 func _card_node(board: BoardScript, stage: int, lead_id: String) -> Node:
 	return board.get_node_or_null(NodePath("Column/Scroll/Board/Column%d/Card%s" % [stage, lead_id]))
 
-
 # --- building --------------------------------------------------------------------------------
 
 
 func test_the_board_builds_one_beside_the_other_for_every_stage() -> void:
 	var board := _board()
-	assert(board.column_titles() == ["Lead", "Qualified", "Site visit", "Estimating", "Proposed",
-		"Won", "Lost", "Withdrawn", "Dormant"])
+	assert(
+		board.column_titles()
+		== ["Lead", "Qualified", "Site visit", "Estimating", "Proposed", "Won", "Lost", "Withdrawn", "Dormant"]
+	)
 	# Terminal states keep a column of their own, which is what makes the win/loss visible.
 	assert(board.card_count(LeadScript.WON) == 0)
 	board.free()
@@ -50,7 +51,6 @@ func test_a_board_with_no_pipeline_is_empty_rather_than_broken() -> void:
 	assert(board.card_count(LeadScript.LEAD) == 0)
 	assert(board.summary_text() == "no open leads")
 	board.free()
-
 
 # --- a card ----------------------------------------------------------------------------------
 
@@ -80,7 +80,6 @@ func test_a_card_carries_the_lead_it_stands_for() -> void:
 	assert(data is Dictionary and String(data["lead"]) == id, "a card drags its lead's id")
 	board.free()
 
-
 # --- moving ----------------------------------------------------------------------------------
 
 
@@ -97,8 +96,8 @@ func test_a_drop_into_lost_asks_for_the_reason_and_holds_the_card() -> void:
 	var board := _board()
 	var id: String = board.add_lead("Smith", 100000)["id"]
 	var column := board.get_node_or_null(^"Column/Scroll/Board/Column6")
-	assert(column._can_drop_data(Vector2.ZERO, {"lead": id}), "the Lost column accepts the card")
-	column._drop_data(Vector2.ZERO, {"lead": id})
+	assert(column._can_drop_data(Vector2.ZERO, { "lead": id }), "the Lost column accepts the card")
+	column._drop_data(Vector2.ZERO, { "lead": id })
 	# Held, not made: the lead is still where it was, and the board is asking.
 	assert(board.card_count(LeadScript.QUALIFIED) == 0 and board.card_count(LeadScript.LOST) == 0)
 	assert(board.is_asking_for_a_reason(), "the board is asking why")
@@ -122,7 +121,7 @@ func test_cancelling_puts_the_card_back_by_never_having_moved_it() -> void:
 	var board := _board()
 	var id: String = board.add_lead("Smith", 100000)["id"]
 	board.move_lead(id, LeadScript.QUALIFIED)
-	board.move_lead(id, LeadScript.LOST)  # held
+	board.move_lead(id, LeadScript.LOST) # held
 	board.cancel_move()
 	assert(board.card_count(LeadScript.QUALIFIED) == 1, "the lead is where it was")
 	assert(board.card_count(LeadScript.LOST) == 0)
@@ -148,7 +147,6 @@ func test_a_move_to_where_a_lead_already_is_is_refused() -> void:
 	var id: String = board.add_lead("Smith", 100000)["id"]
 	assert(not board.move_lead(id, LeadScript.LEAD)["ok"])
 	board.free()
-
 
 # --- what the board says ---------------------------------------------------------------------
 
@@ -211,7 +209,10 @@ func test_a_moved_card_emits_the_change_so_the_menu_line_is_not_stale() -> void:
 	var board := _board()
 	var id: String = board.add_lead("Smith", 100000)["id"]
 	var seen := [0]
-	board.pipeline_changed.connect(func() -> void: seen[0] += 1)
+	board.pipeline_changed.connect(
+		func() -> void:
+			seen[0] += 1,
+	)
 	board.move_lead(id, LeadScript.QUALIFIED)
 	assert(seen[0] == 1)
 	board.move_lead(id, LeadScript.PROPOSED)

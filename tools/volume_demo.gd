@@ -39,7 +39,7 @@ func _ready() -> void:
 	print("the drawing holds ", draft.document.count(), " entities")
 
 	print("--- taking it off as an area, the way the menu does ---")
-	hud._menu_take_off({})
+	hud._menu_take_off({ })
 	await _settle()
 	var window: EstimateWindow = hud.get(&"_estimate_window")
 	print("the window is up: ", hud.is_estimate_window_open())

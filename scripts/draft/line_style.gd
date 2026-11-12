@@ -60,7 +60,6 @@ var screen_colour: Color = Color.BLACK
 ## dense detail (REQ 4.2.3).
 var display_lineweights: bool = true
 
-
 # --- the weight law -----------------------------------------------------------------
 
 
@@ -123,7 +122,6 @@ func copy() -> LineStyle:
 	other.screen_colour = screen_colour
 	other.display_lineweights = display_lineweights
 	return other
-
 
 # --- lookups ------------------------------------------------------------------------
 

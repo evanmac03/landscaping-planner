@@ -140,8 +140,4 @@ func _draw() -> void:
 	if _stick_finger < 0:
 		return
 	draw_circle(_stick_anchor, RING_RADIUS, RING_COLOUR)
-	draw_circle(
-		_stick_anchor + (_stick_at - _stick_anchor).limit_length(RING_RADIUS),
-		KNOB_RADIUS,
-		KNOB_COLOUR
-	)
+	draw_circle(_stick_anchor + (_stick_at - _stick_anchor).limit_length(RING_RADIUS), KNOB_RADIUS, KNOB_COLOUR)

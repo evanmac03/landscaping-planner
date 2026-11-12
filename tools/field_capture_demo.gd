@@ -43,21 +43,32 @@ func _ready() -> void:
 	# below shows what a measurement really changes: the measured spread, and the catalogue's spread where
 	# nobody measured anything. The third is a name the list cannot place, which must be left alone.
 	var measured: Dictionary = FieldCaptureScript.identify(
-		"Thymus serpyllum", 0.92, catalogue, Vector3(2.0, 0.0, 2.0), "", "by the gate, 60 cm across"
+		"Thymus serpyllum",
+		0.92,
+		catalogue,
+		Vector3(2.0, 0.0, 2.0),
+		"",
+		"by the gate, 60 cm across",
 	)
-	print("DEMO the offered name resolved: ok=%s species=%s" % [
-		str(measured["ok"]), String(measured["capture"]["species_id"]),
-	])
+	print(
+		"DEMO the offered name resolved: ok=%s species=%s"
+		% [str(measured["ok"]), String(measured["capture"]["species_id"])]
+	)
 	measured["capture"]["measured_spread_m"] = 0.60
 	var unmeasured: Dictionary = FieldCaptureScript.identify(
-		"Thymus serpyllum", 0.88, catalogue, Vector3(3.6, 0.0, 2.0), "", "the one beside it"
+		"Thymus serpyllum",
+		0.88,
+		catalogue,
+		Vector3(3.6, 0.0, 2.0),
+		"",
+		"the one beside it",
 	)
-	var offered: Dictionary = FieldCaptureScript.unidentified(
-		Vector3(-2.0, 0.0, 1.5), "", "did not recognise it"
-	)
+	var offered: Dictionary = FieldCaptureScript.unidentified(Vector3(-2.0, 0.0, 1.5), "", "did not recognise it")
 	offered["raw_taxon"] = "something ferny"
 	var written: Error = ExporterScript.export_manifest(
-		"Field survey", [measured["capture"], unmeasured["capture"], offered], MANIFEST
+		"Field survey",
+		[measured["capture"], unmeasured["capture"], offered],
+		MANIFEST,
 	)
 	print("DEMO wrote %s (%s)" % [MANIFEST, "ok" if written == OK else "error %d" % written])
 
@@ -81,15 +92,20 @@ func _report() -> void:
 	for node: Node3D in planted:
 		# Only the plants this program put there carry these; the yard the scene ships with was built by
 		# hand and has no reason to say how wide anything is.
-		print("  %s  spread=%s cm  source=%s" % [
-			node.name,
-			str(node.get_meta(PlacementScript.SPREAD_META)) if node.has_meta(
-				PlacementScript.SPREAD_META
-			) else "-",
-			str(node.get_meta(PlacementScript.SIZE_SOURCE_META)) if node.has_meta(
-				PlacementScript.SIZE_SOURCE_META
-			) else "-",
-		])
+		print(
+			"  %s  spread=%s cm  source=%s"
+			% [
+				node.name,
+				(str(node.get_meta(PlacementScript.SPREAD_META))
+					if node.has_meta(PlacementScript.SPREAD_META)
+					else "-"),
+				(
+					str(node.get_meta(PlacementScript.SIZE_SOURCE_META))
+					if node.has_meta(PlacementScript.SIZE_SOURCE_META)
+					else "-"
+				),
+			]
+		)
 	var catalogue: PlantCatalogue = hud.plant_list()
 	var captures: Array = catalogue.collection("Field Survey Captures")
 	print("DEMO the survey collection holds %d: %s" % [captures.size(), str(captures)])

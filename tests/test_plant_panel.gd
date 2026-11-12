@@ -40,12 +40,11 @@ func _many(count: int) -> PlantCatalogue:
 			"Botanica %03d" % number,
 			"Common %03d" % number,
 			100 + number,
-			60 + number
+			60 + number,
 		)
 		species.tags.assign(["trial"])
 		catalogue.add(species)
 	return catalogue
-
 
 # --- what it lists ------------------------------------------------------------------------
 
@@ -56,16 +55,20 @@ func test_the_panel_lists_the_catalogue_by_the_name_a_person_uses() -> void:
 	var listed: Array[StringName] = panel.listed_ids()
 	# The whole starter list, not a slice of it: a palette that hides most of the catalogue behind a
 	# cap it does not mention is worse than one that makes a person scroll.
-	assert(listed.size() == catalogue.count(),
-		"the whole shipped list is listed: %d of %d" % [listed.size(), catalogue.count()])
+	assert(
+		listed.size() == catalogue.count(),
+		"the whole shipped list is listed: %d of %d" % [listed.size(), catalogue.count()],
+	)
 	assert(listed.has(MAPLE), "including the maple")
 	# By the name a person uses rather than the one a nursery sends: the label on a red maple is
 	# "Red maple", and "Acer rubrum" is what they write down afterwards.
 	var first: PlantSpecies = panel.catalogue.get_species(listed[0])
 	assert(first != null, "the first row is a plant")
 	assert(first.common_name.begins_with("A"), "the list is in common-name order: %s" % first.common_name)
-	assert(panel.status_text() == "%d species." % catalogue.count(),
-		"and the panel says how many: %s" % panel.status_text())
+	assert(
+		panel.status_text() == "%d species." % catalogue.count(),
+		"and the panel says how many: %s" % panel.status_text(),
+	)
 	panel.free()
 
 
@@ -91,10 +94,11 @@ func test_a_catalogue_bigger_than_the_list_is_capped_and_says_so() -> void:
 	var over: int = PanelScript.MAX_LISTED + 80
 	var panel: PlantPanel = _panel(_many(over))
 	assert(panel.listed_ids().size() == PanelScript.MAX_LISTED, "the list is capped")
-	assert(panel.status_text().contains("Showing the first %d of %d" % [PanelScript.MAX_LISTED, over]),
-		"and says how much of the catalogue it is not showing: %s" % panel.status_text())
+	assert(
+		panel.status_text().contains("Showing the first %d of %d" % [PanelScript.MAX_LISTED, over]),
+		"and says how much of the catalogue it is not showing: %s" % panel.status_text(),
+	)
 	panel.free()
-
 
 # --- choosing, and what a click would plant -------------------------------------------------
 
@@ -102,8 +106,9 @@ func test_a_catalogue_bigger_than_the_list_is_capped_and_says_so() -> void:
 func test_choosing_a_plant_asks_for_it_and_placing_needs_a_choice() -> void:
 	var panel: PlantPanel = _panel()
 	var asked: Array[StringName] = []
-	panel.plant_chosen.connect(func(species_id: StringName) -> void:
-		asked.append(species_id)
+	panel.plant_chosen.connect(
+		func(species_id: StringName) -> void:
+			asked.append(species_id),
 	)
 	assert(not panel.place_selected(), "nothing is chosen yet")
 	assert(asked.is_empty(), "so nothing is asked for")
@@ -163,7 +168,10 @@ func test_choosing_another_plant_while_one_is_in_hand_replaces_what_is_in_hand()
 	# hand, so a click asks for nothing on its own.
 	var panel: PlantPanel = _panel()
 	var asked: Array[StringName] = []
-	panel.plant_chosen.connect(func(id: StringName) -> void: asked.append(id))
+	panel.plant_chosen.connect(
+		func(id: StringName) -> void:
+			asked.append(id),
+	)
 	var listed: Array[StringName] = panel.listed_ids()
 	var other: StringName = listed[0] if listed[0] != MAPLE else listed[1]
 	assert(other != MAPLE, "the test needs two different plants")
@@ -209,7 +217,6 @@ func test_a_panel_with_no_list_open_says_so_rather_than_failing() -> void:
 	assert(not panel.select(MAPLE), "and nothing to choose")
 	panel.free()
 
-
 # --- the tag drop-down ---------------------------------------------------------------------
 
 
@@ -220,13 +227,16 @@ func test_a_tag_narrows_the_list_and_an_unknown_tag_is_refused() -> void:
 	assert(panel.set_tag_filter("shade tree"), "a tag the catalogue has can be chosen")
 	assert(panel.tag_filter() == "shade tree", "and the panel is narrowed to it")
 	var narrowed: Array[StringName] = panel.listed_ids()
-	assert(narrowed.size() > 0 and narrowed.size() < all_count,
-		"which is some of the list and not all of it: %d of %d" % [narrowed.size(), all_count])
+	assert(
+		narrowed.size() > 0 and narrowed.size() < all_count,
+		"which is some of the list and not all of it: %d of %d" % [narrowed.size(), all_count],
+	)
 	for species_id: StringName in narrowed:
-		assert(panel.catalogue.get_species(species_id).tags.has("shade tree"),
-			"%s carries the tag" % species_id)
-	assert(panel.status_text() == "%d of %d species." % [narrowed.size(), all_count],
-		"and the count says what it is not showing: %s" % panel.status_text())
+		assert(panel.catalogue.get_species(species_id).tags.has("shade tree"), "%s carries the tag" % species_id)
+	assert(
+		panel.status_text() == "%d of %d species." % [narrowed.size(), all_count],
+		"and the count says what it is not showing: %s" % panel.status_text(),
+	)
 
 	assert(not panel.set_tag_filter("nonsense"), "a tag no plant carries is refused")
 	assert(panel.tag_filter() == "shade tree", "and the filter is left as it was")
@@ -246,7 +256,6 @@ func test_a_tag_that_the_catalogue_loses_falls_back_to_every_plant() -> void:
 	assert(panel.tag_filter().is_empty(), "a catalogue with no 'shade tree' in it clears the filter")
 	assert(panel.listed_ids().size() == 3, "and the panel shows the new catalogue rather than nothing")
 	panel.free()
-
 
 # --- the rule this panel has that the browser does not -------------------------------------
 
@@ -269,10 +278,11 @@ func test_nothing_in_the_panel_takes_the_keyboard() -> void:
 	assert(panel.get_node("FillRow/ArrangementOption").focus_mode == Control.FOCUS_NONE, "the rows")
 	assert(panel.get_node("BedRow/BedOption").focus_mode == Control.FOCUS_NONE, "the bed")
 	assert(panel.get_node("FillButton").focus_mode == Control.FOCUS_NONE, "and the fill button")
-	assert(not (panel.get_node("Species") as ItemList).allow_search,
-		"and the list does not search, because letter keys belong to the drawing")
+	assert(
+		not (panel.get_node("Species") as ItemList).allow_search,
+		"and the list does not search, because letter keys belong to the drawing",
+	)
 	panel.free()
-
 
 # --- the signals the HUD listens to --------------------------------------------------------
 
@@ -282,8 +292,14 @@ func test_the_library_and_stop_are_asked_for_by_signal() -> void:
 	# than done: it has no window and no planting to stop.
 	var panel: PlantPanel = _panel()
 	var wanted: Array[String] = []
-	panel.library_requested.connect(func() -> void: wanted.append("library"))
-	panel.stop_requested.connect(func() -> void: wanted.append("stop"))
+	panel.library_requested.connect(
+		func() -> void:
+			wanted.append("library"),
+	)
+	panel.stop_requested.connect(
+		func() -> void:
+			wanted.append("stop"),
+	)
 	(panel.get_node("Header/LibraryButton") as Button).pressed.emit()
 	(panel.get_node("Actions/StopButton") as Button).pressed.emit()
 	assert(wanted == ["library", "stop"], "both were asked for: %s" % " | ".join(wanted))
@@ -306,7 +322,6 @@ func test_the_stop_button_is_dead_until_something_is_being_planted() -> void:
 	assert(stop.disabled, "and putting it away makes stopping impossible again")
 	panel.free()
 
-
 # --- filling a bed -------------------------------------------------------------------------
 
 
@@ -319,9 +334,7 @@ func _bed_row(key: String, name: String, area: float) -> Dictionary:
 		"key": key,
 		"label": "bed",
 		"name": name,
-		"outline": PackedVector2Array([
-			Vector2.ZERO, Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0),
-		]),
+		"outline": PackedVector2Array([Vector2.ZERO, Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)]),
 		"area_m2": area,
 	}
 
@@ -393,7 +406,7 @@ func test_filling_asks_for_the_bed_the_spacing_and_the_arrangement() -> void:
 	var asked: Array = []
 	panel.fill_requested.connect(
 		func(bed_key: String, spacing: float, arrangement: String) -> void:
-			asked.append([bed_key, spacing, arrangement])
+			asked.append([bed_key, spacing, arrangement]),
 	)
 
 	assert(panel.fill_selected(), "a plant and a bed is a fill")
@@ -425,15 +438,19 @@ func test_a_fill_reports_itself_beside_the_plant_count_and_a_new_plant_clears_it
 	panel.select(BOXWOOD)
 	panel.set_beds([_bed_row("a", "bed 1", 12.0)])
 	panel.say("38 x Buxus sempervirens at 0.45 m, staggered")
-	assert(panel.status_text() == "38 x Buxus sempervirens at 0.45 m, staggered",
-		"what just happened is what the panel says: %s" % panel.status_text())
+	assert(
+		panel.status_text() == "38 x Buxus sempervirens at 0.45 m, staggered",
+		"what just happened is what the panel says: %s" % panel.status_text(),
+	)
 
 	# A new plant in hand is a new act, and the report of the last one is not news any more.
 	panel.refresh(MAPLE, 38)
 	assert(not panel.status_text().contains("Buxus"), "a new choice clears it: %s" % panel.status_text())
 	# What is left is the line about what is in hand, which is the one a person needs while planting.
-	assert(panel.status_text().contains("Red maple") and panel.status_text().contains("38"),
-		"the line is about the plant in hand: %s" % panel.status_text())
+	assert(
+		panel.status_text().contains("Red maple") and panel.status_text().contains("38"),
+		"the line is about the plant in hand: %s" % panel.status_text(),
+	)
 
 	# A count on its own does not: a fill changes how many are standing, and the report is what says so.
 	panel.say("nothing to report")

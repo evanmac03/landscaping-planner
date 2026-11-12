@@ -20,10 +20,7 @@ func _reset() -> void:
 func test_a_phones_row_is_a_thumbs_target() -> void:
 	_reset()
 	var row_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 450.0)
-	assert(
-		TouchInputScript.answered_by_a_thumb(true, 450.0, row_mm),
-		"a %.2f mm row is a thumb's target" % row_mm
-	)
+	assert(TouchInputScript.answered_by_a_thumb(true, 450.0, row_mm), "a %.2f mm row is a thumb's target" % row_mm)
 
 
 ## A tablet is the device this was widened for: a finger's target, and a screen held rather than sat at.
@@ -32,7 +29,7 @@ func test_a_tablets_row_is_a_thumbs_target_too() -> void:
 	var row_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 300.0)
 	assert(
 		TouchInputScript.answered_by_a_thumb(true, 300.0, row_mm),
-		"a %.2f mm row on a tablet is a thumb's target" % row_mm
+		"a %.2f mm row on a tablet is a thumb's target" % row_mm,
 	)
 
 
@@ -43,12 +40,12 @@ func test_a_touchscreen_desk_is_still_a_desk() -> void:
 	var row_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 144.0)
 	assert(
 		not TouchInputScript.answered_by_a_thumb(true, 144.0, row_mm),
-		"a %.2f mm row on a 144 dpi screen is a mouse's, touchscreen or not" % row_mm
+		"a %.2f mm row on a 144 dpi screen is a mouse's, touchscreen or not" % row_mm,
 	)
 	var coarse: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 96.0)
 	assert(
 		not TouchInputScript.answered_by_a_thumb(true, 96.0, coarse),
-		"and a 96 dpi screen is further still from being held"
+		"and a 96 dpi screen is further still from being held",
 	)
 
 
@@ -59,7 +56,7 @@ func test_a_plain_touchscreen_laptop_keeps_the_desk_layout() -> void:
 	var row_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 150.0)
 	assert(
 		not TouchInputScript.answered_by_a_thumb(true, 150.0, row_mm),
-		"a %.2f mm row on a 150 dpi screen is a laptop's" % row_mm
+		"a %.2f mm row on a 150 dpi screen is a laptop's" % row_mm,
 	)
 
 
@@ -68,23 +65,17 @@ func test_a_plain_touchscreen_laptop_keeps_the_desk_layout() -> void:
 func test_no_touchscreen_is_a_desk_however_dense_the_screen() -> void:
 	_reset()
 	var row_mm: float = PhoneHudScript.millimetres(TouchInputScript.DESK_ROW_PX, 1.0, 450.0)
-	assert(
-		not TouchInputScript.answered_by_a_thumb(false, 450.0, row_mm),
-		"nothing to touch, nothing to size for"
-	)
+	assert(not TouchInputScript.answered_by_a_thumb(false, 450.0, row_mm), "nothing to touch, nothing to size for")
 
 
 ## A density that could not be read resizes nothing: the layout keeps the size it was built at rather than
 ## a size worked out from a number that does not exist.
 func test_a_density_nobody_could_read_resizes_nothing() -> void:
 	_reset()
-	assert(
-		not TouchInputScript.answered_by_a_thumb(true, 0.0, 0.0),
-		"no millimetres worked out is not a small row"
-	)
+	assert(not TouchInputScript.answered_by_a_thumb(true, 0.0, 0.0), "no millimetres worked out is not a small row")
 	assert(
 		not TouchInputScript.answered_by_a_thumb(true, 450.0, 1.6, 0.0),
-		"and a thumb of no size is not a measurement either"
+		"and a thumb of no size is not a measurement either",
 	)
 
 
@@ -98,9 +89,8 @@ func test_the_force_door_answers_for_a_device_and_auto_reads_the_machine() -> vo
 	assert(not TouchInputScript.has_a_touchscreen(), "and a forced mouse is not")
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	assert(
-		TouchInputScript.has_a_touchscreen()
-			== DisplayServer.is_touchscreen_available(),
-		"asking the machine is what auto does"
+		TouchInputScript.has_a_touchscreen() == DisplayServer.is_touchscreen_available(),
+		"asking the machine is what auto does",
 	)
 	_reset()
 

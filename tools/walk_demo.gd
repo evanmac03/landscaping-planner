@@ -62,12 +62,20 @@ func _run() -> void:
 	print("route: %s" % route.describe())
 	for index in route.count():
 		var stop: Dictionary = route.stops()[index]
-		print("  %d. %s at (%.1f, %.1f, %.1f), looks at (%.1f, %.1f, %.1f), %s s" % [
-			index + 1, String(stop["name"]),
-			Vector3(stop["at"]).x, Vector3(stop["at"]).y, Vector3(stop["at"]).z,
-			Vector3(stop["look"]).x, Vector3(stop["look"]).y, Vector3(stop["look"]).z,
-			String.num(float(stop["dwell"]), 1),
-		])
+		print(
+			"  %d. %s at (%.1f, %.1f, %.1f), looks at (%.1f, %.1f, %.1f), %s s"
+			% [
+				index + 1,
+				String(stop["name"]),
+				Vector3(stop["at"]).x,
+				Vector3(stop["at"]).y,
+				Vector3(stop["at"]).z,
+				Vector3(stop["look"]).x,
+				Vector3(stop["look"]).y,
+				Vector3(stop["look"]).z,
+				String.num(float(stop["dwell"]), 1),
+			]
+		)
 
 	var director = DirectorScript.new()
 	director.bind(route)
@@ -112,8 +120,10 @@ func _build_route() -> WalkRoute:
 func _one_still(index: int, stage: Dictionary) -> String:
 	var written: Array[String] = []
 	var refused: Array[String] = []
-	var on_written := func(path: String) -> void: written.append(path)
-	var on_refused := func(reason: String) -> void: refused.append(reason)
+	var on_written := func(path: String) -> void:
+		written.append(path)
+	var on_refused := func(reason: String) -> void:
+		refused.append(reason)
 	_director.still_written.connect(on_written)
 	_director.still_failed.connect(on_refused)
 	_director.render_still(STILL_SIZE)

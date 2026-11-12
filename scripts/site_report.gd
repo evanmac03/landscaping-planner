@@ -18,6 +18,7 @@ const WorkUnitScript := preload("res://scripts/biz/work_unit.gd")
 ## Quantities are held in thousandths, the way the takeoff holds them.
 const MILLI := 1000
 
+
 ## The dimensions a plan is reported in, in the order a report reads them. Read from the
 ## work-unit table rather than spelled here, so a report cannot disagree with the takeoff
 ## about what an area is called.
@@ -36,8 +37,10 @@ class Row extends RefCounted:
 	var shape_count: int = 0
 	var description: String = ""
 
+
 	func quantity_text() -> String:
 		return "%.3f %s" % [float(quantity_milli) / float(MILLI), WorkUnitScript.name_of(unit)]
+
 
 	## Where the quantity came from, so a number a person can check is not confused with one
 	## that was counted off the plan.
@@ -47,6 +50,7 @@ class Row extends RefCounted:
 		if shape_count > 1:
 			return "%d shapes" % shape_count
 		return "counted"
+
 
 	func text() -> String:
 		return "%s  %s  (%s)" % [quantity_text(), description, source_text()]
@@ -147,9 +151,7 @@ func summary() -> String:
 		var words := total_text(measure)
 		if words != "":
 			parts.append(words)
-	return "%d line%s: %s" % [
-		row_count(), "" if row_count() == 1 else "s", ", ".join(PackedStringArray(parts)),
-	]
+	return "%d line%s: %s" % [row_count(), "" if row_count() == 1 else "s", ", ".join(PackedStringArray(parts))]
 
 
 ## The whole report, as the block of text a person reads.
@@ -177,7 +179,6 @@ func text() -> String:
 			lines.append("  " + note)
 	return "\n".join(PackedStringArray(lines))
 
-
 # --- serialisation --------------------------------------------------------------------
 
 
@@ -188,12 +189,7 @@ func to_dict() -> Dictionary:
 	var planting: Array = []
 	for row: Row in _plant_rows:
 		planting.append(_row_dict(row))
-	return {
-		"problem": _problem,
-		"work": rows,
-		"planting": planting,
-		"notes": _notes.duplicate(),
-	}
+	return { "problem": _problem, "work": rows, "planting": planting, "notes": _notes.duplicate() }
 
 
 static func _row_dict(row: Row) -> Dictionary:

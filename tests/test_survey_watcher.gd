@@ -97,14 +97,14 @@ func _rig_with_ground(conditions: Dictionary) -> Array:
 ## was found even where the drawing says the spot is wrong for it, and the import then says what it made
 ## of that spot. Refusing the plant would be the software overruling the person standing in the garden.
 func test_a_capture_is_planted_even_where_the_ground_says_it_does_not_belong() -> void:
-	var rig: Array = _rig_with_ground({
-		"sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_MEDIUM,
-	})
+	var rig: Array = _rig_with_ground({ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_MEDIUM })
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
-	ExporterScript.export_manifest("Yard", [{
-		"species_id": "quercus_alba", "position": {"x": 1.0, "y": 0.0, "z": 1.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "species_id": "quercus_alba", "position": { "x": 1.0, "y": 0.0, "z": 1.0 } }],
+		MANIFEST,
+	)
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 	watcher.controller = controller
@@ -114,13 +114,13 @@ func test_a_capture_is_planted_even_where_the_ground_says_it_does_not_belong() -
 	assert(watcher.imported_verdicts.size() == 1, "and the spot it landed in was judged")
 	assert(
 		int(watcher.imported_verdicts[0]["verdict"]) == Suitability.UNSUITABLE,
-		"a full-sun oak in full shade is wrong, not merely tolerated"
+		"a full-sun oak in full shade is wrong, not merely tolerated",
 	)
 	var said: String = watcher.suitability_line()
 	assert(said.contains("1 is in the wrong place"), "the report says so in words: %s" % said)
 	assert(
 		said.ends_with(String(watcher.imported_verdicts[0]["summary"])),
-		"carrying the check's own sentence rather than a second one written here: %s" % said
+		"carrying the check's own sentence rather than a second one written here: %s" % said,
 	)
 	_cleanup(watcher, controller, yard)
 
@@ -132,9 +132,11 @@ func test_an_import_into_ground_nobody_has_described_says_it_cannot_tell() -> vo
 	var rig: Array = _rig()
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
-	ExporterScript.export_manifest("Yard", [{
-		"species_id": "quercus_alba", "position": {"x": 1.0, "y": 0.0, "z": 1.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "species_id": "quercus_alba", "position": { "x": 1.0, "y": 0.0, "z": 1.0 } }],
+		MANIFEST,
+	)
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 	watcher.controller = controller
@@ -142,11 +144,11 @@ func test_an_import_into_ground_nobody_has_described_says_it_cannot_tell() -> vo
 	assert(watcher.poll() == 1, "the plant still goes in")
 	assert(
 		int(watcher.imported_verdicts[0]["verdict"]) == Suitability.UNKNOWN,
-		"and the answer is that nobody said, never green"
+		"and the answer is that nobody said, never green",
 	)
 	assert(
 		watcher.suitability_line().contains("nothing says how the ground is"),
-		"in a sentence a person can act on: %s" % watcher.suitability_line()
+		"in a sentence a person can act on: %s" % watcher.suitability_line(),
 	)
 	_cleanup(watcher, controller, yard)
 
@@ -157,9 +159,11 @@ func test_an_import_that_planted_nothing_says_nothing() -> void:
 	var rig: Array = _rig()
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
-	ExporterScript.export_manifest("Yard", [{
-		"species_id": "quercus_alba", "position": {"x": 1.0, "y": 0.0, "z": 1.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "species_id": "quercus_alba", "position": { "x": 1.0, "y": 0.0, "z": 1.0 } }],
+		MANIFEST,
+	)
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 	watcher.controller = controller
@@ -187,7 +191,7 @@ func test_an_unchanged_file_is_read_once() -> void:
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 
-	watcher.poll()  # the file is new, so it is read
+	watcher.poll() # the file is new, so it is read
 	assert(watcher.reads == 1, "a new file is read once")
 	watcher.poll()
 	watcher.poll()
@@ -206,12 +210,18 @@ func test_a_capture_that_measured_its_plant_is_planted_at_that_size() -> void:
 	var rig: Array = _rig()
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
-	ExporterScript.export_manifest("Yard", [{
-		"instance_id": "f-measured",
-		"species_id": "quercus_alba",
-		"position": {"x": 0.0, "y": 0.0, "z": 0.0},
-		"measured_spread_m": 6.5,
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[
+			{
+				"instance_id": "f-measured",
+				"species_id": "quercus_alba",
+				"position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+				"measured_spread_m": 6.5,
+			}
+		],
+		MANIFEST,
+	)
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 	watcher.controller = controller
@@ -221,12 +231,11 @@ func test_a_capture_that_measured_its_plant_is_planted_at_that_size() -> void:
 	assert(planted.size() == 1, "one plant went in")
 	assert(
 		int(planted[0].get_meta(PlacementScript.SPREAD_META)) == 650,
-		"at 6.5 m, the size the record states: %d"
-				% int(planted[0].get_meta(PlacementScript.SPREAD_META))
+		"at 6.5 m, the size the record states: %d" % int(planted[0].get_meta(PlacementScript.SPREAD_META)),
 	)
 	assert(
 		String(planted[0].get_meta(PlacementScript.SIZE_SOURCE_META)) == "stated",
-		"and the node says the number was measured"
+		"and the node says the number was measured",
 	)
 	_cleanup(watcher, controller, yard)
 
@@ -238,10 +247,14 @@ func test_a_survey_that_brought_no_instance_ids_still_plants_once() -> void:
 	var rig: Array = _rig()
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
-	ExporterScript.export_manifest("Yard", [
-		{"species_id": "quercus_alba", "position": {"x": 1.0, "y": 0.0, "z": 1.0}},
-		{"species_id": "quercus_alba", "position": {"x": 4.0, "y": 0.0, "z": 1.0}},
-	], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[
+			{ "species_id": "quercus_alba", "position": { "x": 1.0, "y": 0.0, "z": 1.0 } },
+			{ "species_id": "quercus_alba", "position": { "x": 4.0, "y": 0.0, "z": 1.0 } },
+		],
+		MANIFEST,
+	)
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
 	watcher.controller = controller
@@ -258,11 +271,11 @@ func test_a_new_manifest_plants_its_features() -> void:
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
 
-	ExporterScript.export_manifest("Yard", [{
-		"instance_id": "f1",
-		"species_id": "quercus_alba",
-		"position": {"x": 1.0, "y": 0.0, "z": 2.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "instance_id": "f1", "species_id": "quercus_alba", "position": { "x": 1.0, "y": 0.0, "z": 2.0 } }],
+		MANIFEST,
+	)
 
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
@@ -277,8 +290,7 @@ func test_a_new_manifest_plants_its_features() -> void:
 	assert(planted.position.is_equal_approx(Vector3(1.0, 0.0, 2.0)), "where the survey put it")
 
 	# The capture is filed in the collection the browser shows, in the same catalogue.
-	assert(catalogue.collections_of(&"quercus_alba").has("Field Survey Captures"),
-		"and it is filed as a field capture")
+	assert(catalogue.collections_of(&"quercus_alba").has("Field Survey Captures"), "and it is filed as a field capture")
 
 	# Nothing about the view or the tool in hand was disturbed.
 	assert(controller.mode == ViewController.ViewMode.OVERHEAD_3D, "the view was not changed")
@@ -295,11 +307,11 @@ func test_the_same_feature_is_not_planted_twice() -> void:
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
 
-	ExporterScript.export_manifest("Yard", [{
-		"instance_id": "f1",
-		"species_id": "quercus_alba",
-		"position": {"x": 0.0, "y": 0.0, "z": 0.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "instance_id": "f1", "species_id": "quercus_alba", "position": { "x": 0.0, "y": 0.0, "z": 0.0 } }],
+		MANIFEST,
+	)
 
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST
@@ -319,11 +331,11 @@ func test_a_name_the_catalogue_does_not_know_is_left_alone() -> void:
 	var controller: ViewController = rig[1]
 	var yard: Node3D = rig[2]
 
-	ExporterScript.export_manifest("Yard", [{
-		"instance_id": "f1",
-		"species_id": "no_such_plant",
-		"position": {"x": 0.0, "y": 0.0, "z": 0.0},
-	}], MANIFEST)
+	ExporterScript.export_manifest(
+		"Yard",
+		[{ "instance_id": "f1", "species_id": "no_such_plant", "position": { "x": 0.0, "y": 0.0, "z": 0.0 } }],
+		MANIFEST,
+	)
 
 	var watcher = WatcherScript.new()
 	watcher.manifest_path = MANIFEST

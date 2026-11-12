@@ -33,7 +33,7 @@ var _index: int = 0
 ## How many revisions fell off the oldest end of the log, so the window can say that what it lists is the
 ## last of it rather than all of it.
 var _dropped: int = 0
-var _identity: Dictionary = {}
+var _identity: Dictionary = { }
 ## True while the list is being filled, so a selection made in code does not echo back as a click - which
 ## would rebuild the pane under the cursor.
 var _filling: bool = false
@@ -60,7 +60,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _list == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------
 
@@ -118,7 +117,10 @@ func build() -> void:
 	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_message)
 	var record_button := _button(row, "Record this revision")
-	record_button.pressed.connect(func() -> void: revision_recorded.emit(_message.text))
+	record_button.pressed.connect(
+		func() -> void:
+			revision_recorded.emit(_message.text),
+	)
 
 	_status = PageChrome.status()
 	column.add_child(_status)
@@ -126,9 +128,15 @@ func build() -> void:
 	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	_restore_button = _button(buttons, "Put this revision back")
-	_restore_button.pressed.connect(func() -> void: restore_requested.emit(_index))
+	_restore_button.pressed.connect(
+		func() -> void:
+			restore_requested.emit(_index),
+	)
 	var close_button := _button(buttons, "Close")
-	close_button.pressed.connect(func() -> void: closed.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			closed.emit(),
+	)
 
 
 ## A label that wraps, because a change line naming eight shapes is longer than the pane. Its size and
@@ -156,7 +164,6 @@ func _button(parent: Node, words: String) -> Button:
 func _on_close_requested() -> void:
 	closed.emit()
 
-
 # --- what it shows ------------------------------------------------------------------
 
 
@@ -165,7 +172,7 @@ func _on_close_requested() -> void:
 ## claims and only one of them is true.
 func set_identity(drawing: String, dropped: int) -> void:
 	build()
-	_identity = {"drawing": drawing, "dropped": dropped}
+	_identity = { "drawing": drawing, "dropped": dropped }
 	_dropped = dropped
 
 
@@ -222,7 +229,7 @@ func selected_index() -> int:
 
 func selected_row() -> Dictionary:
 	if _index < 0 or _index >= _rows.size():
-		return {}
+		return { }
 	return _rows[_index]
 
 
@@ -301,7 +308,6 @@ func say(words: String) -> void:
 
 func said() -> String:
 	return _said
-
 
 # --- the same acts, scriptable ---------------------------------------------------------
 #

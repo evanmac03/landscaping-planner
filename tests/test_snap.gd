@@ -30,7 +30,6 @@ func _engine(entities: Array):
 	engine.bind(entities)
 	return engine
 
-
 # --- spatial grid -------------------------------------------------------------------
 
 
@@ -84,7 +83,6 @@ func test_grid_cell_maths() -> void:
 	assert(Grid.cell_of(Vector2(-0.01, -4.5), 4.0) == Vector2i(-1, -2))
 	assert(Grid.cell_span_for(Rect2(0, 0, 4, 4), 4.0) == 4)
 	assert(Grid.cell_span_for(Rect2(0, 0, 600, 600), 4.0) == 22801)
-
 
 # --- snap priority ------------------------------------------------------------------
 
@@ -151,15 +149,11 @@ func test_binding_clears_the_lock() -> void:
 	engine.bind([_line(2, Vector2(1, 1), Vector2(5, 1))])
 	assert(engine.locked_point().is_equal_approx(Vector2.ZERO))
 
-
 # --- candidate kinds ----------------------------------------------------------------
 
 
 func test_intersections_are_found_where_two_entities_cross() -> void:
-	var engine = _engine([
-		_line(1, Vector2(0, 0), Vector2(4, 0)),
-		_line(2, Vector2(2, -2), Vector2(2, 2)),
-	])
+	var engine = _engine([_line(1, Vector2(0, 0), Vector2(4, 0)), _line(2, Vector2(2, -2), Vector2(2, 2))])
 	var result: Dictionary = engine.resolve(Vector2(2.0, 0.0), 100.0)
 	assert(result["mode"] == Snap.Mode.INTERSECTION)
 	assert(result["point"].is_equal_approx(Vector2(2, 0)))
@@ -169,14 +163,8 @@ func test_intersections_are_found_where_two_entities_cross() -> void:
 ## restricted to what the aperture already selected, so this pins the
 ## restriction: a crossing elsewhere on the plan must not contribute here.
 func test_intersections_come_only_from_nearby_entities() -> void:
-	var near := [
-		_line(1, Vector2(0, 0), Vector2(4, 0)),
-		_line(2, Vector2(2, -2), Vector2(2, 2)),
-	]
-	var far := [
-		_line(3, Vector2(0, 50), Vector2(4, 50)),
-		_line(4, Vector2(2, 48), Vector2(2, 52)),
-	]
+	var near := [_line(1, Vector2(0, 0), Vector2(4, 0)), _line(2, Vector2(2, -2), Vector2(2, 2))]
+	var far := [_line(3, Vector2(0, 50), Vector2(4, 50)), _line(4, Vector2(2, 48), Vector2(2, 52))]
 	var engine = _engine(near + far)
 	var here: Dictionary = engine.resolve(Vector2(2.0, 0.0), 100.0)
 	assert(here["mode"] == Snap.Mode.INTERSECTION)
@@ -222,9 +210,7 @@ func test_an_arc_gives_its_ends_and_its_midpoint() -> void:
 
 
 func test_polyline_vertices_and_segment_midpoints() -> void:
-	var entity = Entity.make_polyline(PackedVector2Array([
-		Vector2(0, 0), Vector2(4, 0), Vector2(4, 6),
-	]))
+	var entity = Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 6)]))
 	entity.id = 1
 	var engine = _engine([entity])
 	var vertex: Dictionary = engine.resolve(Vector2(4.0, 0.03), 100.0)
@@ -278,7 +264,6 @@ func test_disabling_a_mode_drops_its_candidates() -> void:
 	engine.set_enabled(Snap.Mode.ENDPOINT, false)
 	var result: Dictionary = engine.resolve(Vector2(0.3, 0.01), 10.0)
 	assert(result["mode"] != Snap.Mode.ENDPOINT)
-
 
 # --- constraints --------------------------------------------------------------------
 

@@ -46,7 +46,10 @@ func test_a_bare_controller_answers_every_question_safely() -> void:
 func test_turning_a_switch_reports_itself_once() -> void:
 	var controller := _controller()
 	var heard: Array[bool] = []
-	controller.snap_changed.connect(func() -> void: heard.append(true))
+	controller.snap_changed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	controller.set_ortho(true)
 	assert(controller.is_ortho(), "ortho is on")
 	assert(heard.size() == 1, "and it said so once, got %d" % heard.size())

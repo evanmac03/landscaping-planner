@@ -27,7 +27,6 @@ func _yard() -> Node3D:
 	yard.name = "Yard"
 	return yard
 
-
 # --- planting one -------------------------------------------------------------------------
 
 
@@ -39,25 +38,28 @@ func test_a_plant_measured_on_site_is_planted_at_the_size_it_was_measured_at() -
 	var measured_cm: int = int(species.spread_cm) + 200
 	var yard: Node3D = _yard()
 	var measured: Dictionary = PlacementScript.place(
-		catalogue, MAPLE, yard, Vector3.ZERO, {"spread_cm": measured_cm, "source": "stated"}
+		catalogue,
+		MAPLE,
+		yard,
+		Vector3.ZERO,
+		{ "spread_cm": measured_cm, "source": "stated" },
 	)
 	assert(bool(measured["ok"]), "it is planted: %s" % String(measured["reason"]))
 	var node: Node3D = measured["node"]
 	assert(
 		int(node.get_meta(PlacementScript.SPREAD_META)) == measured_cm,
-		"at the spread it was measured at: %d" % int(node.get_meta(PlacementScript.SPREAD_META))
+		"at the spread it was measured at: %d" % int(node.get_meta(PlacementScript.SPREAD_META)),
 	)
 	assert(
 		String(node.get_meta(PlacementScript.SIZE_SOURCE_META)) == "stated",
-		"and the node says the number was measured: %s"
-				% String(node.get_meta(PlacementScript.SIZE_SOURCE_META))
+		"and the node says the number was measured: %s" % String(node.get_meta(PlacementScript.SIZE_SOURCE_META)),
 	)
 	var bare_yard: Node3D = _yard()
 	var plain: Dictionary = PlacementScript.place(catalogue, MAPLE, bare_yard, Vector3.ZERO)
 	assert(
 		float(measured["scale"]) > float(plain["scale"]),
 		"and it is drawn larger than the catalogue's size: %.3f against %.3f"
-				% [float(measured["scale"]), float(plain["scale"])]
+		% [float(measured["scale"]), float(plain["scale"])],
 	)
 	yard.free()
 	bare_yard.free()
@@ -70,14 +72,10 @@ func test_a_plant_nobody_measured_is_planted_at_the_catalogue_size_and_says_so()
 	var planted: Dictionary = PlacementScript.place(catalogue, LILAC, yard, Vector3.ZERO)
 	assert(bool(planted["ok"]), "it is planted: %s" % String(planted["reason"]))
 	var node: Node3D = planted["node"]
-	assert(
-		int(node.get_meta(PlacementScript.SPREAD_META)) == species.spread_cm,
-		"at the size the list states"
-	)
+	assert(int(node.get_meta(PlacementScript.SPREAD_META)) == species.spread_cm, "at the size the list states")
 	assert(
 		String(node.get_meta(PlacementScript.SIZE_SOURCE_META)) == "catalogue",
-		"and the node says where that number came from: %s"
-				% String(node.get_meta(PlacementScript.SIZE_SOURCE_META))
+		"and the node says where that number came from: %s" % String(node.get_meta(PlacementScript.SIZE_SOURCE_META)),
 	)
 	yard.free()
 
@@ -88,12 +86,16 @@ func test_a_measurement_of_nothing_is_not_a_measurement() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var yard: Node3D = _yard()
 	var planted: Dictionary = PlacementScript.place(
-		catalogue, LILAC, yard, Vector3.ZERO, {"spread_cm": 0, "height_cm": 0, "source": "catalogue"}
+		catalogue,
+		LILAC,
+		yard,
+		Vector3.ZERO,
+		{ "spread_cm": 0, "height_cm": 0, "source": "catalogue" },
 	)
 	assert(bool(planted["ok"]), "it is planted")
 	assert(
 		int(planted["node"].get_meta(PlacementScript.SPREAD_META)) == catalogue.get_species(LILAC).spread_cm,
-		"at the catalogue's size, because nobody measured this one"
+		"at the catalogue's size, because nobody measured this one",
 	)
 	yard.free()
 
@@ -112,10 +114,10 @@ func test_planting_a_species_puts_it_in_the_yard_at_the_size_the_catalogue_says(
 	# list all read.
 	var base: float = float(PlanStyleScript.spec_for(tree.scene_file_path)["size"].x)
 	assert(is_equal_approx(float(planted["scale"]), 9.0 / base), "planted at spread over base")
-	assert(is_equal_approx(PlanStyleScript.footprint_size(tree).x, 9.0),
-		"the plan's own footprint is the catalogue's spread: %.3f" % (
-			PlanStyleScript.footprint_size(tree).x
-		))
+	assert(
+		is_equal_approx(PlanStyleScript.footprint_size(tree).x, 9.0),
+		"the plan's own footprint is the catalogue's spread: %.3f" % (PlanStyleScript.footprint_size(tree).x),
+	)
 	assert(is_equal_approx(PlanStyleScript.footprint_radius(tree), 4.5), "and the radius is half of it")
 	assert(tree.position.is_equal_approx(Vector3(2.0, 0.0, 3.0)), "and it stands where it was put")
 	yard.free()
@@ -129,8 +131,10 @@ func test_a_species_drawn_as_a_bed_is_sized_against_the_bed() -> void:
 	var planted: Dictionary = PlacementScript.place(catalogue, RUDBECKIA, yard, Vector3.ZERO)
 	var bed: Node3D = planted["node"]
 	assert(is_equal_approx(PlanStyleScript.footprint_size(bed).x, 0.45), "the bed is 0.45 m across")
-	assert(PlanStyleScript.footprint_size(bed).y < PlanStyleScript.footprint_size(bed).x,
-		"and oblong, as the plan draws a bed")
+	assert(
+		PlanStyleScript.footprint_size(bed).y < PlanStyleScript.footprint_size(bed).x,
+		"and oblong, as the plan draws a bed",
+	)
 	yard.free()
 
 
@@ -176,7 +180,6 @@ func test_two_of_one_species_are_two_plants_with_their_own_names() -> void:
 	assert(PlacementScript.species_of(second) == MAPLE, "and both are the same species")
 	yard.free()
 
-
 # --- when it cannot be done ---------------------------------------------------------------
 
 
@@ -216,7 +219,6 @@ func test_planting_with_nowhere_to_plant_is_refused_rather_than_a_crash() -> voi
 	assert(PlacementScript.planted(yard).is_empty(), "and nothing was put in the yard that is there")
 	yard.free()
 
-
 # --- the planting list --------------------------------------------------------------------
 
 
@@ -237,8 +239,10 @@ func test_the_planting_list_counts_what_is_standing_and_names_what_it_cannot() -
 	var named: Array[String] = []
 	for row: Dictionary in rows:
 		named.append(String(row["botanical_name"]))
-	assert(named == ["Acer rubrum", "Syringa vulgaris", "no species recorded"],
-		"one row per species, in botanical order, and the stray owned up to: %s" % " | ".join(named))
+	assert(
+		named == ["Acer rubrum", "Syringa vulgaris", "no species recorded"],
+		"one row per species, in botanical order, and the stray owned up to: %s" % " | ".join(named),
+	)
 	assert(int(rows[0]["count"]) == 2, "two maples")
 	assert(int(rows[1]["count"]) == 1, "one lilac")
 	assert(int(rows[2]["count"]) == 1, "and one nobody can name")
@@ -275,8 +279,12 @@ func test_a_named_plant_is_one_the_catalogue_can_still_explain() -> void:
 	catalogue.erase(MAPLE)
 	var rows: Array[Dictionary] = PlacementScript.schedule(catalogue, yard)
 	assert(rows.size() == 1, "still one row")
-	assert(String(rows[0]["botanical_name"]) == "no species recorded",
-		"but the list no longer claims to know what it is")
-	assert(PlacementScript.species_of(PlacementScript.planted(yard)[0]) == MAPLE,
-		"though the plant itself still remembers, so the list can be put back")
+	assert(
+		String(rows[0]["botanical_name"]) == "no species recorded",
+		"but the list no longer claims to know what it is",
+	)
+	assert(
+		PlacementScript.species_of(PlacementScript.planted(yard)[0]) == MAPLE,
+		"though the plant itself still remembers, so the list can be put back",
+	)
 	yard.free()

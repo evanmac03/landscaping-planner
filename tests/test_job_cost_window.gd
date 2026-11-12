@@ -34,7 +34,7 @@ func _line(code: StringName, units_milli: int, cost_cents: int, price_cents: int
 func _desk() -> DeskScript:
 	var desk: DeskScript = DeskScript.new()
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	estimate.lines.append(_line(&"PLANTING", 10000, 1000, 1500))
 	estimate.lines.append(_line(&"HARDSCAPE", 20000, 1200, 2000))
 	desk.make_job_from(estimate)
@@ -46,7 +46,6 @@ func _page(desk: DeskScript) -> WindowScript:
 	page.build()
 	page.bind(desk)
 	return page
-
 
 # --- building ----------------------------------------------------------------------------------
 
@@ -104,11 +103,12 @@ func test_a_page_that_has_opened_says_what_to_do_with_it() -> void:
 	var bare: WindowScript = WindowScript.new()
 	bare.build()
 	bare.bind(DeskScript.new())
-	assert(bare.status_text() == "No job has been started yet: an estimate that is agreed becomes a job.",
-		bare.status_text())
+	assert(
+		bare.status_text() == "No job has been started yet: an estimate that is agreed becomes a job.",
+		bare.status_text(),
+	)
 	bare.free()
 	page.free()
-
 
 # --- the table ---------------------------------------------------------------------------------
 
@@ -116,8 +116,7 @@ func test_a_page_that_has_opened_says_what_to_do_with_it() -> void:
 func test_the_table_is_one_row_per_cost_code_and_the_reports_own_figures() -> void:
 	var page := _page(_desk())
 	assert(page.row_count() == 2, str(page.row_count()))
-	assert(page.row_text("PLANTING") == "PLANTING  $150.00  $0.00  $0.00  $150.00  0.0%",
-		page.row_text("PLANTING"))
+	assert(page.row_text("PLANTING") == "PLANTING  $150.00  $0.00  $0.00  $150.00  0.0%", page.row_text("PLANTING"))
 	var grid: GridContainer = page.get_node(NodePath("Column/Rows"))
 	assert(grid.columns == 6)
 	assert(grid.get_child_count() == 18, "a header and two rows of six: %d" % grid.get_child_count())
@@ -151,7 +150,6 @@ func test_a_cost_entered_through_the_page_is_in_the_next_line_it_draws() -> void
 	assert(page.order_texts()[0].contains("received"), page.order_texts()[0])
 	page.free()
 
-
 # --- ordering ----------------------------------------------------------------------------------
 
 
@@ -179,8 +177,7 @@ func test_the_page_says_what_the_order_would_commit_before_it_goes_out() -> void
 	page.set_order_fields("Greenline Nursery", "Buxus", "10", "10.00")
 	assert(page.order_hint() == "PLANTING has $150.00 of its budget left.", page.order_hint())
 	page.set_order_fields("Greenline Nursery", "Buxus", "20", "10.00")
-	assert(page.order_hint() == "PLANTING would be committed $200.00 against a budget of $150.00",
-		page.order_hint())
+	assert(page.order_hint() == "PLANTING would be committed $200.00 against a budget of $150.00", page.order_hint())
 	page.set_order_fields("Greenline Nursery", "Buxus", "", "10.00")
 	assert(page.order_hint() == "A quantity of what is being ordered.", page.order_hint())
 	page.set_order_fields("Greenline Nursery", "Buxus", "10", "")
@@ -195,14 +192,19 @@ func test_ordering_from_the_page_writes_it_issues_it_and_says_what_it_did() -> v
 	page.set_order_fields("Greenline Nursery", "Buxus, 2 gal", "20", "10.00")
 	var done: Dictionary = page.order_material()
 	assert(bool(done["ok"]), String(done["reason"]))
-	assert(String(done["warning"]).contains("$200.00 against a budget of $150.00"),
-		String(done["warning"]))
-	assert(page.status_text() == "PO-001 ordered: Buxus, 2 gal of PLANTING - PLANTING would be "
-		+ "committed $200.00 against a budget of $150.00", page.status_text())
+	assert(String(done["warning"]).contains("$200.00 against a budget of $150.00"), String(done["warning"]))
+	assert(
+		page.status_text()
+		== "PO-001 ordered: Buxus, 2 gal of PLANTING - PLANTING would be "
+		+ "committed $200.00 against a budget of $150.00",
+		page.status_text(),
+	)
 	assert(page.order_texts().size() == 1)
 	assert(page.order_texts()[0].contains("committed $200.00"), page.order_texts()[0])
-	assert(page.problem_texts().has("PLANTING is committed $200.00 against a budget of $150.00"),
-		str(page.problem_texts()))
+	assert(
+		page.problem_texts().has("PLANTING is committed $200.00 against a budget of $150.00"),
+		str(page.problem_texts()),
+	)
 	var listed: ItemList = page.get_node(NodePath("Column/Problems"))
 	assert(listed.item_count == 1)
 	page.free()
@@ -224,8 +226,7 @@ func test_a_draft_row_can_be_issued_from_the_page() -> void:
 	# An order for a phase the job was never sold is written and left as a draft: the page offers
 	# issuing it, and issuing is refused by name.
 	var desk := _desk()
-	desk.make_purchase_order("E1", &"EXTRAS", "A thing nobody sold", 1000, MoneyScript.of(500),
-		"Greenline Nursery")
+	desk.make_purchase_order("E1", &"EXTRAS", "A thing nobody sold", 1000, MoneyScript.of(500), "Greenline Nursery")
 	var page := _page(desk)
 	assert(page.order_texts()[0].contains("draft, not ordered"), page.order_texts()[0])
 	var row: Node = page.get_node(NodePath("Column/Orders/OrderPO-001"))
@@ -233,8 +234,11 @@ func test_a_draft_row_can_be_issued_from_the_page() -> void:
 	assert(row.get_node_or_null(NodePath("Issueit")) != null, "and a button to issue it")
 	var issued: Dictionary = page.issue_order("PO-001")
 	assert(not bool(issued["ok"]))
-	assert(page.status_text() == "PO-001 was not ordered: the job Smith, back garden has no EXTRAS "
-		+ "in it to charge this to", page.status_text())
+	assert(
+		page.status_text()
+		== "PO-001 was not ordered: the job Smith, back garden has no EXTRAS " + "in it to charge this to",
+		page.status_text(),
+	)
 	assert(desk.purchase_order("PO-001").state() == &"DRAFT", "and it is still a draft")
 	page.free()
 
@@ -258,25 +262,24 @@ func test_receiving_from_the_page_moves_the_money_from_committed_to_cost() -> vo
 	assert(bool(page.close_order("PO-001")))
 	assert(page.status_text() == "PO-001 is closed and reconciled.", page.status_text())
 	var closed: Node = page.get_node(NodePath("Column/Orders/OrderPO-001"))
-	assert(closed.get_node_or_null(NodePath("Receiveit")) == null,
-		"a closed order takes no receipts, so the page offers none")
+	assert(
+		closed.get_node_or_null(NodePath("Receiveit")) == null,
+		"a closed order takes no receipts, so the page offers none",
+	)
 	assert(page.order_texts()[0].contains("closed and reconciled"), page.order_texts()[0])
 	page.free()
-
 
 # --- change orders -----------------------------------------------------------------------------
 
 
 func test_a_change_order_is_shown_and_agreed_from_the_page() -> void:
 	var desk := _desk()
-	desk.make_change_order("E1", &"SITE_CONDITION", "Remove a buried wall", MoneyScript.of(50000),
-		&"HARDSCAPE")
+	desk.make_change_order("E1", &"SITE_CONDITION", "Remove a buried wall", MoneyScript.of(50000), &"HARDSCAPE")
 	desk.propose_change("CO-001", "2026-06-20")
 	var page := _page(desk)
 	assert(page.change_texts().size() == 1)
 	assert(page.change_texts()[0].contains("proposed"), page.change_texts()[0])
-	assert(page.problem_texts().has("1 change order pending, $500.00 not yet agreed"),
-		str(page.problem_texts()))
+	assert(page.problem_texts().has("1 change order pending, $500.00 not yet agreed"), str(page.problem_texts()))
 	assert(not page.total_text().contains("$1,050.00"), "it is not agreed yet")
 	page.set_approver("Dana", "signed paper photo")
 	var agreed: Dictionary = page.agree_change("CO-001")
@@ -296,16 +299,14 @@ func test_agreeing_needs_somebody_who_agreed() -> void:
 	var refused: Dictionary = page.agree_change("CO-001")
 	assert(not bool(refused["ok"]))
 	assert(String(refused["reason"]).contains("who agreed"), String(refused["reason"]))
-	assert(page.status_text() == "CO-001 was not agreed: an approval says who agreed",
-		page.status_text())
+	assert(page.status_text() == "CO-001 was not agreed: an approval says who agreed", page.status_text())
 	assert(desk.change_order("CO-001").is_pending())
 	page.free()
 
 
 func test_declining_and_withdrawing_take_their_reason_from_the_why_field() -> void:
 	var desk := _desk()
-	desk.make_change_order("E1", &"CUSTOMER_REQUEST", "Add a path", MoneyScript.of(20000),
-		&"HARDSCAPE")
+	desk.make_change_order("E1", &"CUSTOMER_REQUEST", "Add a path", MoneyScript.of(20000), &"HARDSCAPE")
 	desk.make_change_order("E1", &"OTHER", "And another", MoneyScript.of(5000), &"PLANTING")
 	var page := _page(desk)
 	var no_why: Dictionary = page.void_change("CO-002")
@@ -336,7 +337,6 @@ func test_a_damaged_request_says_so_rather_than_failing() -> void:
 	assert(not bool(page.receive_order("PO-404")["ok"]))
 	assert(desk.purchase_orders.is_empty(), "and nothing was written by any of it")
 	page.free()
-
 
 # --- the small ones ----------------------------------------------------------------------------
 

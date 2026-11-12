@@ -37,9 +37,10 @@ func test_the_pixels_are_the_paper_at_its_resolution() -> void:
 		var stored: Vector2i = Preset.size(name)
 		# A millimetre rounded to a tenth cannot land exactly on the pixel count, so the
 		# two agree to within one pixel on each axis rather than exactly.
-		assert(absi(worked.x - stored.x) <= 1, "%s: %s px is not %s mm at %s dpi" % [
-			name, stored, Preset.paper_mm(name), Preset.dpi(name),
-		])
+		assert(
+			absi(worked.x - stored.x) <= 1,
+			"%s: %s px is not %s mm at %s dpi" % [name, stored, Preset.paper_mm(name), Preset.dpi(name)],
+		)
 		assert(absi(worked.y - stored.y) <= 1, "%s: height does not agree" % name)
 
 

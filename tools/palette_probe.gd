@@ -29,11 +29,16 @@ func _ready() -> void:
 	# What the machine says about itself, read before it is told what to say: on a desktop this is a desk's
 	# answer and the numbers below are a phone's, and the two lines together are what show the difference.
 	var own_scale: float = PhoneHudScript.canvas_scale(get_window())
-	print("DEVICE dpi=%.0f touchscreen=%s canvas_scale=%.2f row=%.1f font=%d" % [
-		PhoneHudScript.dpi(), str(TouchInputScript.has_a_touchscreen()), own_scale,
-		PhoneHudScript.row_height(own_scale, PhoneHudScript.dpi()),
-		PhoneHudScript.font_size(own_scale, PhoneHudScript.dpi()),
-	])
+	print(
+		"DEVICE dpi=%.0f touchscreen=%s canvas_scale=%.2f row=%.1f font=%d"
+		% [
+			PhoneHudScript.dpi(),
+			str(TouchInputScript.has_a_touchscreen()),
+			own_scale,
+			PhoneHudScript.row_height(own_scale, PhoneHudScript.dpi()),
+			PhoneHudScript.font_size(own_scale, PhoneHudScript.dpi()),
+		]
+	)
 	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
 	PhoneHudScript.apply_if(get_window(), true)
@@ -73,20 +78,20 @@ func _report() -> void:
 		print("PALETTE: the HUD has no palette")
 		return
 	var canvas: Vector2 = get_window().get_visible_rect().size
-	print("canvas            %d x %d, drawn up by %.2f" % [
-		int(canvas.x), int(canvas.y), get_window().content_scale_factor,
-	])
-	print("palette panel     %s = %.0f%% of the canvas width" % [
-		str(palette.get_rect()), 100.0 * palette.get_rect().size.x / canvas.x,
-	])
+	print(
+		"canvas            %d x %d, drawn up by %.2f"
+		% [int(canvas.x), int(canvas.y), get_window().content_scale_factor]
+	)
+	print(
+		"palette panel     %s = %.0f%% of the canvas width"
+		% [str(palette.get_rect()), 100.0 * palette.get_rect().size.x / canvas.x]
+	)
 	print("  panel floor     %s (what it asks for itself)" % str(palette.custom_minimum_size))
 	print("  panel room      %.0f (what its anchors say it was designed at)" % hud._palette_room())
 	print("  column minimum  %s" % str(column.get_combined_minimum_size()))
 	# Each row's buttons are then re-measured at the font a phone's screen asks for, so the numbers below are
 	# the phone's own rather than this window's - that is the one thing a desk cannot borrow.
-	print("  (each row re-measured at a phone's font: %d px)" % PhoneHudScript.font_size(
-		PHONE_SCALE, PHONE_DPI
-	))
+	print("  (each row re-measured at a phone's font: %d px)" % PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI))
 	for row: Node in column.get_children():
 		var control: Control = row as Control
 		if control == null:
@@ -96,18 +101,20 @@ func _report() -> void:
 			# The shape of that row's own cell widths, at each column count it could be given: what a
 			# palette with a cap on its width would have to choose between.
 			_measure_at_a_phones_font(grid)
-			print("    row %-18s %6.0f wide, %6.0f tall, %d column(s) chosen" % [
-				String(grid.name),
-				grid.get_combined_minimum_size().x,
-				grid.get_combined_minimum_size().y,
-				grid.columns,
-			])
+			print(
+				"    row %-18s %6.0f wide, %6.0f tall, %d column(s) chosen"
+				% [
+					String(grid.name),
+					grid.get_combined_minimum_size().x,
+					grid.get_combined_minimum_size().y,
+					grid.columns,
+				]
+			)
 		else:
-			print("    row %-18s %6.0f wide, %6.0f tall" % [
-				String(control.name),
-				control.get_combined_minimum_size().x,
-				control.get_combined_minimum_size().y,
-			])
+			print(
+				"    row %-18s %6.0f wide, %6.0f tall"
+				% [String(control.name), control.get_combined_minimum_size().x, control.get_combined_minimum_size().y]
+			)
 			# And what is inside the row that asks for that width. A row's minimum is the SUM of its
 			# controls unless it wraps, and where it wraps it is the widest single control - so the
 			# control named here is the one a wrapped row would ask for instead of the sum.
@@ -115,12 +122,18 @@ func _report() -> void:
 				var kid: Control = child as Control
 				if kid == null:
 					continue
-				print("      %-22s %6.0f wide%s" % [
-					String(kid.name),
-					kid.get_combined_minimum_size().x,
-					"" if not (kid is Container) or kid.get_child_count() == 0
-						else ", holding %d control(s)" % kid.get_child_count(),
-				])
+				print(
+					"      %-22s %6.0f wide%s"
+					% [
+						String(kid.name),
+						kid.get_combined_minimum_size().x,
+						(
+							""
+							if not (kid is Container) or kid.get_child_count() == 0
+							else ", holding %d control(s)" % kid.get_child_count()
+						),
+					]
+				)
 	print("PALETTE: measured")
 
 

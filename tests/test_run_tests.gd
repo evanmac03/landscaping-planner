@@ -19,10 +19,11 @@ func test_the_tests_folder_is_a_suite() -> void:
 
 func test_one_file_or_a_missing_one_can_be_named() -> void:
 	assert(RunnerScript.test_paths("res://tests/test_plants.gd").size() == 1, "one file, one path")
-	assert(RunnerScript.test_paths("res://tests/no_such_test.gd").is_empty(),
-			"a file that is not there is no run")
-	assert(RunnerScript.test_paths("res://no_such_folder").is_empty(),
-			"and a folder that is not there is no run either")
+	assert(RunnerScript.test_paths("res://tests/no_such_test.gd").is_empty(), "a file that is not there is no run")
+	assert(
+		RunnerScript.test_paths("res://no_such_folder").is_empty(),
+		"and a folder that is not there is no run either",
+	)
 
 
 func test_only_test_methods_are_offered() -> void:
@@ -35,8 +36,7 @@ func test_only_test_methods_are_offered() -> void:
 
 func test_a_helper_is_not_run_as_a_test() -> void:
 	# test_view_keys.gd has `_bring_up` and `_tear_down`: real code, not tests.
-	var names: PackedStringArray = RunnerScript.test_methods(
-			load("res://tests/test_view_keys.gd"))
+	var names: PackedStringArray = RunnerScript.test_methods(load("res://tests/test_view_keys.gd"))
 
 	assert(not names.has("_bring_up"), "a helper is not a test")
 	assert(not names.has("_tear_down"), "nor is the one that cleans up after it")
@@ -51,8 +51,10 @@ func test_a_filter_narrows_the_run() -> void:
 
 	assert(filtered.has(one), "the test that was asked for is in the run")
 	assert(filtered.size() <= all.size(), "and the run did not grow")
-	assert(RunnerScript.test_methods(script, "no_such_test_name").is_empty(),
-			"a filter that matches nothing runs nothing, rather than everything")
+	assert(
+		RunnerScript.test_methods(script, "no_such_test_name").is_empty(),
+		"a filter that matches nothing runs nothing, rather than everything",
+	)
 
 
 func test_no_script_is_no_tests() -> void:
@@ -73,14 +75,8 @@ func test_no_script_is_no_tests() -> void:
 func test_a_script_that_cannot_be_made_is_not_one_to_run() -> void:
 	assert(not RunnerScript.is_runable(null), "nothing is not a script to run")
 	var never_compiled := GDScript.new()
-	assert(
-		not RunnerScript.is_runable(never_compiled),
-		"a script that cannot be instantiated is not one to run"
-	)
-	assert(
-		RunnerScript.is_runable(load("res://tests/test_run_tests.gd")),
-		"while a real test file is"
-	)
+	assert(not RunnerScript.is_runable(never_compiled), "a script that cannot be instantiated is not one to run")
+	assert(RunnerScript.is_runable(load("res://tests/test_run_tests.gd")), "while a real test file is")
 
 
 func test_the_run_is_left_where_a_pack_can_read_it() -> void:

@@ -88,9 +88,7 @@ const READING_NOW := "Reading the photograph..."
 ## The order the light levels are offered in. The **words** are `PlantSpecies`' own, so the page cannot
 ## come to say "semi-shade" about the bit the model calls part shade.
 const SUN_ORDER := [0, PlantSpecies.FULL_SUN, PlantSpecies.PART_SHADE, PlantSpecies.FULL_SHADE]
-const DRAINAGE_ORDER := [
-	0, PlantSpecies.DRAINS_FAST, PlantSpecies.DRAINS_MEDIUM, PlantSpecies.DRAINS_SLOW,
-]
+const DRAINAGE_ORDER := [0, PlantSpecies.DRAINS_FAST, PlantSpecies.DRAINS_MEDIUM, PlantSpecies.DRAINS_SLOW]
 
 var _catalogue: PlantCatalogue = null
 var _manifest_path: String = WatcherScript.DEFAULT_MANIFEST_PATH
@@ -135,7 +133,7 @@ var _candidate_row: HFlowContainer = null
 ## reads. The answer's own entries, rather than a second word for a plant.
 var _candidates: Array[Dictionary] = []
 ## The answer the name in the field came from, or empty when the person typed the name themselves.
-var _model_answer: Dictionary = {}
+var _model_answer: Dictionary = { }
 ## The reader a reading is in flight in, and the button that started it.
 ##
 ## Both are what a frame needs to finish a reading that had to wait for a model: which machine to step, and
@@ -158,7 +156,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _name_field == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------
 
@@ -339,7 +336,6 @@ func _fill_from_bits(option: OptionButton, bits: Array, names: Dictionary) -> vo
 		option.set_item_metadata(index, bit)
 	option.select(0)
 
-
 # --- what it is pointed at ----------------------------------------------------------
 
 
@@ -383,7 +379,6 @@ func survey_line() -> String:
 func status_text() -> String:
 	return _status.text if _status != null else ""
 
-
 # --- what the fields say ------------------------------------------------------------
 
 
@@ -400,7 +395,7 @@ func status_text() -> String:
 func capture() -> Dictionary:
 	var point := Vector3(_number_of(_x_field), 0.0, _number_of(_z_field))
 	var offered: String = _name_field.text.strip_edges()
-	var answer: Dictionary = {}
+	var answer: Dictionary = { }
 	if _from_a_model(offered):
 		answer = IdentifierScript.capture_from(
 			_model_answer,
@@ -408,11 +403,17 @@ func capture() -> Dictionary:
 			point,
 			photo_path(),
 			_note_field.text.strip_edges(),
-			_part()
+			_part(),
 		)
 	else:
 		answer = FieldCaptureScript.identify(
-			offered, 1.0, _catalogue, point, photo_path(), _note_field.text.strip_edges(), _part()
+			offered,
+			1.0,
+			_catalogue,
+			point,
+			photo_path(),
+			_note_field.text.strip_edges(),
+			_part(),
 		)
 	var made: Dictionary = answer["capture"]
 	made["sun_mask"] = _bit_of(_sun_option)
@@ -427,7 +428,7 @@ func add_capture() -> Dictionary:
 	var trouble: String = _trouble()
 	if not trouble.is_empty():
 		_say(trouble)
-		return {"ok": false, "reason": trouble, "added": 0, "total": 0}
+		return { "ok": false, "reason": trouble, "added": 0, "total": 0 }
 	var made: Dictionary = capture()
 	var result: Dictionary = ExporterScript.append(_site_name, [made], _manifest_path)
 	if not bool(result["ok"]):
@@ -436,9 +437,7 @@ func add_capture() -> Dictionary:
 	if int(result["added"]) == 0:
 		_say("That record is already in the survey, so nothing was added.")
 	else:
-		_say("Recorded %s. %s" % [
-			FieldCaptureScript.words(made, _catalogue), survey_line(),
-		])
+		_say("Recorded %s. %s" % [FieldCaptureScript.words(made, _catalogue), survey_line()])
 	captured.emit(made, result)
 	refresh()
 	return result
@@ -533,7 +532,6 @@ func choose_photo() -> void:
 		add_child(_dialog)
 	_dialog.popup_centered_ratio(0.6)
 
-
 # --- reading the photograph ----------------------------------------------------------
 
 
@@ -599,7 +597,7 @@ func identify_photo() -> Dictionary:
 	_clear_candidates()
 	# Cleared with the candidates, and for the same reason: while a new reading is in flight the last one
 	# is no longer what is on the page, and a capture filed from it would name a model that has not spoken.
-	_model_answer = {}
+	_model_answer = { }
 	var reader: PlantIdentifier = identifier
 	if reader == null:
 		reader = IdentifierScript.new(_id_settings)
@@ -607,9 +605,7 @@ func identify_photo() -> Dictionary:
 	# and the dropdown cannot come to describe two different ways of reading.
 	reader.settings = _id_settings
 	_reader = reader
-	var verdict: StringName = reader.begin_read(
-		_photo_image(), _part(), _note_field.text.strip_edges(), _catalogue
-	)
+	var verdict: StringName = reader.begin_read(_photo_image(), _part(), _note_field.text.strip_edges(), _catalogue)
 	while verdict == IdentifierScript.WORKING and not reader.waiting_on_the_wire():
 		verdict = reader.step_read()
 	if verdict == IdentifierScript.WORKING:
@@ -947,7 +943,6 @@ func _refresh_photo_hint() -> void:
 		return
 	_photo_hint.text = IdentifierScript.photo_hint_for(_id_settings)
 
-
 # --- what is wrong, in words --------------------------------------------------------
 
 
@@ -966,8 +961,7 @@ func _trouble() -> String:
 		return "How wide it is has to be a number of metres, or 0 for the size the list states."
 	var made: Dictionary = capture()
 	if (
-		not FieldCaptureScript.identified(made)
-		and String(made["raw_taxon"]).is_empty()
+		not FieldCaptureScript.identified(made) and String(made["raw_taxon"]).is_empty()
 		and String(made["photo_path"]).is_empty()
 	):
 		return NOTHING_TO_RECORD
@@ -995,15 +989,12 @@ func _refresh_species_line() -> void:
 		if species == null:
 			_species_line.text = "Recorded as %s." % species_id
 		else:
-			_species_line.text = "Recorded as %s (%s)." % [
-				species.common_name, species.botanical_name,
-			]
+			_species_line.text = "Recorded as %s (%s)." % [species.common_name, species.botanical_name]
 		return
 	_species_line.text = (
 		"That name is not in the list, so it is recorded as unidentified with the name kept: %s"
 		% String(answer["reason"])
 	)
-
 
 # --- the doors a test and the HUD use ------------------------------------------------
 
@@ -1013,7 +1004,6 @@ func _refresh_species_line() -> void:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- typing for a test ---------------------------------------------------------------
 

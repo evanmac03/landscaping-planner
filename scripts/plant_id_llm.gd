@@ -80,7 +80,6 @@ const SCHEMA := (
 	+ "\"reason\": \"what in the photograph made you say so\"}]}"
 )
 
-
 # --- the photograph ---------------------------------------------------------------------------
 
 
@@ -111,7 +110,7 @@ static func encode_image(image: Image, max_edge: int = DEFAULT_MAX_EDGE) -> Dict
 		sent.resize(
 			maxi(1, roundi(float(wide) * shrink)),
 			maxi(1, roundi(float(tall) * shrink)),
-			Image.INTERPOLATE_LANCZOS
+			Image.INTERPOLATE_LANCZOS,
 		)
 	var bytes: PackedByteArray = sent.save_png_to_buffer()
 	if bytes.is_empty():
@@ -124,7 +123,6 @@ static func encode_image(image: Image, max_edge: int = DEFAULT_MAX_EDGE) -> Dict
 		"width": sent.get_width(),
 		"height": sent.get_height(),
 	}
-
 
 # --- what is asked ----------------------------------------------------------------------------
 
@@ -156,15 +154,16 @@ static func refine_prompt(part: StringName, note: String, shortlist: Array) -> S
 	if shortlist.is_empty():
 		lines.append("No shortlist was made, so answer from the photograph alone.")
 	else:
-		lines.append(
-			"A first look at this photograph, with no second opinion, offered these as possibilities:"
-		)
+		lines.append("A first look at this photograph, with no second opinion, offered these as possibilities:")
 		for index: int in shortlist.size():
-			lines.append("- %s (%d%% sure): %s" % [
-				String((shortlist[index] as Dictionary).get("raw_taxon", "")),
-				roundi(float((shortlist[index] as Dictionary).get("confidence", 0.0)) * 100.0),
-				String((shortlist[index] as Dictionary).get("reason", "")),
-			])
+			lines.append(
+				"- %s (%d%% sure): %s"
+				% [
+					String((shortlist[index] as Dictionary).get("raw_taxon", "")),
+					roundi(float((shortlist[index] as Dictionary).get("confidence", 0.0)) * 100.0),
+					String((shortlist[index] as Dictionary).get("reason", "")),
+				]
+			)
 		lines.append(
 			"Choose between them if the photograph agrees with one of them. If none of them is what you "
 			+ "see, say what you see instead - a name outside that list is a better answer than the wrong "
@@ -234,7 +233,6 @@ static func _part_words(part: StringName) -> String:
 		return "the plant"
 	return named
 
-
 # --- the request ------------------------------------------------------------------------------
 
 
@@ -245,7 +243,11 @@ static func _part_words(part: StringName) -> String:
 ## serve both halves: a local server on this machine is asked without a key and an online service is
 ## asked with one, and neither is asked for something it does not use.
 static func build_request(
-	url: String, model: String, api_key: String, prompt: String, image_base64: String
+	url: String,
+	model: String,
+	api_key: String,
+	prompt: String,
+	image_base64: String,
 ) -> Dictionary:
 	var address: Dictionary = split_url(url)
 	if not bool(address["ok"]):
@@ -264,13 +266,15 @@ static func build_request(
 	var body: Dictionary = {
 		"model": named,
 		"temperature": TEMPERATURE,
-		"messages": [{
-			"role": "user",
-			"content": [
-				{"type": "text", "text": prompt},
-				{"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % [MIME, image_base64]}},
-			],
-		}],
+		"messages": [
+			{
+				"role": "user",
+				"content": [
+					{ "type": "text", "text": prompt },
+					{ "type": "image_url", "image_url": { "url": "data:%s;base64,%s" % [MIME, image_base64] } },
+				],
+			}
+		],
 	}
 	return {
 		"ok": true,
@@ -302,9 +306,7 @@ static func split_url(address: String) -> Dictionary:
 	elif raw.begins_with("http://"):
 		raw = raw.substr(7)
 	else:
-		return _url_refusal(
-			"the address of a model has to begin http:// or https://, and \"%s\" does not" % address
-		)
+		return _url_refusal("the address of a model has to begin http:// or https://, and \"%s\" does not" % address)
 	var without_slash: String = raw.trim_suffix("/")
 	if without_slash.is_empty():
 		return _url_refusal("the address \"%s\" names no host to send a photograph to" % address)
@@ -319,8 +321,7 @@ static func split_url(address: String) -> Dictionary:
 		port = int(authority.substr(colon + 1))
 	if host.is_empty():
 		return _url_refusal("the address \"%s\" names no host to send a photograph to" % address)
-	return {"ok": true, "reason": "", "url": address, "tls": tls, "host": host, "port": port, "path": path}
-
+	return { "ok": true, "reason": "", "url": address, "tls": tls, "host": host, "port": port, "path": path }
 
 # --- the answer -------------------------------------------------------------------------------
 
@@ -346,7 +347,10 @@ static func split_url(address: String) -> Dictionary:
 ## that is not JSON at all - prose, an error page, "it looks like a kind of thyme, I think" - is reported
 ## as unreadable, because that is the one case where the shape really is the problem.
 static func parse_response(
-	http_status: int, raw_body: String, model_label: String = "", transport_reason: String = ""
+	http_status: int,
+	raw_body: String,
+	model_label: String = "",
+	transport_reason: String = "",
 ) -> Dictionary:
 	if http_status == 0:
 		var why: String = transport_reason.strip_edges()
@@ -367,16 +371,18 @@ static func parse_response(
 			return _answer_refusal(
 				"the model could not tell what the plant is, and said so rather than guessing",
 				answer,
-				model_label
+				model_label,
 			)
 		if record.is_empty():
 			return _answer_refusal(
-				"what the model answered could not be read as JSON: %s" % _quote(answer), answer, model_label
+				"what the model answered could not be read as JSON: %s" % _quote(answer),
+				answer,
+				model_label,
 			)
 		return _answer_refusal(
 			"the model's answer named no plant, so there is nothing to look up: %s" % _quote(answer),
 			answer,
-			model_label
+			model_label,
 		)
 	# The envelope's build first, then the answer's own if it named one: a server that says nothing
 	# about which build it served has no version invented for it.
@@ -408,25 +414,25 @@ static func parse_response(
 static func _model_answer(raw_body: String) -> Dictionary:
 	var reader: JSON = JSON.new()
 	if reader.parse(raw_body) != OK:
-		return {"text": raw_body, "model": ""}
+		return { "text": raw_body, "model": "" }
 	var data: Variant = reader.data
 	if not (data is Dictionary):
-		return {"text": raw_body, "model": ""}
+		return { "text": raw_body, "model": "" }
 	var envelope: Dictionary = data
 	var served: String = String(envelope.get("model", "")).strip_edges()
 	var choices: Variant = envelope.get("choices", null)
 	if not (choices is Array) or (choices as Array).is_empty():
-		return {"text": raw_body, "model": served}
+		return { "text": raw_body, "model": served }
 	var first: Variant = (choices as Array)[0]
 	if not (first is Dictionary):
-		return {"text": raw_body, "model": served}
+		return { "text": raw_body, "model": served }
 	var message: Variant = (first as Dictionary).get("message", null)
 	if not (message is Dictionary):
-		return {"text": raw_body, "model": served}
+		return { "text": raw_body, "model": served }
 	var content: Variant = (message as Dictionary).get("content", null)
 	if content is String:
-		return {"text": content, "model": served}
-	return {"text": raw_body, "model": served}
+		return { "text": content, "model": served }
+	return { "text": raw_body, "model": served }
 
 
 ## The JSON object inside an answer, wherever the model put it.
@@ -438,14 +444,14 @@ static func _find_record(answer: String) -> Dictionary:
 	var opened: int = answer.find("{")
 	var closed: int = answer.rfind("}")
 	if opened < 0 or closed <= opened:
-		return {}
+		return { }
 	var reader: JSON = JSON.new()
 	if reader.parse(answer.substr(opened, closed - opened + 1)) != OK:
-		return {}
+		return { }
 	var data: Variant = reader.data
 	if data is Dictionary:
 		return data
-	return {}
+	return { }
 
 
 ## Whether an answer that holds no record is nevertheless one this program read perfectly well *and* that
@@ -479,7 +485,7 @@ static func _candidates_of(record: Dictionary) -> Array[Dictionary]:
 	if not (raw is Array):
 		var nothing: Array[Dictionary] = []
 		return nothing
-	var seen: Dictionary = {}
+	var seen: Dictionary = { }
 	var found: Array[Dictionary] = []
 	for item: Variant in (raw as Array):
 		if not (item is Dictionary):
@@ -491,11 +497,13 @@ static func _candidates_of(record: Dictionary) -> Array[Dictionary]:
 		if seen.has(key):
 			continue
 		seen[key] = true
-		found.append({
-			"raw_taxon": taxon,
-			"confidence": _confidence((item as Dictionary).get("confidence", 0.0)),
-			"reason": String((item as Dictionary).get("reason", "")).strip_edges(),
-		})
+		found.append(
+			{
+				"raw_taxon": taxon,
+				"confidence": _confidence((item as Dictionary).get("confidence", 0.0)),
+				"reason": String((item as Dictionary).get("reason", "")).strip_edges(),
+			}
+		)
 	found.sort_custom(_likelier_first)
 	return found
 
@@ -552,18 +560,15 @@ static func _quote(text: String) -> String:
 		return trimmed
 	return trimmed.substr(0, QUOTE_LIMIT) + " ..."
 
-
 # --- the shapes of a refusal -------------------------------------------------------------------
 
 
 static func _encode_refusal(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "base64": "", "mime": "", "width": 0, "height": 0}
+	return { "ok": false, "reason": reason, "base64": "", "mime": "", "width": 0, "height": 0 }
 
 
 static func _url_refusal(reason: String) -> Dictionary:
-	return {
-		"ok": false, "reason": reason, "url": "", "tls": false, "host": "", "port": 0, "path": "",
-	}
+	return { "ok": false, "reason": reason, "url": "", "tls": false, "host": "", "port": 0, "path": "" }
 
 
 static func _request_refusal(reason: String) -> Dictionary:

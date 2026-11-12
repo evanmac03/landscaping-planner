@@ -9,14 +9,13 @@ extends Node
 const OsmFetch := preload("res://scripts/draft/osm_fetch.gd")
 const OsmFile := preload("res://scripts/draft/osm_file.gd")
 
-const CENTRE := {"latitude": 43.7, "longitude": -79.4}
+const CENTRE := { "latitude": 43.7, "longitude": -79.4 }
 const TEMP := "user://osm-fetch-test.json"
 
 
 func _free(node: Node) -> void:
 	if node != null and is_instance_valid(node):
 		node.free()
-
 
 # --- what it asks for -----------------------------------------------------------------
 
@@ -45,16 +44,13 @@ func test_the_bound_of_a_radius_is_a_rectangle_around_the_centre() -> void:
 	assert(float(box["west"]) < -79.4 and float(box["east"]) > -79.4, str(box))
 	# A metre is a smaller share of a degree of longitude than of latitude away from the equator, so
 	# the box is wider than it is tall.
-	assert(
-		(float(box["east"]) - float(box["west"])) > (float(box["north"]) - float(box["south"])),
-		str(box)
-	)
+	assert((float(box["east"]) - float(box["west"])) > (float(box["north"]) - float(box["south"])), str(box))
 	assert(absf(float(box["north"]) - 43.7 - 100.0 / OsmFile.metres_per_degree_latitude(43.7)) < 1.0e-9)
 
 
 func test_what_would_be_asked_for_is_refused_when_it_is_not_a_place() -> void:
-	assert(not bool(OsmFetch.can_fetch({}, 120.0)["ok"]), "no centre at all")
-	assert(not bool(OsmFetch.can_fetch({"latitude": 91.0, "longitude": 0.0}, 120.0)["ok"]), "off the earth")
+	assert(not bool(OsmFetch.can_fetch({ }, 120.0)["ok"]), "no centre at all")
+	assert(not bool(OsmFetch.can_fetch({ "latitude": 91.0, "longitude": 0.0 }, 120.0)["ok"]), "off the earth")
 	assert(not bool(OsmFetch.can_fetch(CENTRE, 0.0)["ok"]), "a radius of nothing")
 	assert(not bool(OsmFetch.can_fetch(CENTRE, NAN)["ok"]), "and a radius that is not a number")
 	assert(not bool(OsmFetch.can_fetch(CENTRE, OsmFetch.MAX_RADIUS_M + 1.0)["ok"]), "more map than this draws")
@@ -62,10 +58,9 @@ func test_what_would_be_asked_for_is_refused_when_it_is_not_a_place() -> void:
 
 
 func test_a_refusal_says_what_is_wrong_rather_than_only_that_something_is() -> void:
-	assert(String(OsmFetch.can_fetch({}, 120.0)["reason"]).contains("centre"))
+	assert(String(OsmFetch.can_fetch({ }, 120.0)["reason"]).contains("centre"))
 	assert(String(OsmFetch.can_fetch(CENTRE, 0.0)["reason"]).contains("distance"))
 	assert(String(OsmFetch.can_fetch(CENTRE, 1.0e9)["reason"]).contains("%.0f m" % OsmFetch.MAX_RADIUS_M))
-
 
 # --- the network it does not have -----------------------------------------------------
 
@@ -82,18 +77,20 @@ func test_the_endpoint_is_the_public_overpass_interpreter() -> void:
 	assert(OsmFetch.ENDPOINT.begins_with("https://"), OsmFetch.ENDPOINT)
 	assert(OsmFetch.ENDPOINT.contains("overpass"), OsmFetch.ENDPOINT)
 
-
 # --- the offline half -----------------------------------------------------------------
 
 
 func test_a_saved_map_is_read_at_the_centre_it_is_given() -> void:
 	var file := FileAccess.open(TEMP, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"elements": [
-		{
-			"type": "node", "id": 1, "lat": 43.7001, "lon": -79.4001,
-			"tags": {"natural": "tree"},
-		},
-	]}))
+	file.store_string(
+		JSON.stringify(
+			{
+				"elements": [
+					{ "type": "node", "id": 1, "lat": 43.7001, "lon": -79.4001, "tags": { "natural": "tree" } },
+				]
+			}
+		)
+	)
 	file.close()
 	var plan: Dictionary = OsmFetch.read_saved(TEMP, CENTRE, 120.0)
 	assert(bool(plan["ok"]), String(plan["reason"]))

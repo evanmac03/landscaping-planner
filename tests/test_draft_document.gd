@@ -43,7 +43,7 @@ func test_a_site_is_a_property_of_the_drawing() -> void:
 	# more than half a zone away from its own meridian would put solar noon near 1 o'clock.
 	assert(
 		absf(document.site_longitude - 15.0 * document.site_utc_offset_hours) < 7.5,
-		"the default site's longitude should be near its own zone's meridian"
+		"the default site's longitude should be near its own zone's meridian",
 	)
 	document.set_site(51.5, -0.12, 0.0)
 	var restored = Document.from_dict(document.to_dict())
@@ -78,7 +78,10 @@ func test_a_site_is_a_property_of_the_drawing() -> void:
 func test_moving_the_site_is_one_undoable_step() -> void:
 	var document = Document.new()
 	var moves: Array = []
-	document.changed.connect(func() -> void: moves.append(1))
+	document.changed.connect(
+		func() -> void:
+			moves.append(1),
+	)
 	assert(document.set_site(43.7, -79.4, -5.0))
 	assert(moves.size() == 1)
 	# The same site again is not a change, and does not pretend to be one.
@@ -184,7 +187,6 @@ func test_remove_reports_whether_it_did_anything() -> void:
 	assert(not document.remove(id))
 	assert(document.count() == 0)
 
-
 # --- undo ---------------------------------------------------------------------------
 
 
@@ -237,7 +239,6 @@ func test_undo_with_nothing_recorded_is_a_no_op() -> void:
 	assert(not document.undo_last())
 	assert(not document.redo_last())
 
-
 # --- the gestures, by name and number -------------------------------------------------
 
 
@@ -274,14 +275,15 @@ func test_a_state_this_document_is_not_in_can_be_recorded_as_a_gesture() -> void
 	assert(document.undo_last(), "and undo puts the drawing back")
 	assert(document.count() == 1)
 
-
 # --- persistence --------------------------------------------------------------------
 
 
 func test_document_round_trips_through_persistence() -> void:
 	var document = Document.new()
-	var id: int = document.add(Entity.make_polyline(PackedVector2Array([
-		Vector2(1.5, 2.5), Vector2(3.75, 4.125)]), true), LayerSet.NEW_BED)
+	var id: int = document.add(
+		Entity.make_polyline(PackedVector2Array([Vector2(1.5, 2.5), Vector2(3.75, 4.125)]), true),
+		LayerSet.NEW_BED,
+	)
 	document.layers.set_visible(LayerSet.NEW_PLANTING, false)
 
 	var restored = Document.from_dict(document.to_dict())

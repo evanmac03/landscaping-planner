@@ -62,16 +62,17 @@ func test_the_bar_can_be_rebuilt_with_its_tail_folded() -> void:
 	# is the engine's business and not this rule's.
 	var hud: PlannerHud = _hud_with_a_bar_in_a_row()
 	hud._build_menu_bar()
-	assert(_bar.get_menu_count() == hud.menu_plan().size(),
-		"the whole bar to begin with: %d menus" % _bar.get_menu_count())
+	assert(
+		_bar.get_menu_count() == hud.menu_plan().size(),
+		"the whole bar to begin with: %d menus" % _bar.get_menu_count(),
+	)
 	hud._rebuild_menu_bar(hud.menu_bar_plan(1.0))
 	assert(_bar.get_menu_count() == 1, "one menu after the fold: %d" % _bar.get_menu_count())
 	assert(_bar.get_menu_title(0) == Hud.MORE_TITLE, _bar.get_menu_title(0))
 	# The entries are keyed per popup, and a folded menu brings its own submenus inside the More menu, so
 	# what matters is not how many entries there are but that the popup the bar is now showing has them -
 	# a press has to find the entry it names, and a stale key would be a press with nothing behind it.
-	assert(hud._menu_items.has(_bar.get_menu_popup(0)),
-		"the HUD holds the entries for the popup the bar is showing")
+	assert(hud._menu_items.has(_bar.get_menu_popup(0)), "the HUD holds the entries for the popup the bar is showing")
 	_free_all()
 
 
@@ -124,8 +125,10 @@ func test_a_title_is_measured_on_the_bar_font_and_a_longer_one_is_wider() -> voi
 	var widths: Array[float] = hud.menu_title_widths(["File", "Pipeline"])
 	assert(widths.size() == 2, "both titles were measured")
 	assert(widths[0] > 0.0, "a title has a width: %s" % str(widths))
-	assert(widths[1] > widths[0],
-		"a longer title is wider than a shorter one, so this is the real font: %s" % str(widths))
+	assert(
+		widths[1] > widths[0],
+		"a longer title is wider than a shorter one, so this is the real font: %s" % str(widths),
+	)
 	_free_all()
 
 
@@ -154,10 +157,8 @@ func test_the_tail_gathers_under_one_more_menu_when_the_room_runs_out() -> void:
 	var titles: Array[String] = []
 	for menu: Dictionary in hud.menu_plan():
 		titles.append(String(menu["title"]))
-	assert(named == titles,
-		"every folded menu is named, in the order it left the bar: %s" % str(named))
-	assert(more.size() > named.size(),
-		"and the commands themselves came with them rather than the names alone")
+	assert(named == titles, "every folded menu is named, in the order it left the bar: %s" % str(named))
+	assert(more.size() > named.size(), "and the commands themselves came with them rather than the names alone")
 	_free_all()
 
 
@@ -176,10 +177,11 @@ func test_the_plan_itself_is_left_alone_by_a_folded_bar() -> void:
 ## out *smaller* than the bar's, the subtraction went negative, and the bar was handed more room than the
 ## screen had - so nothing folded and all fourteen menus were drawn clipped at both ends.
 func test_a_row_that_measures_smaller_than_its_bar_does_not_hand_the_bar_spare_room() -> void:
-	assert(Hud.bar_room(1420.0, -120.0, 1444.0) == 1420.0,
-		"a negative remainder is no remainder at all")
-	assert(Hud.bar_room(1576.0, 36.0, 1600.0) == 1540.0,
-		"and the desk's own numbers come out exactly as they always did")
+	assert(Hud.bar_room(1420.0, -120.0, 1444.0) == 1420.0, "a negative remainder is no remainder at all")
+	assert(
+		Hud.bar_room(1576.0, 36.0, 1600.0) == 1540.0,
+		"and the desk's own numbers come out exactly as they always did",
+	)
 
 
 ## A row can be laid out wider than the canvas it is drawn in; the room the bar has is what a person can
@@ -187,5 +189,7 @@ func test_a_row_that_measures_smaller_than_its_bar_does_not_hand_the_bar_spare_r
 func test_a_row_wider_than_the_screen_is_only_the_screen() -> void:
 	assert(Hud.bar_room(1800.0, 0.0, 1444.0) == 1444.0, "clamped to the screen")
 	assert(Hud.bar_room(0.0, 0.0, 1444.0) == 1444.0, "and before the first layout the screen answers")
-	assert(Hud.bar_room(0.0, 0.0, 0.0) == 0.0,
-		"a bar with nothing known is not told it has room, because no room worked out is not no room")
+	assert(
+		Hud.bar_room(0.0, 0.0, 0.0) == 0.0,
+		"a bar with nothing known is not told it has room, because no room worked out is not no room",
+	)

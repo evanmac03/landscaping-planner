@@ -15,12 +15,11 @@ const HudScript := preload("res://scripts/hud.gd")
 const SpeciesScript := preload("res://scripts/plant_species.gd")
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 
-
 # --- the menu -----------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_it_with_no_key_and_needs_nothing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.plant_items():
 		if StringName(candidate.get("id", &"")) == &"plant.harvest":
 			entry = candidate
@@ -31,7 +30,7 @@ func test_the_plant_menu_offers_it_with_no_key_and_needs_nothing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_NOTHING,
-		"a harvest time is a fact about the crop, not about the ground, so it needs no drawing"
+		"a harvest time is a fact about the crop, not about the ground, so it needs no drawing",
 	)
 
 
@@ -40,7 +39,6 @@ func test_every_menu_entry_still_names_a_method_this_hud_has() -> void:
 	var hud: HudScript = HudScript.new()
 	assert(hud.has_method(&"_menu_harvest_window"), "the menu's door is a real one")
 	hud.free()
-
 
 # --- the page -----------------------------------------------------------------------------
 
@@ -68,7 +66,6 @@ func test_it_is_a_page_the_escape_pass_has_to_reach() -> void:
 	assert(hud._harvest_window.get_node_or_null(^"PageEscape") != null, "and it can be escaped from")
 	hud.free()
 
-
 # --- the join -----------------------------------------------------------------------------
 
 
@@ -82,7 +79,6 @@ func test_it_needs_no_drawing_to_be_filled() -> void:
 	assert(hud._harvest_window.row_count() > 0, "and the shipped list has crops with harvest windows")
 	assert(not hud._harvest_window.month_line().is_empty(), hud._harvest_window.month_line())
 	hud.free()
-
 
 # --- the list is the only thing it reads ----------------------------------------------------
 
@@ -105,7 +101,7 @@ func test_the_page_keeps_up_with_the_list_while_it_is_up() -> void:
 	var small: PlantCatalogue = CatalogueScript.make()
 	var crop: PlantSpecies = SpeciesScript.make(&"parsnip", "Parsnip", "", 60, 40, SpeciesScript.ANNUAL)
 	crop.edible_parts = SpeciesScript.EAT_ROOT
-	crop.set_harvests_in(3, true)   # March only
+	crop.set_harvests_in(3, true) # March only
 	small.add(crop)
 	hud._plants = small
 	hud._harvest_window.visible = true

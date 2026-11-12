@@ -36,10 +36,8 @@ func _ready() -> void:
 	map.base = ProfileScript.of("sun", SpeciesScript.FULL_SUN)
 	map.add_zone(
 		"the kitchen bed",
-		PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)
-		]),
-		ProfileScript.of("sun", SpeciesScript.FULL_SUN)
+		PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)]),
+		ProfileScript.of("sun", SpeciesScript.FULL_SUN),
 	)
 	print("the ground now reads: ", map.describe())
 
@@ -86,8 +84,15 @@ func _ready() -> void:
 	print("--- opened once more, so the captured frame is the page itself ---")
 	hud.open_rotation_window()
 	await _settle()
-	print("the window is up: ", hud.is_rotation_window_open(), ", ", page.place_count(), " beds, ",
-		page.row_count(), " crops")
+	print(
+		"the window is up: ",
+		hud.is_rotation_window_open(),
+		", ",
+		page.place_count(),
+		" beds, ",
+		page.row_count(),
+		" crops",
+	)
 
 
 ## Let the running scene take a couple of frames, which is where the HUD settles.
@@ -101,7 +106,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.plant_items():
 		if String(entry.get("id", "")) == "plant.rotation":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no rotation entry in the Plant menu)"

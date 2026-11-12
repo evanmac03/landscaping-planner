@@ -46,8 +46,16 @@ const TIMEOUT_S := 25.0
 ## are worth fetching. `natural` and `landuse` cover trees, woods, water and open ground; the rest are
 ## the built things a plan has to sit beside.
 const ASKED_TAGS: Array[String] = [
-	"building", "highway", "railway", "waterway", "natural", "landuse", "leisure", "amenity",
-	"barrier", "wall",
+	"building",
+	"highway",
+	"railway",
+	"waterway",
+	"natural",
+	"landuse",
+	"leisure",
+	"amenity",
+	"barrier",
+	"wall",
 ]
 
 
@@ -56,24 +64,20 @@ const ASKED_TAGS: Array[String] = [
 ## question makes sense.
 static func can_fetch(centre: Dictionary, radius_m: float) -> Dictionary:
 	if centre.is_empty() or not centre.has("latitude") or not centre.has("longitude"):
-		return {"ok": false, "reason": "there is no centre to put the map around, so it is not asked for"}
+		return { "ok": false, "reason": "there is no centre to put the map around, so it is not asked for" }
 	var latitude := float(centre["latitude"])
 	var longitude := float(centre["longitude"])
 	if is_nan(latitude) or is_nan(longitude) or absf(latitude) > 90.0 or absf(longitude) > 180.0:
-		return {
-			"ok": false,
-			"reason": "%.4f, %.4f is not a place on the earth" % [latitude, longitude],
-		}
+		return { "ok": false, "reason": "%.4f, %.4f is not a place on the earth" % [latitude, longitude] }
 	if is_nan(radius_m) or radius_m <= 0.0:
-		return {"ok": false, "reason": "a map is asked for around a distance, and that is not one"}
+		return { "ok": false, "reason": "a map is asked for around a distance, and that is not one" }
 	if radius_m > MAX_RADIUS_M:
 		return {
 			"ok": false,
-			"reason": "%.0f m is more map than this draws: the most it will ask for is %.0f m" % [
-				radius_m, MAX_RADIUS_M,
-			],
+			"reason": "%.0f m is more map than this draws: the most it will ask for is %.0f m"
+			% [radius_m, MAX_RADIUS_M],
 		}
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## The rectangle a radius about a centre covers, in degrees. The two are not the same number of
@@ -99,25 +103,27 @@ static func bounds_of(centre: Dictionary, radius_m: float) -> Dictionary:
 static func build_query(centre: Dictionary, radius_m: float) -> String:
 	var latitude := float(centre.get("latitude", 0.0))
 	var longitude := float(centre.get("longitude", 0.0))
-	var around := "around:%s,%s,%s" % [
-		String.num(radius_m, 2), String.num(latitude, 6), String.num(longitude, 6),
-	]
+	var around := "around:%s,%s,%s" % [String.num(radius_m, 2), String.num(latitude, 6), String.num(longitude, 6)]
 	var selectors := PackedStringArray()
 	for tag: String in ASKED_TAGS:
 		selectors.append("  way[\"%s\"](%s);" % [tag, around])
 	# A tree is a node rather than a way, and so is anything named that has no shape of its own.
 	selectors.append("  node[\"natural\"=\"tree\"](%s);" % around)
 	selectors.append("  node[\"name\"](%s);" % around)
-	return "\n".join(PackedStringArray([
-		"[out:json][timeout:%d];" % int(TIMEOUT_S),
-		"(",
-		"\n".join(selectors),
-		");",
-		# `out geom` is not optional: without it a way arrives as a list of node ids and nothing
-		# here could draw it without a second request per way.
-		"out geom;",
-		"",
-	]))
+	return "\n".join(
+		PackedStringArray(
+			[
+				"[out:json][timeout:%d];" % int(TIMEOUT_S),
+				"(",
+				"\n".join(selectors),
+				");",
+				# `out geom` is not optional: without it a way arrives as a list of node ids and nothing
+				# here could draw it without a second request per way.
+				"out geom;",
+				"",
+			]
+		)
+	)
 
 
 ## Whether this reader is somewhere it can reach the network at all. A `HTTPRequest` has to be in the
@@ -125,8 +131,8 @@ static func build_query(centre: Dictionary, radius_m: float) -> String:
 ## rather than pretending.
 func can_reach_network() -> Dictionary:
 	if not is_inside_tree():
-		return {"ok": false, "reason": "the map reader is not in the scene, so it cannot reach the network"}
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": "the map reader is not in the scene, so it cannot reach the network" }
+	return { "ok": true, "reason": "" }
 
 
 ## Ask OpenStreetMap for the map, and read what it answers. Returns a plan in `OsmFile`'s own shape:
@@ -143,9 +149,7 @@ func fetch(centre: Dictionary, radius_m: float) -> Dictionary:
 		return OsmFileScript.refused(String(reachable["reason"]))
 	var query := build_query(centre, radius_m)
 	var headers := PackedStringArray(["Content-Type: application/x-www-form-urlencoded"])
-	var error := _request().request(
-		ENDPOINT, headers, HTTPClient.METHOD_POST, "data=" + query.uri_encode()
-	)
+	var error := _request().request(ENDPOINT, headers, HTTPClient.METHOD_POST, "data=" + query.uri_encode())
 	if error != OK:
 		return OsmFileScript.refused(
 			"the request to OpenStreetMap could not be started (%s)" % error_string(error).to_lower()
@@ -153,17 +157,15 @@ func fetch(centre: Dictionary, radius_m: float) -> Dictionary:
 	var answered: Array = await _request().request_completed
 	var status := int(answered[1])
 	if status != 200:
-		return OsmFileScript.refused(
-			"OpenStreetMap answered %d, so the map was not read" % status
-		)
+		return OsmFileScript.refused("OpenStreetMap answered %d, so the map was not read" % status)
 	var body := (answered[3] as PackedByteArray).get_string_from_utf8()
-	return OsmFileScript.read_text(body, {"centre": centre, "radius": radius_m})
+	return OsmFileScript.read_text(body, { "centre": centre, "radius": radius_m })
 
 
 ## Read a saved Overpass response - the file a person exported from overpass-turbo, or one this saved
 ## earlier. The offline half of the same import: no network, and the same reader.
 static func read_saved(path: String, centre: Dictionary, radius_m: float) -> Dictionary:
-	return OsmFileScript.of_file(path, {"centre": centre, "radius": radius_m})
+	return OsmFileScript.of_file(path, { "centre": centre, "radius": radius_m })
 
 
 ## The one `HTTPRequest`, made on first use and kept, because a request node per fetch is a node per

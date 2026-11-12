@@ -36,7 +36,7 @@ var controller: Variant = null
 
 var _column: VBoxContainer = null
 var _master: CheckButton = null
-var _modes: Dictionary = {}
+var _modes: Dictionary = { }
 var _ortho: CheckBox = null
 var _polar: CheckBox = null
 var _polar_step: OptionButton = null
@@ -55,7 +55,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _column == null:
 		build()
-
 
 # --- building -----------------------------------------------------------------------------------
 
@@ -149,7 +148,6 @@ func bind(draft: Variant) -> void:
 		controller.snap_changed.connect(refresh)
 	refresh()
 
-
 # --- what it shows ------------------------------------------------------------------------------
 
 
@@ -157,11 +155,11 @@ func bind(draft: Variant) -> void:
 func refresh() -> void:
 	if _column == null:
 		return
-	var state: Dictionary = controller.snap_state() if controller != null else {}
+	var state: Dictionary = controller.snap_state() if controller != null else { }
 	var master_on: bool = bool(state.get("snapping", false))
 	_master.set_pressed_no_signal(master_on)
 	_master.disabled = controller == null
-	var modes: Dictionary = state.get("modes", {})
+	var modes: Dictionary = state.get("modes", { })
 	for snap_mode: int in _modes:
 		var box: CheckBox = _modes[snap_mode]
 		box.set_pressed_no_signal(bool(modes.get(snap_mode, false)))
@@ -223,7 +221,6 @@ static func mode_order() -> Array:
 static func mode_label(snap_mode: int) -> String:
 	return String(SnapScript.LABELS.get(snap_mode, str(snap_mode)))
 
-
 # --- what it does -------------------------------------------------------------------------------
 
 
@@ -273,7 +270,6 @@ func _on_close_requested() -> void:
 	hide()
 	closed.emit()
 
-
 # --- the small jobs -----------------------------------------------------------------------------
 
 
@@ -285,7 +281,7 @@ func _state_words(state: Dictionary) -> String:
 	if not bool(state.get("snapping", false)):
 		return "Snapping is off: a pick lands exactly where the pointer is."
 	var live := 0
-	var modes: Dictionary = state.get("modes", {})
+	var modes: Dictionary = state.get("modes", { })
 	for snap_mode: int in modes:
 		if snap_mode != SnapScript.Mode.GRID and bool(modes[snap_mode]):
 			live += 1
@@ -303,5 +299,3 @@ func _select_polar_step(degrees: float) -> void:
 	var index: int = POLAR_STEPS.find(degrees)
 	if index >= 0:
 		_polar_step.select(index)
-
-

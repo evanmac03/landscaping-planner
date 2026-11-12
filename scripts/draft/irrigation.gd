@@ -57,10 +57,10 @@ const KINDS: Array[String] = [SPRAY, ROTOR, MICRO, BUBBLER]
 ## thirteen over the eleven metres it throws is about 6 mm/h - which is why the two cannot share a
 ## valve, and why the precipitation rate is the number a designer checks.
 const HEADS := {
-	SPRAY: {"name": "spray head", "flow": 9.0, "throw": 4.5, "arc": 180.0, "pressure": 210.0},
-	ROTOR: {"name": "gear rotor", "flow": 13.0, "throw": 11.0, "arc": 360.0, "pressure": 350.0},
-	MICRO: {"name": "micro-spray", "flow": 3.0, "throw": 2.5, "arc": 180.0, "pressure": 200.0},
-	BUBBLER: {"name": "bubbler", "flow": 8.0, "throw": 0.9, "arc": 360.0, "pressure": 150.0},
+	SPRAY: { "name": "spray head", "flow": 9.0, "throw": 4.5, "arc": 180.0, "pressure": 210.0 },
+	ROTOR: { "name": "gear rotor", "flow": 13.0, "throw": 11.0, "arc": 360.0, "pressure": 350.0 },
+	MICRO: { "name": "micro-spray", "flow": 3.0, "throw": 2.5, "arc": 180.0, "pressure": 200.0 },
+	BUBBLER: { "name": "bubbler", "flow": 8.0, "throw": 0.9, "arc": 360.0, "pressure": 150.0 },
 }
 
 ## A full circle is the arc that has no heading: where the point is, a full head reaches it.
@@ -108,7 +108,6 @@ const DEFAULT_SUPPLY_FLOW := 40.0
 const DEFAULT_SUPPLY_PRESSURE := 350.0
 
 const TOLERANCE := 1e-6
-
 
 # --- the head table -----------------------------------------------------------------
 
@@ -189,13 +188,12 @@ static func pressure_of_kind(kind: String) -> float:
 		return 0.0
 	return float(HEADS[kind]["pressure"])
 
-
 # --- the supply ---------------------------------------------------------------------
 
 
 ## A supply: a flow in litres per minute at a stated pressure in kilopascals.
 static func make_supply(flow: float, pressure: float) -> Dictionary:
-	return {"flow": flow, "pressure": pressure}
+	return { "flow": flow, "pressure": pressure }
 
 
 ## Whether anything has actually been stated. A supply with no flow is not a supply, and neither is
@@ -207,8 +205,7 @@ static func has_supply(supply: Dictionary) -> bool:
 static func supply_words(supply: Dictionary) -> String:
 	if not has_supply(supply):
 		return "no supply stated"
-	return "%s L/min at %s kPa" % [_number(float(supply.get("flow", 0.0))),
-		_number(float(supply.get("pressure", 0.0)))]
+	return "%s L/min at %s kPa" % [_number(float(supply.get("flow", 0.0))), _number(float(supply.get("pressure", 0.0)))]
 
 
 ## How many heads of a kind the supply can run. This is the number a refusal quotes, and the number
@@ -218,7 +215,6 @@ static func head_budget(supply: Dictionary, kind: String) -> int:
 	if per_head <= TOLERANCE or not has_supply(supply):
 		return 0
 	return int(floor(float(supply["flow"]) / per_head + TOLERANCE))
-
 
 # --- a zone -------------------------------------------------------------------------
 
@@ -272,7 +268,6 @@ static func set_area(zone: Dictionary, ring: PackedVector2Array) -> void:
 static func area_m2(zone: Dictionary) -> float:
 	return float(zone.get("area_m2", 0.0))
 
-
 ## An area on this drawing is turned into words by `DraftUnits.area_words_in`, in the drawing's own
 ## units, and a row's own words by `DraftUnits.row_area_text`. Both used to be private copies here,
 ## and of two copies of one rule it is always one of them that stops being true.
@@ -285,16 +280,20 @@ static func has_area(zone: Dictionary) -> bool:
 static func ring_of(zone: Dictionary) -> PackedVector2Array:
 	return zone.get("area", PackedVector2Array())
 
-
 # --- heads --------------------------------------------------------------------------
 
 
 ## Set a head at a position. `arc` of zero means the kind's own default; the heading is the
 ## direction a part-circle nozzle faces, in radians, and is ignored by a full circle.
-static func add_head(zone: Dictionary, at: Vector2, kind: String = "",
-		heading: float = 0.0, arc: float = 0.0) -> Dictionary:
+static func add_head(
+	zone: Dictionary,
+	at: Vector2,
+	kind: String = "",
+	heading: float = 0.0,
+	arc: float = 0.0,
+) -> Dictionary:
 	var use := kind if is_kind(kind) else String(zone.get("kind", SPRAY))
-	var head := {"kind": use, "at": at, "heading": heading, "arc": arc}
+	var head := { "kind": use, "at": at, "heading": heading, "arc": arc }
 	(zone["heads"] as Array).append(head)
 	return head
 
@@ -340,8 +339,7 @@ static func reaches(head: Dictionary, point: Vector2) -> bool:
 	if arc >= deg_to_rad(ARC_FULL) - TOLERANCE or distance <= TOLERANCE:
 		return true
 	var heading := float(head.get("heading", 0.0))
-	return Geom.angle_in_sweep(Geom.angle_of(away), heading - arc * 0.5 - ARC_EDGE, arc
-		+ ARC_EDGE * 2.0)
+	return Geom.angle_in_sweep(Geom.angle_of(away), heading - arc * 0.5 - ARC_EDGE, arc + ARC_EDGE * 2.0)
 
 
 static func covered_by(heads: Array, point: Vector2) -> bool:
@@ -361,7 +359,7 @@ static func covered_by(heads: Array, point: Vector2) -> bool:
 static func nozzle_for(ring: PackedVector2Array, at: Vector2, kind: String) -> Dictionary:
 	var radius := throw_of_kind(kind) * NOZZLE_RADIUS
 	if ring.size() < 3 or radius <= TOLERANCE:
-		return {"arc": ARC_FULL, "heading": 0.0}
+		return { "arc": ARC_FULL, "heading": 0.0 }
 	var inside := 0
 	var facing := Vector2.ZERO
 	for step in NOZZLE_STEPS:
@@ -374,7 +372,7 @@ static func nozzle_for(ring: PackedVector2Array, at: Vector2, kind: String) -> D
 	var heading := 0.0
 	if facing.length() > TOLERANCE:
 		heading = Geom.angle_of(facing)
-	return {"arc": arc, "heading": heading}
+	return { "arc": arc, "heading": heading }
 
 
 ## Which nozzle an arc of ground round a head rounds to.
@@ -386,7 +384,6 @@ static func nozzle_for_share(share: float) -> float:
 	if share >= 0.35:
 		return 180.0
 	return 90.0
-
 
 # --- laying heads out ---------------------------------------------------------------
 
@@ -439,9 +436,14 @@ static func clearance_for(kind: String, spacing: float) -> float:
 ## Returns `{ok, reason, placed, wanted, points, spacing, clearance, staggered}`. A refusal sets no
 ## heads at all: over the head cap, or an area the grid cannot land in, is refused in words and the
 ## zone is left as it was.
-static func lay_out(zone: Dictionary, kind: String = "", spacing: float = 0.0,
-		staggered: bool = false, clearance: float = -1.0,
-		origin: Vector2 = Vector2.INF) -> Dictionary:
+static func lay_out(
+	zone: Dictionary,
+	kind: String = "",
+	spacing: float = 0.0,
+	staggered: bool = false,
+	clearance: float = -1.0,
+	origin: Vector2 = Vector2.INF,
+) -> Dictionary:
 	var use := kind if is_kind(kind) else String(zone.get("kind", SPRAY))
 	var ring := ring_of(zone)
 	var step := spacing if spacing > TOLERANCE else spacing_for(use, staggered)
@@ -457,13 +459,24 @@ static func lay_out(zone: Dictionary, kind: String = "", spacing: float = 0.0,
 	if not bool(report["ok"]) or int(report["wanted"]) > MAX_HEADS:
 		# The planting grid's own refusals are worded for plants, so they are not passed on: a
 		# refused layout says what is wrong with *this* job, in its own words.
-		return _refused("at %s apart this area wants more than %d heads, which is more than one "
+		return _refused(
+			"at %s apart this area wants more than %d heads, which is more than one "
 			% [SpacingScript.spacing_words(step), MAX_HEADS]
-			+ "zone is laid out with. Space them further apart.", step, edge, staggered)
+			+ "zone is laid out with. Space them further apart.",
+			step,
+			edge,
+			staggered,
+		)
 	var points: PackedVector2Array = report["points"]
 	if points.is_empty():
-		return _refused("at %s apart no head of this grid lands in that area at all: no grid line "
-			% SpacingScript.spacing_words(step) + "falls inside it.", step, edge, staggered)
+		return _refused(
+			"at %s apart no head of this grid lands in that area at all: no grid line "
+			% SpacingScript.spacing_words(step)
+			+ "falls inside it.",
+			step,
+			edge,
+			staggered,
+		)
 	clear_heads(zone)
 	zone["kind"] = use
 	zone["spacing"] = step
@@ -472,22 +485,31 @@ static func lay_out(zone: Dictionary, kind: String = "", spacing: float = 0.0,
 		var nozzle := nozzle_for(ring, point, use)
 		add_head(zone, point, use, float(nozzle["heading"]), float(nozzle["arc"]))
 	return {
-		"ok": true, "reason": "", "placed": points.size(), "wanted": int(report["wanted"]),
-		"points": points, "spacing": step, "clearance": edge, "staggered": staggered,
+		"ok": true,
+		"reason": "",
+		"placed": points.size(),
+		"wanted": int(report["wanted"]),
+		"points": points,
+		"spacing": step,
+		"clearance": edge,
+		"staggered": staggered,
 	}
 
 
-static func _refused(reason: String, spacing: float, clearance: float,
-		staggered: bool) -> Dictionary:
+static func _refused(reason: String, spacing: float, clearance: float, staggered: bool) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "placed": 0, "wanted": 0,
-		"points": PackedVector2Array(), "spacing": spacing, "clearance": clearance,
+		"ok": false,
+		"reason": reason,
+		"placed": 0,
+		"wanted": 0,
+		"points": PackedVector2Array(),
+		"spacing": spacing,
+		"clearance": clearance,
 		"staggered": staggered,
 	}
 
 
 # --- a zone on the plan -------------------------------------------------------------
-
 
 ## How wide a head is drawn on the sheet, in millimetres. A head on a plan is a *symbol* rather than
 ## a measurement: its circle is a fixed size on paper, so its model radius follows the plot scale - a
@@ -566,7 +588,6 @@ static func head_words(head: Dictionary) -> String:
 	var kind := String(head.get("kind", ""))
 	return "%s, %s" % [kind_name(kind), nozzle_words(arc_of_head(head))]
 
-
 # --- the flow check -----------------------------------------------------------------
 
 
@@ -610,8 +631,9 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 	if heads.is_empty():
 		reasons.append("the zone has no heads")
 	if heads.size() > MAX_HEADS:
-		reasons.append("the zone holds %d heads, which is more than the %d one zone is laid out with"
-			% [heads.size(), MAX_HEADS])
+		reasons.append(
+			"the zone holds %d heads, which is more than the %d one zone is laid out with" % [heads.size(), MAX_HEADS]
+		)
 
 	# Two kinds on one valve is a defect rather than a preference: a rotor zone and a spray zone are
 	# different schedules, and one valve cannot be both.
@@ -625,18 +647,20 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 			other = held
 			break
 	if not other.is_empty():
-		reasons.append("a zone runs one kind: this one holds %s and %s"
-			% [kind_name(kind), kind_name(other)])
+		reasons.append("a zone runs one kind: this one holds %s and %s" % [kind_name(kind), kind_name(other)])
 
 	# Pressure before flow: a head that will not open is a refusal about the head, not about how
 	# many of them there are.
 	if stated and is_kind(kind) and supply_pressure + TOLERANCE < pressure_of_kind(kind):
-		reasons.append("a %s wants %s kPa and the supply gives %s"
-			% [kind_name(kind), _number(pressure_of_kind(kind)), _number(supply_pressure)])
+		reasons.append(
+			"a %s wants %s kPa and the supply gives %s"
+			% [kind_name(kind), _number(pressure_of_kind(kind)), _number(supply_pressure)]
+		)
 	if stated and flow > supply_flow + TOLERANCE and is_kind(kind):
-		reasons.append("%s draw %s L/min and the supply gives %s - %d of them fit"
-			% [kind_count_words(kind, heads.size()), _number(flow), _number(supply_flow),
-				head_budget(supply, kind)])
+		reasons.append(
+			"%s draw %s L/min and the supply gives %s - %d of them fit"
+			% [kind_count_words(kind, heads.size()), _number(flow), _number(supply_flow), head_budget(supply, kind)]
+		)
 
 	# A head outside the area it was zoned for waters somewhere it was not set for.
 	if has_area(zone):
@@ -647,8 +671,10 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 			if not Geom.point_in_polygon(at, ring):
 				outside_head_count += 1
 		if outside_head_count > 0:
-			reasons.append("%s stand outside the area this zone waters"
-				% ("1 head" if outside_head_count == 1 else "%d heads" % outside_head_count))
+			reasons.append(
+				"%s stand outside the area this zone waters"
+				% ("1 head" if outside_head_count == 1 else "%d heads" % outside_head_count)
+			)
 
 	# Not `coverage`: that is the name of the function this asks, and a local may not shadow a method
 	# of its own class.
@@ -658,8 +684,10 @@ static func check(zone: Dictionary, supply: Dictionary) -> Dictionary:
 	elif not bool(covered["ok"]):
 		notes.append(String(covered["reason"]))
 	elif float(covered["fraction"]) < 1.0 - TOLERANCE:
-		notes.append("%d%% of the area is beyond every head - worst at %s"
-			% [int(round((1.0 - float(covered["fraction"])) * 100.0)), _point_words(covered["worst"])])
+		notes.append(
+			"%d%% of the area is beyond every head - worst at %s"
+			% [int(round((1.0 - float(covered["fraction"])) * 100.0)), _point_words(covered["worst"])]
+		)
 
 	return {
 		"ok": reasons.is_empty(),
@@ -689,16 +717,19 @@ static func verdict_words(zone: Dictionary, supply: Dictionary, units: DraftUnit
 		var first: Array[String] = result["reasons"]
 		return "%s: %s" % [label, first[0]]
 	var line := "%s will run: %s, %s of %s L/min" % [
-		label, kind_count_words(String(zone.get("kind", SPRAY)), int(result["heads"])),
-		_number(float(result["flow"])), _number(float(result["supply_flow"])),
+		label,
+		kind_count_words(String(zone.get("kind", SPRAY)), int(result["heads"])),
+		_number(float(result["flow"])),
+		_number(float(result["supply_flow"])),
 	]
 	if float(result["area_m2"]) > TOLERANCE:
-		line += ", %s mm/h over %s" % [_number(float(result["precipitation"])),
-			DraftUnits.area_words_in(float(result["area_m2"]), units)]
+		line += ", %s mm/h over %s" % [
+			_number(float(result["precipitation"])),
+			DraftUnits.area_words_in(float(result["area_m2"]), units),
+		]
 	for note in (result["notes"] as Array[String]):
 		line += "; " + note
 	return line
-
 
 # --- coverage -----------------------------------------------------------------------
 
@@ -710,13 +741,25 @@ static func verdict_words(zone: Dictionary, supply: Dictionary, units: DraftUnit
 ## Returns `{ok, reason, sampled, covered, fraction, worst}`.
 static func coverage(zone: Dictionary) -> Dictionary:
 	if not has_area(zone):
-		return {"ok": false, "reason": "the area has not been stated", "sampled": 0, "covered": 0,
-			"fraction": 0.0, "worst": null}
+		return {
+			"ok": false,
+			"reason": "the area has not been stated",
+			"sampled": 0,
+			"covered": 0,
+			"fraction": 0.0,
+			"worst": null,
+		}
 	var ring := ring_of(zone)
 	var samples := Geom.fill_grid(ring, SAMPLE_GRID)
 	if samples.is_empty():
-		return {"ok": false, "reason": "the area is smaller than the %s m coverage grid"
-			% _number(SAMPLE_GRID), "sampled": 0, "covered": 0, "fraction": 0.0, "worst": null}
+		return {
+			"ok": false,
+			"reason": "the area is smaller than the %s m coverage grid" % _number(SAMPLE_GRID),
+			"sampled": 0,
+			"covered": 0,
+			"fraction": 0.0,
+			"worst": null,
+		}
 	var heads := heads_of(zone)
 	var covered := 0
 	var worst: Variant = null
@@ -726,10 +769,13 @@ static func coverage(zone: Dictionary) -> Dictionary:
 		elif worst == null:
 			worst = point
 	return {
-		"ok": true, "reason": "", "sampled": samples.size(), "covered": covered,
-		"fraction": float(covered) / float(samples.size()), "worst": worst,
+		"ok": true,
+		"reason": "",
+		"sampled": samples.size(),
+		"covered": covered,
+		"fraction": float(covered) / float(samples.size()),
+		"worst": worst,
 	}
-
 
 # --- the schedule -------------------------------------------------------------------
 
@@ -740,19 +786,21 @@ static func schedule(zones: Array, supply: Dictionary, units: DraftUnits = null)
 	for entry in zones:
 		var zone: Dictionary = entry
 		var result := check(zone, supply)
-		rows.append({
-			"number": int(zone.get("number", 0)),
-			"label": zone_label(zone),
-			"valve": int(zone.get("valve", 0)),
-			"kind": String(zone.get("kind", SPRAY)),
-			"kind_name": kind_name(String(zone.get("kind", SPRAY))),
-			"heads": int(result["heads"]),
-			"flow": float(result["flow"]),
-			"area_m2": float(result["area_m2"]),
-			"area_text": DraftUnits.area_words_in(float(result["area_m2"]), units),
-			"precipitation": float(result["precipitation"]),
-			"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
-		})
+		rows.append(
+			{
+				"number": int(zone.get("number", 0)),
+				"label": zone_label(zone),
+				"valve": int(zone.get("valve", 0)),
+				"kind": String(zone.get("kind", SPRAY)),
+				"kind_name": kind_name(String(zone.get("kind", SPRAY))),
+				"heads": int(result["heads"]),
+				"flow": float(result["flow"]),
+				"area_m2": float(result["area_m2"]),
+				"area_text": DraftUnits.area_words_in(float(result["area_m2"]), units),
+				"precipitation": float(result["precipitation"]),
+				"verdict": "will run" if bool(result["ok"]) else String((result["reasons"] as Array)[0]),
+			}
+		)
 	return rows
 
 
@@ -760,12 +808,16 @@ static func schedule(zones: Array, supply: Dictionary, units: DraftUnits = null)
 static func schedule_row_words(row: Dictionary, units: DraftUnits = null) -> String:
 	var kind := String(row.get("kind", SPRAY))
 	var line := "%s   valve %d   %s   %s L/min" % [
-		String(row.get("label", "Zone")), int(row.get("valve", 0)),
-		kind_count_words(kind, int(row.get("heads", 0))), _number(float(row.get("flow", 0.0))),
+		String(row.get("label", "Zone")),
+		int(row.get("valve", 0)),
+		kind_count_words(kind, int(row.get("heads", 0))),
+		_number(float(row.get("flow", 0.0))),
 	]
 	if float(row.get("area_m2", 0.0)) > TOLERANCE:
-		line += "   %s   %s mm/h" % [DraftUnits.row_area_text(row, units),
-			_number(float(row.get("precipitation", 0.0)))]
+		line += "   %s   %s mm/h" % [
+			DraftUnits.row_area_text(row, units),
+			_number(float(row.get("precipitation", 0.0))),
+		]
 	return line + "   " + String(row.get("verdict", ""))
 
 
@@ -774,7 +826,6 @@ static func schedule_lines(zones: Array, supply: Dictionary, units: DraftUnits =
 	for row in schedule(zones, supply, units):
 		out.append(schedule_row_words(row, units))
 	return out
-
 
 # --- the file -----------------------------------------------------------------------
 
@@ -789,27 +840,31 @@ static func to_dict(zones: Array) -> Dictionary:
 		for head_entry in heads_of(zone):
 			var head: Dictionary = head_entry
 			var at: Vector2 = head.get("at", Vector2.ZERO)
-			heads.append({
-				"kind": String(head.get("kind", "")),
-				"at": [at.x, at.y],
-				"heading": float(head.get("heading", 0.0)),
-				"arc": float(head.get("arc", 0.0)),
-			})
+			heads.append(
+				{
+					"kind": String(head.get("kind", "")),
+					"at": [at.x, at.y],
+					"heading": float(head.get("heading", 0.0)),
+					"arc": float(head.get("arc", 0.0)),
+				}
+			)
 		var ring := ring_of(zone)
 		var flat := PackedFloat64Array()
 		for point: Vector2 in ring:
 			flat.append(point.x)
 			flat.append(point.y)
-		written.append({
-			"number": int(zone.get("number", 0)),
-			"valve": int(zone.get("valve", 0)),
-			"kind": String(zone.get("kind", SPRAY)),
-			"area": flat,
-			"heads": heads,
-			"spacing": float(zone.get("spacing", 0.0)),
-			"staggered": bool(zone.get("staggered", false)),
-		})
-	return {"zones": written}
+		written.append(
+			{
+				"number": int(zone.get("number", 0)),
+				"valve": int(zone.get("valve", 0)),
+				"kind": String(zone.get("kind", SPRAY)),
+				"area": flat,
+				"heads": heads,
+				"spacing": float(zone.get("spacing", 0.0)),
+				"staggered": bool(zone.get("staggered", false)),
+			}
+		)
+	return { "zones": written }
 
 
 ## The zones back out of a file, and a record that is not a zone is **dropped rather than
@@ -849,17 +904,17 @@ static func from_dict(data: Dictionary) -> Array[Dictionary]:
 
 static func _head_from(entry: Variant) -> Dictionary:
 	if not (entry is Dictionary):
-		return {}
+		return { }
 	var record: Dictionary = entry
 	var kind := String(record.get("kind", ""))
 	if not is_kind(kind):
-		return {}
+		return { }
 	var pair = record.get("at", null)
 	if not (pair is Array) or (pair as Array).size() < 2:
-		return {}
+		return { }
 	var at: Array = pair
 	if not (at[0] is float or at[0] is int) or not (at[1] is float or at[1] is int):
-		return {}
+		return { }
 	return {
 		"kind": kind,
 		"at": Vector2(float(at[0]), float(at[1])),
@@ -888,7 +943,6 @@ static func _ring_from(flat: Variant) -> PackedVector2Array:
 		out.append(Vector2(numbers[index], numbers[index + 1]))
 		index += 2
 	return out
-
 
 # --- words ---------------------------------------------------------------------------
 

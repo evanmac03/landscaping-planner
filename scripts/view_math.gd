@@ -10,6 +10,7 @@ class_name ViewMath
 ## A perspective camera at `distance` with vertical field of view `fov_deg`
 ## shows a vertical slice of world `2 * distance * tan(fov_deg / 2)` tall.
 
+
 ## Vertical extent of world a perspective camera sees at a given distance.
 static func perspective_view_height(distance: float, fov_deg: float) -> float:
 	return 2.0 * distance * tan(deg_to_rad(fov_deg) * 0.5)
@@ -35,10 +36,7 @@ static func match_fov(ortho_size: float, distance: float) -> float:
 
 ## Clamp a point (world XZ, stored as a Vector2) inside a rectangle.
 static func clamp_to_rect(point: Vector2, rect: Rect2) -> Vector2:
-	return Vector2(
-		clampf(point.x, rect.position.x, rect.end.x),
-		clampf(point.y, rect.position.y, rect.end.y)
-	)
+	return Vector2(clampf(point.x, rect.position.x, rect.end.x), clampf(point.y, rect.position.y, rect.end.y))
 
 
 ## Wrap an angle into (-PI, PI].
@@ -75,6 +73,9 @@ static func zoom_factor_for_spread(spread: float) -> float:
 ## finger - or the cursor - stays where it is, so the focus moves the opposite way to the drag, by one
 ## screen pixel's worth of metres at this zoom.
 static func focus_after_screen_drag(
-	focus: Vector2, delta: Vector2, plan_size: float, viewport_height: float
+	focus: Vector2,
+	delta: Vector2,
+	plan_size: float,
+	viewport_height: float,
 ) -> Vector2:
 	return focus - delta * (plan_size / maxf(viewport_height, 1.0))

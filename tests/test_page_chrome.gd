@@ -33,45 +33,63 @@ func _page() -> Window:
 func test_every_page_title_is_the_same_size() -> void:
 	# The drift this replaces: 15 on the ground page, 16 on the revision and sheet pages, 18 in the
 	# manual, 20 on the field and status pages.
-	assert(PageChromeScript.heading("Food garden").get_theme_font_size("font_size")
-		== PageChromeScript.HEADING_SIZE, "a title is the one title size")
-	assert(PageChromeScript.subheading("Sections").get_theme_font_size("font_size")
-		== PageChromeScript.SUBHEADING_SIZE, "and a section heading is the one section size")
-	assert(PageChromeScript.BODY_SIZE < PageChromeScript.SUBHEADING_SIZE,
-		"a body sentence is smaller than a section heading")
+	assert(
+		PageChromeScript.heading("Food garden").get_theme_font_size("font_size") == PageChromeScript.HEADING_SIZE,
+		"a title is the one title size",
+	)
+	assert(
+		PageChromeScript.subheading("Sections").get_theme_font_size("font_size") == PageChromeScript.SUBHEADING_SIZE,
+		"and a section heading is the one section size",
+	)
+	assert(
+		PageChromeScript.BODY_SIZE < PageChromeScript.SUBHEADING_SIZE,
+		"a body sentence is smaller than a section heading",
+	)
 
 
 func test_the_body_text_a_desk_is_drawn_with_is_one_number() -> void:
 	# `PhoneHud` measures legibility against the size this project draws body text at, and `PageChrome` lays
 	# pages out with it, so the number lives in two files and is held to itself here.
-	assert(PhoneHudScript.DESK_TEXT == PageChromeScript.BODY_SIZE,
+	assert(
+		PhoneHudScript.DESK_TEXT == PageChromeScript.BODY_SIZE,
 		"the body text a desk is drawn with is the one number both files mean: %d and %d"
-			% [PhoneHudScript.DESK_TEXT, PageChromeScript.BODY_SIZE])
+		% [PhoneHudScript.DESK_TEXT, PageChromeScript.BODY_SIZE],
+	)
 
 
 func test_a_button_made_here_does_not_take_the_keyboard_by_itself() -> void:
-	assert(PageChromeScript.button("Close").focus_mode == Control.FOCUS_NONE,
+	assert(
+		PageChromeScript.button("Close").focus_mode == Control.FOCUS_NONE,
 		"the HUD's own rule: a page control is released, and whether it takes focus while the page is"
-		+ " open is decided once by the shared show")
+		+ " open is decided once by the shared show",
+	)
 
 
 func test_a_button_is_named_after_the_words_a_person_reads() -> void:
 	assert(PageChromeScript.node_name_for("Close.") == "CloseButton", "a full stop is not part of a name")
-	assert(PageChromeScript.node_name_for("What just happened...") == "WhatjusthappenedButton",
-		"nor is an ellipsis, and the words run together")
-	assert(PageChromeScript.node_name_for("...") == "Button",
-		"a caption of nothing but marks still leaves a node with a name")
+	assert(
+		PageChromeScript.node_name_for("What just happened...") == "WhatjusthappenedButton",
+		"nor is an ellipsis, and the words run together",
+	)
+	assert(
+		PageChromeScript.node_name_for("...") == "Button",
+		"a caption of nothing but marks still leaves a node with a name",
+	)
 
 
 func test_the_content_root_is_named_the_word_the_page_measurement_looks_for() -> void:
 	# The same literal is written in both files, so this is where the two are held to each other.
-	assert(PageChromeScript.COLUMN_NAME == PageLayoutScript.CONTENT_NODE,
-		"the shared column is the node PageLayout finds a page's contents by")
+	assert(
+		PageChromeScript.COLUMN_NAME == PageLayoutScript.CONTENT_NODE,
+		"the shared column is the node PageLayout finds a page's contents by",
+	)
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.column(page)
 	assert(String(root.name) == PageChromeScript.COLUMN_NAME, str(root.name))
-	assert(PageLayoutScript.content_root(page) == root,
-		"so a page built through this chrome is measurable without saying anything extra")
+	assert(
+		PageLayoutScript.content_root(page) == root,
+		"so a page built through this chrome is measurable without saying anything extra",
+	)
 	_free_pages()
 
 
@@ -81,27 +99,39 @@ func test_the_inset_a_page_asks_for_is_counted_as_room_its_contents_need() -> vo
 	var line: Label = PageChromeScript.heading("A heading")
 	root.add_child(line)
 	var wanted: Vector2 = PageLayoutScript.wanted_size(root)
-	assert(wanted.x == line.get_combined_minimum_size().x + 32.0,
-		"the 16 px either side are part of what the page declares for: %s" % str(wanted))
-	assert(wanted.y == line.get_combined_minimum_size().y + 24.0,
-		"and so is the 12 px above and below: %s" % str(wanted))
+	assert(
+		wanted.x == line.get_combined_minimum_size().x + 32.0,
+		"the 16 px either side are part of what the page declares for: %s" % str(wanted),
+	)
+	assert(
+		wanted.y == line.get_combined_minimum_size().y + 24.0,
+		"and so is the 12 px above and below: %s" % str(wanted),
+	)
 	_free_pages()
 
 
 func test_a_sentence_that_explains_a_page_wraps_and_a_title_does_not() -> void:
-	assert(PageChromeScript.note("A long sentence about what this page is for.").autowrap_mode
-		!= TextServer.AUTOWRAP_OFF, "a note wraps to the page it is on")
-	assert(PageChromeScript.heading("Food garden").autowrap_mode == TextServer.AUTOWRAP_OFF,
-		"a title is short enough to be read as one line, and wrapping it would only make it two")
+	assert(
+		PageChromeScript.note("A long sentence about what this page is for.").autowrap_mode != TextServer.AUTOWRAP_OFF,
+		"a note wraps to the page it is on",
+	)
+	assert(
+		PageChromeScript.heading("Food garden").autowrap_mode == TextServer.AUTOWRAP_OFF,
+		"a title is short enough to be read as one line, and wrapping it would only make it two",
+	)
 
 
 func test_a_plain_line_a_page_says_is_a_body_sentence() -> void:
 	# A page's count line and its summary line are its own words rather than one of the two dimmed kinds,
 	# and they are still body sentences: the size comes from here rather than from the page.
-	assert(PageChromeScript.text("3 answers").get_theme_font_size("font_size") == PageChromeScript.BODY_SIZE,
-		"a plain line is the one body size")
-	assert(PageChromeScript.text("A sentence a page says in its own right.").autowrap_mode
-		!= TextServer.AUTOWRAP_OFF, "and it wraps like the other sentences a page says")
+	assert(
+		PageChromeScript.text("3 answers").get_theme_font_size("font_size") == PageChromeScript.BODY_SIZE,
+		"a plain line is the one body size",
+	)
+	assert(
+		PageChromeScript.text("A sentence a page says in its own right.").autowrap_mode != TextServer.AUTOWRAP_OFF,
+		"and it wraps like the other sentences a page says",
+	)
 
 
 func test_a_line_that_wraps_asks_for_the_width_it_wraps_into() -> void:
@@ -109,14 +139,22 @@ func test_a_line_that_wraps_asks_for_the_width_it_wraps_into() -> void:
 	# `Label`'s minimum width is its longest *word*. The billing page's note beside its invoice button
 	# wrapped to fifty lines and stood that page 1,217 px tall; the audit caught it, and no page's own
 	# test could have, because every path and every caption on the page was still exactly where it was.
-	assert(PageChromeScript.text("A sentence a page says.").size_flags_horizontal & Control.SIZE_EXPAND != 0,
-		"a line that wraps takes the spare width of the row it is in")
-	assert(PageChromeScript.note("What this page is for.").size_flags_horizontal & Control.SIZE_EXPAND != 0,
-		"and so does every other sentence a page says: a note, a hint and a status line")
-	assert(PageChromeScript.status("Nothing has been billed yet.").size_flags_horizontal
-		& Control.SIZE_EXPAND != 0, "the status line included")
-	assert(PageChromeScript.text("a caption", false).size_flags_horizontal & Control.SIZE_EXPAND == 0,
-		"a line that does not wrap keeps its own width, which is what keeps a row open")
+	assert(
+		PageChromeScript.text("A sentence a page says.").size_flags_horizontal & Control.SIZE_EXPAND != 0,
+		"a line that wraps takes the spare width of the row it is in",
+	)
+	assert(
+		PageChromeScript.note("What this page is for.").size_flags_horizontal & Control.SIZE_EXPAND != 0,
+		"and so does every other sentence a page says: a note, a hint and a status line",
+	)
+	assert(
+		PageChromeScript.status("Nothing has been billed yet.").size_flags_horizontal & Control.SIZE_EXPAND != 0,
+		"the status line included",
+	)
+	assert(
+		PageChromeScript.text("a caption", false).size_flags_horizontal & Control.SIZE_EXPAND == 0,
+		"a line that does not wrap keeps its own width, which is what keeps a row open",
+	)
 
 
 func test_a_row_is_named_after_the_control_it_carries() -> void:
@@ -139,24 +177,31 @@ func test_a_page_bigger_than_the_screen_is_brought_down_to_the_screen() -> void:
 
 func test_a_page_that_already_fits_keeps_the_floor_it_asked_for() -> void:
 	var floor: Vector2i = PageChromeScript.clamped_minimum(Vector2i(560, 640), Vector2i(1366, 768))
-	assert(floor == Vector2i(560, 640),
-		"a screen with room to spare must not make a page smaller than it meant to be: %s" % str(floor))
+	assert(
+		floor == Vector2i(560, 640),
+		"a screen with room to spare must not make a page smaller than it meant to be: %s" % str(floor),
+	)
 
 
 func test_a_display_that_cannot_be_asked_leaves_the_page_its_own_floor() -> void:
-	assert(PageChromeScript.clamped_minimum(Vector2i(1180, 850), Vector2i.ZERO)
-		== Vector2i(1180, 850), "a display that answers nothing is not a display with no room")
-	assert(PageChromeScript.clamped_minimum(Vector2i(1180, 850), Vector2i(-1, -1))
-		== Vector2i(1180, 850), "and a nonsense answer is refused rather than obeyed")
+	assert(
+		PageChromeScript.clamped_minimum(Vector2i(1180, 850), Vector2i.ZERO) == Vector2i(1180, 850),
+		"a display that answers nothing is not a display with no room",
+	)
+	assert(
+		PageChromeScript.clamped_minimum(Vector2i(1180, 850), Vector2i(-1, -1)) == Vector2i(1180, 850),
+		"and a nonsense answer is refused rather than obeyed",
+	)
 
 
 func test_the_room_is_the_viewport_the_page_lands_in() -> void:
 	var page: Window = _page()
 	add_child(page)
 	var room: Vector2i = PageChromeScript.room_for(page)
-	assert(room == Vector2i(get_viewport().get_visible_rect().size),
-		"a page lands in the game window a person is looking at, not on the monitor behind it: %s"
-			% str(room))
+	assert(
+		room == Vector2i(get_viewport().get_visible_rect().size),
+		"a page lands in the game window a person is looking at, not on the monitor behind it: %s" % str(room),
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -167,20 +212,30 @@ func test_a_page_may_be_taller_than_its_screen_and_scroll_its_length_but_never_i
 	# fault a person can see and making it scrollable would only hide it from the measurement.
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.scrolling_column(page, 6)
-	assert(String(root.name) == PageChromeScript.COLUMN_NAME,
-		"the column keeps the one name the page measurement goes by: %s" % String(root.name))
+	assert(
+		String(root.name) == PageChromeScript.COLUMN_NAME,
+		"the column keeps the one name the page measurement goes by: %s" % String(root.name),
+	)
 	var scroll: ScrollContainer = PageLayoutScript.scroll_of(root)
 	assert(scroll != null, "and it sits inside a wrapper the measurement can see")
 	assert(String(scroll.name) == PageChromeScript.SCROLL_NAME, str(scroll.name))
-	assert(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
-		"a page never scrolls sideways, so a row too wide is still caught")
-	assert(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
-		"and its length scrolls only when there is more of it than the page shows")
-	assert(scroll.follow_focus,
+	assert(
+		scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+		"a page never scrolls sideways, so a row too wide is still caught",
+	)
+	assert(
+		scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"and its length scrolls only when there is more of it than the page shows",
+	)
+	assert(
+		scroll.follow_focus,
 		"a button below the fold comes into view when Tab reaches it, or the keyboard reaches a control"
-		+ " nobody can see")
-	assert(PageLayoutScript.content_root(page) == root,
-		"and the page is measured like any other, one level down from where it used to sit")
+		+ " nobody can see",
+	)
+	assert(
+		PageLayoutScript.content_root(page) == root,
+		"and the page is measured like any other, one level down from where it used to sit",
+	)
 	_free_pages()
 
 
@@ -191,15 +246,18 @@ func test_the_inset_a_scrolling_page_asks_for_is_counted_off_the_wrapper_that_ca
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.scrolling_column(page, 6, Vector2(16.0, 12.0))
 	var padding: Vector2 = PageLayoutScript.padding_of(root, PageLayoutScript.scroll_of(root))
-	assert(padding == Vector2(32.0, 24.0),
-		"the 16 px either side and the 12 px above and below are part of what the page declares for: %s"
-			% str(padding))
+	assert(
+		padding == Vector2(32.0, 24.0),
+		"the 16 px either side and the 12 px above and below are part of what the page declares for: %s" % str(padding),
+	)
 	var line: Label = PageChromeScript.heading("A heading")
 	root.add_child(line)
 	var wanted: Vector2 = PageLayoutScript.wanted_contents(root) + padding
-	assert(wanted.y == line.get_combined_minimum_size().y + 24.0,
+	assert(
+		wanted.y == line.get_combined_minimum_size().y + 24.0,
 		"and they are added to what the contents want, so a scrolling page declares room for the words"
-		+ " and the space around them: %s" % str(wanted))
+		+ " and the space around them: %s" % str(wanted),
+	)
 	_free_pages()
 
 
@@ -219,10 +277,11 @@ func test_a_phones_page_answers_at_a_thumbs_size() -> void:
 
 	var measured: int = PageChromeScript.size_buttons_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
 	assert(measured == 1, "the one button on the page was measured: %d" % measured)
-	assert(close.custom_minimum_size.y > 29.0,
-		"and it is taller than the row a desk was drawn with: %s" % str(close.custom_minimum_size))
-	assert(close.get_theme_font_size("font_size") > 12,
-		"with words bigger than the twelve-pixel text a desk gets")
+	assert(
+		close.custom_minimum_size.y > 29.0,
+		"and it is taller than the row a desk was drawn with: %s" % str(close.custom_minimum_size),
+	)
+	assert(close.get_theme_font_size("font_size") > 12, "with words bigger than the twelve-pixel text a desk gets")
 	_free_pages()
 
 
@@ -253,9 +312,10 @@ func test_the_title_bar_is_taken_out_of_the_room_a_page_may_use() -> void:
 	var room: Vector2i = PageChromeScript.room_for(page)
 	var bar: int = PageChromeScript.chrome_above(page)
 	assert(bar > 0, "a page with a title bar has one to leave room for: %d" % bar)
-	assert(PageChromeScript.content_room(page) == Vector2i(room.x, room.y - bar),
-		"and the room its contents may use is the room less that bar: %s"
-			% str(PageChromeScript.content_room(page)))
+	assert(
+		PageChromeScript.content_room(page) == Vector2i(room.x, room.y - bar),
+		"and the room its contents may use is the room less that bar: %s" % str(PageChromeScript.content_room(page)),
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -267,8 +327,10 @@ func test_a_page_with_no_title_bar_is_not_made_shorter_for_one() -> void:
 	page.borderless = true
 	add_child(page)
 	assert(PageChromeScript.chrome_above(page) == 0, "a borderless page draws no bar")
-	assert(PageChromeScript.content_room(page) == PageChromeScript.room_for(page),
-		"so nothing is taken out of the room it lands in")
+	assert(
+		PageChromeScript.content_room(page) == PageChromeScript.room_for(page),
+		"so nothing is taken out of the room it lands in",
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -278,16 +340,21 @@ func test_a_page_with_no_title_bar_is_not_made_shorter_for_one() -> void:
 ## The cutout is a fact about a display, so only a phone can exercise it; what is held down here is that a
 ## desk is left exactly as it was, and that a room with no top is not made negative.
 func test_a_desk_leaves_no_room_for_a_camera_cutout() -> void:
-	assert(PhoneHudScript.cutout_top(Vector2i(1185, 2567)) == 0,
-		"a desk is not answered with a finger, so nothing hangs into the top of its screen")
-	assert(PhoneHudScript.cutout_top(Vector2i(100, 0)) == 0,
-		"and a room with no height has no top for anything to hang into")
+	assert(
+		PhoneHudScript.cutout_top(Vector2i(1185, 2567)) == 0,
+		"a desk is not answered with a finger, so nothing hangs into the top of its screen",
+	)
+	assert(
+		PhoneHudScript.cutout_top(Vector2i(100, 0)) == 0,
+		"and a room with no height has no top for anything to hang into",
+	)
 	var page: Window = _page()
 	add_child(page)
 	var room: Vector2i = PageChromeScript.room_for(page)
-	assert(PageChromeScript.content_room(page)
-			== Vector2i(room.x, room.y - PageChromeScript.chrome_above(page)),
-		"so the room a page's contents may use is the room less its title bar and nothing else")
+	assert(
+		PageChromeScript.content_room(page) == Vector2i(room.x, room.y - PageChromeScript.chrome_above(page)),
+		"so the room a page's contents may use is the room less its title bar and nothing else",
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -301,10 +368,11 @@ func test_a_page_as_tall_as_the_screen_still_keeps_its_title_bar() -> void:
 	add_child(page)
 	var room: Vector2i = PageChromeScript.room_for(page)
 	var bar: int = PageChromeScript.chrome_above(page)
-	var floor: Vector2i = PageChromeScript.clamped_minimum(
-		Vector2i(880, room.y), PageChromeScript.content_room(page))
-	assert(floor.y == room.y - bar,
-		"a floor as tall as the canvas is brought below the page's own title bar: %s" % str(floor))
+	var floor: Vector2i = PageChromeScript.clamped_minimum(Vector2i(880, room.y), PageChromeScript.content_room(page))
+	assert(
+		floor.y == room.y - bar,
+		"a floor as tall as the canvas is brought below the page's own title bar: %s" % str(floor),
+	)
 	assert(floor.y + bar <= room.y, "so the page and its bar together fit the canvas")
 	remove_child(page)
 	_free_pages()
@@ -321,14 +389,11 @@ func test_a_page_put_back_again_is_given_the_size_it_declares_rather_than_the_cl
 	_pages.append(page)
 	add_child(page)
 	var declared: Vector2i = PageLayoutScript.declared_size(page)
-	assert(
-		declared == StartWindowScript.SIZE,
-		"the page's own answer is the size it declares: %s" % str(declared)
-	)
+	assert(declared == StartWindowScript.SIZE, "the page's own answer is the size it declares: %s" % str(declared))
 	var floor: Vector2i = PageChromeScript.placed_again(page)
 	assert(
 		floor == PageChromeScript.clamped_minimum(declared, PageChromeScript.content_room(page)),
-		"put back, the page is given the size it declares and not the clamp it was left: %s" % str(floor)
+		"put back, the page is given the size it declares and not the clamp it was left: %s" % str(floor),
 	)
 	assert(page.min_size == floor, "and the floor it stands on now is the one it was given")
 	remove_child(page)
@@ -351,7 +416,7 @@ func test_a_page_put_back_stands_where_a_page_opened_stands() -> void:
 	assert(
 		put_back.position == opened.position,
 		"a page put back stands where a page opened stands: %s against %s"
-			% [str(put_back.position), str(opened.position)]
+		% [str(put_back.position), str(opened.position)],
 	)
 	assert(put_back.size == opened.size, "and at the size the other one was given")
 	remove_child(opened)
@@ -363,7 +428,7 @@ func test_putting_no_page_back_answers_nothing() -> void:
 	# The list a change of shape is walked over holds the front door before the HUD has built it.
 	assert(
 		PageChromeScript.placed_again(null) == Vector2i.ZERO,
-		"a page that is not there is answered with nothing rather than placed"
+		"a page that is not there is answered with nothing rather than placed",
 	)
 
 
@@ -381,17 +446,22 @@ func test_a_phones_page_has_its_own_words_made_legible_and_keeps_their_shape() -
 	root.add_child(body)
 
 	var measured: int = PageChromeScript.size_the_words_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
-	assert(measured == 3,
-		"the page's two sentences and its own title bar were measured: %d" % measured)
+	assert(measured == 3, "the page's two sentences and its own title bar were measured: %d" % measured)
 	var legible: int = PhoneHudScript.font_size(PHONE_SCALE, PHONE_DPI)
-	assert(body.get_theme_font_size("font_size") == legible,
-		"the body sentence is drawn at the size a TEXT_MM capital comes to: %d" % legible)
-	assert(title.get_theme_font_size("font_size") > legible,
+	assert(
+		body.get_theme_font_size("font_size") == legible,
+		"the body sentence is drawn at the size a TEXT_MM capital comes to: %d" % legible,
+	)
+	assert(
+		title.get_theme_font_size("font_size") > legible,
 		"and a line the page drew bigger is still the bigger of the two: %d against %d"
-			% [title.get_theme_font_size("font_size"), legible])
-	assert(page.get_theme_font_size(&"title_font_size", &"Window") >= legible,
+		% [title.get_theme_font_size("font_size"), legible],
+	)
+	assert(
+		page.get_theme_font_size(&"title_font_size", &"Window") >= legible,
 		"and the page's own title bar is grown with them, because a title is words too: %d"
-			% page.get_theme_font_size(&"title_font_size", &"Window"))
+		% page.get_theme_font_size(&"title_font_size", &"Window"),
+	)
 	_free_pages()
 
 
@@ -407,9 +477,11 @@ func test_a_page_opened_again_on_a_phone_is_grown_once() -> void:
 	PageChromeScript.size_the_words_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
 	var once: int = title.get_theme_font_size("font_size")
 	PageChromeScript.size_the_words_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
-	assert(title.get_theme_font_size("font_size") == once,
+	assert(
+		title.get_theme_font_size("font_size") == once,
 		"a page whose words have been grown is left at the size they were grown to: %d, was %d"
-			% [title.get_theme_font_size("font_size"), once])
+		% [title.get_theme_font_size("font_size"), once],
+	)
 	_free_pages()
 
 
@@ -423,9 +495,11 @@ func test_a_computers_page_keeps_the_words_the_page_wrote() -> void:
 	TouchInputScript.force(TouchInputScript.Answer.MOUSE)
 
 	PageChromeScript.size_for_a_finger(page)
-	assert(body.get_theme_font_size("font_size") == PageChromeScript.BODY_SIZE,
+	assert(
+		body.get_theme_font_size("font_size") == PageChromeScript.BODY_SIZE,
 		"a body line on a computer is drawn at the size the page gave it: %d, not %d"
-			% [body.get_theme_font_size("font_size"), PageChromeScript.BODY_SIZE])
+		% [body.get_theme_font_size("font_size"), PageChromeScript.BODY_SIZE],
+	)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	_free_pages()
 
@@ -449,8 +523,10 @@ func test_a_page_too_tall_for_the_room_it_landed_in_is_given_a_scroll() -> void:
 	var wrapped: ScrollContainer = PageLayoutScript.scroll_of(root)
 	assert(wrapped != null, "the page's own bottom can be scrolled to rather than cut off")
 	assert(wrapped.get_parent() == page, "the wrapper stands where the column stood, in the page")
-	assert(wrapped.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED,
-		"and it really scrolls the length rather than merely holding it")
+	assert(
+		wrapped.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED,
+		"and it really scrolls the length rather than merely holding it",
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -486,8 +562,10 @@ func test_a_page_that_already_scrolls_is_not_wrapped_a_second_time() -> void:
 
 	PageChromeScript.show_centred(page)
 	var wrappers: Array[Node] = page.find_children("*", "ScrollContainer", true, false)
-	assert(wrappers.size() == 1,
-		"the page keeps the one scroll it built rather than gaining a second: %d" % wrappers.size())
+	assert(
+		wrappers.size() == 1,
+		"the page keeps the one scroll it built rather than gaining a second: %d" % wrappers.size(),
+	)
 	remove_child(page)
 	_free_pages()
 
@@ -509,9 +587,11 @@ func test_a_page_too_tall_on_a_phone_is_given_the_room() -> void:
 
 	var landed_at: Vector2i = PageChromeScript.show_centred(page)
 	assert(landed_at.x > 400, "the page is given more than the width it asked for: %d" % landed_at.x)
-	assert(landed_at == PageChromeScript.content_room(page),
-		"and it is the whole room, both ways: %s against %s" % [
-			str(landed_at), str(PageChromeScript.content_room(page))])
+	assert(
+		landed_at == PageChromeScript.content_room(page),
+		"and it is the whole room, both ways: %s against %s"
+		% [str(landed_at), str(PageChromeScript.content_room(page))],
+	)
 	# Four thousand pixels of rows cannot be made to fit by any room, so the second cure follows the first
 	# rather than replacing it.
 	assert(PageLayoutScript.scroll_of(root) != null, "and what the room cannot hold still scrolls")
@@ -577,13 +657,13 @@ func test_the_front_door_uses_the_room_on_a_phone() -> void:
 	add_child(door)
 
 	var landed_at: Vector2i = PageChromeScript.show_centred(door)
-	assert(landed_at.x > StartWindowScript.SIZE.x,
-		"the door is wider than the 520 it declares: %d" % landed_at.x)
-	assert(landed_at.y >= StartWindowScript.SIZE.y,
-		"and as tall as it declared, at least: %d" % landed_at.y)
-	assert(landed_at == PageChromeScript.content_room(door),
-		"because it is given the whole room it landed in: %s against %s" % [
-			str(landed_at), str(PageChromeScript.content_room(door))])
+	assert(landed_at.x > StartWindowScript.SIZE.x, "the door is wider than the 520 it declares: %d" % landed_at.x)
+	assert(landed_at.y >= StartWindowScript.SIZE.y, "and as tall as it declared, at least: %d" % landed_at.y)
+	assert(
+		landed_at == PageChromeScript.content_room(door),
+		"because it is given the whole room it landed in: %s against %s"
+		% [str(landed_at), str(PageChromeScript.content_room(door))],
+	)
 	remove_child(door)
 	_free_pages()
 	PhoneHudScript.force_density(0.0)
@@ -602,13 +682,17 @@ func test_the_front_door_on_a_computer_is_the_size_it_declares() -> void:
 
 	var landed_at: Vector2i = PageChromeScript.show_centred(door)
 	var room: Vector2i = PageChromeScript.content_room(door)
-	assert(landed_at == PageChromeScript.clamped_minimum(StartWindowScript.SIZE, room),
-		"a desk's door is the size it declares, or the room if the room is smaller: %s" % str(landed_at))
+	assert(
+		landed_at == PageChromeScript.clamped_minimum(StartWindowScript.SIZE, room),
+		"a desk's door is the size it declares, or the room if the room is smaller: %s" % str(landed_at),
+	)
 	assert(landed_at.x == StartWindowScript.SIZE.x, "which is its own 520 across: %d" % landed_at.x)
 	remove_child(door)
 	_free_pages()
 	PhoneHudScript.force_density(0.0)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+
+
 func test_a_phones_page_has_its_menus_made_legible_and_its_fields_left_alone() -> void:
 	var page: Window = _page()
 	var root: VBoxContainer = PageChromeScript.column(page)
@@ -619,11 +703,14 @@ func test_a_phones_page_has_its_menus_made_legible_and_its_fields_left_alone() -
 
 	var measured: int = PageChromeScript.size_the_words_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
 	assert(measured == 2, "the menu the picker opens and the title bar were measured: %d" % measured)
-	assert(picker.get_popup().get_theme_font_size("font_size") > 12,
-		"so the menu opens at a size a thumb can read: %d"
-			% picker.get_popup().get_theme_font_size("font_size"))
-	assert(not field.has_theme_font_size_override("font_size"),
-		"while a field inside the page keeps the size the page's own layout gave it")
+	assert(
+		picker.get_popup().get_theme_font_size("font_size") > 12,
+		"so the menu opens at a size a thumb can read: %d" % picker.get_popup().get_theme_font_size("font_size"),
+	)
+	assert(
+		not field.has_theme_font_size_override("font_size"),
+		"while a field inside the page keeps the size the page's own layout gave it",
+	)
 	_free_pages()
 
 
@@ -639,12 +726,18 @@ func test_a_phones_page_keeps_a_margin_from_the_sides_of_the_screen() -> void:
 
 	var margin: int = PhoneHudScript.edge_margin(PHONE_SCALE, PHONE_DPI)
 	assert(margin > 0, "half a thumb is a margin at all: %d" % margin)
-	assert(PageChromeScript.inset_the_contents_for_a_finger(page, PHONE_SCALE, PHONE_DPI) == 1,
-		"so the page's contents were inset")
-	assert(root.offset_left == float(margin) and root.offset_right == float(-margin),
-		"held off both edges: %s" % str([root.offset_left, root.offset_right]))
-	assert(root.offset_top == 0.0 and root.offset_bottom == 0.0,
-		"and off neither end, because a page made taller loses its own last row")
+	assert(
+		PageChromeScript.inset_the_contents_for_a_finger(page, PHONE_SCALE, PHONE_DPI) == 1,
+		"so the page's contents were inset",
+	)
+	assert(
+		root.offset_left == float(margin) and root.offset_right == float(-margin),
+		"held off both edges: %s" % str([root.offset_left, root.offset_right]),
+	)
+	assert(
+		root.offset_top == 0.0 and root.offset_bottom == 0.0,
+		"and off neither end, because a page made taller loses its own last row",
+	)
 	# Fitting twice is fitting once: a page shown again must not walk its contents inwards a second time.
 	PageChromeScript.inset_the_contents_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
 	assert(root.offset_left == float(margin), "a page inset twice is inset once: %f" % root.offset_left)
@@ -660,12 +753,18 @@ func test_a_phones_margin_is_added_to_the_padding_the_page_chose() -> void:
 	var margin: int = PhoneHudScript.edge_margin(PHONE_SCALE, PHONE_DPI)
 
 	PageChromeScript.inset_the_contents_for_a_finger(page, PHONE_SCALE, PHONE_DPI)
-	assert(root.offset_left == 16.0 + float(margin),
-		"the page's own left padding and the margin: %f" % root.offset_left)
-	assert(root.offset_right == -16.0 - float(margin),
-		"and its own right padding and the margin: %f" % root.offset_right)
-	assert(root.offset_top == 12.0 and root.offset_bottom == -12.0,
-		"while the padding it chose down its length is left exactly as it was")
+	assert(
+		root.offset_left == 16.0 + float(margin),
+		"the page's own left padding and the margin: %f" % root.offset_left,
+	)
+	assert(
+		root.offset_right == -16.0 - float(margin),
+		"and its own right padding and the margin: %f" % root.offset_right,
+	)
+	assert(
+		root.offset_top == 12.0 and root.offset_bottom == -12.0,
+		"while the padding it chose down its length is left exactly as it was",
+	)
 	_free_pages()
 
 
@@ -678,7 +777,9 @@ func test_a_computers_page_is_not_inset_for_a_finger() -> void:
 	root.add_child(PageChromeScript.note("A sentence."))
 
 	assert(PageChromeScript.size_for_a_finger(page) == 0, "nothing is fitted for a mouse")
-	assert(root.offset_left == 0.0 and root.offset_right == 0.0,
-		"and the page's contents keep the whole page: %s" % str([root.offset_left, root.offset_right]))
+	assert(
+		root.offset_left == 0.0 and root.offset_right == 0.0,
+		"and the page's contents keep the whole page: %s" % str([root.offset_left, root.offset_right]),
+	)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	_free_pages()

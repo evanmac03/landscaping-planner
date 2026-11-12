@@ -16,7 +16,7 @@ func _draft_entry(id: String) -> Dictionary:
 	for entry: Dictionary in HudScript.items_for("Draft"):
 		if String(entry.get("id", "")) == id:
 			return entry
-	return {}
+	return { }
 
 
 func test_the_draft_menu_offers_the_snapping_settings() -> void:
@@ -53,7 +53,9 @@ func test_a_hud_with_no_drawing_offers_a_page_that_says_so() -> void:
 	hud._build_snap_window()
 	hud._fill_snap_window()
 	# The HUD built off-tree holds no drafting controller, so the page honestly has nothing to snap.
-	assert(hud._snap_window.status_text().contains("nothing here to snap"),
-		"it says so: %s" % hud._snap_window.status_text())
+	assert(
+		hud._snap_window.status_text().contains("nothing here to snap"),
+		"it says so: %s" % hud._snap_window.status_text(),
+	)
 	assert(hud._snap_window.master_button().disabled, "and there is nothing it could switch")
 	hud.free()

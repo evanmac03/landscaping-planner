@@ -8,7 +8,6 @@ extends Node
 
 const TransportScript := preload("res://scripts/biz/sync_transport.gd")
 
-
 # --- the base that does nothing -----------------------------------------------------------------
 
 
@@ -24,7 +23,7 @@ func test_a_base_transport_has_no_name_and_nothing_configured() -> void:
 func test_every_call_the_base_cannot_make_says_which_one() -> void:
 	var base: BizSyncTransport = TransportScript.new()
 	assert(base.changes()["reason"].contains("changes"))
-	assert(base.push("invoice", "INV-1", "J-1", {}, 0)["reason"].contains("push"))
+	assert(base.push("invoice", "INV-1", "J-1", { }, 0)["reason"].contains("push"))
 	assert(base.attachment("a.jpg", PackedByteArray())["reason"].contains("attachments"))
 	assert(base.health()["reason"].contains("health"))
 	assert(base.whoami()["reason"].contains("whoami"))
@@ -32,7 +31,7 @@ func test_every_call_the_base_cannot_make_says_which_one() -> void:
 
 func test_each_refusal_the_base_gives_is_not_a_retry() -> void:
 	var base: BizSyncTransport = TransportScript.new()
-	for answer in [base.changes(), base.push("invoice", "INV-1", "J-1", {}, 0), base.health()]:
+	for answer in [base.changes(), base.push("invoice", "INV-1", "J-1", { }, 0), base.health()]:
 		assert(not bool(answer["ok"]))
 		assert(int(answer["status"]) == 0)
 		assert(not bool(answer["retry"]))
@@ -40,7 +39,7 @@ func test_each_refusal_the_base_gives_is_not_a_retry() -> void:
 
 func test_configuring_a_base_transport_is_refused_in_words() -> void:
 	var base: BizSyncTransport = TransportScript.new()
-	assert(not base.configure({"anything": "at all"})["ok"])
+	assert(not base.configure({ "anything": "at all" })["ok"])
 	assert(base.describe().contains("no transport"))
 
 
@@ -48,7 +47,6 @@ func test_a_capability_nobody_has_is_not_had() -> void:
 	var base: BizSyncTransport = TransportScript.new()
 	assert(not base.has_capability(TransportScript.PUSH))
 	assert(not base.has_capability("teleport"))
-
 
 # --- the one retry rule -------------------------------------------------------------------------
 
@@ -69,7 +67,6 @@ func test_a_refusal_is_only_a_retry_when_it_says_so() -> void:
 	assert(bool(BizSyncTransport.refused("busy", true)["retry"]))
 	assert(not bool(BizSyncTransport.refused("no")["ok"]))
 
-
 # --- why a status was not a success -------------------------------------------------------------
 
 
@@ -87,9 +84,11 @@ func test_a_server_error_reads_as_try_again_and_another_as_a_refusal() -> void:
 
 
 func test_what_the_service_said_is_carried_into_the_reason() -> void:
-	assert(BizSyncTransport.status_reason(422, "the service", "the field 'amount' is not a number")
-		.contains("the field 'amount' is not a number"))
-
+	assert(
+		BizSyncTransport
+		.status_reason(422, "the service", "the field 'amount' is not a number")
+		.contains("the field 'amount' is not a number")
+	)
 
 # --- the two tables the module agrees on --------------------------------------------------------
 

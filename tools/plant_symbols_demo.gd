@@ -35,18 +35,17 @@ func _ready() -> void:
 	for index in picked.size():
 		var species: PlantSpecies = picked[index]
 		var row: float = float(index) - float(picked.size() - 1) * 0.5
-		var planted: Dictionary = PlaceScript.place(
-			catalogue, species.id, yard, Vector3(row * SPACING, 0.0, 0.0)
-		)
+		var planted: Dictionary = PlaceScript.place(catalogue, species.id, yard, Vector3(row * SPACING, 0.0, 0.0))
 		if not bool(planted["ok"]):
 			print("%s was refused: %s" % [species.id, String(planted["reason"])])
 			continue
 		var node: Node3D = planted["node"]
 		var symbol: StringName = PlanStyleScript.symbol_of(node)
 		var size: Vector2 = PlanStyleScript.footprint_size(node)
-		print("%-12s %-14s %-5.2f x %-5.2f  %s" % [
-			String(symbol), species.category_name(), size.x, size.y, species.display_name()
-		])
+		print(
+			"%-12s %-14s %-5.2f x %-5.2f  %s"
+			% [String(symbol), species.category_name(), size.x, size.y, species.display_name()]
+		)
 	var canvas: PlanCanvas = PlanCanvasScript.new()
 	canvas.name = "Plan"
 	add_child(canvas)
@@ -71,9 +70,7 @@ func _picked(catalogue: PlantCatalogue) -> Array[PlantSpecies]:
 	return out
 
 
-func _take(
-	into: Array[PlantSpecies], catalogue: PlantCatalogue, category: int, conifer: bool
-) -> void:
+func _take(into: Array[PlantSpecies], catalogue: PlantCatalogue, category: int, conifer: bool) -> void:
 	for species: PlantSpecies in catalogue.all():
 		if species.category != category:
 			continue
@@ -82,6 +79,7 @@ func _take(
 				continue
 		into.append(species)
 		return
-	print("the list has no %s plant for %s" % [
-		String(SpeciesScript.CATEGORY_NAMES.get(category, "?")), "a conifer" if conifer else "not a conifer"
-	])
+	print(
+		"the list has no %s plant for %s"
+		% [String(SpeciesScript.CATEGORY_NAMES.get(category, "?")), "a conifer" if conifer else "not a conifer"]
+	)

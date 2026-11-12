@@ -83,7 +83,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.site_items():
 		if String(entry.get("id", "")) == "site.season.window":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no season entry in the Site menu)"

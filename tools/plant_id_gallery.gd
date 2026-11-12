@@ -93,9 +93,7 @@ func _ready() -> void:
 ## Returns whether the name that came back is a plant the list has - the figure this tool exists for.
 ## The photograph goes in through `keep_photo`, the same door a person's chosen file goes through, so
 ## nothing here bypasses the page.
-func _read_one(
-	page: FieldCaptureWindow, resolver: PlantIDResolver, catalogue: PlantCatalogue, path: String
-) -> bool:
+func _read_one(page: FieldCaptureWindow, resolver: PlantIDResolver, catalogue: PlantCatalogue, path: String) -> bool:
 	print("--- %s ---" % path.get_file())
 	var kept: Dictionary = page.keep_photo(path)
 	if not bool(kept["ok"]):
@@ -106,8 +104,13 @@ func _read_one(
 		print("  the kept photograph will not read back as pixels, so the reading stops here")
 		return false
 	var encoded: Dictionary = LlmScript.encode_image(shot)
-	print("  read back as pixels: ", shot.get_size(), ", encoded to ", String(encoded["base64"]).length(),
-		" characters of base64")
+	print(
+		"  read back as pixels: ",
+		shot.get_size(),
+		", encoded to ",
+		String(encoded["base64"]).length(),
+		" characters of base64",
+	)
 
 	var started: int = Time.get_ticks_msec()
 	page.identify_photo()
@@ -119,21 +122,36 @@ func _read_one(
 		print("  the reading did not arrive: ", answer["reason"])
 		print("  the page says: ", page.photo_hint())
 		return false
-	print("  the model says: ", answer["raw_taxon"], " at ", answer["confidence"],
-		"  (", answer["model_id"], " ", answer["model_version"], ")")
+	print(
+		"  the model says: ",
+		answer["raw_taxon"],
+		" at ",
+		answer["confidence"],
+		"  (",
+		answer["model_id"],
+		" ",
+		answer["model_version"],
+		")",
+	)
 	print("  in its own words: ", answer["answer"])
 
-	var verdict: Dictionary = resolver.resolve_identification(
-		String(answer["raw_taxon"]), float(answer["confidence"])
-	)
+	var verdict: Dictionary = resolver.resolve_identification(String(answer["raw_taxon"]), float(answer["confidence"]))
 	var species: PlantSpecies = verdict["species"]
 	print("  the list calls that: ", verdict["status"], " (", verdict["match_type"], ")")
 	if species != null:
 		print("  which is: ", species.common_name, " / ", species.botanical_name, "  id: ", species.id)
 	for offered: Variant in (answer["candidates"] as Array):
 		var candidate: Dictionary = offered
-		print("    offered: ", candidate["raw_taxon"], " at ", candidate["confidence"],
-			"  -> species: ", candidate["species_id"], "  because: ", candidate["reason"])
+		print(
+			"    offered: ",
+			candidate["raw_taxon"],
+			" at ",
+			candidate["confidence"],
+			"  -> species: ",
+			candidate["species_id"],
+			"  because: ",
+			candidate["reason"],
+		)
 
 	var made: Dictionary = page.capture()
 	print("  the record the page would file: species ", made["species_id"], " at ", made["confidence"])

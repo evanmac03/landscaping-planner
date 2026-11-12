@@ -97,7 +97,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.plant_items():
 		if String(entry.get("id", "")) == "plant.sow":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no sowing entry in the Plant menu)"

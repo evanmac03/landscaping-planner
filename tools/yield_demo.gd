@@ -60,8 +60,7 @@ func _ready() -> void:
 	page.bind(hud.plant_list())
 	hud.open_yield_window()
 	await _settle()
-	print("the window is up: ", hud.is_yield_window_open(), ", ", page.row_count(), " crops, ",
-		page.feed_line())
+	print("the window is up: ", hud.is_yield_window_open(), ", ", page.row_count(), " crops, ", page.feed_line())
 
 	print("--- handing the count over to a nursery order ---")
 	var order_button: Button = page.get_node_or_null(^"Column/Buttons/OrderButton")
@@ -89,7 +88,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.plant_items():
 		if String(entry.get("id", "")) == "plant.yield":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no yield entry in the Plant menu)"

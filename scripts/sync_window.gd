@@ -61,7 +61,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -156,7 +155,6 @@ func bind(engine: SyncScript) -> void:
 	_build_settings()
 	refresh()
 
-
 # --- what it shows ------------------------------------------------------------------------------
 
 
@@ -239,14 +237,13 @@ func selected_conflict() -> int:
 	var picked: PackedInt32Array = _conflicts.get_selected_items()
 	return picked[0] if not picked.is_empty() else -1
 
-
 # --- what it does -------------------------------------------------------------------------------
 
 
 ## Run a sync now and say what it did. `{ok, reason, ...}` is the engine's own answer.
 func run_now() -> Dictionary:
 	if sync == null:
-		return {"ok": false, "reason": "there is no sync here"}
+		return { "ok": false, "reason": "there is no sync here" }
 	var out: Dictionary = sync.run()
 	refresh()
 	say(_run_words(out))
@@ -257,15 +254,18 @@ func run_now() -> Dictionary:
 ## Save what the settings fields hold onto the service, refusing a setting it does not have by name.
 func save_settings() -> Dictionary:
 	if sync == null or sync.transport == null:
-		return {"ok": false, "reason": "there is no sync service here to configure"}
-	var values: Dictionary = {}
+		return { "ok": false, "reason": "there is no sync service here to configure" }
+	var values: Dictionary = { }
 	for at in _setting_keys.size():
 		values[_setting_keys[at]] = _setting_fields[at].text
 	var out: Dictionary = sync.transport.configure(values)
 	refresh()
 	say(
-		"the service is saved." if bool(out.get("ok", false))
-		else String(out.get("reason", "the service would not take that"))
+		(
+			"the service is saved."
+			if bool(out.get("ok", false))
+			else String(out.get("reason", "the service would not take that"))
+		)
 	)
 	sync_changed.emit()
 	return out
@@ -279,10 +279,9 @@ func settle(choice: String) -> bool:
 	var out: Dictionary = sync.resolve(index, choice)
 	refresh()
 	var ok: bool = bool(out.get("ok", false))
-	say(
-		"the conflict is settled." if ok
-		else String(out.get("reason", "that conflict could not be settled"))
-	)
+	say(("the conflict is settled."
+			if ok
+			else String(out.get("reason", "that conflict could not be settled"))))
 	sync_changed.emit()
 	return ok
 
@@ -315,7 +314,6 @@ func _on_conflict_selected(_index: int) -> void:
 func _on_close_requested() -> void:
 	hide()
 	closed.emit()
-
 
 # --- reading the engine -------------------------------------------------------------------------
 
@@ -383,5 +381,3 @@ func _run_words(out: Dictionary) -> String:
 	if bool(out.get("ok", false)):
 		return "the run finished: %s" % String(out.get("reason", "done"))
 	return String(out.get("reason", "the run did not go"))
-
-

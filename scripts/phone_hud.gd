@@ -54,9 +54,7 @@ static func apply(window: Window) -> void:
 static func on_a_finger_here() -> bool:
 	var density: float = dpi()
 	var desk_mm: float = millimetres(TouchInputScript.DESK_ROW_PX, 1.0, density)
-	return TouchInputScript.answered_by_a_thumb(
-		TouchInputScript.has_a_touchscreen(), density, desk_mm, TOUCH_MM
-	)
+	return TouchInputScript.answered_by_a_thumb(TouchInputScript.has_a_touchscreen(), density, desk_mm, TOUCH_MM)
 
 
 ## Whether this device is a phone rather than a tablet: a finger, on a screen small enough that the canvas
@@ -247,9 +245,7 @@ const DRAWN_AT := &"drawn_at"
 ## line and a spacer show none, and a size worked out for one of those is a size worked out for nothing.
 ## `Button` and its kin are not here: a caption is not sized by this rule but by the flat one below, because
 ## a button's words are a caption rather than a piece of the surface's own prose.
-const WORDED: Array[String] = [
-	"Label", "LineEdit", "TextEdit", "RichTextLabel", "ItemList", "MenuBar", "Tree",
-]
+const WORDED: Array[String] = ["Label", "LineEdit", "TextEdit", "RichTextLabel", "ItemList", "MenuBar", "Tree"]
 
 
 ## Whether a control shows words at all.
@@ -400,9 +396,7 @@ static func button_width(button: Control) -> float:
 ## A row of six short words is one row on a computer and two rows of three on a phone, because the words
 ## are twice as tall there and six of them then want twice the width. Never more columns than the row was
 ## built with, and never fewer than `fewest` - a palette squeezed to one column is a list, not a palette.
-static func columns_that_fit(
-	widths: Array, columns: int, room: float, separation: float, fewest: int
-) -> int:
+static func columns_that_fit(widths: Array, columns: int, room: float, separation: float, fewest: int) -> int:
 	var built: int = maxi(columns, 1)
 	if widths.is_empty() or room <= 0.0:
 		return built

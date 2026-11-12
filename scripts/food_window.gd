@@ -27,10 +27,12 @@ const SIZE := Vector2i(940, 720)
 const CropSunScript := preload("res://scripts/crop_sun.gd")
 const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 
-const EXPLANATION := ("Choose a bed and a crop. The light a bed is stated in stands for a span of "
+const EXPLANATION := (
+	"Choose a bed and a crop. The light a bed is stated in stands for a span of "
 	+ "hours - full sun is six or more, part shade three to six - and a crop wants a number of them; "
 	+ "the site's own longest day is the ceiling no bed can beat. Nothing here measures the shade of "
-	+ "a wall or a tree: it reads what the ground is stated to be.")
+	+ "a wall or a tree: it reads what the ground is stated to be."
+)
 
 const NO_PLACES := "no ground has been described yet: state a bed's light in the ground window"
 const NO_CROPS := "this plant list has no food in it yet"
@@ -42,7 +44,7 @@ var catalogue: PlantCatalogue = null
 ## The beds, as `{name, profile}`. Given in, not found here.
 var _places: Array[Dictionary] = []
 ## The site, for the day-length ceiling. Empty means nobody has stated one.
-var _site: Dictionary = {}
+var _site: Dictionary = { }
 var _built: bool = false
 var _status: String = ""
 
@@ -60,7 +62,6 @@ var _summary_label: Label = null
 var _hint_label: Label = null
 var _close_button: Button = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -85,13 +86,19 @@ func build() -> void:
 	column.add_child(_explanation)
 
 	_place_option = _option("Place", "Where the crop would go")
-	_place_option.item_selected.connect(func(index: int) -> void: _on_place_selected(index))
+	_place_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_place_selected(index),
+	)
 	# The shared chrome names the row after the control it carries, which is the `PlaceRow` this page's
 	# own tests read the bed dropdown under.
 	column.add_child(PageChrome.labelled("Bed", _place_option))
 
 	_crop_option = _option("Crop", "The crop to check")
-	_crop_option.item_selected.connect(func(index: int) -> void: _on_crop_selected(index))
+	_crop_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_crop_selected(index),
+	)
 	column.add_child(PageChrome.labelled("Crop", _crop_option))
 
 	_place_line = PageChrome.text()
@@ -161,13 +168,12 @@ func _button(row: Node, node_name: String, caption: String) -> Button:
 	row.add_child(made)
 	return made
 
-
 # --- binding ------------------------------------------------------------------------------
 
 
 ## Point the page at what it is about: the plant list, the beds, and the site. All three can be
 ## absent, and each absence is a state the page reports rather than fails on.
-func bind(new_catalogue: PlantCatalogue, places: Array = [], site: Dictionary = {}) -> void:
+func bind(new_catalogue: PlantCatalogue, places: Array = [], site: Dictionary = { }) -> void:
 	build()
 	catalogue = new_catalogue
 	set_places(places)
@@ -198,14 +204,14 @@ func place_count() -> int:
 
 func place_at(index: int) -> Dictionary:
 	if index < 0 or index >= _places.size():
-		return {}
+		return { }
 	return _places[index]
 
 
 ## The bed in hand, or an empty dictionary when there is none.
 func selected_place() -> Dictionary:
 	if _place_option == null or _place_option.selected < 0:
-		return {}
+		return { }
 	return place_at(_place_option.selected)
 
 
@@ -268,7 +274,7 @@ func _rebuild_crop_choices() -> void:
 	for id: StringName in crop_ids():
 		var plant: PlantSpecies = catalogue.get_species(id)
 		var caption: String = plant.common_name if not plant.common_name.strip_edges().is_empty() \
-			else plant.botanical_name
+				else plant.botanical_name
 		_crop_option.add_item(caption)
 		_crop_option.set_item_metadata(_crop_option.item_count - 1, String(id))
 		if id == chosen:
@@ -276,7 +282,6 @@ func _rebuild_crop_choices() -> void:
 	# The first food crop in the list, so the page has something to check before anyone chooses.
 	if _crop_option.selected < 0 and _crop_option.item_count > 0:
 		_crop_option.selected = 0
-
 
 # --- the check, as the page shows it ------------------------------------------------------
 
@@ -363,7 +368,6 @@ func hint() -> String:
 			return "state this bed's light in the ground window and it can be checked"
 	return "change the bed or the crop to ask again"
 
-
 # --- what it says -------------------------------------------------------------------------
 
 
@@ -391,7 +395,6 @@ func lists_are_keyboard_free() -> bool:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- the refresh --------------------------------------------------------------------------
 

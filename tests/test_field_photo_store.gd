@@ -49,7 +49,7 @@ func test_a_photograph_is_kept_under_a_name_made_from_its_own_bytes() -> void:
 	assert(FileAccess.file_exists(path), "and it is really there")
 	assert(
 		not path.get_file().begins_with("test_capture_one"),
-		"under a name made from its bytes rather than the name it arrived with: %s" % path.get_file()
+		"under a name made from its bytes rather than the name it arrived with: %s" % path.get_file(),
 	)
 	assert(path.ends_with(".png"), "with the extension of the format it really is")
 	_clean()
@@ -93,7 +93,7 @@ func test_a_photograph_whose_name_lies_about_its_format_is_kept_as_what_it_is() 
 	assert(bool(kept["ok"]), "it is kept: %s" % String(kept["reason"]))
 	assert(
 		String(kept["path"]).ends_with(".png"),
-		"as the format its header says, not the one its name claims: %s" % String(kept["path"])
+		"as the format its header says, not the one its name claims: %s" % String(kept["path"]),
 	)
 	_clean()
 
@@ -105,10 +105,7 @@ func test_a_file_that_is_not_a_picture_is_refused_in_the_words_the_rest_of_the_a
 	assert(not bool(kept["ok"]), "it is refused")
 	var reason: String = String(kept["reason"])
 	assert(reason.contains("is not a picture this can read"), "in the reader's own sentence: %s" % reason)
-	assert(
-		reason.contains(UnderlayScript.formats_text()),
-		"naming the formats this program does read: %s" % reason
-	)
+	assert(reason.contains(UnderlayScript.formats_text()), "naming the formats this program does read: %s" % reason)
 	assert(not DirAccess.dir_exists_absolute(SCRATCH), "and nothing was written")
 	_clean()
 
@@ -119,7 +116,7 @@ func test_a_photograph_that_is_not_there_is_refused_by_name() -> void:
 	assert(not bool(kept["ok"]), "it is refused")
 	assert(
 		String(kept["reason"]).contains("user://test_capture_missing.png"),
-		"naming the file that is not there: %s" % String(kept["reason"])
+		"naming the file that is not there: %s" % String(kept["reason"]),
 	)
 	_clean()
 
@@ -137,7 +134,9 @@ func test_a_page_offers_the_photographs_in_words_and_names_the_one_it_cannot_ope
 		"photo_path": source,
 	}
 	var gone: Dictionary = {
-		"species_id": "", "raw_taxon": "something ferny", "part": "leaf",
+		"species_id": "",
+		"raw_taxon": "something ferny",
+		"part": "leaf",
 		"photo_path": "user://test_capture_gone.png",
 	}
 	var made: Dictionary = StoreScript.for_page([here, gone], null)
@@ -148,11 +147,11 @@ func test_a_page_offers_the_photographs_in_words_and_names_the_one_it_cannot_ope
 	assert(caption.contains("leaf"), "the caption says which part was photographed: %s" % caption)
 	assert(
 		not caption.contains(".png") and not caption.contains("user://"),
-		"and it never shows a file name: %s" % caption
+		"and it never shows a file name: %s" % caption,
 	)
 	var missing: Array = made["missing"]
 	assert(missing.size() == 1, "the one that is gone is named")
 	assert(
 		String(missing[0]).contains("user://test_capture_gone.png"),
-		"by the path that is not there: %s" % String(missing[0])
+		"by the path that is not there: %s" % String(missing[0]),
 	)

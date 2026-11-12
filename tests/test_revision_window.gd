@@ -39,7 +39,6 @@ func _window():
 	window.set_revisions(_rows())
 	return window
 
-
 # --- what it lists --------------------------------------------------------------------
 
 
@@ -47,13 +46,15 @@ func test_the_rows_the_controller_describes_are_the_rows_listed() -> void:
 	var window = _window()
 	assert(window.row_count() == 2)
 	# The list answers "which one": who made it, when and how big are in the pane beside it.
-	assert(window.list_texts() == [
-		"rev 1  sent to the client",
-		"rev 2  client asked for more lawn",
-	], str(window.list_texts()))
+	assert(
+		window.list_texts() == ["rev 1  sent to the client", "rev 2  client asked for more lawn"],
+		str(window.list_texts()),
+	)
 	assert(window.selected_index() == 0, "the oldest is where a history starts reading")
-	assert(window.description_text() ==
-		"rev 1  sent to the client  (evan, 2026-10-20 18:40:31)  12 shapes", window.description_text())
+	assert(
+		window.description_text() == "rev 1  sent to the client  (evan, 2026-10-20 18:40:31)  12 shapes",
+		window.description_text(),
+	)
 	window.free()
 
 
@@ -77,8 +78,7 @@ func test_a_window_with_no_history_says_so_rather_than_failing() -> void:
 	assert(window.list_texts().is_empty())
 	assert(window.selected_row().is_empty())
 	assert(window.change_text() == "")
-	assert(window.status_text() == "nothing has been recorded against this drawing yet",
-		window.status_text())
+	assert(window.status_text() == "nothing has been recorded against this drawing yet", window.status_text())
 	assert(not window.select(0), "there is no row to select")
 	assert(not window.restore(), "and nothing a restore could be about")
 	window.free()
@@ -108,14 +108,16 @@ func test_a_line_said_outranks_the_count() -> void:
 	assert(window.status_text() == "2 revisions kept")
 	window.free()
 
-
 # --- what a person did ----------------------------------------------------------------
 
 
 func test_recording_announces_the_message_and_empties_the_box() -> void:
 	var window = _window()
 	var heard: Array[String] = []
-	window.revision_recorded.connect(func(message: String) -> void: heard.append(message))
+	window.revision_recorded.connect(
+		func(message: String) -> void:
+			heard.append(message),
+	)
 	assert(window.type_message("client asked for more lawn"))
 	assert(window.message_text() == "client asked for more lawn")
 	assert(window.record())
@@ -128,7 +130,10 @@ func test_recording_announces_the_message_and_empties_the_box() -> void:
 func test_a_revision_can_be_recorded_with_no_message_at_all() -> void:
 	var window = _window()
 	var heard: Array[String] = []
-	window.revision_recorded.connect(func(message: String) -> void: heard.append(message))
+	window.revision_recorded.connect(
+		func(message: String) -> void:
+			heard.append(message),
+	)
 	assert(window.type_message(""))
 	assert(window.record())
 	assert(heard == [""], str(heard))
@@ -140,7 +145,10 @@ func test_a_revision_can_be_recorded_with_no_message_at_all() -> void:
 func test_restoring_announces_the_revision_that_was_picked() -> void:
 	var window = _window()
 	var heard: Array[int] = []
-	window.restore_requested.connect(func(index: int) -> void: heard.append(index))
+	window.restore_requested.connect(
+		func(index: int) -> void:
+			heard.append(index),
+	)
 	assert(window.restore())
 	assert(heard == [0], str(heard))
 	assert(window.select(1))
@@ -161,7 +169,6 @@ func test_the_selection_survives_the_rows_being_replaced() -> void:
 	assert(window.selected_row()["message"] == "client asked for more lawn")
 	window.free()
 
-
 # --- what has been done since ---------------------------------------------------------
 
 
@@ -175,9 +182,13 @@ func test_the_selected_revision_says_how_much_has_happened_since() -> void:
 	rows[1]["since"] = "recorded before gestures were counted"
 	window.set_revisions(rows)
 	assert(window.since_text() == "3 gestures since", window.since_text())
-	assert(window.list_texts()[0] == "rev 1  sent to the client",
-		"and it stays out of the list, which answers only which revision")
+	assert(
+		window.list_texts()[0] == "rev 1  sent to the client",
+		"and it stays out of the list, which answers only which revision",
+	)
 	assert(window.select(1))
-	assert(window.since_text() == "recorded before gestures were counted",
-		"not known is said out loud rather than left blank: %s" % window.since_text())
+	assert(
+		window.since_text() == "recorded before gestures were counted",
+		"not known is said out loud rather than left blank: %s" % window.since_text(),
+	)
 	window.free()

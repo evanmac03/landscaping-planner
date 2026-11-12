@@ -100,9 +100,7 @@ func is_mouse_captured() -> bool:
 ## coming to disagree about which way is which - and it means a phone looks around with the sensitivity
 ## the drawing was tuned with rather than a second one.
 func look_by_drag(relative: Vector2) -> void:
-	var looked: Vector2 = look_after_drag(
-		_yaw, _pitch, relative, mouse_sensitivity, pitch_limit_deg
-	)
+	var looked: Vector2 = look_after_drag(_yaw, _pitch, relative, mouse_sensitivity, pitch_limit_deg)
 	set_look(looked.x, looked.y)
 
 
@@ -113,13 +111,14 @@ func look_by_drag(relative: Vector2) -> void:
 ## in one direction does not tip the world over. Static, and taking the numbers rather than the player,
 ## so the rule can be tested without a scene, a head or a camera.
 static func look_after_drag(
-	yaw: float, pitch: float, relative: Vector2, sensitivity: float, limit_deg: float
+	yaw: float,
+	pitch: float,
+	relative: Vector2,
+	sensitivity: float,
+	limit_deg: float,
 ) -> Vector2:
 	var limit: float = deg_to_rad(limit_deg)
-	return Vector2(
-		yaw - relative.x * sensitivity,
-		clampf(pitch - relative.y * sensitivity, -limit, limit)
-	)
+	return Vector2(yaw - relative.x * sensitivity, clampf(pitch - relative.y * sensitivity, -limit, limit))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -151,10 +150,7 @@ func _physics_process(delta: float) -> void:
 	var turn: float = Input.get_axis("look_right", "look_left")
 	var tilt: float = Input.get_axis("look_down", "look_up")
 	if absf(turn) > 0.001 or absf(tilt) > 0.001:
-		set_look(
-			_yaw + turn * arrow_key_turn_speed * delta,
-			_pitch + tilt * arrow_key_turn_speed * delta
-		)
+		set_look(_yaw + turn * arrow_key_turn_speed * delta, _pitch + tilt * arrow_key_turn_speed * delta)
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta

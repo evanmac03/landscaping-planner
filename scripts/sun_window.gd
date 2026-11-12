@@ -29,10 +29,12 @@ const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 
-const EXPLANATION := ("The place is the presentation's own site, kept with the drawing. Choose the "
+const EXPLANATION := (
+	"The place is the presentation's own site, kept with the drawing. Choose the "
 	+ "moments a client will ask about, and say how tall the thing casting the shadow is: each row "
 	+ "is the sun at that moment and what that height throws there. A shadow is arithmetic on a sun "
-	+ "and a height, so nothing here reads the yard.")
+	+ "and a height, so nothing here reads the yard."
+)
 
 ### What the page says when it cannot study anything yet. Each names what is missing rather than
 ### showing an empty table, because an empty table reads as a study that found nothing.
@@ -51,7 +53,7 @@ signal closed
 
 ## The site in hand. Empty until it is told one, which is a real state: the presentation may not
 ## be ready, or the drawing may have no site.
-var _site: Dictionary = {}
+var _site: Dictionary = { }
 ## The drawing's units, defaulted to metric rather than left null: the height in hand is in
 ## metres whatever the drawing is, and the words on the page have to be able to be printed before
 ## anybody has told the page what the drawing is drawn in.
@@ -83,7 +85,6 @@ var _apply_button: Button = null
 var _render_button: Button = null
 var _close_button: Button = null
 var _status_label: Label = null
-
 
 # --- building -------------------------------------------------------------------------
 
@@ -250,7 +251,6 @@ func _button(row: Node, node_name: String, caption: String) -> Button:
 	row.add_child(made_button)
 	return made_button
 
-
 # --- the site, and the height ---------------------------------------------------------
 
 
@@ -356,7 +356,6 @@ func _metres_from(shown: float) -> float:
 		return shown * UnitsScript.FOOT
 	return shown
 
-
 # --- the moments ----------------------------------------------------------------------
 
 
@@ -421,10 +420,7 @@ func use_preset(preset_name: StringName) -> bool:
 func _add_one(moment_dict: Dictionary) -> void:
 	for held: Dictionary in _moments:
 		if SunReportScript.day_of(held) == SunReportScript.day_of(moment_dict) \
-				and is_equal_approx(
-					float(held.get("clock_hour", 0.0)),
-					float(moment_dict.get("clock_hour", 0.0))
-				):
+				and is_equal_approx(float(held.get("clock_hour", 0.0)), float(moment_dict.get("clock_hour", 0.0))):
 			return
 	_moments.append(moment_dict)
 
@@ -484,9 +480,8 @@ func selected_index() -> int:
 func selected_moment() -> Dictionary:
 	var at: int = selected_index()
 	if at < 0 or at >= _moments.size():
-		return {}
+		return { }
 	return _moments[at]
-
 
 # --- the study, as rows -----------------------------------------------------------------
 
@@ -535,7 +530,6 @@ func day_lines() -> Array[String]:
 	if not has_site():
 		return [] as Array[String]
 	return SunReportScript.day_texts(_site, _moments)
-
 
 # --- what the page says ----------------------------------------------------------------
 
@@ -593,17 +587,12 @@ func rows_are_keyboard_free() -> bool:
 
 
 func lists_are_keyboard_free() -> bool:
-	return (
-		rows_are_keyboard_free()
-		and _moments_list != null
-		and _moments_list.focus_mode == Control.FOCUS_NONE
-	)
+	return (rows_are_keyboard_free() and _moments_list != null and _moments_list.focus_mode == Control.FOCUS_NONE)
 
 
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- the refresh, and what the buttons ask for -----------------------------------------
 
@@ -612,9 +601,7 @@ func request_close() -> void:
 func _refresh() -> void:
 	if not _built:
 		return
-	_site_line.text = (
-		"Site: %s" % SunReportScript.site_words(_site) if has_site() else "Site: none yet"
-	)
+	_site_line.text = ("Site: %s" % SunReportScript.site_words(_site) if has_site() else "Site: none yet")
 	_height_label.text = "Casting height"
 	if _height_box != null:
 		_height_box.suffix = _unit_suffix()
@@ -631,9 +618,7 @@ func _refresh() -> void:
 	var lines: Array[String] = day_lines()
 	_days_label.text = "\n".join(PackedStringArray(lines))
 	_rows_label.text = "What the study says \u2014 %d rows" % built.size()
-	_summary = (
-		SunReportScript.summary(_site, _moments, _height_m, _units) if has_site() else ""
-	)
+	_summary = (SunReportScript.summary(_site, _moments, _height_m, _units) if has_site() else "")
 	_summary_label.text = _summary
 	# The buttons first, because the guidance is written from whether they are live - and a hint
 	# computed from the previous refresh's button states is a hint that is one edit behind.
@@ -647,10 +632,7 @@ func _refresh_buttons() -> void:
 	# The same question asked twice: the button is dead when the page cannot do it, and the hint
 	# above says which fact is missing - which a disabled button cannot say for itself.
 	var chosen: Dictionary = selected_moment()
-	var sun_up: bool = (
-		not chosen.is_empty()
-		and bool(SunStudyScript.position_for(_site, chosen)["is_up"])
-	)
+	var sun_up: bool = (not chosen.is_empty() and bool(SunStudyScript.position_for(_site, chosen)["is_up"]))
 	_apply_button.disabled = not sun_up
 	_render_button.disabled = _moments.is_empty()
 

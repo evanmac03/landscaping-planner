@@ -83,7 +83,7 @@ const DRAIN_PER_STEP := 256
 const BODY_CAP_BYTES := 2000000
 
 var _client: HTTPClient = null
-var _request: Dictionary = {}
+var _request: Dictionary = { }
 var _stage: StringName = CONNECTING
 var _verdict: StringName = WORKING
 var _why: String = ""
@@ -106,9 +106,7 @@ var _bytes_at_ms: int = 0
 ## answers, and a constant hidden in here would be a third opinion about how long a model may think. The
 ## request is the shape `PlantIdLlm.build_request` and `LocalModelProbe` build - `{ok, reason, tls, host,
 ## port, path, method, headers, body}`.
-func begin(
-	request: Dictionary, answer_seconds: float, connect_seconds: float
-) -> StringName:
+func begin(request: Dictionary, answer_seconds: float, connect_seconds: float) -> StringName:
 	_request = request
 	_answer_seconds = answer_seconds
 	_connect_seconds = connect_seconds
@@ -157,7 +155,7 @@ func step(pause_ms: int = 0) -> StringName:
 		now - _stage_at_ms,
 		now - _bytes_at_ms,
 		_answer_seconds,
-		_connect_seconds
+		_connect_seconds,
 	)
 	match StringName(move["move"]):
 		WAIT:
@@ -229,7 +227,6 @@ func take_lines() -> Array[String]:
 func received_bytes() -> int:
 	return _received
 
-
 # --- the machine, with the world taken out of it ----------------------------------------------------
 
 
@@ -248,7 +245,7 @@ static func next_move(
 	since_stage_ms: int,
 	since_bytes_ms: int,
 	answer_seconds: float,
-	connect_seconds: float
+	connect_seconds: float,
 ) -> Dictionary:
 	var connect_ms: int = int(connect_seconds * 1000.0)
 	var answer_ms: int = int(answer_seconds * 1000.0)
@@ -287,16 +284,14 @@ static func next_move(
 static func _lost(status: int) -> bool:
 	match status:
 		HTTPClient.STATUS_DISCONNECTED, HTTPClient.STATUS_CANT_RESOLVE, \
-		HTTPClient.STATUS_CANT_CONNECT, HTTPClient.STATUS_CONNECTION_ERROR, \
-		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
+				HTTPClient.STATUS_CANT_CONNECT, HTTPClient.STATUS_CONNECTION_ERROR, \
+				HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
 			return true
 	return false
 
 
-static func _a_move(
-	at_stage: StringName, move: StringName, because: StringName = &""
-) -> Dictionary:
-	return {"stage": at_stage, "move": move, "because": because}
+static func _a_move(at_stage: StringName, move: StringName, because: StringName = &"") -> Dictionary:
+	return { "stage": at_stage, "move": move, "because": because }
 
 
 ## A complete line is one that ends in a newline; anything after the last newline is held until the rest
@@ -317,7 +312,7 @@ static func split_lines(pending: PackedByteArray, chunk: PackedByteArray) -> Dic
 		if not line.is_empty():
 			lines.append(line)
 		start = i + 1
-	return {"lines": lines, "pending": held.slice(start)}
+	return { "lines": lines, "pending": held.slice(start) }
 
 
 ## Why the exchange gave up, in the words of whatever stage it gave up in.
@@ -325,9 +320,7 @@ static func split_lines(pending: PackedByteArray, chunk: PackedByteArray) -> Dic
 ## A refusal names what stopped rather than the feature: an address nothing is listening at, a request
 ## that could not be sent, a model that never began answering, a connection that broke mid-answer, and a
 ## body that went quiet are five different things and five different fixes.
-static func refusal_words(
-	because: StringName, status: int, host: String, port: int, seconds: float
-) -> String:
+static func refusal_words(because: StringName, status: int, host: String, port: int, seconds: float) -> String:
 	match because:
 		LOST_SEND:
 			return "the request could not be sent to %s:%d" % [host, port]
@@ -336,9 +329,7 @@ static func refusal_words(
 		LOST_BODY:
 			return "the connection to %s:%d broke while its answer was arriving" % [host, port]
 		LOST_STALLED:
-			return "the answer from %s stopped arriving: nothing came for %d seconds" % [
-				host, int(seconds),
-			]
+			return "the answer from %s stopped arriving: nothing came for %d seconds" % [host, int(seconds)]
 	return connect_refusal(status, host, port)
 
 
@@ -360,10 +351,7 @@ static func connect_refusal(state: int, host: String, port: int) -> String:
 			return "the connection to %s:%d broke before it was made" % [host, port]
 		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
 			return "the secure connection to %s:%d was refused" % [host, port]
-	return "no connection could be made to %s:%d, which usually means nothing is listening there" % [
-		host, port,
-	]
-
+	return "no connection could be made to %s:%d, which usually means nothing is listening there" % [host, port]
 
 # --- the parts that touch the socket -----------------------------------------------------------------
 
@@ -376,7 +364,7 @@ func _send_now() -> void:
 		int(_request.get("method", HTTPClient.METHOD_GET)),
 		String(_request.get("path", "/")),
 		headers,
-		String(_request.get("body", ""))
+		String(_request.get("body", "")),
 	)
 	if error != OK:
 		_client.close()

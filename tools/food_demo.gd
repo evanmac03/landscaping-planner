@@ -35,10 +35,8 @@ func _ready() -> void:
 	map.base = ProfileScript.of("sun", SpeciesScript.FULL_SUN)
 	map.add_zone(
 		"the north bed",
-		PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)
-		]),
-		ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
+		PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)]),
+		ProfileScript.of("sun", SpeciesScript.FULL_SHADE),
 	)
 	print("the ground now reads: ", map.describe())
 
@@ -81,8 +79,15 @@ func _ready() -> void:
 	print("--- opened once more, so the captured frame is the page itself ---")
 	hud.open_food_window()
 	await _settle()
-	print("the window is up: ", hud.is_food_window_open(), ", ", page.place_count(), " beds, ",
-		page.row_count(), " crops")
+	print(
+		"the window is up: ",
+		hud.is_food_window_open(),
+		", ",
+		page.place_count(),
+		" beds, ",
+		page.row_count(),
+		" crops",
+	)
 
 
 ## Let the running scene take a couple of frames, which is where the HUD settles.

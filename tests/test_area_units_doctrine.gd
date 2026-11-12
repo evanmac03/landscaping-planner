@@ -28,7 +28,18 @@ extends Node
 
 ## The shapes a string has to have to count as an area word.
 const AREA_UNITS: Array[String] = [
-	"m2", "m²", "sqm", "sq m", "sqft", "sq ft", "ft2", "ha", "hectare", "hectares", "acre", "acres",
+	"m2",
+	"m²",
+	"sqm",
+	"sq m",
+	"sqft",
+	"sq ft",
+	"ft2",
+	"ha",
+	"hectare",
+	"hectares",
+	"acre",
+	"acres",
 	"ac",
 ]
 
@@ -39,7 +50,6 @@ const WRITERS: Array[String] = ["res://scripts/draft/units.gd"]
 ## followed by one of these is a longer word and not a unit.
 const LETTERS := "abcdefghijklmnopqrstuvwxyz0123456789"
 
-
 # --- the guard -------------------------------------------------------------------------------
 
 
@@ -48,8 +58,7 @@ func test_the_one_writer_is_the_only_file_in_scripts_that_words_an_area() -> voi
 	for path: String in _scripts():
 		if not offences_in(_read(path), path).is_empty():
 			caught.append(path)
-	assert(caught == PackedStringArray(WRITERS),
-		"exactly one file words an area; these do: " + ", ".join(caught))
+	assert(caught == PackedStringArray(WRITERS), "exactly one file words an area; these do: " + ", ".join(caught))
 
 
 ## An exemption is a promise that the exempt file earns. These are the files the doctrine leans on, and
@@ -64,8 +73,7 @@ func test_the_modules_that_hand_an_area_on_do_not_word_one() -> void:
 		"res://scripts/plant_spacing.gd",
 	]:
 		var found := offences_in(_read(path), path)
-		assert(found.is_empty(),
-			path + " words an area by hand: " + ", ".join(PackedStringArray(found)))
+		assert(found.is_empty(), path + " words an area by hand: " + ", ".join(PackedStringArray(found)))
 
 
 ## A guard that reads nothing passes everything. This is the assertion that the walk is a walk.
@@ -83,33 +91,43 @@ func test_the_guard_reads_the_whole_scripts_tree() -> void:
 ## written out by hand here rather than found in the tree, so it is still a guard on the day the tree
 ## is clean.
 func test_the_guard_catches_the_shapes_a_hand_written_area_takes() -> void:
-	assert(offences_in("var words := String.num(area_m2, 1) + \" m2\"", "sample.gd").size() == 1,
-		"an append is caught")
-	assert(offences_in("return \"%s m2\" % [area_m2]", "sample.gd").size() == 1,
-		"a format string is caught")
-	assert(offences_in("return \"over %.1f ft2 here\" % [area]", "sample.gd").size() == 1,
-		"and an imperial one, and one with the unit mid-sentence")
-	assert(offences_in("return \"%.1f ha\" % [area_m2]", "sample.gd").size() == 1,
-		"and a hectare")
-	assert(offences_in("return \"the bed is 18 m2\"", "sample.gd").size() == 1,
-		"and prose that names one, which is what a hand-written sentence usually looks like")
+	assert(offences_in("var words := String.num(area_m2, 1) + \" m2\"", "sample.gd").size() == 1, "an append is caught")
+	assert(offences_in("return \"%s m2\" % [area_m2]", "sample.gd").size() == 1, "a format string is caught")
+	assert(
+		offences_in("return \"over %.1f ft2 here\" % [area]", "sample.gd").size() == 1,
+		"and an imperial one, and one with the unit mid-sentence",
+	)
+	assert(offences_in("return \"%.1f ha\" % [area_m2]", "sample.gd").size() == 1, "and a hectare")
+	assert(
+		offences_in("return \"the bed is 18 m2\"", "sample.gd").size() == 1,
+		"and prose that names one, which is what a hand-written sentence usually looks like",
+	)
 
 
 ## The other half of a guard being a guard: it must leave alone the things that look like an area word
 ## and are not. Every one of these appears somewhere in the real tree today, and the last two are the
 ## bug this rule was written twice to stop having.
 func test_the_guard_leaves_a_key_and_a_machine_field_alone() -> void:
-	assert(offences_in("\"m2\": 1.0, \"sqm\": 1.0, \"sq m\": 1.0", "sample.gd").is_empty(),
-		"a parsing table is a name, not a sentence")
-	assert(offences_in("return {\"unit\": \"m2\", \"area_text\": words.format_area(area)}", "sample.gd").is_empty(),
-		"and a record's unit field is a machine fact")
-	assert(offences_in("## One bed as a list reads it: \"bed 4, 6.2 m2\".", "sample.gd").is_empty(),
-		"and a comment is not a writer")
-	assert(offences_in("return \"%s has no area, so nothing can ever be inside it\"", "sample.gd").is_empty(),
-		"a word that merely begins with the letters of a unit is not a unit")
-	assert(offences_in("var words := \"the can has a placard\"", "sample.gd").is_empty(),
-		"and two of them in one sentence are still a sentence")
-
+	assert(
+		offences_in("\"m2\": 1.0, \"sqm\": 1.0, \"sq m\": 1.0", "sample.gd").is_empty(),
+		"a parsing table is a name, not a sentence",
+	)
+	assert(
+		offences_in("return {\"unit\": \"m2\", \"area_text\": words.format_area(area)}", "sample.gd").is_empty(),
+		"and a record's unit field is a machine fact",
+	)
+	assert(
+		offences_in("## One bed as a list reads it: \"bed 4, 6.2 m2\".", "sample.gd").is_empty(),
+		"and a comment is not a writer",
+	)
+	assert(
+		offences_in("return \"%s has no area, so nothing can ever be inside it\"", "sample.gd").is_empty(),
+		"a word that merely begins with the letters of a unit is not a unit",
+	)
+	assert(
+		offences_in("var words := \"the can has a placard\"", "sample.gd").is_empty(),
+		"and two of them in one sentence are still a sentence",
+	)
 
 # --- the matcher -----------------------------------------------------------------------------
 
@@ -163,7 +181,7 @@ static func _literals(line: String) -> Array:
 			words += line[at]
 			at += 1
 		at += 1
-		out.append({"text": words})
+		out.append({ "text": words })
 	return out
 
 

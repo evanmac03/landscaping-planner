@@ -39,9 +39,12 @@ static func parts() -> Array[DraftEntity]:
 	var out: Array[DraftEntity] = []
 
 	# The site itself: the boundary a boundary line is drawn on.
-	out.append(EntityScript.make_polyline(PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(SITE.x, 0.0), Vector2(SITE.x, SITE.y), Vector2(0.0, SITE.y),
-	]), true))
+	out.append(
+		EntityScript.make_polyline(
+			PackedVector2Array([Vector2(0.0, 0.0), Vector2(SITE.x, 0.0), Vector2(SITE.x, SITE.y), Vector2(0.0, SITE.y)]),
+			true,
+		)
+	)
 
 	# The house, across the top of the site, with the ground in front of it left clear.
 	out.append(EntityScript.make_rectangle(Vector2(9.0, 11.5), Vector2(11.0, 4.0)))
@@ -53,10 +56,10 @@ static func parts() -> Array[DraftEntity]:
 	# Four beds, at the four sizes a person would actually make them, so the plan reads as a garden someone
 	# laid out rather than as a grid.
 	var beds: Array[Dictionary] = [
-		{"at": Vector2(2.6, 3.6), "size": Vector2(2.6, 1.4)},
-		{"at": Vector2(6.4, 3.0), "size": Vector2(3.2, 1.6)},
-		{"at": Vector2(10.6, 3.8), "size": Vector2(3.6, 1.8)},
-		{"at": Vector2(15.0, 3.2), "size": Vector2(2.4, 1.4)},
+		{ "at": Vector2(2.6, 3.6), "size": Vector2(2.6, 1.4) },
+		{ "at": Vector2(6.4, 3.0), "size": Vector2(3.2, 1.6) },
+		{ "at": Vector2(10.6, 3.8), "size": Vector2(3.6, 1.8) },
+		{ "at": Vector2(15.0, 3.2), "size": Vector2(2.4, 1.4) },
 	]
 	for bed: Dictionary in beds:
 		out.append(EntityScript.make_rectangle(bed["at"], bed["size"]))
@@ -75,9 +78,4 @@ static func parts() -> Array[DraftEntity]:
 
 ## The example in one line, for a status line or a menu tooltip.
 static func describe() -> String:
-	return "%s: %d shapes on a lawn %s by %s" % [
-		NAME,
-		parts().size(),
-		String.num(SITE.x, 0),
-		String.num(SITE.y, 0),
-	]
+	return "%s: %d shapes on a lawn %s by %s" % [NAME, parts().size(), String.num(SITE.x, 0), String.num(SITE.y, 0)]

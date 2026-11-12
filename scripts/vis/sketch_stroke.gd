@@ -40,7 +40,7 @@ static func wobble(
 	seed_value: int,
 	plot_scale: float,
 	amplitude_mm: float = AMPLITUDE_MM,
-	segment_mm: float = SEGMENT_MM
+	segment_mm: float = SEGMENT_MM,
 ) -> PackedVector2Array:
 	if stroke.size() < 2:
 		return stroke
@@ -69,8 +69,7 @@ static func wobble(
 			# sample boundary.
 			var along: float = t * length / wavelength
 			var wander: float = (
-				sin(along * TAU + phase_seed) * 0.72
-				+ sin(along * TAU * 2.37 + phase_seed * 1.7) * 0.28
+				sin(along * TAU + phase_seed) * 0.72 + sin(along * TAU * 2.37 + phase_seed * 1.7) * 0.28
 			)
 			out.append(at + sideways * amplitude * wander)
 	# The final point is appended once, after the loop, rather than at the end of every
@@ -86,14 +85,11 @@ static func wobble_strokes(
 	seed_value: int,
 	plot_scale: float,
 	amplitude_mm: float = AMPLITUDE_MM,
-	segment_mm: float = SEGMENT_MM
+	segment_mm: float = SEGMENT_MM,
 ) -> Array[PackedVector2Array]:
 	var out: Array[PackedVector2Array] = []
 	for index in strokes.size():
-		out.append(wobble(
-			strokes[index], seed_value + index * SEED_STRIDE, plot_scale,
-			amplitude_mm, segment_mm
-		))
+		out.append(wobble(strokes[index], seed_value + index * SEED_STRIDE, plot_scale, amplitude_mm, segment_mm))
 	return out
 
 
@@ -104,9 +100,7 @@ static func wobble_strokes(
 ## Each wobbled point is measured against the *closest point on the true stroke*, not
 ## against the nearest sample of it: a point that wandered along the line rather than
 ## across it has not left the line at all.
-static func max_deviation(
-	true_stroke: PackedVector2Array, wobbled: PackedVector2Array
-) -> float:
+static func max_deviation(true_stroke: PackedVector2Array, wobbled: PackedVector2Array) -> float:
 	var worst := 0.0
 	for point: Vector2 in wobbled:
 		worst = maxf(worst, _distance_to_polyline(point, true_stroke))
@@ -114,17 +108,12 @@ static func max_deviation(
 
 
 ## The distance from a point to the nearest point on a polyline, in the same units.
-static func _distance_to_polyline(
-	point: Vector2, polyline: PackedVector2Array
-) -> float:
+static func _distance_to_polyline(point: Vector2, polyline: PackedVector2Array) -> float:
 	if polyline.is_empty():
 		return 0.0
 	var best := INF
 	for index in maxi(polyline.size() - 1, 0):
-		best = minf(
-			best,
-			_distance_to_segment(point, polyline[index], polyline[index + 1])
-		)
+		best = minf(best, _distance_to_segment(point, polyline[index], polyline[index + 1]))
 	if polyline.size() == 1:
 		best = point.distance_to(polyline[0])
 	return best

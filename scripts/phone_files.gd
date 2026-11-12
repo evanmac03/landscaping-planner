@@ -15,7 +15,11 @@ extends RefCounted
 
 ## Which device to answer for. `AUTO` reads the machine this program is running on; the other two
 ## exist so a demonstration or a test can ask what a phone would be told without having one.
-enum Device { AUTO, COMPUTER, PHONE }
+enum Device {
+	AUTO,
+	COMPUTER,
+	PHONE,
+}
 
 ## The filter a picker door offers. Android's picker works out one media type from the filters it is
 ## given, so "any file" is the only filter that cannot hide the file the door was opened for.

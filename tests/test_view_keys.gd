@@ -77,8 +77,7 @@ func test_g_leaves_the_ground_for_the_overhead_view() -> void:
 
 	_press(controller, &"toggle_ground")
 	await _settle(controller)
-	assert(controller.mode == ViewController.ViewMode.OVERHEAD_3D,
-		"G from the ground lands on the 3D overhead view")
+	assert(controller.mode == ViewController.ViewMode.OVERHEAD_3D, "G from the ground lands on the 3D overhead view")
 	assert(controller.flight_camera.current, "the flight camera is the one rendering again")
 	assert(not player.is_active(), "the player was put away")
 	await _tear_down()
@@ -134,6 +133,8 @@ func test_the_two_keys_do_not_interfere() -> void:
 	_press(controller, &"toggle_ground")
 	await _settle(controller)
 	assert(controller.mode == ViewController.ViewMode.OVERHEAD_3D, "G still gets you out afterwards")
-	assert(controller.flight_camera.current and not player.is_active(),
-		"and the overhead camera is really the one rendering")
+	assert(
+		controller.flight_camera.current and not player.is_active(),
+		"and the overhead camera is really the one rendering",
+	)
 	await _tear_down()

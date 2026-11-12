@@ -58,8 +58,14 @@ func _ready() -> void:
 	print("--- opened once more, so the captured frame is the page itself ---")
 	hud.open_harvest_window()
 	await _settle()
-	print("the window is up: ", hud.is_harvest_window_open(), ", ", page.row_count(), " crops ready in ",
-		page.month_name())
+	print(
+		"the window is up: ",
+		hud.is_harvest_window_open(),
+		", ",
+		page.row_count(),
+		" crops ready in ",
+		page.month_name(),
+	)
 
 
 ## Let the running scene take a couple of frames, which is where the HUD settles.
@@ -73,7 +79,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.plant_items():
 		if String(entry.get("id", "")) == "plant.harvest":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no harvest entry in the Plant menu)"

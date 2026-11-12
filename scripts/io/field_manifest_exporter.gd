@@ -21,10 +21,11 @@ const TEMP_SUFFIX := ".writing"
 
 # --- export formats --------------------------------------------------------
 
+
 ## One feature as a JSON object. A feature may carry the PlantSpecies itself or only
 ## its id; both are written as `species_id`, which is what the other side matches on.
 static func _feature_dict(feature: Dictionary) -> Dictionary:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	entry["instance_id"] = String(feature.get("instance_id", ""))
 	var species: Variant = feature.get("species", null)
 	if species is PlantSpecies:
@@ -64,15 +65,11 @@ static func _feature_dict(feature: Dictionary) -> Dictionary:
 static func _position_dict(raw: Variant) -> Dictionary:
 	if raw is Vector3:
 		var point: Vector3 = raw
-		return {"x": point.x, "y": point.y, "z": point.z}
+		return { "x": point.x, "y": point.y, "z": point.z }
 	if raw is Dictionary:
 		var given: Dictionary = raw
-		return {
-			"x": float(given.get("x", 0.0)),
-			"y": float(given.get("y", 0.0)),
-			"z": float(given.get("z", 0.0)),
-		}
-	return {"x": 0.0, "y": 0.0, "z": 0.0}
+		return { "x": float(given.get("x", 0.0)), "y": float(given.get("y", 0.0)), "z": float(given.get("z", 0.0)) }
+	return { "x": 0.0, "y": 0.0, "z": 0.0 }
 
 
 ## The **one** way a manifest is written, and it goes through a temporary file and a rename, the same
@@ -105,11 +102,7 @@ static func export_manifest(site_name: String, features: Array, path: String) ->
 ## naming the species it was identified as and where it stands. Built to be written
 ## with JSON.stringify and nothing else, so every value in it is a JSON type.
 static func to_manifest(site_name: String, features: Array) -> Dictionary:
-	return {
-		"format_version": FORMAT_VERSION,
-		"site_name": site_name,
-		"features": _features_list(features),
-	}
+	return { "format_version": FORMAT_VERSION, "site_name": site_name, "features": _features_list(features) }
 
 
 static func _features_list(features: Array) -> Array:
@@ -141,16 +134,14 @@ static func append(site_name: String, features: Array, path: String) -> Dictiona
 	if FileAccess.file_exists(path):
 		var read: Dictionary = read_manifest(path)
 		if not bool(read["ok"]):
-			return {
-				"ok": false, "reason": String(read["reason"]), "added": 0, "total": 0,
-			}
+			return { "ok": false, "reason": String(read["reason"]), "added": 0, "total": 0 }
 		var data: Dictionary = read["data"]
 		var existing: Variant = data.get("features", [])
 		if existing is Array:
 			kept = existing
 		if named.strip_edges().is_empty():
 			named = String(data.get("site_name", ""))
-	var seen: Dictionary = {}
+	var seen: Dictionary = { }
 	for record: Variant in kept:
 		if record is Dictionary:
 			seen[identity_of(record)] = true
@@ -176,7 +167,7 @@ static func append(site_name: String, features: Array, path: String) -> Dictiona
 			"added": 0,
 			"total": kept.size() - added,
 		}
-	return {"ok": true, "reason": "", "added": added, "total": kept.size()}
+	return { "ok": true, "reason": "", "added": added, "total": kept.size() }
 
 
 ## What a record is known by: the id it brought, or the one derived from what it is.
@@ -194,13 +185,15 @@ static func identity_of(record: Dictionary) -> String:
 ## Two captures of the same plant, in the same place, from the same photograph are one record; two
 ## photographs of the same species are two, because the photograph is part of what the record is.
 static func _derived_id(feature: Dictionary) -> String:
-	var parts := PackedStringArray([
-		String(feature.get("species_id", "")),
-		String(feature.get("raw_taxon", "")),
-		String(feature.get("part", "")),
-		String(feature.get("photo_path", "")),
-		_position_text(feature.get("position", null)),
-	])
+	var parts := PackedStringArray(
+		[
+			String(feature.get("species_id", "")),
+			String(feature.get("raw_taxon", "")),
+			String(feature.get("part", "")),
+			String(feature.get("photo_path", "")),
+			_position_text(feature.get("position", null)),
+		]
+	)
 	return "cap-%s" % "|".join(parts).sha256_text().substr(0, 16)
 
 
@@ -213,12 +206,12 @@ static func _position_text(raw: Variant) -> String:
 static func read_manifest(path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "reason": "there is no file at %s" % path, "data": {}}
+		return { "ok": false, "reason": "there is no file at %s" % path, "data": { } }
 	var text: String = file.get_as_text()
 	file.close()
 	var reader := JSON.new()
 	if reader.parse(text) != OK:
-		return {"ok": false, "reason": "not readable JSON: %s" % reader.get_error_message(), "data": {}}
+		return { "ok": false, "reason": "not readable JSON: %s" % reader.get_error_message(), "data": { } }
 	# A manifest from a newer field tool is refused by name rather than read on. This program would
 	# recognise most of it and quietly ignore what it does not know, and a survey missing records looks
 	# exactly like a survey with fewer plants in it.
@@ -232,6 +225,6 @@ static func read_manifest(path: String) -> Dictionary:
 				"this manifest is format %d and this build writes %d, so it came from a newer field tool"
 				% [version, FORMAT_VERSION]
 			),
-			"data": {},
+			"data": { },
 		}
-	return {"ok": true, "reason": "", "data": reader.data}
+	return { "ok": true, "reason": "", "data": reader.data }

@@ -42,7 +42,7 @@ const SIZE := Vector2i(780, 640)
 ## drawing it belongs to rather than to match this app.
 const TEXT_FIELDS: Array[String] = ["title", "number", "revision"]
 
-var _identity: Dictionary = {}
+var _identity: Dictionary = { }
 var _rows: Array[Dictionary] = []
 var _index: int = 0
 ## True while the form is being filled from a row, so typing does not echo back as an edit - which would
@@ -53,7 +53,7 @@ var _said: String = ""
 var _project: LineEdit = null
 var _date: LineEdit = null
 var _list: ItemList = null
-var _texts: Dictionary = {}
+var _texts: Dictionary = { }
 var _size_option: OptionButton = null
 var _scale_option: OptionButton = null
 var _legend: CheckBox = null
@@ -74,7 +74,6 @@ func _ready() -> void:
 	if _list == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------
 
 
@@ -94,9 +93,15 @@ func build() -> void:
 	shared.add_theme_constant_override("separation", 6)
 	column.add_child(shared)
 	_project = _text_row(shared, "Project", 240.0)
-	_project.text_changed.connect(func(text: String) -> void: identity_changed.emit("project", text))
+	_project.text_changed.connect(
+		func(text: String) -> void:
+			identity_changed.emit("project", text),
+	)
 	_date = _text_row(shared, "Date", 120.0)
-	_date.text_changed.connect(func(text: String) -> void: identity_changed.emit("date", text))
+	_date.text_changed.connect(
+		func(text: String) -> void:
+			identity_changed.emit("date", text),
+	)
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -116,7 +121,10 @@ func build() -> void:
 	_list.item_selected.connect(_on_sheet_selected)
 	left.add_child(_list)
 	_remove_button = _button(left, "Remove the sheet")
-	_remove_button.pressed.connect(func() -> void: sheet_removed.emit(_index))
+	_remove_button.pressed.connect(
+		func() -> void:
+			sheet_removed.emit(_index),
+	)
 
 	# The selected sheet's own fields.
 	var right := VBoxContainer.new()
@@ -128,7 +136,10 @@ func build() -> void:
 	for field: String in TEXT_FIELDS:
 		var line := _text_row(right, _field_caption(field), 0.0)
 		_texts[field] = line
-		line.text_changed.connect(func(_text: String) -> void: _emit_text(field))
+		line.text_changed.connect(
+			func(_text: String) -> void:
+				_emit_text(field),
+		)
 
 	right.add_child(PageChrome.text("On"))
 	var paper := HBoxContainer.new()
@@ -139,17 +150,29 @@ func build() -> void:
 	for sheet_name: String in PlotScaleScript.sheet_names():
 		_size_option.add_item(sheet_label(sheet_name))
 		_size_option.set_item_metadata(_size_option.item_count - 1, sheet_name)
-	_size_option.item_selected.connect(func(_index_picked: int) -> void: _emit_option("sheet"))
+	_size_option.item_selected.connect(
+		func(_index_picked: int) -> void:
+			_emit_option("sheet"),
+	)
 	_scale_option = _option(paper, "ScaleOption", "Plot scale")
 	for ratio: float in PlotScaleScript.METRIC_LADDER:
 		_scale_option.add_item(PlotScaleScript.metric_label(ratio))
 		_scale_option.set_item_metadata(_scale_option.item_count - 1, ratio)
-	_scale_option.item_selected.connect(func(_index_picked: int) -> void: _emit_option("scale"))
+	_scale_option.item_selected.connect(
+		func(_index_picked: int) -> void:
+			_emit_option("scale"),
+	)
 
 	_legend = _flag(right, "Legend", "Carry the layer key")
-	_legend.toggled.connect(func(on: bool) -> void: _emit_flag("legend", on))
+	_legend.toggled.connect(
+		func(on: bool) -> void:
+			_emit_flag("legend", on),
+	)
 	_portrait = _flag(right, "Portrait", "Turn the sheet a quarter turn")
-	_portrait.toggled.connect(func(on: bool) -> void: _emit_flag("portrait", on))
+	_portrait.toggled.connect(
+		func(on: bool) -> void:
+			_emit_flag("portrait", on),
+	)
 
 	_status = PageChrome.status()
 	column.add_child(_status)
@@ -157,13 +180,25 @@ func build() -> void:
 	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	var add_button := _button(buttons, "Add a sheet")
-	add_button.pressed.connect(func() -> void: sheet_added.emit())
+	add_button.pressed.connect(
+		func() -> void:
+			sheet_added.emit(),
+	)
 	_plot_button = _button(buttons, "Plot this sheet")
-	_plot_button.pressed.connect(func() -> void: plot_requested.emit(_index))
+	_plot_button.pressed.connect(
+		func() -> void:
+			plot_requested.emit(_index),
+	)
 	var plot_all := _button(buttons, "Plot the set")
-	plot_all.pressed.connect(func() -> void: plot_set_requested.emit())
+	plot_all.pressed.connect(
+		func() -> void:
+			plot_set_requested.emit(),
+	)
 	var close_button := _button(buttons, "Close")
-	close_button.pressed.connect(func() -> void: closed.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			closed.emit(),
+	)
 
 
 static func _field_caption(field: String) -> String:
@@ -229,7 +264,6 @@ func _button(parent: Node, text: String) -> Button:
 func _on_close_requested() -> void:
 	closed.emit()
 
-
 # --- what it shows ------------------------------------------------------------------
 
 
@@ -237,7 +271,7 @@ func _on_close_requested() -> void:
 ## shares.
 func set_identity(project: String, date: String) -> void:
 	build()
-	_identity = {"project": project, "date": date}
+	_identity = { "project": project, "date": date }
 	_filling = true
 	_project.text = project
 	_date.text = date
@@ -294,7 +328,7 @@ func list_texts() -> Array[String]:
 
 func selected_row() -> Dictionary:
 	if _index < 0 or _index >= _rows.size():
-		return {}
+		return { }
 	return _rows[_index]
 
 
@@ -395,7 +429,6 @@ func say(text: String) -> void:
 func said() -> String:
 	return _said
 
-
 # --- what a person did --------------------------------------------------------------
 
 
@@ -421,7 +454,6 @@ func _emit_flag(field: String, on: bool) -> void:
 	if _filling:
 		return
 	field_changed.emit(_index, field, on)
-
 
 # --- the same acts, scriptable ---------------------------------------------------------
 #

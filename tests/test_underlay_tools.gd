@@ -20,7 +20,6 @@ const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const PREFIX := "test-"
 const SCRATCH := "user://drawings/test-underlay.json"
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -55,7 +54,8 @@ func _controller(count: int = 1) -> DraftController:
 	controller.snap.bind(controller.document.entities())
 	for index in count:
 		controller.document.add(
-			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE
+			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)),
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 	return controller
 
@@ -76,7 +76,6 @@ func _clean() -> void:
 	if FileAccess.file_exists(SCRATCH):
 		DirAccess.remove_absolute(SCRATCH)
 
-
 # --- taking a picture on ---------------------------------------------------------------
 
 
@@ -95,12 +94,12 @@ func test_a_picture_goes_under_the_drawing_without_becoming_geometry() -> void:
 	assert(is_equal_approx(RasterUnderlayScript.height_of(picture), 6.0), "12 across, half as deep")
 	assert(
 		is_equal_approx(float(picture["opacity"]), RasterUnderlayScript.DEFAULT_OPACITY),
-		"and see-through enough to trace over"
+		"and see-through enough to trace over",
 	)
 	assert(FileAccess.file_exists(String(picture["path"])), "a copy is kept beside the drawing")
 	assert(
 		String(picture["path"]).begins_with(RasterUnderlayScript.DIR),
-		"and it is in the drawing's own folder rather than where it was found: " + String(picture["path"])
+		"and it is in the drawing's own folder rather than where it was found: " + String(picture["path"]),
 	)
 	assert(controller.dirty, "the drawing has unsaved work now")
 	assert(String(taken["message"]).contains("under the drawing"), String(taken["message"]))
@@ -121,7 +120,7 @@ func test_a_picture_lands_on_the_middle_of_the_drawing() -> void:
 	assert(is_equal_approx(float(picture["x"]), 2.0), str(picture["x"]))
 	assert(is_equal_approx(float(picture["z"]), 1.0), str(picture["z"]))
 	# And it can be told otherwise.
-	controller.place_underlay(_source("placed"), 10.0, {"at": Vector2(-3.0, 7.0)})
+	controller.place_underlay(_source("placed"), 10.0, { "at": Vector2(-3.0, 7.0) })
 	var second: Dictionary = controller.underlays()[1]
 	assert(is_equal_approx(float(second["x"]), -3.0), str(second["x"]))
 	assert(is_equal_approx(float(second["z"]), 7.0), str(second["z"]))
@@ -177,16 +176,15 @@ func test_a_picture_with_no_width_on_the_ground_is_refused_by_name() -> void:
 	assert(not bool(refused["ok"]), "nothing across is not a size")
 	assert(String(refused["reason"]) == "a picture has to be more than nothing across", String(refused["reason"]))
 	# And the same refusal arrives from the other door, where the width is set on the record itself.
-	var stated: Dictionary = controller.take_on_picture(record, {"width_m": 0.0})
+	var stated: Dictionary = controller.take_on_picture(record, { "width_m": 0.0 })
 	assert(not bool(stated["ok"]), "a form left blank is refused too")
 	assert(String(stated["reason"]) == "a picture has to be more than nothing across", String(stated["reason"]))
-	var unreadable: Dictionary = controller.take_on_picture(record, {"width_m": NAN})
+	var unreadable: Dictionary = controller.take_on_picture(record, { "width_m": NAN })
 	assert(not bool(unreadable["ok"]), "and so is a width that is not a number")
 	assert(String(unreadable["reason"]) == "the width across the ground is not a number", String(unreadable["reason"]))
 	assert(controller.underlays().is_empty(), "and nothing reached the drawing either way")
 	controller.free()
 	_clean()
-
 
 # --- changing one ----------------------------------------------------------------------
 
@@ -196,19 +194,22 @@ func test_changing_a_picture_is_one_gesture_and_changing_nothing_is_no_gesture()
 	var controller := _controller(1)
 	var id := int(controller.place_underlay(_source("changed"), 10.0)["id"])
 	var after_placing := controller.document.gesture_serial()
-	var widened: Dictionary = controller.change_underlay(id, {"width_m": 25.0})
+	var widened: Dictionary = controller.change_underlay(id, { "width_m": 25.0 })
 	assert(bool(widened["changed"]), "a new width is a change")
-	assert(is_equal_approx(float(controller.underlays()[0]["width_m"]), 25.0), str(controller.underlays()[0]["width_m"]))
+	assert(
+		is_equal_approx(float(controller.underlays()[0]["width_m"]), 25.0),
+		str(controller.underlays()[0]["width_m"]),
+	)
 	assert(controller.document.gesture_serial() == after_placing + 1, "one change, one gesture")
 	# The same numbers again: the gesture is what would be wrong, not the change.
-	var again: Dictionary = controller.change_underlay(id, {"width_m": 25.0})
+	var again: Dictionary = controller.change_underlay(id, { "width_m": 25.0 })
 	assert(bool(again["ok"]), String(again["reason"]))
 	assert(not bool(again["changed"]), "the same width is not a change")
 	assert(
 		controller.document.gesture_serial() == after_placing + 1,
-		"so no undo step that puts back what is already there: %d" % controller.document.gesture_serial()
+		"so no undo step that puts back what is already there: %d" % controller.document.gesture_serial(),
 	)
-	var nowhere: Dictionary = controller.change_underlay(99, {"width_m": 5.0})
+	var nowhere: Dictionary = controller.change_underlay(99, { "width_m": 5.0 })
 	assert(not bool(nowhere["ok"]), "and a picture that is not there cannot be changed")
 	assert(String(nowhere["reason"]).contains("no picture 99"), String(nowhere["reason"]))
 	controller.free()
@@ -219,9 +220,10 @@ func test_a_picture_can_be_turned_moved_and_made_see_through() -> void:
 	_clean()
 	var controller := _controller(1)
 	var id := int(controller.place_underlay(_source("moved"), 10.0)["id"])
-	var changed: Dictionary = controller.change_underlay(id, {
-		"rotation_deg": 90.0, "opacity": 0.25, "at": Vector2(6.0, -4.0),
-	})
+	var changed: Dictionary = controller.change_underlay(
+		id,
+		{ "rotation_deg": 90.0, "opacity": 0.25, "at": Vector2(6.0, -4.0) },
+	)
 	assert(bool(changed["changed"]), String(changed["reason"]))
 	var picture: Dictionary = controller.underlays()[0]
 	assert(is_equal_approx(float(picture["rotation_deg"]), 90.0), str(picture["rotation_deg"]))
@@ -237,7 +239,7 @@ func test_a_picture_can_be_turned_moved_and_made_see_through() -> void:
 	assert(String(rows[0]["text"]).contains("25% opaque"), String(rows[0]["text"]))
 	assert(bool(rows[0]["usable"]), "and it can be drawn")
 	# And it can be put away without being thrown away.
-	var hidden: Dictionary = controller.change_underlay(id, {"visible": false})
+	var hidden: Dictionary = controller.change_underlay(id, { "visible": false })
 	assert(bool(hidden["changed"]), String(hidden["reason"]))
 	assert(not bool(hidden["picture"]["visible"]), "a picture can be hidden")
 	assert(controller.document.underlays.size() == 1, "and is still kept")
@@ -271,7 +273,7 @@ func test_a_picture_whose_file_has_gone_is_still_kept_but_is_not_usable() -> voi
 	assert(rows.size() == 1, "the drawing still knows about it")
 	assert(not bool(rows[0]["usable"]), "but it cannot be drawn")
 	assert(String(rows[0]["text"]).contains("no longer at"), String(rows[0]["text"]))
-	var again: Dictionary = controller.take_on_picture(controller.underlays()[0], {"width_m": 8.0})
+	var again: Dictionary = controller.take_on_picture(controller.underlays()[0], { "width_m": 8.0 })
 	assert(not bool(again["ok"]), "and it cannot be taken on again either")
 	assert(controller.document.underlays.size() == 1, "no half-made second copy of it")
 	assert(controller.remove_underlay(id), "though it can still be taken off the drawing")
@@ -290,7 +292,6 @@ func test_the_summary_says_what_is_under_the_drawing() -> void:
 	controller.free()
 	_clean()
 
-
 # --- what the file keeps ----------------------------------------------------------------
 
 
@@ -298,9 +299,12 @@ func test_what_is_under_the_drawing_is_written_down_and_read_back() -> void:
 	_clean()
 	var controller := _controller(1)
 	var id := int(controller.place_underlay(_source("saved"), 12.0)["id"])
-	controller.change_underlay(id, {"rotation_deg": 30.0, "opacity": 0.5})
+	controller.change_underlay(id, { "rotation_deg": 30.0, "opacity": 0.5 })
 	var saved: Dictionary = controller.document.to_dict()
-	assert(int(saved["version"]) == 11, "version 11 is the one that states the growing season too: %d" % int(saved["version"]))
+	assert(
+		int(saved["version"]) == 11,
+		"version 11 is the one that states the growing season too: %d" % int(saved["version"]),
+	)
 	assert(saved.has("underlays"), "and they are written out")
 	var loaded: DraftDocument = DocumentScript.from_dict(JSON.parse_string(JSON.stringify(saved)))
 	assert(loaded.underlays.size() == 1, str(loaded.underlays.size()))
@@ -328,10 +332,10 @@ func test_a_second_picture_gets_its_own_number_even_across_a_save() -> void:
 	var second := int(controller.place_underlay(_source("n2"), 10.0)["id"])
 	assert(second == first + 1, "%d then %d" % [first, second])
 	var loaded: DraftDocument = DocumentScript.from_dict(controller.document.to_dict())
-	loaded.add_underlay({"path": "user://underlays/test-n3.png", "width_m": 5.0, "width_px": 4, "height_px": 2})
+	loaded.add_underlay({ "path": "user://underlays/test-n3.png", "width_m": 5.0, "width_px": 4, "height_px": 2 })
 	assert(
 		int(loaded.underlays[2]["id"]) == second + 1,
-		"a loaded drawing carries on from where it left off: %s" % str(loaded.underlays[2])
+		"a loaded drawing carries on from where it left off: %s" % str(loaded.underlays[2]),
 	)
 	controller.free()
 	_clean()

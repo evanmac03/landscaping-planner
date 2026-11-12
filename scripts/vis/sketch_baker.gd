@@ -24,10 +24,7 @@ var texels_per_mm: float = TEXELS_PER_MM
 
 ## The bake's pixel size, which is the paper's size at this resolution.
 func pixel_size() -> Vector2i:
-	return Vector2i(
-		maxi(1, roundi(paper_mm.x * texels_per_mm)),
-		maxi(1, roundi(paper_mm.y * texels_per_mm))
-	)
+	return Vector2i(maxi(1, roundi(paper_mm.x * texels_per_mm)), maxi(1, roundi(paper_mm.y * texels_per_mm)))
 
 
 ## Model metres to paper millimetres, with the drawing centred on the paper.
@@ -65,10 +62,10 @@ static func paper_transform(bounds: Rect2, plot_scale: float, paper: Vector2) ->
 func bake(painters: Array[Node2D], bounds: Rect2, plot_scale: float) -> Dictionary:
 	if painters.is_empty():
 		push_error("SketchBaker: there is nothing to bake.")
-		return {}
+		return { }
 	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
 		push_error("SketchBaker: the drawing has no extent to frame.")
-		return {}
+		return { }
 	var size := pixel_size()
 	var transform := paper_transform(bounds, plot_scale, paper_mm)
 	var viewports: Array[SubViewport] = []
@@ -92,10 +89,7 @@ func bake(painters: Array[Node2D], bounds: Rect2, plot_scale: float) -> Dictiona
 	var textures: Array[Texture2D] = []
 	for viewport: SubViewport in viewports:
 		textures.append(viewport.get_texture())
-	return {
-		"textures": textures, "viewports": viewports,
-		"pixel_size": size, "mm": paper_mm,
-	}
+	return { "textures": textures, "viewports": viewports, "pixel_size": size, "mm": paper_mm }
 
 
 ## Let go of a bake's render targets. Call this once nothing is going to sample them.

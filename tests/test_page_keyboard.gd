@@ -21,7 +21,6 @@ const SnapWindowScript := preload("res://scripts/snap_window.gd")
 const PaletteScript := preload("res://scripts/command_palette.gd")
 const HelpWindowScript := preload("res://scripts/help_window.gd")
 
-
 # --- the rule ---------------------------------------------------------------------------------------
 
 
@@ -106,7 +105,6 @@ func test_a_page_that_is_not_up_is_left_alone_by_the_incremental_form() -> void:
 
 	page.free()
 
-
 # --- what the shared show does with it --------------------------------------------------------------
 
 
@@ -153,9 +151,7 @@ func test_a_real_page_can_be_walked_with_the_keyboard_once_it_is_shown() -> void
 
 	page.free()
 
-
 # --- what the runner cannot ask, and where it is asked instead -------------------------------------
-
 
 ## Two claims about a page with the keyboard are **not** tested here, on purpose, because the runner cannot
 ## ask them: a key injected in the test runner does not reach the focused control inside an embedded
@@ -178,7 +174,6 @@ func test_a_real_page_can_be_walked_with_the_keyboard_once_it_is_shown() -> void
 ## A test that tried to hold either one off-tree was written, failed, and was removed rather than bent to
 ## pass: it was measuring the runner, not the project.
 
-
 # --- the pages that answer for their own ------------------------------------------------------------
 
 
@@ -190,12 +185,12 @@ func test_the_pages_that_answer_for_themselves_are_left_alone() -> void:
 	palette.build()
 	assert(
 		palette.commands_list().focus_mode == Control.FOCUS_NONE,
-		"the palette's list is picked from, not typed into"
+		"the palette's list is picked from, not typed into",
 	)
 	assert(PageChromeScript.takes_the_keyboard(palette) == 0, "so the rule does not touch the page")
 	assert(
 		palette.commands_list().focus_mode == Control.FOCUS_NONE,
-		"and it is still out of the focus chain afterwards"
+		"and it is still out of the focus chain afterwards",
 	)
 	palette.free()
 

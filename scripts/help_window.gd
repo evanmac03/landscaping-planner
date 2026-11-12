@@ -73,7 +73,7 @@ var _picture_row: HBoxContainer = null
 var _shown_pictures: Array[String] = []
 ## Textures already read, by path. Turning a page must not read the disk again, and a path that could
 ## not be read is remembered as `null` so the disk is not asked for it a second time either.
-var _picture_textures: Dictionary[String, Texture2D] = {}
+var _picture_textures: Dictionary[String, Texture2D] = { }
 var _status: Label = null
 ## The cross-reference buttons under the body: one per subject the shown one points at, rebuilt
 ## whenever the page turns. Every one of them is `FOCUS_NONE` like the rest of the page.
@@ -91,7 +91,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _list == null:
 		build()
-
 
 # --- building --------------------------------------------------------------------------------
 
@@ -212,8 +211,8 @@ func build() -> void:
 	# would look like a page that had failed.
 	_apply_filter()
 
-
 # --- putting it on the screen -------------------------------------------------------------------
+
 
 ## The floor the window opens at, brought down to what a screen actually has room for. A window is
 ## shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
@@ -247,7 +246,6 @@ func open() -> void:
 	popup_centered_clamped()
 	if _search != null:
 		_search.grab_focus()
-
 
 # --- what it is showing -----------------------------------------------------------------------
 
@@ -464,7 +462,6 @@ func said() -> String:
 func status_text() -> String:
 	return said()
 
-
 # --- the controls themselves, for a test that has to read them ---------------------------------
 
 
@@ -495,7 +492,6 @@ func see_view() -> HBoxContainer:
 ## The search box: the one control in here that *is* allowed to hold the keyboard.
 func search_field() -> LineEdit:
 	return _search
-
 
 # --- the work ---------------------------------------------------------------------------------
 
@@ -543,8 +539,11 @@ func _apply_filter() -> void:
 		# unbracketed form is a format applied to the last fragment alone - and a fragment with no
 		# placeholder in it is a formatting error rather than a sentence.
 		_body.text = (
-			("Nothing in the manual matches %s.\n\n"
-			+ "Try a shorter word, or clear the box to read the contents again.") % _quoted(query)
+			(
+				"Nothing in the manual matches %s.\n\n"
+				+ "Try a shorter word, or clear the box to read the contents again."
+			)
+			% _quoted(query)
 		)
 		say("%s: no topic matches it. Clear the box for the whole manual." % _quoted(query))
 		return
@@ -712,8 +711,7 @@ static func _looks_like(kind: String, bytes: PackedByteArray) -> bool:
 	match kind:
 		"webp":
 			return (
-				bytes.size() > 12
-				and bytes.slice(0, 4).get_string_from_ascii() == "RIFF"
+				bytes.size() > 12 and bytes.slice(0, 4).get_string_from_ascii() == "RIFF"
 				and bytes.slice(8, 12).get_string_from_ascii() == "WEBP"
 			)
 		"png":
@@ -820,7 +818,6 @@ func _describe_shown(query: String) -> String:
 
 static func _quoted(words: String) -> String:
 	return "\"%s\"" % words.strip_edges()
-
 
 # --- what it does -----------------------------------------------------------------------------
 

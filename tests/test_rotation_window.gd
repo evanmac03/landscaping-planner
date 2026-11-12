@@ -30,7 +30,7 @@ func _catalogue() -> PlantCatalogue:
 
 
 func _places() -> Array:
-	return [{"name": "South bed"}, {"name": "North bed"}]
+	return [{ "name": "South bed" }, { "name": "North bed" }]
 
 
 ## A page, built, with a plant list and two beds - and freed by the caller.
@@ -39,7 +39,6 @@ func _page() -> RotationWindow:
 	page.build()
 	page.bind(_catalogue(), _places())
 	return page
-
 
 # --- building -------------------------------------------------------------------------------
 
@@ -73,7 +72,6 @@ func test_a_page_with_nothing_bound_reports_what_it_is_missing() -> void:
 	assert(page.place_line() == RotationWindowScript.NO_PLACES, page.place_line())
 	assert(page.row_count() == 0, "and there is nothing to list")
 	page.free()
-
 
 # --- the check, as the page shows it ---------------------------------------------------------
 
@@ -124,7 +122,6 @@ func test_the_page_says_what_the_bed_would_carry() -> void:
 	assert(page.summary_text().contains("should not"), page.summary_text())
 	page.free()
 
-
 # --- the history is per bed ------------------------------------------------------------------
 
 
@@ -141,7 +138,6 @@ func test_the_history_is_kept_for_the_bed_it_was_stated_for() -> void:
 	assert(StringName(turn.get_item_metadata(turn.selected)) == CropRotationScript.LEGUME)
 	page.free()
 
-
 # --- what it does ------------------------------------------------------------------------------
 
 
@@ -153,7 +149,7 @@ func test_the_companion_line_is_the_crops_own_knowledge() -> void:
 	assert(page.choose_crop(&"mystery"))
 	assert(
 		page.company_line().contains("nothing is stated"),
-		"a plant with no family has no companions: %s" % page.company_line()
+		"a plant with no family has no companions: %s" % page.company_line(),
 	)
 	page.free()
 
@@ -172,9 +168,7 @@ func test_the_reason_is_shown_where_the_pairings_give_one() -> void:
 	# family row could ever reach - and it is the pairing that carries a mechanism, which is what the
 	# reason line is for.
 	var catalogue: PlantCatalogue = _catalogue()
-	catalogue.add(
-		SpeciesScript.make(&"tagetes-patula", "Tagetes patula", "Marigold", 30, 30, SpeciesScript.ANNUAL)
-	)
+	catalogue.add(SpeciesScript.make(&"tagetes-patula", "Tagetes patula", "Marigold", 30, 30, SpeciesScript.ANNUAL))
 	var page: RotationWindow = RotationWindowScript.new()
 	page.build()
 	page.bind(catalogue, _places())
@@ -188,7 +182,10 @@ func test_the_reason_is_shown_where_the_pairings_give_one() -> void:
 func test_choosing_a_crop_says_so_and_closing_emits() -> void:
 	var page: RotationWindow = _page()
 	var closed: Array = []
-	page.closed.connect(func() -> void: closed.append(true))
+	page.closed.connect(
+		func() -> void:
+			closed.append(true),
+	)
 	assert(page.choose_crop(&"bean"))
 	page._on_crop_selected(page.get_node("Scroll/Column/CropRow/Crop").selected)
 	assert(page.said().contains("Bean"), page.said())

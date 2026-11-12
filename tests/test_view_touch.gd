@@ -1,4 +1,3 @@
-
 extends Node
 ## The touch gestures the overhead views answer: a pinch to zoom the plan, and a two-finger drag to pan
 ## it.
@@ -11,7 +10,6 @@ extends Node
 
 const ViewControllerScript := preload("res://scripts/view_controller.gd")
 const ViewMathScript := preload("res://scripts/view_math.gd")
-
 
 # --- the arithmetic, on its own ---------------------------------------------------------
 
@@ -33,30 +31,23 @@ func test_a_pinch_that_reports_no_movement_is_no_zoom_at_all() -> void:
 ## A drag moves the design the opposite way, by one screen pixel's worth of ground - so dragging the
 ## screen's own height moves the view exactly one screenful of the plan.
 func test_a_drag_moves_the_design_the_opposite_way_by_one_pixels_worth_of_ground() -> void:
-	var moved: Vector2 = ViewMathScript.focus_after_screen_drag(
-		Vector2(10.0, 5.0), Vector2(100.0, 0.0), 40.0, 800.0
-	)
+	var moved: Vector2 = ViewMathScript.focus_after_screen_drag(Vector2(10.0, 5.0), Vector2(100.0, 0.0), 40.0, 800.0)
 	assert(is_equal_approx(moved.x, 5.0), "dragged right, so the view moved left: %f" % moved.x)
 	assert(is_equal_approx(moved.y, 5.0), "and not up or down at all")
 
-	var full: Vector2 = ViewMathScript.focus_after_screen_drag(
-		Vector2(10.0, 5.0), Vector2(0.0, 800.0), 40.0, 800.0
-	)
+	var full: Vector2 = ViewMathScript.focus_after_screen_drag(Vector2(10.0, 5.0), Vector2(0.0, 800.0), 40.0, 800.0)
 	assert(
 		is_equal_approx(full.y, 5.0 - 40.0),
-		"a drag of the whole height moves one plan width of ground: %f" % full.y
+		"a drag of the whole height moves one plan width of ground: %f" % full.y,
 	)
 
 
 ## A viewport with no height divides by one rather than by nothing: a finite move, not a jump to
 ## infinity.
 func test_a_viewport_of_no_height_still_moves_the_design_finitely() -> void:
-	var moved: Vector2 = ViewMathScript.focus_after_screen_drag(
-		Vector2.ZERO, Vector2(10.0, 10.0), 20.0, 0.0
-	)
+	var moved: Vector2 = ViewMathScript.focus_after_screen_drag(Vector2.ZERO, Vector2(10.0, 10.0), 20.0, 0.0)
 	assert(moved.is_finite(), "a finite move: %s" % str(moved))
 	assert(is_equal_approx(moved.x, -200.0), "one pixel is a whole plan width: %f" % moved.x)
-
 
 # --- which gesture asks for what ---------------------------------------------------------
 

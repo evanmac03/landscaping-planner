@@ -90,7 +90,7 @@ func test_an_embedded_still_is_never_enlarged_and_never_over_the_cap() -> void:
 
 
 func test_the_title_block_is_four_rows_and_a_missing_value_is_a_dash() -> void:
-	var rows: Array[Dictionary] = Page.title_rows({"project": "Maple Street", "scale": "1:100"})
+	var rows: Array[Dictionary] = Page.title_rows({ "project": "Maple Street", "scale": "1:100" })
 	assert(rows.size() == 4, "the block is four rows")
 	assert(String(rows[0]["value"]) == "Maple Street")
 	assert(String(rows[1]["value"]) == "-", "a value nobody gave reads as a dash, not as nothing")
@@ -100,7 +100,7 @@ func test_the_title_block_is_four_rows_and_a_missing_value_is_a_dash() -> void:
 
 func test_the_page_image_is_the_paper_at_the_resolution() -> void:
 	var plan: Dictionary = Page.layout(A3, Vector2i(1600, 900))
-	var image: Image = Page.render_image(_still(), A3, {}, 60.0)
+	var image: Image = Page.render_image(_still(), A3, { }, 60.0)
 	assert(image != null, "a page was drawn")
 	assert(image.get_size() == Page.page_pixels(plan, 60.0), "the page is its own size: %s" % image.get_size())
 	# The corner is bare paper; the middle carries the picture.
@@ -117,7 +117,7 @@ func test_the_page_image_is_the_paper_at_the_resolution() -> void:
 
 
 func test_a_pdf_page_embeds_the_picture_for_real() -> void:
-	var pdf: PackedByteArray = Page.build_pdf(_still(), A3, {"project": "Maple Street", "view": "3D presentation"})
+	var pdf: PackedByteArray = Page.build_pdf(_still(), A3, { "project": "Maple Street", "view": "3D presentation" })
 	assert(not pdf.is_empty(), "a page was written")
 	var text := pdf.get_string_from_utf8()
 	assert(text.begins_with("%PDF-1.4"), "it is a PDF")
@@ -138,8 +138,8 @@ func test_a_pdf_page_embeds_the_picture_for_real() -> void:
 
 
 func test_a_pdf_with_no_picture_is_refused_rather_than_written_with_a_hole() -> void:
-	assert(Page.build_pdf(null, A3, {}).is_empty(), "no image, no page")
-	assert(Page.build_pdf(Image.new(), A3, {}).is_empty(), "an empty image is no page")
+	assert(Page.build_pdf(null, A3, { }).is_empty(), "no image, no page")
+	assert(Page.build_pdf(Image.new(), A3, { }).is_empty(), "an empty image is no page")
 
 
 func test_the_writer_leaves_a_page_with_no_image_exactly_as_it_was() -> void:
@@ -182,22 +182,16 @@ func test_the_still_gives_up_room_when_the_page_carries_photographs() -> void:
 	# paper along the foot of the drawing area: the plan gives up the room rather than having pictures
 	# pasted over it, because the drawing is what the page is for.
 	var bare: Dictionary = Page.layout(A3, Vector2i(1600, 900))
-	var with_photos: Dictionary = Page.layout(A3, Vector2i(1600, 900), {"photos": [{}, {}]})
+	var with_photos: Dictionary = Page.layout(A3, Vector2i(1600, 900), { "photos": [{ }, { }] })
 	var strip: Rect2 = with_photos["photos_mm"]
 	assert(strip.size.x > 0.0 and strip.size.y > 0.0, "there is a strip: %s" % strip)
 	assert(
 		with_photos["still_mm"].size.y < bare["still_mm"].size.y,
-		"the picture gave up height for it: %s vs %s" % [with_photos["still_mm"], bare["still_mm"]]
+		"the picture gave up height for it: %s vs %s" % [with_photos["still_mm"], bare["still_mm"]],
 	)
 	assert(with_photos["still_mm"].position.y >= strip.end.y, "and its foot is above the photographs' strip")
-	assert(
-		strip.position.y >= with_photos["title_mm"].end.y,
-		"the strip lies above the title block, not over it"
-	)
-	assert(
-		with_photos["area_mm"].position.y >= strip.end.y,
-		"and the drawing area begins above the strip"
-	)
+	assert(strip.position.y >= with_photos["title_mm"].end.y, "the strip lies above the title block, not over it")
+	assert(with_photos["area_mm"].position.y >= strip.end.y, "and the drawing area begins above the strip")
 	assert(bare["photos_mm"].size.y == 0.0, "a page with no photographs reserves no paper for them")
 
 
@@ -222,7 +216,7 @@ func test_a_page_shows_three_photographs_and_says_how_many_it_left_out() -> void
 	assert(solo.size.x < strip.size.x, "and it does not pretend to fill a strip it does not need")
 	assert(
 		absf((solo.position.x - strip.position.x) - (strip.end.x - solo.end.x)) < 0.5,
-		"so the row is centred in the strip"
+		"so the row is centred in the strip",
 	)
 	# No strip at all is no bands, and the count is still stated so nothing disappears silently.
 	var nowhere: Dictionary = Page.photo_bands(2, Rect2())
@@ -231,10 +225,10 @@ func test_a_page_shows_three_photographs_and_says_how_many_it_left_out() -> void
 
 func test_the_pdf_carries_one_image_per_photograph() -> void:
 	var photos: Array = [
-		{"image": _still(40, 30, Color(0.8, 0.2, 0.2)), "caption": "Thyme by the gate"},
-		{"image": _still(40, 30, Color(0.2, 0.8, 0.2)), "caption": "The bed along the fence"},
+		{ "image": _still(40, 30, Color(0.8, 0.2, 0.2)), "caption": "Thyme by the gate" },
+		{ "image": _still(40, 30, Color(0.2, 0.8, 0.2)), "caption": "The bed along the fence" },
 	]
-	var pdf: PackedByteArray = Page.build_pdf(_still(), A3, {}, {"photos": photos})
+	var pdf: PackedByteArray = Page.build_pdf(_still(), A3, { }, { "photos": photos })
 	assert(not pdf.is_empty(), "a page was written")
 	# The images' own streams hold NUL bytes, which truncate `get_string_from_utf8` at the first one - so
 	# the evidence is read from the content stream, which is written before them, and never by counting
@@ -254,5 +248,7 @@ func test_the_page_and_the_still_agree_about_the_sheet() -> void:
 	var paper: Vector2 = Preset.paper_mm(Preset.PROPOSAL_DEFAULT)
 	var plan: Dictionary = Page.layout(paper, Preset.size(Preset.PROPOSAL_DEFAULT))
 	assert(bool(plan["fits"]), "an A3 still fits an A3 page")
-	assert(Page.page_pixels(plan, Preset.dpi(Preset.PROPOSAL_DEFAULT)) == Preset.size(Preset.PROPOSAL_DEFAULT),
-		"the page comes to the still's own pixel size")
+	assert(
+		Page.page_pixels(plan, Preset.dpi(Preset.PROPOSAL_DEFAULT)) == Preset.size(Preset.PROPOSAL_DEFAULT),
+		"the page comes to the still's own pixel size",
+	)

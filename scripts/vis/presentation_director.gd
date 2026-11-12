@@ -104,13 +104,13 @@ func _ready() -> void:
 ## is the equator: a sentinel that is also a legitimate answer cannot say "no opinion".
 func _site_from_drawing() -> Dictionary:
 	if view_controller == null or not view_controller.has_method("draft_controller"):
-		return {}
+		return { }
 	var controller: Node = view_controller.draft_controller()
 	if controller == null:
-		return {}
+		return { }
 	var drawing = controller.document
 	if drawing == null or not drawing.has_method("site"):
-		return {}
+		return { }
 	return drawing.site()
 
 
@@ -186,10 +186,9 @@ func begin(new_tier: int = Tier.PRESENTATION) -> bool:
 	# events. Its own two flags are recorded, so putting it back cannot put it back
 	# wrong.
 	if view_controller != null:
-		_restore.append({
-			"target": view_controller, "property": "_presentation_suspended",
-			"value": false, "flag": true,
-		})
+		_restore.append(
+			{ "target": view_controller, "property": "_presentation_suspended", "value": false, "flag": true }
+		)
 		_suspend_controller(true)
 
 	# Hide the working surfaces. Recorded, so a session that was already in the flat
@@ -274,7 +273,7 @@ func frame_yard() -> void:
 	var bounds: Rect2 = yard.get_bounds()
 	var box := AABB(
 		Vector3(bounds.position.x, 0.0, bounds.position.y),
-		Vector3(bounds.size.x, YARD_BOX_HEIGHT_M, bounds.size.y)
+		Vector3(bounds.size.x, YARD_BOX_HEIGHT_M, bounds.size.y),
 	)
 	# A little air around the fence, so the picture does not end at a post.
 	orbit.frame(box, 0.12)
@@ -293,7 +292,8 @@ func _clamp_shadow_distance() -> void:
 	if sun == null:
 		return
 	sun.directional_shadow_max_distance = maxf(
-		float(Tier.look(tier)["shadow_max_distance"]), required_shadow_distance()
+		float(Tier.look(tier)["shadow_max_distance"]),
+		required_shadow_distance(),
 	)
 
 
@@ -303,9 +303,7 @@ func required_shadow_distance() -> float:
 	if orbit == null or orbit.camera == null or yard == null or not is_instance_valid(yard):
 		return 0.0
 	var bounds: Rect2 = yard.get_bounds()
-	var centre := Vector3(
-		bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5
-	)
+	var centre := Vector3(bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5)
 	var radius: float = Vector2(bounds.size.x, bounds.size.y).length() * 0.5
 	return orbit.camera.global_position.distance_to(centre) + radius + SHADOW_MARGIN_M
 
@@ -334,15 +332,15 @@ func render_still(output_size: Vector2i, base_name: String = "presentation") -> 
 		StillExporterScript.SUPERSAMPLE,
 		Tier.name_of(tier),
 		SunStudyScript.position_for(current_site(), current_moment()),
-		orbit.state() if orbit != null else {},
+		orbit.state() if orbit != null else { },
 		plot_scale,
-		_entity_count()
+		_entity_count(),
 	)
 	var path: String = await _exporter.render_still(
 		[orbit.camera] as Array[Node],
 		output_size,
 		StillExporterScript.timestamp_name(base_name),
-		record
+		record,
 	)
 	if path == "":
 		still_failed.emit("the render came back blank or empty.")
@@ -379,9 +377,7 @@ func _remember_once(target: Object, property: String) -> void:
 	for change in _restore:
 		if change["target"] == target and String(change["property"]) == property:
 			return
-	_restore.append({
-		"target": target, "property": property, "value": target.get(property),
-	})
+	_restore.append({ "target": target, "property": property, "value": target.get(property) })
 
 
 ## Record a flag that is undone by a function rather than by `set`. The view
@@ -407,14 +403,14 @@ func _suspend_controller(suspend: bool) -> void:
 	var flag: String = "_presentation_suspended"
 	if suspend:
 		# What it currently has, so a controller that was already idle stays idle.
-		view_controller.set_meta(flag, {
-			"process": view_controller.is_processing(),
-			"input": view_controller.is_processing_unhandled_input(),
-		})
+		view_controller.set_meta(
+			flag,
+			{ "process": view_controller.is_processing(), "input": view_controller.is_processing_unhandled_input() },
+		)
 		view_controller.set_process(false)
 		view_controller.set_process_unhandled_input(false)
 		return
-	var previous: Variant = view_controller.get_meta(flag, {})
+	var previous: Variant = view_controller.get_meta(flag, { })
 	view_controller.set_process(bool(previous.get("process", true)))
 	view_controller.set_process_unhandled_input(bool(previous.get("input", true)))
 	view_controller.remove_meta(flag)
@@ -438,9 +434,7 @@ func _metres_per_pixel() -> float:
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
 	if viewport_height <= 0.0:
 		return 0.01
-	return (
-		2.0 * orbit.distance() * tan(deg_to_rad(orbit.camera.fov * 0.5))
-	) / viewport_height
+	return (2.0 * orbit.distance() * tan(deg_to_rad(orbit.camera.fov * 0.5))) / viewport_height
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -471,7 +465,5 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			# Middle-drag slides the view sideways. Screen down is ground south, and
 			# screen right is ground east, which is the same mapping the plan uses.
-			orbit.truck(
-				Vector2(motion.relative.x, motion.relative.y) * _metres_per_pixel()
-			)
+			orbit.truck(Vector2(motion.relative.x, motion.relative.y) * _metres_per_pixel())
 		get_viewport().set_input_as_handled()

@@ -32,8 +32,7 @@ func test_every_part_of_the_shipped_yard_is_accounted_for() -> void:
 			unaccounted.append(String(child.name))
 	assert(
 		unaccounted.is_empty(),
-		"these parts of the yard are neither garden, ground, nor planting: %s"
-			% ", ".join(unaccounted)
+		"these parts of the yard are neither garden, ground, nor planting: %s" % ", ".join(unaccounted),
 	)
 	yard.free()
 

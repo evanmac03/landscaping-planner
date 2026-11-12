@@ -45,7 +45,6 @@ func _done(controller, hud = null) -> void:
 	if controller != null:
 		controller.free()
 
-
 # --- the controller's door ---------------------------------------------------------------
 
 
@@ -134,14 +133,11 @@ func test_the_status_line_says_what_went_out() -> void:
 func test_what_was_left_out_is_named() -> void:
 	var controller = _controller()
 	_drawing(controller)
-	controller.document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(5, 0)), LayerSet.DIMENSION
-	)
+	controller.document.add(Entity.make_dimension(Vector2(0, 0), Vector2(5, 0)), LayerSet.DIMENSION)
 	controller.export_dxf(_path("left-out"))
 	assert(controller.last_message.contains("left out"), controller.last_message)
 	assert(controller.last_message.contains("dimension"), controller.last_message)
 	_done(controller)
-
 
 # --- the HUD's door ----------------------------------------------------------------------
 
@@ -164,7 +160,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## The dialog's filter is not a promise: a name typed without an extension is a file nothing on the

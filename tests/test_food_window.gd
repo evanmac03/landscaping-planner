@@ -37,9 +37,9 @@ func _catalogue() -> PlantCatalogue:
 
 func _places() -> Array:
 	return [
-		{"name": "South bed", "profile": ProfileScript.of("sun", SpeciesScript.FULL_SUN)},
-		{"name": "North bed", "profile": ProfileScript.of("sun", SpeciesScript.FULL_SHADE)},
-		{"name": "the rest of the site", "profile": ProfileScript.make()},
+		{ "name": "South bed", "profile": ProfileScript.of("sun", SpeciesScript.FULL_SUN) },
+		{ "name": "North bed", "profile": ProfileScript.of("sun", SpeciesScript.FULL_SHADE) },
+		{ "name": "the rest of the site", "profile": ProfileScript.make() },
 	]
 
 
@@ -53,7 +53,6 @@ func _page() -> FoodWindow:
 	page.build()
 	page.bind(_catalogue(), _places(), _site())
 	return page
-
 
 # --- building -------------------------------------------------------------------------------
 
@@ -71,13 +70,12 @@ func test_the_page_builds_its_controls_without_a_keyboard_of_their_own() -> void
 
 func test_a_page_with_nothing_bound_reports_what_it_is_missing() -> void:
 	var page: FoodWindow = FoodWindowScript.new()
-	page.bind(null, [], {})
+	page.bind(null, [], { })
 	assert(page.hint() == FoodWindowScript.NO_CROPS, page.hint())
 	assert(page.place_line() == FoodWindowScript.NO_PLACES, page.place_line())
 	assert(page.season_line() == FoodWindowScript.NO_SITE, page.season_line())
 	assert(page.row_count() == 0, "and there is nothing to list")
 	page.free()
-
 
 # --- the check, as the page shows it ---------------------------------------------------------
 
@@ -139,14 +137,16 @@ func test_the_page_says_what_the_bed_would_carry() -> void:
 	assert(page.summary_text().contains("will not"), page.summary_text())
 	page.free()
 
-
 # --- what it does ------------------------------------------------------------------------------
 
 
 func test_choosing_a_crop_says_so_and_closing_emits() -> void:
 	var page: FoodWindow = _page()
 	var closed: Array = []
-	page.closed.connect(func() -> void: closed.append(true))
+	page.closed.connect(
+		func() -> void:
+			closed.append(true),
+	)
 	assert(page.choose_crop(&"lettuce"))
 	page._on_crop_selected(page.get_node("Column/CropRow/Crop").selected)
 	assert(page.said().contains("Lettuce"), page.said())

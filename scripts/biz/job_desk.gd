@@ -51,7 +51,7 @@ var schedule: Schedule = null
 ## What has been logged, approved or not. Only an approved entry becomes cost (§7.3).
 var time_entries: Array[TimeEntry] = []
 ## Where each job is, in the drawing's model metres, keyed by job id. Stated, not guessed.
-var job_places: Dictionary = {}
+var job_places: Dictionary = { }
 ## What has been ordered for a job, and what has arrived against it (phase 6, §8.3).
 var purchase_orders: Array[PurchaseOrder] = []
 ## What a customer has been asked to agree to on top of the contract, and whether they have (phase 6,
@@ -59,13 +59,12 @@ var purchase_orders: Array[PurchaseOrder] = []
 var change_orders: Array[ChangeOrder] = []
 ## What has been invoiced and what has been collected, keyed by job id. **Said, never assumed**: a job
 ## with no entry here reports billed as unknown rather than as nothing (§8.4).
-var invoiced: Dictionary = {}
-var collected: Dictionary = {}
+var invoiced: Dictionary = { }
+var collected: Dictionary = { }
 
 
 func _init() -> void:
 	schedule = ScheduleScript.new()
-
 
 # --- the people ------------------------------------------------------------------------------
 
@@ -120,16 +119,17 @@ func crew_label(member_id: StringName) -> String:
 func crew_rows(on_date: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in crews:
-		out.append({
-			"id": String(held.id),
-			"name": held.name,
-			"role": String(held.role),
-			"role_name": CrewScript.role_name(held.role),
-			"loaded_rate": held.rate_on(on_date),
-			"available": held.available_on(on_date),
-		})
+		out.append(
+			{
+				"id": String(held.id),
+				"name": held.name,
+				"role": String(held.role),
+				"role_name": CrewScript.role_name(held.role),
+				"loaded_rate": held.rate_on(on_date),
+				"available": held.available_on(on_date),
+			}
+		)
 	return out
-
 
 # --- the jobs --------------------------------------------------------------------------------
 
@@ -187,19 +187,20 @@ func job_ids() -> Array[String]:
 func job_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in jobs:
-		out.append({
-			"id": held.id,
-			"name": job_label(held.id),
-			"number": held.number,
-			"contract_sum": held.contract_sum,
-			"budget_total": held.budget_total(),
-			"billing_method": held.billing_method,
-			"billing_name": JobScript.billing_name(held.billing_method),
-			"phase_count": held.phases.size(),
-			"estimate_revision": held.estimate_revision,
-		})
+		out.append(
+			{
+				"id": held.id,
+				"name": job_label(held.id),
+				"number": held.number,
+				"contract_sum": held.contract_sum,
+				"budget_total": held.budget_total(),
+				"billing_method": held.billing_method,
+				"billing_name": JobScript.billing_name(held.billing_method),
+				"phase_count": held.phases.size(),
+				"estimate_revision": held.estimate_revision,
+			}
+		)
 	return out
-
 
 # --- where a job is ----------------------------------------------------------------------------
 
@@ -223,7 +224,6 @@ func job_place(job_id: String) -> Vector2:
 		return at
 	return Vector2.ZERO
 
-
 # --- the board ---------------------------------------------------------------------------------
 
 
@@ -233,20 +233,25 @@ func job_place(job_id: String) -> Vector2:
 ## Refused for a job or a person this desk does not have, and then for everything `Schedule.place`
 ## refuses - a window that ends before it starts, or one outside the day.
 ## Returns `{ok, reason, index}`.
-func book(job_id: String, member_id: StringName, date: String, start_minute: int, end_minute: int,
-		note: String = "") -> Dictionary:
+func book(
+	job_id: String,
+	member_id: StringName,
+	date: String,
+	start_minute: int,
+	end_minute: int,
+	note: String = "",
+) -> Dictionary:
 	if job(job_id) == null:
-		return {"ok": false, "reason": "there is no job %s to book" % job_id, "index": -1}
+		return { "ok": false, "reason": "there is no job %s to book" % job_id, "index": -1 }
 	if crew(member_id) == null:
-		return {"ok": false,
-			"reason": "there is nobody called %s on the crew" % String(member_id), "index": -1}
+		return { "ok": false, "reason": "there is nobody called %s on the crew" % String(member_id), "index": -1 }
 	var placed: Dictionary = schedule.place(job_id, member_id, date, start_minute, end_minute, note)
 	if not bool(placed["ok"]):
 		return placed
 	var index := int(placed["index"])
 	var held: Job = job(job_id)
 	held.schedule.append(_block_copy(schedule.entries[index]))
-	return {"ok": true, "reason": "", "index": index}
+	return { "ok": true, "reason": "", "index": index }
 
 
 ## Take a block off the board, and off the job's own schedule with it.
@@ -297,17 +302,19 @@ func day_rows(date: String) -> Array[Dictionary]:
 		var entry: Dictionary = schedule.entries[index]
 		if String(entry["date"]) != date:
 			continue
-		out.append({
-			"index": index,
-			"job": String(entry["job"]),
-			"job_label": job_label(String(entry["job"])),
-			"crew": String(entry["crew"]),
-			"crew_label": crew_label(StringName(entry["crew"])),
-			"date": date,
-			"start_minute": int(entry["start_minute"]),
-			"end_minute": int(entry["end_minute"]),
-			"note": String(entry.get("note", "")),
-		})
+		out.append(
+			{
+				"index": index,
+				"job": String(entry["job"]),
+				"job_label": job_label(String(entry["job"])),
+				"crew": String(entry["crew"]),
+				"crew_label": crew_label(StringName(entry["crew"])),
+				"date": date,
+				"start_minute": int(entry["start_minute"]),
+				"end_minute": int(entry["end_minute"]),
+				"note": String(entry.get("note", "")),
+			}
+		)
 	return out
 
 
@@ -316,7 +323,7 @@ func day_rows(date: String) -> Array[Dictionary]:
 ## new window rather than the one the move started from.
 func block_at(index: int) -> Dictionary:
 	if index < 0 or index >= schedule.count():
-		return {}
+		return { }
 	return _block_copy(schedule.entries[index])
 
 
@@ -341,7 +348,6 @@ func conflict_count() -> int:
 func is_clear() -> bool:
 	return schedule.is_clear()
 
-
 # --- a crew's day, as a route ------------------------------------------------------------------
 
 
@@ -353,29 +359,34 @@ func is_clear() -> bool:
 func route_for(member_id: StringName, date: String, start_minute: int = DEFAULT_DAY_START) -> Dictionary:
 	var member: CrewMember = crew(member_id)
 	if member == null:
-		return {"ok": false,
-			"reason": "there is nobody called %s on the crew" % String(member_id), "route": {}}
+		return { "ok": false, "reason": "there is nobody called %s on the crew" % String(member_id), "route": { } }
 	var stops: Array = []
 	for entry in schedule.on_date(date):
 		if String(entry["crew"]) != String(member_id):
 			continue
 		var job_id := String(entry["job"])
 		if not job_places.has(job_id):
-			return {"ok": false,
-				"reason": "the job %s has no place on the drawing, so there is nowhere to drive to"
-					% job_label(job_id),
-				"route": {}}
-		stops.append({
-			"id": job_id,
-			"at": job_place(job_id),
-			"service_minutes": int(entry["end_minute"]) - int(entry["start_minute"]),
-		})
+			return {
+				"ok": false,
+				"reason": "the job %s has no place on the drawing, so there is nowhere to drive to" % job_label(job_id),
+				"route": { },
+			}
+		stops.append(
+			{
+				"id": job_id,
+				"at": job_place(job_id),
+				"service_minutes": int(entry["end_minute"]) - int(entry["start_minute"]),
+			}
+		)
 	# The crew starts from their own home base, which is stated on the person (§7.2).
 	var planned: Dictionary = RouteScript.plan(
-		member.home_base, stops, RouteScript.DEFAULT_SPEED_KMH, {}, start_minute
+		member.home_base,
+		stops,
+		RouteScript.DEFAULT_SPEED_KMH,
+		{ },
+		start_minute,
 	)
-	return {"ok": true, "reason": "", "route": planned}
-
+	return { "ok": true, "reason": "", "route": planned }
 
 # --- the time ----------------------------------------------------------------------------------
 
@@ -436,25 +447,26 @@ func pending_on(job_id: String) -> Dictionary:
 		if not entry.is_approved():
 			waiting += 1
 			amounts.append(entry.labour())
-	return {"total": MoneyScript.sum(amounts, currency), "count": waiting}
+	return { "total": MoneyScript.sum(amounts, currency), "count": waiting }
 
 
 func time_rows(job_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for entry in entries_for(job_id):
-		out.append({
-			"id": entry.id,
-			"crew": entry.crew_member,
-			"crew_label": crew_label(entry.crew_member),
-			"cost_code": String(entry.cost_code),
-			"minutes": entry.minutes(),
-			"amount": entry.labour(),
-			"approved": entry.is_approved(),
-			"problem": entry.problem(),
-			"source_name": EntryScript.source_name(entry.source),
-		})
+		out.append(
+			{
+				"id": entry.id,
+				"crew": entry.crew_member,
+				"crew_label": crew_label(entry.crew_member),
+				"cost_code": String(entry.cost_code),
+				"minutes": entry.minutes(),
+				"amount": entry.labour(),
+				"approved": entry.is_approved(),
+				"problem": entry.problem(),
+				"source_name": EntryScript.source_name(entry.source),
+			}
+		)
 	return out
-
 
 # --- what was ordered, and what was agreed to on top ------------------------------------------
 
@@ -478,9 +490,15 @@ static func next_number(prefix: String, taken: Array[String]) -> String:
 ##
 ## The order is **not** issued here: ordering and issuing are two acts, and §8.4 wants the office to
 ## see what an order would commit it to before it goes out.
-func make_purchase_order(job_id: String, cost_code: StringName, description: String,
-		quantity_milli: int, unit_cost: Money, supplier: String,
-		unit: StringName = &"EACH") -> PurchaseOrder:
+func make_purchase_order(
+	job_id: String,
+	cost_code: StringName,
+	description: String,
+	quantity_milli: int,
+	unit_cost: Money,
+	supplier: String,
+	unit: StringName = &"EACH",
+) -> PurchaseOrder:
 	if job(job_id) == null:
 		return null
 	var taken: Array[String] = []
@@ -528,15 +546,19 @@ func purchase_orders_for(job_id: String) -> Array[PurchaseOrder]:
 ## asked **before** the order is issued. This is the flag §8.4 wants raised at the moment the
 ## commitment is made: the one moment the office can still change its mind.
 ## Returns `{over, remaining, reason}`.
-func order_would_commit(job_id: String, cost_code: StringName, quantity_milli: int,
-		unit_cost: Money) -> Dictionary:
+func order_would_commit(job_id: String, cost_code: StringName, quantity_milli: int, unit_cost: Money) -> Dictionary:
 	var held: Job = job(job_id)
 	if held == null:
-		return {"over": false, "remaining": MoneyScript.zero(currency),
-			"reason": "there is no job %s on the desk" % job_id}
-	var amount: Money = MoneyScript.round_div(
-		unit_cost.cents * quantity_milli, OrderScript.QUANTITY_MILLI, currency
-	) if unit_cost != null and unit_cost.is_valid() else MoneyScript.invalid(currency)
+		return {
+			"over": false,
+			"remaining": MoneyScript.zero(currency),
+			"reason": "there is no job %s on the desk" % job_id,
+		}
+	var amount: Money = (
+		MoneyScript.round_div(unit_cost.cents * quantity_milli, OrderScript.QUANTITY_MILLI, currency)
+		if unit_cost != null and unit_cost.is_valid()
+		else MoneyScript.invalid(currency)
+	)
 	return CostScript.over_commitment(held, purchase_orders_for(job_id), cost_code, amount)
 
 
@@ -548,37 +570,46 @@ func order_would_commit(job_id: String, cost_code: StringName, quantity_milli: i
 func issue_purchase_order(order_id: String, at: String) -> Dictionary:
 	var order: PurchaseOrder = purchase_order(order_id)
 	if order == null:
-		return {"ok": false, "reason": "there is no order %s on the desk" % order_id, "warning": ""}
+		return { "ok": false, "reason": "there is no order %s on the desk" % order_id, "warning": "" }
 	var held: Job = job(order.job)
 	if held == null:
-		return {"ok": false, "reason": "the order is for a job this desk does not have",
-			"warning": ""}
+		return { "ok": false, "reason": "the order is for a job this desk does not have", "warning": "" }
 	if held.phase(String(order.cost_code)).is_empty():
-		return {"ok": false, "reason": "the job %s has no %s in it to charge this to" % [
-			job_label(order.job), String(order.cost_code),
-		], "warning": ""}
+		return {
+			"ok": false,
+			"reason": "the job %s has no %s in it to charge this to" % [job_label(order.job), String(order.cost_code)],
+			"warning": "",
+		}
 	var issued: Dictionary = order.issue(at)
 	if not bool(issued["ok"]):
-		return {"ok": false, "reason": String(issued["reason"]), "warning": ""}
+		return { "ok": false, "reason": String(issued["reason"]), "warning": "" }
 	# The warning is computed **after** the order has gone out, from the orders that are now live -
 	# which is the commitment the office can still act on. The order's own figure is one of the live
 	# ones being summed, so nothing is counted twice.
 	var warning := ""
 	if order.committed().cents > 0:
 		var asked: Dictionary = CostScript.over_commitment(
-			held, purchase_orders_for(order.job), order.cost_code, MoneyScript.zero(currency)
+			held,
+			purchase_orders_for(order.job),
+			order.cost_code,
+			MoneyScript.zero(currency),
 		)
 		if bool(asked["over"]):
 			warning = String(asked["reason"])
-	return {"ok": true, "reason": "", "warning": warning}
+	return { "ok": true, "reason": "", "warning": warning }
 
 
 ## Record a delivery against a line of an order.
-func receive_order_line(order_id: String, line_index: int, quantity_milli: int, at: String,
-		note: String = "") -> Dictionary:
+func receive_order_line(
+	order_id: String,
+	line_index: int,
+	quantity_milli: int,
+	at: String,
+	note: String = "",
+) -> Dictionary:
 	var order: PurchaseOrder = purchase_order(order_id)
 	if order == null:
-		return {"ok": false, "reason": "there is no order %s on the desk" % order_id}
+		return { "ok": false, "reason": "there is no order %s on the desk" % order_id }
 	return order.receive(at, line_index, quantity_milli, note)
 
 
@@ -588,7 +619,7 @@ func receive_order_line(order_id: String, line_index: int, quantity_milli: int, 
 func receive_what_was_ordered(order_id: String, at: String) -> Dictionary:
 	var order: PurchaseOrder = purchase_order(order_id)
 	if order == null:
-		return {"ok": false, "reason": "there is no order %s on the desk" % order_id}
+		return { "ok": false, "reason": "there is no order %s on the desk" % order_id }
 	var anything := false
 	for index in order.line_count():
 		var outstanding := order.ordered_milli(index) - order.received_milli(index)
@@ -597,8 +628,7 @@ func receive_what_was_ordered(order_id: String, at: String) -> Dictionary:
 		var taken: Dictionary = order.receive(at, index, outstanding)
 		if bool(taken["ok"]):
 			anything = true
-	return {"ok": anything,
-		"reason": "" if anything else "there is nothing outstanding on it"}
+	return { "ok": anything, "reason": "" if anything else "there is nothing outstanding on it" }
 
 
 ## Close an order once it has been invoiced and reconciled.
@@ -614,23 +644,24 @@ func close_order(order_id: String, at: String, why: String = "") -> bool:
 func order_rows(job_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in purchase_orders_for(job_id):
-		out.append({
-			"id": held.id,
-			"number": held.number,
-			"cost_code": String(held.cost_code),
-			"supplier": held.supplier,
-			"state": String(held.state()),
-			"state_name": held.state_name(),
-			"ordered": held.ordered_total(),
-			"received": held.received_total(),
-			"committed": held.committed(),
-			"actual": held.actual(),
-			"issued_at": held.issued_at,
-			"problems": held.problems(),
-			"describe": held.describe(),
-		})
+		out.append(
+			{
+				"id": held.id,
+				"number": held.number,
+				"cost_code": String(held.cost_code),
+				"supplier": held.supplier,
+				"state": String(held.state()),
+				"state_name": held.state_name(),
+				"ordered": held.ordered_total(),
+				"received": held.received_total(),
+				"committed": held.committed(),
+				"actual": held.actual(),
+				"issued_at": held.issued_at,
+				"problems": held.problems(),
+				"describe": held.describe(),
+			}
+		)
 	return out
-
 
 # --- change orders -----------------------------------------------------------------------------
 
@@ -641,8 +672,14 @@ func order_rows(job_id: String) -> Array[Dictionary]:
 ## One line is a deliberate limit of this door, not of the model: `ChangeOrder` holds a whole
 ## `Estimate`, so a change with twenty lines is made from an estimate (`change_order_from`), and this
 ## is the case where somebody at a desk knows the number.
-func make_change_order(job_id: String, reason_key: StringName, description: String,
-		amount: Money, cost_code: StringName, unit_cost: Money = null) -> ChangeOrder:
+func make_change_order(
+	job_id: String,
+	reason_key: StringName,
+	description: String,
+	amount: Money,
+	cost_code: StringName,
+	unit_cost: Money = null,
+) -> ChangeOrder:
 	if job(job_id) == null or not ChangeScript.is_reason(reason_key):
 		return null
 	if amount == null or not amount.is_valid() or amount.cents == 0:
@@ -657,13 +694,13 @@ func make_change_order(job_id: String, reason_key: StringName, description: Stri
 	change.reason = reason_key
 	var line: EstimateLine = LineScript.new()
 	line.description = description if not description.strip_edges().is_empty() \
-		else "change: %s" % ChangeScript.reason_name(reason_key)
+			else "change: %s" % ChangeScript.reason_name(reason_key)
 	line.cost_code = cost_code
 	line.kind = ItemScript.MATERIAL
 	line.quantity_milli = 1000
 	line.unit = &"EACH"
 	line.unit_cost = unit_cost if unit_cost != null and unit_cost.is_valid() \
-		else MoneyScript.zero(currency)
+			else MoneyScript.zero(currency)
 	line.unit_price = amount
 	if not change.add_line(line):
 		return null
@@ -727,48 +764,48 @@ func send_change(order_id: String, at: String) -> bool:
 	return false if held == null else held.send(at)
 
 
-func approve_change(order_id: String, by: String, at: String, how: String,
-		signature: String = "") -> Dictionary:
+func approve_change(order_id: String, by: String, at: String, how: String, signature: String = "") -> Dictionary:
 	var held: ChangeOrder = change_order(order_id)
 	if held == null:
-		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+		return { "ok": false, "reason": "there is no change order %s on the desk" % order_id }
 	return held.approve(by, at, how, signature)
 
 
 func decline_change(order_id: String, by: String, at: String, why: String) -> Dictionary:
 	var held: ChangeOrder = change_order(order_id)
 	if held == null:
-		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+		return { "ok": false, "reason": "there is no change order %s on the desk" % order_id }
 	return held.decline(by, at, why)
 
 
 func void_change(order_id: String, at: String, why: String) -> Dictionary:
 	var held: ChangeOrder = change_order(order_id)
 	if held == null:
-		return {"ok": false, "reason": "there is no change order %s on the desk" % order_id}
+		return { "ok": false, "reason": "there is no change order %s on the desk" % order_id }
 	return held.mark_void(at, why)
 
 
 func change_rows(job_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in change_orders_for(job_id):
-		out.append({
-			"id": held.id,
-			"number": held.number,
-			"reason": String(held.reason),
-			"reason_name": ChangeScript.reason_name(held.reason),
-			"state": String(held.state()),
-			"state_name": held.state_name(),
-			"amount": held.amount(),
-			"amount_text": held.amount_text(),
-			"pending": held.is_pending(),
-			"enters_contract_sum": held.enters_contract_sum(),
-			"line_count": held.line_count(),
-			"approval_text": held.approval_text(),
-			"describe": held.describe(job_label(held.job)),
-		})
+		out.append(
+			{
+				"id": held.id,
+				"number": held.number,
+				"reason": String(held.reason),
+				"reason_name": ChangeScript.reason_name(held.reason),
+				"state": String(held.state()),
+				"state_name": held.state_name(),
+				"amount": held.amount(),
+				"amount_text": held.amount_text(),
+				"pending": held.is_pending(),
+				"enters_contract_sum": held.enters_contract_sum(),
+				"line_count": held.line_count(),
+				"approval_text": held.approval_text(),
+				"describe": held.describe(job_label(held.job)),
+			}
+		)
 	return out
-
 
 # --- what it has cost, and what it has been billed ---------------------------------------------
 
@@ -807,8 +844,14 @@ func cost_report(job_id: String) -> JobCost:
 	var held: Job = job(job_id)
 	if held == null:
 		return null
-	return CostScript.of(held, purchase_orders_for(job_id), change_orders_for(job_id),
-		entries_for(job_id), invoiced_for(job_id), collected_for(job_id))
+	return CostScript.of(
+		held,
+		purchase_orders_for(job_id),
+		change_orders_for(job_id),
+		entries_for(job_id),
+		invoiced_for(job_id),
+		collected_for(job_id),
+	)
 
 
 func cost_rows(job_id: String) -> Array[Dictionary]:
@@ -825,7 +868,6 @@ func cost_problems(job_id: String) -> Array[String]:
 	var report: JobCost = cost_report(job_id)
 	return [] if report == null else report.problems()
 
-
 # --- what it says ------------------------------------------------------------------------------
 
 
@@ -836,9 +878,12 @@ func describe() -> String:
 	if crews.is_empty() and jobs.is_empty() and schedule.count() == 0 and money.is_empty():
 		return "no crews and no jobs yet"
 	var line := "%d crew%s, %d job%s, %d block%s on the board" % [
-		crews.size(), _plural(crews.size()),
-		jobs.size(), _plural(jobs.size()),
-		schedule.count(), _plural(schedule.count()),
+		crews.size(),
+		_plural(crews.size()),
+		jobs.size(),
+		_plural(jobs.size()),
+		schedule.count(),
+		_plural(schedule.count()),
 	]
 	var problems := conflict_count()
 	if problems > 0:
@@ -856,10 +901,14 @@ func _money_lines() -> Array[String]:
 		var committed: Array = []
 		for held in purchase_orders:
 			committed.append(held.committed())
-		out.append("%d purchase order%s (%s committed)" % [
-			purchase_orders.size(), _plural(purchase_orders.size()),
-			MoneyScript.sum(committed, currency).format_with_currency(),
-		])
+		out.append(
+			"%d purchase order%s (%s committed)"
+			% [
+				purchase_orders.size(),
+				_plural(purchase_orders.size()),
+				MoneyScript.sum(committed, currency).format_with_currency(),
+			]
+		)
 	var agreed: Array = []
 	var waiting := 0
 	for held in change_orders:
@@ -869,7 +918,8 @@ func _money_lines() -> Array[String]:
 			waiting += 1
 	if not change_orders.is_empty():
 		var line := "%d change order%s (%s agreed" % [
-			change_orders.size(), _plural(change_orders.size()),
+			change_orders.size(),
+			_plural(change_orders.size()),
 			MoneyScript.sum(agreed, currency).format_with_currency(),
 		]
 		# Written as a statement and not as `line += ... if ... else ...`: a ternary swallows the
@@ -889,7 +939,6 @@ func conflict_lines() -> Array[String]:
 		out.append("%s on %s: %s" % [String(row["name"]), String(row["date"]), String(row["detail"])])
 	return out
 
-
 # --- the file ----------------------------------------------------------------------------------
 
 
@@ -903,7 +952,7 @@ func to_dict() -> Dictionary:
 	var entry_list: Array = []
 	for held in time_entries:
 		entry_list.append(held.to_dict())
-	var places: Dictionary = {}
+	var places: Dictionary = { }
 	for key in job_places.keys():
 		var at: Vector2 = job_place(String(key))
 		places[String(key)] = [at.x, at.y]
@@ -913,12 +962,12 @@ func to_dict() -> Dictionary:
 	var changes: Array = []
 	for held in change_orders:
 		changes.append(held.to_dict())
-	var billed: Dictionary = {}
+	var billed: Dictionary = { }
 	for key in invoiced.keys():
 		var said: Money = invoiced_for(String(key))
 		if said != null and said.is_valid():
 			billed[String(key)] = said.to_dict()
-	var paid: Dictionary = {}
+	var paid: Dictionary = { }
 	for key in collected.keys():
 		var said: Money = collected_for(String(key))
 		if said != null and said.is_valid():
@@ -952,7 +1001,7 @@ static func from_dict(data: Dictionary) -> JobDesk:
 		for entry in (job_list as Array):
 			if entry is Dictionary:
 				desk.add_job(JobScript.from_dict(entry))
-	var board = data.get("schedule", {})
+	var board = data.get("schedule", { })
 	if board is Dictionary:
 		desk.schedule = ScheduleScript.from_dict(board)
 		# A block whose job is not on the desk is dropped: the board can name a job or it can show a
@@ -969,7 +1018,7 @@ static func from_dict(data: Dictionary) -> JobDesk:
 		for entry in (entry_list as Array):
 			if entry is Dictionary:
 				desk.log_time(EntryScript.from_dict(entry))
-	var places = data.get("job_places", {})
+	var places = data.get("job_places", { })
 	if places is Dictionary:
 		for key in (places as Dictionary).keys():
 			var at = (places as Dictionary)[key]
@@ -1015,7 +1064,6 @@ static func _billed_keys(data: Dictionary) -> Array:
 	if held is Dictionary:
 		return (held as Dictionary).keys()
 	return []
-
 
 # --- the small joins --------------------------------------------------------------------------
 

@@ -47,17 +47,17 @@ static func make(kit_id: StringName, kit_name: String, unit: StringName = &"SQ_M
 func add_line(item_id: StringName, quantity_milli: int, note: String = "") -> bool:
 	if item_id.is_empty() or quantity_milli <= 0:
 		return false
-	lines.append({"item_id": String(item_id), "quantity_milli": quantity_milli, "note": note})
+	lines.append({ "item_id": String(item_id), "quantity_milli": quantity_milli, "note": note })
 	return true
 
 
 ## A line of the recipe as read, with its id back as a StringName.
 func line_at(index: int) -> Dictionary:
 	if index < 0 or index >= lines.size():
-		return {}
+		return { }
 	var raw: Variant = lines[index]
 	if not (raw is Dictionary):
-		return {}
+		return { }
 	var line: Dictionary = raw
 	return {
 		"item_id": StringName(line.get("item_id", "")),
@@ -94,7 +94,9 @@ func problem() -> String:
 			return "cost kit %s has a line with no item on it" % id
 		if int(line.get("quantity_milli", 0)) <= 0:
 			return "cost kit %s, line %d: a quantity of %d is not a quantity" % [
-				id, index + 1, int(line.get("quantity_milli", 0))
+				id,
+				index + 1,
+				int(line.get("quantity_milli", 0)),
 			]
 	return ""
 
@@ -105,7 +107,9 @@ func is_valid() -> bool:
 
 func describe() -> String:
 	return "%s - %d line%s per %s" % [
-		name, lines.size(), "" if lines.size() == 1 else "s",
+		name,
+		lines.size(),
+		"" if lines.size() == 1 else "s",
 		WorkUnitScript.name_of(output_unit),
 	]
 
@@ -118,11 +122,13 @@ func to_dict() -> Dictionary:
 	var out_lines: Array = []
 	for index in lines.size():
 		var line: Dictionary = line_at(index)
-		out_lines.append({
-			"item_id": String(line["item_id"]),
-			"quantity_milli": int(line["quantity_milli"]),
-			"note": String(line["note"]),
-		})
+		out_lines.append(
+			{
+				"item_id": String(line["item_id"]),
+				"quantity_milli": int(line["quantity_milli"]),
+				"note": String(line["note"]),
+			}
+		)
 	return {
 		"id": String(id),
 		"name": name,
@@ -145,9 +151,11 @@ static func from_dict(data: Dictionary) -> CostKit:
 		for raw: Variant in raw_lines:
 			if raw is Dictionary:
 				var line: Dictionary = raw
-				kit.lines.append({
-					"item_id": String(line.get("item_id", "")),
-					"quantity_milli": int(line.get("quantity_milli", 0)),
-					"note": String(line.get("note", "")),
-				})
+				kit.lines.append(
+					{
+						"item_id": String(line.get("item_id", "")),
+						"quantity_milli": int(line.get("quantity_milli", 0)),
+						"note": String(line.get("note", "")),
+					}
+				)
 	return kit

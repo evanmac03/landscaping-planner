@@ -120,7 +120,6 @@ func test_a_page_that_is_already_away_is_not_a_page() -> void:
 	page.free()
 	hud.free()
 
-
 # --- the phone's Back gesture -----------------------------------------------------------
 
 
@@ -131,7 +130,10 @@ func test_the_phone_back_gesture_closes_the_page_in_front() -> void:
 	var hud := HudScript.new()
 	var page := Window.new()
 	var closed: Array[int] = [0]
-	page.close_requested.connect(func() -> void: closed[0] += 1)
+	page.close_requested.connect(
+		func() -> void:
+			closed[0] += 1,
+	)
 	hud._plant_window = page
 	page.visible = true
 	assert(hud.page_in_front() == page, "the page is the one in front")
@@ -159,5 +161,5 @@ func test_the_phone_back_gesture_falls_through_to_the_escape_ladder() -> void:
 func test_the_program_does_not_quit_behind_the_back_gestures_back() -> void:
 	assert(
 		ProjectSettings.get_setting("application/config/quit_on_go_back") == false,
-		"Back is answered by the HUD, so unsaved work is asked about before the program goes"
+		"Back is answered by the HUD, so unsaved work is asked about before the program goes",
 	)

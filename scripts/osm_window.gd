@@ -65,7 +65,6 @@ func _ready() -> void:
 	if _latitude == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------
 
 
@@ -110,18 +109,29 @@ func build() -> void:
 	_fetch_button = _button(buttons, "FetchButton", "Fetch from OpenStreetMap")
 	_fetch_button.pressed.connect(_on_fetch_pressed)
 	_open_button = _button(buttons, "OpenButton", "Open a saved map file...")
-	_open_button.pressed.connect(func() -> void: open_file_requested.emit())
+	_open_button.pressed.connect(
+		func() -> void:
+			open_file_requested.emit(),
+	)
 	_import_button = _button(buttons, "ImportButton", "Put it on the drawing")
-	_import_button.pressed.connect(func() -> void: import_requested.emit())
+	_import_button.pressed.connect(
+		func() -> void:
+			import_requested.emit(),
+	)
 	_close_button = _button(buttons, "CloseButton", "Close")
 	_close_button.pressed.connect(_on_close_requested)
 
-	_radius.value_changed.connect(func(_value: float) -> void: _refresh())
+	_radius.value_changed.connect(
+		func(_value: float) -> void:
+			_refresh(),
+	)
 	for field: LineEdit in [_latitude, _longitude]:
-		field.text_changed.connect(func(_text: String) -> void: _refresh())
+		field.text_changed.connect(
+			func(_text: String) -> void:
+				_refresh(),
+		)
 	_refresh()
 	set_import_enabled(false)
-
 
 # --- what the window knows ------------------------------------------------------------
 
@@ -168,10 +178,7 @@ func report_text() -> String:
 ## that do not read come back as NAN rather than as a guessed zero, so `OsmFetch.can_fetch` is what
 ## refuses them and the window does not have to.
 func centre() -> Dictionary:
-	return {
-		"latitude": _number_of(_latitude),
-		"longitude": _number_of(_longitude),
-	}
+	return { "latitude": _number_of(_latitude), "longitude": _number_of(_longitude) }
 
 
 func radius_m() -> float:
@@ -214,7 +221,6 @@ static func _number_of(field: LineEdit) -> float:
 	if text.is_empty():
 		return NAN
 	return text.to_float() if text.is_valid_float() else NAN
-
 
 # --- furniture ------------------------------------------------------------------------
 

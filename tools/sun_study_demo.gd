@@ -59,8 +59,13 @@ func _ready() -> void:
 	for row: Dictionary in page.study_rows():
 		print("  ", row["text"])
 	print("  the days it covers: ", page.day_lines())
-	print("  of its ", page.moment_count(), " moments ", page.renderable_moments().size(),
-		" have the sun up; the page would render exactly those")
+	print(
+		"  of its ",
+		page.moment_count(),
+		" moments ",
+		page.renderable_moments().size(),
+		" have the sun up; the page would render exactly those",
+	)
 
 	print("--- and the study this pass will render: the year's two noons ---")
 	page.clear_moments()
@@ -72,8 +77,7 @@ func _ready() -> void:
 	# One row chosen, the way a person clicks one, so the buttons that need a choice are alive.
 	_choose(page, 0)
 	print("  chosen: ", _words(page.selected_moment()))
-	print("  and aiming is now possible: ", page.apply_enabled(),
-		", rendering: ", page.render_enabled())
+	print("  and aiming is now possible: ", page.apply_enabled(), ", rendering: ", page.render_enabled())
 
 	print("--- aiming the sun at each of them ---")
 	# The three captures are taken with the HUD put away, so that what is compared is the garden rather
@@ -84,10 +88,13 @@ func _ready() -> void:
 	var june := _shot()
 	var june_sun: Dictionary = presentation.sun_settings()
 	print("pressing \"Aim the sun at it\": ", aimed, "  -> ", page.said())
-	print("  the sun stands ", "%.1f°" % float(june_sun["altitude_deg"]), " up, bearing ",
-		"%.1f°" % float(june_sun["azimuth_deg"]))
-	print("  what ", page.height_words(), " casts at noon in June: ",
-		page.study_rows()[0]["shadow_words"])
+	print(
+		"  the sun stands ",
+		"%.1f°" % float(june_sun["altitude_deg"]),
+		" up, bearing ",
+		"%.1f°" % float(june_sun["azimuth_deg"]),
+	)
+	print("  what ", page.height_words(), " casts at noon in June: ", page.study_rows()[0]["shadow_words"])
 	# The control, and the reason it is here: a second capture of the very same moment. A scene that was
 	# still cross-fading, or breathing, would move pixels here too - and every count below would then be
 	# measuring the fade rather than the sun.
@@ -99,11 +106,19 @@ func _ready() -> void:
 	var december := _shot()
 	var december_sun: Dictionary = presentation.sun_settings()
 	hud.visible = true
-	print("  the sun stands ", "%.1f°" % float(december_sun["altitude_deg"]), " up, bearing ",
-		"%.1f°" % float(december_sun["azimuth_deg"]))
-	print("  between the two views, ", _changed_sampled(june, december),
+	print(
+		"  the sun stands ",
+		"%.1f°" % float(december_sun["altitude_deg"]),
+		" up, bearing ",
+		"%.1f°" % float(december_sun["azimuth_deg"]),
+	)
+	print(
+		"  between the two views, ",
+		_changed_sampled(june, december),
 		" sampled pixels of the whole garden changed, against ",
-		_changed_sampled(june, still), " between two captures of the *same* moment")
+		_changed_sampled(june, still),
+		" between two captures of the *same* moment",
+	)
 	print("  which is the two suns, and not the screen moving under them")
 
 	print("--- rendering one still per moment ---")
@@ -139,8 +154,7 @@ func _ready() -> void:
 func _add_moment(hud: Node, day: int, hour: float) -> void:
 	hud._sun_window.set_day(day)
 	hud._sun_window.set_hour(hour)
-	print("  adding ", day, " at ", hour, ": ", _press(hud, "Add the moment"),
-		"  -> ", hud._sun_window.said())
+	print("  adding ", day, " at ", hour, ": ", _press(hud, "Add the moment"), "  -> ", hud._sun_window.said())
 
 
 ## Choose a row of the study the way a click does, by emitting the list's own signal.
@@ -235,7 +249,8 @@ func _show_summary(page: Node) -> void:
 	column.add_child(body)
 	var stills := Label.new()
 	stills.text = "%d stills written, named for the moments they show: %s" % [
-		_stills_written.size(), ", ".join(PackedStringArray(_still_names())),
+		_stills_written.size(),
+		", ".join(PackedStringArray(_still_names())),
 	]
 	column.add_child(stills)
 	add_child(layer)

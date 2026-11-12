@@ -33,12 +33,9 @@ func test_a_door_that_reaches_the_filesystem_is_handed_to_the_phones_own_picker(
 	PhoneFilesScript.prepare(door)
 	assert(
 		door.use_native_dialog == PhoneFilesScript.has_picker(),
-		"a filesystem door on a phone follows the picker: %s" % str(door.use_native_dialog)
+		"a filesystem door on a phone follows the picker: %s" % str(door.use_native_dialog),
 	)
-	assert(
-		door.access == FileDialog.ACCESS_FILESYSTEM,
-		"handing a door over does not change what it can see"
-	)
+	assert(door.access == FileDialog.ACCESS_FILESYSTEM, "handing a door over does not change what it can see")
 	door.free()
 
 
@@ -50,10 +47,7 @@ func test_a_door_inside_the_programs_own_folder_is_never_handed_over() -> void:
 	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
 	var door: FileDialog = _door(FileDialog.ACCESS_USERDATA)
 	PhoneFilesScript.prepare(door)
-	assert(
-		not door.use_native_dialog,
-		"a door into user:// is written and renamed, so it is drawn by this program"
-	)
+	assert(not door.use_native_dialog, "a door into user:// is written and renamed, so it is drawn by this program")
 	assert(door.access == FileDialog.ACCESS_USERDATA, "and it still looks inside the program")
 	door.free()
 
@@ -99,7 +93,7 @@ func test_the_sentence_names_the_picker_on_a_phone_and_a_folder_on_a_computer() 
 	PhoneFilesScript.force(PhoneFilesScript.Device.COMPUTER)
 	assert(
 		PhoneFilesScript.describe().contains("computer"),
-		"a computer has a folder: %s" % PhoneFilesScript.describe()
+		"a computer has a folder: %s" % PhoneFilesScript.describe(),
 	)
 	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
 	var said: String = PhoneFilesScript.describe()
@@ -114,10 +108,7 @@ func test_the_sentence_names_the_picker_on_a_phone_and_a_folder_on_a_computer() 
 ## otherwise - and a demonstration can always put it back.
 func test_the_phone_is_whatever_the_machine_says_until_something_forces_one() -> void:
 	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
-	assert(
-		PhoneFilesScript.on_phone() == OS.has_feature("android"),
-		"the answer is the machine's own"
-	)
+	assert(PhoneFilesScript.on_phone() == OS.has_feature("android"), "the answer is the machine's own")
 	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
 	assert(PhoneFilesScript.on_phone(), "a forced phone is a phone")
 	PhoneFilesScript.force(PhoneFilesScript.Device.COMPUTER)
@@ -133,11 +124,11 @@ func test_a_path_the_program_did_not_write_is_not_one_it_keeps() -> void:
 	assert(PhoneFilesScript.is_kept_here("res://data/plants.json"), "and what shipped with it")
 	assert(
 		not PhoneFilesScript.is_kept_here("content://com.android.providers.downloads/document/41"),
-		"a handed-over document is not a path it keeps"
+		"a handed-over document is not a path it keeps",
 	)
 	assert(
 		not PhoneFilesScript.is_kept_here("/storage/emulated/0/Download/survey.csv"),
-		"and neither is a place on somebody else's storage"
+		"and neither is a place on somebody else's storage",
 	)
 
 
@@ -163,7 +154,8 @@ func test_a_door_handed_to_the_pickers_own_offers_every_file() -> void:
 		expected = named
 	assert(
 		dialog.filters == expected,
-		"every file is offered to the picker, because Android would hide the one this door is for: %s" % [dialog.filters]
+		"every file is offered to the picker, because Android would hide the one this door is for: %s"
+		% [dialog.filters],
 	)
 	dialog.free()
 	_reset()

@@ -51,7 +51,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -131,7 +130,6 @@ func bind(controller: ControllerScript) -> void:
 	if _column != null:
 		refresh()
 
-
 # --- what it shows ------------------------------------------------------------------------------
 
 
@@ -200,7 +198,6 @@ func select_layer(layer_name: StringName) -> bool:
 	_on_layer_selected(row)
 	return true
 
-
 # --- what it does -------------------------------------------------------------------------------
 
 
@@ -264,7 +261,6 @@ func _on_close_requested() -> void:
 	hide()
 	closed.emit()
 
-
 # --- reading the drawing ------------------------------------------------------------------------
 
 
@@ -281,9 +277,11 @@ func _rebuild_list() -> void:
 	if _shown_names.is_empty():
 		_lock_button.text = "Lock"
 		say(
-			"No layer matches that. Clear the box for every layer."
-			if String(dialog._search_text) != ""
-			else "There are no layers here."
+			(
+				"No layer matches that. Clear the box for every layer."
+				if String(dialog._search_text) != ""
+				else "There are no layers here."
+			)
 		)
 		return
 	var row: int = _shown_names.find(keep) if keep != &"" else -1
@@ -297,7 +295,7 @@ func _layer_record(layer_name: StringName) -> Dictionary:
 	for layer: Dictionary in dialog._filtered_layers:
 		if StringName(layer["name"]) == layer_name:
 			return layer
-	return {}
+	return { }
 
 
 func _row_text(layer: Dictionary) -> String:

@@ -20,10 +20,7 @@ const PlantCheck := preload("res://tools/plant_scene_check.gd")
 ## itself. Both call it as `SomeCheck.run(...)`, so a check without one would not parse - but a check
 ## whose `run` is not *static* would, and would fail only when the audit was run.
 func test_both_checks_offer_the_call_the_audit_makes() -> void:
-	for path: String in [
-		"res://tools/hud_layout_check.gd",
-		"res://tools/plant_scene_check.gd",
-	]:
+	for path: String in ["res://tools/hud_layout_check.gd", "res://tools/plant_scene_check.gd"]:
 		var source: String = FileAccess.get_file_as_string(path)
 		assert(source.contains("static func run("), path + " has no run() the audit can call")
 
@@ -59,8 +56,7 @@ func test_a_verdict_carries_what_the_table_prints() -> void:
 	bare.free()
 	for key: String in ["name", "ok", "summary"]:
 		assert(verdict.has(key), "a verdict has no " + key)
-	assert(verdict["name"] is String and verdict["summary"] is String,
-		"a name and a summary are words")
+	assert(verdict["name"] is String and verdict["summary"] is String, "a name and a summary are words")
 
 
 func test_the_audit_scene_runs_the_audit_script() -> void:
