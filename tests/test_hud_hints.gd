@@ -290,9 +290,11 @@ func test_the_idle_status_advertises_the_key_that_arms_the_tools() -> void:
 # --- shape of the block --------------------------------------------------------------
 
 
-## The legend is drawn in a panel with room for six lines, so it had better be
-## six lines. The sixth is the row of editing commands.
-func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
+## The key reference is six rows: what leaves the tools, the ten tools, the commands and the editing
+## commands. It is the *page* a person opens to look a key up - the Keys page, built from
+## `keys_reference()` - and not the box beside the drawing, so it is meant to be the whole list. That is
+## exactly why the box cannot be it as well.
+func test_the_key_reference_is_the_six_rows_the_keys_page_shows() -> void:
 	var rows := Hud.drafting_rows()
 	assert(rows.size() == 6)
 	assert(rows[0].contains("leaves the drawing tools"))
@@ -486,3 +488,119 @@ func test_a_dialog_keeps_the_keyboard_while_it_is_up() -> void:
 	assert(Hud._inside_window(twice_nested))
 	assert(not Hud._inside_window(hud_button))
 	hud.free()
+
+# --- the box beside the plan ----------------------------------------------------------
+
+
+## The box beside the plan is about the tool in hand: its name, the key that armed it, what it is for, the
+## keys that answer it, and the two that take a drawing act back - and **nothing about the other tools**.
+##
+## That is the whole of what it was asked to become. It used to hold the key reference, and every entry of
+## it - ten tools, eight editing commands, the plot key, the standard key - was a button in the palette
+## standing beside it wearing the same key. A box that lists the nine tools a person is not holding is a
+## second copy of the palette, which is the defect this project spends the most effort avoiding; the thing
+## the palette cannot say is what the tool in hand is *for*.
+func test_the_box_says_nothing_about_the_other_tools() -> void:
+	var box := Hud.tool_box_text(
+		Tool.label_for(Tool.Kind.LINE),
+		Hud._key_label(&"draft_line"),
+		Tool.description(Tool.Kind.LINE),
+		Hud.hand_keys(Tool.Kind.LINE, false),
+	)
+	assert(box.contains("Line"), box)
+	assert(box.contains(Hud._key_label(&"draft_line")), box)
+	assert(box.contains(Tool.description(Tool.Kind.LINE)), box)
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		var other := String(pair[1])
+		if other == "line":
+			continue
+		assert(not box.contains(other), "the box for the line also names %s" % other)
+	for pair: Array in Hud.EDIT_TOOLS:
+		assert(not box.contains(String(pair[1])), "the box for the line also names %s" % pair[1])
+	assert(not box.contains("leaves the drawing tools"), "the box is not the reference")
+
+
+## The keys the box offers are the ones the foot of the screen names, read from the same bindings: offering
+## a line the keys that finish a polyline would be the legend-that-lies defect in the one place a person
+## reads with their hand already busy.
+func test_the_box_offers_only_the_keys_that_answer_the_tool_in_hand() -> void:
+	var line := Hud.tool_box_text("Line", "", "", Hud.hand_keys(Tool.Kind.LINE, false))
+	assert(line.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), line)
+	assert(not line.contains(": finish"), "a line takes two picks and is finished by the second: %s" % line)
+	assert(not line.contains(": close"), line)
+	assert(not line.contains(": drop a point"), line)
+	var polyline := Hud.tool_box_text("Polyline", "", "", Hud.hand_keys(Tool.Kind.POLYLINE, false))
+	assert(polyline.contains(": finish"), polyline)
+	assert(polyline.contains(": close"), polyline)
+	assert(polyline.contains(": drop a point"), polyline)
+	assert(polyline != line, "two tools in hand do not wear the same keys")
+
+
+## Every tool and every editing command says what it is for, in a sentence. A tool that arrives without one
+## reads as nothing at all in the box that is about the tool in hand, and the box is the only place it is
+## said.
+func test_every_tool_and_edit_says_what_it_is_for() -> void:
+	for kind: Tool.Kind in Tool.Kind.values():
+		var said: String = Tool.description(kind)
+		assert(said != "", "%s has no sentence" % Tool.label_for(kind))
+		assert(said.ends_with("."), "%s is not a sentence: %s" % [Tool.label_for(kind), said])
+	for edit: Ctrl.EditKind in Ctrl.EditKind.values():
+		if edit == Ctrl.EditKind.NONE:
+			continue
+		var line: String = Ctrl.edit_description(edit)
+		assert(line != "", "%s has no sentence" % Ctrl.edit_label(edit))
+		assert(line.ends_with("."), "%s is not a sentence: %s" % [Ctrl.edit_label(edit), line])
+
+
+## The box is drawn in a panel with room for a few rows, and every one of them has to fit it - measured on
+## every tool rather than on whichever is in hand, because the panel is sized before any tool is armed.
+func test_every_box_fits_the_panel_and_has_no_empty_row() -> void:
+	for kind: Tool.Kind in Tool.Kind.values():
+		var box := Hud.tool_box_text(Tool.label_for(kind), "", Tool.description(kind), Hud.hand_keys(kind, false))
+		_check_box_fits(box, Tool.label_for(kind))
+	for edit: Ctrl.EditKind in Ctrl.EditKind.values():
+		if edit == Ctrl.EditKind.NONE:
+			continue
+		var box := Hud.tool_box_text(
+			Ctrl.edit_label(edit),
+			"",
+			Ctrl.edit_description(edit),
+			Hud.hand_keys(Tool.Kind.SELECT, true),
+		)
+		_check_box_fits(box, Ctrl.edit_label(edit))
+	assert(Hud.worst_tool_box() != "", "the check that measures the panel has nothing to measure")
+
+
+func _check_box_fits(box: String, what: String) -> void:
+	var rows: Array = box.split("\n")
+	assert(rows.size() <= Hud.DRAFT_BOX_ROWS, "%s is %d rows" % [what, rows.size()])
+	for row: String in rows:
+		assert(row.strip_edges() != "", "%s has an empty row" % what)
+
+
+## The box wears the same key the palette's own button shows, both read off the one binding - so a tool
+## whose key moves moves on both, and neither can describe a tool the other does not.
+func test_the_box_wears_the_key_the_palette_shows_for_that_tool() -> void:
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		var kind: int = pair[2]
+		var box := Hud.tool_box_text(Tool.label_for(kind), Hud._key_label(pair[0]), Tool.description(kind), "")
+		var palette := Hud.palette_label(pair)
+		assert(palette.contains("\n"), palette)
+		assert(box.contains(palette.split("\n")[1]), "%s is not the key the palette shows" % palette)
+
+
+## The ground's three tools are not in the tool table, and their key is found by the *kind* they put in
+## hand rather than by matching a name against a name. A lookup that guessed would send somebody to a key
+## that does nothing, which is the defect this project calls a legend that lies.
+func test_the_grounds_three_tools_wear_their_own_keys() -> void:
+	for kind: Tool.Kind in [Tool.Kind.GRADE_SPOT, Tool.Kind.GRADE_CONTOUR, Tool.Kind.GRADE_SLOPE]:
+		var action: StringName = Tool.arming_action(kind)
+		assert(action != &"", "%s is armed by no action" % Tool.label_for(kind))
+		assert(InputMap.has_action(action), "%s is not an action" % action)
+		var key: String = Hud._key_label(action)
+		assert(key != "", "%s is bound to nothing" % action)
+		var box := Hud.tool_box_text(Tool.label_for(kind), key, Tool.description(kind), "")
+		assert(box.contains(key), box)
+	assert(Tool.arming_action(Tool.Kind.GRADE_SPOT) == &"grade_spot")
+	# And the select tool is armed by no key at all, because it is what is in hand when nothing is.
+	assert(Tool.arming_action(Tool.Kind.SELECT) == &"", "select is not a key")

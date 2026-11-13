@@ -234,6 +234,28 @@ That keeps the existing interaction intact and makes the new one additive.
 
 ---
 
+### The box beside the plan, and the key reference
+
+The dark panel beside the drawing (`DraftHints`) shows **the tool in hand**: its name and the key
+that armed it, one sentence saying what it is for, the keys that answer it, and the two that take a
+drawing act back. It is written by the same one writer the line at the foot of the screen uses
+(`Hud._refresh_hints`), from the tool the controller holds, so arming a tool cannot leave the two
+describing different tools.
+
+It used to hold the whole key reference - ten tools, eight editing commands, the plot key, the
+standard key - and every entry of it was a button in the palette standing beside it wearing the same
+key. That is the second copy of a list this design spends its effort avoiding, and it is also the
+wrong thing for the place: a box read at a glance, with a hand already busy, is the place for the tool
+in hand rather than for all of them. What the palette cannot say is what the tool is *for*, and that
+is what was added.
+
+The reference itself has not gone anywhere. It is `Hud.drafting_rows()`, the Keys page, which is
+where a list of every key belongs - and `tests/test_hud_hints.gd` holds it to every bound `draft_*`
+action, so a key cannot stop being described by leaving the box. Each sentence about a tool lives
+beside the tool (`DraftTool.description`, `DraftController.edit_description`), so a tool cannot arrive
+without one; `DraftTool.arming_action` is the one place that says which key puts which kind in hand,
+the ground's three included, rather than matching a name against a name.
+
 ## 4. Data structures
 
 ### Entity

@@ -124,6 +124,113 @@ Every feature here has the same six parts. A change that adds one and not the ot
   or run `tools/export_project_context.gd` with Ctrl+Shift+X in the editor. If you add a subsystem,
   add a subject to `ContextReport.SUBJECTS`.
 
+## Seeing the GUI
+
+The GUI is asked, not looked at, and every figure comes from the module that already owns it. Four
+instruments, cheapest first.
+
+**The probe's blocks.** A debug build prints a `PROBE` block at launch, whenever a page is shown, moved
+or resized, and when the bar is rebuilt; a phone cannot show a console, so the block also goes to
+`user://probe.log`, oldest lines given up first, through a temporary file and a rename. Read it off a
+phone with `adb exec-out run-as ca.storm.landscapingplanner cat files/probe.log`. A block carries `page`
+and `tap` lines (every control a finger could hit, at its centre - which is also how a page's own
+rectangle is read on a phone, with no screenshot needed), `overlap` lines (what is *drawn* against what
+may not share rows with it, because a page's title bar hangs *above* the rectangle the page reports
+where no layout can see it) and `drawn` lines (the run of colour above a page's top edge, read off the
+framebuffer, printed beside the height the theme claims - a phone draws that bar taller than the theme
+says). The rule an `overlap` is decided by lives in `scripts/drawn_surfaces.gd`, which reports and never
+decides. `tools/page_chrome_probe.tscn` is the page-side of it: the strip, and a colour walk of the
+screen.
+
+**The console**, `res://tools/console.tscn`, over a running game: `:where <path>`, `:pages`, `:probe`,
+`:mode`, `:doc`. Ask it before rebuilding.
+
+**The audit**, `res://tools/audit.tscn`, one pass: the plant check, the HUD layout, the page layout and
+every scene loading. `tools/hud_layout_check.gd` consults `drawn_surfaces` too: a meeting with the bar at
+the top of the screen fails the check, and every other meeting is named and left to be judged, because
+whether a page over the palette's first button is wrong is a judgement and not a measurement.
+
+**The glass.** `scripts/screenshot_reader.gd` reads a picture as numbers: `bands_down` walks one column
+and says where each colour starts and ends, `band_containing` gives the whole run of a colour around a
+row, and `doubled` hands a region back twice as big with every pixel kept square. That is how a bar's
+drawn height is found without asking anyone, and how two title bars in the same rows - words drawn over
+words - are read straight off a picture with a person's eye. Write a crop with `ScreenshotReader.write`
+and look at it.
+
+**The words.** `scripts/gui_words.gd` owns what is wrong with the text itself, which no rectangle can
+show: a note to the author left in place, a message a compiler would write, a sentence where a name
+belongs, two spaces that are a slip rather than the separator this program uses. A rule belongs there only
+when every reader agrees - letters in capitals in the middle of a sentence are deliberately **not**
+policed, because this program's text is full of codes and names in capitals (`NONE`, `CAD`, `UTC-5`,
+`L1.1`, `010-SURVEY-PROP`) and a rule that cannot tell a shout from a layer name names the vocabulary
+rather than a fault. `tools/gui_sweep.tscn` opens every page that holds prose or a list and reports each
+one's cut boxes and wrong words; `tools/hud_layout_check.gd` names the same two things for whatever is up,
+and names rather than counts them, because a deliberate scroller and a caption a person chose are
+judgements. `tools/gui_sense_demo.tscn` is the same page placed with the page strip and without it.
+**The screen itself.** `scripts/in_view.gd` owns the one comparison nothing else here makes: a control
+against the *room*, rather than against another control. A button drawn past the edge of the screen cannot
+be pressed by anybody, and the phone's own view buttons were drawn wholly off it and had to be found by
+eye. A control something is clipping is left out, because for one of those being past the edge is the
+design - a tool in the palette's scroll, a page's contents in the scroller `PageChrome` gives an over-tall
+page. The room is the **root viewport's** rectangle and not whichever viewport is at hand: a page is a
+viewport of its own, so asking a page for its visible rectangle answers with the page's own size while the
+controls inside it are measured in screen pixels, and the first version reported the front door's scroll
+container 540 px past the edge of a 520-wide room.
+
+`scripts/topmost.gd` owns the other question a driver asks: what a tap at a point would actually **reach**,
+and whether the thing it reached is switched off. The rectangles are handed over in the order they are
+drawn - a parent before its children, an earlier sibling before a later one - and the last of them holding
+the point is what the engine gives the click to. Two judgements belong to the walk and not to the rule: a
+control the mouse passes through is not handed over at all, and a control covering the whole room is the
+screen's own backdrop rather than something in the way.
+
+`Hud`'s own block asks both of these once for the board and every page that is up; `tools/gui_sweep.tscn`
+asks them page by page, and `tools/hud_layout_check.gd` names them for whatever is on the screen. The
+room one is **counted** there - a control the room cannot hold is something a person cannot reach, which is
+not a judgement - and the tap one is **named**, because a page standing over the board is what a page is
+for.
+**What is inside a rectangle.** Four more questions, and they ask what a rectangle *holds* rather than where it stands. `scripts/contrast.gd` is whether a caption's ink can be read against the paper behind it, which is known only where a program can find both colours - a button's own plate, a panel, a plain filled rectangle - so a caption drawn onto the plan, which has no paper, is left alone rather than judged against a guess. `scripts/stacked.gd` is two controls of one kind in exactly one rectangle, so that only the later is ever seen. `scripts/blank_picture.gd` is a picture with no texture, or one that is a single colour from corner to corner, compared every byte at a time because a sampled grid has twice stepped over a real mark here. And `InView` applied to a *page's own* rectangle, since every control inside a page can be placed perfectly in a page that has itself been put past the edge of the screen. All four are named and not counted, and both `tools/hud_layout_check.gd` and `tools/gui_sweep.gd` report them.
+
+**A screen that will not hold still.** No single picture can show one, and nothing here compared the screen *with itself over time* until `scripts/stillness.gd` did: `bands(before, after)` groups the rows that differ into runs, with the span of each and the busiest single row. `tools/gui_stillness.tscn` takes two frames with nothing touching the program, and then a second pair across a keypress, so that the rule is shown to be able to see movement at all. What it measured on the desk is that the screen holds still - the HUD asks its palette for its own state sixty times a second and not one pixel of that reaches the glass.
+
+**A caption that never changed.** The one fault in a GUI with no rule: whether a label *should* have followed an action depends on what the page promised it when it handed the label its words, and that promise lives in the page. So `tools/gui_captions.tscn` takes the screen's words down twice, around one action, and prints what moved - `scripts/caption_ledger.gd` compares the two readings. A caption that held still while everything around it moved is the suspect list. That is how the box beside the plan was found saying whichever tool was in hand.
+
+**And the phone's own question.** `scripts/touch_target.gd` is a target a finger is meant to press and could not hit: measured in screen pixels, and asked only while `shows_touch_controls()` is true, because the desk's own 31 px buttons are right for a mouse. The probe prints those as `small` lines.
+
+**A finger has more than a size.** Three questions about a target, none of which is about how big it is. `scripts/spacing.gd` is the gap between two targets a finger must choose between - a thumb covers an area about a centimetre across, so two controls closer than about 8 px are one control to the person pressing, and which one answers is decided by the draw order; two controls in *exactly* one rectangle are left to `Stacked`, and a control standing on a plate is not a pair. `scripts/safe_area.gd` is a target standing in a band the device keeps for itself - the swipe up from the bottom, the swipe in from the side, the notification shade at the top - and the device's numbers are handed in rather than restated, so `PhoneHud.cutout_here` owns them and this only judges a rectangle against them; a device that has promised nothing names nothing. `scripts/legibility.gd` is whether words are big enough for the screen they land on, against the floor `PhoneHud.font_size` already states for the device's density - a second copy of that number could disagree with the sizes the program draws at, and `ReadingSize` is the different question of how much *bigger* than that floor a reader has asked for. The probe prints them as `close`, `unsafe` and `tiny`, beside `small`, and only while `shows_touch_controls()` - the desk's own 31 px buttons are right for a mouse.
+
+**What the touch GUI is asked, in the words the instruments use.** `small` is a target shorter than the
+floor the caller states - and it is the *device's* floor that goes in, `PhoneHud.row_height`, not the 44 px a desk
+is laid out at: on a 450 dpi phone that is about 107 px, and the unsaved-changes question's 50 px buttons clear the
+desk's floor while being half of what the program itself asks for. `close` is two targets a thumb cannot tell
+apart. `unsafe` is a target *reaching* into a band the system keeps, and `middle` is the sharper half of that
+question: a finger lands where it was aimed, which is the middle - the phone's three view buttons each reach 81 px
+into the top band with their middles at y=68 inside it, and a large button merely overlapping an edge is named by
+neither. `tiny` is words below the floor the device states. `clipped` is words wanting more room than the box they
+are drawn in, the one of the six that means the same on a desk as on a phone, and the one the glass found: the
+phone's own foot line said "Pinch: zoo" where the program had written "Pinch: zoom".
+
+**A floor counted in pixels needs a screen to count it on.** A headless run's dummy display reports a 64 x 64
+window with the canvas drawn at 0.04, so a 109 x 50 button measures 4 x 2 px of "screen" and every control in the
+program is named for a fault nobody could have. `small` and `close` refuse the question where there is no screen,
+which is the guard the framebuffer needs too (`DisplayServer.get_name()`, never `OS.has_feature("headless")`).
+Questions that compare a shape with a shape - `offscreen`, `page-edge`, `reach` - survive any scale, because
+scaling both sides changes neither answer.
+
+**The phone's own report** is `tools/phone_touch_pass.tscn`: one command that pulls `probe.log` off the device and
+prints the newest block's touch lines in that order, with `--install --launch` to put a build on it and `--tap X Y`
+to press at a centre the probe itself reported. A real OS tap *does* reach a control inside a page's `Window` on
+the device - measured on the A16W - which is the opposite of what `run_scene`'s injection can do, so pages on a
+phone are driven by tapping the probe's own centres.
+
+**On a phone**: build `--export-debug "Android (phone)" build/phone-adapt.apk`, `adb install -r`, start
+it, then pull `probe.log` and `adb exec-out screencap -p > build/phone.png`. An injected *tap* does not
+reach a control inside an embedded `Window`; a keyevent does, so a page is reached with TAB and ENTER.
+`screencap` comes out in the display's own orientation, and `adb` is not on the PATH - the SDK copy is.
+
+**The discipline.** A rectangle is a statement by the program about itself; the glass is what a person
+sees. When the two disagree, the disagreement gets a name - a line, a measurement of the glass, or a
+test that pins the number - rather than a guess about which of them is right.
 ## Do not
 
 - **Do not touch `addons/`.** It is third-party: the Godot AI bridge (`addons/godot_ai`, gitignored, its plugin off), the GitHub

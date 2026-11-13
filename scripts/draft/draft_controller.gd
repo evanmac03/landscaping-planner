@@ -422,6 +422,33 @@ func set_fillet_radius(metres: float) -> bool:
 static func edit_label(kind: EditKind) -> String:
 	return String(EDIT_LABELS.get(kind, "Edit"))
 
+
+## What an editing command is *for*, in one sentence, for the box beside the plan while that command is in
+## hand - the same half `DraftTool.description` is for the tools, and kept here for the same reason.
+##
+## Each sentence is a summary of what the command is *doing* rather than of the pick it is waiting for:
+## `_edit_prompt` says which pick is next, this says what the picks are for. A command added to `EditKind`
+## without one reads as nothing rather than as something wrong, and the test that every command has one is
+## what stops that being the end of it.
+static func edit_description(kind: EditKind) -> String:
+	if kind == EditKind.OFFSET:
+		return "Copies a shape a distance to one side of it."
+	if kind == EditKind.TRIM:
+		return "Cuts a shape back where another shape crosses it."
+	if kind == EditKind.EXTEND:
+		return "Grows an end until it meets another shape."
+	if kind == EditKind.FILLET:
+		return "Rounds the corner where two lines meet."
+	if kind == EditKind.ERASE:
+		return "Takes a shape off the sheet."
+	if kind == EditKind.ROTATE:
+		return "Turns a shape about a point you pick."
+	if kind == EditKind.MOVE:
+		return "Moves a shape from one point to another."
+	if kind == EditKind.COPY:
+		return "Puts a copy of a shape somewhere else."
+	return ""
+
 # --- what a palette needs to know -----------------------------------------------------
 
 

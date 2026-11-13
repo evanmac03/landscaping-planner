@@ -394,12 +394,22 @@ static func fit_the_chrome_for_a_finger(root: Node, scale: float, density: float
 ## Nothing happens on a computer, and nothing happens when the density could not be read - a control
 ## is not given a size worked out from a number that does not exist. The width the caller set is kept:
 ## how wide a palette cell is belongs to the palette, not to the thumb.
+##
+## **Where the caller set no width, the width is raised to the same row.** A button with no stated width has
+## only its own words to give it one, and a word is narrower than a thumb: on the A16W the top bar's `Fit` came
+## out **56 px wide against the 107 px** this device's own 5.5 mm row asks for - a target less than half of what
+## the program demands of every other one, and it passed the desk's 44 px floor for three passes before the
+## device's own floor was asked. A width the caller *did* state is left exactly as it was, which is the same
+## promise this function keeps for a palette cell - and it is why the palette's own cells, which state theirs,
+## come out of this unchanged. Measured as a fault on the phone, in portrait: `Fit` 56 x 97, 51 px short.
 static func size_for_a_finger(control: Control, scale: float, density: float) -> void:
 	if control == null:
 		return
 	var height: float = row_height(scale, density)
 	if height > 0.0:
 		control.custom_minimum_size.y = height
+		if control.custom_minimum_size.x <= 0.0:
+			control.custom_minimum_size.x = height
 	var size: int = font_size(scale, density)
 	if size > 0:
 		control.add_theme_font_size_override("font_size", size)

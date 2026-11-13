@@ -18,6 +18,47 @@ const PHONE_DPI := 384.6
 const PHONE_SCALE := 1.62
 
 
+## **The HUD's own top bar was the last thing standing in the band a phone keeps.** Everything else had learned
+## it - a page's contents are lifted by `PageChrome`, a page is placed inside the insets, a page's title bar is
+## kept below this bar - but the bar, anchored to the top of the screen, stayed at the offset the scene drew it
+## with. Measured on the A16W held upright: the three view buttons and the menus sat 81 px inside that strip with
+## their middles at y 67, so a tap aimed at `Fit` was answered by the system and not by the program.
+##
+## The inset is **stated** here rather than read, which is the whole reason the door exists: on this desk
+## `cutout_top` answers zero, and a device with a band along its top is not a thing this machine can be.
+func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+	var bar := PanelContainer.new()
+	bar.offset_top = 12.0
+	bar.offset_bottom = 62.0
+	hud.top_bar = bar
+
+	hud.lift_the_top_bar_by(100)
+	assert(is_equal_approx(bar.offset_top, 112.0), "the bar's top takes the band: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot moves with it: %s" % str(bar.offset_bottom))
+	assert(is_equal_approx(bar.offset_bottom - bar.offset_top, 50.0), "so its height is the height the scene drew")
+
+	# **A turn re-runs the pass that does this**, so it has to answer the same thing every time: a lift that read
+	# its own output back would walk the bar down the screen by a band on every rotation.
+	hud.lift_the_top_bar_by(100)
+	assert(is_equal_approx(bar.offset_top, 112.0), "the second pass moves nothing: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is where it was: %s" % str(bar.offset_bottom))
+
+	# A device with nothing to clear - every desk - is given the bar the scene drew, to the pixel.
+	hud.lift_the_top_bar_by(0)
+	assert(is_equal_approx(bar.offset_top, 12.0), "nothing to clear puts it back: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 62.0), "both offsets, exactly: %s" % str(bar.offset_bottom))
+
+	# And the desk's own reading is the same answer: a bar not in a tree has no viewport, and a screen with no
+	# safe area keeps nothing back either way.
+	hud.lift_the_top_bar_clear_of_the_device()
+	assert(is_equal_approx(bar.offset_top, 12.0), "a desk's own reading leaves the bar alone")
+
+	hud.top_bar = null
+	bar.free()
+	hud.free()
+
+
 ## A cutout is measured as each side's share of the screen, so a phone held sideways is answered on the
 ## side its camera is on rather than at the top alone.
 ##
@@ -140,10 +181,7 @@ func test_a_phones_menu_hands_a_thumb_a_row_and_not_only_legible_words() -> void
 	PhoneHudScript.size_a_windows_words_for_a_finger(menu, PHONE_SCALE, PHONE_DPI)
 	var row: float = _menu_row(menu)
 	var wanted: float = PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI)
-	assert(
-		row >= wanted - 0.01,
-		"the menu's row is the row a thumb needs: %.1f px against %.1f" % [row, wanted],
-	)
+	assert(row >= wanted - 0.01, "the menu's row is the row a thumb needs: %.1f px against %.1f" % [row, wanted])
 	# Fitting twice is fitting once: a menu shown again is not handed a taller row every time it opens.
 	var once: int = menu.get_theme_constant(&"v_separation")
 	PhoneHudScript.size_a_windows_words_for_a_finger(menu, PHONE_SCALE, PHONE_DPI)
@@ -193,10 +231,7 @@ func _menu_row(menu: PopupMenu) -> float:
 	var font: Font = menu.get_theme_font(&"font")
 	if font == null:
 		return 0.0
-	return (
-		font.get_height(menu.get_theme_font_size(&"font_size"))
-		+ float(menu.get_theme_constant(&"v_separation"))
-	)
+	return (font.get_height(menu.get_theme_font_size(&"font_size")) + float(menu.get_theme_constant(&"v_separation")))
 
 
 ## A phone's top bar keeps its doors and gives up everything else; a desk keeps every part of the row.
@@ -478,3 +513,33 @@ func test_a_computers_hud_is_left_exactly_as_the_scene_drew_it() -> void:
 	assert(hud.size_for_a_finger(false) == 0, "nothing is fitted for a mouse")
 	assert(line.get_theme_font_size("font_size") == 20, "and the line keeps the size it was drawn with")
 	hud.free()
+
+
+## A button the layout gave **no width of its own** has only its own words to be measured by, and a word is
+## narrower than a thumb. The bar's `Fit` is the worked example: measured on the A16W it came out **56 x 97**
+## against the **107 px** this device's own 5.5 mm row asks for - 51 px short of what the program demands of
+## every other target on the screen, and it passed the desk's own 44 px floor for three phone passes before the
+## device's floor was asked of it. The width is raised to the same row, and **a width the layout did state is
+## left exactly as it was** - which is the promise the palette's own cells rest on.
+func test_a_button_with_no_width_of_its_own_is_given_the_row_a_thumb_needs() -> void:
+	_reset()
+	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
+	var row: float = PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI)
+
+	var word: Button = Button.new()
+	word.text = "Fit"
+	PhoneHudScript.size_for_a_finger(word, PHONE_SCALE, PHONE_DPI)
+	assert(
+		is_equal_approx(word.custom_minimum_size.x, row),
+		"a word narrower than a thumb is given the row: %.1f against %.1f" % [word.custom_minimum_size.x, row],
+	)
+	assert(is_equal_approx(word.custom_minimum_size.y, row), "and the row is its height as well")
+	word.free()
+
+	# A stated width is the layout's own business, exactly as it was before this rule existed.
+	var cell: Button = Button.new()
+	cell.custom_minimum_size = Vector2(170.0, 0.0)
+	PhoneHudScript.size_for_a_finger(cell, PHONE_SCALE, PHONE_DPI)
+	assert(cell.custom_minimum_size.x == 170.0, "a width the layout stated is left exactly as it was")
+	assert(is_equal_approx(cell.custom_minimum_size.y, row), "and the height is still the thumb's")
+	cell.free()

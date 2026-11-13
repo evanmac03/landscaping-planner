@@ -21,6 +21,7 @@ extends Node
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
 ## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen, 450 dots to the inch to the
 ## platform. The number here is the one the arithmetic is exercised at, and the canvas scale the
@@ -37,6 +38,60 @@ const PHONE_SCALE := 1.62
 
 var _app: Node = null
 var _hud: Node = null
+
+
+## What a finger would be asked to hit on the window above, once it has been drawn up the way a phone draws it.
+##
+## The questions the probe asks on a real device are asked here too, so that they can be *read on a desk*: how big
+## each target is, how far apart two neighbours are, whether one stands in a band the device keeps for itself, and
+## whether its words are big enough for the screen. The floor for the targets is `PhoneHud`'s own reading - the
+## same millimetres the program lays its rows out at - so this judges against the number the program obeys rather
+## than against a second opinion about thumbs.
+##
+## **The room is this window's and not the phone's.** Godot's embedded game refuses a change of the window's size,
+## so the numbers below are a phone's *sizes* in a window that is not a phone's shape. A page that fits here fits
+## there; one that does not is not yet an answer about the phone, and the device itself remains the instrument for
+## that - the probe's own `small`, `close`, `unsafe` and `tiny` lines read off `probe.log` say what the phone
+## really holds.
+func _report_the_targets() -> void:
+	if _hud == null:
+		return
+	var root: Control = _hud.get_node_or_null(^"Root") as Control
+	if root == null:
+		return
+	var scale: float = PhoneHudScript.canvas_scale(get_window())
+	var density: float = PhoneHudScript.dpi()
+	var least: int = roundi(PhoneHudScript.row_height(scale, density))
+	# The bands a system keeps belong to a phone's own display, so there are none to read from this window: the
+	# promise `DisplayServer` makes here is about a monitor, and comparing it with this window names every control
+	# along a whole side for nothing. The rule that judges a control against those bands has its own tests, and it
+	# is read off a real device through the probe's `unsafe` lines. That is why this tool does not call them: the
+	# rule reads the *platform's* promise, and this window is a monitor.
+	print("")
+	print(
+		(
+			"--- what a finger would be asked to hit (a target should be %d px; this window has no bands to keep) ---"
+			% least
+		)
+	)
+	var found: int = 0
+	for line: String in HudProbeScript.small_lines(root, "the window", least):
+		print("  " + line)
+		found += 1
+	for line: String in HudProbeScript.close_lines(root, "the window"):
+		print("  " + line)
+		found += 1
+	for line: String in HudProbeScript.tiny_lines(root, "the window", scale, density):
+		print("  " + line)
+		found += 1
+	# And the one touch question a window that is the wrong shape can still answer honestly: whether any control's
+	# words want more room than the box they are drawn in. A caption losing words does it at every size, which is
+	# why this one is asked here rather than only on the device.
+	for line: String in HudProbeScript.clipped_lines(root, "the window"):
+		print("  " + line)
+		found += 1
+	if found == 0:
+		print("  every target is big enough, clear of its neighbours, legible and showing all of its words")
 
 
 func _ready() -> void:
@@ -71,6 +126,7 @@ func _ready() -> void:
 	_hud = _find_scripted(_app, "hud.gd")
 	_report_the_front_door()
 	_report_the_chrome()
+	_report_the_targets()
 	await _report_the_menus()
 	print("")
 	print("PHONE GUI: the window above is what a phone is given - the words are sized with the buttons")

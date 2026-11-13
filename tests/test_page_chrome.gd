@@ -354,6 +354,55 @@ func test_a_page_is_placed_below_the_bar_the_hud_keeps_at_the_top() -> void:
 	_free_pages()
 
 
+## The three rooms this project is measured in, and what a page takes from each. This is the desk half of the
+## phone work: a stated room lets the machine the suite runs on hold what a page lands in at a shape it is not
+## being run at, so a change to the placement arithmetic is refused here rather than found on the glass.
+##
+## **The figures are measurements, not arithmetic**: 62, 70 and 562 are the tops of the HUD's own bar on a
+## 1600 by 900 desk, on the SM-A166W lying (its bar 61 tall at y 9) and the same phone upright, where the
+## chrome folds. Each was read off `page_chrome_probe` and must be updated with it if the chrome changes shape.
+##
+## The invariant every one of them holds: the page, its own bar and the strip are exactly the room - which is
+## the whole point of the two numbers above.
+func test_the_three_rooms_a_page_is_placed_in_are_pinned() -> void:
+	var page: Window = _page()
+	add_child(page)
+	var bar: int = PageChromeScript.chrome_above(page)
+	var was: int = PageChromeScript.reserved_above
+	var measured: Array[Vector3i] = [
+		Vector3i(1600, 900, 62),
+		Vector3i(1444, 666, 70),
+		Vector3i(1185, 2567, 562),
+	]
+	var rooms: Array[Vector2i] = []
+	var floors: Array[Vector2i] = []
+	for room: Vector3i in measured:
+		PageChromeScript.reserved_above = room.z
+		rooms.append(Vector2i(room.x, room.y))
+		floors.append(PageChromeScript.content_room_in(page, Vector2i(room.x, room.y)))
+	PageChromeScript.reserved_above = was
+	assert(
+		PageChromeScript.content_room_in(page, Vector2i.ZERO) == Vector2i.ZERO,
+		"a room that cannot be answered is left as it is, strip and all",
+	)
+	for index: int in rooms.size():
+		var room: Vector2i = rooms[index]
+		var floor: Vector2i = floors[index]
+		var strip: int = measured[index].z
+		assert(
+			floor == Vector2i(room.x, room.y - bar - strip),
+			"the room less a page's own bar and the strip is what it may use: %s from %s"
+			% [str(floor), str(room)],
+		)
+		assert(
+			floor.y + bar + strip == room.y,
+			"and the page, its bar and the strip are exactly the room: %d + %d + %d against %d"
+			% [floor.y, bar, strip, room.y],
+		)
+	remove_child(page)
+	_free_pages()
+
+
 func test_a_page_with_no_title_bar_is_not_made_shorter_for_one() -> void:
 	# `borderless` is a page saying it draws no bar, and taking room away for a bar that is not drawn would
 	# make a short page smaller for nothing.

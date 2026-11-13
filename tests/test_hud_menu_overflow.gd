@@ -132,6 +132,34 @@ func test_a_title_is_measured_on_the_bar_font_and_a_longer_one_is_wider() -> voi
 	_free_all()
 
 
+## **The fold's own question, asked in one place**: what the bar would put up against what it has up. It is both
+## the early return that keeps the bar from being rebuilt on every frame and the signal the probe's reading waits
+## on before it reads the screen.
+##
+## It is asked here rather than by watching the room, and the room is the trap. Measured on a phone, the room and
+## the bar's own minimum feed each other - the bar's minimum is part of the room the fold is given - so the room
+## holds still for two frames in the middle of a fold that is not finished. A reading that watched the room caught
+## the bar at ten titles asking for 1052 px of a 349 px room, while the fold went on to two titles and 272 px and
+## fitted. The fault was in the reading, and this is the question that does not have it.
+func test_the_fold_has_settled_when_the_bar_has_what_the_room_would_give_it() -> void:
+	var hud: PlannerHud = _hud_with_a_bar()
+	hud._build_menu_bar()
+	var room: float = hud.menu_bar_room()
+	hud._rebuild_menu_bar(hud.menu_bar_plan(room))
+	# What the bar is drawing, read off the bar itself, against what the room would give it.
+	var standing: Array[String] = []
+	for i: int in _bar.get_menu_count():
+		standing.append(_bar.get_menu_title(i))
+	assert(standing == hud._wanted_menu_titles(room), "the bar draws the room's own plan: %s" % str(standing))
+	assert(hud._the_fold_has_settled(), "and so there is nothing left to fold")
+	# A bar holding titles the room would not give it has not settled - which is exactly the state a reading taken
+	# mid-fold used to catch, and which must be visible as unsettled rather than read as a fault in the bar.
+	var stale: Array[String] = ["File"]
+	hud._menu_titles = stale
+	assert(not hud._the_fold_has_settled(), "a bar whose titles are not the room's own is still folding")
+	_free_all()
+
+
 func test_the_bar_plan_is_the_whole_plan_when_the_room_takes_it() -> void:
 	var hud: PlannerHud = _hud_with_a_bar()
 	var plan: Array[Dictionary] = hud.menu_bar_plan(100000.0)

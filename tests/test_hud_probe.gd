@@ -8,6 +8,8 @@ extends Node
 
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const WindowPostureScript := preload("res://scripts/window_posture.gd")
+const InViewScript := preload("res://scripts/in_view.gd")
+const TouchTargetScript := preload("res://scripts/touch_target.gd")
 
 ## Where the log half of this writes, and removes again. A probe that kept a file nobody cleans would leave
 ## one behind on every run of the suite.
@@ -44,7 +46,11 @@ func test_a_row_says_where_each_of_its_controls_stands() -> void:
 	row.add_child(other)
 	var said: String = "\n".join(HudProbeScript.row_lines(row, "the top bar", 900.0))
 	assert(said.contains("the top bar"), "the report names the row it is about")
-	assert(said.contains("room=900"), "and the room it was given")
+	# Each number says whose it is: the room belongs to the menus, the minimum to the whole row, and printed
+	# as a bare `room=` and `min=` beside each other they read as one object measured against itself - which is
+	# how a row wanting 1052 px was read as a bar overflowing a room of 349 on a phone, twice.
+	assert(said.contains("menus_room=900"), "the room the menus were given, named as the menus'")
+	assert(said.contains("row_min="), "and what the row itself asks for, named as the row's")
 	assert(said.contains("Fit") and said.contains("Ground view"), "each control is named")
 	assert(said.contains("min="), "and each says how much room it asks for")
 	assert(said.contains("shown="), "and whether it is showing")
@@ -277,3 +283,162 @@ func _clean() -> void:
 		DirAccess.remove_absolute(SCRATCH)
 	if FileAccess.file_exists(SCRATCH + HudProbeScript.TEMP_SUFFIX):
 		DirAccess.remove_absolute(SCRATCH + HudProbeScript.TEMP_SUFFIX)
+
+
+## The phone's own case, in the two halves a name is made of. The unsaved-changes question reported its screen
+## rectangle as `(933, 433) .. (1405, 646)` on a **1080-wide** screen, and no `page-edge` line was printed for
+## it - so either the composition puts a page somewhere other than where it stands, or the rule does not see
+## one that hangs off the edge. A page cannot be *shown* in a headless runner, which is the one thing
+## `page_edge_lines` insists on, so what is held here is the composition and the comparison underneath it.
+func test_a_page_whose_own_rectangle_is_composed_off_the_screen_is_named() -> void:
+	var page := Window.new()
+	page.name = "ProbeAdrift"
+	_made.append(page)
+	add_child(page)
+	page.position = Vector2i(1500, 100)
+	page.size = Vector2i(300, 200)
+
+	var room: Vector2i = HudProbeScript.screen_room(self)
+	assert(room.x > 0 and room.y > 0, "the runner has a room to be measured against: %s" % str(room))
+	var composed: Rect2 = HudProbeScript.window_rect(page)
+	assert(
+		composed.end.x > float(room.x),
+		"a page standing at x 1500..1800 is composed past the right edge of a %d px room: %s" % [room.x, str(composed)],
+	)
+	var faults: Array[Dictionary] = InViewScript.faults(
+		[{ "name": "the page (ProbeAdrift)", "rect": Rect2i(composed), "room": room }]
+	)
+	assert(faults.size() == 1, "and the rule names it: %s" % str(faults))
+	assert(InViewScript.sentence(faults[0]).contains("ProbeAdrift"), InViewScript.sentence(faults[0]))
+	_free_made()
+
+
+## A caption is judged against the room it was given in its own pixels, and a control that puts its words on
+## another line has cut nothing - which is the difference between a box short of room and a caption that has
+## lost a word. The phone's own foot line showed "Pinch: zoo".
+func test_words_a_caption_cannot_show_are_named_and_wrapping_ones_are_left_alone() -> void:
+	var root: Control = _root()
+	var cut := Label.new()
+	cut.text = "Left-drag: move a plant     Two fingers: pan     Pinch: zoom"
+	cut.clip_text = true
+	_control(root, cut, Vector2(10.0, 10.0), Vector2(120.0, 30.0))
+	var wrapping := Label.new()
+	wrapping.text = "The same words, on as many lines as they need."
+	wrapping.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_control(root, wrapping, Vector2(10.0, 60.0), Vector2(120.0, 60.0))
+
+	var lines: PackedStringArray = HudProbeScript.clipped_lines(root, "a page")
+	assert(lines.size() == 1, "one caption has lost words and one has not: %s" % str(lines))
+	assert(lines[0].begins_with("clipped "), "and it is a line about words: %s" % lines[0])
+	assert("Pinch: zoom" in lines[0], "quoting what it was told to say: %s" % lines[0])
+	assert(not "\n" in lines[0], "and arriving as one line, which is what the file and logcat can carry")
+	_free_made()
+
+
+## The floor a target is judged against is the caller's, because it is a fact about the device rather than
+## about this project: the desk's own 44 px is right for a mouse, and a phone at 450 dpi wants a 5.5 mm row,
+## which is about 107 px. Two things are held here - the desk's half, which a runner can be asked about, and
+## the arithmetic the phone's half rests on, which is `TouchTarget`'s own and needs no screen.
+##
+## **An absolute floor is not asked of a screen that is not there.** Measured: a headless run's dummy display
+## reports a 64 x 64 window with the canvas drawn at 0.04, so a 109 x 50 button measures 4 x 2 px on the
+## "screen" and every control in the program would be named for a fault nobody could have. The probe refuses
+## the question instead, which is why the desk's half reads the same with a display and without one.
+func test_the_floor_is_the_callers_and_is_never_asked_of_a_screen_that_is_not_there() -> void:
+	var root: Control = _root()
+	var button := Button.new()
+	button.text = "Discard"
+	_control(root, button, Vector2(20.0, 20.0), Vector2(109.0, 50.0))
+
+	assert(
+		HudProbeScript.small_lines(root, "a page", 44).is_empty(),
+		"a 109 x 50 button clears the desk's own floor, and no floor is judged where there is no screen",
+	)
+	# The device's own floor, on the rectangle the rule reads - the same button, half the size the program
+	# itself asks for on a phone at 450 dpi.
+	var phone: Array[Dictionary] = TouchTargetScript.faults(
+		[{ "name": "the question's own button", "rect": Rect2i(20, 20, 109, 50) }],
+		107,
+	)
+	assert(phone.size() == 1, "and it is 57 px short of what the device asks for: %s" % str(phone))
+	assert(phone[0]["short"] == 57, "57 px short of 107: %d" % phone[0]["short"])
+	_free_made()
+
+
+## **A floor and a rectangle have to be in one space**, which is a rule this project has now paid for four times,
+## and the smallest form of it is pure arithmetic: a row the layout states, the room the layout was given, and the
+## screen the probe measures in.
+##
+## The numbers are the A16W's, measured: held upright it states a 107 px row in a 1185 px room on a 1080 px screen.
+## The `Fit` button came back **97 px** wide once `PhoneHud` gave it the row - so a floor of 107 called it ten
+## pixels short of a row it meets exactly, which is what it did, for every button on the screen, in the very build
+## that fixed its width. Nothing here needs a phone: it is the arithmetic the phone's reading rests on.
+func test_a_floor_stated_in_the_layouts_pixels_is_brought_into_the_screens() -> void:
+	var row: float = 107.0
+	var room := Vector2i(1080, 2340)
+	var laid := Vector2(1185.0, 2567.0)
+	assert(
+		HudProbeScript.floor_in_screen_px(row, room, laid) == 97,
+		"107 px of a 1185 px room is 97 px of a 1080 px screen: %d" % HudProbeScript.floor_in_screen_px(row, room, laid),
+	)
+	# A floor is a "no less than", so it is truncated and never rounded up: a 5 px row drawn at half size is
+	# 2.5 px, and calling that 3 would report a target that meets the row as a pixel short of it.
+	assert(
+		HudProbeScript.floor_in_screen_px(5.0, Vector2i(1, 1), Vector2(2.0, 2.0)) == 2,
+		"a floor rounds down: %d" % HudProbeScript.floor_in_screen_px(5.0, Vector2i(1, 1), Vector2(2.0, 2.0)),
+	)
+	# A screen the size of the layout leaves the floor alone, which is the desk's own case.
+	assert(
+		HudProbeScript.floor_in_screen_px(row, Vector2i(1185, 2567), laid) == 107,
+		"a screen as wide as the layout changes nothing",
+	)
+	# Anything unknown is no floor at all, rather than a zero-pixel one that nothing could fail.
+	assert(HudProbeScript.floor_in_screen_px(0.0, room, laid) == 0, "a row of no size is no floor")
+	assert(HudProbeScript.floor_in_screen_px(row, Vector2i.ZERO, laid) == 0, "a room of no size is no floor")
+	assert(HudProbeScript.floor_in_screen_px(row, room, Vector2.ZERO) == 0, "a layout of no size is no floor")
+	# And the device's own door is shut on a desk: a runner that is not being served a finger is answered with
+	# nothing rather than with the phone's floor, whatever screen it happens to be on.
+	assert(HudProbeScript.finger_floor(_root()) == 0, "a desk's own runner is not handed the device's floor")
+	_free_made()
+
+
+## **A centre is only where a finger should land in the room it was measured in**, and the device turns under the
+## program. A tap aimed from a portrait block at a landscape screen reaches nothing at all - measured, a centre at
+## y 1654 on a 1080-tall screen - and the run that sent it had to be wondered about, because nothing said so.
+##
+## The room is read back out of the block's own line, in the one place that also writes it. The two spellings are
+## both held here, because the same block arrives as the probe wrote it and behind the `PROBE ` a log line carries.
+func test_the_room_a_block_was_taken_in_is_read_back_off_its_own_line() -> void:
+	var as_written: String = "device   finger=true dpi=450.0 scale=1.62 shape=lying\nroom     viewport=(1444, 666) native=(2340, 1080)"
+	assert(
+		HudProbeScript.read_room_line(as_written) == Vector2i(1444, 666),
+		"the room the block was taken in: %s" % str(HudProbeScript.read_room_line(as_written)),
+	)
+	# The same line as it reaches a reader out of `probe.log`, behind the `PROBE ` every line there carries, and
+	# with the newest block's own line to be picked over an older one's.
+	var two_blocks: String = (
+		"PROBE room     viewport=(1080, 2340) native=(1080, 2340)\n"
+		+ "PROBE room     viewport=(1444, 666) native=(2340, 1080)\n"
+	)
+	assert(
+		HudProbeScript.read_room_line(two_blocks) == Vector2i(1080, 2340),
+		"the first room in the text handed over is the one read",
+	)
+	# Nothing said is no room at all, rather than a room of no size with a point outside it by definition.
+	assert(HudProbeScript.read_room_line("") == Vector2i.ZERO, "no block, no room")
+	assert(
+		HudProbeScript.read_room_line("room     viewport=(1444 native=()") == Vector2i.ZERO,
+		"a line with no pair in it is not a room",
+	)
+
+
+## Both band questions read the platform, so a desk - and a headless runner, which has no display at all -
+## answers nothing rather than answering about a monitor nobody is standing at.
+func test_a_room_that_is_not_a_phones_names_nothing_in_a_kept_band() -> void:
+	var root: Control = _root()
+	var button := Button.new()
+	button.text = "Fit"
+	_control(root, button, Vector2(0.0, 0.0), Vector2(60.0, 100.0))
+	assert(HudProbeScript.unsafe_lines(root, "a page").is_empty(), "no promise, no band to stand in")
+	assert(HudProbeScript.middle_lines(root, "a page").is_empty(), "and nothing to be aimed into")
+	_free_made()

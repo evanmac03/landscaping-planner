@@ -625,3 +625,69 @@ static func label_for(tool_kind: Kind) -> String:
 	if tool_kind == Kind.GRADE_SLOPE:
 		return "Slope arrow"
 	return "?"
+
+
+## The ten shape and dimension tools are named by `DRAFTING_TOOLS`, one row each, beside the key that
+## selects them.
+##
+## The ground's three are not: they are bound as their own keys and listed beside the other keys the
+## drawing needs, so the link from a kind to the action that arms it is stated here rather than guessed at
+## by matching a tool's name against an action's. A letter written into a string - or a name matched
+## against another name - is what sends somebody to a key that does nothing.
+const GRADING_TOOLS := {
+	Kind.GRADE_SPOT: &"grade_spot",
+	Kind.GRADE_CONTOUR: &"grade_contour",
+	Kind.GRADE_SLOPE: &"grade_slope",
+}
+
+
+## The action that puts a tool in hand, or "" for one no action arms - the select tool, which is what is in
+## hand when nothing is.
+static func arming_action(tool_kind: Kind) -> StringName:
+	for pair: Array in DRAFTING_TOOLS:
+		if int(pair[2]) == tool_kind:
+			return pair[0]
+	return GRADING_TOOLS.get(tool_kind, &"")
+
+
+## What a tool is *for*, in one sentence, for the box beside the plan while that tool is in hand.
+##
+## The box used to carry the whole key reference, and every entry of it was a button in the palette
+## standing beside it - so a person reading the box was being told, twice over, which keys arm which
+## tool. What the palette cannot say is what the tool is *for*, and that is what this is: one sentence
+## per tool, kept here beside the tools themselves rather than in the HUD, so a tool cannot arrive
+## without one.
+##
+## Deliberately not the same sentence as `status()`. That one says what the hand wants *at this moment*
+## and changes with every pick; this one is true of the tool all the way through, which is the half a
+## person reads once, before they start.
+static func description(tool_kind: Kind) -> String:
+	if tool_kind == Kind.SELECT:
+		return "Click a shape to take hold of it."
+	if tool_kind == Kind.LINE:
+		return "A straight segment between two points."
+	if tool_kind == Kind.POLYLINE:
+		return "A chain of straight segments, as many as you want."
+	if tool_kind == Kind.RECTANGLE:
+		return "A rectangle between two opposite corners."
+	if tool_kind == Kind.CIRCLE:
+		return "A circle from its centre out to a radius."
+	if tool_kind == Kind.ARC:
+		return "An arc: a centre, a point on the radius, and where the sweep ends."
+	if tool_kind == Kind.MEASURE:
+		return "The distance and bearing between two points, drawn nowhere."
+	if tool_kind == Kind.DIMENSION:
+		return "The true distance between two points, on a line parallel to them."
+	if tool_kind == Kind.DIMENSION_LINEAR:
+		return "The run along x or y between two points, whichever they mostly lie along."
+	if tool_kind == Kind.DIMENSION_RADIUS:
+		return "A circle's radius, with a leader out to the edge."
+	if tool_kind == Kind.DIMENSION_ANGULAR:
+		return "The angle at a corner, between two sides you pick."
+	if tool_kind == Kind.GRADE_SPOT:
+		return "The ground's height at one place."
+	if tool_kind == Kind.GRADE_CONTOUR:
+		return "A line where the ground reaches a height."
+	if tool_kind == Kind.GRADE_SLOPE:
+		return "An arrow from the top of a fall to the bottom, carrying the fall's own slope."
+	return ""

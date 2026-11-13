@@ -14,6 +14,9 @@ extends Node
 
 const MAIN := preload("res://scenes/main.tscn")
 const Hud := preload("res://scripts/hud.gd")
+const DrawnSurfacesScript := preload("res://scripts/drawn_surfaces.gd")
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
+const PageLayoutScript := preload("res://scripts/page_layout.gd")
 
 const PANELS: Array[String] = [
 	"TopBar",
@@ -150,20 +153,27 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 		)
 		palette_panel.visible = palette_was
 	var hints_panel: Control = root.get_node_or_null(^"DraftHints") as Control
-	var legend: Control = root.find_child("DraftHintsLabel", true, false) as Control
-	if hints_panel != null and legend != null:
+	var box: Control = root.find_child("DraftHintsLabel", true, false) as Control
+	if hints_panel != null and box != null:
+		# The box beside the plan is empty until a tool is in hand, so the **worst** tool's box is what is
+		# measured rather than whatever happens to be on the screen: a panel measured empty passes on the day
+		# the longest tool grew a wordier sentence. The same reasoning as the foot line below.
 		var hints_was: bool = hints_panel.visible
+		var box_was: String = (box as Label).text
 		hints_panel.visible = true
+		(box as Label).text = Hud.worst_tool_box()
 		await tree.process_frame
-		var legend_wants: float = legend.get_combined_minimum_size().x
-		var legend_lines: int = (legend as Label).text.split("\n").size()
-		var legend_fits: String = _fits(legend_wants, hints_panel.size.x)
-		if legend_fits != FITS:
+		var box_wants: float = box.get_combined_minimum_size().x
+		var box_rows: int = (box as Label).text.split("\n").size()
+		var box_fits: String = _fits(box_wants, hints_panel.size.x)
+		if box_fits != FITS:
 			overflow += 1
 		print(
-			"  widest legend line wants %6.1f px, DraftHints panel is %6.1f px over %d lines  ->  %s"
-			% [legend_wants, hints_panel.size.x, legend_lines, legend_fits]
+			"  widest tool box line wants %6.1f px, DraftHints panel is %6.1f px over %d rows  ->  %s"
+			% [box_wants, hints_panel.size.x, box_rows, box_fits]
 		)
+		print("    it reads: %s" % (box as Label).text.replace("\n", " / "))
+		(box as Label).text = box_was
 		hints_panel.visible = hints_was
 
 	# The line at the foot of the screen is the one line whose words change with what is in hand, so the
@@ -218,6 +228,134 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 	if touching > 0:
 		print("  (%d further pairs that cannot be open together)" % touching)
 
+	# What is *drawn* against what may not share rows with it. The pairs above are panels against panels, and
+	# nothing there can see a page's own title bar: Godot draws it *above* the rectangle a page reports, so it
+	# appears in neither that table nor the page's own measurement. A meeting with the bar at the top of the
+	# screen is the fault this exists for and counts as a clash; every other meeting is named and left to the
+	# person reading it, because whether a page's bar over the palette's first button is wrong is a judgement
+	# about how the screen looks rather than a measurement - and the one the probe found on the desk is named
+	# here rather than hidden.
+	print("--- what is drawn against what may not share rows with it ---")
+	var top_bar_meetings := 0
+	var meetings: Array = []
+	if hud != null and hud.has_method("drawn_surfaces"):
+		meetings = DrawnSurfacesScript.meetings(hud.drawn_surfaces())
+	for meeting: Dictionary in meetings:
+		var reaches_the_bar: bool = (
+			StringName((meeting["a"] as Dictionary)["kind"]) == DrawnSurfacesScript.TOP_BAR
+			or StringName((meeting["b"] as Dictionary)["kind"]) == DrawnSurfacesScript.TOP_BAR
+		)
+		if reaches_the_bar:
+			top_bar_meetings += 1
+		print(
+			"  %s   ->  %s"
+			% [
+				DrawnSurfacesScript.sentence(meeting),
+				"a page has reached the bar at the top of the screen" if reaches_the_bar else "named, not counted",
+			]
+		)
+	if meetings.is_empty():
+		print("  nothing is drawn in a row it may not share")
+	clashes += top_bar_meetings
+
+	# What is *cut*: a thing scrolling or clipped inside a box smaller than it needs, while a box around it had
+	# room to give. Named and not counted, exactly as a meeting with anything but the bar at the top of the
+	# screen is: a note field that scrolls is a scroll on purpose, and whether *this* one is right is a
+	# judgement the two numbers let a person make in a second and a rule cannot make at all.
+	print("--- what is cut while the room around it had room to give ---")
+	var cut := 0
+	var rooms: Array = [root]
+	var view: Viewport = root.get_viewport()
+	if view != null:
+		for window: Window in view.get_embedded_subwindows():
+			if window.visible:
+				rooms.append(window)
+	for room: Node in rooms:
+		var scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+		for line: String in HudProbeScript.crowded_lines(room, scope):
+			cut += 1
+			print("  " + line)
+	if cut == 0:
+		print("  nothing is cut that the room around it could have given")
+
+	# What is *inside* the rectangles, which no section above asks about: words a person cannot read against
+	# the colour behind them, two things of one kind drawing in exactly one rectangle so that only the later is
+	# ever seen, and a picture with nothing in it. All three are named rather than counted, because a plate
+	# somebody chose to leave plain and a pair of controls a page means to swap are both judgements - and so is a
+	# page overhanging the edge of a small screen, which is why that one is named too rather than counted.
+	print("--- what is inside the rectangles ---")
+	var unreadable := 0
+	var doubled := 0
+	var empty := 0
+	for room: Node in rooms:
+		var inner_scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+		for line: String in HudProbeScript.contrast_lines(room, inner_scope):
+			print("  " + line)
+			unreadable += 1
+		for line: String in HudProbeScript.twin_lines(room, inner_scope):
+			print("  " + line)
+			doubled += 1
+		for line: String in HudProbeScript.blank_lines(room, inner_scope):
+			print("  " + line)
+			empty += 1
+	if unreadable == 0:
+		print("  every caption has ink a person can read against what is behind it")
+	if doubled == 0:
+		print("  no two things of one kind are drawn in one rectangle")
+	if empty == 0:
+		print("  no picture is being shown with nothing in it")
+	var adrift := 0
+	for line: String in HudProbeScript.page_edge_lines(rooms):
+		print("  " + line)
+		adrift += 1
+	if adrift == 0:
+		print("  every page stands inside the room")
+
+	# What the *words* themselves say wrong. A rectangle is honest about its size and says nothing about the
+	# text inside it, so this is the other half of "is it showing right": named and not counted, because what a
+	# caption should say is the author's to decide and only the certain faults are rules here.
+	print("--- words the GUI is showing that are wrong ---")
+	var spoken := 0
+	for room: Node in rooms:
+		var spoken_scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+		for line: String in HudProbeScript.words_lines(room, spoken_scope):
+			spoken += 1
+			print("  " + line)
+	if spoken == 0:
+		print("  every caption, button and menu entry on the screen is words a person can read")
+
+	# What the *screen itself* cannot hold. Every measurement above puts a control beside another control, or
+	# beside its own contents; not one of them put a control beside the room it is standing in, so a button
+	# drawn past the edge of the screen - which nobody can press, and which the phone's own view buttons really
+	# were, wholly off it - was invisible to all of it. This one is counted, like the bar at the top of the
+	# screen, because it is not a judgement: a control the room cannot hold is one a person can never reach.
+	print("--- what the room cannot hold ---")
+	var outside := 0
+	for room: Node in rooms:
+		var outside_scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+		for line: String in HudProbeScript.offscreen_lines(room, outside_scope):
+			outside += 1
+			print("  " + line)
+	if outside == 0:
+		print("  everything on the screen stands inside it")
+	clashes += outside
+
+	# Whether a tap would *reach* what it is aimed at, which is the question a driver asks when a click does
+	# nothing at all. Named and not counted, deliberately: a page standing over the board is what a page is
+	# *for*, so the board's own buttons being covered is the ordinary case rather than a fault. What is worth
+	# reading is which button, and whether the thing standing on top of it is switched off.
+	print("--- what a tap would reach ---")
+	var unmet := 0
+	var pages_up: Array = []
+	for room: Node in rooms:
+		if room != root:
+			pages_up.append(room)
+	for line: String in HudProbeScript.reach_lines(root, pages_up, "the board"):
+		unmet += 1
+		print("  " + line)
+	if unmet == 0:
+		print("  every button on the screen would be reached by a tap at its middle")
+
 	# Leave the drafting state on screen so the capture shows the panels the check is about.
 	var draft_hints: Control = root.get_node_or_null(^"DraftHints") as Control
 	if draft_hints != null:
@@ -234,4 +372,14 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			clashes,
 			overflow,
 		]
+	if top_bar_meetings > 0:
+		summary += "; a page's title bar reached the bar at the top of the screen"
+	if cut > 0:
+		summary += "; %d thing(s) cut while the room around them had room to give" % cut
+	if spoken > 0:
+		summary += "; %d caption(s) with something wrong in the words" % spoken
+	if outside > 0:
+		summary += "; %d thing(s) the screen cannot hold" % outside
+	if unmet > 0:
+		summary += "; %d button(s) a tap would not reach" % unmet
 	return { "name": "HUD layout", "ok": ok, "clashes": clashes, "overflow": overflow, "summary": summary }

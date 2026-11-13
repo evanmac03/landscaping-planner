@@ -282,6 +282,10 @@ static func _topics() -> Array[Dictionary]:
 				+ "is, and what the tool in hand is waiting for - with the keys that answer that tool - while one "
 				+ "of them is.",
 				"",
+				"Beside the drawing, a panel names the tool in hand, says in one sentence what that tool is "
+				+ "for, and prints the keys that answer it, with undo and redo underneath. The whole list of "
+				+ "keys - every tool, every editing command, the plot key - is on the Keys page, under Help.",
+				"",
 				"Help > Landscaping Planner help opens this manual, Help > Drawing keys opens the key "
 				+ "reference, and Help > Command palette opens one box that reaches every command there is. "
 				+ "In the manual, typing a word into the box at the top narrows the contents to the subjects "

@@ -127,6 +127,86 @@ static func _info(id: String, label: String) -> Dictionary:
 	return { "kind": &"info", "id": id, "label": label, "action": &"", "needs": NEEDS_NOTHING, "value": null }
 
 
+## The words the bar uses to report its own fold: written by `Hud`, read back by `tools/phone_touch_pass.gd`, and
+## round-tripped by a test beside this - so the writer and the reader cannot come apart.
+##
+## Both numbers in it are the **bar's own**: `room` is what the fold was given and `bar_min` what the bar needs.
+## That is what makes them a comparison, and it is why the line exists - `room=349 bar_min=272` is a bar that fits,
+## while the probe's `row` line names the room the *menus* were given beside the whole *row*'s minimum, which is
+## not a comparison at all and was misread as an overflowing bar twice.
+const MENUBAR_MARK := "MENUBAR "
+
+## The five numbers the line carries, in the order it writes them.
+const MENUBAR_KEYS: Array[String] = ["room", "bar_min", "row", "shown", "titles"]
+
+
+## What the bar says about itself after a fold: the room it was given, what it needs, the row it sits in, the
+## screen it is on, and how many titles it is drawing.
+static func menubar_line(room: float, bar_min: float, row: float, shown: float, titles: int) -> String:
+	return (MENUBAR_MARK + "room=%.0f bar_min=%.0f row=%.0f shown=%.0f titles=%d" % [room, bar_min, row, shown, titles])
+
+
+## That line read back, wherever it appears - a logcat line carries it behind the time, the pid and the tag.
+##
+## An empty dictionary when the bar has said nothing, which is the honest answer for a release build (this is a
+## debug print) and for a run that never laid the bar out: a caller says *that*, rather than showing a zero. A
+## line missing any of the five numbers is not a reading either, and is passed over in favour of the next one.
+static func read_menubar_line(text: String) -> Dictionary:
+	for raw: String in text.split("\n"):
+		var line: String = raw.strip_edges()
+		var at: int = line.find(MENUBAR_MARK)
+		if at < 0:
+			continue
+		var said: String = line.substr(at)
+		var read := { }
+		for field: String in said.replace(MENUBAR_MARK, "").strip_edges().split(" "):
+			var equals: int = field.find("=")
+			if equals <= 0:
+				continue
+			read[field.substr(0, equals)] = field.substr(equals + 1)
+		var whole: bool = true
+		for key: String in MENUBAR_KEYS:
+			if not read.has(key):
+				whole = false
+		if not whole:
+			continue
+		return {
+			"line": said,
+			"room": String(read["room"]).to_float(),
+			"bar_min": String(read["bar_min"]).to_float(),
+			"row": String(read["row"]).to_float(),
+			"shown": String(read["shown"]).to_float(),
+			"titles": int(String(read["titles"])),
+		}
+	return { }
+
+
+## Whether the bar had finished folding when it said that: the room it was given took what it needed.
+##
+## Both numbers are the bar's own, so this is a fair comparison - and it is the question a reading taken mid-fold
+## gets wrong when it is asked of anything else.
+static func bar_had_finished(folded: Dictionary) -> bool:
+	if folded.is_empty():
+		return false
+	return float(folded["bar_min"]) <= float(folded["room"])
+
+
+## The same fact in words, because a report is read by a person: a bar that fits, a bar that was still folding, or
+## a bar that said nothing at all.
+static func bar_words(folded: Dictionary) -> String:
+	if folded.is_empty():
+		return "the bar said nothing about its fold, so nothing here is a reading of it"
+	if bar_had_finished(folded):
+		return (
+			"the bar had finished folding: %.0f px of bar in a %.0f px room"
+			% [float(folded["bar_min"]), float(folded["room"])]
+		)
+	return (
+		"the bar was still folding when this was printed: %.0f px needed in a %.0f px room"
+		% [float(folded["bar_min"]), float(folded["room"])]
+	)
+
+
 ## The whole bar, menu by menu.
 static func menu_plan() -> Array[Dictionary]:
 	var menus: Array[Dictionary] = []

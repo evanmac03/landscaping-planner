@@ -316,7 +316,19 @@ static func chrome_above(page: Window) -> int:
 ## Every side gives ground, not the top alone: held sideways a phone puts its cutout on the left or the
 ## right, and a page that only stepped down from the top would sit under the camera in landscape.
 static func content_room(page: Window) -> Vector2i:
-	var room: Vector2i = room_for(page)
+	return content_room_in(page, room_for(page))
+
+
+## The same arithmetic with the room stated rather than read, so that a test - or a check on a machine that is
+## not the device - can hold what a page lands in at a shape it is not being run at. The two doors share one
+## sum for the same reason `show_centred` and `placed_again` share `_place`: a second sum for the same fact is
+## a second answer, and the phone's own numbers (a 1444 by 666 landscape room, an 1185 by 2567 upright one)
+## are not reachable on the machine the suite runs on.
+##
+## What a stated room cannot fake is the *device* itself: the cutout is read from the display, so it is zero
+## wherever the suite runs, and a phone's drawn title bar being taller than the theme's number is not
+## something a desk can be told either. Both of those are measured on the glass, by `page_chrome_probe`.
+static func content_room_in(page: Window, room: Vector2i) -> Vector2i:
 	if room.x <= 0 or room.y <= 0:
 		return room
 	var insets: Vector4i = PhoneHud.cutout_here(room)
