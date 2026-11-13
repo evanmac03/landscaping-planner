@@ -320,6 +320,40 @@ func test_the_title_bar_is_taken_out_of_the_room_a_page_may_use() -> void:
 	_free_pages()
 
 
+## A page is placed below the bar the HUD keeps at the top of the screen.
+##
+## A page's title bar is drawn *above* its rectangle, so a page is allowed to reach the top of the screen -
+## and a page that did so drew its own title and its close cross over the menu titles, which is what the HUD's
+## top bar is. The strip no page may use is stated once, in the one place every page is placed; this holds the
+## arithmetic, and where a page really lands on the glass is what `tools/page_chrome_probe.tscn` measures.
+func test_a_page_is_placed_below_the_bar_the_hud_keeps_at_the_top() -> void:
+	var was: int = PageChromeScript.reserved_above
+	var page: Window = _page()
+	# Taller than any room, so the page takes the whole of what is left below the strip.
+	page.min_size = Vector2i(600, 4000)
+	add_child(page)
+	PageChromeScript.reserved_above = 62
+	var room: Vector2i = PageChromeScript.room_for(page)
+	var bar: int = PageChromeScript.chrome_above(page)
+	var content: Vector2i = PageChromeScript.content_room(page)
+	var floor: Vector2i = PageChromeScript.show_centred(page)
+	var stood_at: int = page.position.y
+	# Put back before a word is asserted: `assert` ends the test it fails in, and a strip left stated on the
+	# class would place every page in every test after this one low.
+	PageChromeScript.reserved_above = was
+	assert(
+		content == Vector2i(room.x, room.y - bar - 62),
+		"the room a page may use is the room less its own bar and the strip at the top: %s" % str(content),
+	)
+	assert(floor.y == room.y - bar - 62, "a page as tall as that room is given the whole of it: %s" % str(floor))
+	assert(
+		stood_at - bar >= 62,
+		"and the bar hanging above the page stands at or below the strip rather than over it: %d" % (stood_at - bar),
+	)
+	remove_child(page)
+	_free_pages()
+
+
 func test_a_page_with_no_title_bar_is_not_made_shorter_for_one() -> void:
 	# `borderless` is a page saying it draws no bar, and taking room away for a bar that is not drawn would
 	# make a short page smaller for nothing.

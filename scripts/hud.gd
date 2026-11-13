@@ -666,6 +666,15 @@ func _ready() -> void:
 	# there is documented not to cooperate with the editor, and there is nothing to catch.
 	if not Engine.is_embedded_in_editor():
 		get_tree().auto_accept_quit = false
+	# A page's title bar is drawn *above* the page's own rectangle, so a page is allowed to reach the top of
+	# the screen - which is what keeps its own bar from being clipped. The top bar is at that top, though, and
+	# a page placed there drew its title and its close cross over the menu titles. So the strip no page may use
+	# is stated once, in the one place every page is placed, and what a page may not reach is this bar's own
+	# foot: read off the scene rather than worked out again, because a second sum for where the bar ends is a
+	# second answer that can disagree with the one a person sees. Stated whether or not the bar is on screen,
+	# because a page that moved when the bar appeared would be worse than one simply placed low.
+	if top_bar != null:
+		PageChromeScript.reserved_above = maxi(roundi(top_bar.offset_bottom), 0)
 	# What a press looks like, and what a control that cannot be pressed looks like - the two things a thumb
 	# has no other way of being told, since a finger has no hover to light a control up before it lands.
 	#

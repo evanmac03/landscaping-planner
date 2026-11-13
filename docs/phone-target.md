@@ -295,16 +295,36 @@ itself, and it draws it *above* the rectangle the window reports as its position
 `popup_centered_clamped` centres the contents alone. So a page lost the top of its own title bar as
 soon as its floor came within twice the bar's height (36 px on this theme) of the room - and on the
 four pages that declare 850 pixels on a 900-pixel desk that was 11 pixels of it, which
-`tools/page_chrome_probe.tscn` shows: the figures page opens at `position.y` 25 with its title text
-drawn from -11. The camera page is the same fault at full size, and is why a phone read it as "the
-page does not fit": its 720 came down to the 666 a phone has, which put the *whole* bar - the word
-"Camera" and the close cross - above the top of the screen. Nothing measurable was wrong: `size`
-read 880 by 666, `position` read (282, 0), a centred page on a canvas it exactly matched, and the
-layout fitted. The fix is in the one place a page is put on a screen: `PageChrome.content_room` takes
-the bar's height out of the room before the floor is clamped, and `show_centred` moves the page down
-by half of it - which is what centres the window rather than its contents. Measured after: the camera
-page opens 880 by 630 at position (282, 36), its whole self exactly the canvas, the bar drawn from the
-top of the frame, and the figures page 850 tall at (210, 43) with all 36 pixels of its bar.
+`tools/page_chrome_probe.tscn` showed: the figures page opened at `position.y` 25 with its title
+text drawn from -11. The camera page is the same fault at full size, and is why a phone read it as
+"the page does not fit": its 720 came down to the 666 a phone has, which put the *whole* bar - the
+word "Camera" and the close cross - above the top of the screen. Nothing measurable was wrong:
+`size` read 880 by 666, `position` read (282, 0), a centred page on a canvas it exactly matched, and
+the layout fitted. The fix is in the one place a page is put on a screen: `PageChrome.content_room`
+takes the bar's height out of the room before the floor is clamped, and `show_centred` moves the page
+down by half of it - which is what centres the window rather than its contents. Measured after: the
+camera page opened 880 by 630 at position (282, 36), its whole self exactly the canvas, with the bar
+from the top of the frame, and the figures page 850 tall at (210, 43) with all 36 pixels of its bar.
+
+**But the top of that screen is the HUD's own bar, and a page reaching it drew over the menu
+titles.** The bar is the scene's own furniture - `TopBar` is anchored 12 to 62 pixels down - and a
+page whose own title bar was placed at 7 on a desk, or above the top of the screen on a phone,
+covered it: the figures page's 36-pixel bar landed straight on the menu titles, and it was the
+**ground** view, where nothing else is up at the top, that made it plain. A page cannot have the room
+*and* the strip the bar occupies, so the strip is stated once, by the HUD, and every page lands below
+it. `PageChrome.reserved_above` is set from `top_bar.offset_bottom` as the HUD starts - read off the
+scene rather than worked out again, because a second sum for where the bar ends is a second answer
+that can disagree with the one a person sees - and it is stated whether or not the bar is on screen,
+because a page that moved when the bar appeared would be worse than one simply placed low.
+`content_room` takes it out of the room and `_place` moves the page down by half of it, exactly as
+the page's own bar is accounted for; a page shown with no HUD - every test - finds nought there and
+lands where it always did. Measured after, on a 1600 by 900 desk: the figures page opens **1180 by
+802** - the room less the bar's 62 and its own 36 - at **(210, 98)**, so its title bar stands from 62
+to 98 and the menu titles above it are clear. The camera page, which asks for the whole room, comes
+to 62 pixels less the same way: its 666 on a phone is 568, still the whole canvas below the bar. The
+price is that a page as tall as the room reaches 62 pixels less far down, and the ten pages that
+declare more than a screen already scroll their length, so a page brought down shorter than its
+contents still shows its own last row.
 
 **Still owed.** The direction of that quarter turn was chosen clockwise and has not been seen on a phone
 held upright; it is one number in `HeldOrientation.quarter_turns` if it is the wrong way.

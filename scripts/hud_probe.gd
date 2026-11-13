@@ -10,10 +10,12 @@ extends RefCounted
 ##
 ## ## What it says, and when
 ##
-## One block, whenever a page is put on the screen: where this device was answered from, the room everything
-## lands in, the two lines at the foot of the screen with the words they are showing, and then the board's
-## own controls and the page itself - its title, its rectangle in the pixels a screenshot is taken in, and
-## one line for each control a finger could hit, with the centre of it, so that a fixture can be tapped
+## One block, whenever a page is put on the screen - and that includes the first frame of a session, because
+## the front door is a page and its own pop is the first thing here that publishes. So a driver that has
+## driven nothing at all still finds one block, and it says where this device was answered from, the room
+## everything lands in, the two lines at the foot of the screen with the words they are showing, and then the
+## board's own controls and the page itself - its title, its rectangle in the pixels a screenshot is taken in,
+## and one line for each control a finger could hit, with the centre of it, so that a fixture can be tapped
 ## without measuring anything at all.
 ##
 ## ## A release build says nothing
