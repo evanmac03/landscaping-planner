@@ -125,16 +125,6 @@ const ELSEWHERE_KEYS: Array = [
 ]
 const ELSEWHERE_PER_ROW := 3
 
-## The palette's layout, which lives in `tool_palette.gd` beside the fitting that reads it. The
-## names are the same numbers rather than copies of them, so the buttons built here and the rows
-## re-flowed there are measured with one cell width between them.
-const PALETTE_COLUMNS := ToolPaletteScript.PALETTE_COLUMNS
-const PALETTE_INSET := ToolPaletteScript.PALETTE_INSET
-const PALETTE_CELL_WIDTH := ToolPaletteScript.PALETTE_CELL_WIDTH
-const PALETTE_EDIT_COLUMNS := ToolPaletteScript.PALETTE_EDIT_COLUMNS
-const PALETTE_EDIT_CELL_WIDTH := ToolPaletteScript.PALETTE_EDIT_CELL_WIDTH
-const PALETTE_FEWEST_COLUMNS := ToolPaletteScript.PALETTE_FEWEST_COLUMNS
-
 
 ## The client presentation: the budgets it can be shown at, and the sizes a proposal
 ## still is rendered at. Both are read from the tables that act on them rather than
@@ -185,7 +175,7 @@ const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 @onready var draft_hints: PanelContainer = %DraftHints
 @onready var draft_hints_label: Label = %DraftHintsLabel
 @onready var palette: PanelContainer = %Palette
-@onready var palette_column: VBoxContainer = %PaletteColumn
+@onready var palette_column: PalettePanelScript = %PaletteColumn
 @onready var presentation_panel: PanelContainer = %Presentation
 @onready var presentation_column: VBoxContainer = %PresentationColumn
 @onready var painted_sheet: Control = %PaintedSheet
@@ -212,25 +202,21 @@ var _touch_pad: TouchPad = null
 var _touch_screen: bool = false
 ## Set to offer the thumb controls on a machine that has none, so a demo tool can prove them on a desktop.
 var _touch_forced: bool = false
-## The controls built by _build_palette, kept so the refresh can set them.
-var _arm_button: CheckButton = null
-var _tool_buttons: Array[Button] = []
-var _edit_buttons: Array[Button] = []
-var _layer_option: OptionButton = null
-## The lock for the layer in hand. A check box rather than a key, because it is a state rather
-## than a command: locked means "leave this layer alone", and it is the state the drawing, the
-## selection band and every editing command read.
-var _lock_button: CheckButton = null
-var _layer_names: Array[StringName] = []
-var _style_button: Button = null
-## The undo and redo buttons, kept so their tooltips can say *which* gesture they would act on. Their
-## text stays "Undo" and "Redo": a button that grew to "Undo drawing a new polyline" would walk the
-## palette out from under the plant list, and the palette's width is something a hand learns.
-var _undo_button: Button = null
-var _redo_button: Button = null
-## What the palette was last drawn to match, so a check every frame does not
-## restate state that has not moved.
-var _palette_state: String = ""
+## The two buttons the gesture demo asks this HUD for by name. Doors onto `PalettePanel` rather
+## than copies of it, so there is one undo button on the screen and this is it - computed rather
+## than kept, because the panel holds it and the two may not be allowed to drift apart.
+##
+## Nothing in this file reads them: the reader is the gesture demo, which is out in `tools/` where the
+## compiler cannot see it. Said out loud rather than left for a reader to wonder whether they are dead.
+@warning_ignore("unused_private_class_variable")
+var _undo_button: Button:
+	get:
+		return null if palette_column == null else palette_column.undo_button()
+## And the same door for the other one.
+@warning_ignore("unused_private_class_variable")
+var _redo_button: Button:
+	get:
+		return null if palette_column == null else palette_column.redo_button()
 
 ## The controls built by _build_presentation_panel, kept so the refresh can set them.
 var _present_toggle: CheckButton = null
@@ -342,6 +328,7 @@ const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
 const PlantPanelScript := preload("res://scripts/plant_panel.gd")
 const ToolPaletteScript := preload("res://scripts/tool_palette.gd")
+const PalettePanelScript := preload("res://scripts/palette_panel.gd")
 const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
@@ -1205,119 +1192,70 @@ func _build_touch_pad() -> void:
 	root.move_child(_touch_pad, 0)
 
 
-## Build the palette's controls in code rather than in the scene.
+## Build the palette, hand it the drawing and the keys, and fit it to the device.
 ##
-## They are nine near-identical buttons and a handful of rows, every one of them
-## derived from the tables the legend already uses, so a scene file would be a third
-## copy of that list to keep in step. Built here, the palette is described once and
-## its buttons exist because the tools do.
+## The controls themselves are `PalettePanel`'s: they are nine near-identical buttons and a handful of
+## rows, every one of them derived from the tables the legend already uses, so a scene file would be a
+## third copy of that list to keep in step. Built there, the palette is described once and its buttons
+## exist because the tools do.
+##
+## What is left here is the two things that are this HUD's business rather than a panel's: handing over
+## the drawing the palette reports on and the words this program writes for the keys, and asking the
+## device whether the palette has to be fitted for a finger at all.
+##
+## The fit is deferred for the reason its own door keeps: these buttons are made during this HUD's
+## `_ready` and the window has not been laid out at that moment, so a size asked for then is not the
+## size the finished window draws at.
 func _build_palette() -> void:
 	_draft = view_controller.draft_controller()
 	if _draft == null or palette_column == null:
 		return
-
-	_arm_button = CheckButton.new()
-	_arm_button.name = "ArmButton"
-	_arm_button.text = "Drawing (%s)" % _key_label(&"draft_mode")
-	_arm_button.tooltip_text = "Arm the drawing tools, and put them away again"
-	_arm_button.toggled.connect(_on_arm_toggled)
-	palette_column.add_child(_arm_button)
-
-	var grid := GridContainer.new()
-	grid.name = "Tools"
-	grid.columns = PALETTE_COLUMNS
-	palette_column.add_child(grid)
-	for pair: Array in DRAFTING_TOOLS:
-		var kind: int = pair[2]
-		var button := Button.new()
-		# Named after the action it stands for, so the node tree says what each
-		# button does rather than "Button17".
-		button.name = String(pair[0])
-		button.text = palette_label(pair)
-		button.tooltip_text = "Draw a %s" % String(pair[1])
-		button.toggle_mode = true
-		button.custom_minimum_size = Vector2(PALETTE_CELL_WIDTH, 0.0)
-		button.pressed.connect(_on_tool_pressed.bind(kind))
-		grid.add_child(button)
-		_tool_buttons.append(button)
-
-	var edit_grid := GridContainer.new()
-	edit_grid.name = "EditTools"
-	edit_grid.columns = PALETTE_EDIT_COLUMNS
-	palette_column.add_child(edit_grid)
-	for pair: Array in EDIT_TOOLS:
-		var edit_button := Button.new()
-		edit_button.name = String(pair[0])
-		edit_button.text = edit_palette_label(pair)
-		edit_button.tooltip_text = String(pair[3])
-		edit_button.toggle_mode = true
-		edit_button.custom_minimum_size = Vector2(PALETTE_EDIT_CELL_WIDTH, 0.0)
-		edit_button.pressed.connect(_on_edit_pressed.bind(int(pair[2])))
-		edit_grid.add_child(edit_button)
-		_edit_buttons.append(edit_button)
-
-	palette_column.add_child(HSeparator.new())
-
-	# A flow container rather than a box: its minimum width is its **widest single child**, not the sum of
-	# them all, so a row whose words do not fit the panel wraps onto a second line instead of widening the
-	# panel out from under the drawing. A desk's sums already fit, so it draws exactly what it drew before.
-	# The rows below are flow containers for the same reason.
-	var layer_row := HFlowContainer.new()
-	layer_row.name = "LayerRow"
-	var layer_caption := Label.new()
-	layer_caption.text = "Layer"
-	layer_row.add_child(layer_caption)
-	_layer_option = OptionButton.new()
-	_layer_option.name = "LayerOption"
-	_layer_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_layer_option.tooltip_text = "The layer the next shape is drawn on"
-	for choice: Dictionary in _draft.layer_choices():
-		_layer_names.append(choice["name"])
-		_layer_option.add_item(String(choice["name"]))
-		_layer_option.set_item_tooltip(_layer_option.item_count - 1, String(choice["purpose"]))
-	_layer_option.item_selected.connect(_on_layer_selected)
-	layer_row.add_child(_layer_option)
-	# The lock sits on the layer's own row because it is a property of that layer rather than a
-	# tool. Focus-free so a HUD check box cannot swallow Tab or Enter before the drawing sees it.
-	_lock_button = CheckButton.new()
-	_lock_button.name = "LockButton"
-	_lock_button.text = "Lock"
-	_lock_button.focus_mode = Control.FOCUS_NONE
-	_lock_button.tooltip_text = "Lock this layer: its shapes stay on the sheet but cannot be picked, selected or drawn on"
-	_lock_button.pressed.connect(_on_lock_pressed)
-	layer_row.add_child(_lock_button)
-	palette_column.add_child(layer_row)
-
-	# What to do with the shape in hand, then what to do with the drawing.
-	var shape_row := HFlowContainer.new()
-	shape_row.name = "ShapeRow"
-	palette_column.add_child(shape_row)
-	_command_button(shape_row, &"draft_finish", "Finish", _draft.finish)
-	_command_button(shape_row, &"draft_close", "Close", _draft.finish_closed)
-	_command_button(shape_row, &"draft_cancel", "Cancel", _draft.cancel)
-
-	var edit_row := HFlowContainer.new()
-	edit_row.name = "EditRow"
-	palette_column.add_child(edit_row)
-	_undo_button = _command_button(edit_row, &"draft_undo", "Undo", _draft.undo)
-	_redo_button = _command_button(edit_row, &"draft_redo", "Redo", _draft.redo)
-	_command_button(edit_row, &"draft_undo_point", "Drop", _draft.undo_point)
-
-	var plot_row := HFlowContainer.new()
-	plot_row.name = "SheetRow"
-	palette_column.add_child(plot_row)
-	_command_button(plot_row, &"draft_plot", "Plot a sheet", _plot_sheet)
-	# Next to plotting, because it is the other way the drawing leaves the application:
-	# the sheet is the drawing, the painted plan is the drawing coloured.
-	_command_button(plot_row, &"vis_painted", "Painted plan", open_painted)
-
-	var style_row := HFlowContainer.new()
-	style_row.name = "StyleRow"
-	palette_column.add_child(style_row)
-	_style_button = _command_button(style_row, &"draft_dimension_style", "Standard", _draft.cycle_dimension_style)
-
+	# Every choice the panel reports is this HUD's to act on, and is connected here rather than inside
+	# the panel, because what a tool *does* is the drawing's business and the panel owns none of it.
+	palette_column.armed.connect(_on_arm_toggled)
+	palette_column.tool_chosen.connect(_on_tool_pressed)
+	palette_column.edit_chosen.connect(_on_edit_pressed)
+	palette_column.command_chosen.connect(_on_palette_command)
+	palette_column.layer_chosen.connect(_on_layer_chosen)
+	palette_column.lock_chosen.connect(_on_lock_chosen)
+	palette_column.build(_draft, _palette_keys())
 	_refresh_palette()
 	_size_palette_for_a_finger.call_deferred()
+
+
+## The words this program writes for the keys the palette's buttons name, gathered once as it is built.
+##
+## Read from the bar's own table rather than listed a second time: every action the menu holds is looked
+## up, and an action nothing is bound to comes back empty, which is what its button then says. That is
+## the honest answer rather than a key this file invented.
+func _palette_keys() -> Dictionary:
+	var keys: Dictionary = { }
+	keys[&"draft_mode"] = _key_label(&"draft_mode")
+	for entry: Dictionary in menu_entries():
+		var action: StringName = StringName(entry.get("action", &""))
+		if action != &"":
+			keys[action] = _key_label(action)
+	return keys
+
+
+## Run one of the palette's commands through the menu entry it stands for.
+##
+## A palette button reports the *action* it stands for and never a `Callable`, so a command cannot come
+## to mean one thing in the bar and another in the palette beside the drawing. This is the join: the
+## bar's own table is asked which entry owns that action, and `run_entry` runs it - the same door the
+## menu and the command palette already share.
+func run_the_action(action: StringName) -> bool:
+	for entry: Dictionary in menu_entries():
+		if StringName(entry.get("action", &"")) == action:
+			return run_entry(entry)
+	return false
+
+
+## One of the drawing palette's commands, reported by the action the menu bar knows it by. The command
+## palette has a handler of its own: that one takes a row off the list it filled, and this one takes an
+## action, which is what lets a button beside the drawing run the bar's own entry rather than a copy of it.
+func _on_palette_command(action: StringName) -> void:
+	run_the_action(action)
 
 
 ## Fit this HUD's own chrome to the device, and leave a computer's exactly as the scene drew it.
@@ -1423,11 +1361,11 @@ func _size_palette_for_a_finger() -> void:
 
 
 func _reflow_the_tool_row() -> void:
-	ToolPaletteScript.reflow_the_tool_row(palette, palette_column, _tool_buttons)
+	ToolPaletteScript.reflow_the_tool_row(palette, palette_column, palette_column.tool_buttons())
 
 
 func _reflow_the_edit_row() -> void:
-	ToolPaletteScript.reflow_the_edit_row(palette, palette_column, _edit_buttons)
+	ToolPaletteScript.reflow_the_edit_row(palette, palette_column, palette_column.edit_buttons())
 	_grow_palette_to_its_contents.call_deferred()
 
 
@@ -1436,78 +1374,22 @@ func _grow_palette_to_its_contents() -> void:
 	ToolPaletteScript.grow_to_its_contents(palette, palette_column)
 
 
-## A palette button for one of the drafting commands. The key goes in the tooltip
-## rather than on the button: the nine tools are worth learning by number, and the
-## row of small buttons would be a wall of brackets if every one carried its key.
-func _command_button(row: Container, action: StringName, wording: String, handler: Callable) -> Button:
-	var button := Button.new()
-	button.name = String(action)
-	button.text = wording
-	var key := _key_label(action)
-	if key != "":
-		button.tooltip_text = "%s (%s)" % [wording, key]
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(handler)
-	row.add_child(button)
-	return button
-
-
 ## Match the palette to the controller.
 ##
-## Driven by state rather than by signals because the controller is changed from
-## several places - a key, a click, a palette button - and a signature cannot miss
-## one the way a forgotten connection would.
+## The panel decides what to draw from the drawing it reads and a signature it keeps; what is worked
+## out here is the two facts that are this HUD's rather than a palette's - whether the layer in hand is
+## locked, and what the undo and redo buttons would act on, which is a sentence about the drawing.
+##
+## This is called every frame, and the panel does nothing at all when its signature has not moved.
 func _refresh_palette() -> void:
-	if _draft == null or _arm_button == null:
+	if palette_column == null:
 		return
-	# The two gesture labels are part of the signature because they are what the undo and redo tooltips
-	# say: without them a tooltip would keep naming the gesture that was in hand when the palette last
-	# redrew, which is exactly the confusion the labels exist to remove.
-	var state := "%s|%d|%s|%s|%d|%s|%s|%s" % [
-		_draft.drawing,
-		int(_draft.current_tool()),
-		String(_draft.current_layer()),
-		String(_draft.dimension_style_name),
-		int(_draft.current_edit()),
-		_is_layer_locked(),
-		_undo_label(),
-		_redo_label(),
-	]
-	if state == _palette_state:
-		return
-	_palette_state = state
-	# By the silent setter, because setting a button the ordinary way fires the
-	# handler: the palette would then be driving the controller it is reporting on.
-	_arm_button.set_pressed_no_signal(_draft.drawing)
-	var armed: bool = _draft.drawing
-	var kind: int = int(_draft.current_tool())
-	var edit: int = int(_draft.current_edit())
-	for index in _tool_buttons.size():
-		var button: Button = _tool_buttons[index]
-		# Only a tool actually in your hand is shown as chosen. A palette
-		# highlighting a tool while the tools are put away would be describing a
-		# mode that is not on, and an editing command in hand is not a drawing tool.
-		button.button_pressed = armed and edit == 0 and int(DRAFTING_TOOLS[index][2]) == kind
-	for index in _edit_buttons.size():
-		var edit_button: Button = _edit_buttons[index]
-		edit_button.button_pressed = armed and int(EDIT_TOOLS[index][2]) == edit
-	var selected := _layer_names.find(_draft.current_layer())
-	if selected >= 0:
-		_layer_option.selected = selected
-	# By the silent setter for the same reason the arm button uses it: setting a toggle the
-	# ordinary way fires its handler, and the refresh would then be driving the layer it reports on.
-	_lock_button.set_pressed_no_signal(_is_layer_locked())
-	_style_button.text = "Standard: %s" % String(_draft.dimension_style_name)
-	_style_button.tooltip_text = "%s (%s)" % [
-		_draft.document.dimension_style.describe(),
-		_key_label(&"draft_dimension_style"),
-	]
-	# What the two buttons would act on, by name. A button that says only "Undo" leaves a person to
-	# guess whether it will put back the line they have just trimmed or a survey overlaid two hours ago.
-	if _undo_button != null:
-		_undo_button.tooltip_text = _gesture_tooltip("Undo", _undo_label(), &"draft_undo")
-	if _redo_button != null:
-		_redo_button.tooltip_text = _gesture_tooltip("Redo", _redo_label(), &"draft_redo")
+	# The two gesture labels are part of what the panel's signature holds because they are what those
+	# tooltips say: without them a tooltip would keep naming the gesture that was in hand when the
+	# palette last redrew, which is exactly the confusion the labels exist to remove.
+	var undo: String = _gesture_tooltip("Undo", _undo_label(), &"draft_undo")
+	var redo: String = _gesture_tooltip("Redo", _redo_label(), &"draft_redo")
+	palette_column.refresh(_is_layer_locked(), undo, redo)
 
 
 ## The gesture an undo would undo, in words, or empty when there is none - or when there is no drawing
@@ -1547,10 +1429,11 @@ func _on_edit_pressed(kind: int) -> void:
 	arm_edit_command(kind)
 
 
-func _on_layer_selected(index: int) -> void:
-	if _draft == null or index < 0 or index >= _layer_names.size():
-		return
-	_draft.set_layer(_layer_names[index])
+## The layer the panel reports, by name. The name is the panel's: it built its drop-down from the
+## drawing's own layer choices, so this turns nothing back into anything.
+func _on_layer_chosen(layer_name: StringName) -> void:
+	if _draft != null:
+		_draft.set_layer(layer_name)
 
 
 ## Whether the layer the drawing is on is locked. False with nothing to draw on, so a HUD with
@@ -1579,30 +1462,22 @@ func set_layer_locked(locked: bool) -> void:
 	_draft.document.changed.emit()
 
 
-## The button's own handler. It reads the button rather than taking `toggled`'s argument, because
-## the refresh writes the button's state: reading the argument would let a refresh that arrived
-## mid-click report a lock it had just drawn, which is the bug the silent setter exists to avoid.
-func _on_lock_pressed() -> void:
-	if _lock_button == null:
-		return
-	set_layer_locked(_lock_button.button_pressed)
+## The lock the panel reports. The panel reads its own button rather than the signal's argument, for
+## the reason it gives: the refresh writes that box, and reading the argument would let a refresh
+## arriving mid-click report a lock it had just drawn - the bug the silent setter exists to avoid.
+func _on_lock_chosen(locked: bool) -> void:
+	set_layer_locked(locked)
 
 
 ## What one tool button says: the tool on the first line, the key that does the same
 ## thing on the second, so the palette teaches the shortcut while it is being used.
 static func palette_label(pair: Array) -> String:
-	var words := String(pair[1])
-	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
-	var key := _key_label(pair[0])
-	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+	return PalettePanelScript.label(pair, _key_label(pair[0]))
 
 
 ## The same, for one of the editing commands.
 static func edit_palette_label(pair: Array) -> String:
-	var words := String(pair[1])
-	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
-	var key := _key_label(pair[0])
-	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+	return PalettePanelScript.label(pair, _key_label(pair[0]))
 
 
 ## Keep the HUD out of the keyboard focus chain.

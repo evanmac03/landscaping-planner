@@ -87,7 +87,7 @@ func _report() -> void:
 		% [str(palette.get_rect()), 100.0 * palette.get_rect().size.x / canvas.x]
 	)
 	print("  panel floor     %s (what it asks for itself)" % str(palette.custom_minimum_size))
-	print("  panel room      %.0f (what its anchors say it was designed at)" % hud._palette_room())
+	print("  panel room      %.0f (what its anchors say it was designed at)" % ToolPalette.room(palette))
 	print("  column minimum  %s" % str(column.get_combined_minimum_size()))
 	# Each row's buttons are then re-measured at the font a phone's screen asks for, so the numbers below are
 	# the phone's own rather than this window's - that is the one thing a desk cannot borrow.
