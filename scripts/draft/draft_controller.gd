@@ -71,6 +71,32 @@ enum EditKind {
 	COPY,
 }
 
+## The editing commands: what is done to geometry that already exists.
+##
+## A second table rather than an extension of `DRAFTING_TOOLS`, because the drawing
+## tools are the nine number keys and the edits are their own set of letters - a
+## table that tried to be both would have to lie about one of them.
+const EDIT_TOOLS: Array = [
+	[&"edit_offset", "offset", EditKind.OFFSET, "Draw a new shape a fixed distance out from the one you pick"],
+	[&"edit_trim", "trim", EditKind.TRIM, "Cut the picked piece of a line away at what crosses it"],
+	[&"edit_extend", "extend", EditKind.EXTEND, "Grow the picked end of a line out to the next shape"],
+	[&"edit_fillet", "fillet", EditKind.FILLET, "Round the corner where two lines meet"],
+	[&"edit_erase", "erase", EditKind.ERASE, "Take the picked shape off the drawing"],
+	[
+		&"edit_rotate",
+		"rotate",
+		EditKind.ROTATE,
+		"Turn the picked shape about a point you pick, to the direction you click",
+	],
+	[&"edit_move", "move", EditKind.MOVE, "Move the picked shape: pick a point on it, then click where it should go"],
+	[
+		&"edit_copy",
+		"copy",
+		EditKind.COPY,
+		"Copy the picked shape: pick a point on it, then click where the copy should go",
+	],
+]
+
 ## The words each edit command is introduced by, so the status line, the menu and
 ## the palette cannot call the same command three different things.
 const EDIT_LABELS: Dictionary = {

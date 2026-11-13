@@ -17,6 +17,14 @@ const WORKING := 0
 const PRESENTATION := 1
 const STILL := 2
 
+## The sizes a still can be asked for. Not every size for every job: these are the
+## four a proposal actually wants, and each is a name a person recognises.
+const STILL_SIZES: Array = [
+	["Web 1920 x 1080", Vector2i(1920, 1080)],
+	["QHD 2560 x 1440", Vector2i(2560, 1440)],
+	["4K 3840 x 2160", Vector2i(3840, 2160)],
+]
+
 ## The budgets.
 ##
 ## `supersample` is the render scale the still path uses; it is 1 for the

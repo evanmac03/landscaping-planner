@@ -45,6 +45,29 @@ enum Kind {
 ## nothing, and committing a 0.000 mm line is a drafting mistake, not geometry.
 const MIN_SIZE := 1e-6
 
+## The drawing tools, in the order the number keys select them: the action that
+## selects one, the wording it is introduced by, and the tool it puts in your hand.
+##
+## One table serves both the key legend and the palette, so a tool cannot appear in
+## one and be missing from the other, and neither can describe a different tool from
+## the one the key selects.
+##
+## The *key* is read from the input map rather than written here, which is the half
+## that can be derived - and a legend naming a key that is not bound sends the reader
+## to a key that does nothing, so that half is the half worth deriving.
+const DRAFTING_TOOLS: Array = [
+	[&"draft_line", "line", Kind.LINE],
+	[&"draft_polyline", "polyline", Kind.POLYLINE],
+	[&"draft_rect", "rectangle", Kind.RECTANGLE],
+	[&"draft_circle", "circle", Kind.CIRCLE],
+	[&"draft_arc", "arc", Kind.ARC],
+	[&"draft_measure", "measure", Kind.MEASURE],
+	[&"draft_dimension", "aligned dim", Kind.DIMENSION],
+	[&"draft_dimension_linear", "linear dim", Kind.DIMENSION_LINEAR],
+	[&"draft_dimension_radius", "radial dim", Kind.DIMENSION_RADIUS],
+	[&"draft_dimension_angular", "angular dim", Kind.DIMENSION_ANGULAR],
+]
+
 var kind: Kind = Kind.SELECT
 var layer: StringName = &""
 
