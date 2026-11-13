@@ -106,6 +106,99 @@ func test_the_device_is_asked_where_the_chrome_is_sized_and_not_in_ready() -> vo
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 
 
+## A phone opens with the presentation panel put away; a computer opens with the panel the scene drew.
+##
+## On a phone the panel is over a third of the width with its last rows off the bottom of the screen, and it
+## is the one place the site's latitude, longitude and zone are edited - so it starts out of the way and the
+## Present menu's own row brings it back. What is held here is only the *start*: a person who brings it back
+## on a phone keeps it, which is the whole reason the answer is settled once instead of imposed every pass.
+func test_a_phone_opens_with_the_presentation_panel_put_away() -> void:
+	var phone := PlannerHudScript.new()
+	phone.start_the_presentation_panel_for(true)
+	assert(not phone.is_presentation_panel_wanted(), "a phone starts with the panel out of the way")
+	phone.set_presentation_panel_wanted(true)
+	phone.start_the_presentation_panel_for(true)
+	assert(phone.is_presentation_panel_wanted(), "and a person who brings it back keeps it")
+	phone.free()
+
+	var desk := PlannerHudScript.new()
+	desk.start_the_presentation_panel_for(false)
+	assert(desk.is_presentation_panel_wanted(), "a computer keeps the panel the scene drew for it")
+	desk.free()
+
+
+## A menu's **row** is what a thumb hits, and a row is the font's own line plus the separation between its
+## items - so a menu whose words were grown for a phone can still hand a thumb a band shorter than the
+## buttons around it, and the menus then become the smallest thing on a page to hit.
+##
+## Measured at the phone's own scale rather than the window's: the fitting is told the canvas it is drawn
+## at, and this desk's window is neither the phone's size nor its shape.
+func test_a_phones_menu_hands_a_thumb_a_row_and_not_only_legible_words() -> void:
+	_reset()
+	var menu := PopupMenu.new()
+	menu.add_item("One")
+	PhoneHudScript.size_a_windows_words_for_a_finger(menu, PHONE_SCALE, PHONE_DPI)
+	var row: float = _menu_row(menu)
+	var wanted: float = PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI)
+	assert(
+		row >= wanted - 0.01,
+		"the menu's row is the row a thumb needs: %.1f px against %.1f" % [row, wanted],
+	)
+	# Fitting twice is fitting once: a menu shown again is not handed a taller row every time it opens.
+	var once: int = menu.get_theme_constant(&"v_separation")
+	PhoneHudScript.size_a_windows_words_for_a_finger(menu, PHONE_SCALE, PHONE_DPI)
+	assert(
+		menu.get_theme_constant(&"v_separation") == once,
+		"and a menu fitted twice keeps the row it was given: %d" % once,
+	)
+	menu.free()
+
+
+## A `MenuBar` owns its menus as children of its own, and a rebuild makes new ones at the size a desk draws
+## them - so a bar whose menus were fitted once hands a thumb a desk's row again the moment the room changes.
+##
+## Found live on the SM-A166W rather than by reading: the File and Edit menus on the board opened with rows of
+## **44.5 px - 2.51 mm**, against this program's 5.5 mm floor, because the fold rebuilt the bar *after* the
+## chrome had been fitted and nothing put the fitting back. This holds the half that needs no HUD: the walk
+## reaches a bar's own menus, and a second pass keeps the row it gave them.
+func test_a_menu_bars_own_menus_are_fitted_for_a_finger_and_raised_once() -> void:
+	_reset()
+	var bar := MenuBar.new()
+	var file := PopupMenu.new()
+	file.title = "File"
+	bar.add_child(file)
+	file.add_item("Open a drawing")
+	file.add_item("Save the drawing")
+	var desk_font: int = file.get_theme_font_size(&"font_size")
+	var fitted: int = PhoneHudScript.fit_the_chrome_for_a_finger(bar, PHONE_SCALE, PHONE_DPI)
+	assert(fitted > 0, "walking the bar reaches the menu it owns")
+	var grown: int = file.get_theme_font_size(&"font_size")
+	assert(grown > desk_font, "and its words are grown: %d against the desk's %d" % [grown, desk_font])
+	var row: float = _menu_row(file)
+	var wanted: float = PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI)
+	assert(row >= wanted - 0.01, "and the row a thumb hits is the row it needs: %.1f px against %.1f" % [row, wanted])
+	var once: int = file.get_theme_constant(&"v_separation")
+	PhoneHudScript.fit_the_chrome_for_a_finger(bar, PHONE_SCALE, PHONE_DPI)
+	assert(
+		file.get_theme_constant(&"v_separation") == once,
+		"a second pass keeps the row it was given, so refitting a rebuilt bar cannot ratchet: %d" % once,
+	)
+	bar.free()
+
+
+## The row a menu's items are drawn in, from the engine's own two readings for it: the line its font draws
+## at that size, and the separation the theme puts between items. Held against menus that were really
+## rendered - 27 px at a 16 px font, 69 px at 47 - and both are exactly this sum.
+func _menu_row(menu: PopupMenu) -> float:
+	var font: Font = menu.get_theme_font(&"font")
+	if font == null:
+		return 0.0
+	return (
+		font.get_height(menu.get_theme_font_size(&"font_size"))
+		+ float(menu.get_theme_constant(&"v_separation"))
+	)
+
+
 ## A phone's top bar keeps its doors and gives up everything else; a desk keeps every part of the row.
 ##
 ## The rule lives on the HUD rather than in `PhoneHud` because it is about this HUD's own row and not about a

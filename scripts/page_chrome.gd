@@ -55,6 +55,10 @@ const BODY_SIZE := 12
 ## two can drift apart.
 const PageLayoutScript := preload("res://scripts/page_layout.gd")
 
+## What a control a finger presses looks like in every state, and what a control that cannot be pressed looks
+## like: a page is handed it where it lands, which is the one place a page is shown.
+const TouchStyleScript := preload("res://scripts/touch_style.gd")
+
 ## The node name of a page's content root. `PageLayout.CONTENT_NODE` says the same word, and the two are
 ## held to each other by a test.
 const COLUMN_NAME := "Column"
@@ -362,6 +366,11 @@ static func show_centred(page: Window) -> Vector2i:
 ## its buttons below the fold, and the phone's own room - 1137 across by 2600-odd logical pixels down - is the
 ## honest answer to both. The scroll is what is left for what even the room cannot hold.
 static func _land(page: Window, preferred: Vector2i) -> Vector2i:
+	# A page is given this program's control style here, where it lands, so that a page opened for the first
+	# time and the same page whose room changed shape under it cannot come to two different answers about how
+	# its buttons look. A carrier that already wears a theme keeps it, so landing the same page again and again
+	# costs nothing: the theme the page already wears is not rebuilt.
+	TouchStyleScript.apply_to(page)
 	var landed_at: Vector2i = _place(page, preferred)
 	# After it, because what a page's contents have to fit is the room the page was actually given: a phone
 	# brings a page down to its own screen, and a page brought down shorter than its contents has its last row

@@ -91,14 +91,15 @@ static func device_lines(
 	room: Vector2i,
 	native: Vector2i,
 	touchscreen: bool,
+	shape: StringName,
 	foot: String,
 	tool: String,
 ) -> PackedStringArray:
 	var lines := PackedStringArray()
 	lines.append("--- what is on the screen ---")
 	lines.append(
-		"device   finger=%s zooming=%s touchscreen=%s dpi=%.1f scale=%.2f"
-		% [str(finger), str(zooming), str(touchscreen), dpi, scale]
+		"device   finger=%s zooming=%s touchscreen=%s dpi=%.1f scale=%.2f shape=%s"
+		% [str(finger), str(zooming), str(touchscreen), dpi, scale, str(shape)]
 	)
 	lines.append("room     viewport=%s native=%s" % [str(room), str(native)])
 	lines.append("foot     \"%s\"" % foot)

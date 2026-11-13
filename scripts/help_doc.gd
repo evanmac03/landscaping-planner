@@ -36,6 +36,7 @@ const SUBJECTS: Array[String] = [
 	"Where you start: the front door",
 	"Finding any command: the palette",
 	"The three views",
+	"A phone or a tablet",
 	"Drawing: the tools",
 	"Snapping and precision",
 	"Editing shapes",
@@ -97,6 +98,7 @@ const SECTIONS: Array[Dictionary] = [
 			"Where you start: the front door",
 			"Finding any command: the palette",
 			"The three views",
+			"A phone or a tablet",
 		],
 	},
 	{ "title": "Drawing", "topics": ["Drawing: the tools", "Snapping and precision", "Editing shapes"] },
@@ -161,7 +163,8 @@ const SECTIONS: Array[Dictionary] = [
 ## who came in at the middle can walk it either way.
 const SEE_ALSO: Dictionary = {
 	"Where you start: the front door": ["What this program is", "The three views"],
-	"The three views": ["Presenting the garden", "The sun and the shadows"],
+	"The three views": ["A phone or a tablet", "Presenting the garden", "The sun and the shadows"],
+	"A phone or a tablet": ["The three views", "Where you start: the front door"],
 	"Drawing: the tools": ["Snapping and precision", "Editing shapes"],
 	"The ground under the garden": ["Stating levels and falls", "Plants"],
 	"What is on site: the field survey": ["Reading a photograph", "Plants"],
@@ -401,6 +404,17 @@ static func _topics() -> Array[Dictionary]:
 				"",
 				"View > Control hints switches the line at the foot of the screen off once you know those keys "
 				+ "and want the room back.",
+			],
+		)
+	)
+	out.append(
+		_topic(
+			"A phone or a tablet",
+			[
+				"On a phone or a tablet it is the same program, sized for a thumb: every control is made as tall "
+				+ "as a finger needs, the words can be drawn larger, and the board is asked to stand up rather "
+				+ "than lie along a wide screen. Nothing about a computer changes - the same measurements leave a "
+				+ "desk's controls exactly the size its layout made them.",
 				"",
 				"View > Screen orientation decides which way up the board is asked to be: Landscape, which is how "
 				+ "the board opens and what a plan drawn along a wide screen wants, Portrait for a phone propped "
@@ -408,6 +422,11 @@ static func _topics() -> Array[Dictionary]:
 				+ "is kept, so the next run opens the way you left this one. A desktop's window cannot be asked to "
 				+ "change which way up it is, and the three choices are shown switched off there rather than doing "
 				+ "nothing when they are pressed.",
+				"",
+				"View > Reading size draws the words larger - Large, or Largest - which is what a phone or a tablet "
+				+ "needs where every control is sized for a finger and the words have to match. What you choose is "
+				+ "kept, so the next run opens with it. A computer's panels are the ones this program was drawn "
+				+ "for, so the three are shown switched off there rather than doing nothing when they are pressed.",
 				"",
 				"The front door and the page it leads to follow the phone whatever the board has been told, so the "
 				+ "first thing you meet stands up when the phone does and turns with it. The board takes your own "
@@ -424,8 +443,7 @@ static func _topics() -> Array[Dictionary]:
 				+ "the other looks, and the stick lets go the moment the fingers leave the glass.",
 				"",
 				"On a phone the whole screen is also drawn larger - by about a third - and the palette's buttons "
-				+ "are made as tall as a thumb needs rather than as tall as a desk did. Nothing about a computer "
-				+ "changes: the same measurements leave a desk's controls exactly the size its layout made them.",
+				+ "are made as tall as a thumb needs rather than as tall as a desk did.",
 			],
 		)
 	)
@@ -1195,6 +1213,11 @@ static func _topics() -> Array[Dictionary]:
 				"",
 				"Present > Save the site to the drawing keeps the camera and the sun with the drawing rather "
 				+ "than with this session.",
+				"",
+				"The panel is where the camera, the sun's site and the size of a still are chosen. On a phone "
+				+ "it starts put away, because there it would take a third of the width and its last rows "
+				+ "would fall off the bottom - Present > Presentation panel brings it back, so nothing on it "
+				+ "is lost by putting it aside.",
 				"",
 				"The painted plan and the ground view are the other two ways of showing the same garden: one is "
 				+ "the plan as a drawing would be coloured by hand, the other is standing in it.",

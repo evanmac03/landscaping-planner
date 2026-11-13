@@ -81,16 +81,11 @@ static func answered_by_a_thumb(
 
 ## How much screen, edge to edge, is a phone's and not a tablet's.
 ##
-## Sizing for a finger and drawing the canvas up are two different answers and a tablet needs only the
-## first: a ten-inch screen has the room for a finger-sized palette at its own scale, and drawing it up by
-## a third would put a tablet's drawing behind the same panels a phone has, for no gain. Seven inches
-## across is a 6-inch phone in landscape (5.2) and clear of a 10-inch tablet (8.5).
-const PHONE_ACROSS_INCHES := 7.0
-
-
-## Whether the canvas should be drawn up as well as sized for a finger - which is only true of a screen
-## held in one hand. A screen nobody could measure is not drawn up: the canvas keeps the scale it has.
-static func needs_zooming(across_inches: float, phone_across_inches: float = PHONE_ACROSS_INCHES) -> bool:
-	if across_inches <= 0.0 or phone_across_inches <= 0.0:
-		return false
-	return across_inches < phone_across_inches
+## Sizing for a finger and drawing the canvas up are two different answers, and a tablet needs only the first:
+## a ten-inch screen has the room for a finger-sized palette at its own scale, and drawing it up by a third
+## would put a tablet's drawing behind the same panels a phone has, for no gain.
+##
+## **The second answer is `WindowClass`'s now, not this file's.** It used to be a screen's diagonal compared
+## against seven inches, which was the right answer bought with the wrong unit: what has no room on a phone
+## held sideways is its height, not its width. `WindowClass.is_small` asks the window's own class instead, and
+## this file is left with the one question it is named for - whether a finger is what presses the controls.

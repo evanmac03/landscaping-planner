@@ -7,6 +7,7 @@ extends Node
 ## engine's own answer, and what a screenshot's pixels really are is checked on the glass.
 
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
+const WindowPostureScript := preload("res://scripts/window_posture.gd")
 
 var _made: Array[Node] = []
 
@@ -189,12 +190,17 @@ func test_the_device_line_carries_what_the_program_answered() -> void:
 		Vector2i(1137, 2600),
 		Vector2i(1080, 2340),
 		true,
+		WindowPostureScript.of(Vector2i(1137, 2600)),
 		"Left-drag: move a plant     Two fingers: pan",
 		"Line: click two ends",
 	)
 	var all: String = "\n".join(lines)
 	assert(all.contains("finger=true"), "the device answer is said as it was answered: %s" % all)
 	assert(all.contains("dpi=450.0"), "with the density it was read from")
+	assert(
+		all.contains("shape=standing"),
+		"and which way up its window is, worked out from the room on the line above: %s" % all,
+	)
 	assert(all.contains("Two fingers: pan"), "and the words the foot of the screen is showing")
 	assert(all.contains("Line: click two ends"), "and the words the tool line is showing")
 	_free_made()

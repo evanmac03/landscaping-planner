@@ -14,6 +14,8 @@ class_name PhoneHud
 extends RefCounted
 
 const TouchInputScript := preload("res://scripts/touch_input.gd")
+## What class a window is, which is what decides whether the whole canvas is drawn up: see `zooming_here`.
+const WindowClassScript := preload("res://scripts/window_class.gd")
 
 ## What a thumb needs to hit on glass. Material asks for 48 dp, which on this phone is 7.6 mm; a row
 ## that big in a 349-pixel palette is twelve screens of scrolling, and this palette scrolls. 5.5 mm
@@ -57,11 +59,17 @@ static func on_a_finger_here() -> bool:
 	return TouchInputScript.answered_by_a_thumb(TouchInputScript.has_a_touchscreen(), density, desk_mm, TOUCH_MM)
 
 
-## Whether this device is a phone rather than a tablet: a finger, on a screen small enough that the canvas
+## Whether this device is a phone rather than a tablet: a finger, on a window small enough that the canvas
 ## is worth drawing up as well. A tablet is sized for a finger and left at its own scale, because drawing a
 ## ten-inch screen up by a third costs it a third of its drawing area and gains nothing.
+##
+## Asked of the window's own **class** (`WindowClass`), which is where the breakpoints are stated, rather than
+## of a screen's diagonal, which is how this was first answered: a diagonal is the right answer in the wrong
+## unit, and the two real devices show it - the phone this program is aimed at is 832 dp across, so by width
+## it is not a phone at all, and it is its 384 dp of *height* that has no room. The screen is handed in as it
+## really is, so the scale is 1.0.
 static func zooming_here() -> bool:
-	return on_a_finger_here() and TouchInputScript.needs_zooming(across_inches())
+	return on_a_finger_here() and WindowClassScript.is_small(DisplayServer.screen_get_size(), 1.0, dpi())
 
 
 ## What a phone's own furniture - the camera cutout, the status bar, a rounded edge - takes off each side of
@@ -107,16 +115,6 @@ static func cutout_top(room: Vector2i) -> int:
 	return cutout_here(room).y
 
 
-## How many inches the screen is across its longer side, or 0 when the density is not known - the
-## measurement `TouchInput.needs_zooming` is a comparison against.
-static func across_inches() -> float:
-	var density: float = dpi()
-	if density <= 0.0:
-		return 0.0
-	var screen: Vector2i = DisplayServer.screen_get_size()
-	return maxf(float(screen.x), float(screen.y)) / density
-
-
 ## State what a device would be told about its density, for a demonstration or a test - and 0 puts the
 ## real reading back. The same door `TouchInput.force` and `PhoneFiles.force` are, asked of a third thing.
 static func force_density(density: float) -> void:
@@ -153,6 +151,23 @@ static func canvas_scale(window: Window) -> float:
 static var _forced_density: float = 0.0
 
 
+## How much bigger than the sizes stated below the words are to be drawn, from the reader's own choice in
+## `ReadingSize` - the one Android states and Godot does not. 1.0 is the sizes this file states, and it
+## stays 1.0 until the program hands over what was kept, so that nothing which asks about a size reads a
+## file and every test that says nothing measures the sizes this project was laid out at.
+static var _reading_scale: float = 1.0
+
+
+## State how much bigger the words are to be drawn: for the program at launch, which is the only place that
+## reads the choice, and for a demonstration or a test.
+##
+## **A factor under one is refused**, and 0 or less means the stated sizes. Every number below is a floor -
+## what a thumb can hit, what an eye can read at arm's length - and a scale under one would be this file
+## agreeing to be illegible. The same door `force_density` is, one question over.
+static func use_reading_scale(factor: float) -> void:
+	_reading_scale = factor if factor > 1.0 else 1.0
+
+
 ## The screen's density, or 0 when the platform will not say - and 0 means "cannot be worked out"
 ## rather than "no density", everywhere below.
 static func dpi() -> float:
@@ -183,13 +198,13 @@ static func logical_for_mm(mm: float, scale: float, density: float) -> float:
 ## `on_a_finger_here`'s question, asked once in the one place a page is shown - so this answers for any
 ## screen a caller states, and a desk's own density is converted rather than refused.
 static func row_height(scale: float, density: float) -> float:
-	return maxf(logical_for_mm(TOUCH_MM, scale, density), 0.0)
+	return maxf(logical_for_mm(TOUCH_MM * _reading_scale, scale, density), 0.0)
 
 
 ## The font size that draws a capital TEXT_MM tall, in logical pixels - and 0 where there is no
 ## minimum to apply.
 static func font_size(scale: float, density: float) -> int:
-	var em: float = logical_for_mm(TEXT_MM, scale, density) / CAP_RATIO
+	var em: float = logical_for_mm(TEXT_MM * _reading_scale, scale, density) / CAP_RATIO
 	if em <= 0.0:
 		return 0
 	# Rounded up, not down: the constant is a floor - "at least this tall" - and a font size rounded
@@ -233,7 +248,7 @@ static func grown_for_a_finger(was: int, was_text: int, now_text: int) -> int:
 ## width. Zero where the scale or the density could not be read, which every caller reads as "no margin of
 ## mine" rather than as no margin at all.
 static func edge_margin(scale: float, density: float) -> int:
-	return roundi(logical_for_mm(TOUCH_MM * 0.5, scale, density))
+	return roundi(logical_for_mm(TOUCH_MM * 0.5 * _reading_scale, scale, density))
 
 
 ## Where a control remembers the size its words were laid out with. A control that has been made readable on
@@ -275,7 +290,34 @@ static func size_a_windows_words_for_a_finger(window: Window, scale: float, dens
 	if size <= 0:
 		return false
 	window.add_theme_font_size_override(&"font_size", size)
+	# The words are what a person reads; the row is what a thumb hits, and those were not the same question.
+	_raise_the_row_to_a_thumb(window, size, scale, density)
 	return true
+
+
+## The row a menu draws its items in, raised to the row a thumb needs - and never lowered.
+##
+## A row is the font's own line plus the separation between items, and the theme's separation is drawn for a
+## desk. So a menu whose *words* had been grown for a phone still drew a band shorter than everything around
+## it: measured at this phone's own scale, a page's menu came out at **44 px against the 51 px a button
+## gets** - the menus being the smallest thing a thumb had to hit on a page, and the very thing the growing
+## above was written to stop. The slack goes into the separation, which is the one part of a row that is not
+## the words.
+##
+## Fitting twice is fitting once, and for the same reason every other measurement here remembers what it
+## found: the separation is only ever **raised**, so a menu shown again reads the row it already has and
+## leaves it alone rather than growing every time somebody opens it. Rounded **up**, like a font size here:
+## the constant is a floor - "at least this tall" - and a row a hair under it is a row a thumb misses.
+static func _raise_the_row_to_a_thumb(window: Window, size: int, scale: float, density: float) -> void:
+	var wanted: float = row_height(scale, density)
+	if wanted <= 0.0:
+		return
+	var font: Font = window.get_theme_font(&"font")
+	if font == null:
+		return
+	var slack: int = ceili(wanted - font.get_height(size))
+	if slack > window.get_theme_constant(&"v_separation"):
+		window.add_theme_constant_override(&"v_separation", slack)
 
 
 ## Whether a window shows words of its own, rather than being a page its contents answer for.

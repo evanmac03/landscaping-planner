@@ -24,6 +24,7 @@ extends Node
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
+const WindowClassScript := preload("res://scripts/window_class.gd")
 
 ## A ten-inch Android tablet in landscape: 2560 x 1600 at 300 dots to the inch.
 const TABLET_SIZE := Vector2i(2560, 1600)
@@ -56,6 +57,15 @@ func _ready() -> void:
 	var zoomed: bool = PhoneHudScript.zooming_here()
 	print(
 		"answers          a thumb is needed: %s, drawn up: %s" % ["yes" if finger else "no", "yes" if zoomed else "no"]
+	)
+	# What Android would call this window, which is the question the line above is answered *from*: a tablet's
+	# every side has room, so neither of them is compact. The tablet's own arithmetic, like every other figure
+	# here - the screen this tool runs on is a desk's.
+	var tablet_dp: Vector2 = WindowClassScript.dp_for(TABLET_SIZE, 1.0, TABLET_DPI)
+	var tablet_class: StringName = WindowClassScript.of(TABLET_SIZE, 1.0, TABLET_DPI)
+	print(
+		"its class        %s - %.0f by %.0f dp, and the shorter side is what the drawing up is decided on"
+		% [WindowClassScript.word(tablet_class), tablet_dp.x, tablet_dp.y]
 	)
 
 	var hud: Node = _find_scripted(_app, "hud.gd")

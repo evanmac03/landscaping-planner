@@ -155,10 +155,11 @@ Two answers follow from that decision, and they are separate on purpose:
 
 - **sized for a thumb** (`PhoneHud.on_a_finger_here`): the palette's rows and the pages' buttons are
   derived from `TOUCH_MM` and `TEXT_MM`. True on a phone, on a tablet, and on a dense touchscreen laptop.
-- **the canvas drawn up** (`PhoneHud.zooming_here`): `content_scale_factor` 1.35, and only on a screen
-  narrower than seven inches across. A tablet is the first without being the second: it has the room at
-  its own scale, and drawing it up would cost it a third of its drawing area to make controls bigger than
-  they already are.
+- **the canvas drawn up** (`PhoneHud.zooming_here`): `content_scale_factor` 1.35, and only on a window
+  small enough to be worth it - a **compact** one, under 600 dp on its shorter side. A tablet is the
+  first answer without being the second: it has the room at its own scale, and drawing it up would cost
+  it a third of its drawing area to make controls bigger than they already are. The class is stated in
+  `WindowClass`, and section 11 is where the measurement that replaced the diagonal is written down.
 
 `scenes/tablet_demo.tscn` states a ten-inch tablet's density and measures what it gets - a palette 507 px
 wide on a 1600 px canvas, a row at 5.50 mm, and no zoom. `scenes/phone_hud_demo.tscn` prints what *this*
@@ -167,10 +168,10 @@ needed: no".
 
 ### What is still not done
 
-- The pages' *buttons* are made finger-sized in the one place a page is shown
-  (`PageChrome.size_for_a_finger`, which `show_centred` calls); their text fields, pickers, lists and
-  headings are still the desk's, because a field grows with its font and making one grow is a change to
-  that page rather than to a thumb.
+- The pages' *buttons*, and the menus their pickers open, are made finger-sized in the one place a
+  page is shown (`PageChrome.size_for_a_finger`, which `show_centred` calls); a menu is fitted in
+  **words and in row** - see §10. Their text fields, lists and headings are still the desk's, because
+  a field grows with its font and making one grow is a change to that page rather than to a thumb.
 - The palette is the only screen surface resized. The menu bar, the top bar and the presentation panel
   are unchanged.
 - The **foot strip speaks a desk's language** on a phone. The ground view's line was the first one fixed -
@@ -394,3 +395,110 @@ launch stayed at 1080 by 2340. That report is also what settled a two-second lan
 once, before it existed: every ask is now accounted for in the log, none of them asked for landscape
 at that moment, and the phone's auto-rotate was on - so the blink was the device's own sensor while
 it was being picked up, which is what following the phone *means* rather than a fault in it.
+
+## 10. A menu's row, and the reader's own word size
+
+Two things a thumb meets were still a desk's, and both were settled by measuring rather than by reading.
+
+**A menu's row is not its font.** A page's pickers are fitted when the page *opens*
+(`PageChrome._size_the_menus_for_a_finger`, through `PhoneHud.size_a_windows_words_for_a_finger`), which
+is why a page nobody has opened reports its menus at the desk's 16 px while a page that is up reports 47:
+the same menu, before and after. What a thumb hits is the **row**, and a row is the font's own line plus
+the separation the theme puts between items - so measured at the phone's own scale, the fitted menu came
+to **44 px against the 51 px a button gets**. The menus were the smallest thing on a page to hit, which is
+the very thing the fitting above exists to stop. `PhoneHud._raise_the_row_to_a_thumb` now puts the slack
+into the separation and only ever **raises** it: a menu already drawing a thumb's row is left exactly as
+the theme drew it, and a menu shown twice is not handed a taller row twice.
+
+The instrument is worth recording, because the obvious one lies. Copying a menu's font size onto a
+`PopupMenu` of one's own and reading `get_contents_minimum_size` answers **27 px for a menu drawn at 16
+and 27 px again for one drawn at 47** - a font-size override does not move a fresh menu's contents size,
+so that reading was the default theme's row both times. What held was a **rendered** menu:
+`tools/phone_gui_probe.tscn` opens a page, pops its picker up, and divides the menu's own height among its
+items less the panel stylebox's frame. It reports `open page` and `never opened` side by side, which is the
+only reading that can tell the two apart.
+
+**The reading size is stated here because the platform will not state one.** Android hands every app the
+reader's own text-size setting, in `sp`; Godot exposes no reading of it - the screen queries are a size, a
+density and two scale factors, and none of them is a font scale - so a person who needs larger words was
+being given none. `scripts/reading_size.gd` (`ReadingSize`) is that choice: three answers (Standard, Large,
+Largest), each a factor on the sizes `PhoneHud` states, kept in `user://reading-size.json` the way the
+board's orientation is kept, and reached at **View > Reading size**.
+
+The words **and the rows that hold them** move together, because a row is what a thumb hits and a control
+cannot be shorter than the words inside it; and nothing under 1.0 is either offered or accepted, because
+every size in `PhoneHud` is a floor - what a thumb can hit, what an eye can read at arm's length - rather
+than a preference. `Hud._menu_set_reading_size` hands the factor to `PhoneHud` and fits the board again,
+and any page already open with it: a page fitted twice is the same page drawn bigger rather than a page
+grown twice, because a page's words are grown from the size the page laid them out at.
+
+**A desk is untouched by it.** Nothing is fitted on a computer, so the three entries carry the `finger`
+need and are shown switched off there - the same honesty the three orientation choices have on a machine
+whose window cannot turn. An entry that is not offered beats one that does nothing when it is pressed.
+
+
+## 11. A window's class, its shape, and the hinge nobody can see (`WindowClass`, `WindowPosture`)
+
+Android has two more ideas about a device than this program first had, and these are the two files that
+state them - each written as far as it can honestly be written and no further.
+
+**Size is a table rather than a diagonal** (`WindowClass`). Whether the whole canvas is drawn up used to be
+a screen's long side compared against seven inches, which is the right answer bought with the wrong unit. A
+dp is 1/160 inch, the unit Android states a size in, and Android's five window size classes are compact
+under 600, medium under 840, expanded under 1200, large under 1600, and extra-large above. **The class is
+taken from the window's *shorter* side**, and that is the correction: the phone this program is aimed at is
+832 dp across held sideways - a *medium* window by width, not a phone at all - and it is its 384 dp of
+height that has no room. Asking the wider side would have answered that a phone has room it does not have.
+So `zooming_here` asks `WindowClass.is_small` now, Material's own breakpoints are asserted in
+`tests/test_window_class.gd`, and a window nobody could measure has **no class** rather than the smallest
+one, because a number that does not exist is not an answer about a window. `tablet_demo` prints the class a
+ten-inch tablet would be - expanded - beside the answer it already printed.
+
+**A fold cannot be read** (`WindowPosture`). Android's third idea is posture: a foldable standing
+half-open on a table wants the controls in the half nearest the hands, and one folded like a book wants a
+page kept clear of the crease. Both of those want the fold itself, and `DisplayServer`'s whole vocabulary
+about a screen - its size, its density, its scale, its orientation, its usable rectangle and whether it
+has a touchscreen - holds no fold, no hinge and no posture. So what is named here is the **shape of the
+window the fold leaves behind**: standing when it is as tall as it is wide or taller, lying along when it
+is wider than it is tall. That is the one part of the posture question that is not a guess, the shape is
+read from the room alone so it can be reported anywhere, and the guard is deliberately a *negative* one -
+`tests/test_window_posture.gd` fails if an answer claiming a fold is ever added. Keeping a paragraph clear
+of a crease needs the crease's position, and a page narrowed to sit in the left half of a *standing* window
+would be narrowed wrongly on every phone and every tablet held upright, which is a wrong answer of the kind
+this project spends its effort avoiding; so nothing is done about it and this paragraph is the record of
+why. The shape is reported where a device already is - `HudProbe.device_lines` prints `shape=standing`
+beside the density - so a driver can at least read which way up the window is.
+
+## 12. What a press looks like, and what a control that cannot be pressed looks like
+
+Two answers a thumb has no other way of being told, since a finger has no hover to light a control up
+before it lands. `scripts/touch_style.gd` builds one `Theme` and hands it to the two carriers a control
+can reach: the HUD's own `Root` control, from `Hud._ready`, and every page, from `PageChrome._land`,
+where the page lands - the one place a page is shown.
+
+**Two carriers, because a `CanvasLayer` stops a theme lookup.** A theme is found by walking up from a
+control to the first ancestor that has one, and a theme put on the tree's root - where this first went -
+reaches nothing inside this HUD, because the HUD *is* a `CanvasLayer`. Measured: a `Button` under
+`root > CanvasLayer > Control` answers the engine's own default, while the same theme worn by the
+`Control` inside the layer answers this program's.
+
+**Every box is the engine's own box for that state, recoloured, and nothing else.** Content margins,
+border widths and expand margins are *layout* here - `PageLayout` reads them as a page's padding, the
+room arithmetic subtracts them and the audit measures against them - so a recolouring cannot move a fit.
+A fill is free; a border is a size, and that is why a press carries no border.
+
+**A press is stated under both `pressed` and `hover_pressed`, with one box.** A finger always hovers - a
+touch arrives as a pointer that stays - so a held button, and a toggle that is on, are drawn in the
+engine's *press-while-hovered* state; and the engine states **nothing at all** for a `Button`'s
+`hover_pressed`, so a lookup for it lands on a box that draws no centre. Measured on the SM-A166W: with
+only `pressed` stated, the palette's tool-in-hand drew this program's border around **no fill at all**,
+with the panel showing through it.
+
+**Measured on the glass, after the fix**: the held Line tool read `#6e7580` - the stated fill, byte for
+byte - where the untouched button beside it read `#272828`, and the palette's panel behind them
+`#3a3e3f`. A control that cannot be pressed is stated with its fill pulled down to `#0f0f0f` and its
+words dimmed, and that half was measured on the glass too: on the Billing page, whose buttons are dead
+until a job is chosen, "Start billing it" read `#0f0f0f` - the stated fill - with its words at
+`#777777`, where a live control on the same background read `#2e2e2e`. The desk is unchanged:
+the audit still reads `TopBar row 1540.0 of 1576.0 -> FITS`, the palette column fits, and all 34 pages
+fit the size they declare.

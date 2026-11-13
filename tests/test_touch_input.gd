@@ -95,19 +95,7 @@ func test_the_force_door_answers_for_a_device_and_auto_reads_the_machine() -> vo
 	_reset()
 
 
-## A phone is drawn up as well as sized: its 2340 px across is 5.2 inches at 450 dots to the inch, and at
-## that width the canvas has to give something up to the panels.
-func test_a_phone_is_drawn_up_and_a_tablet_is_not() -> void:
-	_reset()
-	var phone: float = 2340.0 / 450.0
-	var tablet: float = 2560.0 / 300.0
-	assert(TouchInputScript.needs_zooming(phone), "a %.1f inch wide screen is drawn up" % phone)
-	assert(not TouchInputScript.needs_zooming(tablet), "a %.1f inch wide one is not" % tablet)
-
-
-## A screen nobody could measure is not drawn up: the canvas keeps the scale it already has rather than one
-## worked out from a number that does not exist.
-func test_a_screen_nobody_could_measure_is_not_drawn_up() -> void:
-	_reset()
-	assert(not TouchInputScript.needs_zooming(0.0), "no inches worked out is not a small screen")
-	assert(not TouchInputScript.needs_zooming(5.2, 0.0), "and a threshold of nothing is not one either")
+## Whether a canvas is **drawn up** is not asked here any more. It was a screen's diagonal against seven
+## inches, which was the right answer bought with the wrong unit - a phone held sideways has no room in its
+## *height*, and by width it is not a phone at all. It is `WindowClass.is_small`'s question now, and the two
+## devices that used to be asserted here are asserted in `tests/test_window_class.gd`.

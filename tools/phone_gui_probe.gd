@@ -71,6 +71,7 @@ func _ready() -> void:
 	_hud = _find_scripted(_app, "hud.gd")
 	_report_the_front_door()
 	_report_the_chrome()
+	await _report_the_menus()
 	print("")
 	print("PHONE GUI: the window above is what a phone is given - the words are sized with the buttons")
 
@@ -111,6 +112,100 @@ func _report_the_chrome() -> void:
 	var caption: Label = _first(panel, "Label") as Label if panel != null else null
 	if caption != null:
 		print("a panel's words  are %s" % _drawn(caption))
+	# The panel is over a third of a phone's width, so a phone is given it **put away** and the Present menu's
+	# own row brings it back. This is the line that says which of the two the window above is showing, and how
+	# much of the canvas the panel would take if it were up.
+	var shown: Control = panel as Control
+	var up: bool = shown != null and shown.is_visible_in_tree()
+	var taken: Vector2 = shown.size if shown != null else Vector2.ZERO
+	var state: String = "on the screen" if up else "put away"
+	print("the panel        is %s, %d x %d px of the canvas" % [state, int(taken.x), int(taken.y)])
+
+
+## What a page's picker menus give a thumb **once the page is up**, beside what the same kind of menu gives
+## before anyone has opened the page it is on.
+##
+## The question this settles: the menu list above reports most of them at 16 px, which is the size a desk
+## draws them at - because a page's menus are fitted when the page is *opened*, not when the page is built.
+## So the two readings here are the same kind of menu before and after, and what is reported is the **row**:
+## the band a thumb actually hits, which is not the font size and cannot be read off one.
+func _report_the_menus() -> void:
+	if _hud == null:
+		return
+	_hud.call(&"open_ground_window")
+	for _i: int in 4:
+		await get_tree().process_frame
+	var opened: Window = _the_open_page()
+	if opened == null:
+		print("a page's menus   no page was opened, so there is nothing to read")
+		return
+	var menus: Array[PopupMenu] = _picker_menus(opened)
+	if menus.is_empty():
+		print("a page's menus   the page it opened has no pickers on it")
+	else:
+		print("a page's menus   the page has %d pickers; the first of them:" % menus.size())
+		await _report_one_menu(menus[0], "open page    ")
+	var shut: Node = _hud.find_child("SnapWindow", true, false)
+	for menu: PopupMenu in _picker_menus(shut):
+		await _report_one_menu(menu, "never opened ")
+
+
+## The page the HUD has up: the visible `Window` among its own children, which is how a page is found by
+## something that did not open it.
+func _the_open_page() -> Window:
+	for node: Node in _hud.get_children():
+		var page: Window = node as Window
+		if page != null and page.visible:
+			return page
+	return null
+
+
+## Every picker's menu under a root: the menu an `OptionButton` opens is not a node in the tree, so it is
+## asked for rather than searched for.
+func _picker_menus(root: Node) -> Array[PopupMenu]:
+	var found: Array[PopupMenu] = []
+	if root == null:
+		return found
+	for node: Node in root.find_children("*", "OptionButton", true, false):
+		var picker: OptionButton = node as OptionButton
+		if picker != null:
+			found.append(picker.get_popup())
+	return found
+
+
+## One menu, read as it is **drawn** rather than as it is configured: the band a thumb hits is the menu's
+## own height shared among its items, less the frame the panel stylebox draws around them. The menu has to
+## be up for the engine to have sized it at all, which is why this pops it and waits a frame.
+##
+## **Measured this way because the obvious instrument lies.** Copying a menu's font size onto a menu of this
+## tool's own and reading `get_contents_minimum_size` answered 27 px for a menu drawn at 16 px and 27 px
+## again for one drawn at 47: a `font_size` override does not move a fresh `PopupMenu`'s contents size, so
+## that reading was the default theme's row both times. An instrument that answers the same for two
+## different menus is not measuring anything.
+func _report_one_menu(menu: PopupMenu, what: String) -> void:
+	if menu == null:
+		return
+	menu.popup()
+	await get_tree().process_frame
+	var items: int = menu.get_item_count()
+	var box: StyleBox = menu.get_theme_stylebox(&"panel")
+	var frame: float = 0.0 if box == null else box.get_margin(SIDE_TOP) + box.get_margin(SIDE_BOTTOM)
+	var row: float = 0.0 if items <= 0 else (float(menu.size.y) - frame) / float(items)
+	var mm: float = PhoneHudScript.millimetres(row, PHONE_SCALE, PHONE_DPI)
+	print(
+		"a page's menus   %s  font %d px, %d items, menu %d px less a %d px frame = %.1f px a row = %.2f mm  (%s)"
+		% [
+			what,
+			menu.get_theme_font_size(&"font_size"),
+			items,
+			menu.size.y,
+			int(frame),
+			row,
+			mm,
+			"a thumb's row" if mm >= PhoneHudScript.TOUCH_MM - 0.01 else "UNDER A THUMB",
+		]
+	)
+	menu.hide()
 
 
 ## The size a control's words are drawn at, as the number on the control - which is what a person sees

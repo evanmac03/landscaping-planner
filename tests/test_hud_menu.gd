@@ -6,6 +6,7 @@ extends Node
 ## stand between the bar and that, and they read the bar the way it is built: as data.
 
 const HudScript := preload("res://scripts/hud.gd")
+const ReadingSizeScript := preload("res://scripts/reading_size.gd")
 const DeskScript := preload("res://scripts/biz/estimate_desk.gd")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
@@ -41,6 +42,86 @@ func test_the_panel_row_is_ticked_from_the_snapshot() -> void:
 	hud.set_presentation_panel_wanted(false)
 	assert(not hud.is_presentation_panel_wanted(), "the panel's door says it was put away")
 	assert(not bool(hud.menu_world()["presentation_panel"]), "and the snapshot the tick reads says so too")
+	hud.free()
+
+
+## The bar's own menus have one writer, and it is reached again after every rebuild.
+##
+## Found live on the SM-A166W: a rebuild frees every popup and makes new ones at the size a desk draws them,
+## and the fold that triggers a rebuild runs on every frame - so the phone's File and Edit menus were rebuilt
+## out of their fitting long after the chrome pass had given it to them. Measured off the frame, their rows
+## were 44.5 px (2.51 mm) against this program's 5.5 mm floor. Held by name, the way the panel's visibility is:
+## one function owns it, and the rebuild reaches that function rather than doing any of it itself.
+func test_a_menu_bar_rebuild_puts_the_finger_sizing_back() -> void:
+	var text: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
+	var owner: int = text.find("func _fit_the_menu_bars_words(")
+	assert(owner >= 0, "the bar's own menus have one place that fits them")
+	assert(
+		text.find("PhoneHudScript.fit_the_chrome_for_a_finger(", owner) > owner,
+		"and that place is what walks them, rather than a second walk of its own",
+	)
+	var rebuild: int = text.find("func _rebuild_menu_bar(")
+	assert(rebuild >= 0, "the rebuild is named")
+	var following: int = text.find("\nfunc ", rebuild + 1)
+	assert(following > rebuild, "and the file goes on after it")
+	var body: String = text.substr(rebuild, following - rebuild)
+	assert(
+		body.contains("_fit_the_menu_bars_words()"),
+		"and every rebuild reaches it, or the new popups come back at a desk's size: %s" % body,
+	)
+
+
+## The panel's visibility has exactly one writer, and the frame asks it rather than working the answer out.
+##
+## Found live rather than by reading: `set_presentation_panel_wanted(false)` hid the panel and the very next
+## frame re-showed it, from a line of `_process`'s own that read `presentation != null and not painted` and
+## never looked at the flag. The Present menu's row therefore **could not put the panel away at all** - on a
+## computer as much as on a phone - while looking right and passing the test above, which holds the flag and
+## the tick and not the visibility. A second writer of one fact is the defect this project spends the most
+## effort avoiding, and counting the writers is the only way to hold it: one assignment, inside the function
+## that owns it, and every other caller reaching it by name.
+func test_the_panels_visibility_is_written_in_exactly_one_place() -> void:
+	var text: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
+	var writes: int = text.count("presentation_panel.visible =")
+	assert(writes == 1, "the panel's visibility is written once, not %d times" % writes)
+	var owner: int = text.find("func _refresh_presentation_panel(")
+	assert(owner >= 0, "the one writer is `_refresh_presentation_panel`")
+	assert(
+		text.find("presentation_panel.visible =") > owner,
+		"and the write is inside that function, after its own definition"
+	)
+	assert(
+		text.count("_refresh_presentation_panel()") >= 3,
+		"which the setter, the frame and the definition all reach"
+	)
+
+
+## The View menu carries the reading size: one entry per answer, and the answer in hand on the snapshot the
+## ticks are drawn from.
+##
+## This is the one thing an Android app would have honoured from the platform's own text-size setting, which
+## Godot does not state anywhere - so the program has to offer it, and an entry that offered nothing would be
+## worse than no entry at all. Each is filed under the `finger` need, because a reading size multiplies the
+## fitting done on a device answered with a finger and a computer is never fitted.
+func test_the_view_menu_carries_the_reading_size_and_the_snapshot_holds_the_one_in_hand() -> void:
+	var rows: Array[Dictionary] = HudScript.reading_size_items()
+	assert(rows.size() == ReadingSizeScript.CHOICES.size(), "an entry per answer: %d" % rows.size())
+	for row: Dictionary in rows:
+		assert(KINDS.has(StringName(row["kind"])), "each is a kind the builder knows")
+		assert(StringName(row["kind"]) == &"radio", "and one of a set rather than a toggle")
+		assert(StringName(row["state"]) == &"reading_size", "standing for the size in hand")
+		assert(StringName(row["method"]) == &"_menu_set_reading_size", "run by the one handler")
+		assert(StringName(row["needs"]) == &"finger", "and offered where a finger presses the controls")
+		assert(
+			ReadingSizeScript.CHOICES.has(StringName(row["value"])),
+			"standing for an answer `ReadingSize` offers: %s" % str(row["value"]),
+		)
+	var hud: Node = HudScript.new()
+	assert(hud.menu_world().has("reading_size"), "the snapshot carries the size in hand")
+	assert(
+		StringName(hud.menu_world()["reading_size"]) == ReadingSizeScript.DEFAULT,
+		"which is the default until somebody chooses",
+	)
 	hud.free()
 
 

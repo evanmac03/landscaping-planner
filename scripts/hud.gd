@@ -24,6 +24,8 @@ const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const CameraWindowScript := preload("res://scripts/camera_window.gd")
 const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
+## The reader's own choice of how big the words are drawn, where the platform states none.
+const ReadingSizeScript := preload("res://scripts/reading_size.gd")
 
 ## How much space sits between two parts of a hint line, so a line reads as groups of words rather than
 ## as one run of them.
@@ -325,9 +327,13 @@ var _presentation_state: String = ""
 var _presenting: bool = false
 ## Whether the presentation panel is wanted on the screen. Held here rather than read from the node
 ## because a person can put it away, and the panel is otherwise on whenever the scene has a director.
-## On a phone it is over a third of the width and its last rows are cut off, but it is the one place
-## latitude, longitude and the zone are edited - so it must be reachable again, not gone for good.
+## On a phone it is over a third of the width and its last rows fall off the bottom of the screen, so it
+## **starts put away** there - it is the one place latitude, longitude and the zone are edited, and the
+## Present menu's own row is what brings it back, which is why it may start out of the way at all.
 var _presentation_panel_wanted: bool = true
+## Whether the panel's start has already been decided for the device this HUD is on. It is settled where
+## the chrome is first sized and never again, so that a person who brings the panel back keeps it back.
+var _presentation_panel_started: bool = false
 
 ## The painted plan on screen, held rather than rendered again when it is saved:
 ## looking at the picture and filing it are two decisions, and the second one should
@@ -489,6 +495,12 @@ const SowingWindowScript := preload("res://scripts/sowing_window.gd")
 const YieldWindowScript := preload("res://scripts/yield_window.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
+## Which way up this window's own shape is, which is the one part of a fold's posture that can be read: see
+## the file, and `_say_the_screen` below, which reports it beside the device.
+const WindowPostureScript := preload("res://scripts/window_posture.gd")
+## What a control a finger presses looks like in each state, and what one that cannot be pressed looks like:
+## see the file. Worn by this HUD's own `Root` control here, and by every page where `PageChrome` lands it.
+const TouchStyleScript := preload("res://scripts/touch_style.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -596,6 +608,9 @@ var _camera_window: CameraWindow = null
 ## doorway pages is up the window follows the phone, which `OrientationChoice.DOORWAY` is. Read from disk
 ## at launch, and set here rather than read in a test that only wants to hold the doorway's decision.
 var _orientation: StringName = OrientationChoiceScript.DEFAULT
+## How big the words are drawn, as the reader asked for it. Read from disk where the program starts, and held
+## here rather than read in a test that only wants to hold the menu's own state.
+var _reading_size: StringName = ReadingSizeScript.DEFAULT
 ## The plants to buy: the drawing's planting list priced from the price list and written as draft
 ## purchase orders on the job desk. A window, because the nursery is typed.
 var _plant_order_window: PlantOrderWindowScript = null
@@ -741,6 +756,15 @@ func _ready() -> void:
 	# there is documented not to cooperate with the editor, and there is nothing to catch.
 	if not Engine.is_embedded_in_editor():
 		get_tree().auto_accept_quit = false
+	# What a press looks like, and what a control that cannot be pressed looks like - the two things a thumb
+	# has no other way of being told, since a finger has no hover to light a control up before it lands.
+	#
+	# It goes on this HUD's own `Root` control, which is the one carrier the board has. A theme lookup walks
+	# up the tree from each control and settles on the first theme it meets, but a `CanvasLayer` **stops that
+	# walk** - measured, and it is where this was first put: `get_tree().root` reaches nothing inside this
+	# layer. The pages are the other carrier, and they are not this function's business: a page is a `Window`
+	# beside `Root`, and `PageChrome` hands it the same style where the page lands.
+	TouchStyleScript.apply_to(get_node_or_null(^"Root"))
 	# Whether the thumb controls are worth offering is the same question the layout is sized by, asked the
 	# same way: a finger *and* a density that says the row a desk was drawn with is too small to hit.
 	# `DisplayServer.is_touchscreen_available()` alone was the wrong signal - a touchscreen laptop wants its
@@ -857,6 +881,11 @@ func _ready() -> void:
 	# made. It stands only when there is nothing behind it - a launch with a drawing already open is not
 	# asked, and neither is one that opens onto recovered work.
 	_orientation = OrientationChoiceScript.stored()
+	# The reader's own choice of how big the words are. Read here, and handed to the one place that works a
+	# size out, so that a question about the size of a word never becomes a question about a file. It is read
+	# before anything is fitted, which is why it sits here: every fitting pass below is deferred past `_ready`.
+	_reading_size = ReadingSizeScript.load_kept()
+	PhoneHudScript.use_reading_scale(ReadingSizeScript.factor())
 	_build_start_window()
 	if _draft != null and StartChoicesScript.should_show(_draft.drawing_path, _draft.dirty):
 		open_the_front_door()
@@ -912,15 +941,19 @@ func _the_screen_said() -> void:
 ## to be able to tell which of them is standing over which.
 func _say_the_screen() -> void:
 	var lines := PackedStringArray()
+	# The room, read once: it is the viewport's own visible rectangle, which is both what a page lands in and
+	# what this window's shape is worked out from.
+	var room: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
 	lines.append_array(
 		HudProbeScript.device_lines(
 			shows_touch_controls(),
 			PhoneHudScript.zooming_here(),
 			PhoneHudScript.dpi(),
 			PhoneHudScript.canvas_scale(get_window()),
-			Vector2i(get_viewport().get_visible_rect().size),
+			room,
 			DisplayServer.screen_get_size(),
 			DisplayServer.is_touchscreen_available(),
+			WindowPostureScript.of(room),
 			hints_label.text if hints_label != null else "",
 			draft_hints_label.text if draft_hints_label != null else "",
 		)
@@ -994,8 +1027,11 @@ func _process(delta: float) -> void:
 		top_bar.visible = working
 	if overlay != null:
 		overlay.visible = working
-	if presentation_panel != null:
-		presentation_panel.visible = presentation != null and not painted
+	# The panel is the one piece of this furniture a *person* owns as well as the view: the Present menu puts
+	# it away. So the frame asks the one owner rather than working the answer out again - the line that stood
+	# here read `presentation != null and not painted`, never looked at the flag, and re-showed the panel on the
+	# frame after the menu row had put it away. That is how a row with its own test came to do nothing at all.
+	_refresh_presentation_panel()
 	_apply_hints_visibility()
 	# The line at the foot of the screen follows what is in hand, which changes on a key press the HUD
 	# does not hear about, so it is written here rather than only when the view changes.
@@ -1383,6 +1419,7 @@ func _build_palette() -> void:
 func _size_the_chrome_for_the_device() -> void:
 	_touch_screen = PhoneHudScript.on_a_finger_here()
 	size_for_a_finger(_touch_screen)
+	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
 
 
@@ -1778,8 +1815,10 @@ static func _inside_window(node: Node) -> bool:
 ## buttons: this is the one GUI in the project that may legitimately not exist.
 func _build_presentation_panel() -> void:
 	if presentation == null or presentation_column == null:
-		if presentation_panel != null:
-			presentation_panel.visible = false
+		# A scene with no director gets no panel at all. The one owner of the panel's visibility is asked
+		# here rather than a second assignment written: with no presentation it answers `false` for exactly
+		# the reason the owner already states, and there is then nowhere a stale answer can be hiding.
+		_refresh_presentation_panel()
 		return
 
 	var heading := Label.new()
@@ -2440,7 +2479,18 @@ const NEEDS_PRESENCE := &"presence"
 ## The window can be turned at all: a desktop's window cannot be asked which way up to be, so the three
 ## orientation choices are shown switched off there rather than doing nothing when they are pressed.
 const NEEDS_CAN_TURN := &"can_turn"
-const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION, NEEDS_PRESENCE, NEEDS_CAN_TURN]
+## A device answered with a finger. A reading size multiplies the fitting done for one, and a computer is
+## never fitted at all - its panels are the ones this program was drawn for - so the three sizes are shown
+## switched off there rather than doing nothing when they are pressed.
+const NEEDS_A_FINGER := &"finger"
+const KNOWN_NEEDS: Array[StringName] = [
+	NEEDS_NOTHING,
+	NEEDS_DRAFT,
+	NEEDS_PRESENTATION,
+	NEEDS_PRESENCE,
+	NEEDS_CAN_TURN,
+	NEEDS_A_FINGER,
+]
 
 
 ## One entry that runs a command.
@@ -2764,6 +2814,10 @@ static func view_items() -> Array[Dictionary]:
 	# views above are: a choice made once and kept, rather than a view you are in.
 	items.append(_separator())
 	items.append(_submenu(&"view.orientation", "Screen orientation", orientation_items()))
+	# How big the words are drawn. The same kind of set as the orientation above - a choice made once and
+	# kept - and the one this program has to state itself, because Godot exposes no reading of the text-size
+	# setting Android would have scaled the words by.
+	items.append(_submenu(&"view.reading_size", "Reading size", reading_size_items()))
 	return items
 
 
@@ -2785,6 +2839,29 @@ static func orientation_items() -> Array[Dictionary]:
 				&"orientation",
 				choice,
 				NEEDS_CAN_TURN,
+			)
+		)
+	return items
+
+
+## The three sizes the words can be drawn at, reached at View > Reading size.
+##
+## The same `_radio` set the orientation choices are, and derived from `ReadingSize` for the same reason: an
+## answer added there appears here without a second list to keep in step. All three are shown switched off on
+## a computer, where nothing is fitted and so nothing would change - an entry that is not offered beats one
+## that does nothing when it is pressed.
+static func reading_size_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for choice: StringName in ReadingSizeScript.CHOICES:
+		items.append(
+			_radio(
+				"view.reading_size." + String(choice),
+				ReadingSizeScript.word(choice),
+				&"",
+				&"_menu_set_reading_size",
+				&"reading_size",
+				choice,
+				NEEDS_A_FINGER,
 			)
 		)
 	return items
@@ -3203,6 +3280,8 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return bool(world.get("site", false))
 		&"orientation":
 			return StringName(world.get("orientation", &"")) == StringName(value)
+		&"reading_size":
+			return StringName(world.get("reading_size", &"")) == StringName(value)
 	return false
 
 
@@ -3231,6 +3310,8 @@ func menu_world() -> Dictionary:
 		# The board's own kept answer, which the tick beside each orientation choice reads - and on the
 		# signature because it changes the moment a choice is made.
 		"orientation": _orientation,
+		# The reader's own word size, which the tick beside each of the three reading sizes reads.
+		"reading_size": _reading_size,
 		# What the File menu reports on: which drawing is open, whether it has been saved, and
 		# what was open before. The recent list is in here so that the signature notices when it
 		# changes - the one thing about the bar that is entries rather than ticks.
@@ -3442,6 +3523,35 @@ func _rebuild_menu_bar(plan: Array[Dictionary]) -> void:
 	_recent_popup = null
 	_recent_filled = ""
 	_fill_menu_bar(plan)
+	# The popups this has just made are new, and new popups are a desk's size: see the one place that fits
+	# the bar's own menus.
+	_fit_the_menu_bars_words()
+
+
+## Fit the bar's own menus to the finger that will open them, after a rebuild has made new ones.
+##
+## **The second writer of one fact, and the one that was winning.** `size_for_a_finger` fits this HUD's whole
+## chrome once - the menus a `MenuBar` owns among them, because that walk reads internal children - but the
+## fold that decides how many titles fit runs on **every frame**, and a change in the room takes the bar down
+## and puts it back up with **new** popups. Those arrive at the size a desk draws them, and nothing fitted
+## them a second time.
+##
+## Measured on the SM-A166W, opening File and Edit on the board: the rows came out **44.5 px, 2.51 mm**,
+## against this program's 5.5 mm thumb floor, with words about two thirds the size of the rest of the bar's
+## own text. The room changes after the fitting pass as a matter of course - the bar settles from fourteen
+## titles down to two while its row is being measured, and the *turn* from the portrait door to the landscape
+## board changes the room again - so a rebuild always landed after the fit.
+##
+## On a computer this is nothing at all: `shows_touch_controls()` is false, so the bar a desk draws is the bar
+## the scene drew, and no popup is ever given an override it could lose.
+func _fit_the_menu_bars_words() -> void:
+	if menu_bar == null or not shows_touch_controls():
+		return
+	PhoneHudScript.fit_the_chrome_for_a_finger(
+		menu_bar,
+		PhoneHudScript.canvas_scale(get_window()),
+		PhoneHudScript.dpi(),
+	)
 
 
 ## The room the bar has to work with, which is what is left of the row it sits in once everything else in
@@ -3812,6 +3922,11 @@ static func is_enabled(state: StringName, world: Dictionary) -> bool:
 			# shown switched off there. Asked once here rather than by each entry, because it is one fact
 			# about the machine.
 			return OrientationChoiceScript.can_turn_here()
+		&"finger":
+			# A reading size multiplies the fitting done on a device answered with a finger, and a computer
+			# is never fitted at all: its panels are the ones this program was drawn for. Asked once here,
+			# for the same reason `can_turn` is.
+			return PhoneHudScript.on_a_finger_here()
 	return true
 
 
@@ -4469,6 +4584,27 @@ func _menu_set_orientation(entry: Dictionary) -> void:
 	_orientation = choice
 	OrientationChoiceScript.remember(choice)
 	OrientationChoiceScript.apply(the_shape_for_the_window())
+
+
+## Take a reading size: the sizes the program draws at are `PhoneHud`'s, so the answer is handed to it and
+## everything is fitted again rather than each control being resized where the choice was made.
+##
+## The board is fitted at once. A page that is open is fitted with it, and fitting a page twice is drawing the
+## same page bigger rather than growing it twice - a page's own words are grown from the size the page laid
+## them out at, which is remembered on the control. On a computer nothing happens at all: a desk is never
+## fitted, and the menu does not offer these three there.
+func _menu_set_reading_size(entry: Dictionary) -> void:
+	var choice: StringName = StringName(entry.get("value", ReadingSizeScript.DEFAULT))
+	if choice == _reading_size:
+		return
+	_reading_size = choice
+	ReadingSizeScript.choose(choice)
+	PhoneHudScript.use_reading_scale(ReadingSizeScript.factor())
+	_size_palette_for_a_finger.call_deferred()
+	_size_the_chrome_for_the_device.call_deferred()
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			PageChrome.size_for_a_finger(window)
 
 
 func _menu_toggle_presentation(_entry: Dictionary) -> void:
@@ -6437,6 +6573,25 @@ func _refresh_presentation_panel() -> void:
 
 func _menu_presentation_panel(_entry: Dictionary) -> void:
 	set_presentation_panel_wanted(not _presentation_panel_wanted)
+
+
+## What the panel's own door starts as on the device this HUD was answered as: put away on a phone, and
+## exactly as the scene drew it on a computer.
+##
+## A **start**, never a settlement. A person who brings the panel back on a phone keeps it back, which is
+## why this runs where the chrome is first sized and refuses to run a second time: the pass that sizes the
+## chrome can be asked again, and a pass that put the panel away every time would take it out of the hands
+## of whoever had just opened it.
+##
+## The device is taken as an argument for the reason `PhoneHud.apply_if` takes it - so that a test can hold
+## what a desk and what a phone would be given without being either - and the reading itself stays in the
+## one place it is made, `_size_the_chrome_for_the_device`.
+func start_the_presentation_panel_for(finger: bool) -> void:
+	if _presentation_panel_started:
+		return
+	_presentation_panel_started = true
+	if finger:
+		set_presentation_panel_wanted(false)
 
 
 func _menu_sun_window(_entry: Dictionary) -> void:
