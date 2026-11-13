@@ -9,6 +9,10 @@ extends Node
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const WindowPostureScript := preload("res://scripts/window_posture.gd")
 
+## Where the log half of this writes, and removes again. A probe that kept a file nobody cleans would leave
+## one behind on every run of the suite.
+const SCRATCH := "user://test_probe.log"
+
 var _made: Array[Node] = []
 
 
@@ -204,3 +208,72 @@ func test_the_device_line_carries_what_the_program_answered() -> void:
 	assert(all.contains("Two fingers: pan"), "and the words the foot of the screen is showing")
 	assert(all.contains("Line: click two ends"), "and the words the tool line is showing")
 	_free_made()
+
+
+## The whole point of the file: a session that outran the phone's log ring can still be read, so what was
+## printed has to have landed here, in the same words, still one line each.
+func test_every_line_kept_in_the_file_is_one_prefixed_line_so_nothing_was_wrapped() -> void:
+	_clean()
+	HudProbeScript.record(PackedStringArray(["--- what is on the screen ---", "device   finger=true"]), SCRATCH)
+	HudProbeScript.record(PackedStringArray(["tap \"Line\nL\""]), SCRATCH)
+	var text: String = _read(SCRATCH)
+
+	assert(text.begins_with("PROBE --- what is on the screen ---"), "the block is kept: %s" % text)
+	assert(text.contains("PROBE device   finger=true"), "with every line of it")
+	# A caption that is two rows is flattened on the way to the file exactly as it is on the way to logcat,
+	# or a person pulling the log would have to know two shapes of the same report.
+	assert(text.contains("Line / L"), "and a caption's two rows arrive flattened: %s" % text)
+	for line: String in text.split("\n", false):
+		assert(line.begins_with("PROBE "), "every record is one prefixed line; this one is not: %s" % line)
+	_clean()
+
+
+## A log that grows forever is a file that fills a phone, so past its limit it gives up its oldest lines -
+## and gives them up whole, because a block starting halfway through a control's rectangle is worse than no
+## block at all.
+func test_a_log_past_its_limit_gives_up_its_oldest_lines_whole_and_keeps_the_newest() -> void:
+	_clean()
+	var many := PackedStringArray()
+	for index in 40:
+		many.append("block %02d" % index)
+
+	HudProbeScript.record(many, SCRATCH, 300, 150)
+	var text: String = _read(SCRATCH)
+
+	assert(text.length() <= 300, "the file is under the limit it was given: %d bytes" % text.length())
+	assert(text.contains("block 39"), "the newest line is the one that had to survive: %s" % text)
+	assert(not text.contains("block 00"), "and the oldest went: %s" % text)
+	for line: String in text.split("\n", false):
+		assert(line.begins_with("PROBE block "), "and no line was cut in half: %s" % line)
+	assert(not FileAccess.file_exists(SCRATCH + HudProbeScript.TEMP_SUFFIX), "no half file is left behind")
+	_clean()
+
+
+## A probe able to stop the program it was measuring would be worse than no probe at all, so a log that
+## cannot be written is quietly not written - and the caller is a diagnostic path nobody is waiting on.
+func test_a_log_that_cannot_be_opened_is_not_a_reason_to_stop() -> void:
+	var impossible := "user://no_such_folder_here/inside/probe.log"
+	HudProbeScript.record(PackedStringArray(["anything"]), impossible)
+	assert(not FileAccess.file_exists(impossible), "nothing was left behind where nothing could be written")
+
+
+## The file as it stands after a test wrote it, and nothing at all where there is no file - a test that
+## asserted against what a missing file holds would fail on the reason rather than on the rule.
+func _read(path: String) -> String:
+	if not FileAccess.file_exists(path):
+		return ""
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var text: String = file.get_as_text()
+	file.close()
+	return text
+
+
+## The scratch log, and anything a rewrite left half-way: the same two removals the other writers' tests
+## here make, so a failed run does not decide whether the next one starts clean.
+func _clean() -> void:
+	if FileAccess.file_exists(SCRATCH):
+		DirAccess.remove_absolute(SCRATCH)
+	if FileAccess.file_exists(SCRATCH + HudProbeScript.TEMP_SUFFIX):
+		DirAccess.remove_absolute(SCRATCH + HudProbeScript.TEMP_SUFFIX)

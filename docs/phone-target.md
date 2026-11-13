@@ -502,3 +502,17 @@ until a job is chosen, "Start billing it" read `#0f0f0f` - the stated fill - wit
 `#777777`, where a live control on the same background read `#2e2e2e`. The desk is unchanged:
 the audit still reads `TopBar row 1540.0 of 1576.0 -> FITS`, the palette column fits, and all 34 pages
 fit the size they declare.
+
+## 13. Reading the probe back off a phone
+
+A log is a ring, and a session is not. `adb logcat` holds a rolling buffer, so a phone session long enough to be worth reading has usually scrolled past the block that mattered - and once it has gone it has gone. Every block `HudProbe.publish` speaks is therefore also written to `user://probe.log`, out of the one door that publishes anything: `publish` says it, `HudProbe.record` keeps it, and the file holds the very words that were printed, so a line pulled off the device and a line read out of the log cannot come to disagree about a number.
+
+**Pulling it off the device.**
+
+```
+adb exec-out run-as ca.storm.landscapingplanner cat files/probe.log
+```
+
+That route works because the build is debuggable, which is the same condition as `HudProbe.on()`: a release build carries the code and never runs it, and writes no file either.
+
+**It gives up its oldest lines rather than filling the phone.** Past `HudProbe.LOG_LIMIT` (1 MB) the file keeps the newest `LOG_KEEP` (500 KB). The cut is made at a line break and never inside one, so a block is never half a block, and the rewrite goes through `user://probe.log.writing` and is renamed into place - the same rule every other written file here follows, so an interrupted trim leaves the log it had rather than half of the one it was making.

@@ -18,9 +18,9 @@ extends RefCounted
 ##
 ## ## A release build says nothing
 ##
-## `on()` is `OS.is_debug_build()`, so a build exported for release carries this code and never runs it.
-## That is also why it lives here rather than in `tools/`: the export excludes that folder on purpose, and
-## anything that drives a phone has to be *in* the phone.
+## `on()` is `OS.is_debug_build()`, so a build exported for release carries this code and never runs it, and
+## writes no file either. That is also why it lives here rather than in `tools/`: the export excludes that
+## folder on purpose, and anything that drives a phone has to be *in* the phone.
 ##
 ## ## It reports; it never decides
 ##
@@ -38,6 +38,28 @@ extends RefCounted
 ## The word every line starts with, so that one command finds them all:
 ## `adb logcat -d | grep PROBE`.
 const PREFIX := "PROBE"
+
+## Where the same block is kept on the machine, because a log is a ring and a session is not.
+##
+## `adb logcat` holds a rolling buffer: on a phone, a session long enough to be worth reading has usually
+## scrolled past the block that mattered, and once it has gone it has gone. So every block is written here
+## as well as printed, and the file is pulled off the device rather than watched live:
+##
+##     adb exec-out run-as ca.storm.landscapingplanner cat files/probe.log
+##
+## A debug build is the only one that may be read out of this way, which is the same condition as `on()`.
+const LOG_PATH := "user://probe.log"
+
+## What a rewrite of the log goes through on its way to the real file - the same litter every other writer
+## here leaves (`autosave.gd`, `cost_book.gd`, the field photos), so a person looking in the folder sees one
+## shape of it rather than two.
+const TEMP_SUFFIX := ".writing"
+
+## How large the log may grow before it gives up its oldest lines, and how much of the end it keeps when it
+## does. A log nobody trims is a file that fills a phone, and the newest blocks are the ones a person came
+## for, so the old end is what goes.
+const LOG_LIMIT := 1_000_000
+const LOG_KEEP := 500_000
 
 ## A control a finger can hit.
 ##
@@ -78,6 +100,70 @@ static func publish(lines: PackedStringArray) -> void:
 		return
 	for line: String in lines:
 		print("%s %s" % [PREFIX, line_for_printing(line)])
+	record(lines)
+
+
+## Keep the block as well as say it, in the very words it was said in: what is written is what was printed,
+## so a line read back off the device and a line read out of the log are the same line and cannot come to
+## disagree about a number.
+##
+## Deliberately not gated on `on()`. This is the half a test drives, and a release build reaches neither
+## anyway because nothing calls `publish`; gating here would only mean a rule that two places have to keep.
+##
+## A file that cannot be opened is left unwritten rather than raised, and the same for a rewrite that cannot
+## be made: a probe able to stop the program it was measuring would be worse than no probe at all.
+static func record(
+	lines: PackedStringArray,
+	to: String = LOG_PATH,
+	limit: int = LOG_LIMIT,
+	keep: int = LOG_KEEP,
+) -> void:
+	# `READ_WRITE` will not bring the file into being, so the first block of a session makes it with `WRITE`
+	# and every block after that appends to what is already there. A file made `WRITE` and never truncated
+	# again is the same file, and the blocks in it are the ones written before.
+	var mode: FileAccess.ModeFlags = FileAccess.READ_WRITE if FileAccess.file_exists(to) else FileAccess.WRITE
+	var file: FileAccess = FileAccess.open(to, mode)
+	if file == null:
+		return
+	file.seek_end()
+	for line: String in lines:
+		file.store_line("%s %s" % [PREFIX, line_for_printing(line)])
+	file.flush()
+	var written: int = file.get_length()
+	file.close()
+	if written > limit:
+		_keep_the_newest(to, keep)
+
+
+## Give up the oldest lines once the log has grown past its limit, keeping the end of it whole: the rewrite
+## goes through a temporary name and is moved into place, which is the rule every written file here follows,
+## so a rewrite that is interrupted leaves the log it had rather than half of the one it was making.
+##
+## The cut is made at a line break and never inside a line. A block is read back by a person looking for a
+## control's rectangle, and a block starting halfway through one is worse than no block at all.
+static func _keep_the_newest(to: String, keep: int) -> void:
+	var reading: FileAccess = FileAccess.open(to, FileAccess.READ)
+	if reading == null:
+		return
+	var whole: PackedByteArray = reading.get_buffer(reading.get_length())
+	reading.close()
+	if whole.size() <= keep:
+		return
+	var window: PackedByteArray = whole.slice(whole.size() - keep)
+	# 10 is the line break every line here ends with, so the first one in the window is where whole lines
+	# start again.
+	var first_whole: int = window.find(10)
+	if first_whole < 0:
+		return
+	var kept: PackedByteArray = window.slice(first_whole + 1)
+	var temp: String = to + TEMP_SUFFIX
+	var writing: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
+	if writing == null:
+		return
+	writing.store_buffer(kept)
+	writing.close()
+	if DirAccess.rename_absolute(temp, to) != OK:
+		DirAccess.remove_absolute(temp)
 
 
 ## Where this device was answered from, the room everything lands in, and the two lines a person reads at the
