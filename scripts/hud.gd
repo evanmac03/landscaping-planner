@@ -125,27 +125,16 @@ const ELSEWHERE_KEYS: Array = [
 ]
 const ELSEWHERE_PER_ROW := 3
 
-## The palette: three tools across, which is what makes it a palette rather than a
-## list of nine, and a cell wide enough for the longest tool name on one line with
-## its key underneath.
-const PALETTE_COLUMNS := 3
-## The room the palette's panel keeps around the column it holds, 12 px either side. A phone needs it named
-## rather than written into a scene: the panel is widened from its own contents there, because the words
-## on its buttons are bigger than the ones the desk's panel was drawn around.
-const PALETTE_INSET := 24.0
-const PALETTE_CELL_WIDTH := 86.0
-## The editing commands share one row: they have one-word names, and the palette has
-## to fit the whole column without widening the palette - which is centre-anchored, so
-## growing it would walk the plant list out from under the clicks a person has learned.
-## Six across at 50 keeps the column inside the width the panel already had.
-const PALETTE_EDIT_COLUMNS := 6
-const PALETTE_EDIT_CELL_WIDTH := 50.0
-## The fewest columns a re-flowed grid may be given, whatever the room says. A grid's own minimum is
-## `columns x cell`, so a floor of two is a floor on the *panel's* width: on a phone, where one tool's cell
-## is 155 px, two across would hold the panel open at 310 when one per row is what fits. One is the honest
-## answer - a palette squeezed to a single column is still a palette, and the alternative is a panel that
-## takes the drawing.
-const PALETTE_FEWEST_COLUMNS := 1
+## The palette's layout, which lives in `tool_palette.gd` beside the fitting that reads it. The
+## names are the same numbers rather than copies of them, so the buttons built here and the rows
+## re-flowed there are measured with one cell width between them.
+const PALETTE_COLUMNS := ToolPaletteScript.PALETTE_COLUMNS
+const PALETTE_INSET := ToolPaletteScript.PALETTE_INSET
+const PALETTE_CELL_WIDTH := ToolPaletteScript.PALETTE_CELL_WIDTH
+const PALETTE_EDIT_COLUMNS := ToolPaletteScript.PALETTE_EDIT_COLUMNS
+const PALETTE_EDIT_CELL_WIDTH := ToolPaletteScript.PALETTE_EDIT_CELL_WIDTH
+const PALETTE_FEWEST_COLUMNS := ToolPaletteScript.PALETTE_FEWEST_COLUMNS
+
 
 ## The client presentation: the budgets it can be shown at, and the sizes a proposal
 ## still is rendered at. Both are read from the tables that act on them rather than
@@ -352,6 +341,7 @@ var _recent_filled: String = ""
 const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
 const PlantPanelScript := preload("res://scripts/plant_panel.gd")
+const ToolPaletteScript := preload("res://scripts/tool_palette.gd")
 const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
@@ -1407,134 +1397,43 @@ func _put_away_what_the_top_bar_cannot_hold() -> void:
 		mode_label.visible = false
 
 
-## Make every answering control in the palette big enough for a finger.
+## Fit the palette to the device and re-flow its rows around the words it draws.
 ##
 ## Deferred rather than done where the buttons are built, because a button is made during this HUD's
-## `_ready` and the window has not been laid out at that moment: asked then, it reported a scale of 3.6
-## where the finished window uses 1.35, which would have made every row *smaller* than the desk's own.
-## A frame later the window can answer - and on a computer every answer is "leave it as it is".
+## `_ready` and the window has not been laid out at that moment: asked then, it reported a scale of
+## 3.6 where the finished window uses 1.35, which would have made every row *smaller* than the
+## desk's own. A frame later the window can answer - and on a computer every answer is "leave it
+## as it is", because `on_a_finger_here()` below is what decides whether any of this runs.
 ##
-## One pass over the column rather than a call at each button: the palette's rows are made in five
-## places here, and a rule applied in five places is a rule that drifts.
+## Whether to fit is this HUD's business and is asked here; what the fitting *is* belongs to
+## `ToolPalette`, which is handed the panel, the column and the device's own scale and density.
+##
+## The two re-flows follow by a frame, for the reason `ToolPalette.reflow_the_tool_row` keeps: a
+## control asked for a size it has not laid out yet answers the size it had before, and the fonts
+## were changed a moment ago. Measured in one pass they were all a frame behind, and the panel came
+## out 180 px too narrow.
 func _size_palette_for_a_finger() -> void:
 	if palette_column == null:
 		return
-	# The device question, asked here because the palette is not a page and so has no `show_centred` to ask
-	# it in: a finger *and* a density that says the desk's own row is too small to hit. On a computer this
-	# is where the pass ends, and the palette keeps the size the scene laid it out at.
 	if not PhoneHudScript.on_a_finger_here():
 		return
-	var drawn_at: float = PhoneHudScript.canvas_scale(get_window())
-	var density: float = PhoneHudScript.dpi()
-	for node: Node in palette_column.find_children("*", "Button", true, false):
-		var button: Button = node as Button
-		if button != null:
-			PhoneHudScript.size_for_a_finger(button, drawn_at, density)
-	# A picker is as wide as its longest item by default, and one of the layers here is named "500-IRRIGATION"
-	# while the one in use reads "Design": the layer picker stood 453 px wide for a word that fits in a third
-	# of that. Turned off for **every** picker in the panel - the plant panel's tag, spacing, arrangement and
-	# bed pickers included - because it is one rule about one kind of control. The popup is unaffected: it
-	# still sizes itself to its contents when it opens.
-	for node: Node in palette_column.find_children("*", "OptionButton", true, false):
-		var picker: OptionButton = node as OptionButton
-		if picker != null:
-			picker.fit_to_longest_item = false
-	# Two passes follow, for one reason: a control asked for a size it has not laid out yet answers the size
-	# it had before. The fonts are changed in this pass, so the row is re-flowed in the next one, when the
-	# words it is measured by are the words it will be drawn with - and the panel is grown in the pass after
-	# that, when the re-flowed row has settled. Measured in one pass they were all a frame behind: the panel
-	# came out 180 px too narrow, because the words it measured were the words of the frame before.
+	ToolPaletteScript.fit(palette_column, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
 	_reflow_the_tool_row.call_deferred()
 	_reflow_the_edit_row.call_deferred()
 
 
-## Give the row of drawing tools as many columns as the panel has room for, at the words they are drawn with.
-##
-## The tools are built three across - which is what makes the palette a palette rather than a list of ten -
-## and the cell was the desk's 86 px whatever the words on it were, so on a phone "Aligned dim" at 155 px ran
-## across its neighbour's cell and its last letter sat under the panel's edge. A cell is now `max(the words,
-## the desk's cell)`, and the number of them comes from the room rather than from a constant: three on a desk,
-## fewer wherever the words are larger.
 func _reflow_the_tool_row() -> void:
-	var grid: GridContainer = null
-	if palette_column != null:
-		grid = palette_column.get_node_or_null("Tools") as GridContainer
-	if grid != null and not _tool_buttons.is_empty():
-		var widths: Array = []
-		for made: Button in _tool_buttons:
-			widths.append(maxf(PhoneHudScript.button_width(made), PALETTE_CELL_WIDTH))
-		var separation: float = float(grid.get_theme_constant(&"h_separation"))
-		grid.columns = PhoneHudScript.columns_that_fit(
-			widths,
-			PALETTE_COLUMNS,
-			_palette_room() - PALETTE_INSET,
-			separation,
-			PALETTE_FEWEST_COLUMNS,
-		)
+	ToolPaletteScript.reflow_the_tool_row(palette, palette_column, _tool_buttons)
 
 
-## Give the row of edit buttons as many columns as its panel has room for.
-##
-## The buttons are built with a fixed number of columns and the words on them are whatever size the screen
-## asks for, and the two were never compared. Measured at the theme's own 16 px, "Extend" is 64 px wide, so
-## a cell needs 72: eight of them in six columns want 456 px of a panel that has 368, and the row was drawn
-## wider than its panel on a computer before a thumb was ever considered. The count is measured from the
-## words now, so the row has as many columns as fit - four on this desk, and fewer wherever the words are
-## larger, which is what a phone asks for.
 func _reflow_the_edit_row() -> void:
-	var tools: GridContainer = null
-	if palette_column != null:
-		tools = palette_column.get_node_or_null("EditTools") as GridContainer
-	if tools != null and palette != null and not _edit_buttons.is_empty():
-		var widths: Array = []
-		for made: Button in _edit_buttons:
-			widths.append(PhoneHudScript.button_width(made))
-		var separation: float = float(tools.get_theme_constant(&"h_separation"))
-		tools.columns = PhoneHudScript.columns_that_fit(
-			widths,
-			PALETTE_EDIT_COLUMNS,
-			_palette_room() - PALETTE_INSET,
-			separation,
-			PALETTE_FEWEST_COLUMNS,
-		)
+	ToolPaletteScript.reflow_the_edit_row(palette, palette_column, _edit_buttons)
 	_grow_palette_to_its_contents.call_deferred()
 
 
-## How wide the palette panel is meant to be, from the scene that placed it.
-##
-## Asked of the anchors rather than of `palette.size.x`, because a control's size is only the size it was
-## designed at once a layout pass has run, and these passes run before that: asked in the frame after the
-## fonts change, the panel still reports the width of its own contents, which is how the desk's six edit
-## columns were re-flowed to four. Anchors and offsets are what the scene wrote down, so they answer on the
-## first frame and every frame after it.
-func _palette_room() -> float:
-	if palette == null:
-		return 0.0
-	# The scene's own anchors and **nothing else** - never `palette.size.x`, which is the width the last
-	# re-flow grew the panel to. Reading that back is a ratchet: it was measured doing it, the edit row going
-	# from three columns to four on the second showing and four on every one after, because each pass read
-	# the room the previous pass had widened the panel into. Anchors and offsets are what the scene wrote
-	# down, so they answer the same on the first frame and on the hundredth.
-	var across: float = palette.get_parent_area_size().x
-	var left: float = palette.anchor_left * across + palette.offset_left
-	var right: float = palette.anchor_right * across + palette.offset_right
-	return maxf(right - left, 0.0)
-
-
-## Widen the palette's panel to hold the column it carries.
-##
-## The words grew with the row, so the panel has to grow with the words: a column wider than the panel it
-## sits in is drawn with its ends off the screen, which is how the phone showed "awing (0)" where
-## "Drawing (0)" was. The panel keeps its left edge and takes the width its own contents ask for.
+## Widen the panel to hold the column it carries, on the frame after the re-flow that made it wider.
 func _grow_palette_to_its_contents() -> void:
-	if palette == null or palette_column == null:
-		return
-	var wanted: float = palette_column.get_combined_minimum_size().x
-	if wanted > 0.0:
-		# Rightward, because that is the way the panel was drawn: a control's default is to grow both ways,
-		# and the phone drew its left-hand edge 24 px into the bezel that way.
-		palette.grow_horizontal = Control.GROW_DIRECTION_END
-		palette.custom_minimum_size.x = maxf(palette.custom_minimum_size.x, wanted + PALETTE_INSET)
+	ToolPaletteScript.grow_to_its_contents(palette, palette_column)
 
 
 ## A palette button for one of the drafting commands. The key goes in the tooltip
