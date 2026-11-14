@@ -545,6 +545,149 @@ func test_a_button_with_no_width_of_its_own_is_given_the_row_a_thumb_needs() -> 
 	cell.free()
 
 
+## A dialog's own two buttons are the engine's, and it takes their minimum away the moment the dialog is shown -
+## so their row is asked for through the **frame** instead, which is the engine's own arithmetic for a button's
+## height: its font plus its stylebox. Measured on the A16W held upright, the unsaved-changes question's buttons
+## came out `254 x 64, 33 px short of the 97 a finger wants` while the fit set a minimum the engine then threw
+## away; the frame is what the engine leaves alone, and the font override surviving it is the proof.
+##
+## Three things are held here, because each of them is a way to make the whole program worse: **only** a dialog's
+## own button is touched, the stylebox is **copied** before it is grown, and a second pass grows nothing.
+func test_a_dialogs_own_button_is_given_the_row_through_its_frame_and_only_that_button() -> void:
+	_reset()
+	PhoneFilesScript.force(PhoneFilesScript.Device.PHONE)
+	var row: float = PhoneHudScript.row_height(PHONE_SCALE, PHONE_DPI)
+
+	# A button of the program's own, outside any dialog, is given the minimum it always was and no frame at all:
+	# a frame grown here as well would be the same row counted twice, and the chrome would grow by a row a turn.
+	var toolbar: Button = Button.new()
+	PhoneHudScript.size_for_a_finger(toolbar, PHONE_SCALE, PHONE_DPI)
+	assert(is_equal_approx(toolbar.custom_minimum_size.y, row), "the HUD's own button keeps the row it was given")
+	assert(
+		not toolbar.has_theme_stylebox_override(&"normal"),
+		"and its frame is left alone, or the row would be asked for twice",
+	)
+
+	var question := ConfirmationDialog.new()
+	question.dialog_text = "untitled drawing - unsaved changes\n\nDiscard the changes?"
+	add_child(question)
+	var answer: Button = question.get_ok_button()
+	# The stylebox the theme hands out, taken before anything is fitted: growing **this** would move every button
+	# in the program that draws with it.
+	var theirs: StyleBox = answer.get_theme_stylebox(&"normal")
+	var margin_was: float = theirs.get_content_margin(SIDE_TOP)
+
+	PhoneHudScript.size_for_a_finger(answer, PHONE_SCALE, PHONE_DPI)
+	assert(
+		answer.has_theme_stylebox_override(&"normal"),
+		"a dialog's own button is given a frame that asks for the row",
+	)
+	assert(
+		answer.get_theme_stylebox(&"normal") != theirs,
+		"and it draws from a frame of its own rather than from the theme's own stylebox",
+	)
+	assert(
+		is_equal_approx(theirs.get_content_margin(SIDE_TOP), margin_was),
+		(
+			"so the theme's own frame is left exactly as it was: %.1f against %.1f"
+			% [theirs.get_content_margin(SIDE_TOP), margin_was]
+		),
+	)
+
+	# What showing the dialog does to it, done by hand: the minimum goes and the frame stays.
+	answer.custom_minimum_size = Vector2.ZERO
+	assert(
+		answer.get_combined_minimum_size().y >= row - 0.5,
+		(
+			"and the row is still there without the minimum: %.2f against the %.2f the device asks for"
+			% [answer.get_combined_minimum_size().y, row]
+		),
+	)
+
+	# Growing it twice is growing it once: the frame already asks for the row the second time, which is what keeps
+	# a question shown twice in a session from growing a row each time.
+	var grown: float = answer.get_theme_stylebox(&"normal").get_minimum_size().y
+	PhoneHudScript.size_for_a_finger(answer, PHONE_SCALE, PHONE_DPI)
+	assert(
+		is_equal_approx(answer.get_theme_stylebox(&"normal").get_minimum_size().y, grown),
+		(
+			"and a second pass adds nothing to it: %.1f against %.1f"
+			% [answer.get_theme_stylebox(&"normal").get_minimum_size().y, grown]
+		),
+	)
+
+	remove_child(question)
+	question.free()
+	toolbar.free()
+
+
+## The palette is held between the top bar above it and the foot line below it, each read off that thing's own
+## rectangle - and **a second pass moves nothing**.
+##
+## That second half is the trap this shares with the bar's lift: the pass runs again on every change of the room's
+## shape, so a placement measured from its own output would walk the palette up the screen one turn at a time.
+## `_palette_offsets_as_drawn` exists for it, and this is what holds it down.
+##
+## The scene's own numbers are the floor: where the bar's foot is 62 and the plate's top is 846 on a 900-tall
+## room, a desk is given back exactly the offsets the scene drew. A phone's taller bar and wrapped plate are what
+## move it - measured on the A16W, where they put the palette over the menu bar's own titles and the plate over
+## the palette's last rows.
+func test_the_palette_is_placed_between_the_bar_and_the_foot_line_and_never_drifts() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+	# A plain `Control` and not a container: a container would lay these three out itself, and what is being
+	# asked is where *this HUD* puts the palette from the rectangles its two neighbours report.
+	var room := Control.new()
+	room.size = Vector2(1600.0, 900.0)
+	add_child(room)
+	var bar := PanelContainer.new()
+	bar.position = Vector2(0.0, 12.0)
+	bar.size = Vector2(1000.0, 50.0)
+	var palette := PanelContainer.new()
+	palette.offset_left = 12.0
+	palette.offset_top = 70.0
+	palette.offset_right = 404.0
+	palette.offset_bottom = -62.0
+	var foot := PanelContainer.new()
+	foot.position = Vector2(0.0, 846.0)
+	room.add_child(bar)
+	room.add_child(palette)
+	room.add_child(foot)
+	hud.top_bar = bar
+	hud.palette = palette
+	hud.hints = foot
+
+	# A desk: the bar's foot is 62 and the plate's top is 846, which is exactly what the scene's offsets already
+	# clear. Both ends are floors, so nothing moves.
+	hud.place_the_left_column_for_a_device()
+	assert(is_equal_approx(palette.offset_top, 70.0), "a desk keeps the palette's top: %s" % str(palette.offset_top))
+	assert(is_equal_approx(palette.offset_bottom, -62.0), "and its foot: %s" % str(palette.offset_bottom))
+
+	# A phone: the bar is far taller and the wrapped plate's top is far higher, so both ends move - the top below
+	# the bar's foot, the foot above the plate's top, each leaving the 8 px gap the scene itself keeps.
+	bar.size = Vector2(1000.0, 250.0)
+	foot.position = Vector2(0.0, 700.0)
+	hud.place_the_left_column_for_a_device()
+	assert(is_equal_approx(palette.offset_top, 270.0), "the top clears the bar's foot: %s" % str(palette.offset_top))
+	assert(
+		is_equal_approx(palette.offset_bottom, -208.0),
+		"and the foot clears the plate: %s" % str(palette.offset_bottom),
+	)
+
+	# And it is a floor, not a step: the pass runs again on every turn.
+	hud.place_the_left_column_for_a_device()
+	assert(is_equal_approx(palette.offset_top, 270.0), "a second pass moves nothing: %s" % str(palette.offset_top))
+	assert(
+		is_equal_approx(palette.offset_bottom, -208.0),
+		"and its foot is where it was: %s" % str(palette.offset_bottom),
+	)
+
+	remove_child(room)
+	room.free()
+	# The HUD itself is a node this test made and never added, so it is freed here as every node a test makes
+	# must be: the runner counts what is left in use and fails the run for it.
+	hud.free()
+
+
 ## The palette is held between the top bar above it and the hint plate below it, and each end is **read off the
 ## thing it must clear** rather than restated - because on a phone both grow and the scene's two numbers are a
 ## desk's alone. Measured on the A16W held upright: the palette was drawn *over* the menu bar's own titles, so

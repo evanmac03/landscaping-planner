@@ -23,6 +23,13 @@ extends RefCounted
 ## drawn over the other and neither can be read - so the rule does not need to know which surface is on top, and
 ## this module deliberately does not try to. Everything else is ordinary: a page over a page is how one page
 ## opens another, and a page over the HUD's own furniture is what a page is.
+##
+## **And two controls that say something may not be drawn over each other either** - the same fault with no title
+## bar in it, which the rule's first version did not catch. It was measured, not reasoned: on the A16W held
+## upright the board's bottom-left had the palette's own group header `Layer` drawn across the foot line's
+## `Left-drag: move a plant` and its `Two fingers: pan`, so two sets of words sat in one another and neither
+## could be read. **No instrument named it** - the probe reported `nothing meets anything it may not` for that
+## very block, because neither of the two is a title bar. A crop of the glass is what settled it.
 
 ## A page's contents: the rectangle a `Window` reports as its position and size.
 const PAGE := &"page"
@@ -79,22 +86,28 @@ static func meetings(surfaces: Array) -> Array[Dictionary]:
 	return found
 
 
-## Whether two surfaces that share rows are a fault: a title bar over words, or two title bars over each other.
-## Nothing else meets the rule - see the class comment for why the answer does not depend on which is on top.
+## Whether two surfaces that share rows are a fault: a title bar over words, two title bars over each other, or
+## **two controls that both say something**. Nothing else meets the rule - see the class comment for why the
+## answer does not depend on which is on top.
 ##
-## A title bar *under* another page's contents is ordinary and is **not** a fault: that is a page standing over
-## the page beneath it, which is how one page opens another, and the lower page's title is hidden with the rest
-## of it. It was a fault in the first version of this predicate - written as one test of `BAR` that every
-## meeting passed - and the probe reported the front door standing under the figures page as a fault, which is
-## the shape the correction is held by.
+## The third case is the one that had to be measured. A `page` rectangle is not words however many words are
+## inside it, so a page over the furniture it covers is still ordinary, and so is a page over the title of the
+## page beneath it - that was a fault in the first version of this predicate, written as one test of `BAR` that
+## every meeting passed, and the probe reported the front door standing under the figures page as a fault. Two
+## `WORDS` over one another is the case at the other end: it was reported by nobody at all until the glass was
+## read, and it is the same fault - one set of words drawn in the middle of another, with neither readable.
 static func _is_a_fault(one: Dictionary, other: Dictionary) -> bool:
-	var one_bar: bool = StringName(one["kind"]) == BAR
-	var other_bar: bool = StringName(other["kind"]) == BAR
+	var one_kind: StringName = StringName(one["kind"])
+	var other_kind: StringName = StringName(other["kind"])
+	if one_kind == WORDS and other_kind == WORDS:
+		return true
+	var one_bar: bool = one_kind == BAR
+	var other_bar: bool = other_kind == BAR
 	if not one_bar and not other_bar:
 		return false
-	if StringName(one["kind"]) == WORDS or StringName(other["kind"]) == WORDS:
+	if one_kind == WORDS or other_kind == WORDS:
 		return true
-	if StringName(one["kind"]) == TOP_BAR or StringName(other["kind"]) == TOP_BAR:
+	if one_kind == TOP_BAR or other_kind == TOP_BAR:
 		return true
 	return one_bar and other_bar
 

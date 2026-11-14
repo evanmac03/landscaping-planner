@@ -125,8 +125,8 @@ func test_the_window_follows_the_phone_while_the_capture_pages_own_camera_is_up(
 
 
 ## A page is placed when it opens and never again, so a room that changes shape has to put the pages that
-## are up back where they belong - and the front door is one of them, though it answers its own Escape and
-## so is not in `pages_in_windows`.
+## are up back where they belong - and the front door is one of them, though it is built when it is first
+## opened rather than at launch and so is not in `pages_in_windows`.
 func test_only_the_pages_that_are_up_are_the_ones_a_change_of_shape_reaches() -> void:
 	var hud: HudScript = _hud()
 	assert(hud._pages_that_are_up().is_empty(), "nothing is up on a HUD nobody has shown a page on")
@@ -137,8 +137,8 @@ func test_only_the_pages_that_are_up_are_the_ones_a_change_of_shape_reaches() ->
 	)
 	assert(
 		hud._pages_that_can_be_up().has(hud._start_window),
-		"the front door is in the list a change of shape is walked over, though it is not one of the pages"
-		+ " that answer Escape with a node of their own",
+		"the front door is in the list a change of shape is walked over, because it is built when it is first"
+		+ " opened rather than at launch, and it is a page in a `Window` like the rest",
 	)
 	hud._start_window.visible = true
 	assert(

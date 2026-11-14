@@ -406,18 +406,36 @@ static func _caption(control: Control) -> String:
 	return control.get_class()
 
 
+## Whether a control's words were written by nobody here: an engine-built child is named `@SpinBoxLineEdit@133`
+## and the like, and says what its parent composes - a `SpinBox` makes its field out of the value and the suffix,
+## two spaces between them, so the field says `172  d` where the program wrote `172` and `d`.
+##
+## Its words are real on the glass and are **not** a second thing saying something: the `SpinBox` is the one
+## control and the field is a part of it. So both walks that look for words leave it out - the one that reports
+## what is drawn over what, where two surfaces must be two things, and the one that reports words that are
+## wrong, where the text is not this program's to police. Reading it in one place is what keeps the two agreeing.
+static func _the_engines_own(control: Control) -> bool:
+	return String(control.name).begins_with("@")
+
+
 ## Every control under a node that says something a person *reads*, at the rectangle it is drawn in - in the
 ## pixels a screenshot is taken in, which is the space every other rectangle here is reported in too.
 ##
 ## A control whose caption is its own class name is a container, a panel or a picture: it is drawn, but there
 ## are no words in it for anything to be drawn over, so it is left out. This is the half of the overlap
 ## measurement that knows about the HUD's own furniture - a panel's caption, a button, a page's own sentence.
+##
+## A part the engine built is left out too: a `SpinBox`'s own field says the same number the `SpinBox` says, and
+## two surfaces that share rows have to be two things. Measured on the desk, `16.0` and `16.0  h` were reported
+## as sharing exactly one cell - one control, drawn once, named twice.
 static func words_in(root: Node) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
 	if root == null:
 		return found
 	for control: Control in _controls_under(root):
 		if not control.is_visible_in_tree():
+			continue
+		if _the_engines_own(control):
 			continue
 		var said: String = _caption(control)
 		if said.is_empty() or said == control.get_class():
@@ -607,9 +625,7 @@ static func words_lines(root: Node, scope: String) -> PackedStringArray:
 	for control: Control in _controls_under(root):
 		if not control.is_visible_in_tree():
 			continue
-		# A control the engine built and named - `@SpinBoxLineEdit@133` and the like - has words nobody here
-		# wrote: a `SpinBox` composes its field's text out of the value and the suffix, two spaces between them.
-		if String(control.name).begins_with("@"):
+		if _the_engines_own(control):
 			continue
 		var said: String = _caption(control)
 		if said.is_empty() or said == control.get_class():

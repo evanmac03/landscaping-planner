@@ -410,9 +410,76 @@ static func size_for_a_finger(control: Control, scale: float, density: float) ->
 		control.custom_minimum_size.y = height
 		if control.custom_minimum_size.x <= 0.0:
 			control.custom_minimum_size.x = height
+		give_a_dialogs_own_button_the_row(control, height)
 	var size: int = font_size(scale, density)
 	if size > 0:
 		control.add_theme_font_size_override("font_size", size)
+
+
+## The row a **dialog's own** button is given, through its frame rather than through its minimum.
+##
+## The two buttons a `ConfirmationDialog` answers with are the engine's, and it takes their minimum away the
+## moment the dialog is shown: measured on the desk with the phone's own numbers handed in,
+## `custom_minimum_size` read `(107.078, 107.078)` before `popup_centered_clamped()` and `(0, 0)` after it,
+## with the font override surviving - and measured again on the A16W held upright, where the probe named the
+## result: `Button "Keep editing" is 254 x 64, 33 px short of the 97 a finger wants`. So for these two a
+## minimum is no lever at all.
+##
+## What the engine does keep is the **frame**. A button's own minimum is its font plus its stylebox, which is
+## exactly why 45 px of type in a 13 px frame came out at the 71 it did. A frame that asks for the row
+## therefore gives the row, in the engine's own arithmetic, and there is nothing left to argue with. The
+## styleboxes are **duplicated** before they are changed, because the ones handed out by a theme are shared by
+## every button drawn with them and growing one in place would move the whole program.
+##
+## Only a dialog's own buttons are touched. Every other button keeps the minimum this pass sets and is measured
+## with it, and a frame grown there as well would be that same row twice.
+static func give_a_dialogs_own_button_the_row(control: Control, row: float) -> void:
+	var button: Button = control as Button
+	if button == null or not _is_a_dialogs_own_button(button):
+		return
+	var font: Font = button.get_theme_font(&"font")
+	var size: int = button.get_theme_font_size(&"font_size")
+	var frame: StyleBox = button.get_theme_stylebox(&"normal")
+	if font == null or size <= 0 or frame == null:
+		return
+	var asks: float = (
+		float(font.get_height(size)) + frame.get_content_margin(SIDE_TOP) + frame.get_content_margin(SIDE_BOTTOM)
+	)
+	var gap: float = row - asks
+	if gap <= 0.0:
+		# Already the row - which is what a second pass over the same question finds, so this is idempotent
+		# rather than cumulative.
+		return
+	for state: StringName in DIALOG_BUTTON_STATES:
+		var box: StyleBox = button.get_theme_stylebox(state)
+		if box == null:
+			continue
+		var grown: StyleBox = box.duplicate()
+		grown.content_margin_top = box.get_content_margin(SIDE_TOP) + gap * 0.5
+		grown.content_margin_bottom = box.get_content_margin(SIDE_BOTTOM) + gap * 0.5
+		button.add_theme_stylebox_override(state, grown)
+
+
+## The states a button draws itself in, so that the row is kept when it is hovered, held and switched off as
+## well as when it is at rest.
+const DIALOG_BUTTON_STATES: Array[StringName] = [&"normal", &"hover", &"pressed", &"disabled", &"focus"]
+
+
+## Whether a button is one a dialog draws itself - `get_ok_button()` or `get_cancel_button()`.
+##
+## Told apart by its place rather than by its look: it is a `Button` inside an `AcceptDialog`, which the walk
+## reaches by climbing rather than by remembering how deep the engine nests its button bar. The climb stops at
+## the first `Window` it meets, so a button inside a page - a window that is not a dialog - is never mistaken
+## for one.
+static func _is_a_dialogs_own_button(button: Button) -> bool:
+	var node: Node = button.get_parent()
+	while node != null:
+		if node is AcceptDialog:
+			return true
+		if node is Window:
+			return false
+		node = node.get_parent()
+	return false
 
 
 ## The width a button will actually ask for, worked out from its own words and its own frame.

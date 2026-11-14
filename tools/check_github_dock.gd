@@ -1,5 +1,10 @@
 extends SceneTree
 
+## The one place that answers whether there is a screen to take a preview off. This tool used to spell the test
+## out itself; a second copy of it is a second answer to one question.
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
+
+
 class GuideProbe extends "res://addons/github_tools/workflow_dock.gd":
 	var captured: Dictionary = {}
 
@@ -373,7 +378,7 @@ func _test_preview() -> bool:
 		printerr("Preview did not reach staged diff review.")
 		return false
 	for argument in OS.get_cmdline_user_args():
-		if argument.begins_with("--capture-preview=") and DisplayServer.get_name() != "headless":
+		if argument.begins_with("--capture-preview=") and HudProbeScript._a_real_screen():
 			await RenderingServer.frame_post_draw
 			var capture_error := root.get_texture().get_image().save_png(argument.trim_prefix("--capture-preview="))
 			if capture_error != OK:

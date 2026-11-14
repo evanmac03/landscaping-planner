@@ -995,10 +995,12 @@ func _say_the_screen() -> void:
 	# the page and a phone draws it taller than the theme says, so it is read here and printed beside the
 	# theme's own answer. Only where there is a screen to read it off: a headless run has no framebuffer - the
 	# dummy renderer has no texture to copy and asking for one logs an engine error, which is enough to fail a
-	# test run - and a drawing is no less true for the lack of a picture of it. The framebuffer is read once and
-	# shared, because a debug build can afford one copy of the screen and not one per page.
+	# test run - and a drawing is no less true for the lack of a picture of it. `HudProbe._a_real_screen` is the
+	# one place that answers whether there is a screen, and it is the same answer the probe's own absolute-pixel
+	# lines need. The framebuffer is read once and shared, because a debug build can afford one copy of the
+	# screen and not one per page.
 	var glass: Image = null
-	if DisplayServer.get_name() != "headless":
+	if HudProbeScript._a_real_screen():
 		glass = get_viewport().get_texture().get_image()
 	for window: Window in get_viewport().get_embedded_subwindows():
 		if window.visible:
@@ -2566,8 +2568,15 @@ func pages_in_windows() -> Array[Window]:
 ## `tools/page_escape_demo.gd`, where a real Escape reached a node put inside the page and reached a
 ## node beside this HUD not at all. So the key has to be answered from inside each page, and the only
 ## thing that can be put there is a node - one per page, made once, whether or not the page is up.
+##
+## The doorway's pages are walked here beside the rest, and for the same reason: a door is a page in a
+## `Window`, and a door left standing after Escape is a page the key cannot put away. That was the state
+## of the front door - measured on the desk, a real Escape on a launch with the door up left it standing,
+## because the only list it was not on was this one. The three doorway pages are built when they are first
+## opened rather than at launch, so each `_build_*` door calls this again once its page exists; `attach` is
+## idempotent, so the later pass over a page adds nothing to it.
 func _let_escape_close_pages() -> void:
-	for page: Window in pages_in_windows():
+	for page: Window in _pages_that_can_be_up():
 		PageEscapeScript.attach(page)
 
 # --- the menu bar ---------------------------------------------------------------------
@@ -3381,6 +3390,25 @@ func _notification(what: int) -> void:
 		back_puts_away()
 
 
+## How long after one Back press another notification is still the same press.
+##
+## **Measured, on the SM-A166W (Android 16): 354 ms between the two notifications of a single press** - not the
+## one to fifteen milliseconds `godotengine/godot#123454` reports on other hardware, which is why the first
+## version of this guard was too narrow and let the second notification through. So the window is a second:
+## wider than any gap the engine has been seen to leave, and shorter than the time it takes a person to see a
+## page close and decide to press Back again - which is the same cadence Android's own "press back again to
+## exit" uses. It is stated rather than measured so a test can hold the rule.
+const BACK_REPEAT_GAP_MS := 1000
+
+## When the last Back press was answered, so the engine's own repeat of it can be told from a second press.
+var _last_back_ms: int = -BACK_REPEAT_GAP_MS
+
+
+## Whether a Back notification arriving now is the engine saying the same press a second time.
+static func is_a_repeat_of_the_last_back(now_ms: int, last_ms: int) -> bool:
+	return now_ms - last_ms < BACK_REPEAT_GAP_MS
+
+
 ## What the phone's Back gesture means: out of whatever is in front, and only then out of the program.
 ##
 ## It is Escape's ladder with one thing put in front of it. A page in a `Window` takes the keyboard into
@@ -3393,7 +3421,20 @@ func _notification(what: int) -> void:
 ## `quit_requested`, so a drawing with unsaved work is asked about rather than thrown away by a brushed
 ## thumb. That is also why the program's own `quit_on_go_back` is lowered: left to the operating system,
 ## Back is a quit nobody is asked about.
+##
+## **One press is one act, and on this platform the engine says otherwise.** Godot 4.7.2 at `targetSdk 36`
+## delivers `NOTIFICATION_WM_GO_BACK_REQUEST` **twice** for a single press: measured on the SM-A166W (Android
+## 16), two notifications a few milliseconds apart, which is `godotengine/godot#123454` - for API 36 the engine
+## intercepts Back through Android's `OnBackInvokedCallback`, and two senders report the same event. A ladder
+## that takes one thing off per press therefore took two: with the front door up, the first put the door away
+## and the second found nothing in front and left the program. The ladder was measured doing exactly that
+## (`back now=9798 front=StartWindow`, then `back now=10152 front=<null>` 354 ms later). A notification
+## arriving within `BACK_REPEAT_GAP_MS` of the last one is that same press, and is not answered again.
 func back_puts_away() -> void:
+	var now: int = Time.get_ticks_msec()
+	if is_a_repeat_of_the_last_back(now, _last_back_ms):
+		return
+	_last_back_ms = now
 	var page: Window = page_in_front()
 	if page != null:
 		page.close_requested.emit()
@@ -3614,7 +3655,55 @@ func _guard_unsaved(next: StringName) -> void:
 		return
 	_pending_action = next
 	_discard_dialog.dialog_text = "%s\n\nDiscard the changes?" % _draft.drawing_state_text()
-	_discard_dialog.popup_centered()
+	_ask(_discard_dialog)
+
+
+## Show one of the program's own questions so that a finger can read it and press it.
+##
+## A `ConfirmationDialog` is a `Window`, and no pass touched it: `PhoneHud.fit_the_chrome_for_a_finger` fits the
+## chrome and a `PopupMenu` and nothing else that is a window, and a *page* is fitted by `PageChrome` when it is
+## shown, which a question never goes through. Measured on the A16W, the unsaved-changes question was drawn at
+## the desk's 16 px with its buttons 50 px tall while everything around it was a finger's - five `tiny`/`small`
+## lines, on the one screen whose whole job is to be read before anything is thrown away - and it was placed at
+## whatever size its own contents happened to want rather than inside the room.
+##
+## So a question is fitted through the one walk that fits a window's controls - its `dialog_text` and its two
+## buttons, which is every word the probe could name - and then placed by `popup_centered_clamped`, the door the
+## command palette places itself by, which centres it and keeps it on the screen. The walk answers zero on a
+## computer, so a desk is neither touched nor restored.
+##
+## **Its title bar is deliberately left as the theme drew it.** A page's title is grown and is *meant* to hang
+## above the page's own panel, onto the sheet one of the doorway pages stands on; a question has no sheet behind
+## it, so growing the bar pushed its title out of the filled band it had been legible in and onto the bright
+## board, where the theme's own light ink could not be read - measured on the glass beside the page's, which
+## reads only because the sheet is dark. The theme's own bar keeps the title inside the fill, and there a person
+## can read it.
+func _ask(question: ConfirmationDialog) -> void:
+	if question == null:
+		return
+	# **A question is fitted before it is shown, and its row is asked for through the frame rather than through
+	# a minimum.** A `ConfirmationDialog`'s own two buttons are the engine's, and it takes their
+	# `custom_minimum_size` away the moment the dialog is shown: measured on the desk with the phone's own
+	# numbers handed in, `(107.078, 107.078)` before `popup_centered_clamped()` and `(0, 0)` after it, with the
+	# font override surviving. Measured on the A16W held upright, the probe named what that leaves -
+	# `Button "Keep editing" is 254 x 64, 33 px short of the 97 a finger wants` - a fault the landscape-only
+	# measurement never showed, because the row is the same 97 px of screen either way up while being 60 layout
+	# px lying down against 107 upright. So the row is given where the engine cannot take it back, through the
+	# button's own frame (`PhoneHud.give_a_dialogs_own_button_the_row`).
+	#
+	# **The fit stays before the popup, and it has to.** A dialog is placed by the size its contents ask for, so
+	# placing it first sizes it for buttons that have not grown yet and squeezes them back down; asking it to
+	# take its size again afterwards was tried and is worse - `reset_size` walks the window into the room's
+	# corner, and the A16W measured the `Discard` button standing 95 px into the band the device keeps.
+	if shows_touch_controls():
+		fit_a_question_for_a_finger(question, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	question.popup_centered_clamped()
+
+
+## The measuring half of `_ask`, with the device stated rather than read, so that a test can hold what a phone
+## would be told without being one - the same door `fit_the_chrome_for_a_finger` is for the chrome.
+func fit_a_question_for_a_finger(question: ConfirmationDialog, drawn_at: float, density: float) -> int:
+	return PhoneHudScript.fit_the_chrome_for_a_finger(question, drawn_at, density)
 
 
 func _on_discard_confirmed() -> void:
@@ -3638,7 +3727,7 @@ func _menu_simplify(_entry: Dictionary) -> void:
 		return
 	_pending_simplify = _draft.plan_simplify()
 	_simplify_dialog.dialog_text = _pending_simplify.describe()
-	_simplify_dialog.popup_centered()
+	_ask(_simplify_dialog)
 
 
 func _on_simplify_confirmed() -> void:
@@ -3837,7 +3926,7 @@ func _menu_recover_unsaved(_entry: Dictionary) -> void:
 		"A copy of a drawing was kept by a session that ended without saving it.\n\n%s\n\nPut it back?"
 		% AutosaveScript.describe(_pending_recovery)
 	)
-	_recovery_dialog.popup_centered()
+	_ask(_recovery_dialog)
 
 
 func _on_recovery_confirmed() -> void:
@@ -4161,11 +4250,17 @@ func _menu_page_help(_entry: Dictionary) -> void:
 	open_page_help()
 
 
-## The page a person is looking at: the last one the HUD has up. `pages_in_windows` is the list Escape
-## already walks to put a page away, so a page added to the HUD is answerable here without being added to
-## a second list - and a second list is exactly the thing that would fall behind.
+## The page a person is looking at: the last one the HUD has up.
+##
+## `_pages_that_can_be_up` is the list a change of the window's shape already walks, so a page added to the
+## HUD is answerable here without being added to a second list - and a second list is exactly the thing that
+## would fall behind. It is deliberately wider than `pages_in_windows`, and that width is the whole point:
+## the doorway's pages are the ones a person meets first, so a launch that has just stood the front door up
+## has that door as the page in front of everything. Leaving them out was not harmless - the phone's Back
+## gesture asks this question, and finding nothing it went on to leave the program rather than put the door
+## away (measured on the SM-A166W, and the fault this fixes).
 func page_in_front() -> Window:
-	var pages: Array[Window] = pages_in_windows()
+	var pages: Array[Window] = _pages_that_can_be_up()
 	for i: int in range(pages.size() - 1, -1, -1):
 		var page: Window = pages[i]
 		if page != null and page.visible:
@@ -8960,6 +9055,9 @@ func _build_start_window() -> void:
 	add_child(_start_window)
 	_start_window.build()
 	_start_window.hide()
+	# The door is built here, when it is first opened, rather than at launch - so the Escape pass has to be
+	# run again now that there is a page for it to put a closer inside.
+	_let_escape_close_pages()
 
 
 ## The opaque sheet the two doorway pages stand on: a rectangle over everything the design suite owns, so
@@ -9031,6 +9129,8 @@ func _build_start_drawing_window() -> void:
 	add_child(_start_drawing_window)
 	_start_drawing_window.build()
 	_start_drawing_window.hide()
+	# Built late like the front door, so the Escape pass runs again over the page there is now.
+	_let_escape_close_pages()
 
 
 func open_start_drawing_window() -> void:
@@ -9093,6 +9193,8 @@ func _build_camera_window() -> void:
 	add_child(_camera_window)
 	_camera_window.build()
 	_camera_window.hide()
+	# Built late like the two doors, so the Escape pass runs again over the page there is now.
+	_let_escape_close_pages()
 
 
 func open_camera_window() -> void:

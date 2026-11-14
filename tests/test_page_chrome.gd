@@ -816,6 +816,42 @@ func test_a_page_given_the_room_keeps_it_when_the_room_changes_shape() -> void:
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 
 
+## A page put back keeps the width it was given, however narrow the size it declares.
+##
+## `placed_again` starts from what a page declares so that a page clamped to a landscape phone grows back to the
+## **height** it asked for - a reason about height, which is what its own comment gives. The width is the half a
+## phone's cure depends on: a page that has outgrown what it declared is given the room, which is wider as well as
+## taller, and `_place` leaves that width on `min_size.x`. Taking the width back therefore **undoes the widening**,
+## which is what left the front door standing 474 px of a 1080 px screen with its title cut short and both choices
+## below a scroll.
+##
+## Pinned here as the **rule** rather than through a simulation, because the simulation agrees with the fault:
+## `test_a_page_given_the_room_keeps_it_when_the_room_changes_shape` passes against a `placed_again` that takes
+## the width back, so it cannot hold this one down. A page whose own `min_size` is wider than it declares, put
+## back again, keeps that width and takes the height it declares.
+func test_a_page_put_back_keeps_the_width_it_was_given_rather_than_the_one_it_declares() -> void:
+	var door: Window = StartWindowScript.new()
+	door.build()
+	_pages.append(door)
+	add_child(door)
+
+	# What a widening leaves behind: the width the page was given, wider than the 520 it declares.
+	var given: int = StartWindowScript.SIZE.x + 100
+	door.min_size = Vector2i(given, StartWindowScript.SIZE.y)
+	var put_back_at: Vector2i = PageChromeScript.placed_again(door)
+	assert(
+		put_back_at.x == given,
+		"the width it was given is kept: %d, against the %d it declares" % [put_back_at.x, StartWindowScript.SIZE.x],
+	)
+	assert(
+		put_back_at.y == StartWindowScript.SIZE.y,
+		"and the height is the one it declares, which is the half that floor is for: %d" % put_back_at.y,
+	)
+
+	remove_child(door)
+	_free_pages()
+
+
 ## And the same door on a computer is exactly the page its author declared - 520 by 540 - which is the half of
 ## this that has to be provable rather than merely likely: the desk's rendering is unchanged by any of it.
 func test_the_front_door_on_a_computer_is_the_size_it_declares() -> void:

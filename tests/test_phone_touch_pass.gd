@@ -46,3 +46,61 @@ func test_a_tap_outside_the_room_the_block_was_taken_in_is_named_as_such() -> vo
 		ToolScript.tap_words(Vector2i(540, 552), Vector2i.ZERO).contains("names no room"),
 		"no block, no reading of where the tap landed",
 	)
+
+
+## **A capture is only worth taking the way up it was asked for, and the hold is what decides that.** The board
+## obeys `OrientationChoice`'s own hold in `files/orientation.json`, and an unreadable one is refused *by design*,
+## so the hold silently falls back to the wide default and the board answers `shape=lying`. The file the A16W was
+## found holding read `{orientation:portrait}` with its key unquoted - which is not JSON - and that is why portrait
+## looked impossible to force for a whole session. `--capture` says which way up the board is held **before** it
+## launches anything, rather than leaving it to be noticed in a screenshot afterwards.
+func test_the_hold_is_read_and_an_unreadable_one_is_named_rather_than_believed() -> void:
+	assert(
+		ToolScript.hold_words("{\"orientation\": \"portrait\"}").begins_with("the board is held upright"),
+		"the one hold the capture can use says so in words",
+	)
+	assert(
+		ToolScript.hold_words("{\"orientation\": \"landscape\"}").contains("not held upright"),
+		"a hold that says landscape is not the one the two gaps ask for",
+	)
+	assert(
+		ToolScript.hold_words("{orientation:portrait}").contains("not readable JSON"),
+		"and the file the device was actually found holding is named as unreadable rather than read as portrait",
+	)
+	assert(
+		ToolScript.hold_words("").contains("no orientation.json"),
+		"an absent hold names the file that is missing rather than reading as a default",
+	)
+
+
+## **An instrument that has nothing to say is not the same as one that cannot ask.** Measured 2026-11-14 with the
+## A16W's wireless debugging off: `adb devices -l` came back with an empty table and the tool went on to say "the
+## log holds no block - has the program run since it was installed?", pointing a person at the program when the
+## fault was that no phone was in reach. The word `device` on its own would have proved nothing - it is inside the
+## header's `devices`, which every run carries - so what is read is the **state column**.
+func test_a_phone_is_here_only_when_adb_names_the_state_column_a_device() -> void:
+	assert(
+		not ToolScript.a_device_is_here("List of devices attached\n\n"),
+		"an empty table is no phone, and that is the reading that used to be mistaken for silence",
+	)
+	assert(
+		not ToolScript.a_device_is_here("List of devices attached\n"),
+		"and neither is the header the table always prints",
+	)
+	assert(
+		ToolScript.a_device_is_here(
+			("List of devices attached\nR5CYA269Q8P\tdevice product:a16 model:SM_A166W device:a16 transport_id:3\n")
+		),
+		"a device in the state column is one",
+	)
+	assert(
+		not ToolScript.a_device_is_here("List of devices attached\nR5CYA269Q8P\tunauthorized\n"),
+		"and one still waiting to be authorised is not yet a phone this can ask anything of",
+	)
+	# **A table with Windows line endings is the same table.** `adb` under Git Bash prints `device\r`, so a
+	# readiness check that compared a whole line against `device` never matched and refused a phone that was
+	# plugged in - measured: a whole capture cycle reported `NO DEVICE` while `adb devices -l` plainly listed it.
+	assert(
+		ToolScript.a_device_is_here("List of devices attached\r\nR5CYA269Q8P\tdevice product:a16\r\n"),
+		"and the carriage return adb puts on every line is not read as part of the state column",
+	)

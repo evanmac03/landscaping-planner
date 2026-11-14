@@ -17,6 +17,9 @@ extends Node
 
 const MAIN := preload("res://scenes/main.tscn")
 const StillnessScript := preload("res://scripts/stillness.gd")
+## The one place that answers whether there is a screen to read a frame off. This tool used to spell the test
+## out itself; a second copy of it is a second answer to one question.
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
 ## How far apart the two frames of the still pair are. Long enough for any per-frame rewrite to have happened
 ## many times, short enough that nothing in the program is doing anything of its own.
@@ -72,9 +75,10 @@ func _report(bands: Array[Dictionary]) -> void:
 
 
 ## One frame of the glass, or null where there is no glass to read - a headless run has a dummy renderer, and
-## asking it for a texture logs an error the test runner counts as a failure.
+## asking it for a texture logs an error the test runner counts as a failure. Whether there is a screen is not
+## this tool's question to answer: `HudProbe._a_real_screen` owns it.
 func _frame() -> Image:
-	if DisplayServer.get_name() == "headless":
+	if not HudProbeScript._a_real_screen():
 		return null
 	var view: Viewport = get_viewport()
 	if view == null:
