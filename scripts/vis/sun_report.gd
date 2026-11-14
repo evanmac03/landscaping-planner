@@ -405,10 +405,10 @@ static func day_for(site_dict: Dictionary, day_of_year: int) -> Dictionary:
 
 static func _day_text(day: Dictionary) -> String:
 	if bool(day["polar_day"]):
-		return "%s  the sun does not set, so the whole day is daylight" % day["day_text"]
+		return "%s: the sun does not set, so the whole day is daylight" % day["day_text"]
 	if bool(day["polar_night"]):
-		return "%s  the sun does not rise at all" % day["day_text"]
-	return "%s  sunrise %s, sunset %s, %.1f h of daylight" % [
+		return "%s: the sun does not rise at all" % day["day_text"]
+	return "%s: sunrise %s, sunset %s, %.1f h of daylight" % [
 		day["day_text"],
 		day["sunrise_clock"],
 		day["sunset_clock"],

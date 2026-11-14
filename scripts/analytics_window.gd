@@ -101,7 +101,11 @@ func build() -> void:
 	_column.add_child(PageChrome.subheading("what could not be worked out"))
 	_missing = ItemList.new()
 	_missing.name = "Missing"
-	_missing.custom_minimum_size = Vector2(0, 96)
+	# As tall as the rows it holds. A fixed 96 px cut the fourth row when four things could not be
+	# worked out, while the scrolling column around it had 306 px to give - the shortfall against
+	# room-to-give that RoomToSpare exists to find. The page scrolls as a whole, so the list itself
+	# does not need to.
+	_missing.auto_height = true
 	_missing.select_mode = ItemList.SELECT_SINGLE
 	_column.add_child(_missing)
 

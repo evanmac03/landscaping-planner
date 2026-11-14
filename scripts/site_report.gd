@@ -53,7 +53,10 @@ class Row extends RefCounted:
 
 
 	func text() -> String:
-		return "%s  %s  (%s)" % [quantity_text(), description, source_text()]
+		# Three spaces between the fields, which is the program's own gap between grouped things; two
+		# is the run GuiWords reads as a typing accident. The two before the bracket stay, because a
+		# bracket with a gap in front of it is the other form that rule allows.
+		return "%s   %s  (%s)" % [quantity_text(), description, source_text()]
 
 
 var _rows: Array[Row] = []
@@ -166,17 +169,17 @@ func text() -> String:
 		lines.append("")
 		lines.append("Work")
 		for row: Row in _rows:
-			lines.append("  " + row.text())
+			lines.append("   " + row.text())
 	if not _plant_rows.is_empty():
 		lines.append("")
 		lines.append("Planting")
 		for row: Row in _plant_rows:
-			lines.append("  " + row.text())
+			lines.append("   " + row.text())
 	if not _notes.is_empty():
 		lines.append("")
 		lines.append("Not measured")
 		for note: String in _notes:
-			lines.append("  " + note)
+			lines.append("   " + note)
 	return "\n".join(PackedStringArray(lines))
 
 # --- serialisation --------------------------------------------------------------------

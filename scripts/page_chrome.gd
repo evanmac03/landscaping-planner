@@ -474,16 +474,28 @@ static func takes_the_room(page: Window) -> Vector2i:
 ## both of those questions - and a page that grabbed the keyboard every time the screen changed shape would
 ## take the caret out of whatever field a person was typing in.
 ##
-## The floor is the page's *declared* size rather than its `min_size`, because `min_size` holds last time's
+## The floor is the page's *declared* height rather than its `min_size`, because `min_size` holds last time's
 ## clamp: a page brought down to 630 to fit a landscape phone would never grow back to the 720 it asked for
 ## once the phone was held the other way.
 ## The page lands by the same door it opened by (`_land`), so a page turned with the phone is widened for
 ## the new room and scrolled in it exactly as a page opened into that room would be. Nothing a person has
 ## already answered is asked again: the floor, the clamp, the width and the scroll are all placement.
+##
+## **The width is the exception to the declared floor, and it is the half a phone depends on.** A page that has
+## outgrown the size it declared is given the room, which is wider as well as taller, because a wider page is a
+## shorter page; and `min_size.x` holds that width, since `_place` sets `min_size` to the floor the page landed
+## at. Taking the width back to what the page declares therefore **undoes the widening it was given**. Measured
+## on the A16W: a page standing 1080 screen px wide came back at 474 px - the 540 it declares - the moment the
+## room changed shape under it. That is also how the front door is left at 474 px of a 1080 px screen: `Hud`
+## shows it during `_ready`, and the chrome pass that follows re-places every page that is up. So the width is
+## the wider of the two - what the page declares and what it was already given - and `clamped_minimum` brings it
+## back to the room's own width wherever the room has since grown narrower, so nothing is left wider than the
+## screen it stands on.
 static func placed_again(page: Window) -> Vector2i:
 	if page == null:
 		return Vector2i.ZERO
-	return _land(page, PageLayoutScript.declared_size(page))
+	var declared: Vector2i = PageLayoutScript.declared_size(page)
+	return _land(page, Vector2i(maxi(declared.x, page.min_size.x), declared.y))
 
 
 ## Where a page goes and how big it is: the one arithmetic both doors share, `show_centred` when a page

@@ -37,6 +37,8 @@ var _column: VBoxContainer = null
 var _opening: Label = null
 var _status: Label = null
 var _buttons: Dictionary = { }
+## The button the first choice made, which is the one a person's Enter presses.
+var _default_button: Button = null
 
 
 func _init() -> void:
@@ -44,6 +46,11 @@ func _init() -> void:
 	min_size = SIZE
 	exclusive = false
 	close_requested.connect(_on_close_requested)
+	# Deferred, and the reason is the one the handler's own comment gives: this signal fires while the
+	# window is still coming up, and the keyboard the engine gives a `Window` arrives with it, so a focus
+	# taken in that instant is one the window then drops. Measured - the choice drew with a focus ring and
+	# Enter still did nothing at all.
+	visibility_changed.connect(_give_the_first_choice_the_keyboard.call_deferred)
 
 
 func _ready() -> void:
@@ -75,6 +82,8 @@ func build() -> void:
 		made.pressed.connect(choose.bind(id))
 		_column.add_child(made)
 		_buttons[id] = made
+		if _default_button == null:
+			_default_button = made
 		var line: Label = PageChrome.note(String(choice.get("line", "")))
 		line.name = made.name + "Line"
 		_column.add_child(line)
@@ -157,3 +166,31 @@ func request_close() -> void:
 
 func _on_close_requested() -> void:
 	request_close()
+
+
+## Give the keyboard to the first choice whenever the door comes up.
+##
+## The shared show gives a page's buttons a keyboard of their own and *focuses* none of them, so a door
+## opened with nothing in hand and Enter did nothing at all - measured, not assumed: a real Enter was
+## delivered to the running game and the door was still standing afterwards. A question whose first
+## offered answer is the one a person came for should take Enter, so the first choice takes the
+## keyboard. Nothing else here is focused, and Tab still steps to the second choice from it.
+##
+## The control is asked two things before it is given anything, because both are engine errors rather than
+## refusals. A page a test built and never added is shown without being in the tree at all, and a control
+## outside the tree has nowhere to take focus from. And a control with **no keyboard of its own** cannot be
+## given one by grabbing it either: `PageChrome` is the one place that promotes a page's buttons, and it does it
+## when the shared show puts the page up - so a door shown by another route, or shown before its buttons were
+## built, has buttons this handler must not grab. Asking that same door here - `takes_the_keyboard_if_up`, the
+## form written for a page that is already up - makes this the caller that hands them theirs, so the focus
+## taken next is one the control can hold. Found by the audit, which opens every page by its own route and
+## reported the grab as a bug on every one of them.
+func _give_the_first_choice_the_keyboard() -> void:
+	if not visible or _default_button == null or not is_instance_valid(_default_button):
+		return
+	if not _default_button.is_inside_tree():
+		return
+	PageChrome.takes_the_keyboard_if_up(self)
+	if _default_button.focus_mode == Control.FOCUS_NONE:
+		return
+	_default_button.grab_focus()

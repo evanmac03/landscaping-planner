@@ -543,3 +543,53 @@ func test_a_button_with_no_width_of_its_own_is_given_the_row_a_thumb_needs() -> 
 	assert(cell.custom_minimum_size.x == 170.0, "a width the layout stated is left exactly as it was")
 	assert(is_equal_approx(cell.custom_minimum_size.y, row), "and the height is still the thumb's")
 	cell.free()
+
+
+## The palette is held between the top bar above it and the hint plate below it, and each end is **read off the
+## thing it must clear** rather than restated - because on a phone both grow and the scene's two numbers are a
+## desk's alone. Measured on the A16W held upright: the palette was drawn *over* the menu bar's own titles, so
+## `File` and `View` could not be pressed at all, and the wrapped foot line was drawn over the palette's last
+## rows. No instrument named either one, so the numbers are pinned here.
+##
+## The device is an argument, as it is for every other door here: what a phone would be told is held without
+## being one.
+func test_the_palette_is_held_between_the_bar_above_it_and_the_foot_line_below_it() -> void:
+	# A desk, at its own numbers: the bar's foot is 62, the plate's top is 846, the canvas is 900 tall, and the
+	# scene drew the palette at 70 with its foot 62 px above the canvas's foot. Both ends are floors, so a desk
+	# - where the scene's numbers still agree with the two things they must clear - is given exactly that
+	# rectangle, to the pixel.
+	var desk: Vector2 = PlannerHudScript.offsets_for_the_left_column(62.0, 846.0, Vector2(70.0, -62.0), 900.0, 31.0)
+	assert(is_equal_approx(desk.x, 70.0), "a desk keeps the palette's top: %s" % str(desk.x))
+	assert(is_equal_approx(desk.y, -62.0), "and its foot, exactly: %s" % str(desk.y))
+
+	# A phone, at the numbers measured there: the bar's foot is 290 (a 107 px row below a cutout), the wrapped
+	# plate's top is 2267, and the canvas is 2567 tall.
+	var phone: Vector2 = PlannerHudScript.offsets_for_the_left_column(
+		290.0,
+		2267.0,
+		Vector2(70.0, -62.0),
+		2567.0,
+		107.0,
+	)
+	assert(is_equal_approx(phone.x, 298.0), "the palette's top clears the bar's foot: %s" % str(phone.x))
+	assert(is_equal_approx(phone.y, -308.0), "and its foot clears the plate's top: %s" % str(phone.y))
+	assert(
+		is_equal_approx((2567.0 + phone.y) - phone.x, 1961.0),
+		"so the two ends leave the gap the scene keeps at both: %s" % str((2567.0 + phone.y) - phone.x),
+	)
+
+	# A palette is never squeezed to nothing: where the bar and the plate leave less than one of its own rows,
+	# it keeps the row and the plate meets it - the lesser of the two faults, and the one a person can still
+	# work around by scrolling.
+	var squeezed: Vector2 = PlannerHudScript.offsets_for_the_left_column(
+		2380.0,
+		2400.0,
+		Vector2(70.0, -62.0),
+		2567.0,
+		107.0,
+	)
+	assert(is_equal_approx(squeezed.x, 2388.0), "it still clears the bar: %s" % str(squeezed.x))
+	assert(
+		is_equal_approx((2567.0 + squeezed.y) - squeezed.x, 107.0),
+		"and stands exactly one of its own rows tall: %s" % str((2567.0 + squeezed.y) - squeezed.x),
+	)

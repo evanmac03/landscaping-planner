@@ -232,14 +232,16 @@ func describe(index: int) -> String:
 	if bool(row["portrait"]):
 		size += " portrait"
 	var revision := String(row["revision"]).strip_edges()
-	var words := "%s  %s  %s on %s" % [
+	# Three spaces between the fields, the gap this program sets grouped things apart with: two is the
+	# run GuiWords reads as a typing accident, and this line is a listing a person reads a set off.
+	var words := "%s   %s   %s on %s" % [
 		String(row["number"]),
 		String(row["title"]),
 		PlotScaleScript.metric_label(float(row["scale"])),
 		size,
 	]
 	if not revision.is_empty():
-		words += "  rev " + revision
+		words += "   rev " + revision
 	return words
 
 

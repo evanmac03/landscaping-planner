@@ -273,6 +273,11 @@ var _menu_titles: Array[String] = []
 ## furniture writes the bar's offsets, so a second pass that read them back and lifted again would walk the bar
 ## down the screen one rotation at a time. What the lift adds to is what the scene drew.
 var _bar_offsets_as_drawn: Vector2 = Vector2(INF, INF)
+## The offsets the scene drew the palette with, remembered the first time the left column is placed for a
+## device, and for the same reason: that pass runs again on every change of the room's shape, so a placement
+## measured from its own output would walk the palette up the screen one turn at a time. Infinity until then,
+## which is a value no offset can hold.
+var _palette_offsets_as_drawn: Vector2 = Vector2(INF, INF)
 ## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
 ## one place that decides whether it is up is the panel's own `visible`.
 var _keys_panel: Control = null
@@ -1572,6 +1577,11 @@ func _size_the_chrome_for_the_device() -> void:
 	# and it is shown as this HUD starts. The same door a change of the room's shape uses, so that "every page
 	# lands below the bar" is true of every page rather than of most of them.
 	_the_canvas_changed_shape()
+	# The palette's two ends are held between the bar above it and the hint plate below it, on the frame after
+	# this one: the fonts were changed a moment ago, so neither the bar's foot nor the plate's top stands where
+	# the finished layout will put it, and a control asked for a size it has not laid out yet answers the size
+	# it had before. The desk's own numbers are the floor, so a desk keeps exactly the rectangle it drew.
+	place_the_left_column_for_a_device.call_deferred()
 	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
 
@@ -1609,6 +1619,71 @@ func lift_the_top_bar_by(inset: int) -> void:
 	var down: float = float(maxi(inset, 0))
 	top_bar.offset_top = _bar_offsets_as_drawn.x + down
 	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
+
+
+## The gap the scene already keeps between the top bar's foot and the palette, and between the palette's foot
+## and the hint plate: the bar's offsets end at 62 and the palette's begin at 70, the palette's end at 838 and
+## the plate's begins at 846. Stated once, because the pass below has to keep the same gap when it moves
+## either end, and only the scene's own numbers may say how big it is.
+const PALETTE_GAP := 8.0
+
+
+## The palette's top and bottom offsets, from the room above it and the room below it.
+##
+## Pure, and the whole of the placement: `place_the_left_column_for_a_device` reads the four numbers off the
+## things themselves and this decides what to do with them, so what a phone would be told can be held by a
+## test without being one - the split `PhoneHud.cutout_top` and `lift_the_top_bar_by` already keep.
+##
+## Both ends are **floors rather than assignments**. The top may only come down from where the scene drew it
+## and the foot may only come up, so a desk - whose bar and plate both still agree with the scene's own
+## numbers - is given exactly the offsets it was drawn with, to the pixel. The last line keeps one row of the
+## palette standing even where the bar and the plate leave less room than that, because a palette squeezed to
+## nothing is not a thing anyone can use, and the plate meeting it is the lesser of the two faults.
+static func offsets_for_the_left_column(
+	bar_foot: float,
+	plate_top: float,
+	drawn: Vector2,
+	room: float,
+	least: float,
+) -> Vector2:
+	var top: float = maxf(drawn.x, bar_foot + PALETTE_GAP)
+	var foot: float = minf(drawn.y, plate_top - PALETTE_GAP - room)
+	return Vector2(top, maxf(foot, top + least - room))
+
+
+## Hold the palette between the two things it may not be drawn over: the top bar above it and the hint plate
+## below it.
+##
+## The scene draws the palette's top at 70 and its foot 62 px above the canvas's foot, and both numbers are
+## right for a desk - where the bar's foot is 62 and the plate is one line 42 px tall. **Both grow on a
+## phone**, and neither was read back: the bar's buttons are a finger tall, so its foot is far below 70, and
+## the plate's words wrap onto three lines at the phone's type, so its top is far above the palette's foot.
+## Measured on the A16W held upright, the palette was drawn *over* the menu bar's own titles - so `File` and
+## `View` could not be pressed at all - and the wrapped plate was drawn over the palette's last rows. **No
+## instrument named either one**: a HUD plate meeting another has no candidate in `DrawnSurfaces`, and
+## `hud_layout_check` measures a desk's type, where both numbers still agree.
+##
+## Each end is read off the thing itself rather than restated - the bar's foot from its own rectangle, after
+## the lift that clears the device's own band, and the plate's top from its own, after its label has wrapped.
+## The offsets the scene drew are **remembered once**, for the reason `_bar_offsets_as_drawn` is: this runs
+## again on every change of the room's shape, and a placement measured from its own output would walk the
+## palette up the screen one turn at a time.
+##
+## Called by the frame after that pass, because the fonts were changed a moment before it.
+func place_the_left_column_for_a_device() -> void:
+	if palette == null or top_bar == null or hints == null:
+		return
+	if _palette_offsets_as_drawn.x == INF:
+		_palette_offsets_as_drawn = Vector2(palette.offset_top, palette.offset_bottom)
+	# All three are siblings under `Root`, so a neighbour's own rectangle is already in the space the
+	# palette's offsets are measured in, and the palette's parent area is the room they are measured against.
+	var bar_foot: float = top_bar.position.y + top_bar.size.y
+	var plate_top: float = hints.position.y
+	var room: float = palette.get_parent_area_size().y
+	var least: float = PhoneHudScript.row_height(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	var placed: Vector2 = offsets_for_the_left_column(bar_foot, plate_top, _palette_offsets_as_drawn, room, least)
+	palette.offset_top = placed.x
+	palette.offset_bottom = placed.y
 
 
 func size_for_a_finger(draw_up: bool) -> int:

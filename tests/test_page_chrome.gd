@@ -369,11 +369,7 @@ func test_the_three_rooms_a_page_is_placed_in_are_pinned() -> void:
 	add_child(page)
 	var bar: int = PageChromeScript.chrome_above(page)
 	var was: int = PageChromeScript.reserved_above
-	var measured: Array[Vector3i] = [
-		Vector3i(1600, 900, 62),
-		Vector3i(1444, 666, 70),
-		Vector3i(1185, 2567, 562),
-	]
+	var measured: Array[Vector3i] = [Vector3i(1600, 900, 62), Vector3i(1444, 666, 70), Vector3i(1185, 2567, 562)]
 	var rooms: Array[Vector2i] = []
 	var floors: Array[Vector2i] = []
 	for room: Vector3i in measured:
@@ -391,8 +387,7 @@ func test_the_three_rooms_a_page_is_placed_in_are_pinned() -> void:
 		var strip: int = measured[index].z
 		assert(
 			floor == Vector2i(room.x, room.y - bar - strip),
-			"the room less a page's own bar and the strip is what it may use: %s from %s"
-			% [str(floor), str(room)],
+			"the room less a page's own bar and the strip is what it may use: %s from %s" % [str(floor), str(room)],
 		)
 		assert(
 			floor.y + bar + strip == room.y,
@@ -747,6 +742,74 @@ func test_the_front_door_uses_the_room_on_a_phone() -> void:
 		"because it is given the whole room it landed in: %s against %s"
 		% [str(landed_at), str(PageChromeScript.content_room(door))],
 	)
+	remove_child(door)
+	_free_pages()
+	PhoneHudScript.force_density(0.0)
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+
+
+## The front door's first choice takes the keyboard whenever the door comes up.
+##
+## The fault this holds: a door opened with nothing in hand did nothing at all when Enter was pressed - measured
+## with a real key delivered to the running game. A door shown by the **shared show** had its buttons promoted
+## for it (`PageChrome` is the one place that does that), but a door shown by **its own route** - which is how
+## the audit opens every page, and how a page's own `open()` shows it - had not, and grabbing a button with no
+## keyboard of its own is an engine error, not a refusal. The audit reported exactly that on every page it
+## opened. So the handler asks `PageChrome` for the promotion first, and this holds both halves.
+func test_the_front_door_gives_its_first_choice_the_keyboard_even_shown_by_its_own_route() -> void:
+	var door: Window = StartWindowScript.new()
+	door.build()
+	_pages.append(door)
+	add_child(door)
+	# Shown the way a page's own route shows it: no shared show, so nothing has promoted the buttons, which are
+	# built with no keyboard of their own - the same as every other page's.
+	door.visible = true
+
+	var choices: Array[StringName] = door.choice_buttons()
+	assert(choices.size() > 0, "the door offers a choice for the keyboard to land on")
+	var first: Button = door.button_of(choices[0])
+	assert(first != null, "and that choice is a button: %s" % str(choices[0]))
+	assert(
+		first.focus_mode == Control.FOCUS_NONE,
+		"a page's button is built with no keyboard of its own, as the HUD's buttons are",
+	)
+
+	door._give_the_first_choice_the_keyboard()
+	assert(
+		first.focus_mode == Control.FOCUS_ALL,
+		"the door's own handler gives it one, through the one place that decides it: %d" % first.focus_mode,
+	)
+	assert(first.has_focus(), "and the first choice is what is in hand when the door opens")
+
+	remove_child(door)
+	_free_pages()
+
+
+## A page given the room keeps it when the room changes shape under it.
+##
+## `show_centred` and `placed_again` are two doors to one arithmetic, and the phone's cure - a page that has
+## outgrown the size it declared is given the room, because a wider page is a shorter page - has to survive
+## both. Measured on the A16W: a page standing 1080 screen px wide (the whole room) came back at 474 px, the
+## 540 it declares, as soon as the room changed shape under it. That is also how the front door is left at
+## 474 px of a 1080 px screen: it is shown during the HUD's `_ready` and the chrome pass that follows calls
+## `_the_canvas_changed_shape()`, which puts every page that is up back through `placed_again`.
+func test_a_page_given_the_room_keeps_it_when_the_room_changes_shape() -> void:
+	PhoneHudScript.force_density(384.6)
+	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+	var door: Window = StartWindowScript.new()
+	door.build()
+	_pages.append(door)
+	add_child(door)
+
+	var opened_at: Vector2i = PageChromeScript.show_centred(door)
+	assert(opened_at.x > StartWindowScript.SIZE.x, "the door opens wider than the 520 it declares: %d" % opened_at.x)
+	var put_back_at: Vector2i = PageChromeScript.placed_again(door)
+	assert(
+		put_back_at.x == opened_at.x,
+		"and a change of the room's shape under it keeps the width it was given: %s against %s"
+		% [str(put_back_at), str(opened_at)],
+	)
+
 	remove_child(door)
 	_free_pages()
 	PhoneHudScript.force_density(0.0)
