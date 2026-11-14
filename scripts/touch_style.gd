@@ -64,13 +64,7 @@ const DEAD_TEXT := Color(0.42, 0.42, 0.42, 1.0)
 ## `CheckButton` state every one of these items with a `StyleBoxEmpty`: what says whether one is on is its own
 ## tick, so there is no fill to repaint and inventing one would be a second answer to a question the engine
 ## already draws. Measured, not assumed - the test counts them as left alone.
-const BUTTON_KINDS: Array[StringName] = [
-	&"Button",
-	&"CheckBox",
-	&"CheckButton",
-	&"OptionButton",
-	&"MenuButton",
-]
+const BUTTON_KINDS: Array[StringName] = [&"Button", &"CheckBox", &"CheckButton", &"OptionButton", &"MenuButton"]
 
 
 ## The theme this program's controls wear.
@@ -128,7 +122,7 @@ static func _state(
 	kind: StringName,
 	item: StringName,
 	fill: Color,
-	border: Color
+	border: Color,
 ) -> void:
 	var theirs: StyleBox = defaults.get_stylebox(item, kind)
 	var recoloured: StyleBox = _recoloured(theirs, fill)
@@ -137,10 +131,8 @@ static func _state(
 		# borderless, so writing a border colour on one of them would be a colour nobody could ever see.
 		var flat := recoloured as StyleBoxFlat
 		var bordered: bool = (
-			flat.border_width_left > 0
-			or flat.border_width_right > 0
-			or flat.border_width_top > 0
-			or flat.border_width_bottom > 0
+			flat.border_width_left > 0 or flat.border_width_right > 0
+			or flat.border_width_top > 0 or flat.border_width_bottom > 0
 		)
 		if bordered:
 			flat.border_color = border

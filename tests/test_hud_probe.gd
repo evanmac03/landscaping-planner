@@ -442,3 +442,94 @@ func test_a_room_that_is_not_a_phones_names_nothing_in_a_kept_band() -> void:
 	assert(HudProbeScript.unsafe_lines(root, "a page").is_empty(), "no promise, no band to stand in")
 	assert(HudProbeScript.middle_lines(root, "a page").is_empty(), "and nothing to be aimed into")
 	_free_made()
+
+
+## A box that clips shows the part of its child standing inside it and draws nothing else, so a control below
+## its foot is **not on the glass at all** - it is reached by scrolling. Measured on the desk, the palette's own
+## column is 924 px tall inside a 768 px box, and `Place`, `Stop` and the plant list's caption `130 species.`
+## stand below its foot. They were reported as sharing rows with the foot line, which is a fault nobody could
+## see, and the tap list a driver follows offered them as targets. Every shape here is compared with another
+## shape in the same space, so a headless runner's 64 x 64 dummy display does not matter.
+func test_a_control_a_box_above_it_cuts_off_is_not_drawn_at_all() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	_control(root, box, Vector2(0.0, 0.0), Vector2(200.0, 200.0))
+	var below := Button.new()
+	below.text = "Place"
+	_control(box, below, Vector2(20.0, 260.0), Vector2(120.0, 40.0))
+
+	assert(not HudProbeScript.drawn(below), "a control entirely below the box is drawn nowhere")
+	assert(
+		HudProbeScript.drawn_rect(below).size == Vector2.ZERO,
+		"and the part of it that shows is nothing at all: %s" % str(HudProbeScript.drawn_rect(below)),
+	)
+	_free_made()
+
+
+func test_a_control_half_out_of_the_box_is_drawn_as_the_half_that_shows() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	_control(root, box, Vector2(0.0, 0.0), Vector2(200.0, 200.0))
+	# Two thirds of it is below the box's foot, so what is drawn is its top twenty rows.
+	var half := Button.new()
+	half.text = "Stop"
+	_control(box, half, Vector2(20.0, 180.0), Vector2(120.0, 40.0))
+
+	var shown: Rect2 = HudProbeScript.drawn_rect(half)
+	assert(HudProbeScript.drawn(half), "part of it is on the screen, so it is drawn")
+	# Compared with the same two rectangles in the same space rather than with a pair of subtracted numbers:
+	# a headless runner's display scales every rectangle, and a subtraction of two scaled numbers is not the
+	# same question as a shape against a shape.
+	assert(
+		shown == HudProbeScript.screen_rect(half).intersection(HudProbeScript.screen_rect(box)),
+		"and what shows is the part of it standing inside the box: %s" % str(shown),
+	)
+	_free_made()
+
+
+func test_a_control_standing_inside_its_box_is_drawn_as_the_whole_of_itself() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	_control(root, box, Vector2(0.0, 0.0), Vector2(200.0, 200.0))
+	var inside := Button.new()
+	inside.text = "Undo"
+	_control(box, inside, Vector2(20.0, 40.0), Vector2(120.0, 40.0))
+
+	assert(
+		HudProbeScript.drawn_rect(inside) == HudProbeScript.screen_rect(inside),
+		"a control nothing cuts is handed back exactly as it stands",
+	)
+	_free_made()
+
+
+## The engine's own parts are not controls of their own. Measured on the desk: `16.0` and `16.0  h` were
+## reported as two things sharing one cell, two targets a thumb cannot tell apart, and one control's size
+## counted twice - a `SpinBox` and the field it composes its number into, which is one control named twice.
+func test_a_spinboxs_own_field_is_the_engines_part_rather_than_a_second_control() -> void:
+	var box := SpinBox.new()
+	var field: LineEdit = box.get_line_edit()
+	assert(field != null, "a SpinBox has a field at all")
+	assert(HudProbeScript._the_engines_own(field), "and the field's name is the engine's own: %s" % field.name)
+	assert(not HudProbeScript._the_engines_own(box), "while the SpinBox itself is the program's: %s" % box.name)
+	box.free()
+
+
+## **Why this is a reading and not a walk.** `get_children(true)` reads internal children on purpose - a
+## `ScrollContainer`'s bars are internal and a driver needs their rectangles - so a rule applied to the walk
+## would take a control the *program* built with it, because a control *added* with no name of its own is named
+## `@Button@1` by the engine as well. Measured: putting the rule in the walk failed two tests in this very file.
+func test_a_control_the_suite_builds_carries_an_engine_name_and_is_still_the_programs() -> void:
+	var root: Control = _root()
+	var built := Button.new()
+	built.text = "Fit"
+	_control(root, built, Vector2(0.0, 0.0), Vector2(60.0, 40.0))
+	assert(
+		HudProbeScript._the_engines_own(built),
+		"a control added with no name of its own is engine-named: %s" % built.name,
+	)
+	built.name = "FitButton"
+	assert(not HudProbeScript._the_engines_own(built), "and one the program named is not: %s" % built.name)
+	_free_made()

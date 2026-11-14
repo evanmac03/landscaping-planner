@@ -41,10 +41,7 @@ func test_a_room_nobody_could_read_has_no_shape() -> void:
 ## half-opened state, no posture. So an answer here saying "folded" would be a guess dressed as a reading, and
 ## what this file has is exactly the two shapes a window's own lengths can show.
 func test_there_is_no_answer_that_claims_a_fold() -> void:
-	assert(
-		WindowPostureScript.SHAPES.size() == 2,
-		"two shapes and no third: %s" % str(WindowPostureScript.SHAPES),
-	)
+	assert(WindowPostureScript.SHAPES.size() == 2, "two shapes and no third: %s" % str(WindowPostureScript.SHAPES))
 	for shape: StringName in WindowPostureScript.SHAPES:
 		var words: String = WindowPostureScript.word(shape)
 		assert(words != "", "%s reads as something" % shape)

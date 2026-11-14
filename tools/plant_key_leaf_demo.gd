@@ -50,7 +50,8 @@ func _ready() -> void:
 		var button: Button = row.get_child(index) as Button
 		widest = maxf(widest, button.get_combined_minimum_size().x)
 		print(
-			"   %-46s min=%d wide, given %d" % [page.option_words(index), button.get_combined_minimum_size().x, button.size.x]
+			"   %-46s min=%d wide, given %d"
+			% [page.option_words(index), button.get_combined_minimum_size().x, button.size.x]
 		)
 	print("[leaf demo] the widest answer needs %d, the row has %d" % [widest, row.size.x])
 
@@ -71,7 +72,10 @@ func _ready() -> void:
 	var timer: Timer = Timer.new()
 	timer.wait_time = SECONDS_UP
 	timer.one_shot = true
-	timer.timeout.connect(func() -> void: get_tree().quit())
+	timer.timeout.connect(
+		func() -> void:
+			get_tree().quit(),
+	)
 	add_child(timer)
 	timer.start()
 

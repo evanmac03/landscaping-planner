@@ -102,14 +102,14 @@ func test_every_box_keeps_the_engines_geometry_and_changes_only_its_colour() -> 
 			if theirs == null:
 				# A `StyleBoxEmpty`: the engine states the item and draws nothing for it, because the answer
 				# is an icon - a `CheckBox`'s tick. No fill is invented for it, which is held here.
-				assert(
-					mine == null,
-					"%s %s draws nothing, so nothing is drawn for it here either" % [kind, state],
-				)
+				assert(mine == null, "%s %s draws nothing, so nothing is drawn for it here either" % [kind, state])
 				left_alone += 1
 				continue
 			assert(mine != null, "%s %s is repainted" % [kind, state])
-			assert(_same_geometry(mine, theirs), "%s %s keeps the engine's margins, borders and corners" % [kind, state])
+			assert(
+				_same_geometry(mine, theirs),
+				"%s %s keeps the engine's margins, borders and corners" % [kind, state],
+			)
 			assert(
 				mine.bg_color != theirs.bg_color or mine.border_color != theirs.border_color,
 				"%s %s is actually repainted" % [kind, state],
@@ -229,8 +229,7 @@ func test_a_canvas_layer_stops_the_theme_walk() -> void:
 		"a button under the control inside the layer now wears the program's press",
 	)
 	assert(
-		(on_the_page.get_theme_stylebox(&"pressed", &"Button") as StyleBoxFlat).bg_color
-		== TouchStyleScript.PRESSED_BG,
+		(on_the_page.get_theme_stylebox(&"pressed", &"Button") as StyleBoxFlat).bg_color == TouchStyleScript.PRESSED_BG,
 		"and so does a button on a page beside it",
 	)
 	_free_made()
@@ -278,17 +277,15 @@ func _same_geometry(mine: StyleBoxFlat, theirs: StyleBoxFlat) -> bool:
 		and mine.content_margin_bottom == theirs.content_margin_bottom
 		and mine.border_width_left == theirs.border_width_left
 		and mine.border_width_right == theirs.border_width_right
-		and mine.border_width_top == theirs.border_width_top
-		and mine.border_width_bottom == theirs.border_width_bottom
+		and mine.border_width_top == theirs.border_width_top and mine.border_width_bottom == theirs.border_width_bottom
 		and mine.corner_radius_top_left == theirs.corner_radius_top_left
 		and mine.corner_radius_top_right == theirs.corner_radius_top_right
 		and mine.corner_radius_bottom_right == theirs.corner_radius_bottom_right
 		and mine.corner_radius_bottom_left == theirs.corner_radius_bottom_left
 		and mine.expand_margin_left == theirs.expand_margin_left
 		and mine.expand_margin_right == theirs.expand_margin_right
-		and mine.expand_margin_top == theirs.expand_margin_top
-		and mine.expand_margin_bottom == theirs.expand_margin_bottom
-		and mine.anti_aliasing == theirs.anti_aliasing
+		and mine.expand_margin_top == theirs.expand_margin_top and mine.expand_margin_bottom
+		== theirs.expand_margin_bottom and mine.anti_aliasing == theirs.anti_aliasing
 	)
 
 

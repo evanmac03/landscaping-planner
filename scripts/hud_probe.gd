@@ -380,7 +380,7 @@ static func _compose(xform: Transform2D, rect: Rect2) -> Rect2:
 
 ## Whether a control is one a finger could hit rather than something to read or lay out.
 static func _tappable(control: Control) -> bool:
-	if not control.is_visible_in_tree():
+	if not drawn(control):
 		return false
 	for kind: String in TAPPABLE:
 		if control.is_class(kind):
@@ -414,6 +414,11 @@ static func _caption(control: Control) -> String:
 ## control and the field is a part of it. So both walks that look for words leave it out - the one that reports
 ## what is drawn over what, where two surfaces must be two things, and the one that reports words that are
 ## wrong, where the text is not this program's to police. Reading it in one place is what keeps the two agreeing.
+##
+## **The name is the only tell, and it is a narrow one, so it is applied narrowly.** A control the program built
+## for a test is named `@Button@1` by the engine too, and `get_children` deliberately reads internal children
+## because a `ScrollContainer`'s bars are internal and a driver needs their rectangles - so the walk cannot use
+## this, only the readings whose question is *what a control says*.
 static func _the_engines_own(control: Control) -> bool:
 	return String(control.name).begins_with("@")
 
@@ -433,14 +438,14 @@ static func words_in(root: Node) -> Array[Dictionary]:
 	if root == null:
 		return found
 	for control: Control in _controls_under(root):
-		if not control.is_visible_in_tree():
+		if not drawn(control):
 			continue
 		if _the_engines_own(control):
 			continue
 		var said: String = _caption(control)
 		if said.is_empty() or said == control.get_class():
 			continue
-		var rect: Rect2 = screen_rect(control)
+		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
 		found.append(DrawnSurfacesScript.words(said, Rect2i(rect)))
@@ -623,7 +628,7 @@ static func words_lines(root: Node, scope: String) -> PackedStringArray:
 	if root == null:
 		return lines
 	for control: Control in _controls_under(root):
-		if not control.is_visible_in_tree():
+		if not drawn(control):
 			continue
 		if _the_engines_own(control):
 			continue
@@ -1234,6 +1239,15 @@ static func _targets_under(root: Node, scope: String) -> Array:
 	for control: Control in _controls_under(root):
 		if not _a_tap_stops_here(control):
 			continue
+		# **A part the engine built is not a target of its own.** A `SpinBox`'s field is a `LineEdit`, so it
+		# would be reported beside the `SpinBox` as a second target in the same place: 68 px wide where the
+		# `SpinBox` is 87, four pixels from the next row where the `SpinBox` is four from it, and one control's
+		# size counted twice over. The `SpinBox` is what a finger presses; the field is its face. Measured on the
+		# desk's finger pass: `small` named 15 things and `close` 10 pairs before this, and 10 and 5 after, with
+		# every `@SpinBoxLineEdit@…` gone from both - and the real four-pixel pair of `StillSize` and
+		# `RenderStill`, which are two different controls, still named.
+		if _the_engines_own(control):
+			continue
 		if not (control is BaseButton or control is LineEdit):
 			continue
 		var rect: Rect2 = screen_rect(control)
@@ -1260,6 +1274,46 @@ static func _clipped(control: Control) -> bool:
 			return true
 		parent = parent.get_parent()
 	return false
+
+
+## Whether a box above a control clips it **out of the picture**, and the part that is left showing.
+##
+## This is the sharper half of `_clipped`, and the two answer different questions on purpose. `_clipped` asks
+## whether anything above a control clips at all - which is what `InView` needs, because for a control in a
+## scroller being past the edge is the design and the question there is whether the room can hold it. This asks
+## whether the control is outside what the clipping box actually shows, which is what anything about what is
+## *drawn* needs: a `ScrollContainer` draws the part of its child standing inside it and clips the rest away, so
+## a control below a scroller's foot is **not on the glass at all** - it is reached by scrolling.
+##
+## Measured on the desk: the palette's own column is 924 px tall inside a 768 px box, so `Place`, `Stop` and the
+## plant list's caption `130 species.` stand below the scroller's foot. They are drawn nowhere, and were reported
+## as sharing rows with the foot line - a fault nobody could see, in the probe's own `overlap` lines and in the
+## tap list a driver follows. The rectangle handed back is the part that *is* drawn, so a control half in and
+## half out is compared as the half a person can see.
+static func drawn_rect(control: Control) -> Rect2:
+	var inside: Rect2 = screen_rect(control)
+	var parent: Node = control.get_parent()
+	while parent != null:
+		var box: Control = parent as Control
+		if box != null and box.clip_contents:
+			var shown: Rect2 = screen_rect(box)
+			inside = inside.intersection(shown)
+			# **Empty, and not "smaller than a pixel".** A floor counted in pixels needs a screen to count it on,
+			# and this is asked by a headless runner too, whose dummy display scales every rectangle by 0.04: two
+			# thirds of a control showing was 0.8 "pixels" there and read as nothing at all. Whether anything of a
+			# control is in the picture is a question of two shapes, which survives any scale.
+			if inside.size.x <= 0.0 or inside.size.y <= 0.0:
+				return Rect2()
+		parent = parent.get_parent()
+	return inside
+
+
+## Whether a control is drawn at all: visible in the tree, and not clipped out of the picture by a box above it.
+static func drawn(control: Control) -> bool:
+	if not control.is_visible_in_tree():
+		return false
+	var inside: Rect2 = drawn_rect(control)
+	return inside.size.x > 0.0 and inside.size.y > 0.0
 
 
 ## Whether a tap stops at a control at all: something on the screen that takes the mouse. The engine's own

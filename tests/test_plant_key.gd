@@ -17,7 +17,6 @@ const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
 const KeyScript := preload("res://scripts/plant_key.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
 
-
 # --- the fixture -------------------------------------------------------------------------
 
 
@@ -69,13 +68,7 @@ func _catalogue() -> CatalogueScript:
 	hosta.water = SpeciesScript.WATER_MEDIUM
 	_add(catalogue, hosta)
 
-	var thyme: SpeciesScript = _plant(
-		"THYMUS-SERPYLLUM",
-		"Thymus serpyllum",
-		"Creeping thyme",
-		SpeciesScript.HERB,
-		30,
-	)
+	var thyme: SpeciesScript = _plant("THYMUS-SERPYLLUM", "Thymus serpyllum", "Creeping thyme", SpeciesScript.HERB, 30)
 	thyme.sun = SpeciesScript.FULL_SUN
 	thyme.water = SpeciesScript.WATER_LOW
 	thyme.edible_parts = SpeciesScript.EAT_LEAF
@@ -92,13 +85,7 @@ func _catalogue() -> CatalogueScript:
 	fescue.water = SpeciesScript.WATER_LOW
 	_add(catalogue, fescue)
 
-	var rosemary: SpeciesScript = _plant(
-		"SALVIA-ROSMARINUS",
-		"Salvia rosmarinus",
-		"Rosemary",
-		SpeciesScript.SHRUB,
-		120,
-	)
+	var rosemary: SpeciesScript = _plant("SALVIA-ROSMARINUS", "Salvia rosmarinus", "Rosemary", SpeciesScript.SHRUB, 120)
 	rosemary.sun = SpeciesScript.FULL_SUN
 	rosemary.water = SpeciesScript.WATER_LOW
 	rosemary.edible_parts = SpeciesScript.EAT_LEAF
@@ -110,17 +97,17 @@ func _catalogue() -> CatalogueScript:
 ## Two plants the list cannot tell apart: every question this program asks has the same answer for both.
 func _twins() -> CatalogueScript:
 	var catalogue: CatalogueScript = CatalogueScript.make()
-	var sage: SpeciesScript = _plant("SALVIA-OFFICINALIS", "Salvia officinalis", "Common sage", SpeciesScript.SHRUB, 120)
-	sage.sun = SpeciesScript.FULL_SUN
-	sage.water = SpeciesScript.WATER_LOW
-	_add(catalogue, sage)
-	var rosemary: SpeciesScript = _plant(
-		"SALVIA-ROSMARINUS",
-		"Salvia rosmarinus",
-		"Rosemary",
+	var sage: SpeciesScript = _plant(
+		"SALVIA-OFFICINALIS",
+		"Salvia officinalis",
+		"Common sage",
 		SpeciesScript.SHRUB,
 		120,
 	)
+	sage.sun = SpeciesScript.FULL_SUN
+	sage.water = SpeciesScript.WATER_LOW
+	_add(catalogue, sage)
+	var rosemary: SpeciesScript = _plant("SALVIA-ROSMARINUS", "Salvia rosmarinus", "Rosemary", SpeciesScript.SHRUB, 120)
 	rosemary.sun = SpeciesScript.FULL_SUN
 	rosemary.water = SpeciesScript.WATER_LOW
 	_add(catalogue, rosemary)
@@ -153,7 +140,6 @@ func _ids(plants: Array) -> PackedStringArray:
 		out.append(String(plant.id))
 	return out
 
-
 # --- the join with the one filter ---------------------------------------------------------
 
 
@@ -164,10 +150,7 @@ func test_the_answers_become_the_one_filters_own_criteria() -> void:
 
 
 func test_the_criteria_of_two_answers_are_both_kept() -> void:
-	var criteria: Dictionary = KeyScript.criteria_for({
-		KeyScript.KIND: &"tree",
-		KeyScript.CONIFER: &"yes",
-	})
+	var criteria: Dictionary = KeyScript.criteria_for({ KeyScript.KIND: &"tree", KeyScript.CONIFER: &"yes" })
 	assert(int(criteria["category"]) == SpeciesScript.TREE)
 	assert(bool(criteria["conifer"]), "whether it is a conifer is the filter's own answer")
 
@@ -197,7 +180,6 @@ func test_a_kind_answer_keeps_only_that_kind() -> void:
 	assert(
 		_ids(KeyScript.remaining(catalogue, answers)) == PackedStringArray(["BUXUS-SEMPERVIRENS", "SALVIA-ROSMARINUS"]),
 	)
-
 
 # --- which question is asked next ---------------------------------------------------------
 
@@ -231,7 +213,6 @@ func test_a_question_that_cannot_narrow_the_field_is_not_asked() -> void:
 	var answers: Dictionary = { KeyScript.KIND: &"tree" }
 	assert(KeyScript.split_score(KeyScript.remaining(catalogue, answers), KeyScript.LIGHT) == 0.0)
 	assert(KeyScript.next_question(catalogue, answers) == KeyScript.CONIFER)
-
 
 # --- answers that are offered -----------------------------------------------------------------
 
@@ -287,7 +268,6 @@ func test_a_conifer_is_a_question_about_the_genus_and_not_about_a_tag() -> void:
 	var broadleaves: Dictionary = { KeyScript.CONIFER: &"no" }
 	assert(_ids(KeyScript.remaining(catalogue, broadleaves)).has("BUXUS-SEMPERVIRENS"))
 
-
 # --- what the key says -------------------------------------------------------------------------
 
 
@@ -300,7 +280,10 @@ func test_every_question_has_a_prompt_and_every_answer_has_words() -> void:
 		assert(options.size() >= 2, "the question %s offers a choice" % question)
 		for option: Dictionary in options:
 			assert(not String(option["label"]).is_empty(), "%s.%s has words" % [question, option["key"]])
-			assert(not (option["criteria"] as Dictionary).is_empty(), "%s.%s filters something" % [question, option["key"]])
+			assert(
+				not (option["criteria"] as Dictionary).is_empty(),
+				"%s.%s filters something" % [question, option["key"]],
+			)
 
 
 func test_a_fresh_key_asks_what_kind_of_plant_it_is() -> void:
@@ -366,7 +349,6 @@ func test_changing_an_answer_does_not_move_it_to_the_end() -> void:
 	var again: Dictionary = KeyScript.with_answer(answers, KeyScript.KIND, &"tree")
 	assert(KeyScript.asked(again) == KeyScript.asked(answers), "the order is unchanged")
 	assert(StringName(again[KeyScript.KIND]) == &"tree", "and the answer is the new one")
-
 
 # --- the leaves ---------------------------------------------------------------------------
 
@@ -459,11 +441,7 @@ func test_every_leaf_trait_is_a_criterion_the_filter_understands() -> void:
 	# The key and the filter have to agree about the words, or the filter refuses the criteria the key
 	# hands it and every leaf answer finds nothing at all.
 	for question: StringName in KeyScript.LEAF_QUESTIONS:
-		assert(
-			CatalogueScript.unknown_criterion({ question: 1 }) == "",
-			"the filter knows %s" % question,
-		)
-
+		assert(CatalogueScript.unknown_criterion({ question: 1 }) == "", "the filter knows %s" % question)
 
 # --- the flower questions -----------------------------------------------------------------
 
@@ -564,10 +542,7 @@ func test_the_season_answer_is_the_seasons_own_months() -> void:
 	# The answer is a season, because that is what a person knows; the filter is what turns it into months.
 	# Both trees flower in May, so spring keeps both and summer keeps neither.
 	var catalogue: CatalogueScript = _two_flowers_and_a_fern()
-	assert(
-		catalogue.filter(KeyScript.criteria_for({ KeyScript.BLOOM: &"spring" })).size() == 2,
-		"both trees flower in spring",
-	)
+	assert(catalogue.filter(KeyScript.criteria_for({ KeyScript.BLOOM: &"spring" })).size() == 2, "both trees flower in spring")
 	assert(
 		catalogue.filter(KeyScript.criteria_for({ KeyScript.BLOOM: &"summer" })).is_empty(),
 		"neither flowers in summer, and the fern states no month at all",
@@ -642,7 +617,6 @@ func test_every_answer_to_every_leaf_question_has_its_drawing() -> void:
 	for option: StringName in KeyScript.option_keys(KeyScript.KIND):
 		assert(KeyScript.picture_for(KeyScript.KIND, option) == "", "and no drawing is claimed for '%s'" % option)
 
-
 # --- the bed the plant is going in --------------------------------------------------------
 
 
@@ -694,10 +668,9 @@ func test_a_spot_keeps_the_plants_that_suit_it_and_no_others() -> void:
 func test_a_spot_nothing_suits_says_so_rather_than_showing_an_empty_key() -> void:
 	var catalogue: CatalogueScript = _sun_and_shade()
 	# Dark and dry: the shade-lover drowns in a dry bed and the sunflower will not take the shade.
-	var bleak: ProfileScript = ProfileScript.make({
-		"sun": SpeciesScript.FULL_SHADE,
-		"moisture": SpeciesScript.WATER_LOW,
-	})
+	var bleak: ProfileScript = ProfileScript.make(
+		{ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_LOW }
+	)
 	assert(KeyScript.suiting(catalogue, bleak).is_empty(), "nothing survives a dark bed that also dries out")
 	var words: String = KeyScript.spot_words(catalogue, bleak, "the bed")
 	assert(words.contains("Nothing in the list suits the bed"), "and the page says which fact did it: %s" % words)
@@ -715,7 +688,6 @@ func test_a_spot_silent_about_the_light_cannot_be_checked_and_says_what_is_missi
 	assert(words.contains("cannot be checked yet"), "so the page says that rather than nothing suits: %s" % words)
 	assert(words.contains("how much sun"), "and names the first gap: %s" % words)
 	assert(words.contains("how wet"), "and the second: %s" % words)
-
 
 # --- a shortlist somebody else made -------------------------------------------------------
 

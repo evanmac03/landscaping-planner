@@ -193,6 +193,10 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 	if root == null:
 		print("LAYOUT: no Hud/Root")
 		return { "name": "HUD layout", "ok": false, "clashes": 0, "overflow": 1, "summary": "no Hud/Root in the scene" }
+	# The one question about the machine, asked here and handed to whichever reading depends on it, because a
+	# headless run's dummy display is 64 x 64 and every figure taken from the screen would otherwise be a fault
+	# nobody has. The answer itself belongs to `HudProbe._a_real_screen`.
+	var there_is_a_screen: bool = HudProbeScript._a_real_screen()
 	# The Hud rewrites panel visibility every frame; stop it so a forced panel stays forced.
 	var hud: Node = main.get_node_or_null(^"Hud")
 	if hud != null:
@@ -264,6 +268,30 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			"  PaletteColumn wants %6.1f px, Palette panel is %6.1f px  ->  %s"
 			% [column_wants, palette_panel.size.x, column_fits]
 		)
+		# **And the height**, which the width above cannot see. It is a **reading and not a fault**, because the
+		# palette's own box is a scroller: a `ScrollContainer` draws the part of its child standing inside it and
+		# clips the rest away, so a column taller than its box is how a long palette is *meant* to work and the
+		# rest of it is reached by scrolling. The number is printed because it is what says whether the palette
+		# has outgrown the room between the bar and the foot line - the column wants 924 px on the desk in a
+		# 768 px box, so its last 156 px are reached by scrolling rather than by standing on the screen.
+		#
+		# The screen is asked for first, because only a screen gives the box the height a wrapped foot line left
+		# it. On a headless dummy display this reads as a number nobody has, which is why it is asked.
+		if there_is_a_screen:
+			var column_tall: float = palette_column.get_combined_minimum_size().y
+			var below: float = column_tall - palette_panel.size.y
+			print(
+				"  PaletteColumn is %6.1f px tall, Palette box is %6.1f px  ->  %s"
+				% [
+					column_tall,
+					palette_panel.size.y,
+					(
+						"all of it stands on the screen"
+						if below <= 0.0
+						else "%d px of it below the foot, reached by scrolling" % roundi(below)
+					),
+				]
+			)
 		palette_panel.visible = palette_was
 	var hints_panel: Control = root.get_node_or_null(^"DraftHints") as Control
 	var box: Control = root.find_child("DraftHintsLabel", true, false) as Control
@@ -493,7 +521,7 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			hud._size_the_chrome_for_the_device()
 		for i in 4:
 			await tree.process_frame
-	var place: Dictionary = palette_between_the_bar_and_the_foot(root, HudProbeScript._a_real_screen())
+	var place: Dictionary = palette_between_the_bar_and_the_foot(root, there_is_a_screen)
 	var palette_loose := 0
 	if not bool(place["asked"]):
 		print("  the palette was not asked about: %s" % String(place.get("why", "it was not on the screen")))

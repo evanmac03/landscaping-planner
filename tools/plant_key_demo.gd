@@ -84,9 +84,7 @@ func _prove() -> void:
 	# are named here, one of them deliberately a plant this list does not stock, and the page is asked what it
 	# does with them. The join from what a model said to an id is `PlantIDResolver`'s and stays the capture
 	# page's business: the key is handed ids and nothing else.
-	var reading: Array[StringName] = [
-		&"thymus-serpyllum", &"buxus-sempervirens", &"deliberately-not-in-this-list"
-	]
+	var reading: Array[StringName] = [&"thymus-serpyllum", &"buxus-sempervirens", &"deliberately-not-in-this-list"]
 	page.from_a_shortlist(reading, "photograph")
 	print("DEMO a reading offered %d plants, one of them absent: %s" % [reading.size(), str(reading)])
 	print("DEMO the key says: %s" % page.shortlist_text())

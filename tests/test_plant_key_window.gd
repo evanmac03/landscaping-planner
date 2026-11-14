@@ -46,7 +46,13 @@ func _catalogue() -> CatalogueScript:
 	thyme.water = SpeciesScript.WATER_LOW
 	thyme.edible_parts = SpeciesScript.EAT_LEAF
 	assert(catalogue.add(thyme), "the thyme is a plant the catalogue takes")
-	var marjoram: SpeciesScript = _plant("ORIGANUM-VULGARE", "Origanum vulgare", "Wild marjoram", SpeciesScript.HERB, 30)
+	var marjoram: SpeciesScript = _plant(
+		"ORIGANUM-VULGARE",
+		"Origanum vulgare",
+		"Wild marjoram",
+		SpeciesScript.HERB,
+		30,
+	)
 	marjoram.sun = SpeciesScript.FULL_SUN
 	marjoram.water = SpeciesScript.WATER_LOW
 	marjoram.edible_parts = SpeciesScript.EAT_LEAF
@@ -74,7 +80,6 @@ func _answer_for(page: PageScript, words: String) -> int:
 		if page.option_words(index).contains(words):
 			return index
 	return -1
-
 
 # --- leaving a question out ---------------------------------------------------------------
 
@@ -125,7 +130,6 @@ func test_saying_not_sure_with_nothing_to_leave_out_says_so() -> void:
 	assert(page.status_text() == PageScript.NOTHING_TO_LEAVE_OUT, "and the page says why rather than doing nothing")
 	page.free()
 
-
 # --- the drawings beside the answers ------------------------------------------------------
 
 
@@ -156,10 +160,7 @@ func test_an_answer_that_has_been_drawn_shows_the_drawing() -> void:
 	assert(StringName(page.the_state()["question"]) == &"leaf_venation", "the key has come to the veins")
 	assert(page.option_count() == 2, "and offers the two answers that are left")
 	for index: int in page.option_count():
-		assert(
-			page.option_picture(index) != null,
-			"the answer '%s' shows its drawing" % page.option_words(index),
-		)
+		assert(page.option_picture(index) != null, "the answer '%s' shows its drawing" % page.option_words(index))
 	page.free()
 
 
@@ -290,10 +291,7 @@ func test_use_this_plant_names_the_plant_and_puts_the_page_away() -> void:
 			closed[0] += 1,
 	)
 	assert(not page.use_this_plant(), "nothing is named yet, so there is nothing to use")
-	assert(
-		page.status_text().contains("once the answers"),
-		"and the page says why: %s" % page.status_text(),
-	)
+	assert(page.status_text().contains("once the answers"), "and the page says why: %s" % page.status_text())
 	page.choose(_answer_for(page, TREE_WORDS))
 	page.choose(_answer_for(page, NEEDLES))
 	assert(page.use_this_plant(), "one plant is left, so it can be used")
@@ -323,7 +321,6 @@ func test_a_page_with_no_list_says_so_rather_than_showing_nothing() -> void:
 	assert(page.prompt_text().is_empty(), "and asks nothing")
 	page.free()
 
-
 # --- the bed the plant is going in --------------------------------------------------------
 
 
@@ -342,7 +339,7 @@ func test_the_page_says_how_much_of_the_list_states_its_leaves() -> void:
 	assert(page.states_text() == expected, "the page says the module's own sentence")
 	assert(
 		page.states_text().contains("states no leaf"),
-		"which for a list nobody has read says so: %s" % page.states_text()
+		"which for a list nobody has read says so: %s" % page.states_text(),
 	)
 	var line: Label = page.find_child("States", true, false) as Label
 	assert(line != null, "and there is a line on the page to read it from")
@@ -402,10 +399,12 @@ func test_a_spot_nothing_suits_does_not_leave_an_empty_key() -> void:
 	# The failure this holds off: narrowing a key to a spot nothing in the list suits would be a page with no
 	# plants on it, which somebody would have to work out how to get out of.
 	var page: PageScript = _page()
-	page.suit_to({
-		"profile": ProfileScript.make({ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_LOW }),
-		"place": "the bed",
-	})
+	page.suit_to(
+		{
+			"profile": ProfileScript.make({ "sun": SpeciesScript.FULL_SHADE, "moisture": SpeciesScript.WATER_LOW }),
+			"place": "the bed",
+		}
+	)
 	assert(not page.can_narrow(), "nothing in this list suits a dark, dry bed")
 	assert(page.the_button("SuitHere").disabled, "so the narrowing is off rather than empty")
 	assert(
@@ -415,7 +414,6 @@ func test_a_spot_nothing_suits_does_not_leave_an_empty_key() -> void:
 	assert(page.field_count() == 5, "with the whole list still in the key")
 	assert(not page.is_narrowed(), "and the key is not narrowed by a press that could not work")
 	page.free()
-
 
 # --- a shortlist somebody else made -------------------------------------------------------
 

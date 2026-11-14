@@ -76,10 +76,7 @@ func test_a_choice_survives_the_file() -> void:
 		ReadingSizeScript.factor() == ReadingSizeScript.factor_for(ReadingSizeScript.LARGEST),
 		"with the answer's own factor",
 	)
-	assert(
-		ReadingSizeScript.load_kept(HERE) == ReadingSizeScript.LARGEST,
-		"and the program reads it where it starts",
-	)
+	assert(ReadingSizeScript.load_kept(HERE) == ReadingSizeScript.LARGEST, "and the program reads it where it starts")
 	_clear()
 
 

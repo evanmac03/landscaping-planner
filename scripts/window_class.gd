@@ -44,10 +44,7 @@ const EXTRA_LARGE_DP := 1600.0
 static func dp_for(room: Vector2i, scale: float, density: float) -> Vector2:
 	if room.x <= 0 or room.y <= 0 or scale <= 0.0 or density <= 0.0:
 		return Vector2.ZERO
-	return Vector2(
-		float(room.x) * scale / density * 160.0,
-		float(room.y) * scale / density * 160.0,
-	)
+	return Vector2(float(room.x) * scale / density * 160.0, float(room.y) * scale / density * 160.0)
 
 
 ## The class a length in dp has, or **no class at all** for a length nobody could read.

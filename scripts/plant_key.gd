@@ -124,13 +124,7 @@ const QUESTIONS: Array[StringName] = [
 
 ## The leaf questions on their own: the ones that read something a catalogue entry may not state, and so
 ## the ones `askable` can decide not to ask.
-const LEAF_QUESTIONS: Array[StringName] = [
-	LEAF_ARRANGEMENT,
-	LEAF_COMPLEXITY,
-	LEAF_SHAPE,
-	LEAF_MARGIN,
-	LEAF_VENATION,
-]
+const LEAF_QUESTIONS: Array[StringName] = [LEAF_ARRANGEMENT, LEAF_COMPLEXITY, LEAF_SHAPE, LEAF_MARGIN, LEAF_VENATION]
 
 ## The four things a set of answers can amount to.
 ##
@@ -165,7 +159,6 @@ const UNSURE_WORDS := "not sure"
 ## Where the drawings of an answer live. A picture is named for the **trait and the value** it shows, so one
 ## question's drawings cannot be another's.
 const PICTURE_DIR := "res://assets/generated/"
-
 
 # --- the questions ----------------------------------------------------------------------------
 
@@ -249,11 +242,9 @@ static func _kind_options() -> Array[Dictionary]:
 	for value: Variant in PlantSpecies.CATEGORY_NAMES.keys():
 		var kind: int = int(value)
 		var label: String = String(PlantSpecies.CATEGORY_NAMES[kind])
-		out.append({
-			"key": StringName(label.to_lower().replace(" ", "_")),
-			"label": label,
-			"criteria": { "category": kind },
-		})
+		out.append(
+			{ "key": StringName(label.to_lower().replace(" ", "_")), "label": label, "criteria": { "category": kind } }
+		)
 	return out
 
 
@@ -264,11 +255,9 @@ static func _light_options() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for bit: int in [PlantSpecies.FULL_SUN, PlantSpecies.PART_SHADE, PlantSpecies.FULL_SHADE]:
 		var label: String = String(PlantSpecies.SUN_NAMES[bit])
-		out.append({
-			"key": StringName(label.to_lower().replace(" ", "_")),
-			"label": label,
-			"criteria": { "sun": bit },
-		})
+		out.append(
+			{ "key": StringName(label.to_lower().replace(" ", "_")), "label": label, "criteria": { "sun": bit } }
+		)
 	return out
 
 
@@ -277,11 +266,13 @@ static func _water_options() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for level: int in [PlantSpecies.WATER_LOW, PlantSpecies.WATER_MEDIUM, PlantSpecies.WATER_HIGH]:
 		var label: String = String(PlantSpecies.WATER_NAMES[level])
-		out.append({
-			"key": StringName(label.to_lower().replace(" ", "_")),
-			"label": label,
-			"criteria": { "water_min": level, "water_max": level },
-		})
+		out.append(
+			{
+				"key": StringName(label.to_lower().replace(" ", "_")),
+				"label": label,
+				"criteria": { "water_min": level, "water_max": level },
+			}
+		)
 	return out
 
 
@@ -311,11 +302,7 @@ static func _height_options() -> Array[Dictionary]:
 static func _flower_options() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for name: StringName in PlantSpecies.FLOWER_COLOURS:
-		out.append({
-			"key": name,
-			"label": String(name),
-			"criteria": { "flower_colour": name },
-		})
+		out.append({ "key": name, "label": String(name), "criteria": { "flower_colour": name } })
 	return out
 
 
@@ -326,11 +313,7 @@ static func _bloom_options() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for name: Variant in PlantSpecies.SEASONS.keys():
 		var season: StringName = StringName(name)
-		out.append({
-			"key": season,
-			"label": String(season),
-			"criteria": { "bloom_season": season },
-		})
+		out.append({ "key": season, "label": String(season), "criteria": { "bloom_season": season } })
 	return out
 
 
@@ -346,11 +329,13 @@ static func _leaf_options(question: StringName) -> Array[Dictionary]:
 		var value: int = int(bit)
 		var criteria: Dictionary = { }
 		criteria[question] = value
-		out.append({
-			"key": StringName(String(names[value]).to_lower().replace(" ", "_")),
-			"label": String(names[value]),
-			"criteria": criteria,
-		})
+		out.append(
+			{
+				"key": StringName(String(names[value]).to_lower().replace(" ", "_")),
+				"label": String(names[value]),
+				"criteria": criteria,
+			}
+		)
 	return out
 
 
@@ -391,7 +376,6 @@ static func _option_for(question: StringName, option: StringName) -> Dictionary:
 		if StringName(entry["key"]) == option:
 			return entry
 	return { }
-
 
 # --- the spot the plant is going in ------------------------------------------------------------
 
@@ -465,7 +449,6 @@ static func spot_words(catalogue: PlantCatalogue, profile: TerrainProfile, place
 		return "All %s suit %s (%s)." % [count_text(total), where, profile.describe()]
 	return "%d of %s suit %s (%s)." % [suited, count_text(total), where, profile.describe()]
 
-
 # --- a shortlist somebody else made ------------------------------------------------------------
 
 
@@ -523,7 +506,6 @@ static func shortlist_words(catalogue: PlantCatalogue, ids: Array, source: Strin
 		count_text(offered),
 		known,
 	]
-
 
 # --- reading and writing the answers ------------------------------------------------------------
 
@@ -584,7 +566,6 @@ static func without(answers: Dictionary, question: StringName) -> Dictionary:
 	var out: Dictionary = answers.duplicate()
 	out.erase(question)
 	return out
-
 
 # --- the arithmetic ----------------------------------------------------------------------------
 
@@ -723,7 +704,12 @@ static func live_options(catalogue: PlantCatalogue, question: StringName, answer
 
 
 ## How many plants would be left if this answer were chosen.
-static func leaves_after(catalogue: PlantCatalogue, question: StringName, option: StringName, answers: Dictionary) -> int:
+static func leaves_after(
+	catalogue: PlantCatalogue,
+	question: StringName,
+	option: StringName,
+	answers: Dictionary,
+) -> int:
 	return remaining(catalogue, with_answer(answers, question, option)).size()
 
 
@@ -738,11 +724,13 @@ static func state(catalogue: PlantCatalogue, answers: Dictionary) -> Dictionary:
 	var options: Array[Dictionary] = []
 	if question != &"":
 		for option: StringName in live_options(catalogue, question, answers):
-			options.append({
-				"key": option,
-				"label": option_text(question, option),
-				"leaves": leaves_after(catalogue, question, option, answers),
-			})
+			options.append(
+				{
+					"key": option,
+					"label": option_text(question, option),
+					"leaves": leaves_after(catalogue, question, option, answers),
+				}
+			)
 	return {
 		"verdict": verdict_of(left, question),
 		"count": left.size(),
@@ -777,8 +765,7 @@ static func words(catalogue: PlantCatalogue, answers: Dictionary) -> String:
 	match verdict_of(left, question):
 		NONE:
 			return (
-				"Nothing in the plant list matches all of that. Take the last answer back, or start the key "
-				+ "again."
+				"Nothing in the plant list matches all of that. Take the last answer back, or start the key " + "again."
 			)
 		IDENTIFIED:
 			return "That is %s." % left[0].display_name()

@@ -342,7 +342,6 @@ func _refresh_states() -> void:
 	if _states_caption != null:
 		_states_caption.visible = not words.is_empty()
 
-
 # --- the bed the plant is going in -----------------------------------------------------------
 
 

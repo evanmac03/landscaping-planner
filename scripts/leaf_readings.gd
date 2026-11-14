@@ -36,7 +36,6 @@ const FILE_PATH := "res://data/plants/leaf_readings.json"
 ## catalogue, which `PlantCatalogue.load_from` refuses for holding neither a version nor a species list.
 const READINGS_KEY := "readings"
 
-
 # --- a person's words to the bits the program reads --------------------------------------------
 
 
@@ -94,7 +93,6 @@ static func _bit_for(table: Dictionary, word: String) -> int:
 static func _refused(reason: String) -> Dictionary:
 	return { "ok": false, "reason": reason, "bits": 0 }
 
-
 # --- reading the file --------------------------------------------------------------------------
 
 
@@ -109,9 +107,7 @@ static func read(path: String = FILE_PATH) -> Dictionary:
 		return empty
 	var loaded: Dictionary = PlantCatalogue.read_json(path)
 	if not bool(loaded.get("ok", false)):
-		return {
-			"ok": false, "reason": String(loaded.get("reason", "")), "ids": { }, "refused": PackedStringArray()
-		}
+		return { "ok": false, "reason": String(loaded.get("reason", "")), "ids": { }, "refused": PackedStringArray() }
 	var data: Variant = loaded.get("data", null)
 	if not (data is Dictionary) or not (data as Dictionary).has(READINGS_KEY):
 		return _not_readings(path, "it holds no \"%s\"" % READINGS_KEY)
@@ -147,7 +143,6 @@ static func _not_readings(path: String, what: String) -> Dictionary:
 		"ids": { },
 		"refused": PackedStringArray(),
 	}
-
 
 # --- stating what a list already holds ----------------------------------------------------------
 
@@ -185,7 +180,6 @@ static func _refusals_of(made: Dictionary) -> PackedStringArray:
 		return listed
 	return PackedStringArray()
 
-
 # --- writing, which is the authoring tool's half -------------------------------------------------
 
 
@@ -222,7 +216,6 @@ static func write(rows: Dictionary, path: String = FILE_PATH) -> Dictionary:
 	if not bool(written.get("ok", false)):
 		return { "ok": false, "reason": String(written.get("reason", "")), "written": 0, "refused": refused }
 	return { "ok": true, "reason": "", "written": out.size(), "refused": refused }
-
 
 # --- what the list states, in one sentence --------------------------------------------------------
 

@@ -49,10 +49,7 @@ func test_a_phone_is_compact_by_its_height_and_a_tablet_is_not_compact_at_all() 
 	assert(is_equal_approx(tablet_dp.x, 1365.333), "the tablet is 1365 dp across: %.3f" % tablet_dp.x)
 	assert(is_equal_approx(tablet_dp.y, 853.333), "and 853 dp down: %.3f" % tablet_dp.y)
 	assert(not WindowClassScript.is_small(tablet, 1.0, 300.0), "so it is not drawn up - every side has room")
-	assert(
-		WindowClassScript.of(tablet, 1.0, 300.0) == WindowClassScript.EXPANDED,
-		"and its class is expanded",
-	)
+	assert(WindowClassScript.of(tablet, 1.0, 300.0) == WindowClassScript.EXPANDED, "and its class is expanded")
 
 
 ## The phone this program was measured on reports its screen in the pixels it really has, while a viewport

@@ -34,11 +34,7 @@ const DEFAULT: StringName = STANDARD
 
 ## What each answer multiplies a stated size by, worked out from the answers people can actually tell apart
 ## rather than from a scale a platform may have: one of them is a quarter again, and one is half again.
-const FACTORS: Dictionary = {
-	STANDARD: 1.0,
-	LARGE: 1.25,
-	LARGEST: 1.5,
-}
+const FACTORS: Dictionary = { STANDARD: 1.0, LARGE: 1.25, LARGEST: 1.5 }
 
 const FILE_PATH := "user://reading-size.json"
 const KEY := "reading_size"

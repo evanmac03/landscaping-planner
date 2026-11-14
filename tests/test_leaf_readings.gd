@@ -13,7 +13,6 @@ const KeyScript := preload("res://scripts/plant_key.gd")
 
 const SHEET := "user://test_leaf_readings.json"
 
-
 # --- the fixture -------------------------------------------------------------------------------
 
 
@@ -25,7 +24,12 @@ func _clean() -> void:
 ## A plant the catalogue takes: it insists on an id, a name and a size, and asks nothing else of a fixture.
 func _plant(species_id: String) -> SpeciesScript:
 	return SpeciesScript.make(
-		StringName(species_id), species_id + " botanical", species_id, 60, 60, SpeciesScript.PERENNIAL
+		StringName(species_id),
+		species_id + " botanical",
+		species_id,
+		60,
+		60,
+		SpeciesScript.PERENNIAL,
 	)
 
 
@@ -34,7 +38,6 @@ func _catalogue() -> CatalogueScript:
 	for species_id: String in ["APLANT", "BPLANT", "CPLANT"]:
 		assert(catalogue.add(_plant(species_id)), "the fixture's %s is a plant the catalogue takes" % species_id)
 	return catalogue
-
 
 # --- a person's words to the bits the program reads ---------------------------------------------
 
@@ -52,7 +55,7 @@ func test_a_word_becomes_the_bit_its_own_table_holds() -> void:
 	var two: Dictionary = ReadingsScript.words_to_bits(SpeciesScript.LEAF_ARRANGEMENT, "alternate, whorled")
 	assert(
 		int(two["bits"]) == SpeciesScript.ARR_ALTERNATE | SpeciesScript.ARR_WHORLED,
-		"and a trait is a set: two words are two bits, the way a plant takes two kinds of light"
+		"and a trait is a set: two words are two bits, the way a plant takes two kinds of light",
 	)
 
 
@@ -69,7 +72,6 @@ func test_a_word_the_trait_does_not_have_is_refused_by_name() -> void:
 	var silent: Dictionary = ReadingsScript.words_to_bits(SpeciesScript.LEAF_MARGIN, "   ")
 	assert(not bool(silent["ok"]), "and a blank says nothing rather than standing for a value")
 
-
 # --- stating what a list already holds ----------------------------------------------------------
 
 
@@ -77,7 +79,8 @@ func test_a_reading_states_the_plant_it_names_and_creates_nothing() -> void:
 	_clean()
 	var catalogue: CatalogueScript = _catalogue()
 	var written: Dictionary = ReadingsScript.write(
-		{ "BPLANT": { "leaf_margin": "lobed", "leaf_arrangement": "opposite" } }, SHEET
+		{ "BPLANT": { "leaf_margin": "lobed", "leaf_arrangement": "opposite" } },
+		SHEET,
 	)
 	assert(bool(written["ok"]), "the reading is written: %s" % String(written["reason"]))
 	assert(int(written["written"]) == 1, "one plant was stated")
@@ -90,7 +93,7 @@ func test_a_reading_states_the_plant_it_names_and_creates_nothing() -> void:
 	assert(plant.leaf_trait(SpeciesScript.LEAF_ARRANGEMENT) == SpeciesScript.ARR_OPPOSITE, "and the arrangement")
 	assert(
 		catalogue.get_species(&"APLANT").leaf_trait(SpeciesScript.LEAF_MARGIN) == 0,
-		"and a plant nobody read is left saying nothing"
+		"and a plant nobody read is left saying nothing",
 	)
 	_clean()
 
@@ -138,7 +141,6 @@ func test_the_file_holds_the_words_rather_than_the_bits() -> void:
 	assert(not text.contains("\"leaf_margin\": 16"), "and not the bit it stands for")
 	_clean()
 
-
 # --- what the list states, in one sentence --------------------------------------------------------
 
 
@@ -178,12 +180,12 @@ func test_a_leaf_question_becomes_askable_once_the_readings_arrive() -> void:
 			"BPLANT": { "leaf_margin": "smooth" },
 			"CPLANT": { "leaf_margin": "wavy" },
 		},
-		SHEET
+		SHEET,
 	)
 	ReadingsScript.apply(catalogue, SHEET)
 	assert(KeyScript.askable(plants, SpeciesScript.LEAF_MARGIN), "read leaf by leaf, the question is asked")
 	assert(
 		not KeyScript.askable(plants, SpeciesScript.LEAF_VENATION),
-		"while the veins nobody has read are still not asked about"
+		"while the veins nobody has read are still not asked about",
 	)
 	_clean()
