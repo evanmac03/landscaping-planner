@@ -736,3 +736,50 @@ func test_the_palette_is_held_between_the_bar_above_it_and_the_foot_line_below_i
 		is_equal_approx((2567.0 + squeezed.y) - squeezed.x, 107.0),
 		"and stands exactly one of its own rows tall: %s" % str((2567.0 + squeezed.y) - squeezed.x),
 	)
+
+
+## **The placement is asked for when the plate's height changes, and not once before the plate has been laid
+## out.** The arithmetic above was already right; what was wrong was the moment it was asked for. The words were
+## assigned and the column placed again in the same breath, but the plate has not been laid out at that point - so
+## the placement read the height the plate was about to leave, and the palette kept a foot that belonged to the
+## shorter line.
+##
+## Measured on the A16W held upright: the foot line wrapped from one row onto three, the palette's own box stayed
+## where the one-row plate had put it, and its last rows - `Layer` and the plant list's group headers - were drawn
+## across the plate's words. Every rule was silent, because words drawn over words by the layout are not a meeting
+## a rectangle of a control can report.
+##
+## A height is what the placement actually reads, so a height is what the rule watches. This holds the answers
+## down: the first frame places, because the column has been nowhere yet; a plate that held still asks for
+## nothing; and a plate that grew - by whatever it grew - asks exactly once.
+func test_the_column_is_placed_again_when_the_plate_at_the_foot_changes_height() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+
+	# Nothing has been placed yet, so the first height the rule is told is a move whatever the number is.
+	assert(hud._the_plate_moved(42.0), "the first height the rule is told is always a move")
+	assert(
+		is_equal_approx(hud._plate_height_as_placed, 42.0),
+		"and it is the height in hand: %s" % str(hud._plate_height_as_placed),
+	)
+
+	# The sixty frames a second that find the same line in hand ask for nothing.
+	assert(not hud._the_plate_moved(42.0), "a plate that held still has not moved")
+	assert(not hud._the_plate_moved(42.0), "nor has it on the frame after that")
+	assert(
+		is_equal_approx(hud._plate_height_as_placed, 42.0),
+		"and the height in hand is unchanged: %s" % str(hud._plate_height_as_placed),
+	)
+
+	# A line that wrapped onto another row is a move, and it is asked for once rather than every frame after.
+	assert(hud._the_plate_moved(107.0), "a plate that grew by a row has moved")
+	assert(not hud._the_plate_moved(107.0), "and asks for the column once, not on every frame after")
+	assert(
+		is_equal_approx(hud._plate_height_as_placed, 107.0),
+		"the taller height is the one in hand: %s" % str(hud._plate_height_as_placed),
+	)
+
+	# The other way too: the plate is shorter under a bare view, and that moves the column back down as well.
+	assert(hud._the_plate_moved(42.0), "a plate that went back to one row has moved too")
+	assert(not hud._the_plate_moved(42.0), "once, again")
+
+	hud.free()

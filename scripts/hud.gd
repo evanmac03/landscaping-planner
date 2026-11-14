@@ -1208,6 +1208,12 @@ static func worst_hint_line() -> String:
 	return worst
 
 
+## The plate's own height at the moment the left column was last placed. Held so that a plate which has grown -
+## a line that wrapped, a font a device asked for, a turn of the phone - is noticed and the column placed again.
+## It starts at `INF`, which no rectangle ever equals, so the first frame places it.
+var _plate_height_as_placed: float = INF
+
+
 ## Write the line at the foot of the screen and the box beside the plan: what the tool in hand is waiting
 ## for with the keys that answer it, while the drawing tools are in hand - and the controls of the view when
 ## none is, with the box saying nothing at all.
@@ -1216,6 +1222,8 @@ static func worst_hint_line() -> String:
 ## landing and a view being switched cannot leave two different answers on the screen. Each text is assigned
 ## only when it has changed, because writing to a `Label` re-computes what it needs and the frame offers
 ## sixty chances a second to do it for nothing.
+
+
 func _refresh_hints() -> void:
 	if hints_label == null or view_controller == null:
 		return
@@ -1229,6 +1237,33 @@ func _refresh_hints() -> void:
 		hints_label.text = wanted
 	if draft_hints_label != null and draft_hints_label.text != box:
 		draft_hints_label.text = box
+	# **The palette's foot is taken from the plate's own top, so the column is placed again whenever the plate's
+	# height changes - whatever changed it.** Anything that makes the line wrap does it: a wordier prompt, a
+	# device's rows, a turn of the phone.
+	#
+	# It is **not** enough to ask when the *text* changes, which is what this first did. The words are assigned
+	# before the plate has been laid out again, so a placement asked for at that moment reads the height the
+	# plate is about to leave, and the palette stays where the shorter line had put it - measured on the A16W,
+	# where the foot line wrapped from one row onto three and the palette's own box came to stand over the
+	# plate's words, drawing `Layer` and the list's group headers across them.
+	#
+	# The height is read here because this runs every frame, and the deferred placement lands after the layout
+	# that changed it, so what it reads is the plate as it will be drawn.
+	if _the_plate_moved(hints.size.y):
+		place_the_left_column_for_a_device.call_deferred()
+
+
+## Whether the plate at the foot has moved since the left column was last placed, and take its new height in. The
+## placement is asked for on the frames this answers `true` and no others, so the sixty frames a second that find
+## the same line in hand cost one comparison each.
+##
+## Being a question about the plate's *height* rather than about its words is the point of the rule: the plate
+## stands where it stands because of what a device asked for, how the text wrapped and which view is up as well as
+## the prompt, and every one of those moves it. Asked on the height, one rule answers for all of them.
+func _the_plate_moved(plate_height: float) -> bool:
+	var moved := not is_equal_approx(plate_height, _plate_height_as_placed)
+	_plate_height_as_placed = plate_height
+	return moved
 
 
 ## The box beside the plan for the thing in hand: the tool, or the editing command, whichever it is.

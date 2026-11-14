@@ -18,16 +18,39 @@ extends Node
 ## to "the log holds no block - has the program run since it was installed?", which points a person at the
 ## program. `a_device_is_here` is that question's pure half, held by a test.
 ##
-## Run it with `execute_script`/`run_scene`, and pass its own words through the command line:
+## **A bare run is the whole question** - the one this is driven for most of the time - and it is a *look* rather
+## than a reading: the device in reach, the hold the board obeys, whether the build on disk is still the work in
+## hand, a picture of the screen, and the newest block beside it.
 ##
-##     res://tools/phone_touch_pass.tscn                              what the phone last said
-##     res://tools/phone_touch_pass.tscn -- && --install --launch --wait 3
-##     res://tools/phone_touch_pass.tscn -- && --tap 540 552          press at the probe's own centre
-##     res://tools/phone_touch_pass.tscn -- && --capture              the board upright, a line, then the question
+##     res://tools/phone_touch_pass.tscn                        what is on the screen now
+##     ... -- --fresh                                           the same, having thrown the old log away first
+##     ... -- --fresh --back                                    ... and one BACK before reading
+##     ... -- --taps Cancel                                     the centres to aim at, for words holding `Cancel`
+##     ... -- --install --launch --wait 3                       make the phone run the build on disk
+##     ... -- --tap 540 552                                     press at the probe's own centre
+##     ... -- --capture                                         the board upright, a line, then the question
 ##
-## `--tap` is how a page is reached on the device: the probe reports every control it could be tapped at, with
-## the centre to aim at, and a real OS tap does reach a control inside a page's `Window` - measured, and the
-## opposite of what the injection in `run_scene` can do.
+## **From a shell, with no display**: the tool touches nothing on this computer but adb, so nothing here wants the
+## editor or a window open.
+##
+##     GODOT_MCP_RUNTIME=0 <godot> --headless --path . res://tools/phone_touch_pass.tscn -- --fresh
+##
+## **The picture is the arbiter and the block is not.** A block is published when a page is shown, moved or
+## resized, or when the top bar is rebuilt - so a rectangle in the newest one can be older than what is on the
+## glass, and nothing in the line says by how much. Measured 2026-11-14: a whole diagnosis was built on a block
+## written at launch, before the foot line had wrapped, while the screen it was about had long moved on. The cure
+## for that class is `--fresh`, which gives up the old log before anything is asked of the device, and the
+## picture, which has no history at all.
+##
+## `--tap` is how a page is reached on the device: the probe reports every control it could be tapped at, with the
+## centre to aim at, and a real OS tap does reach a control inside a page's `Window` - measured, and the opposite
+## of what the injection in `run_scene` can do. Those centres are what `--taps` prints.
+##
+## **The build is not run here, only asked about.** An export is a three-minute process with its own environment
+## and this is a reader; what it does instead is say whether what is on disk still matches `res://scripts` and
+## `res://scenes`, and hand over the line when it does not:
+##
+##     GODOT_MCP_RUNTIME=0 <godot> --headless --path . --export-debug "Android (phone)" build/phone-adapt.apk
 ##
 ## **It quits when the pass is done**, so putting a `timeout` around it is not needed - the address of the old
 ## hang was two exits from `_ready` with no `quit()` after either of them.
@@ -76,19 +99,24 @@ const PACKAGE := "ca.storm.landscapingplanner"
 const ACTIVITY := "ca.storm.landscapingplanner/com.godot.game.GodotAppLauncher"
 const APK := "res://build/phone-adapt.apk"
 
-## The lines the touch rules publish, and what each one asks. Printed in this order, and anything else in a block
-## is summarised rather than buried.
-const TOUCH_LINES: Array[String] = [
-	"device",
-	"room",
-	"small",
-	"close",
-	"unsafe",
-	"middle",
-	"tiny",
-	"clipped",
-	"offscreen",
-]
+## What the program is showing, in the order a person wants it: the device it is answering as, the room it was
+## taken in, the line at the foot and the box beside the plan, the page in front of all of it, the colour drawn
+## above that page's top edge, and every meeting the drawn-surfaces rule named.
+const SCREEN_LINES: Array[String] = ["device", "room", "foot", "tool", "page", "drawn", "overlap"]
+
+## The lines that name trouble a finger would have, printed after the screen so the news is never buried: a target
+## under the floor, two a thumb cannot tell apart, one standing in a band the device keeps (or with its middle in
+## one), words too small for the screen, words wanting more room than they are drawn in, and a control the room
+## cannot hold.
+const TOUCH_LINES: Array[String] = ["small", "close", "unsafe", "middle", "tiny", "clipped", "offscreen"]
+
+## The files a build is made from: what reaches the phone's program, and nothing else. A test, a doc or a dev tool
+## is nothing to export for, so a tree full of yesterday's tests is not a reason to install again.
+const REBUILD_ROOTS: Array[String] = ["res://scripts", "res://scenes"]
+const REBUILD_SUFFIXES: Array[String] = [".gd", ".tscn"]
+
+## What the bare run's picture is called, in the capture directory.
+const THE_SCREEN_NOW := "the_screen_now.png"
 
 ## The words a block begins with, in the probe's own report.
 const BLOCK_HEAD := "--- what is on the screen ---"
@@ -148,11 +176,19 @@ func _one_pass() -> void:
 	if "--capture" in asked:
 		await _capture_the_two_gaps()
 		return
+
+	# **Giving up the old log is what makes a reading fresh**, and it happens before anything is asked of the
+	# device, because a block is a moment and the file does not stamp it.
+	var cleared: bool = false
+	if "--fresh" in asked:
+		_clear_the_log()
+		cleared = true
 	if "--install" in asked:
 		print("PHONE installing %s" % APK)
 		print("PHONE %s" % _line(["install", "-r", ProjectSettings.globalize_path(APK)]).strip_edges())
 	if "--install" in asked or "--launch" in asked:
-		_line(["shell", "run-as", PACKAGE, "rm", "-f", "files/probe.log"])
+		_clear_the_log()
+		cleared = true
 		_line(["shell", "am", "force-stop", PACKAGE])
 		print("PHONE launching %s" % ACTIVITY)
 		_line(["shell", "am", "start", "-n", ACTIVITY])
@@ -166,8 +202,21 @@ func _one_pass() -> void:
 		print("PHONE tapping (%d, %d)" % [at.x, at.y])
 		_line(["shell", "input", "tap", str(at.x), str(at.y)])
 		await get_tree().create_timer(3.0).timeout
+	if "--back" in asked:
+		# One press, and the device may deliver two: Android 36 reports a single BACK **twice**, 354 ms apart
+		# (measured, and filed upstream). Nothing here presses again to make sure, because a second BACK from a
+		# board with nothing on it is the quit guard.
+		print("PHONE one BACK")
+		_line(["shell", "input", "keyevent", "4"])
+		await get_tree().create_timer(4.0).timeout
 
-	_report(_line(["exec-out", "run-as", PACKAGE, "cat", "files/probe.log"]))
+	print("PHONE the hold: %s" % hold_words(_line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"])))
+	_report_the_build()
+	_photograph_the_screen()
+	var log: String = _line(["exec-out", "run-as", PACKAGE, "cat", "files/probe.log"])
+	_report(log, cleared)
+	if "--taps" in asked:
+		_report_the_taps(log, asked)
 	_report_the_fold()
 
 
@@ -211,7 +260,9 @@ func _capture_the_two_gaps() -> void:
 	print("PHONE the hold: %s" % hold)
 	if not hold.begins_with("the board is held upright"):
 		print("PHONE so this is NOT the capture the two gaps ask for. Hold the board upright first, on the device:")
-		print("      echo '{\"orientation\": \"portrait\"}' | adb shell run-as %s dd of=files/orientation.json" % PACKAGE)
+		print(
+			"      echo '{\"orientation\": \"portrait\"}' | adb shell run-as %s dd of=files/orientation.json" % PACKAGE
+		)
 		return
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CAPTURE_DIR))
 
@@ -223,6 +274,16 @@ func _capture_the_two_gaps() -> void:
 
 	_line(["shell", "input", "keyevent", "4"])
 	await get_tree().create_timer(4.0).timeout
+	# **A BACK can be swallowed, and the picture would then be of the doorway rather than the board.** Measured
+	# 2026-11-14: on the *first* launch after an install the front door was still up when the board was
+	# photographed, because that press went to Android's own first-run furniture. So the door is asked about
+	# rather than assumed - the probe writes a block whenever a page is shown, and the newest block names the
+	# page it is for. One more BACK is safe *here* and only here: a BACK with nothing on the screen is the
+	# quit guard, which is why this asks the log instead of pressing again regardless.
+	if _a_page_is_still_up():
+		print("PHONE a page is still up after BACK - pressing once more so the picture is the board")
+		_line(["shell", "input", "keyevent", "4"])
+		await get_tree().create_timer(4.0).timeout
 	_save_a_screenshot("board_upright.png")
 
 	_line(["shell", "input", "tap", str(LINE_CELL.x), str(LINE_CELL.y)])
@@ -239,15 +300,141 @@ func _capture_the_two_gaps() -> void:
 	print("PHONE three pictures in %s - and what the probe says about each is in the log beside them" % CAPTURE_DIR)
 
 
+## Whether the newest block in the probe's log still names a page, which is how this knows a BACK landed.
+##
+## It reads the device's own log rather than a picture, for the reason the whole tool exists: a rectangle is a
+## statement by the program about itself, and the log is the program making it. A block begins at its `device`
+## line - that is the first thing the probe prints - so the newest one is found from the back.
+func _a_page_is_still_up() -> bool:
+	var text: String = _line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"])
+	var at: int = text.rfind("PROBE device")
+	var block: String = text.substr(at) if at >= 0 else text
+	return block.contains("PROBE page ")
+
+
 ## One screenshot, taken on the device and pulled back as a file.
 ##
 ## **`exec-out screencap -p` cannot be used from here.** `OS.execute` hands back *text*, and a PNG read through it
 ## is a length of mangled characters - so the picture is written on the device and `pull` copies the bytes.
-func _save_a_screenshot(name: String) -> void:
-	var far: String = "/sdcard/%s" % name
+func _save_a_screenshot(file_name: String) -> void:
+	var far: String = "/sdcard/%s" % file_name
 	_line(["shell", "screencap", "-p", far])
-	var here: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(name))
+	var here: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(file_name))
 	print("PHONE %s" % _line(["pull", far, here]).strip_edges().replace("\n", " | "))
+
+
+## Throw the device's log away, so that whatever is read next was published after this moment.
+func _clear_the_log() -> void:
+	_line(["shell", "run-as", PACKAGE, "rm", "-f", "files/probe.log"])
+	print("PHONE the log is cleared: what is printed below was published after this moment")
+
+
+## The screen as it is now, pulled back as a file - the reading the block above cannot give, because a block is
+## published at a moment and the glass has no history at all.
+func _photograph_the_screen() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CAPTURE_DIR))
+	_save_a_screenshot(THE_SCREEN_NOW)
+
+
+## Whether the build on disk is still the work in hand, and the line to make a new one when it is not.
+##
+## The mistake this exists to prevent is the one a phone makes easy: reading a screen that the program in hand has
+## never been given. Nothing here is a claim about what the **phone** is running - only an install says that, and
+## an install is a step of this tool rather than a reading of it.
+func _report_the_build() -> void:
+	var made: int = FileAccess.get_modified_time(APK)
+	var since: Dictionary = files_since(REBUILD_ROOTS, REBUILD_SUFFIXES, made)
+	print("PHONE %s" % build_words(made, since, int(Time.get_unix_time_from_system())))
+	if int(since.get("count", 0)) > 0:
+		print(
+			"      GODOT_MCP_RUNTIME=0 <godot> --headless --path . --export-debug \"Android (phone)\" %s"
+			% APK
+		)
+
+
+## Every file under these roots, and the newest of them, measured against the moment a build was made.
+##
+## `readable` is the honest half: an exported program cannot list `res://` at all, so a walk that found nothing
+## says nothing about the build and must not be read as a tree that has held still.
+static func files_since(roots: Array[String], suffixes: Array[String], when: int) -> Dictionary:
+	var found: Array[Dictionary] = []
+	var read_any: bool = false
+	for root: String in roots:
+		if DirAccess.open(root) == null:
+			continue
+		read_any = true
+		_gather(root, suffixes, found)
+	if not read_any:
+		return {"count": 0, "newest": 0, "path": "", "readable": false}
+	var newer: Array[Dictionary] = []
+	for one: Dictionary in found:
+		if int(one["when"]) > when:
+			newer.append(one)
+	if newer.is_empty():
+		return {"count": 0, "newest": 0, "path": "", "readable": true}
+	var best: Dictionary = newer[0]
+	for one: Dictionary in newer:
+		if int(one["when"]) > int(best["when"]):
+			best = one
+	return {"count": newer.size(), "newest": int(best["when"]), "path": String(best["path"]), "readable": true}
+
+
+## One directory's files, and its subdirectories', gathered into `into` - so that a walk is a walk and the suffix
+## test lives in one place. A directory that cannot be opened is skipped rather than raised.
+static func _gather(dir_path: String, suffixes: Array[String], into: Array[Dictionary]) -> void:
+	var dir: DirAccess = DirAccess.open(dir_path)
+	if dir == null:
+		return
+	for file_name: String in dir.get_files():
+		var wanted: bool = false
+		for suffix: String in suffixes:
+			if file_name.ends_with(suffix):
+				wanted = true
+		if not wanted:
+			continue
+		var full: String = dir_path.path_join(file_name)
+		into.append({"path": full, "when": FileAccess.get_modified_time(full)})
+	for sub: String in dir.get_directories():
+		if sub.begins_with("."):
+			continue
+		_gather(dir_path.path_join(sub), suffixes, into)
+
+
+## What the build on disk is, in words, against the tree.
+##
+## The build is stamped by **how long ago it was made** rather than by a clock time: a unix time printed back is
+## in UTC, and this desk is not, so "14:44" would be four or five hours from what a person sees in their file
+## manager. An age cannot be wrong about that.
+static func build_words(made: int, since: Dictionary, now: int) -> String:
+	if made <= 0:
+		return "there is no build at %s yet, so nothing here is running the work in hand: make one" % APK
+	if not bool(since.get("readable", false)):
+		return (
+			"the build on disk is %s old, and the tree could not be walked from here - an exported program cannot"
+			% age_words(maxi(now - made, 0))
+			+ " list res:// - so this says nothing about whether it is still the work in hand"
+		)
+	var count: int = int(since.get("count", 0))
+	if count == 0:
+		return (
+			"the build on disk is %s old, and no script or scene in the tree has changed since, so it is the work"
+			% age_words(maxi(now - made, 0))
+			+ " in hand"
+		)
+	return (
+		"the build on disk is %s old, and %d script(s) or scene(s) have changed since - the newest is %s, so this"
+		% [age_words(maxi(now - made, 0)), count, String(since.get("path", ""))]
+		+ " is not what the phone would be running"
+	)
+
+
+## A length of time as a person says it.
+static func age_words(seconds: int) -> String:
+	if seconds < 90:
+		return "%d seconds" % seconds
+	if seconds < 5400:
+		return "%d minutes" % (seconds / 60)
+	return "%d hours" % (seconds / 3600)
 
 
 ## What the hold on the device says, in words - and the trap this exists to catch.
@@ -359,9 +546,52 @@ func _the_tap(asked: PackedStringArray) -> Vector2i:
 	return Vector2i(int(asked[at + 1]), int(asked[at + 2]))
 
 
-## What the phone last said, in the probe's own words: the newest block's touch lines, and a count of what else
-## was in it, so that a report nobody has read yet is still visible as a size.
-func _report(kept: String) -> void:
+## What the phone last said, in the probe's own words: the newest block's screen lines, then the troubles a finger
+## would have, then the verdict on those troubles, and the tap this run sent against the room it was taken in.
+##
+## `cleared` is what a block cannot say about itself: a block is a moment with no stamp on it, so a log that holds
+## nothing means something different when this run has just emptied it.
+func _report(kept: String, cleared: bool) -> void:
+	var blocks: Array[String] = blocks_in(kept)
+	if blocks.is_empty():
+		if cleared:
+			print("PHONE the log holds no block, and this run cleared it. The program publishes one when a page is")
+			print("      shown, moved or resized, or when the top bar is rebuilt - so do something on the device")
+			print("      (a `--back`, a `--tap`) and ask again.")
+		else:
+			print("PHONE the log holds no block - has the program run since it was installed?")
+		return
+	var lines: PackedStringArray = blocks[blocks.size() - 1].split("\n", false)
+	print("")
+	print(
+		"--- what the phone last said (%d block(s) in the log, %d line(s) in the newest) ---"
+		% [blocks.size(), lines.size()]
+	)
+	var shown: int = 0
+	for kind: String in SCREEN_LINES:
+		shown += _print_the(lines, kind)
+	var troubles: int = 0
+	for kind: String in TOUCH_LINES:
+		troubles += _print_the(lines, kind)
+	shown += troubles
+	_print_the_touch_verdict(lines, troubles)
+	var centres: int = _count_of(lines, "tap")
+	print(
+		"  (%d line(s) it published that this tool does not list%s)"
+		% [maxi(lines.size() - shown, 0), " - `--taps` prints their centres" if centres > 0 else ""]
+	)
+	# The tap this run sent, against the room the block it produced was taken in. A centre is only where a finger
+	# should land **in the room it was measured in**, and the device turns under the program: measured on the A16W,
+	# a centre at y 1654 aimed at a 1080-tall landscape screen reached nothing, and nothing said so.
+	if _sent_a_tap:
+		print("  %s" % tap_words(_tapped, HudProbeScript.read_room_line(kept)))
+
+
+## The blocks in the log's text, oldest first.
+##
+## A block begins at the probe's own heading and carries one line per `PROBE` prefix; the text arrives from adb,
+## so every line is stripped of the carriage return a shell adds before it is looked at.
+static func blocks_in(kept: String) -> Array[String]:
 	var blocks: Array[String] = []
 	var current: PackedStringArray = PackedStringArray()
 	for raw: String in kept.split("\n"):
@@ -377,39 +607,87 @@ func _report(kept: String) -> void:
 		current.append(said)
 	if current.size() > 0:
 		blocks.append("\n".join(current))
+	return blocks
 
-	if blocks.is_empty():
-		print("PHONE the log holds no block - has the program run since it was installed?")
-		return
-	var newest: String = blocks[blocks.size() - 1]
-	var lines: PackedStringArray = newest.split("\n", false)
-	print("")
-	print(
-		"--- what the phone last said (%d block(s) in the log, %d line(s) in the newest) ---"
-		% [blocks.size(), lines.size()]
-	)
+
+## Every line of one kind, as the probe worded it, and how many there were.
+func _print_the(lines: PackedStringArray, kind: String) -> int:
 	var printed: int = 0
-	for kind: String in TOUCH_LINES:
-		for line: String in lines:
-			if not line.begins_with(kind + " "):
-				continue
+	for line: String in lines:
+		if line.begins_with(kind + " "):
 			print("  %s" % line)
 			printed += 1
+	return printed
+
+
+## How many lines of one kind a block holds, without printing them - so a count can be offered without spending
+## the screen on the thing being counted.
+static func _count_of(lines: PackedStringArray, kind: String) -> int:
+	var found: int = 0
 	for line: String in lines:
-		if printed > 0:
-			break
-		# A block with a device line saying a finger and no touch line after it is a phone with **nothing wrong
-		# to name** - every target over the floor, no two too close, nothing in a kept band, the words legible.
-		# That is the honest reading, and it is not the same as a program that never published: the first is
-		# good news and the second is a reason to look at the build.
+		if line.begins_with(kind + " "):
+			found += 1
+	return found
+
+
+## **A phone nothing is wrong with still gets its sentence, and that is not the same as silence.** The touch lines
+## are troubles and nothing else, so a block holding none of them is good news. The first version asked this only
+## when *nothing at all* had been printed, and `device` was one of the kinds it printed - so the sentence could
+## never be reached, and a clean phone read exactly like one that had not been asked. Measured 2026-11-14.
+func _print_the_touch_verdict(lines: PackedStringArray, troubles: int) -> void:
+	if troubles > 0:
+		return
+	if says_a_finger(lines):
+		print("  nothing a touch rule can name: every target clears the floor, none is too close to its")
+		print("  neighbour, none stands in a band the device keeps and the words are legible")
+	else:
+		print("  the program is not serving a finger, so it asks none of these questions")
+
+
+## Whether the block's own device line says this program is serving a finger, which is the condition every touch
+## rule is asked under at all.
+static func says_a_finger(lines: PackedStringArray) -> bool:
+	for line: String in lines:
 		if line.begins_with("device ") and line.contains("finger=true"):
-			print("  nothing a touch rule can name: every target clears the floor, none is too close to its")
-			print("  neighbour, none stands in a band the device keeps and the words are legible")
-		elif line.begins_with("device ") and line.contains("finger=false"):
-			print("  the program is not serving a finger, so it asks none of these questions")
-	print("  (%d line(s) it published that this tool does not list)" % maxi(lines.size() - printed, 0))
-	# The tap this run sent, against the room the block it produced was taken in. A centre is only where a finger
-	# should land **in the room it was measured in**, and the device turns under the program: measured on the A16W,
-	# a centre at y 1654 aimed at a 1080-tall landscape screen reached nothing, and nothing said so.
-	if _sent_a_tap:
-		print("  %s" % tap_words(_tapped, HudProbeScript.read_room_line(kept)))
+			return true
+	return false
+
+
+## The centres a driver aims at, in the newest block's own words: every control it listed as reachable, or only
+## those whose words hold a piece of text that was asked for.
+##
+## This is the half of the tool a driver needs and the report above hides. A tap is only as good as the centre it
+## is aimed at, and these centres are what the program itself published rather than a guess made from a picture.
+func _report_the_taps(kept: String, asked: PackedStringArray) -> void:
+	var blocks: Array[String] = blocks_in(kept)
+	if blocks.is_empty():
+		return
+	var filter: String = tap_filter(asked)
+	var lines: PackedStringArray = blocks[blocks.size() - 1].split("\n", false)
+	var held: Array[String] = []
+	for line: String in lines:
+		if not line.begins_with("tap "):
+			continue
+		if filter.is_empty() or line.to_lower().contains(filter.to_lower()):
+			held.append(line)
+	print("")
+	if filter.is_empty():
+		print("--- every centre the newest block published (%d) ---" % held.size())
+	else:
+		print("--- the centres whose words hold \"%s\" (%d) ---" % [filter, held.size()])
+	for line: String in held:
+		print("  %s" % line)
+	if held.is_empty():
+		print("  nothing: no control the block names has words holding that, so nothing can be aimed at it")
+
+
+## The one word a driver may narrow the centres by, from `--taps [words]`: everything after `--taps` that is not
+## another flag. Empty means every centre the block names, which is what a bare `--taps` asks for.
+static func tap_filter(asked: PackedStringArray) -> String:
+	var at: int = asked.find("--taps")
+	if at < 0:
+		return ""
+	for i: int in range(at + 1, asked.size()):
+		if not asked[i].begins_with("--"):
+			return asked[i]
+	return ""
