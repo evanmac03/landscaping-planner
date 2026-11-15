@@ -115,11 +115,9 @@ func test_a_phone_is_here_only_when_adb_names_the_state_column_a_device() -> voi
 ## well - a parse that broke on it would break on the device and nowhere else.
 func test_a_logs_blocks_are_read_from_the_probes_own_heading_and_the_newest_is_last() -> void:
 	var log: String = (
-		"PROBE --- what is on the screen ---\r\n"
-		+ "PROBE device   finger=true zooming=true\r\n"
+		"PROBE --- what is on the screen ---\r\n" + "PROBE device   finger=true zooming=true\r\n"
 		+ "PROBE room     viewport=(1185, 2567) native=(1080, 2340)\r\n"
-		+ "PROBE --- what is on the screen ---\r\n"
-		+ "PROBE device   finger=true zooming=true\r\n"
+		+ "PROBE --- what is on the screen ---\r\n" + "PROBE device   finger=true zooming=true\r\n"
 		+ "PROBE overlap  50 surface(s) drawn, and nothing meets anything it may not\r\n"
 	)
 	var blocks: Array[String] = ToolScript.blocks_in(log)
@@ -168,7 +166,9 @@ func test_the_tree_is_asked_whether_a_script_has_changed_since_the_build_was_mad
 	)
 
 	var written: String = ToolScript.build_words(
-		1_000_000, {"count": 3, "path": "res://scripts/hud.gd", "readable": true}, 1_000_600
+		1_000_000,
+		{ "count": 3, "path": "res://scripts/hud.gd", "readable": true },
+		1_000_600,
 	)
 	assert(
 		written.contains("3 script") and written.contains("res://scripts/hud.gd"),
@@ -176,12 +176,140 @@ func test_the_tree_is_asked_whether_a_script_has_changed_since_the_build_was_mad
 	)
 	assert(written.contains("10 minutes"), "and how old the build is, in words a person uses: %s" % written)
 	assert(
-		ToolScript.build_words(1_000_000, {"count": 0, "readable": true}, 1_000_600).contains("work"),
+		ToolScript.build_words(1_000_000, { "count": 0, "readable": true }, 1_000_600).contains("work"),
 		"a build nothing has changed since is the work in hand",
 	)
+	# **The line a person is handed has to be the line they can paste**, and the path this tool keeps for the file is
+	# not the one either its own header or the manual writes: printing the constant straight out said
+	# `res://build/phone-adapt.apk`, which is the wrong shape for the engine's own `--export-debug`.
+	assert(
+		ToolScript.export_words().contains("build/phone-adapt.apk"),
+		"the line to make a build names the file the way it is typed: %s" % ToolScript.export_words(),
+	)
+	assert(not ToolScript.export_words().contains("res://"), "and not the project path the constant wears")
 	assert(ToolScript.age_words(30) == "30 seconds", "under a minute and a half, seconds")
 	assert(ToolScript.age_words(600) == "10 minutes", "up to an hour and a half, minutes")
 	assert(ToolScript.age_words(7200) == "2 hours", "and hours after that")
+
+
+## **A key name is a device keycode, and two of them are refused for reasons that were measured.** The refusals are
+## the point of the verb: a tool exists so that a session is not repeated, and what a session learned about Escape
+## cost a whole pass - the phone's own USB settings panel was on the screen while the tool went on driving into it.
+func test_the_keys_a_phone_answers_are_named_and_the_ones_it_does_not_are_refused() -> void:
+	assert(ToolScript.the_key_number("back") == 4, "BACK is the device's own 4")
+	assert(ToolScript.the_key_number("TAB") == 61, "and a name is read in any case")
+	assert(ToolScript.the_key_number("enter") == 66, "ENTER is what drives a dialog's own buttons")
+	assert(ToolScript.the_key_number("nonsense") == -1, "a name nobody has is answered with -1, not with a key")
+	assert(ToolScript.the_key_number("escape") == -1, "and Escape is one this tool will not send")
+	assert(
+		ToolScript.key_words("escape").contains("never reached this program"),
+		"the refusal for Escape says what was measured: %s" % ToolScript.key_words("escape"),
+	)
+	assert(
+		ToolScript.key_words("8").contains("keyevent 8"),
+		"a single character's refusal names the measurement behind it: %s" % ToolScript.key_words("8"),
+	)
+	assert(
+		ToolScript.key_words("w").contains("--taps"),
+		"and hands over the thing that does work instead: %s" % ToolScript.key_words("w"),
+	)
+	assert(ToolScript.key_words("nonsense").contains("back"), "an unknown name is told what there is")
+
+
+## **The age of a block is the one thing its own text cannot say, and the whole question a stale reading turns on.**
+## A block with no readable stamp is not a block that is no seconds old: it is one whose moment is unknown, and that
+## is a different answer which must not be read as a fresh one.
+func test_the_blocks_in_a_log_are_listed_by_age_and_by_what_each_named() -> void:
+	var logcat := (
+		"1000.500  17160  17269 I godot   : PROBE --- what is on the screen ---\n"
+		+ "1000.500  17160  17269 I godot   : PROBE device   finger=true\n"
+		+ "1000.600  17160  17269 I godot   : PROBE page     start_window  \"Landscaping Planner\"  at (0, 481)\n"
+		+ "1012.000  17160  17269 I godot   : PROBE --- what is on the screen ---\n"
+		+ "1012.000  17160  17269 I godot   : PROBE device   finger=true\n"
+	)
+	var blocks: Array[Dictionary] = ToolScript.block_headings(logcat, 1020.0)
+	assert(blocks.size() == 2, "two headings make two blocks: %s" % str(blocks))
+	assert(is_equal_approx(float(blocks[0]["age"]), 19.5), "the first block is 19.5 s old")
+	assert((blocks[0]["names"] as PackedStringArray)[0] == "start_window", "and it named the page that was up")
+	assert(is_equal_approx(float(blocks[1]["age"]), 8.0), "the newest is 8 s old, counted from its own heading")
+	assert((blocks[1]["names"] as PackedStringArray).is_empty(), "and named no page: the board was what was up")
+	var unstamped: Array[Dictionary] = ToolScript.block_headings("PROBE --- what is on the screen ---\n", 1020.0)
+	assert(float(unstamped[0]["age"]) < 0.0, "a block with no clock on it is not a block that is no seconds old")
+
+
+## **A rectangle on a line is where a finger would land, and it is read in the probe's own words.** A tap line
+## carries the control's screen rectangle and the centre published for it; a line with no rectangle is not a place on
+## any picture, and must not be mistaken for one.
+func test_a_line_publishes_the_rectangle_its_centre_was_measured_in() -> void:
+	var line := (
+		"tap      board                        \"Line / 1\"                         screen (150, 380) .. (210, 440)"
+		+ " 60x60 px  centre (180, 410)"
+	)
+	var rect: Rect2i = ToolScript.rect_of(line)
+	assert(rect == Rect2i(150, 380, 60, 60), "two corners become a place and a size: %s" % str(rect))
+	assert(ToolScript.centre_of(line) == Vector2i(180, 410), "and the centre is inside it")
+	assert(ToolScript.rect_of("tap      board   \"Fit\"   centre (10, 10)") == Rect2i(), "no rectangle is not one")
+	assert(
+		ToolScript.rect_of(
+			"page     start_window  \"x\"  at (0, 481)  ->  screen (70, 1069) .. (1021, 1459) 951x390 px"
+		)
+		== Rect2i(70, 1069, 951, 390),
+		"a page's own line gives its rectangle in the same words",
+	)
+
+
+## Only the lines that published a rectangle of the kind asked for are boxes, and a page's rectangle is a box of its
+## own: the two are different questions, which is why `--overlay` draws them in two colours.
+func test_the_boxes_are_only_the_lines_that_published_a_rectangle_of_that_kind() -> void:
+	var block := PackedStringArray(
+		[
+			"device   finger=true",
+			"page     start_window  \"Landscaping Planner\"  ->  screen (70, 1069) .. (1021, 1459) 951x390 px",
+			"tap      startwindow                  \"Design the garden\"                screen (100, 1200) .. (980, 1500) 880x300 px  centre (540, 1350)",
+			"tap      startwindow                  \"Learn more\"                       screen (100, 1500) .. (980, 1600) 880x100 px  centre (540, 1550)",
+			"foot     \"Left-drag: move\"",
+		]
+	)
+	var taps: Array[Rect2i] = ToolScript.boxes_of(block, "tap")
+	assert(taps.size() == 2, "two controls were published: %s" % str(taps))
+	assert(taps[0] == Rect2i(100, 1200, 880, 300), "each with its own rectangle")
+	assert(ToolScript.boxes_of(block, "page").size() == 1, "and the page is a box on its own")
+	assert(ToolScript.boxes_of(block, "foot").is_empty(), "a line that published no rectangle is not a box")
+
+
+## The pages one block named, in the words a driver reads - including the board's own case, which is not a fault but
+## simply nothing being in front.
+func test_the_page_a_block_named_is_read_off_its_own_line() -> void:
+	var board := PackedStringArray(["device   finger=true", "foot     \"Left-drag: move\""])
+	var one := PackedStringArray(["page     start_window  \"Landscaping Planner\"  at (0, 481)"])
+	var two := PackedStringArray(
+		["page     start_window  \"Landscaping Planner\"", "page     start_drawing_window  \"Begin a drawing\""]
+	)
+	assert(ToolScript.page_names_in(board) == "no page", "the board is a board, not a page")
+	assert(ToolScript.page_names_in(one) == "1 page(s): start_window", "one page is named")
+	assert(ToolScript.page_names_in(two).contains("start_drawing_window"), "and two are both named")
+
+
+## **What the phone is running is a fact rather than an inference from a timestamp.** The path comes from the
+## phone's own `pm path` and the hash from its own `md5sum`, and either can answer with *nothing* - a phone that
+## will not name its copy, or will not read it - which is a different answer from a hash that does not match.
+func test_what_the_phone_is_running_is_read_from_its_own_path_and_hash() -> void:
+	var named := "package:/data/app/~~abc==/ca.storm.landscapingplanner-xyz==/base.apk"
+	assert(
+		ToolScript.apk_path_from(named) == "/data/app/~~abc==/ca.storm.landscapingplanner-xyz==/base.apk",
+		"the path is read past the word `package:` it is carried behind",
+	)
+	assert(ToolScript.apk_path_from("") == "", "a phone that named nothing is answered with nothing")
+	assert(ToolScript.apk_path_from("Error: package not found") == "", "and so is one that refused")
+	assert(
+		ToolScript.apk_path_from(named + "\npackage:/data/app/~~abc==/split_config.en.apk")
+		== "/data/app/~~abc==/ca.storm.landscapingplanner-xyz==/base.apk",
+		"an app installed as split APKs names its base one first, which is what an install replaces",
+	)
+	var line := "d41d8cd98f00b204e9800998ecf8427e  /data/app/x/base.apk"
+	assert(ToolScript.hash_of(line) == "d41d8cd98f00b204e9800998ecf8427e", "a hash is the first word of its line")
+	assert(ToolScript.hash_of("/data/app/x/base.apk: No such file") == "", "a line holding no hash is not a hash")
+	assert(ToolScript.hash_of("") == "", "and neither is nothing")
 
 
 ## **The centres are the half of the tool a driver needs, and a driver usually wants one control.** `--taps` on its
@@ -212,4 +340,135 @@ func test_a_block_says_whether_a_finger_is_being_served() -> void:
 	assert(
 		not ToolScript.says_a_finger(PackedStringArray(["room     viewport=(1185, 2567)"])),
 		"and a block with no device line answers neither way rather than guessing",
+	)
+
+
+## **A centre is read off the line the program itself printed, and a line without one says so.** `--press` aims at
+## one of these, so a misread here presses something else - which is the whole reason the verb exists instead of a
+## person copying a pair of numbers out of a block and typing them again.
+func test_a_centre_is_read_off_the_line_the_probe_printed() -> void:
+	var printed: String = (
+		"tap      the board                    \"Cancel\"                           "
+		+ "screen (260, 510) .. (380, 541) 120x31 px  centre (320, 526)"
+	)
+	assert(ToolScript.centre_of(printed) == Vector2i(320, 526), "the centre is the line's own last words")
+	# A line of another kind names no centre, and a line whose numbers are not numbers is not a place either.
+	var overlap_line: String = "overlap  Drawing (0) (words) and start_window (bar) share 464 x 12 px at (25, 325)"
+	assert(ToolScript.centre_of(overlap_line) == Vector2i(-1, -1), "a line that names no centre is no centre")
+	assert(
+		ToolScript.centre_of("tap      the board  \"Cancel\"  centre (32x, 5)") == Vector2i(-1, -1),
+		"and neither is one whose numbers are not numbers",
+	)
+	assert(
+		ToolScript.centre_of("tap      the board  \"Cancel\"  centre (320)") == Vector2i(-1, -1),
+		"nor is half a pair a place to aim at",
+	)
+
+
+## **Only a `tap` line is a control a finger can press, and the block's other lines are full of the words wanted.**
+## The phone's own foot line says `Esc: cancel`, so a search that did not ask for the kind first would find a
+## sentence and report a place no finger can reach. Measured on the A16W, 2026-11-14.
+##
+## And a control the block does not name is refused in words that say how it is reached instead: the palette's own
+## `Cancel` sits below its column's fold when the board is held upright, so `--swipe` is the answer rather than a
+## guessed centre.
+func test_pressing_a_control_uses_the_blocks_own_centre_and_refuses_by_name() -> void:
+	var block: PackedStringArray = PackedStringArray(
+		[
+			"device   finger=true zooming=true",
+			"foot     \"Esc: cancel     Left-drag: move a plant\"",
+			"tap      the board  \"Cancel\"   screen (260, 510) .. (380, 541) 120x31 px  centre (320, 526)",
+		]
+	)
+	var found: Dictionary = ToolScript.press_words(block, "cancel")
+	assert(bool(found["found"]), "the words are found whatever their case: %s" % str(found))
+	assert(found["at"] == Vector2i(320, 526), "and the centre is the one the line published: %s" % str(found["at"]))
+	assert(String(found["line"]).begins_with("tap "), "the line found is the tap line and not the foot line")
+
+	var missing: Dictionary = ToolScript.press_words(block, "Undo")
+	assert(not bool(missing["found"]), "a control the block does not name cannot be pressed")
+	var said: String = String(missing["said"])
+	assert(said.contains("Undo"), "the refusal names what was looked for: %s" % said)
+	assert(said.contains("--swipe"), "and names the way to bring it into view: %s" % said)
+
+
+## **A drag is four numbers, and a duration it may not have.** A drag missing its end is not a drag - reading one as
+## a press would be a guess - and the duration is bounded at both ends, so a mistyped one is a slow drag rather than
+## something that never finishes.
+func test_a_drag_is_read_from_four_numbers_and_a_duration_it_may_not_have() -> void:
+	var drag: Array[Vector2i] = ToolScript.the_swipe(PackedStringArray(["--swipe", "540", "1800", "540", "1200"]))
+	assert(drag.size() == 2, "a start and an end: %d" % drag.size())
+	assert(drag[0] == Vector2i(540, 1800) and drag[1] == Vector2i(540, 1200), "the numbers as typed: %s" % str(drag))
+	assert(
+		ToolScript.the_swipe(PackedStringArray(["--swipe", "540", "1800", "540"])).is_empty(),
+		"half a drag is no drag, which is not the same thing as a press",
+	)
+	assert(ToolScript.the_swipe(PackedStringArray(["--swipe", "540", "1800", "540", "down"])).is_empty(), "and neither is one whose numbers are not numbers")
+	assert(ToolScript.the_drag_ms(PackedStringArray(["--swipe", "1", "2", "3", "4"])) == 300, "the drag has a default")
+	assert(ToolScript.the_drag_ms(PackedStringArray(["--swipe", "1", "2", "3", "4", "900"])) == 900, "and takes one")
+	assert(
+		ToolScript.the_drag_ms(PackedStringArray(["--swipe", "1", "2", "3", "4", "1"])) == 50,
+		"kept above an eyeblink",
+	)
+	assert(
+		ToolScript.the_drag_ms(PackedStringArray(["--swipe", "1", "2", "3", "4", "99999"])) == 5000,
+		"and below a wait nobody would sit through",
+	)
+
+
+## **A crop nobody asked for is a file that lies about what it is**, so a region with missing numbers, or with words
+## where numbers belong, is nothing at all rather than the whole screen as a consolation.
+func test_a_crop_region_is_four_numbers_and_nothing_otherwise() -> void:
+	assert(
+		ToolScript.the_region(PackedStringArray(["--crop", "0", "1700", "1080", "500"])) == Rect2i(0, 1700, 1080, 500),
+		"the region as typed",
+	)
+	assert(
+		ToolScript.the_region(PackedStringArray(["--crop", "0", "1700", "1080"])) == Rect2i(),
+		"three numbers is no region",
+	)
+	assert(ToolScript.the_region(PackedStringArray(["--fresh"])) == Rect2i(), "no `--crop` at all is no region")
+	assert(
+		ToolScript.the_region(PackedStringArray(["--crop", "0", "1700", "wide", "500"])) == Rect2i(),
+		"and a word where a number belongs is no region",
+	)
+
+
+## **A block names the page it is for, or names none when there is nothing in front of the board.** That is all this
+## rule answers, and nothing more: whether a block *arrives* when a page leaves is the program's business, and on
+## 2026-11-14 it did not. Measured on the A16W, a BACK that the picture proved had landed left the newest block
+## still naming the page it had put away, because only the pages built at start-up had been watched - and the cure
+## the same day was for `Hud` to ask the *screen* instead. A driver still reads this as the block's answer and not
+## the screen's, which is why every run takes a picture.
+func test_a_block_is_asked_whether_it_names_a_page() -> void:
+	assert(
+		ToolScript.a_block_names_a_page(PackedStringArray(["device   finger=true", "page     start_window  \"x\""])),
+		"a block taken with a page up names it",
+	)
+	assert(
+		not ToolScript.a_block_names_a_page(PackedStringArray(["device   finger=true", "overlap  24 surface(s) drawn"])),
+		"and a block taken with the board in front names no page",
+	)
+	assert(not ToolScript.a_block_names_a_page(PackedStringArray()), "and neither does a block holding nothing")
+
+
+## **The word after a flag is one rule**, read by `--taps` and by `--press` alike, so that the two cannot come to
+## disagree about whether a following flag is a word to look for.
+func test_the_word_after_a_flag_is_the_first_thing_that_is_not_a_flag() -> void:
+	assert(
+		ToolScript.the_word_after(PackedStringArray(["--press", "Begin"]), "--press") == "Begin",
+		"the word as typed",
+	)
+	assert(
+		ToolScript.the_word_after(PackedStringArray(["--press", "--back"]), "--press") == "",
+		"a flag after it is not a word to look for",
+	)
+	assert(
+		ToolScript.the_word_after(PackedStringArray(["--fresh"]), "--press") == "",
+		"and no flag at all names nothing",
+	)
+	assert(
+		ToolScript.tap_filter(PackedStringArray(["--taps", "Cancel"]))
+		== ToolScript.the_word_after(PackedStringArray(["--taps", "Cancel"]), "--taps"),
+		"`--taps` reads its word by the same rule, because it is the same rule",
 	)

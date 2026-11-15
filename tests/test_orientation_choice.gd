@@ -155,3 +155,34 @@ func test_a_desk_cannot_be_asked_to_turn_and_a_phone_can() -> void:
 		DisplayServer.screen_get_orientation() == DisplayServer.SCREEN_LANDSCAPE,
 		"the window a desk is running on was not turned by a test",
 	)
+
+
+## The line a person reads on the device with `adb logcat -s godot | grep ORIENT`, held here rather than left
+## inside a print statement. What is worth having is the **reading beside the hold**, because the two readings
+## that look alike - `SCREEN_SENSOR_LANDSCAPE` 4 and `SCREEN_SENSOR` 6 - are the whole of a fault this program
+## has had twice; a test that saw only the word would see the half that was already right.
+func test_the_report_says_the_hold_and_the_reading_the_window_was_given() -> void:
+	var followed: String = OrientationChoiceScript.report_words(&"doorway", OrientationChoiceScript.DOORWAY, true, true)
+	assert(followed.begins_with("ORIENT doorway"), "the report says who is asking: %s" % followed)
+	assert(followed.contains("asks=follow"), "and what the window is being asked for: %s" % followed)
+	assert(
+		followed.contains("reading=%d" % DisplayServer.SCREEN_SENSOR),
+		"and the reading that means - 6, never the 4 that pins: %s" % followed,
+	)
+	assert(followed.contains("can_turn=true"), "and whether this window can turn at all: %s" % followed)
+	assert(followed.contains("doorway_up=true"), "and what the doorway is doing: %s" % followed)
+	# A desk is the same sentence with the platform's own answer handed in, which is why `can_turn` is a
+	# parameter rather than a reading taken inside.
+	var on_a_desk: String = OrientationChoiceScript.report_words(
+		&"chosen",
+		OrientationChoiceScript.LANDSCAPE,
+		false,
+		false,
+	)
+	assert(on_a_desk.contains("asks=landscape"), "a board asked to stay wide says so: %s" % on_a_desk)
+	assert(
+		on_a_desk.contains("reading=%d" % DisplayServer.SCREEN_LANDSCAPE),
+		"a wide board's reading is 0 rather than nothing: %s" % on_a_desk,
+	)
+	assert(on_a_desk.contains("can_turn=false"), "and a computer says it cannot be asked: %s" % on_a_desk)
+	assert(on_a_desk.contains("doorway_up=false"), "with no doorway over it: %s" % on_a_desk)

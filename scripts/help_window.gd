@@ -30,8 +30,8 @@ signal closed()
 ## Big enough for a page of prose and a list of twenty subjects. The minimum rather than the size:
 ## the page is shown fitted to its contents, so this is what stops it being squeezed smaller than it
 ## can be read at. It is a floor that comes down to fit a screen smaller than the page - a floor taller
-## than the display would push the page's own buttons off the bottom - which `clamped_minimum` works out
-## and `open` applies.
+## To fit as well, and is never wider or taller than the page asked for in the first place, which
+## `PageChrome.show_centred` works out from this same number.
 const SIZE := Vector2i(960, 720)
 ## The contents column: wide enough for the longest subject in the manual on one line.
 const LIST_WIDTH := 300.0
@@ -214,36 +214,23 @@ func build() -> void:
 # --- putting it on the screen -------------------------------------------------------------------
 
 
-## The floor the window opens at, brought down to what a screen actually has room for. A window is
-## shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
-## that screen would fight the clamp and push the page's own controls off the edge - so the floor comes
-## down to fit as well, and is never wider or taller than the page asked for in the first place.
+## Put the page on the screen: built, its floor handed to the one door a page is shown by, and the
+## keyboard put in the search box, because looking a word up is what a manual this long is for. The
+## parts a test can drive without a window server are `build` and `move_selection`.
 ##
-## A screen nothing can be learned about - a headless run reports a nought by nought screen - leaves
-## the floor at its full size: the page is made smaller for want of room, never for want of knowing.
-static func clamped_minimum(available: Vector2i) -> Vector2i:
-	if available.x <= 0 or available.y <= 0:
-		return SIZE
-	return Vector2i(mini(SIZE.x, available.x), mini(SIZE.y, available.y))
-
-
-## Bring the window's floor down to what the screen it will land on can hold, and hand it back. Kept
-## apart from showing the window so a test can read it without a window server.
-func clamp_to_screen() -> Vector2i:
-	var screen := DisplayServer.window_get_current_screen()
-	var available := DisplayServer.screen_get_usable_rect(screen).size
-	min_size = clamped_minimum(available)
-	return min_size
-
-
-## Put the page on the screen: built, its floor fitted to the screen, sized to its contents and
-## centred - and the keyboard put in the search box, because looking a word up is what a manual this
-## long is for. The parts a test can drive without a window server are `build`, `clamp_to_screen` and
-## `move_selection`.
+## **`PageChrome.show_centred`, and not `popup_centered_clamped` with a floor worked out here**, which is
+## what this did until 2026-11-14 - with a `clamped_minimum` and a `clamp_to_screen` of its own, a third
+## copy of a sum `PageChrome` already owns. The copy is why the manual was the last page a phone drew in
+## the desk's type: the door fits the floor to the room the page lands in rather than to the monitor, and
+## then does three things the copy never did - sizes the buttons for a finger, grows the page's words for
+## the screen, and lands the page clear of its own title bar and a phone's cutout. Measured by
+## `tools/phone_touch_sweep.gd` at a phone's own 450 dpi: five lines - Find, Contents, the topic title,
+## the status and Close - drawn at 16 px where the screen needs 30. `SIZE` above is the floor this page
+## declares; the door is what applies it.
 func open() -> void:
 	build()
-	clamp_to_screen()
-	popup_centered_clamped()
+	min_size = SIZE
+	PageChrome.show_centred(self)
 	if _search != null:
 		_search.grab_focus()
 

@@ -316,30 +316,10 @@ func test_closing_the_page_takes_it_off_the_screen_and_announces_itself() -> voi
 	assert(page.shown_topic_index() == 0, "keeping what it was showing for next time")
 	page.free()
 
-
-func test_the_floor_comes_down_to_fit_a_smaller_screen_and_never_to_nothing() -> void:
-	# A screen with room to spare leaves the floor at the page's own size.
-	assert(HelpWindowScript.clamped_minimum(Vector2i(2000, 1200)) == HelpWindowScript.SIZE)
-	# A screen with less room brings it down to that screen, one side at a time.
-	assert(HelpWindowScript.clamped_minimum(Vector2i(800, 1200)) == Vector2i(800, 720))
-	assert(HelpWindowScript.clamped_minimum(Vector2i(2000, 600)) == Vector2i(960, 600))
-	assert(HelpWindowScript.clamped_minimum(Vector2i(640, 480)) == Vector2i(640, 480))
-	# A screen that says nothing about itself leaves the floor alone, rather than at nothing: the page
-	# is made smaller for want of room, never for want of knowing.
-	assert(HelpWindowScript.clamped_minimum(Vector2i.ZERO) == HelpWindowScript.SIZE)
-	assert(HelpWindowScript.clamped_minimum(Vector2i(-1, -1)) == HelpWindowScript.SIZE)
-
-
-func test_the_window_fits_its_floor_to_the_screen_without_ever_going_over_the_page() -> void:
-	var page: HelpWindowScript = _page()
-	var floor_size: Vector2i = page.clamp_to_screen()
-	assert(floor_size.x > 0 and floor_size.y > 0, "the floor is a size, never nothing")
-	assert(
-		floor_size.x <= HelpWindowScript.SIZE.x and floor_size.y <= HelpWindowScript.SIZE.y,
-		"and never larger than the page asks for",
-	)
-	assert(page.min_size == floor_size, "which is the floor the window opens at")
-	page.free()
+# The floor-and-clamp arithmetic this page used to keep to itself is `PageChrome.clamped_minimum`'s now,
+# and `tests/test_page_chrome.gd` holds it there - along with the rule that this page, like every other,
+# is shown by `PageChrome.show_centred` and by nothing else. A note rather than a test, because the same
+# rule tested in two files is the second engine this project spends its effort avoiding.
 
 
 func test_the_arrow_keys_walk_the_contents_end_to_end_without_landing_on_a_heading() -> void:

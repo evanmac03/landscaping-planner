@@ -86,6 +86,24 @@ static func sentence(choice: StringName) -> String:
 	return "The board stays wide, however the phone is held."
 
 
+## **What the window is being asked for, as one line a person can read on the device** - the whole purpose
+## being `adb logcat -s godot | grep ORIENT`, which on a phone is the only way the reading can be seen at all.
+##
+## The **reading** is printed beside the hold, not the hold alone, and that is the point of the line: one hold
+## turns into one of seven readings, two of which look alike - `SCREEN_SENSOR_LANDSCAPE` (4) **pins** a window
+## to landscape while `SCREEN_SENSOR` (6) lets it follow - and a fault of exactly that shape has been found
+## and fixed twice in this program, both times having survived because the reading was never looked at. A
+## report that said `asks=follow` and stopped would hide the very thing worth seeing.
+##
+## The platform's own answer is handed in rather than asked for, the same way `can_turn` takes it, so that a
+## computer can say what a phone would be told without being one.
+static func report_words(why: StringName, shape: StringName, doorway_is_up: bool, can_turn_now: bool) -> String:
+	return (
+		"ORIENT %s: asks=%s reading=%d can_turn=%s doorway_up=%s"
+		% [String(why), String(choice_for(shape)), reading_for(shape), str(can_turn_now), str(doorway_is_up)]
+	)
+
+
 ## One of the three, from anything a file or a dictionary may hand over - and the default for
 ## anything else.
 ##

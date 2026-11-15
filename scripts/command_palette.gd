@@ -32,31 +32,21 @@ func _on_close_requested() -> void:
 	closed.emit()
 
 
-## The floor the window opens at, brought down to what a screen actually has room for.
-## A palette is shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
-## that screen would fight the clamp and push the page's own controls off the edge - so the floor comes
-## down to fit as well, and is never wider or taller than the page asked for in the first place.
-static func clamped_minimum(available: Vector2i) -> Vector2i:
-	if available.x <= 0 or available.y <= 0:
-		return SIZE
-	return Vector2i(mini(SIZE.x, available.x), mini(SIZE.y, available.y))
-
-
-## Bring the palette's floor down to what the screen it will land on can hold.
-func clamp_to_screen() -> Vector2i:
-	var screen := DisplayServer.window_get_current_screen()
-	var available := DisplayServer.screen_get_usable_rect(screen).size
-	min_size = clamped_minimum(available)
-	return min_size
-
-
 ## Put the palette on the screen, with the keyboard already in the field - the whole point of the box
 ## is that a word can be typed into it without reaching for it first.
-## Now with a floor clamped to the screen so controls do not run off the edges on small displays.
+##
+## **Through `PageChrome.show_centred`, the one door a page is shown by**, and not `popup_centered_clamped` with a
+## floor worked out here, as this did until 2026-11-14. The door does what the old `clamp_to_screen` was reaching
+## for - clamping the floor to the room the page lands in, rather than to the monitor - and three things it never
+## did: it sizes the buttons for a finger, grows the page's words for the screen, and lands it clear of its own
+## title bar and a phone's cutout. Measured by `tools/phone_touch_sweep.gd` at a phone's own 450 dpi, before and
+## after: three controls 41 px where a finger wants 97 and four lines at 16 px where the screen needs 30 - and
+## every target a row tall, legible and showing all of its words once it went through the door.
 func open() -> void:
 	build()
-	clamp_to_screen()
-	popup_centered_clamped()
+	# The floor the door starts from: what this box asks for, which the door brings down to the room it lands in.
+	min_size = SIZE
+	PageChrome.show_centred(self)
 	if _search != null:
 		_search.grab_focus()
 ## A row was chosen. The row is carried whole, because the method it names and the entry that

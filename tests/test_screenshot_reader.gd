@@ -101,3 +101,37 @@ func test_a_write_goes_through_a_temporary_file_and_arrives() -> void:
 	assert(back != null and back.get_width() == 4, "and reading it back gives the picture again")
 	assert(ScreenshotReaderScript.write(null, to) == ERR_INVALID_PARAMETER, "no picture is not something to write")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(to))
+
+
+## **A claim and the pixels it is a claim about, in one picture.** A rectangle on its own is a statement by the
+## program about itself; drawing it on the framebuffer is what makes it checkable. So the edge is marked and what
+## is inside is left alone - a mark that covered the rows it points at would be worse than none.
+func test_a_rectangle_is_marked_on_the_edge_without_hiding_what_is_under_it() -> void:
+	var image := _a_picture()
+	ScreenshotReaderScript.outline(image, Rect2i(1, 4, 3, 3), Color(1.0, 0.0, 0.0, 0.5), 1)
+	assert(
+		not image.get_pixel(1, 4).is_equal_approx(LIGHT),
+		"the rectangle's own corner is marked, where the picture had LIGHT",
+	)
+	assert(
+		image.get_pixel(2, 5).is_equal_approx(LIGHT),
+		"the middle of a 3 by 3 is a pixel beyond the 1 px edge, and is left as the picture had it",
+	)
+	assert(image.get_pixel(0, 0).is_equal_approx(DARK), "nothing outside the rectangle is touched")
+
+
+## A rectangle reaching off the picture, one wholly off it, and one given no thickness: three ways of asking for a
+## mark the picture has no room for, and none of them is an error.
+func test_a_mark_the_picture_has_no_room_for_is_clamped_and_not_refused() -> void:
+	var image := _a_picture()
+	ScreenshotReaderScript.outline(image, Rect2i(3, 9, 8, 8), Color.RED, 1)
+	assert(image.get_pixel(3, 9).is_equal_approx(Color.RED), "the part of it that is on the picture is drawn")
+	ScreenshotReaderScript.outline(image, Rect2i(20, 20, 4, 4), Color.RED, 1)
+	assert(
+		ScreenshotReaderScript.doubled(image, Rect2i(20, 20, 4, 4)) == null,
+		"the part that is not on the picture is not drawn, and cannot be read either",
+	)
+	ScreenshotReaderScript.outline(image, Rect2i(0, 0, 4, 4), Color.RED, 0)
+	assert(image.get_pixel(0, 0).is_equal_approx(DARK), "a thickness of nothing leaves the picture as it was")
+	# A rectangle handed to no picture at all is a call with nothing to draw on, and must not be an error.
+	ScreenshotReaderScript.outline(null, Rect2i(0, 0, 4, 4), Color.RED, 1)

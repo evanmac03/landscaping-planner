@@ -816,9 +816,9 @@ func _ready() -> void:
 	_build_start_window()
 	if _draft != null and StartChoicesScript.should_show(_draft.drawing_path, _draft.dirty):
 		open_the_front_door()
-	# What is on the screen, said out loud, for anything driving this program from another computer. A debug
-	# build only, and connected after every page has been built, so the walk inside finds all of them.
-	_watch_the_pages_for_the_probe()
+	# What is on the screen, said out loud, for anything driving this program from another computer. A debug build
+	# only. The launch block is said here, once the door and every other page have been built; every block after it
+	# is asked for by `_notice_the_pages_changing`, on the frame rather than by a signal.
 	_the_screen_said()
 
 
@@ -827,6 +827,12 @@ func _ready() -> void:
 ## Set to keep a second report from stacking up behind a first.
 var _saying_the_screen: bool = false
 
+## The pages that were up when the screen was last said, and whether anything has been said at all. This is what
+## asks for a new block, and it is written **when a block is said** rather than when a change is noticed, so a
+## change arriving while a block is being taken is said by a later frame rather than lost.
+var _pages_as_said: PackedStringArray = PackedStringArray()
+var _has_said_the_pages: bool = false
+
 ## How long the top bar is given to stop folding before the probe reads the screen. The fold runs on every
 ## frame and takes about twenty of them to settle (measured on the phone: 14 titles, 10, 9, while its room went
 ## 927, 920, 871), so this is a ceiling on the wait rather than a delay - the wait ends the moment the fold has
@@ -834,28 +840,38 @@ var _saying_the_screen: bool = false
 const MENU_BAR_SETTLING_FRAMES := 60
 
 
-## Say what is on the screen whenever a page is put on it - a debug build only.
+## What the pages standing on the screen look like now: each one's name and the rectangle it is drawn in - and only
+## the ones that are *up*, since a page hidden behind the board is not on the screen and must not be said.
+func _the_pages_up() -> PackedStringArray:
+	var up := PackedStringArray()
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if not window.visible:
+			continue
+		# The page's rectangle through the probe's own reader, which is the one the block's `page` line is written
+		# with: the state watched here and the rectangle said there cannot then be two different readings.
+		up.append("%s %s" % [PageLayoutScript.page_name(window), str(HudProbeScript.window_rect(window))])
+	return up
+
+
+## Say what is on the screen when the pages up differ from the pages the last block was about - a debug build only.
 ##
-## Connected once, at the end of `_ready` and after every page has been built: they are all built here and
-## kept, so a walk of this tree finds all of them. Two signals, because a page arrives two ways - being
-## opened (`about_to_popup`) and being placed, or put back after the room changed shape under it
-## (`size_changed`) - and either is a moment worth reporting.
-func _watch_the_pages_for_the_probe() -> void:
+## **One rule, asked of the screen rather than told by the pages**, and the reason is a fault measured on the A16W
+## on 2026-11-14. The block used to be published from signals connected in `_ready` to the pages that existed
+## *then*: a page built later - the begin-a-drawing page, the camera's - was never connected, so **its leaving was
+## invisible**. A BACK that the glass plainly showed had put the page away printed nothing to logcat at all, while
+## the door's own hide (its page built in `_ready`) did print one - so a driver reading the newest block was still
+## told a page was standing in front of the board, and there is no way to tell that from a BACK that failed.
+##
+## A rule that watches the *screen* cannot miss a page however it was built, and it says a page arriving and a page
+## being put away as the single thing they are: the screen changed. It also asks one question rather than three
+## signals, so a press that puts one page away and opens another says one block and not two.
+func _notice_the_pages_changing() -> void:
 	if not HudProbeScript.on():
 		return
-	for node: Node in find_children("*", "Window", true, false):
-		var page: Window = node as Window
-		if page == null or page == self:
-			continue
-		if not page.about_to_popup.is_connected(_the_screen_said):
-			page.about_to_popup.connect(_the_screen_said)
-		if not page.size_changed.is_connected(_the_screen_said):
-			page.size_changed.connect(_the_screen_said)
-		# A page arriving is a moment worth reporting whichever route it came by. A camera page put up by the
-		# field page publishes nothing on `about_to_popup` and need not be resized, which is how one stayed
-		# invisible to the probe on a phone until the room changed shape under it.
-		if not page.visibility_changed.is_connected(_the_screen_said):
-			page.visibility_changed.connect(_the_screen_said)
+	var now: PackedStringArray = _the_pages_up()
+	if _has_said_the_pages and now == _pages_as_said:
+		return
+	_the_screen_said()
 
 
 ## Say what is on the screen, once the layout has settled rather than the moment a page lands.
@@ -889,6 +905,10 @@ func _the_screen_said() -> void:
 		if _the_fold_has_settled():
 			break
 	_saying_the_screen = false
+	# Recorded before the block is built, so what is remembered as said is the screen this block is about. A change
+	# arriving while the block is being built is therefore still a change on the next frame.
+	_pages_as_said = _the_pages_up()
+	_has_said_the_pages = true
 	_say_the_screen()
 
 
@@ -1017,6 +1037,10 @@ func _process(delta: float) -> void:
 	# Ahead of the guard, because keeping a copy is about the drawing rather than about the view: a
 	# scene with no view controller still has work in it that is worth not losing.
 	_tick_autosave(delta)
+	# **Whether the pages up have changed, which is what asks for a probe block.** Asked on the frame rather than
+	# told by a signal, and asked here rather than further down because everything below can return early: a reading
+	# that only happens while some other question is being asked is a reading that goes missing.
+	_notice_the_pages_changing()
 	# Likewise ahead of the guard: the ground's heights belong to the drawing, not to the view, and a
 	# page that is open while the drawing changes under it has to keep up.
 	_tick_grading_window()
@@ -1212,7 +1236,6 @@ static func worst_hint_line() -> String:
 ## a line that wrapped, a font a device asked for, a turn of the phone - is noticed and the column placed again.
 ## It starts at `INF`, which no rectangle ever equals, so the first frame places it.
 var _plate_height_as_placed: float = INF
-
 
 ## Write the line at the foot of the screen and the box beside the plan: what the tool in hand is waiting
 ## for with the keys that answer it, while the drawing tools are in hand - and the controls of the view when
@@ -4209,7 +4232,11 @@ func _menu_set_orientation(entry: Dictionary) -> void:
 		return
 	_orientation = choice
 	OrientationChoiceScript.remember(choice)
-	OrientationChoiceScript.apply(the_shape_for_the_window())
+	# A choice is the one moment the window is asked for something a person has just said, so it is said out
+	# loud too - the reading beside the hold, which is exactly where the 4-versus-6 fault hides.
+	var shape: StringName = the_shape_for_the_window()
+	_say_what_the_window_was_asked_for(&"chosen", shape)
+	OrientationChoiceScript.apply(shape)
 
 
 ## Take a reading size: the sizes the program draws at are `PhoneHud`'s, so the answer is handed to it and
@@ -4506,8 +4533,11 @@ func open_help_window() -> void:
 	if _help_window == null:
 		return
 	_fill_help_window()
-	# Opening is the page's own business: it fits its floor to the screen it lands on and puts the
-	# keyboard in the search box, so a word can be typed without reaching for the box first.
+	# Opening is the page's own business, and the page's own business is `PageChrome`: the page hands itself
+	# to that one door, which fits its floor to the room it lands in, sizes its controls for a finger, grows
+	# its words for the screen and puts the keyboard in the search box. Until 2026-11-14 this page worked its
+	# own floor out and popped itself up instead, which is why the manual was the one page a phone drew in the
+	# desk's 16 px type - five lines at 16 px where the screen needs 30, found by `tools/phone_touch_sweep.gd`.
 	_help_window.open()
 	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
 	# the drawing keys belong to the drawing again.
@@ -6758,7 +6788,12 @@ func _build_plant_library() -> void:
 	_plant_window.name = "PlantLibrary"
 	_plant_window.title = "Plant library"
 	_plant_window.exclusive = false
-	_plant_window.min_size = Vector2i(760, 460)
+	# **The size it declares for itself**, which is the floor `PageChrome.show_centred` starts a page from - not a
+	# `popup_centered` argument, which was what this door used and is why the plant library was the one page a
+	# finger was never fitted. Measured by `tools/phone_touch_sweep.gd` at a phone's own 450 dpi, 2026-11-14: every
+	# control on this page 41 px where a finger wants 97, 84 pairs of them 6-7 px apart, and 74 lines drawn at 16 px
+	# where the screen needs 30 - the desk's numbers, whole, on a phone.
+	_plant_window.min_size = Vector2i(1080, 680)
 	_plant_window.close_requested.connect(close_plant_browser)
 	add_child(_plant_window)
 
@@ -6954,7 +6989,14 @@ func open_plant_browser() -> void:
 	if _plant_window == null:
 		return
 	_refresh_plant_browser()
-	_plant_window.popup_centered(Vector2i(1080, 680))
+	# **Through the one door a page is shown by**, and not `popup_centered` as this did until 2026-11-14. The door
+	# does four things to a page that a bare pop-up does not: it sizes the buttons for a finger, grows the page's
+	# words for the screen, insets its contents so a thumb has room, and lands it clear of its own title bar and a
+	# phone's cutout. This was one of three doors that skipped all four, so on a phone the plant library was a page
+	# of 41 px controls in 16 px type - 67 short, 84 close and 74 tiny, read by `tools/phone_touch_sweep.gd` at a
+	# phone's own 450 dpi. The size above is unchanged: 1080 by 680 is what it declared here, and it is what the
+	# door places it at.
+	PageChromeScript.show_centred(_plant_window)
 	if _plant_browser != null:
 		_plant_browser.focus_search()
 
@@ -9149,7 +9191,21 @@ func _sync_door_screen() -> void:
 	# The window's shape is asked for again whenever the doorway comes or goes: the doorway follows the
 	# phone and the board keeps its own answer, so the two minutes either side of this call want two
 	# different things. On a desk nothing is asked, because nothing would happen.
-	OrientationChoiceScript.apply(the_shape_for_the_window())
+	var shape: StringName = the_shape_for_the_window()
+	_say_what_the_window_was_asked_for(&"doorway", shape)
+	OrientationChoiceScript.apply(shape)
+
+
+## Say what the window is being asked for, where a person driving the phone can read it:
+## `adb logcat -s godot | grep ORIENT`. The wording is `OrientationChoice.report_words`'s, so what is printed
+## and what a test holds cannot come apart; whether to say it at all is `HudProbe.on()`'s, which is the one
+## owner of the build question and has no switch of its own here.
+func _say_what_the_window_was_asked_for(why: StringName, shape: StringName) -> void:
+	if not HudProbeScript.on():
+		return
+	print(
+		OrientationChoiceScript.report_words(why, shape, is_the_doorway_up(), OrientationChoiceScript.can_turn_here())
+	)
 
 
 ## Build the begin-a-drawing page: the four honest ways to start, offered once the board is chosen.
@@ -9172,7 +9228,14 @@ func open_start_drawing_window() -> void:
 	_build_start_drawing_window()
 	if _start_drawing_window == null:
 		return
-	var paths: Array[String] = [] if _draft == null else _draft.recent_drawings()
+	# **The recent list has to be built as the array it is declared to be.** A ternary whose arms are an untyped
+	# `[]` and a typed `Array[String]` gives an *untyped* `Array`, and assigning that to `Array[String]` fails at run
+	# time - the value stays empty and the page lists nothing. Found by `tools/phone_touch_sweep.gd`'s first run,
+	# 2026-11-14, as a runtime error beside the sweep's own report; it had been there since the door was built, and
+	# an error nobody can see in a page that simply looks empty is the quietest kind.
+	var paths: Array[String] = []
+	if _draft != null:
+		paths = _draft.recent_drawings()
 	_start_drawing_window.bind_recent(paths)
 	PageChromeScript.show_centred(_start_drawing_window)
 	_sync_door_screen()

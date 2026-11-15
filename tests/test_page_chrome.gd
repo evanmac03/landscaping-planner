@@ -965,3 +965,70 @@ func test_a_computers_page_is_not_inset_for_a_finger() -> void:
 	)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
 	_free_pages()
+
+# --- the one door a page is shown by -----------------------------------------------------------
+
+
+## Every `.gd` under `res://scripts`, subfolders and all, read with `DirAccess`'s own two listings.
+func _every_script_here() -> PackedStringArray:
+	var found: PackedStringArray = PackedStringArray()
+	var folders: Array[String] = ["res://scripts"]
+	while not folders.is_empty():
+		var folder: String = folders.pop_back()
+		for name: String in DirAccess.get_files_at(folder):
+			if name.ends_with(".gd"):
+				found.append(folder.path_join(name))
+		for name: String in DirAccess.get_directories_at(folder):
+			folders.append(folder.path_join(name))
+	return found
+
+
+## **A page is shown by `PageChrome`'s door and by nothing else.**
+##
+## Three doors showed a page themselves until 2026-11-14 - the plant library, the command palette and the
+## manual - each keeping its own floor and calling `popup_centered` on itself, and all three were therefore
+## pages a phone drew in the desk's type: 67 short controls and 74 unreadable lines on the first, three short
+## on the second, five unreadable on the third. Read by `tools/phone_touch_sweep.gd` at a phone's own 450 dpi,
+## and cured by one line each.
+##
+## Two shapes are caught, and both need only the shape of the code, so this runs with no screen:
+##
+## - a window that **shows itself** - the line begins with the call. A page that pops its own frame has kept
+##   its own floor, its own clamp and its own place, which is what `PageChrome` exists to be the one author
+##   of.
+## - a window **shown from outside** by any file but `page_chrome.gd`. The receivers allowed are named,
+##   because a rule that cannot tell a page from the engine's own furniture names a word rather than a fault:
+##   every `FileDialog` here is held in a variable ending `_dialog`, and the one `ConfirmationDialog` is
+##   `question` in `Hud._ask`, whose own comment says, with its measurements, why a question places itself.
+##
+## What a page that has been through the door looks like on the glass is not tested here - that needs a
+## screen, and `tools/phone_touch_sweep.gd` is the instrument for it.
+func test_a_page_is_shown_by_the_one_door_and_by_no_other() -> void:
+	var offenders: Array[String] = []
+	var the_door_itself: bool = false
+	for path: String in _every_script_here():
+		var lines: PackedStringArray = FileAccess.get_file_as_string(path).split("\n")
+		for at: int in lines.size():
+			# The comment is dropped before the line is read: this program names the call in prose now, to say
+			# why it no longer makes it, and a rule that read the prose would name the explanation as the fault.
+			var code: String = lines[at].split("#")[0].strip_edges()
+			if not code.contains("popup_centered"):
+				continue
+			if path.get_file() == "page_chrome.gd":
+				the_door_itself = true
+				continue
+			if code.begins_with("popup_centered"):
+				offenders.append("%s:%d %s" % [path.trim_prefix("res://scripts/"), at + 1, code])
+				continue
+			# Shown from outside: the receiver is the last name before the call, so a page held as
+			# `node._my_page` is judged by `_my_page` rather than by the node it hangs off.
+			var shown: String = code.split(".popup_centered")[0].strip_edges()
+			shown = shown.substr(shown.rfind(".") + 1)
+			if shown == "question" or shown.ends_with("dialog"):
+				continue
+			offenders.append("%s:%d %s" % [path.trim_prefix("res://scripts/"), at + 1, code])
+	assert(the_door_itself, "the door is still the thing that shows a page")
+	assert(
+		offenders.is_empty(),
+		"a page is shown by PageChrome.show_centred and by nothing else; these show one themselves: %s" % str(offenders),
+	)

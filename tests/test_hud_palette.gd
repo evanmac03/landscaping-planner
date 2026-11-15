@@ -246,7 +246,7 @@ func test_a_hud_with_no_box_at_all_says_nothing_rather_than_failing() -> void:
 	assert(not hud.is_command_palette_open(), "there is no box, so nothing is open")
 	hud.close_command_palette()
 	hud._fill_command_palette()
-	# Opening with no box must refuse before it reaches `popup_centered`, which is what makes this safe
+	# Opening with no box must refuse before it reaches `PageChrome`, which is what makes this safe
 	# to call with no window server behind it.
 	hud.open_command_palette()
 	hud.toggle_command_palette()
