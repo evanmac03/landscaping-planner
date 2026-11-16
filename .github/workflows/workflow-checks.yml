@@ -47,6 +47,14 @@ jobs:
         run: |
           & $env:WORKFLOW_GODOT --headless --path . res://tools/run_tests.tscn
           if ($LASTEXITCODE -ne 0) { throw "The test suite failed with exit code $LASTEXITCODE." }
+      - name: Run the typed-declaration audit
+        env:
+          # The same reason as the suite above: a headless run of the editor binary would
+          # otherwise bind the MCP toolkit's runtime port and claim this project's runtime entry.
+          GODOT_MCP_RUNTIME: "0"
+        run: |
+          & $env:WORKFLOW_GODOT --headless --path . res://tools/tree_sitter_audit.tscn
+          if ($LASTEXITCODE -ne 0) { throw "The typed-declaration audit failed with exit code $LASTEXITCODE." }
       - name: Validate workflow, disposable Git and Godot guide
         run: |
           & .\tools\github.ps1 -Action Validate -Godot $env:WORKFLOW_GODOT
