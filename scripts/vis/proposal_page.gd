@@ -183,7 +183,7 @@ static func build_pdf(
 	var plan := layout(paper_mm, still.get_size(), options)
 	if not bool(plan["fits"]):
 		return PackedByteArray()
-	var writer = PdfWriterScript.new()
+	var writer := PdfWriterScript.new()
 	var page: Vector2 = plan["paper_mm"]
 	var per_mm: float = PdfWriterScript.POINTS_PER_MM
 	writer.begin_page(page.x * per_mm, page.y * per_mm)
@@ -370,7 +370,7 @@ static func _frame(image: Image, rect: Rect2, weight: int, colour: Color) -> voi
 
 
 ## The title block's rows into the PDF, caption above value, one row per band.
-static func _emit_title(writer, title: Rect2, rows: Array[Dictionary]) -> void:
+static func _emit_title(writer: DraftPdfWriter, title: Rect2, rows: Array[Dictionary]) -> void:
 	var inset: float = 2.0
 	var row_h: float = TITLE_BLOCK_ROW_MM
 	var x := (title.position.x + inset) * PdfWriterScript.POINTS_PER_MM
@@ -399,7 +399,7 @@ static func _emit_title_rules(page: Image, title: Rect2, scale: float, page_heig
 ## The photographs into the PDF: each fitted inside its band at one scale, framed, and captioned along its
 ## foot in the page's own ink. `options["photos"]` is a list of `{image: Image, caption: String}` - loaded
 ## by the caller, because this page reads no files and would not know what a good caption is anyway.
-static func _emit_photos(writer, strip: Rect2, options: Dictionary) -> void:
+static func _emit_photos(writer: DraftPdfWriter, strip: Rect2, options: Dictionary) -> void:
 	var photos: Array = options.get("photos", [])
 	var laid: Dictionary = photo_bands(photos.size(), strip, int(options.get("photo_max", PHOTO_MAX)))
 	var bands: Array = laid["bands"]

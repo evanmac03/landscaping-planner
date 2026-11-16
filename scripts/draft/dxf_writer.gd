@@ -100,7 +100,7 @@ const KINDS := {
 ## Returns `{ok, reason, shapes, counts, not_written}`. `not_written` is one line per *kind* of thing
 ## left out, with how many there were - the reader's own rule, so a person never has to wonder whether
 ## the export was complete.
-static func shapes_from_document(document, options: Dictionary = { }) -> Dictionary:
+static func shapes_from_document(document: DraftDocument, options: Dictionary = { }) -> Dictionary:
 	if document == null:
 		return {
 			"ok": false,
@@ -282,7 +282,7 @@ static func write_file(path: String, shapes: Array, options: Dictionary = { }) -
 
 
 ## Write a whole drawing out in one step: its plotting geometry, then the DXF.
-static func export_document(document, options: Dictionary = { }) -> Dictionary:
+static func export_document(document: DraftDocument, options: Dictionary = { }) -> Dictionary:
 	var made := shapes_from_document(document, options)
 	if not bool(made["ok"]):
 		return _refused(String(made["reason"]))

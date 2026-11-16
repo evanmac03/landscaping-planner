@@ -31,12 +31,12 @@ const PASSES: Array = [
 ## along once it is wobbled, without the canopy reading as a polygon.
 const CANOPY_POINTS := 28
 
-var _document = null
+var _document: DraftDocument = null
 var _plot_scale: float = 100.0
 var _props: Array[Node3D] = []
 
 
-func _init(document, plot_scale: float, props: Array[Node3D] = []) -> void:
+func _init(document: DraftDocument, plot_scale: float, props: Array[Node3D] = []) -> void:
 	_document = document
 	_plot_scale = plot_scale
 	_props = props
@@ -58,7 +58,7 @@ func regions() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if _document != null:
 		for entity in _document.plotting_entities():
-			var layer = _document.layers.get_layer(entity.layer)
+			var layer := _document.layers.get_layer(entity.layer)
 			if layer == null:
 				continue
 			var wash: Dictionary = WashTableScript.wash_for(layer.name)

@@ -663,15 +663,15 @@ static func slope_entities(slope: Dictionary, plot_scale: float, _units: DraftUn
 	return out
 
 
-static func is_grading_entity(entity) -> bool:
+static func is_grading_entity(entity: DraftEntity) -> bool:
 	return entity != null and String(entity.meta.get(META_KIND, "")) != ""
 
 
-static func kind_of_entity(entity) -> String:
+static func kind_of_entity(entity: DraftEntity) -> String:
 	return String(entity.meta.get(META_KIND, "")) if entity != null else ""
 
 
-static func id_of_entity(entity) -> int:
+static func id_of_entity(entity: DraftEntity) -> int:
 	return int(entity.meta.get(META_ID, 0)) if entity != null else 0
 
 # --- persistence ----------------------------------------------------------------------

@@ -93,7 +93,7 @@ static func plan(entities: Array, tolerance: float) -> ReportScript:
 
 ## Carry out a plan as one undo step. Returns how many shapes were replaced. A plan that
 ## changes nothing touches neither the drawing nor the undo stack.
-static func apply(document, report: ReportScript) -> int:
+static func apply(document: DraftDocument, report: ReportScript) -> int:
 	var replacing: Array[Dictionary] = []
 	for entry in report.entries:
 		if int(entry["removed"]) > 0:

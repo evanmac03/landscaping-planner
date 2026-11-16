@@ -517,7 +517,7 @@ func order_material() -> Dictionary:
 		return { "ok": false, "reason": "there is nothing on it to order", "warning": "" }
 	if quantity <= 0 or not rate.is_valid():
 		return { "ok": false, "reason": "a quantity and a readable rate", "warning": "" }
-	var made = desk.make_purchase_order(job_id, StringName(code), description, quantity, rate, supplier)
+	var made := desk.make_purchase_order(job_id, StringName(code), description, quantity, rate, supplier)
 	if made == null:
 		return { "ok": false, "reason": "the order could not be written", "warning": "" }
 	var issued: Dictionary = desk.issue_purchase_order(made.id, _today())
@@ -639,7 +639,7 @@ func _after_change() -> void:
 func summary_text() -> String:
 	if desk == null or selected_job().is_empty():
 		return "no job chosen"
-	var report = desk.cost_report(selected_job())
+	var report := desk.cost_report(selected_job())
 	if report == null:
 		return "no job chosen"
 	return "%s: %s" % [desk.job_label(selected_job()), report.describe()]

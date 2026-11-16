@@ -29,7 +29,7 @@ var _overflow: PackedInt32Array = PackedInt32Array()
 func rebuild(entities: Array) -> void:
 	clear()
 	for entry in entities:
-		var entity = entry
+		var entity: DraftEntity = entry
 		insert(entity.id, entity.aabb())
 
 

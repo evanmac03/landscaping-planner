@@ -60,10 +60,10 @@ func last_report() -> Dictionary:
 
 
 ## The drafting document, or null when the scene has no drafting controller.
-func document():
+func document() -> DraftDocument:
 	if view_controller == null:
 		return null
-	var controller = view_controller.draft_controller()
+	var controller := view_controller.draft_controller()
 	return controller.document if controller != null else null
 
 
@@ -92,7 +92,7 @@ func props() -> Array[Node3D]:
 func paint_bounds() -> Rect2:
 	var box := Rect2()
 	var empty := true
-	var doc = document()
+	var doc := document()
 	if doc != null and int(doc.count()) > 0:
 		box = doc.bounds()
 		empty = false
@@ -136,7 +136,7 @@ func render() -> Image:
 		return null
 	var bounds := paint_bounds()
 	_busy = true
-	var doc = document()
+	var doc := document()
 	var look := _look()
 	var plants := props()
 	# Supersampling is the antialiasing: there is no 2D MSAA on this renderer, so the
@@ -237,7 +237,7 @@ func paper_colour() -> Color:
 func _make_report(image: Image, bounds: Rect2) -> Dictionary:
 	var by_layer: Dictionary = { }
 	var regions := 0
-	var doc = document()
+	var doc := document()
 	if doc != null:
 		var painter := WashPainterScript.new(doc, plot_scale, props())
 		for entry: Dictionary in painter.regions():
@@ -276,5 +276,5 @@ func _record_for_file(image: Image) -> Dictionary:
 
 
 func _entity_count() -> int:
-	var doc = document()
+	var doc := document()
 	return int(doc.count()) if doc != null else 0

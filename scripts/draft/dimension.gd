@@ -36,7 +36,7 @@ const AXIS_EPSILON := 1e-9
 ## Returns lines to stroke, marks to fill and labels to place. A view that only
 ## wants linework can ignore the other two, which is what the 3D overlay does: it
 ## has no way to draw filled triangles or text.
-static func layout(entity, plot_scale: float, units = null, style = null) -> Dictionary:
+static func layout(entity: DraftEntity, plot_scale: float, units: DraftUnits = null, style: DraftDimensionStyle = null) -> Dictionary:
 	var looks: DraftDimensionStyle = style if style != null else DimensionStyleScript.architectural()
 	var from: Vector2 = entity.point(0)
 	var to: Vector2 = entity.point(1)
@@ -107,7 +107,7 @@ static func layout(entity, plot_scale: float, units = null, style = null) -> Dic
 ## The style a dimension draws with: its own override if it carries one, else the
 ## document's standard, else the shipped default. The same shape an entity's line
 ## style already has, so there is one rule rather than two.
-static func style_for(entity, document = null) -> DraftDimensionStyle:
+static func style_for(entity: DraftEntity, document: DraftDocument = null) -> DraftDimensionStyle:
 	var override: Variant = entity.meta.get("dimension_style", null)
 	if override is Dictionary and not (override as Dictionary).is_empty():
 		return DimensionStyleScript.from_dict(override)
@@ -117,7 +117,7 @@ static func style_for(entity, document = null) -> DraftDimensionStyle:
 
 
 ## A radius is a leader out to the edge with the value beside it.
-static func _radius(from: Vector2, to: Vector2, plot_scale: float, units, looks) -> Dictionary:
+static func _radius(from: Vector2, to: Vector2, plot_scale: float, units: DraftUnits, looks: DraftDimensionStyle) -> Dictionary:
 	var radius := from.distance_to(to)
 	var direction := (to - from).normalized()
 	var lines: Array[PackedVector2Array] = [PackedVector2Array([from, to])]
@@ -165,7 +165,7 @@ static func _radius(from: Vector2, to: Vector2, plot_scale: float, units, looks)
 ##
 ## This is the one dimension that takes no `units`, for the reason above: a degree is a degree, so
 ## there is nothing for the drawing's system to decide.
-static func _angular(entity, corner: Vector2, along_a: Vector2, plot_scale: float, looks) -> Dictionary:
+static func _angular(entity: DraftEntity, corner: Vector2, along_a: Vector2, plot_scale: float, looks: DraftDimensionStyle) -> Dictionary:
 	var along_b := Vector2(entity.params[6], entity.params[7])
 	var radius: float = entity.params[4]
 	var side_a := along_a - corner
@@ -232,9 +232,9 @@ static func _assemble(
 	dimension_to: Vector2,
 	measured: float,
 	plot_scale: float,
-	units,
+	units: DraftUnits,
 	prefix: String,
-	looks,
+	looks: DraftDimensionStyle,
 ) -> Dictionary:
 	var axis := dimension_to - dimension_from
 	if axis.length_squared() <= AXIS_EPSILON:
@@ -300,7 +300,7 @@ static func _append_mark(
 	at: Vector2,
 	outward: Vector2,
 	axis: Vector2,
-	looks,
+	looks: DraftDimensionStyle,
 	plot_scale: float,
 ) -> void:
 	var size := _model(looks.mark_size_mm, plot_scale)
@@ -366,7 +366,7 @@ static func _model(paper_mm: float, plot_scale: float) -> float:
 ## whose style names no count of its own takes it from the scale; an imperial one
 ## writes feet and inches, where the fraction *is* the precision and a decimal
 ## count would mean something else entirely.
-static func _format(metres: float, units, looks, plot_scale: float) -> String:
+static func _format(metres: float, units: DraftUnits, looks: DraftDimensionStyle, plot_scale: float) -> String:
 	var decimals: int = looks.decimals_at(plot_scale)
 	if decimals >= 0 and (units == null or units.system == UnitsScript.System.METRIC):
 		return "%s m" % _fixed(metres, decimals)

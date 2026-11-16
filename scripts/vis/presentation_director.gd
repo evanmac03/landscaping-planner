@@ -108,7 +108,7 @@ func _site_from_drawing() -> Dictionary:
 	var controller: Node = view_controller.draft_controller()
 	if controller == null:
 		return { }
-	var drawing = controller.document
+	var drawing: DraftDocument = controller.document
 	if drawing == null or not drawing.has_method("site"):
 		return { }
 	return drawing.site()
@@ -132,7 +132,7 @@ func save_site() -> bool:
 		note.emit("There is no drawing to save the site into.")
 		return false
 	var controller: Node = view_controller.draft_controller()
-	var drawing = controller.document if controller != null else null
+	var drawing: DraftDocument = controller.document if controller != null else null
 	if drawing == null or not drawing.has_method("set_site"):
 		note.emit("There is no drawing to save the site into.")
 		return false
@@ -419,7 +419,7 @@ func _suspend_controller(suspend: bool) -> void:
 func _entity_count() -> int:
 	if view_controller == null:
 		return 0
-	var controller = view_controller.draft_controller()
+	var controller := view_controller.draft_controller()
 	if controller == null or controller.document == null:
 		return 0
 	return int(controller.document.count())

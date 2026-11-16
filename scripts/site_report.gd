@@ -68,12 +68,12 @@ var _problem: String = ""
 ## Read a drawing into a report. `plant_rows` is what `PlantPlacement.schedule()` returns,
 ## handed in rather than read here for the same reason the takeoff takes it: this file has
 ## no yard and no catalogue.
-static func of_plan(document, planting_rows: Array = []) -> SiteReport:
+static func of_plan(document: DraftDocument, planting_rows: Array = []) -> SiteReport:
 	var report: SiteReport = (load("res://scripts/site_report.gd") as GDScript).new()
 	if document == null:
 		report._problem = "a report needs a drawing"
 		return report
-	var work = TakeoffScript.of_document(document)
+	var work := TakeoffScript.of_document(document)
 	for line in work.lines:
 		var row: Row = Row.new()
 		row.layer = line.layer
@@ -83,7 +83,7 @@ static func of_plan(document, planting_rows: Array = []) -> SiteReport:
 		row.shape_count = line.entity_ids.size()
 		row.description = line.description
 		report._rows.append(row)
-	var planting = TakeoffScript.of_plants(planting_rows)
+	var planting := TakeoffScript.of_plants(planting_rows)
 	for line in planting.lines:
 		var row: Row = Row.new()
 		row.layer = &"401-NEW-PLANT"

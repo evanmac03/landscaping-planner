@@ -186,7 +186,7 @@ func copy() -> Milestone:
 func to_dict() -> Dictionary:
 	# Built as a statement and not as `null if fixed_amount == null else fixed_amount.to_dict()`: a
 	# ternary whose arms are a null and a dictionary is not a ternary the analyser can type.
-	var fixed_in = null
+	var fixed_in: Variant = null
 	if fixed_amount != null:
 		fixed_in = fixed_amount.to_dict()
 	return {

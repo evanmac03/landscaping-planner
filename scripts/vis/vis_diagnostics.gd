@@ -44,7 +44,7 @@ const SEVERITY_ORDER: Array[String] = [ERROR, WARNING, NOTE]
 ## `document` is asked which layers it has drawn on; `layer_set` is asked what the
 ## project's layers are. Both are needed and neither is enough: the layer set knows
 ## what a layer is for, the drawing knows whether it is used.
-static func report(document, layer_set) -> Array[Dictionary]:
+static func report(document: DraftDocument, layer_set: DraftLayerSet) -> Array[Dictionary]:
 	var findings: Array[Dictionary] = []
 	if layer_set == null:
 		return findings
@@ -112,7 +112,7 @@ static func report(document, layer_set) -> Array[Dictionary]:
 ## Whether the drawing has anything drawn on a layer. A drawing that cannot be asked
 ## (none handed over) counts as used, so a report over a layer set alone is still the
 ## layer set's answers rather than nothing at all.
-static func _is_used(document, layer_name: StringName) -> bool:
+static func _is_used(document: DraftDocument, layer_name: StringName) -> bool:
 	if document == null:
 		return true
 	if not document.has_method("entities_on_layer"):

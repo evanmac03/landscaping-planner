@@ -149,8 +149,8 @@ var document: DraftDocument = null:
 		# the first time something reaches for the set, would mean a caller that set a field *first* had it
 		# silently overwritten by the adoption it did not know was coming.
 		_adopt_current_sheet()
-var snap
-var tool
+var snap: DraftSnapEngine = null
+var tool: DraftTool = null
 var canvas: Node2D = null
 var overlay: Node = null
 
@@ -163,7 +163,7 @@ var drawing_layer: StringName = LayerSetScript.NEW_HARDSCAPE
 ## tool, so it lives here beside the document.
 var sheet: String = "A3"
 var plot_scale: float = 100.0
-var pen_table = null
+var pen_table: DraftPlotStyleTable = null
 ## The current sheet's *drawing number*, revision and whether it is portrait. Beside the sheet and the
 ## scale because they are the same kind of thing: the current sheet of the set, as the rest of the app
 ## reads it. The set itself (every sheet, in order) is on the document, because it travels in the file
@@ -1351,7 +1351,7 @@ func edit_at(world: Vector2) -> void:
 
 ## Trim: cut the picked piece of a line out against every other editable shape.
 func _edit_trim(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to trim"
 		return
@@ -1371,7 +1371,7 @@ func _edit_trim(world: Vector2) -> void:
 
 ## Extend: grow the picked end of a line out to the nearest shape beyond it.
 func _edit_extend(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to extend"
 		return
@@ -1389,7 +1389,7 @@ func _edit_extend(world: Vector2) -> void:
 
 ## Erase: take the picked shape off the drawing.
 func _edit_erase(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to erase"
 		return
@@ -1414,7 +1414,7 @@ func _edit_erase(world: Vector2) -> void:
 ## drafting run.
 func _edit_rotate(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to turn"
 			return
@@ -1461,7 +1461,7 @@ static func _turn_words(angle: float) -> String:
 ## nearer the drafting run. Copy takes Y.
 func _edit_move(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to move"
 			return
@@ -1493,7 +1493,7 @@ func _edit_move(world: Vector2) -> void:
 ## one shape afterwards or two.
 func _edit_copy(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to copy"
 			return
@@ -1522,7 +1522,7 @@ func _edit_copy(world: Vector2) -> void:
 ## edit to one outline.
 func _edit_offset(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to offset"
 			return
@@ -1549,7 +1549,7 @@ func _edit_offset(world: Vector2) -> void:
 ## Fillet: pick two lines, round the corner between the halves that were picked.
 func _edit_fillet(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var chosen = _pick_world(world)
+		var chosen := _pick_world(world)
 		if chosen == null:
 			last_message = "nothing there to round"
 			return
@@ -1561,7 +1561,7 @@ func _edit_fillet(world: Vector2) -> void:
 	var pick_a: Vector2 = _edit_points[0]
 	_edit_picked = []
 	_edit_points = []
-	var second = _pick_world(world)
+	var second := _pick_world(world)
 	if second == null:
 		last_message = "nothing there to round"
 		return
@@ -1584,11 +1584,11 @@ func _edit_fillet(world: Vector2) -> void:
 
 ## The shape under a model point, or null. Only editable, visible geometry is
 ## considered, so a pick cannot find an annotation or something switched off.
-func _pick_world(world: Vector2):
+func _pick_world(world: Vector2) -> DraftEntity:
 	var aperture := DEFAULT_PICK_METRES
 	if canvas != null:
 		aperture = PICK_PIXELS / maxf(canvas.pixels_per_metre, 1e-9)
-	var best = null
+	var best: DraftEntity = null
 	var best_distance := aperture
 	# `editable_entities` is what leaves a locked layer out: its shapes stay on the sheet and
 	# still plot, they simply cannot be picked (REQ 5.2.2). Every editing command reaches its
@@ -1606,7 +1606,7 @@ func _pick_world(world: Vector2):
 
 ## Every editable shape other than the one being edited, which is what a trim cuts
 ## against and an extend runs into.
-func _others(target) -> Array:
+func _others(target: DraftEntity) -> Array:
 	var out: Array = []
 	for entity in document.visible_entities():
 		if entity.id == target.id or is_annotation_layer(entity.layer):
@@ -1617,7 +1617,7 @@ func _others(target) -> Array:
 
 ## How far a model point is from an entity's linework. Its outline sampled to
 ## segments, so a curve is measured against chords fine enough to be exact.
-func _distance_to(entity, world: Vector2) -> float:
+func _distance_to(entity: DraftEntity, world: Vector2) -> float:
 	var outline: PackedVector2Array = entity.outline()
 	var count := outline.size()
 	if count == 0:
@@ -3224,7 +3224,7 @@ func open_drawing(path: String) -> bool:
 ## One door, because *two* things now do this: opening a drawing, and restoring a revision of the one
 ## that is open. The document's own `changed` signal is connected by `_ready` when the controller is in
 ## a scene, and guarded here because a controller that never entered a tree never ran it.
-func _bind_document(opened) -> void:
+func _bind_document(opened: DraftDocument) -> void:
 	if document != null and document.changed.is_connected(_on_document_changed):
 		document.changed.disconnect(_on_document_changed)
 	# Setting `document` adopts the current sheet of whatever set the new drawing carries, so the paper
@@ -3485,7 +3485,7 @@ func _refresh_canvas() -> void:
 		"mode": int(_last_snap.get("mode", 0)),
 		"label": String(_last_snap.get("label", "")),
 	}
-	var preview = tool.preview(cursor_point)
+	var preview := tool.preview(cursor_point)
 	canvas.ghost = { "entity": preview, "layer": document.layers.get_layer(tool.layer) } \
 			if preview != null else { }
 	if overlay != null:

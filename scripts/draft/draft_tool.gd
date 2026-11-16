@@ -247,7 +247,7 @@ func finish() -> Dictionary:
 		return _result(false, null, null, _points.size())
 	if is_grading(kind):
 		return _grading_result(_points)
-	var entity = EntityScript.make_polyline(_points, false)
+	var entity := EntityScript.make_polyline(_points, false)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
 
@@ -258,7 +258,7 @@ func finish_closed() -> Dictionary:
 		return _result(false, null, null, _points.size())
 	if is_grading(kind):
 		return _grading_result(_points, true)
-	var entity = EntityScript.make_polyline(_points, true)
+	var entity := EntityScript.make_polyline(_points, true)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
 
@@ -277,7 +277,7 @@ func _grading_result(picked: PackedVector2Array, closed: bool = false) -> Dictio
 	return _result(true, null, payload, 0)
 
 
-func _result(committed: bool, entity, measure, progress: int) -> Dictionary:
+func _result(committed: bool, entity: DraftEntity, measure, progress: int) -> Dictionary:
 	return {
 		"committed": committed,
 		"entity": entity,
@@ -473,7 +473,7 @@ func _measure_between(from: Vector2, to: Vector2) -> Dictionary:
 
 ## The shape as it would be if the user picked here. Null when there is nothing
 ## to show yet.
-func preview(cursor: Vector2):
+func preview(cursor: Vector2) -> DraftEntity:
 	var count := _points.size()
 	if count == 0:
 		return null

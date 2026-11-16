@@ -108,7 +108,7 @@ static func kept(folder: String = DIR) -> PackedStringArray:
 ##
 ## Every capture that names a photograph is loaded: how many fit on the page is `photo_bands`'s question,
 ## so this program has one cap and the page is the place that says how many it left out.
-static func for_page(captures: Array, catalogue) -> Dictionary:
+static func for_page(captures: Array, catalogue: PlantCatalogue) -> Dictionary:
 	var photos: Array[Dictionary] = []
 	var missing: Array[String] = []
 	for entry: Variant in captures:

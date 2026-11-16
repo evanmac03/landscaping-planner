@@ -134,7 +134,7 @@ var _hand_cursor: bool = false
 ## The drafting controller, when the scene has one. Input is routed from here
 ## because this node already owns the overhead mouse handling and knows which
 ## view you are looking at.
-var _draft = null
+var _draft: DraftController = null
 
 ## The catalogue a planted species is looked up in, and the species a click on the plan will put
 ## down. Held here because this node is the one that already knows where a screen point is on the

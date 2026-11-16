@@ -123,8 +123,8 @@ static func layout(
 	entity: EntityScript,
 	layer: LayerScript,
 	plot_scale: float,
-	units = null,
-	dimension_style = null,
+	units: DraftUnits = null,
+	dimension_style: DraftDimensionStyle = null,
 ) -> Dictionary:
 	var lines: Array[PackedVector2Array] = []
 	var marks: Array[Dictionary] = []

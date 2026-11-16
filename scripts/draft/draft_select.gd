@@ -66,7 +66,7 @@ static func within(rect: Rect2, point: Vector2) -> bool:
 	)
 
 
-static func outline_of(entity, tolerance: float = TOLERANCE) -> PackedVector2Array:
+static func outline_of(entity: DraftEntity, tolerance: float = TOLERANCE) -> PackedVector2Array:
 	if entity == null:
 		return PackedVector2Array()
 	var points: PackedVector2Array = entity.outline(tolerance)
@@ -78,7 +78,7 @@ static func outline_of(entity, tolerance: float = TOLERANCE) -> PackedVector2Arr
 
 
 ## Whether every point of a shape is within the band.
-static func inside(entity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
+static func inside(entity: DraftEntity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
 	var outline := outline_of(entity, tolerance)
 	if outline.is_empty():
 		return false
@@ -104,7 +104,7 @@ static func _edges(rect: Rect2) -> Array:
 ## Only a **closed** shape is joined end to end. Joining an open one would invent a
 ## chord across it - an arc from (20,0) to (0,20) would grow a line straight through
 ## the middle of a band it never comes near, and a crossing sweep would take it.
-static func _segments(entity, outline: PackedVector2Array) -> Array:
+static func _segments(entity: DraftEntity, outline: PackedVector2Array) -> Array:
 	var out: Array = []
 	if outline.size() < 2:
 		return out
@@ -117,7 +117,7 @@ static func _segments(entity, outline: PackedVector2Array) -> Array:
 
 ## Whether a shape meets the band: any of it inside, or any of its linework
 ## crossing the band's edge.
-static func crossing(entity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
+static func crossing(entity: DraftEntity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
 	var outline := outline_of(entity, tolerance)
 	if outline.is_empty():
 		return false
@@ -134,7 +134,7 @@ static func crossing(entity, rect: Rect2, tolerance: float = TOLERANCE) -> bool:
 
 
 ## Whether a shape is caught by a band in this mode.
-static func catches(entity, rect: Rect2, mode: StringName, tolerance: float = TOLERANCE) -> bool:
+static func catches(entity: DraftEntity, rect: Rect2, mode: StringName, tolerance: float = TOLERANCE) -> bool:
 	if mode == MODE_CROSSING:
 		return crossing(entity, rect, tolerance)
 	return inside(entity, rect, tolerance)

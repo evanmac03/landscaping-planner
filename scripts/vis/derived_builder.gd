@@ -39,7 +39,7 @@ signal refused(entity_id: int, layer_name: StringName, reason: String)
 
 ## The drafting document. Set by `bind_document()`, which is also what connects the
 ## change signal — binding is the caller's whole job, as it is for `DraftOverlay`.
-var document = null
+var document: DraftDocument = null
 
 var _dirty: bool = false
 var _timer: float = 0.0
@@ -83,12 +83,12 @@ func _ready() -> void:
 
 
 ## Follow the drawing that just replaced the one in hand.
-func _on_document_replaced(opened) -> void:
+func _on_document_replaced(opened: DraftDocument) -> void:
 	bind_document(opened)
 
 
 ## Follow a document, and rebuild when it changes.
-func bind_document(doc) -> void:
+func bind_document(doc: DraftDocument) -> void:
 	if document != null and document.changed.is_connected(mark_dirty):
 		document.changed.disconnect(mark_dirty)
 	document = doc
@@ -127,7 +127,7 @@ func rebuild() -> void:
 	# which is the same order the working plan and the plotted sheet draw in. There is no
 	# separate list to keep in step, which is the point of deriving from the document.
 	for entity in document.entities():
-		var layer = document.layers.get_layer(entity.layer)
+		var layer := document.layers.get_layer(entity.layer)
 		if layer == null:
 			continue
 		var spec: Dictionary = SolidTableScript.solid_for(layer.name)
@@ -155,7 +155,7 @@ func rebuild() -> void:
 ## Static, and pure in the two arguments that matter — this is REQ-V8.9: the same entity
 ## and the same table entry give the same mesh, so two builds can be compared by vertex
 ## count and bounds, which is what the test does.
-static func mesh_for(entity, spec: Dictionary) -> ArrayMesh:
+static func mesh_for(entity: DraftEntity, spec: Dictionary) -> ArrayMesh:
 	if entity == null or spec.is_empty():
 		return null
 	if entity.is_closed():

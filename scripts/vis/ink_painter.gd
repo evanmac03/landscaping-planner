@@ -22,7 +22,7 @@ const SketchStyleScript := preload("res://scripts/vis/sketch_style.gd")
 ## smudge, and a smudge in a proposal is worse than a note that is quietly missing.
 const MIN_TEXT_PIXELS := 6.0
 
-var _document = null
+var _document: DraftDocument = null
 var _plot_scale: float = 100.0
 var _style: SketchStyleScript = null
 var _texels_per_mm: float = 6.0
@@ -32,7 +32,7 @@ var _props: Array[Node3D] = []
 
 
 func _init(
-	document,
+	document: DraftDocument,
 	plot_scale: float,
 	style: SketchStyleScript,
 	texels_per_mm: float = 6.0,
@@ -71,7 +71,7 @@ func parts(wobble: bool = true) -> Array[Dictionary]:
 	if _document == null:
 		return out
 	for entity in _document.plotting_entities():
-		var layer = _document.layers.get_layer(entity.layer)
+		var layer := _document.layers.get_layer(entity.layer)
 		var laid: Dictionary = RenderScript.layout(
 			entity,
 			layer,
@@ -114,7 +114,7 @@ func parts(wobble: bool = true) -> Array[Dictionary]:
 func symbol_parts(wobble: bool = true) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var weight: float = LineStyleScript.new().plot_weight_mm
-	var planting_layer = null
+	var planting_layer: DraftLayer = null
 	if _document != null:
 		planting_layer = _document.layers.get_layer(LayerSetScript.NEW_PLANTING)
 		if planting_layer != null:

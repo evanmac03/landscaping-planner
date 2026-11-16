@@ -487,7 +487,7 @@ func _screen_to_local(screen: Vector2) -> Vector2:
 ## Point the canvas at a drafting document. From here on its linework is part of
 ## the plan, and it is the same document the 3D overlay and the sheet exporter
 ## read, so all three show one design.
-func bind_document(doc) -> void:
+func bind_document(doc: DraftDocument) -> void:
 	document = doc
 	# A new drawing has its own pictures: whatever the last one had read stays cached only as long as
 	# the drawing that referred to it is the one on screen. Never a correctness problem - the cache is
@@ -576,7 +576,7 @@ func selected_ids() -> Array[int]:
 
 ## A selected shape, traced over itself in the highlight colour and a little wider,
 ## so a thin line on a busy plan still says it has been picked.
-func _draw_marked(entity, layer) -> void:
+func _draw_marked(entity: DraftEntity, layer: DraftLayer) -> void:
 	var colour: Color = SELECTION_COLOUR
 	var parts: Dictionary = DraftRenderScript.layout(
 		entity,
@@ -602,7 +602,7 @@ func _draw_marked(entity, layer) -> void:
 
 ## One entity, in its layer's colour and at its layer's weight, drawn from the
 ## shared layout so a dimension arrives here exactly as it will on the sheet.
-func _draw_entity(entity, layer, alpha: float) -> void:
+func _draw_entity(entity: DraftEntity, layer: DraftLayer, alpha: float) -> void:
 	var colour: Color = DraftRenderScript.screen_colour(layer)
 	colour.a *= alpha
 	var parts: Dictionary = DraftRenderScript.layout(
@@ -652,7 +652,7 @@ func _draw_labels(labels: Array, colour: Color) -> void:
 
 ## The document's units, so a dimension reads in the same system the plan was
 ## drawn in. Absent a document, a measurement falls back to plain metres.
-func _units():
+func _units() -> DraftUnits:
 	return document.units if document != null else null
 
 
