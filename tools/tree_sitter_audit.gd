@@ -90,11 +90,22 @@ var _variant_read := RegEx.new()
 
 
 func _ready() -> void:
+	_finish(scan())
+
+
+## Read every script once and report what the grammar found in each, returning the counts that `faults()`
+## judges - the detail a person reads and the number the gate exits on come out of the same pass, so the
+## two cannot disagree. `tools/debug_toolbox.gd` calls this as well, which is why a machine without the
+## extension is given `{"ran": false}` rather than only a note on the screen: a run that could not
+## happen is a fault, and not a clean project.
+##
+## The class is reached through `ClassDB` and never named, so this file still compiles on a device that
+## has no library.
+func scan() -> Dictionary:
 	if not ClassDB.class_exists(&"GDScriptTreeSitter"):
 		print("TREE-SITTER AUDIT: the tree_sitter_gd extension is not loaded on this device.")
 		print("  It ships desktop libraries only (Windows, Linux, macOS); see res://addons/tree_sitter_gd/README.md")
-		_finish({ "ran": false })
-		return
+		return { "ran": false }
 	_variant_read.compile(VARIANT_READ)
 
 	var files: Array[String] = []
@@ -148,15 +159,13 @@ func _ready() -> void:
 	for line: String in untyped_params:
 		print("   ", line)
 
-	_finish(
-		{
-			"ran": true,
-			"tripped": tripped,
-			"typable": typable.size(),
-			"no_return": no_return.size(),
-			"params": untyped_params.size(),
-		}
-	)
+	return {
+		"ran": true,
+		"tripped": tripped,
+		"typable": typable.size(),
+		"no_return": no_return.size(),
+		"params": untyped_params.size(),
+	}
 
 
 ## How many faults a run found: the number the exit code is made from, and the whole of the gate. Zero is
