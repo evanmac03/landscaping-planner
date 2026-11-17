@@ -8,7 +8,7 @@ extends Node2D
 ## rather than asserts are the ones a third reader is *for*: the northing-first pair, the parcel that
 ## closes because a parcel is a ring, and the curve that arrives as a bulge.
 ##
-## Run `res://scenes/landxml_demo.tscn`.
+## Run `res://tools/landxml_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")

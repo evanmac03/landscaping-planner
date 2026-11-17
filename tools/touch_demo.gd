@@ -6,7 +6,7 @@ extends Node
 ## both of its pages, because a `Window` is handed input before anything behind it and would eat the gestures -
 ## and then pushes a synthesized pinch and a two-finger drag into the real viewport: the same path an Android
 ## gesture takes once the platform has read it out of the touches, so everything after that point is the game's
-## own code. Run `scenes/touch_demo.tscn` and read the console:
+## own code. Run `tools/touch_demo.tscn` and read the console:
 ##
 ##     before           23.60 m of plan, focus (0.0, 0.0)
 ##     pinch 1.60       14.75 m of plan, focus (0.0, 0.0)

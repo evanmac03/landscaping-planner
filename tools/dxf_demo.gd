@@ -7,7 +7,7 @@ extends Node2D
 ## plan canvas are all the shipped ones, and it prints every step. The screenshot at the end is the page
 ## with a file that does not say its units in it, over a drawing that already carries the first one.
 ##
-## Run `res://scenes/dxf_demo.tscn`.
+## Run `res://tools/dxf_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")

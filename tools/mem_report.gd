@@ -88,7 +88,7 @@ func _attribute() -> void:
 	for child: Node in _app.get_children():
 		rows.append({ "name": child.name, "nodes": _subtree(child) })
 	rows.sort_custom(
-		func(a, b):
+		func(a: Dictionary, b: Dictionary) -> bool:
 			return int(a["nodes"]) > int(b["nodes"]),
 	)
 	var parts: Array[String] = []
@@ -109,7 +109,7 @@ func _attribute() -> void:
 		if node is Window:
 			pages.append({ "name": node.name, "nodes": _subtree(node) })
 	pages.sort_custom(
-		func(a, b):
+		func(a: Dictionary, b: Dictionary) -> bool:
 			return int(a["nodes"]) > int(b["nodes"]),
 	)
 	var top: Array[String] = []

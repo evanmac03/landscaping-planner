@@ -7,7 +7,7 @@ extends Node2D
 ## plan canvas are all the shipped ones, and it prints every step. The screenshot at the end is the page
 ## over a drawing it has just lit.
 ##
-## Run `res://scenes/lighting_demo.tscn`.
+## Run `res://tools/lighting_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")

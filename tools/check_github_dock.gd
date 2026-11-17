@@ -20,8 +20,11 @@ func _test() -> void:
 		printerr("Unexpected addon display name.")
 		quit(1)
 		return
-	var script = load("res://addons/github_tools/workflow_dock.gd")
-	var dock = script.new()
+	var script: GDScript = load("res://addons/github_tools/workflow_dock.gd") as GDScript
+	# The dock's own script is the addon's, and this file deliberately names nothing inside it - so the handle is
+	# a Variant and every call through it is dynamic. That is the same rule `tools/console.tscn` keeps for the
+	# console, and it is what keeps a tool from depending on an addon's internals.
+	var dock: Variant = script.new()
 	root.add_child(dock)
 	await process_frame
 	if dock._tabs.get_tab_count() != 6:
@@ -291,7 +294,7 @@ func _test_single_steps() -> bool:
 	return true
 
 
-func _test_adviser(dock) -> bool:
+func _test_adviser(dock: Variant) -> bool:
 	var panel := preload("res://addons/github_tools/adviser_panel.gd").new()
 	panel.context_source = dock._adviser_context
 	root.add_child(panel)

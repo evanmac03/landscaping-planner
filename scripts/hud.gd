@@ -179,8 +179,10 @@ const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 @onready var draft_hints: PanelContainer = %DraftHints
 @onready var draft_hints_label: Label = %DraftHintsLabel
 @onready var palette: PanelContainer = %Palette
-@onready var palette_column: PalettePanel = null
-@onready var palette_columnf: PalettePanelScript = %PaletteColumn
+## The drawing palette's own controls, built by `_build_palette` out of the drawing and the keys. It is one
+## member and it is the scene's node: a second name standing beside it, left null, is how this HUD came to
+## build no palette at all while every check still passed.
+@onready var palette_column: PalettePanelScript = %PaletteColumn
 @onready var presentation_panel: PanelContainer = %Presentation
 @onready var presentation_column: VBoxContainer = %PresentationColumn
 @onready var painted_sheet: Control = %PaintedSheet
@@ -950,6 +952,10 @@ func _say_the_screen() -> void:
 			PhoneHudScript.dpi(),
 			PhoneHudScript.canvas_scale(get_window()),
 			room,
+			# The strip no page may be placed in, handed on as the module that states it now has it: this is
+			# the figure a phone is read by, and it is worth printing beside the room because the two ways up
+			# a phone can be held disagree about it by a factor of five.
+			PageChromeScript.reserved_above,
 			DisplayServer.screen_get_size(),
 			DisplayServer.is_touchscreen_available(),
 			WindowPostureScript.of(room),
@@ -1669,10 +1675,9 @@ func _size_the_chrome_for_the_device() -> void:
 	# foot - read off the bar's *rectangle* rather than the offset the scene gives it, because a phone's bar is
 	# taller than a desk's (measured: 61 against 50, a foot of 70 against 62) and the scene's number is only
 	# the desk's. Stated whether or not the bar is on screen, because a page that moved when the bar appeared
-	# would be worse than one simply placed low; and stated once, here, so that no page can land by one answer
-	# and then stand beside a bar drawn to another.
-	if top_bar != null:
-		PageChromeScript.reserved_above = maxi(roundi(top_bar.get_global_rect().end.y), 0)
+	# would be worse than one simply placed low; and stated by one door and no other, so that no page can land
+	# by one answer and then stand beside a bar drawn to another.
+	_state_the_strip_the_pages_may_not_use()
 	# And a page that is already up is put back, because it was placed before this pass ran: the front door is,
 	# and it is shown as this HUD starts. The same door a change of the room's shape uses, so that "every page
 	# lands below the bar" is true of every page rather than of most of them.
@@ -1684,6 +1689,30 @@ func _size_the_chrome_for_the_device() -> void:
 	place_the_left_column_for_a_device.call_deferred()
 	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
+
+
+## State the foot of this HUD's own top bar - the strip no page may be placed in - from the bar's own
+## rectangle, and answer whether that foot has moved.
+##
+## **This is asked every frame, and asking it once was a fault measured on a phone.** The bar is not the size
+## it is fitted at when the moment arrives: it is built and folded over the first dozen frames, so its foot moves
+## under a page that was placed before it settled. Measured on the SM-A166W, the foot reads **357** on the block
+## taken as this HUD starts and **247** on every block taken afterwards - the same 247 upright and lying, because
+## it is the bar's own height and not the room's. The front door is shown as this HUD starts, so it was placed by
+## the 357; and in landscape the begin-a-drawing page drew its own title bar straight over the menu titles.
+##
+## The room is what decides when a page is placed, so the two have to move together: this says when the bar's
+## foot moved, and `_refresh_menus` puts the pages up back by the door a change of the room's shape already
+## uses. The bar's *rectangle* is read rather than the offset the scene gives it, for the reason stated where
+## the strip is first asked: a phone's bar is taller than a desk's and the scene's number is only the desk's.
+func _state_the_strip_the_pages_may_not_use() -> bool:
+	if top_bar == null:
+		return false
+	var foot: int = maxi(roundi(top_bar.get_global_rect().end.y), 0)
+	if foot == PageChromeScript.reserved_above:
+		return false
+	PageChromeScript.reserved_above = foot
+	return true
 
 
 ## Lift the top bar clear of whatever the device keeps for itself along the top of the screen - the status bar,
@@ -3433,6 +3462,11 @@ func _refresh_menus() -> void:
 	# is already called every frame, with its own state guard underneath so that the common case costs a
 	# string comparison and nothing else. `_fold_menu_bar_to_fit` does the same for the room.
 	_fold_menu_bar_to_fit()
+	# The bar has just been folded for this room, so its foot is where the fold has left it: a page placed by
+	# the foot it had before that is a page drawn over the menu titles. Stating it here and putting the pages
+	# up back by the same door keeps "every page lands below the bar" true of the bar as it now stands.
+	if _state_the_strip_the_pages_may_not_use():
+		_the_canvas_changed_shape()
 	var world: Dictionary = menu_world()
 	var state: String = str(world)
 	if state == _menu_state:

@@ -7,7 +7,7 @@ extends Node2D
 ## desk, the price list and the planting all shipped the ones under test. It prints every step, and it
 ## reads the page off the framebuffer rather than assuming a window that exists on screen.
 ##
-## Run `res://scenes/plant_order_demo.tscn`.
+## Run `res://tools/plant_order_demo.tscn`.
 ##
 ## The nursery is put into the field by script rather than typed, because a demonstration cannot type.
 ## Everything else - opening the page, pressing the button, the write - goes through the same calls the
@@ -71,7 +71,7 @@ func _ready() -> void:
 	# down two it can name, the way the plant library puts one down.
 	print("--- two plants the list can name, put down as the library puts one down ---")
 	var yard: Node3D = view_controller.yard
-	var catalogue = hud.plant_list()
+	var catalogue: PlantCatalogue = hud.plant_list()
 	for placed: Dictionary in [
 		PlacementScript.place(catalogue, MAPLE, yard, Vector3(0.0, 0.0, 0.0)),
 		PlacementScript.place(catalogue, RUDBECKIA, yard, Vector3(3.0, 0.0, 0.0)),
@@ -114,7 +114,7 @@ func _ready() -> void:
 	print("--- a job for the plants to be ordered against ---")
 	hud._build_job_desk()
 	var desk: DeskScript = hud._job_desk
-	var job = desk.make_job_from(_estimate())
+	var job: Job = desk.make_job_from(_estimate())
 	if job == null:
 		print("no job could be made from the estimate")
 		return

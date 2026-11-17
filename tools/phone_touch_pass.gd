@@ -80,11 +80,8 @@ extends Node
 ## invisible**. A BACK that the glass plainly showed had landed printed nothing at all, and the newest block went
 ## on naming the page it had put away. `Hud` asks the screen now.
 ##
-## **Counting the blocks by hand is what `--blocks` replaced**, and it is worth knowing what it replaced. Until
-## 2026-11-14 the block came from signals connected to the pages that existed when the program *started*, so a page
-## built later - the begin-a-drawing page, the camera's - was never watched and **its leaving was invisible**: a
-## BACK the glass plainly showed had landed printed nothing at all. The count either side of the press was how that
-## was settled.
+## **The count either side of a press is what `--blocks` replaced**, and how the fault above was settled before it
+## existed as a command:
 ##
 ##     adb logcat -d -s godot:I | grep -c "PROBE --- what is on the screen ---"
 ##
@@ -92,6 +89,29 @@ extends Node
 ## the old fault rather than a BACK that failed. A build older than that fix still answers the old way - which is
 ## why the branch that finds nothing published says so rather than calling the press a failure - and `--blocks`
 ## reads the same count off any build.
+##
+## ## What a block's numbers are in, and how a page is read in landscape
+##
+## A block's `tap` lines are the **screen's own pixels** - the figure beside `native=` on its `room` line - while
+## its `page` lines carry both: the page's own rectangle in logical room units, and, after `->`, the same
+## rectangle in screen pixels. So `--tap X Y`, `--crop x y w h` and `--swipe` all want screen pixels, and a
+## centre copied from a block taken the other way up reaches nothing. Since 2026-11-17 the tool measures a tap it
+## sent against the screen rather than against the room, because a press that had plainly landed was being called
+## a miss - `--press "Design the garden"` put (1213, 753) into a 2340 x 1080 screen and the sentence said
+## "outside the room ... (1444, 666)", which is the logical room and not the space a centre is in at all.
+##
+## **The menu bar's titles are not targets the probe can publish, and that is correct.** A `MenuBar` handles the
+## mouse itself, so its own buttons pass input through, and `Topmost`'s rule leaves a control the mouse passes
+## through out of the tap list. To open a menu on a device, `--key tab` and then `--key enter` are the route; a
+## page, once it is up, is reached by tapping a centre the block published for it.
+##
+## **A page in landscape is read by launching into it.** The doorway is laid out from the hold the device reports,
+## so `--launch --wait N` with the hold landscape brings it up `shape=lying` - no `--back` needed, and a `--back`
+## would put the door away instead of measuring it. Measured that way 2026-11-17: with the door up the strip read
+## **91** px of the room against the bar's own 61 px row, the door's chrome sat well below it (its plate at screen
+## rows 297..347 of a 1080-tall screen), and no `overlap` line named the top bar - the structural prevention the
+## fixing pass could only infer. The board, with no page up, reads `strip` **247** and `nothing meets anything it
+## may not`.
 ##
 ## **A control is pressed by its words rather than by a copied centre.** `--press Begin` finds the newest block's
 ## own line for that control and taps the middle of it, which removes the transposition between reading a centre
@@ -157,9 +177,12 @@ const ACTIVITY := "ca.storm.landscapingplanner/com.godot.game.GodotAppLauncher"
 const APK := "res://build/phone-adapt.apk"
 
 ## What the program is showing, in the order a person wants it: the device it is answering as, the room it was
-## taken in, the line at the foot and the box beside the plan, the page in front of all of it, the colour drawn
-## above that page's top edge, and every meeting the drawn-surfaces rule named.
-const SCREEN_LINES: Array[String] = ["device", "room", "foot", "tool", "page", "drawn", "overlap"]
+## taken in, the strip at the top of it that no page may be placed in, the line at the foot and the box beside
+## the plan, the page in front of all of it, the colour drawn above that page's top edge, and every meeting the
+## drawn-surfaces rule named.
+const SCREEN_LINES: Array[String] = [
+	"device", "room", "strip", "foot", "tool", "page", "drawn", "overlap"
+]
 
 ## The lines that name trouble a finger would have, printed after the screen so the news is never buried: a target
 ## under the floor, two a thumb cannot tell apart, one standing in a band the device keeps (or with its middle in
@@ -348,7 +371,10 @@ func _one_pass() -> void:
 	# Named for what it is rather than `log`: `log` is a built-in function, and a local that shadows one is a
 	# thing this project's warnings are set to fail on.
 	var probe_log: String = _line(["exec-out", "run-as", PACKAGE, "cat", "files/probe.log"])
-	_report(probe_log, cleared)
+	# Read *before* the block is reported, because the age it carries is the one thing a block cannot say about
+	# itself and it is what tells a reader whether the geometry below is about the screen in front of them.
+	var logcat: String = _line(["logcat", "-d", "-s", "godot:I", "-v", "epoch"])
+	_report(probe_log, cleared, logcat)
 	if "--block" in asked:
 		_report_the_whole_block(probe_log)
 	if "--taps" in asked:
@@ -356,8 +382,8 @@ func _one_pass() -> void:
 	if "--overlay" in asked:
 		_draw_the_boxes(newest_block(probe_log))
 	# The bar's own line and the blocks themselves are both stamped by the device and not by the file, so both are
-	# read from logcat - **once**, in the one format that carries a clock.
-	var logcat: String = _line(["logcat", "-d", "-s", "godot:I", "-v", "epoch"])
+	# read from logcat - **once**, in the one format that carries a clock - and that one read is above the block
+	# report, which wants the age it carries.
 	if "--installed" in asked:
 		_report_what_the_phone_runs()
 	if "--blocks" in asked:
@@ -814,12 +840,20 @@ static func files_since(roots: Array[String], suffixes: Array[String], when: int
 		if int(one["when"]) > when:
 			newer.append(one)
 	if newer.is_empty():
-		return { "count": 0, "newest": 0, "path": "", "readable": true }
-	var best: Dictionary = newer[0]
+		return { "count": 0, "newest": 0, "path": "", "paths": PackedStringArray(), "readable": true }
+	# **Newest first**, so the few a person is shown are the ones most likely to matter, while the count still
+	# carries the whole of it.
+	newer.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["when"]) > int(b["when"]))
+	var paths: PackedStringArray = PackedStringArray()
 	for one: Dictionary in newer:
-		if int(one["when"]) > int(best["when"]):
-			best = one
-	return { "count": newer.size(), "newest": int(best["when"]), "path": String(best["path"]), "readable": true }
+		paths.append(String(one["path"]))
+	return {
+		"count": newer.size(),
+		"newest": int(newer[0]["when"]),
+		"path": String(newer[0]["path"]),
+		"paths": paths,
+		"readable": true,
+	}
 
 
 ## One directory's files, and its subdirectories', gathered into `into` - so that a walk is a walk and the suffix
@@ -843,6 +877,15 @@ static func _gather(dir_path: String, suffixes: Array[String], into: Array[Dicti
 		_gather(dir_path.path_join(sub), suffixes, into)
 
 
+## How many of the changed files are named before the rest are counted.
+##
+## **Naming the newest few is what turns a count into a judgement.** "3 script(s) or scene(s) have changed since"
+## says a build may be stale; which three says whether it matters - measured 2026-11-17, a build 66 minutes old
+## had three changed files that were a comment correction and the moved demo scenes, so it *was* the work in hand
+## in everything but its comments, and the behavioural proof was the new line the block published besides.
+const FILES_NAMED := 3
+
+
 ## What the build on disk is, in words, against the tree.
 ##
 ## The build is stamped by **how long ago it was made** rather than by a clock time: a unix time printed back is
@@ -864,22 +907,39 @@ static func build_words(made: int, since: Dictionary, now: int) -> String:
 			% age_words(maxi(now - made, 0))
 			+ " in hand"
 		)
+	var named: String = String(since.get("path", ""))
+	var paths: PackedStringArray = since.get("paths", PackedStringArray())
+	if paths.size() > 0:
+		var shown: PackedStringArray = paths.slice(0, mini(FILES_NAMED, paths.size()))
+		named = ", ".join(shown)
+		if paths.size() > shown.size():
+			named += " and %d more" % (paths.size() - shown.size())
 	return (
-		"the build on disk is %s old, and %d script(s) or scene(s) have changed since - the newest is %s, so this"
-		% [age_words(maxi(now - made, 0)), count, String(since.get("path", ""))]
+		"the build on disk is %s old, and %d script(s) or scene(s) have changed since - %s, so this"
+		% [age_words(maxi(now - made, 0)), count, named]
 		+ " is not what the phone would be running"
 	)
 
 
+## A count with the unit a person would say after it - singular when the count is one, so that an age reads
+## "1 hour" rather than "1 hours". One plural rule for all three units, in the one place that words an age.
+static func _counted(count: int, unit: String) -> String:
+	return "%d %s" % [count, unit if count == 1 else unit + "s"]
+
+
 ## A length of time as a person says it.
+##
+## **The singular is a reading somebody can be shown, not a nicety.** This words the age of a block as well as of a
+## build, and a block is published the moment a screen changes: without this, a build an hour and a half old read
+## "1 hours old" and a block one second old would read "1 seconds ago". Found by running the tool on 2026-11-17.
 static func age_words(seconds: int) -> String:
 	if seconds < 90:
-		return "%d seconds" % seconds
+		return _counted(seconds, "second")
 	# Whole minutes and whole hours, and `floori` rather than a bare `/`: an integer division warns, and this
 	# project's warnings are errors. The same sum `Analytics._hours_text` works out for a sentence about time.
 	if seconds < 5400:
-		return "%d minutes" % floori(float(seconds) / 60.0)
-	return "%d hours" % floori(float(seconds) / 3600.0)
+		return _counted(floori(float(seconds) / 60.0), "minute")
+	return _counted(floori(float(seconds) / 3600.0), "hour")
 
 
 ## What the hold on the device says, in words - and the trap this exists to catch.
@@ -966,22 +1026,35 @@ static func a_device_is_here(devices_text: String) -> bool:
 	return false
 
 
-## What to say about a tap and the room the block it produced was taken in.
+## What to say about a tap and the **screen** the block it produced was taken on.
+##
+## **A block publishes its `tap` centres in the screen's own pixels, not the room's.** A centre reads
+## `screen (951, 212) .. (1375, 385) centre (1163, 299)` - pixels of the display - while the `room` line's
+## `viewport=` figure is the logical room a page is laid out in, 1.62 times smaller on the A16W. Measuring one
+## against the other called a press that had plainly landed a miss: measured 2026-11-17, `--press "Design the
+## garden"` put (1213, 753) into a 2340 x 1080 screen and this sentence said it was "outside the room ... (1444,
+## 666)". The `native=` figure is the space the centres are in, so that is the one it is measured against now -
+## `HudProbe.read_screen_line`.
+##
+## The question the check exists for is unchanged and still answered: a centre copied from a block taken the other
+## way up is past the far edge of this screen - measured, a centre at y 1654 against a 1080-tall screen, where the
+## viewport figure of 666 would have let it pass as well as calling real presses misses.
 ##
 ## `Rect2i` is the engine's own answer to this and it is **exclusive of the far edge** - a point exactly on the
-## right or the foot of the room counts as outside it - which is the honest reading: a tap on the last row of
+## right or the foot of the screen counts as outside it - which is the honest reading: a tap on the last row of
 ## pixels is not one the program can be depended on to have received.
 ##
-## A block that names no room has no answer, and saying so is the point. It is not a tap inside a room of no size,
-## which would read as a clean run.
-static func tap_words(tap: Vector2i, room: Vector2i) -> String:
-	if room.x <= 0 or room.y <= 0:
-		return "the block names no room to measure the tap at (%d, %d) against" % [tap.x, tap.y]
-	if Rect2i(Vector2i.ZERO, room).has_point(tap):
-		return "the tap at (%d, %d) is inside the room the block was taken in, %s" % [tap.x, tap.y, str(room)]
+## A block that names no screen has no answer, and saying so is the point. It is not a tap inside a screen of no
+## size, which would read as a clean run.
+static func tap_words(tap: Vector2i, screen: Vector2i) -> String:
+	if screen.x <= 0 or screen.y <= 0:
+		return "the block names no screen to measure the tap at (%d, %d) against" % [tap.x, tap.y]
+	if Rect2i(Vector2i.ZERO, screen).has_point(tap):
+		return "the tap at (%d, %d) is inside the screen the block was taken on, %s" % [tap.x, tap.y, str(screen)]
 	return (
-		"the tap at (%d, %d) is outside the room the block was taken in, %s" % [tap.x, tap.y, str(room)]
-		+ " - a centre from a block taken the other way up reaches nothing, so the block above is not about it"
+		"the tap at (%d, %d) is outside the screen the block was taken on, %s" % [tap.x, tap.y, str(screen)]
+		+ " - nothing on the screen received it. A centre from a block taken the other way up is the usual cause;"
+		+ " the block above is not about this tap either way."
 	)
 
 
@@ -998,7 +1071,7 @@ func _the_tap(asked: PackedStringArray) -> Vector2i:
 ##
 ## `cleared` is what a block cannot say about itself: a block is a moment with no stamp on it, so a log that holds
 ## nothing means something different when this run has just emptied it.
-func _report(kept: String, cleared: bool) -> void:
+func _report(kept: String, cleared: bool, logcat: String) -> void:
 	var blocks: Array[String] = blocks_in(kept)
 	if blocks.is_empty():
 		if cleared:
@@ -1010,10 +1083,14 @@ func _report(kept: String, cleared: bool) -> void:
 		return
 	var lines: PackedStringArray = newest_block(kept)
 	print("")
-	print(
-		"--- what the phone last said (%d block(s) in the log, %d line(s) in the newest) ---"
+	var heading: String = (
+		"--- what the phone last said (%d block(s) in the log, %d line(s) in the newest)"
 		% [blocks.size(), lines.size()]
 	)
+	var aged: String = _age_of_the_newest_block(logcat)
+	if not aged.is_empty():
+		heading += ", published %s ago" % aged
+	print(heading)
 	var shown: int = 0
 	for kind: String in SCREEN_LINES:
 		shown += _print_the(lines, kind)
@@ -1027,11 +1104,33 @@ func _report(kept: String, cleared: bool) -> void:
 		"  (%d line(s) it published that this tool does not list%s)"
 		% [maxi(lines.size() - shown, 0), " - `--taps` prints their centres" if centres > 0 else ""]
 	)
-	# The tap this run sent, against the room the block it produced was taken in. A centre is only where a finger
-	# should land **in the room it was measured in**, and the device turns under the program: measured on the A16W,
-	# a centre at y 1654 aimed at a 1080-tall landscape screen reached nothing, and nothing said so.
+	# The tap this run sent, against the **screen** the block it produced was taken on. A centre is only where a
+	# finger should land in the space it was measured in, and the device turns under the program: measured on the
+	# A16W, a centre at y 1654 aimed at a 1080-tall landscape screen reached nothing, and nothing said so. The
+	# space is the screen and not the room, because the block's own `tap` lines are the screen's pixels - see
+	# `tap_words`.
 	if _sent_a_tap:
-		print("  %s" % tap_words(_tapped, HudProbeScript.read_room_line(kept)))
+		print("  %s" % tap_words(_tapped, HudProbeScript.read_screen_line(kept)))
+
+
+## How long ago the newest block in the log was published, in a person's words - or nothing when the device's clock
+## did not stamp it.
+##
+## **A block cannot say how old it is.** Its text carries no clock and `probe.log` is that text and nothing else, so
+## the age comes from logcat's own `-v epoch` stamp, exactly as `--blocks` reads it. It is worth a line of its own
+## because a block is only as fresh as the last thing the screen did: read without its age, a block taken at launch
+## reads as though it were about the screen now in front of a person - which is the mistake this tool exists to
+## prevent, and which it very nearly made again on 2026-11-17, when the block that placed the front door in
+## landscape was also the one taken before the top bar had finished folding.
+func _age_of_the_newest_block(logcat: String) -> String:
+	var now: float = float(Time.get_unix_time_from_system())
+	var headings: Array[Dictionary] = block_headings(logcat, now)
+	if headings.is_empty():
+		return ""
+	var when: float = float(headings[headings.size() - 1].get("when", 0.0))
+	if when <= 0.0:
+		return ""
+	return age_words(maxi(int(now - when), 0))
 
 
 ## Every block the program has published, oldest first, with the moment the **device's own clock** stamped it and

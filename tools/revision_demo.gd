@@ -14,7 +14,7 @@ extends Node2D
 ## shipped ones. It prints every step, and the screenshot at the end is the window with the history in it
 ## and the drawing put back.
 ##
-## Run `res://scenes/revision_demo.tscn`.
+## Run `res://tools/revision_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const HudScript := preload("res://scripts/hud.gd")

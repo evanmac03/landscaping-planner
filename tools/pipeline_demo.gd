@@ -7,7 +7,7 @@ extends Node2D
 ## the HUD's menu line are all the shipped ones, and it prints every step. The screenshot at the end is
 ## the board with a lead in each column it has been moved to.
 ##
-## Run `res://scenes/pipeline_demo.tscn`.
+## Run `res://tools/pipeline_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

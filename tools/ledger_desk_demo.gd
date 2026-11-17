@@ -9,7 +9,7 @@ extends Node2D
 ##
 ## The folder it writes to is `user://demo_ledger` and the outbox file is `user://demo_outbox.json`;
 ## nothing in the game reads either. The HUD's own outbox is only **queued** into here - never posted -
-## so the real business folder is left alone. Run `res://scenes/ledger_desk_demo.tscn`.
+## so the real business folder is left alone. Run `res://tools/ledger_desk_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -43,7 +43,7 @@ func _ready() -> void:
 	var started: Dictionary = hud._estimate_window.start_job()
 	print("the hand-off was accepted: ", started["ok"])
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
+	var job: Job = hud._job_desk.job(job_id)
 	job.set_billing_method(JobScript.MILESTONE)
 	hud.open_billing_window()
 	hud._billing_window.choose_tax_code(&"HST-ON")

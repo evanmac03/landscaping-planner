@@ -7,7 +7,7 @@ extends Node2D
 ## controller and the plan canvas are all the shipped ones, and it prints every step. What is left on
 ## screen is the plan with a picture over the ground and under the linework.
 ##
-## Run `res://scenes/underlay_demo.tscn`.
+## Run `res://tools/underlay_demo.tscn`.
 ##
 ## The picture is made here rather than shipped, and it is made to look like what it stands for - a
 ## photocopied site plan with a house, a lot line and a scale bar - because a demo of a tracing aid is

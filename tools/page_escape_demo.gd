@@ -7,7 +7,7 @@ extends Node2D
 ## reading a script, and because "every page the HUD holds is on the list" is a claim about the scene
 ## the program really builds rather than about the list itself.
 ##
-## Run `res://scenes/page_escape_demo.tscn`.
+## Run `res://tools/page_escape_demo.tscn`.
 ##
 ## The first version of this pass was a probe: it put one node inside a page and one beside the HUD and
 ## pressed the key once. The node inside saw it; the node beside the HUD saw nothing; and the page

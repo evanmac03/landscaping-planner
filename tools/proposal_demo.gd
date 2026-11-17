@@ -56,7 +56,7 @@ func _run() -> void:
 ## The batch a proposal is usually asked for, planned but not rendered: the point of this
 ## half is that a batch is a list a person makes, and the report says what is in it.
 func _show_batch() -> void:
-	var batch = BatchScript.new()
+	var batch: BatchScript = BatchScript.new()
 	var added: int = batch.add_every_view(PresetScript.PROPOSAL_DEFAULT)
 	print("batch: %d views at %s" % [added, PresetScript.label(PresetScript.PROPOSAL_DEFAULT)])
 	print(batch.report_text())

@@ -5,26 +5,36 @@ extends Node
 ## A development tool rather than part of the game. It **states the device** - a dense touchscreen, through
 ## `PhoneHud.force_density` and `TouchInput.force`, the same doors a test uses - reading this machine's own
 ## answer first so the two can be compared, and then instances `main.tscn` at a phone's canvas scale and
-## reads the palette button back in millimetres. Run `scenes/phone_hud_demo.tscn` and read the console:
+## reads the palette button back in millimetres. Run `res://tools/phone_hud_demo.tscn` and read the console:
 ##
 ##     window scale      drawn up by 1.35, canvas 1185 x 666 of a 1600 x 900 window
 ##     this device       touchscreen no, 144 dpi, a 29 px row comes to 5.12 mm, so a thumb is needed: no
-##     as applied       384.6 dpi at 1.35 scale, so the row is 61.7 px of layout, text 26 px
-##     the phone         384.6 dpi, the same row is 61.7 px = 5.50 mm, text 26 px = 1.62 mm
-##     before            a row of 29 px was 2.59 mm and text 12 px about 0.7 mm
+##     as applied       450.0 dpi at 1.35 scale, so the row is 72.2 px of layout, text 30 px
+##     the phone         450.0 dpi, the same row is 72.2 px = 5.50 mm, text 30 px = 1.60 mm
+##     before            a row of 29 px was 2.21 mm and text 12 px about 0.6 mm
 ##     PHONE HUD: the palette answers at 5.5 mm on the phone's screen, sized from that screen's own density
 ##
 ## The `this device` line is the honest one: a desk monitor is not a thumb's device, and a density of 144
 ## is what says so. The `as applied` line is the same question asked of the device the program was *told*
 ## it is, and it is what the button measured back must equal - so the verdict is the program's own wiring
 ## rather than this file's arithmetic done twice.
+##
+## **The app prints its own probe block beside these lines**, because this tool instances `main.tscn` and a
+## debug build says what is on its screen. On a desk with a phone stated by hand the doorway lands oddly in
+## that block - the six lines above are the ones this file is *for*, and a probe reading taken in a canvas
+## this tool drew up itself is not a reading of the program on a phone.
+##
+## **At the phone's own density the tool grid comes out one column**, and that is the device rather than a
+## fault: two cells of the widest label need more room than the palette has. The block shows it - "Line",
+## "Polyline", "Rectangle" and "Circle" stacked down the panel, and a `VScrollBar` for the rest.
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
 
-## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen. Measured on the device itself,
-## which reports 450 dots to the inch; the number here is the one the arithmetic is exercised at.
-const PHONE_DPI := 384.6
+## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen, and **450** dots to the inch -
+## what the A16W reports of itself, so the arithmetic below is exercised at the density the device gave
+## rather than at the 384.6 this file was first written with, which was an estimate.
+const PHONE_DPI := 450.0
 
 ## The row and the text a desk was drawn with, for the comparison.
 const DESK_ROW := 29.0

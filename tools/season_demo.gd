@@ -12,7 +12,7 @@ extends Node2D
 ## entry does, states a season through the page's own button, and reads the lines off the **real
 ## controls**, awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/season_demo.tscn`.
+## Run `res://tools/season_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

@@ -12,7 +12,7 @@ extends Node2D
 ## sowing window through the **real HUD** the way the menu entry does, and reads the lines off the
 ## **real controls**, awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/sowing_demo.tscn`.
+## Run `res://tools/sowing_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

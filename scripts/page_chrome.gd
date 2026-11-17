@@ -332,7 +332,19 @@ static func content_room_in(page: Window, room: Vector2i) -> Vector2i:
 	if room.x <= 0 or room.y <= 0:
 		return room
 	var insets: Vector4i = PhoneHud.cutout_here(room)
-	return Vector2i(room.x - insets.x - insets.z, room.y - chrome_above(page) - reserved_above - insets.y - insets.w)
+	# **A room is never less than nothing, whichever way its parts add up.** The guard the paragraph above
+	# keeps against a display that cannot be asked is kept here against the strip too, because the strip is a
+	# number a *bar* states rather than one this file can bound: on the SM-A166W the bar's foot reads 357 while
+	# the bar is still being built and 247 once it has settled - so a strip left over from one moment, measured
+	# against a room it does not fit in, is taller than the room taken out of it: and a page placed in a negative
+	# room is a page placed nowhere.
+	# The strip itself is deliberately *not* clamped: what the bar says is what the bar says. It is the room a
+	# page lands in that cannot be a negative one, and a strip too tall for a room then leaves a page its
+	# width and no height rather than a room pointing the other way.
+	return Vector2i(
+		maxi(room.x - insets.x - insets.z, 0),
+		maxi(room.y - chrome_above(page) - reserved_above - insets.y - insets.w, 0),
+	)
 
 
 ## Put a page on the screen: centred, with everything it asked for kept inside the room it lands in.

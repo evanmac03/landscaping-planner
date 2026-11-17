@@ -30,20 +30,29 @@ func test_the_wait_defaults_and_will_not_be_asked_for_less_than_two_seconds() ->
 	tool.free()
 
 
-## **A centre is only where a finger should land in the room it was measured in.** The device turns under the
-## program, and a tap sent from a portrait block to a landscape screen reaches nothing at all - measured on the
-## A16W, a centre at y 1654 on a 1080-tall screen - and the only thing that said so was a person wondering at the
-## run afterwards. The tool says it instead, with both numbers.
-func test_a_tap_outside_the_room_the_block_was_taken_in_is_named_as_such() -> void:
-	var room := Vector2i(1444, 666)
-	var landed: String = ToolScript.tap_words(Vector2i(700, 300), room)
-	assert(landed.contains("inside"), "a tap in the room is in it: %s" % landed)
-	var adrift: String = ToolScript.tap_words(Vector2i(540, 1654), room)
-	assert(adrift.contains("outside"), "a tap past the foot of the room is outside it: %s" % adrift)
-	assert(adrift.contains("(1444, 666)"), "and the room it was measured against is named: %s" % adrift)
-	# No room is no reading of the tap either, rather than a tap inside a room of no size that would clear it.
+## **A tap is a place on the glass, so it is measured against the screen - not against the room.** A block's `tap`
+## lines are the screen's own pixels; the `room` line's `viewport=` figure is the logical room a page is laid out
+## in, 1.62 times smaller on the A16W. Measuring one against the other called a press that had plainly landed a
+## miss: measured 2026-11-17, `--press "Design the garden"` sent (1213, 753) into a 2340 x 1080 screen and the tool
+## said it was "outside the room ... (1444, 666)". That is the fault this test holds down.
+##
+## The device turns under the program, and the question the check exists for is unchanged: a centre sent from a
+## portrait block to a landscape screen reaches nothing at all - measured, a centre at y 1654 on a 1080-tall
+## screen - and the only thing that said so was a person wondering at the run afterwards.
+func test_a_tap_is_measured_against_the_screen_and_not_the_room() -> void:
+	var screen := Vector2i(2340, 1080)
+	var landed: String = ToolScript.tap_words(Vector2i(700, 300), screen)
+	assert(landed.contains("inside"), "a tap on the screen is on it: %s" % landed)
+	# The press that was wrongly called a miss: a real centre out of a real block, in the screen's own pixels.
+	var pressed: String = ToolScript.tap_words(Vector2i(1213, 753), screen)
+	assert(pressed.contains("inside"), "a centre the block published is on that screen: %s" % pressed)
+	# And the tap this check is for: a centre from a block taken the other way up, past the far edge.
+	var adrift: String = ToolScript.tap_words(Vector2i(540, 1654), screen)
+	assert(adrift.contains("outside"), "a tap past the foot of the screen is outside it: %s" % adrift)
+	assert(adrift.contains("(2340, 1080)"), "and the screen it was measured against is named: %s" % adrift)
+	# No screen is no reading of the tap either, rather than a tap inside a screen of no size that would clear it.
 	assert(
-		ToolScript.tap_words(Vector2i(540, 552), Vector2i.ZERO).contains("names no room"),
+		ToolScript.tap_words(Vector2i(540, 552), Vector2i.ZERO).contains("names no screen"),
 		"no block, no reading of where the tap landed",
 	)
 
@@ -148,6 +157,18 @@ func test_the_tree_is_asked_whether_a_script_has_changed_since_the_build_was_mad
 	assert(String(all_time["path"]).begins_with("res://tests/"), "and names one of them: %s" % str(all_time["path"]))
 	assert(bool(all_time["readable"]), "and says the tree could be walked")
 
+	# **Every changed file is named, not only the newest one**, so that "3 files have changed" can be judged and
+	# not only counted: the paths come back newest first, and there are as many of them as the count says.
+	var named: PackedStringArray = all_time["paths"]
+	assert(
+		named.size() == int(all_time["count"]),
+		"the paths and the count are the same walk: %d against %d" % [named.size(), int(all_time["count"])],
+	)
+	assert(
+		named[0] == String(all_time["path"]),
+		"and the first is the newest, the one the sentence used to name alone: %s" % named[0],
+	)
+
 	# The suffix is what decides, not the directory: nothing here is a `.txt`.
 	assert(
 		int(ToolScript.files_since(["res://tests"], [".txt"], 0)["count"]) == 0,
@@ -190,6 +211,50 @@ func test_the_tree_is_asked_whether_a_script_has_changed_since_the_build_was_mad
 	assert(ToolScript.age_words(30) == "30 seconds", "under a minute and a half, seconds")
 	assert(ToolScript.age_words(600) == "10 minutes", "up to an hour and a half, minutes")
 	assert(ToolScript.age_words(7200) == "2 hours", "and hours after that")
+	# **The singular is a reading a person can be shown**, because this words a block's age as well as a build's
+	# and a block is published the moment a screen changes. Both of these were found by running the tool: the
+	# build line said "1 hours old" on 2026-11-17, and a block a second old would have read "1 seconds ago".
+	assert(ToolScript.age_words(1) == "1 second", "one second is not one seconds")
+	assert(ToolScript.age_words(100) == "1 minute", "a minute and a bit reads as one minute")
+	assert(ToolScript.age_words(5400) == "1 hour", "and an hour and a half reads as one hour, where it read 1 hours")
+
+
+## **Every changed file is named, not only the newest**, because a count says a build may be stale and the names
+## say whether it matters. Measured 2026-11-17: a build 66 minutes old had three changed files that were a comment
+## correction and the moved demo scenes, so it *was* the work in hand in everything but its comments - a judgement
+## the count alone could not support.
+func test_a_stale_build_names_the_files_that_changed_and_counts_the_rest() -> void:
+	var newest_first: PackedStringArray = PackedStringArray(
+		[
+			"res://tools/e.gd",
+			"res://tools/d.gd",
+			"res://tools/c.gd",
+			"res://tools/b.gd",
+			"res://tools/a.gd",
+		]
+	)
+	var several: String = ToolScript.build_words(
+		1_000_000,
+		{ "count": 5, "path": "res://tools/e.gd", "paths": newest_first, "readable": true },
+		1_000_600,
+	)
+	assert(several.contains("5 script"), "the count is still the whole of it: %s" % several)
+	assert(several.contains("res://tools/e.gd"), "and the newest is named: %s" % several)
+	assert(several.contains("and 2 more"), "with the rest counted rather than listed: %s" % several)
+	assert(not several.contains("res://tools/b.gd"), "so a file past the third is not listed: %s" % several)
+
+
+## **A block cannot say how old it is**, and a reader who does not know the age cannot tell whether the geometry a
+## block publishes is about the screen in front of them. The age comes from the device's own stamp, so no log and no
+## stamp both answer *nothing* rather than "0 seconds" - which would read as the freshest possible reading.
+func test_the_age_of_a_block_comes_from_the_device_and_is_nothing_when_it_cannot() -> void:
+	var tool: Node = ToolScript.new()
+	assert(tool._age_of_the_newest_block("") == "", "no log, no age")
+	assert(
+		tool._age_of_the_newest_block("PROBE --- what is on the screen ---\n") == "",
+		"a block with no stamp on it has no age, rather than an age of nothing",
+	)
+	tool.free()
 
 
 ## **A key name is a device keycode, and two of them are refused for reasons that were measured.** The refusals are

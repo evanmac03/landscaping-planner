@@ -6,7 +6,7 @@ extends Node2D
 ## what is being checked is the shipped input path rather than a method called by hand. It prints every
 ## step.
 ##
-## Run `res://scenes/quit_guard_demo.tscn`.
+## Run `res://tools/quit_guard_demo.tscn`.
 ##
 ## The last thing it does is press "Discard and quit" on the real question, which ends the program -
 ## which is the proof: the window's close button reaches the same question `File > Quit` does, and the

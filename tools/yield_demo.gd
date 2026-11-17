@@ -12,7 +12,7 @@ extends Node2D
 ## so what it prints is what a running editor would be showing. It needs no drawing: how much a plant
 ## gives is a fact about the plant, and how many people are eating is a fact about a household.
 ##
-## Run `res://scenes/yield_demo.tscn`.
+## Run `res://tools/yield_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

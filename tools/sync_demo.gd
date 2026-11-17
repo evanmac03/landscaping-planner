@@ -9,7 +9,7 @@ extends Node2D
 ## what this shows is what the client does with the answers.
 ##
 ## It writes to `user://demo_sync_store` and `user://demo_sync`; nothing in the game reads either, and
-## both are wiped first so the run reads the same every time. Run `res://scenes/sync_demo.tscn`.
+## both are wiped first so the run reads the same every time. Run `res://tools/sync_demo.tscn`.
 
 const StoreScript := preload("res://scripts/biz/store.gd")
 const SyncScript := preload("res://scripts/biz/sync.gd")

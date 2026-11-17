@@ -7,7 +7,7 @@ extends Node2D
 ## controller and the plan canvas are all the shipped ones, and it prints every step. What is left on
 ## screen is a plan carrying a level and its label, a contour line, and an arrow that falls.
 ##
-## Run `res://scenes/grading_demo.tscn`.
+## Run `res://tools/grading_demo.tscn`.
 ##
 ## The picks themselves are made through the controller's own click rather than by moving a mouse: a
 ## demonstration cannot move one. Everything *around* the picks - the level in hand, the tool, the

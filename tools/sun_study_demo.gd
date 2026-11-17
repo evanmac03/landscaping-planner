@@ -7,7 +7,7 @@ extends Node2D
 ## presentation and the renderer are all the shipped ones, and it prints every step. What is left on
 ## screen is the garden with the study's own summary over it.
 ##
-## Run `res://scenes/sun_study_demo.tscn`.
+## Run `res://tools/sun_study_demo.tscn`.
 ##
 ## Two of the moments are *also* rendered, because a study's stills are the feature a client sees - but
 ## only two: a demonstration that needed a minute of GPU to make its point would not be run. The season

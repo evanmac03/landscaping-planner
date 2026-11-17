@@ -7,7 +7,7 @@ extends Node2D
 ## documents and the HUD's menu line are all the shipped ones, and it prints every step. The screenshot
 ## at the end is the billing page over the drawing the job was priced from.
 ##
-## Run `res://scenes/billing_demo.tscn`.
+## Run `res://tools/billing_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -39,7 +39,7 @@ func _ready() -> void:
 	var started: Dictionary = hud._estimate_window.start_job()
 	print("the hand-off was accepted: ", started["ok"])
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
+	var job: Job = hud._job_desk.job(job_id)
 	print(
 		"the job is ",
 		hud._job_desk.job_label(job_id),

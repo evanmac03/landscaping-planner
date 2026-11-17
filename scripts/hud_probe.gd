@@ -199,15 +199,25 @@ static func _keep_the_newest(to: String, keep: int) -> void:
 		DirAccess.remove_absolute(temp)
 
 
-## Where this device was answered from, the room everything lands in, and the two lines a person reads at the
-## foot of the screen. The words are handed in rather than read here: what is printed is what the label is
-## actually showing, which is the only reading that can settle a question about what a phone was told.
+## Where this device was answered from, the room everything lands in, the strip at the top of it that no page
+## may be placed in, and the two lines a person reads at the foot of the screen. The words are handed in rather
+## than read here: what is printed is what the label is actually showing, which is the only reading that can
+## settle a question about what a phone was told.
+##
+## The strip is here because it is the one figure that cannot be read off a picture of a page. A page is placed
+## below the bar, so a page standing correctly has a rectangle whose top edge is a title bar below the bar's foot
+## - and whether that foot is the number this window's shape asks for is invisible in the page's own rectangle,
+## which is placed from it either way. On the SM-A166W it reads **357** on the block taken while this HUD is
+## still building its bar and **247** on every block taken afterwards, and 357 is the number the front door was
+## placed by - which is what put that page's title bar over the menu titles. A `strip` line beside the `room`
+## line is what names which foot a page was placed by.
 static func device_lines(
 	finger: bool,
 	zooming: bool,
 	dpi: float,
 	scale: float,
 	room: Vector2i,
+	strip: int,
 	native: Vector2i,
 	touchscreen: bool,
 	shape: StringName,
@@ -221,6 +231,7 @@ static func device_lines(
 		% [str(finger), str(zooming), str(touchscreen), dpi, scale, str(shape)]
 	)
 	lines.append("room     viewport=%s native=%s" % [str(room), str(native)])
+	lines.append("strip    the top %d px of the room is the bar's, and no page may be placed in it" % strip)
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)
 	return lines
@@ -1157,6 +1168,10 @@ static func finger_floor(root: Node) -> int:
 ## The words a block uses for the room it was taken in, in the one place that also writes them.
 const ROOM_MARK := "room     viewport=("
 
+## Where the `room` line's **screen** figure begins: the display's own pixels, which is the space a block's `tap`
+## centres are published in and so the space a tap is a place in. See `read_screen_line`.
+const SCREEN_MARK := "native=("
+
 
 ## The room a block was taken in, read back out of the block's own line - or a room of no size where the line is
 ## not there.
@@ -1170,12 +1185,32 @@ const ROOM_MARK := "room     viewport=("
 ## The marker is searched for rather than anchored to, because the same block arrives both as the probe wrote it
 ## and behind the `PROBE ` a log line carries.
 static func read_room_line(text: String) -> Vector2i:
+	return _a_pair_after(text, ROOM_MARK)
+
+
+## **The screen's own pixels, which is the space a block's `tap` centres are published in.** The `room` line
+## carries both figures - `room     viewport=(1444, 666) native=(2340, 1080)` - and they are not the same space:
+## the viewport is the logical room a page is laid out in, and on the A16W the screen is 1.62 times larger. A tap
+## is a place on the glass, so it is measured against this one. A centre read against the viewport instead called
+## a press that had plainly landed a miss (2026-11-17).
+##
+## Read here, beside the writer and beside its sibling above, for the reason that comment gives.
+static func read_screen_line(text: String) -> Vector2i:
+	return _a_pair_after(text, SCREEN_MARK)
+
+
+## The two numbers inside the brackets a marker is followed by, or `Vector2i.ZERO` when no line carries them.
+##
+## **One walk for both figures on the `room` line**, since the pair after a marker is the same shape whichever
+## figure it is; a second copy of this loop is the kind of thing this project spends the most effort avoiding. An
+## unreadable line is no reading rather than a reading of nothing, which is why every miss returns the zero.
+static func _a_pair_after(text: String, mark: String) -> Vector2i:
 	for raw: String in text.split("\n"):
 		var line: String = raw.strip_edges()
-		var at: int = line.find(ROOM_MARK)
+		var at: int = line.find(mark)
 		if at < 0:
 			continue
-		var from: int = at + ROOM_MARK.length()
+		var from: int = at + mark.length()
 		var shut: int = line.find(")", from)
 		if shut < 0:
 			continue

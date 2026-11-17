@@ -12,7 +12,7 @@ extends Node2D
 ## drawing - with an undo step, because recovering the wrong copy has to be one Ctrl+Z away.
 ##
 ## So it instances the **real main scene** and drives the **real HUD**. Run
-## `res://scenes/autosave_demo.tscn`.
+## `res://tools/autosave_demo.tscn`.
 ##
 ## It clears the recovery folder before it starts and again when it is done: the copies it makes are of
 ## test shapes, and leaving one behind would offer the next person who opens the app a "rescue" of work

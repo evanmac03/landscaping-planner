@@ -7,7 +7,7 @@ extends Node2D
 ## line are all the shipped ones, and it prints every step. The screenshot at the end is the cost report
 ## over the drawing the job was priced from.
 ##
-## Run `res://scenes/cost_demo.tscn`.
+## Run `res://tools/cost_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -38,7 +38,7 @@ func _ready() -> void:
 	print("the hand-off was accepted: ", started["ok"])
 	print("the Jobs menu says: ", hud._jobs_text())
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
+	var job: Job = hud._job_desk.job(job_id)
 	var code: String = job.phase_codes()[0]
 	print(
 		"the job is ",
@@ -78,7 +78,7 @@ func _ready() -> void:
 	print("invoiced and reconciled: ", hud._cost_window.close_order("PO-001"))
 
 	print("--- the customer asks for something else ---")
-	var change = hud._job_desk.make_change_order(
+	var change: ChangeOrder = hud._job_desk.make_change_order(
 		job_id,
 		&"SITE_CONDITION",
 		"Remove a buried wall",

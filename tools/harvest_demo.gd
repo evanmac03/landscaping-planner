@@ -12,7 +12,7 @@ extends Node2D
 ## so what it prints is what a running editor would be showing. It needs no drawing: a harvest time is a
 ## fact about the crop, not about the ground.
 ##
-## Run `res://scenes/harvest_demo.tscn`.
+## Run `res://tools/harvest_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

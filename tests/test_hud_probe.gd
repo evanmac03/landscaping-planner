@@ -198,6 +198,7 @@ func test_the_device_line_carries_what_the_program_answered() -> void:
 		450.0,
 		1.62,
 		Vector2i(1137, 2600),
+		357,
 		Vector2i(1080, 2340),
 		true,
 		WindowPostureScript.of(Vector2i(1137, 2600)),
@@ -213,6 +214,10 @@ func test_the_device_line_carries_what_the_program_answered() -> void:
 	)
 	assert(all.contains("Two fingers: pan"), "and the words the foot of the screen is showing")
 	assert(all.contains("Line: click two ends"), "and the words the tool line is showing")
+	assert(
+		all.contains("the top 357 px of the room is the bar's"),
+		"and the strip no page may be placed in, which a page's own rectangle cannot show: %s" % all,
+	)
 	_free_made()
 
 
@@ -429,6 +434,34 @@ func test_the_room_a_block_was_taken_in_is_read_back_off_its_own_line() -> void:
 	assert(
 		HudProbeScript.read_room_line("room     viewport=(1444 native=()") == Vector2i.ZERO,
 		"a line with no pair in it is not a room",
+	)
+
+
+## **The screen is the space a block's `tap` centres are in, and it is not the room.** The `room` line carries both
+## figures; the viewport is the logical room a page is laid out in, and the screen is the display's own pixels -
+## 1.62 times larger on the A16W. A centre is a place on the glass, so it is measured against the screen, and
+## measuring one against the room called a press that had plainly landed a miss (2026-11-17).
+func test_the_screen_a_block_was_taken_on_is_read_back_off_the_same_line() -> void:
+	var as_written: String = "room     viewport=(1444, 666) native=(2340, 1080)"
+	assert(
+		HudProbeScript.read_screen_line(as_written) == Vector2i(2340, 1080),
+		"the screen the block was taken on: %s" % str(HudProbeScript.read_screen_line(as_written)),
+	)
+	# The same line as it reaches a reader out of `probe.log`, behind the `PROBE ` every line there carries.
+	var behind_the_prefix: String = "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
+	assert(
+		HudProbeScript.read_screen_line(behind_the_prefix) == Vector2i(2340, 1080),
+		"and the same behind the log line's own prefix",
+	)
+	# Nothing said is no screen at all, rather than a screen of no size with every point outside it by definition.
+	assert(HudProbeScript.read_screen_line("") == Vector2i.ZERO, "no block, no screen")
+	assert(
+		HudProbeScript.read_screen_line("room     viewport=(1444 native=()") == Vector2i.ZERO,
+		"a line with no pair in it is not a screen",
+	)
+	assert(
+		HudProbeScript.read_screen_line("room     viewport=(1444, 666)") == Vector2i.ZERO,
+		"and a room line that names no screen is not read as one",
 	)
 
 

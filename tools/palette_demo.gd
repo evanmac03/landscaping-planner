@@ -13,7 +13,7 @@ extends Node2D
 ## does, and reads the rows off the **real controls**, awaiting real frames so what it prints is what a
 ## running editor would be showing.
 ##
-## Run `res://scenes/palette_demo.tscn`.
+## Run `res://tools/palette_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 

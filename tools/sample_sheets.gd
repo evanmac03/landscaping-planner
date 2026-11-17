@@ -46,8 +46,8 @@ const OUT_DIR := "user://"
 
 ## The design the samples are drawn from: a 20 × 12 m lot with a house, a patio, a path,
 ## a bed with five plants in it, an irrigation run, a setback line and five dimensions.
-static func make_document() -> Variant:
-	var document = Document.new()
+static func make_document() -> Document:
+	var document: Document = Document.new()
 	# The lot, the house that already stands on it, and the front setback that constrains
 	# what can be built: three facts about the site before anything is proposed.
 	document.add(Entity.make_rectangle(Vector2(10, 6), Vector2(20, 12)), LayerSet.SURVEY_PROPERTY)
@@ -115,17 +115,17 @@ static func turned_options() -> Dictionary:
 ## Writes both sheets. Returns the paths it wrote, so a caller reports rather than assumes.
 static func write_sheets() -> Array[String]:
 	var written: Array[String] = []
-	var plan = make_document()
+	var plan: Document = make_document()
 	written.append(_write(plan, "sample-sheet.pdf", sheet_options()))
 	# The engineering standard on the turned sheet, set on the document because the
 	# standard is a property of the drawing rather than of the export.
-	var turned = make_document()
+	var turned: Document = make_document()
 	turned.dimension_style = DimensionStyle.engineering()
 	written.append(_write(turned, "sample-sheet-turned.pdf", turned_options()))
 	return written
 
 
-static func _write(document, file_name: String, options: Dictionary) -> String:
+static func _write(document: Document, file_name: String, options: Dictionary) -> String:
 	var path := OUT_DIR + file_name
 	var bytes: PackedByteArray = Exporter.export_pdf(document, options)
 	if bytes.is_empty():

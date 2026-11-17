@@ -10,7 +10,7 @@ extends Control
 ## and a file the running scene never reaches reports no warnings whether or not it has any.
 ##
 ## It writes to `user://demo_costbook` and nothing in the game reads it; the folder is wiped first so
-## the run reads the same every time. Run `res://scenes/costbook_dock_demo.tscn`.
+## the run reads the same every time. Run `res://tools/costbook_dock_demo.tscn`.
 
 const BookScript := preload("res://scripts/biz/cost_book.gd")
 const ItemScript := preload("res://scripts/biz/cost_item.gd")

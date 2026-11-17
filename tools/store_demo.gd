@@ -7,7 +7,7 @@ extends Node2D
 ## found, so a person can see the layout on disk and the audit trail rather than take either on trust.
 ##
 ## It writes to `user://demo_store` and nothing in the game reads it; the folder is wiped first so the
-## run reads the same every time. Run `res://scenes/store_demo.tscn`.
+## run reads the same every time. Run `res://tools/store_demo.tscn`.
 
 const StoreScript := preload("res://scripts/biz/store.gd")
 

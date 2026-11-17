@@ -11,7 +11,7 @@ extends Node2D
 ## window through the **real HUD** the way the menu entry does, and reads the lines off the **real
 ## controls**, awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/rotation_demo.tscn`.
+## Run `res://tools/rotation_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")

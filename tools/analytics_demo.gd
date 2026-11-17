@@ -12,7 +12,7 @@ extends Node2D
 ##
 ## Nothing of its own is added to disk: the pages it drives write their proposals and their invoices
 ## where they always do, and the book in the second pass is built in memory. Run
-## `res://scenes/analytics_demo.tscn`.
+## `res://tools/analytics_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const HudScript := preload("res://scripts/hud.gd")

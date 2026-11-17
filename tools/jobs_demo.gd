@@ -7,7 +7,7 @@ extends Node2D
 ## estimate window and the HUD's menu line are all the shipped ones, and it prints every step. The
 ## screenshot at the end is the schedule board over the drawing the job was priced from.
 ##
-## Run `res://scenes/jobs_demo.tscn`.
+## Run `res://tools/jobs_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")

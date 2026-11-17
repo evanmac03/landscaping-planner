@@ -9,7 +9,7 @@ extends Node
 ##
 ##     run `res://tools/phone_gui_probe.tscn` and LOOK at the window
 ##     this device      touchscreen no, 144 dpi, a 29 px row comes to 5.12 mm, so a thumb is needed: no
-##     the phone        a legible capital is TEXT_MM, which is 25 px of layout at 1.62 drawn at 384.6 dpi
+##     the phone        a legible capital is TEXT_MM, which is 29 px of layout at 1.62 drawn at 450 dpi
 ##     a page's note    was 12 px, is 25 px   (grown from what the page laid it out at)
 ##     a page's title   was 20 px, is 42 px   (a page keeps its shape rather than collapsing)
 ##     a page's button  was 12 px, is 25 px, in a row 61.7 px tall
@@ -23,9 +23,14 @@ const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
-## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen, 450 dots to the inch to the
-## platform. The number here is the one the arithmetic is exercised at, and the canvas scale the
-## demonstration draws at.
+## The phone this program is aimed at: 2340 x 1080 on a 6.7 inch screen, and **450** dots to the inch - what
+## the A16W reports of itself, and the number `phone_hud_demo` and `phone_touch_sweep` both state.
+##
+## **384.6 was an estimate of the same device, and stating it was a fault rather than a near-miss.** This file's
+## own doc said 450 while its constant said 384.6, and the tool derives the floor a target must reach and the
+## floor words must be legible at from the density it *forces* - so both floors came out about 15% low, and a
+## reading that is too lenient is the one that misses faults rather than one that invents them. One device, one
+## number: the three tools that state a phone now state the same one.
 ##
 ## **What this tool states is the device, not the room.** Godot's embedded game refuses a change of the
 ## window's size, so the window stays the editor's own and the canvas under it is not the phone's 1444 by
@@ -33,7 +38,7 @@ const HudProbeScript := preload("res://scripts/hud_probe.gd")
 ## page come out taller here than there. A page that fits this window fits the phone; a page that does not
 ## is not yet an answer about the phone, and the phone itself is the instrument for that. `PageLayout.measure`
 ## takes a viewport size as an argument for exactly that reason.
-const PHONE_DPI := 384.6
+const PHONE_DPI := 450.0
 const PHONE_SCALE := 1.62
 
 var _app: Node = null

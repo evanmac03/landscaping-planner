@@ -1,8 +1,8 @@
 extends Node
-## A dev tool: read every script under `res://scripts` with the tree_sitter_gd GDExtension and report what
-## the grammar found in each - the shape of the tree at a glance, every file it could not read in full, and
-## the three faults this project's own doctrine names: a `var` written with neither an explicit type nor a
-## `:=` inference, a function that states no return type, and a parameter that states no type.
+## A dev tool: read every script under `res://scripts` and `res://tools` with the tree_sitter_gd GDExtension and
+## report what the grammar found in each - the shape of the tree at a glance, every file it could not read in
+## full, and the three faults this project's own doctrine names: a `var` written with neither an explicit type nor
+## a `:=` inference, a function that states no return type, and a parameter that states no type.
 ##
 ## The first is the interesting one because it has a stated exception - AGENTS.md keeps a dictionary that
 ## came out of `JSON.parse_string` deliberately untyped, so a value read out of a dictionary is left alone.
@@ -35,7 +35,13 @@ extends Node
 
 ## What is read, and what the walk does not descend into - neither the addons nor the editor's cache is
 ## this project's own script.
-const SCRIPTS_ROOT := "res://scripts"
+##
+## **A dev tool is this project's own script too, which is why `res://tools` is read as well.** The doctrine
+## belongs to the repository rather than to the shipped program: AGENTS.md says members, parameters and return
+## types are all typed, and says it about the project, not about the files an export happens to carry. Until this
+## the gate walked `res://scripts` alone, and four untyped dev tools sat in `res://tools` where nothing could see
+## them - while `tests/test_style_doctrine.gd` already walked both, so the two checks now cover the same tree.
+const ROOTS: Array[String] = ["res://scripts", "res://tools"]
 const SKIP_DIRS: Array[String] = ["addons", ".godot"]
 
 ## The name each count is reported under, and the query that counts it.
@@ -109,10 +115,11 @@ func scan() -> Dictionary:
 	_variant_read.compile(VARIANT_READ)
 
 	var files: Array[String] = []
-	_collect(SCRIPTS_ROOT, files)
+	for root: String in ROOTS:
+		_collect(root, files)
 	files.sort()
 
-	print("################ TREE-SITTER AUDIT: %d script(s) under %s ################" % [files.size(), SCRIPTS_ROOT])
+	print("################ TREE-SITTER AUDIT: %d script(s) under %s ################" % [files.size(), ", ".join(ROOTS)])
 	var totals: Dictionary = {}
 	for key: String in COUNTS:
 		totals[key] = 0

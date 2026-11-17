@@ -7,7 +7,7 @@ extends Node2D
 ## one and not a fixture: what lands in the folder is what a customer would have been sent.
 ##
 ## The folder it writes to is `user://demo_ledger`, and nothing in the game reads it. Run
-## `res://scenes/ledger_demo.tscn`.
+## `res://tools/ledger_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -40,7 +40,7 @@ func _ready() -> void:
 	var started: Dictionary = hud._estimate_window.start_job()
 	print("the hand-off was accepted: ", started["ok"])
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
+	var job: Job = hud._job_desk.job(job_id)
 	print("the job is ", hud._job_desk.job_label(job_id), ", a contract of ", job.contract_sum.format_with_currency())
 
 	print("--- an invoice for the whole contract, taxed ---")
@@ -60,7 +60,7 @@ func _ready() -> void:
 	print("the document: ", invoice.describe())
 
 	print("--- what the ledger is ---")
-	var ledger = FileLedgerScript.new("user://demo_ledger")
+	var ledger: FileLedgerScript = FileLedgerScript.new("user://demo_ledger")
 	print(ledger.describe())
 	print("it needs nothing configured: ", ledger.is_configured(), ", and can: ", ledger.capabilities())
 	print("its test button: ", ledger.self_test())
@@ -147,7 +147,7 @@ func _ready() -> void:
 	# The two hosted backends build a real request for the same invoice. Neither is claimed to do more
 	# than it does, and neither can be probed yet: a probe has to be sent, and the transport that sends
 	# arrives with sync. Each says so instead of a green light that verified nothing.
-	var payment = PaymentScript.new("PMT-0001")
+	var payment: PaymentScript = PaymentScript.new("PMT-0001")
 	payment.invoice = invoice.id
 	payment.received_at = "2026-06-20"
 	payment.amount = invoice.balance()

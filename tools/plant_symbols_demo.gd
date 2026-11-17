@@ -6,7 +6,7 @@ extends Node2D
 ## same figures, the same footprint, the same `PlanStyle` inks. Reading the script tells you the
 ## symbols differ; only looking at it tells you whether they *read* as a spruce, a grass and a bed.
 ##
-## Run `res://scenes/plant_symbols_demo.tscn`. It prints the symbol each plant was given, which is the
+## Run `res://tools/plant_symbols_demo.tscn`. It prints the symbol each plant was given, which is the
 ## half a picture cannot state.
 
 const CatalogueScript := preload("res://scripts/plant_catalogue.gd")

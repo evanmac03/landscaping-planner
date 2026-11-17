@@ -8,7 +8,7 @@ extends Node
 ## the device that is sized for a thumb and *not* drawn up: its own scale already has the room, and drawing
 ## it up would cost it a third of its drawing area for nothing.
 ##
-## Run `scenes/tablet_demo.tscn` and read the console:
+## Run `tools/tablet_demo.tscn` and read the console:
 ##
 ##     window           1600 x 900, canvas 1600 x 900 of it
 ##     answers          a thumb is needed: yes, drawn up: no

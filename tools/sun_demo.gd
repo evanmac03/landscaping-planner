@@ -4,7 +4,7 @@ extends Node
 ## A development tool rather than part of the game. It instances `main.tscn` and drives the
 ## real presentation - the real yard, the real sun light, the real camera, the real exporter -
 ## so what it renders is what a client would be shown, and nothing here can disagree with the
-## panel. Run `scenes/sun_demo.tscn` and it does the rest: it writes one still an hour into
+## panel. Run `tools/sun_demo.tscn` and it does the rest: it writes one still an hour into
 ## `res://preview/sun-demo/`, prints a table of what the study said, and then lays the day out
 ## as a labelled sheet so a screenshot of the session is the demonstration.
 ##

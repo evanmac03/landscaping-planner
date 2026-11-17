@@ -58,7 +58,7 @@ func _run() -> void:
 		return
 	await get_tree().process_frame
 
-	var route = _build_route()
+	var route: WalkRoute = _build_route()
 	print("route: %s" % route.describe())
 	for index in route.count():
 		var stop: Dictionary = route.stops()[index]
@@ -77,7 +77,7 @@ func _run() -> void:
 			]
 		)
 
-	var director = DirectorScript.new()
+	var director: DirectorScript = DirectorScript.new()
 	director.bind(route)
 	if not director.play():
 		print("walk_demo: the route cannot be walked: %s" % route.refusal())

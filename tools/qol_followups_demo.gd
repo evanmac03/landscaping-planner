@@ -7,7 +7,7 @@ extends Node2D
 ## shipped input path rather than a method called by hand. It prints every step and saves a frame of the
 ## two pages it comes to.
 ##
-## Run `res://scenes/qol_followups_demo.tscn`.
+## Run `res://tools/qol_followups_demo.tscn`.
 ##
 ## Four claims, in the order a person meets them:
 ##   * a key that had none now opens the page it names, and Escape - which the HUD could never deliver
@@ -122,7 +122,7 @@ func _ground_tools_on_their_keys() -> void:
 ## sentence, and the page shows both.
 func _what_the_drawing_said() -> void:
 	print("--- what the drawing said, kept ---")
-	var document = _hud._draft.document
+	var document: DraftDocument = _hud._draft.document
 	document.add(EntityScript.make_line(Vector2(0, 0), Vector2(4, 2)), LayerSetScript.NEW_HARDSCAPE)
 	document.add(EntityScript.make_line(Vector2(4, 2), Vector2(6, 5)), LayerSetScript.NEW_HARDSCAPE)
 	# The drawing says what it did through the one setter every message passes through, so this is the
@@ -130,7 +130,7 @@ func _what_the_drawing_said() -> void:
 	_hud._draft.last_message = "2 entities drawn by this pass"
 	_hud._draft.last_message = "and something else happened after that"
 	await _settle()
-	var history = _hud._draft.said
+	var history: StatusHistory = _hud._draft.said
 	print("  the status line shows only the last thing: \"", _hud._draft.last_message, "\"")
 	print("  the drawing kept ", history.count(), " answers, newest first: ", history.lines())
 

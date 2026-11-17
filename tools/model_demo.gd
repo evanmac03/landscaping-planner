@@ -12,7 +12,7 @@ extends Node2D
 ## what it does with the answer - add the extension, hand the path to the exporter, put the sentence on
 ## the status line - is what `tests/test_vis_yard_export.gd` checks.
 ##
-## Run `res://scenes/model_demo.tscn`.
+## Run `res://tools/model_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Exporter := preload("res://scripts/vis/yard_exporter.gd")

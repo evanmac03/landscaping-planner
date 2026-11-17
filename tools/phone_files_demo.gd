@@ -4,7 +4,7 @@ extends Node
 ## A development tool rather than part of the game. It instances `main.tscn` with the device forced to
 ## a phone *before* the scene is made - because the HUD builds its doors in `_ready`, and a door is
 ## prepared once, where it is made - and then reads every one of them back. Run
-## `scenes/phone_files_demo.tscn` and read the console:
+## `res://tools/phone_files_demo.tscn` and read the console:
 ##
 ##     this machine      has a picker of its own: true
 ##     as a phone        files come from the phone's own file picker, ...
@@ -53,6 +53,7 @@ func _ready() -> void:
 	_hud = _find_hud(_app)
 	if _hud == null:
 		print("PHONE FILES: no HUD in main.tscn")
+		_put_the_device_back()
 		get_tree().quit(1)
 		return
 
@@ -95,6 +96,7 @@ func _ready() -> void:
 		)
 	)
 	await get_tree().process_frame
+	_put_the_device_back()
 	get_tree().quit(0 if wrong.is_empty() else 1)
 
 
@@ -106,3 +108,10 @@ func _find_hud(root: Node) -> Node:
 		if script != null and String(script.resource_path).ends_with("hud.gd"):
 			return node
 	return null
+
+
+## The device put back the way it was found, which is what every other tool that states one does as well - a
+## tool that forces a phone and ends is a tool that leaves one stated behind it. Both of this file's exits go
+## through here, including the one where there was no HUD to read.
+func _put_the_device_back() -> void:
+	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)

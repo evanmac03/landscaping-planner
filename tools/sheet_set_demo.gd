@@ -13,7 +13,7 @@ extends Node2D
 ## the signals, the HUD's handlers, the controller and the plotter are all the shipped ones. It prints
 ## every step, and the screenshot at the end is the window with the set in it.
 ##
-## Run `res://scenes/sheet_set_demo.tscn`.
+## Run `res://tools/sheet_set_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")

@@ -6,7 +6,7 @@ extends Node
 ## - not a test runner's injected key, not a scripted tap - so a page has to be driven by the signals its own
 ## buttons emit, from a tool that has instanced the game. That is this.
 ##
-## Run `scenes/start_door_demo.tscn` and read the console:
+## Run `tools/start_door_demo.tscn` and read the console:
 ##
 ##     at startup       the front door stands: yes
 ##     at startup       shapes on the drawing: 0

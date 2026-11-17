@@ -15,7 +15,7 @@ extends Node2D
 ## real frames between the steps, so what it prints is what a running editor would be showing rather
 ## than numbers this tool poked in itself.
 ##
-## Run `res://scenes/gesture_demo.tscn`.
+## Run `res://tools/gesture_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
