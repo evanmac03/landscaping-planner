@@ -88,16 +88,47 @@ static func zooming_here() -> bool:
 static func cutout_insets(room: Vector2i, screen: Vector2i, safe: Rect2i) -> Vector4i:
 	if room.x <= 0 or room.y <= 0 or screen.x <= 0 or screen.y <= 0:
 		return Vector4i.ZERO
-	var left: float = float(maxi(safe.position.x, 0))
-	var top: float = float(maxi(safe.position.y, 0))
-	var right: float = float(maxi(screen.x - safe.end.x, 0))
-	var bottom: float = float(maxi(screen.y - safe.end.y, 0))
+	var edges: Vector4i = band_edges(screen, safe)
 	return Vector4i(
-		roundi(float(room.x) * (left / float(screen.x))),
-		roundi(float(room.y) * (top / float(screen.y))),
-		roundi(float(room.x) * (right / float(screen.x))),
-		roundi(float(room.y) * (bottom / float(screen.y))),
+		roundi(float(room.x) * (float(edges.x) / float(screen.x))),
+		roundi(float(room.y) * (float(edges.y) / float(screen.y))),
+		roundi(float(room.x) * (float(edges.z) / float(screen.x))),
+		roundi(float(room.y) * (float(edges.w) / float(screen.y))),
 	)
+
+
+## **The band as the display itself reports it**, in the display's own pixels, as (left, top, right, bottom). Kept
+## apart from the share of a room it becomes, because the two are different numbers in different spaces and reading
+## one as the other is how the menu bar was guessed at: the block printed what a control did wrong *inside* the
+## band and never how big the band was, so 212 px of bare sheet above the first button had no figure beside it. This
+## is the raw reading a person compares with what the phone is asked; a desk, and a display that promises nothing,
+## answer zero on every side.
+static func band_edges(screen: Vector2i, safe: Rect2i) -> Vector4i:
+	if screen.x <= 0 or screen.y <= 0:
+		return Vector4i.ZERO
+	return Vector4i(
+		maxi(safe.position.x, 0),
+		maxi(safe.position.y, 0),
+		maxi(screen.x - safe.end.x, 0),
+		maxi(screen.y - safe.end.y, 0),
+	)
+
+
+## The same reading for the display this program is running on - the half that asks the platform, kept beside the
+## arithmetic so that there is exactly one place a display's furniture is read.
+##
+## **This is the cutout and nothing more, and that is measured rather than assumed.** The A16W keeps a further 42 px
+## along its foot for the nav bar - its own report says `overrideNonDecorFrame=[0,100][1080,2298]`, and
+## `[100,0][2340,1038]` lying down - and Godot has **no answer for it**: `screen_get_usable_rect` reports the whole
+## screen there, so a band built out of both of them comes back to the cutout. Upright on that phone the two readings
+## agree exactly (`display l=0 t=100 r=0 b=0` against a cutout of `Rect(0, 100 - 0, 0)`). Holding the phone's own
+## numbers needs them over JNI, which is an Android plugin - so this answers the one thing the API answers, and the
+## block's `insets` line prints it so that nobody has to guess what it covers.
+static func band_as_reported() -> Vector4i:
+	if not on_a_finger_here():
+		return Vector4i.ZERO
+	var screen: int = DisplayServer.window_get_current_screen()
+	return band_edges(DisplayServer.screen_get_size(screen), DisplayServer.get_display_safe_area())
 
 
 ## The same answer for the display this program is running on. All four zero on a desk - this furniture is a

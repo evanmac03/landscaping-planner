@@ -29,10 +29,18 @@ const THUMB_MM := 5.5
 ## Needed because a touchscreen alone does not tell the two apart: this desk answers
 ## `DisplayServer.is_touchscreen_available()` with true, and its touchscreen is in the monitor. The density
 ## does tell them apart, and only because the two platforms report it differently and honestly: Windows
-## reports the *logical* density its scaling produces - 96, 120, 144, 192 - while Android reports the panel's
-## physical 450. 200 is above every Windows scaling step and below every phone and tablet, so it separates
-## the two without having to work out an inch, which Windows cannot do: its 144 is 1920 px across 1.5x, not
-## a 13-inch panel.
+## reports the *logical* density its scaling produces - 96, 120, 144 and 192 at the common steps - while
+## Android reports the panel's physical 450. 200 is above those steps and below every phone and tablet, so it
+## separates the two without having to work out an inch, which Windows cannot do: its 144 is 1920 px across
+## 1.5x, not a 13-inch panel.
+##
+## **The floor is a convention with a stated edge, not a law.** Windows scaling goes further than those four
+## steps - 225% and 250% are offered too, and by the same arithmetic they are 216 and 240 dots to the inch -
+## so a machine scaled that far is *above* this floor. What keeps a desk a desk up there is the other half of
+## `answered_by_a_thumb`: no touchscreen, no finger, and a desktop without one is nearly every desktop. The
+## case that slips through is a high-scaling *touchscreen* laptop, drawn for a thumb; raising the floor to
+## catch it would start refusing a tablet that reports less, and this file declines that trade rather than
+## leave it unsaid.
 const HELD_DPI := 200.0
 
 static var _answer: Answer = Answer.AUTO

@@ -41,7 +41,14 @@ extends Node
 ##     ... -- --overlay                                         the block's own rectangles marked on the picture
 ##     ... -- --installed                                       what the phone is running, by the hash of its own copy
 ##     ... -- --numbers                                         the numbers this project states for a phone, against the phone
-##     ... -- --capture                                         the board upright, a line, then the question
+##     ... -- --band                                            the band the program reports for this device, beside the
+##                                                       band the phone's own `dumpsys` reports
+##     ... -- --capture                                         the board upright, a line, then the question - it
+##                                                       turns the device and holds the board upright itself,
+##                                                       and hands both back when it is done
+##     ... -- --keep widened_bar                                ...and keep this run's picture under a name; a
+##                                                       capture prefixes its three pictures with it, since
+##                                                       their own names are the same every time
 ##
 ## **From a shell, with no display**: the tool touches nothing on this computer but adb, so nothing here wants the
 ## editor or a window open.
@@ -214,11 +221,13 @@ const NEAR_ENOUGH := 0.01
 const STATED_ROOTS: Array[String] = ["res://scripts", "res://tools", "res://tests"]
 
 ## What the program is showing, in the order a person wants it: the device it is answering as, the room it was
-## taken in, the strip at the top of it that no page may be placed in, the line at the foot and the box beside
-## the plan, the page in front of all of it, the colour drawn above that page's top edge, and every meeting the
-## drawn-surfaces rule named.
+## taken in, the strip at the top of it that no page may be placed in, **the band the device keeps for itself** -
+## which is what the top bar is lifted by and was the one figure missing while the bar was being read on the phone,
+## because the block named every control that had strayed *into* that band and never how big it was - the line at
+## the foot and the box beside the plan, the page in front of all of it, the colour drawn above that page's top
+## edge, and every meeting the drawn-surfaces rule named.
 const SCREEN_LINES: Array[String] = [
-	"device", "room", "strip", "foot", "tool", "page", "drawn", "overlap"
+	"device", "room", "strip", "insets", "foot", "tool", "page", "drawn", "overlap"
 ]
 
 ## The lines that name trouble a finger would have, printed after the screen so the news is never buried: a target
@@ -226,6 +235,130 @@ const SCREEN_LINES: Array[String] = [
 ## one), words too small for the screen, words wanting more room than they are drawn in, and a control the room
 ## cannot hold.
 const TOUCH_LINES: Array[String] = ["small", "close", "unsafe", "middle", "tiny", "clipped", "offscreen"]
+
+## The four ways up a phone's own report lists its kept bands in, and the two bands it gives per way up. Read by name
+## rather than by position, so a report that lists them in another order is still read the same way.
+const ROTATIONS: PackedStringArray = ["ROTATION_0", "ROTATION_90", "ROTATION_180", "ROTATION_270"]
+
+## What each of the eight bands `kept_bands_from` answers is, in the order it answers them: for each way up, the band
+## that is the system bars alone, and the band that is those and the display's own configuration besides. The names
+## are the phone's own words for them (`overrideNonDecorInsets`, `overrideConfigInsets`).
+const BAND_ROWS: PackedStringArray = [
+	"ROTATION_0   system bars",
+	"ROTATION_0   system bars and config",
+	"ROTATION_90  system bars",
+	"ROTATION_90  system bars and config",
+	"ROTATION_180 system bars",
+	"ROTATION_180 system bars and config",
+	"ROTATION_270 system bars",
+	"ROTATION_270 system bars and config",
+]
+
+## Where the phone's own report states its camera cutout, in the display's natural pixels: `initCutout` is the cutout
+## the panel was made with, where `baseCutout` is the one a rotation is worked out from - the two agree on the A16W,
+## and this reads the first because it is the number a person compares with the panel's specification.
+const CUTOUT_MARK := "initCutout=DisplayCutout{insets=Rect("
+
+
+## The band a phone's own report says it keeps, as (left, top, right, bottom), for the reading in `text`. This is the
+## **phone's** answer and not the program's: what it is for is being set beside what the program reports, so that a
+## disagreement between Godot's safe area and the phone's own insets can be seen rather than guessed at.
+static func cutout_insets_from(text: String) -> Vector4i:
+	var at: int = text.find(CUTOUT_MARK)
+	if at < 0:
+		return Vector4i.ZERO
+	var tail: String = text.substr(at + CUTOUT_MARK.length())
+	var shut: int = tail.find(")")
+	if shut < 0:
+		return Vector4i.ZERO
+	# The phone writes a rectangle as `Rect(left, top - right, bottom)`, the middle pair joined by a dash rather than a
+	# comma, so the dash is turned into a separator before the four are read. Written any other way this read three
+	# numbers out of four and called every cutout zero.
+	var parts: PackedStringArray = tail.substr(0, shut).replace(" - ", ",").split(",")
+	if parts.size() < 4:
+		return Vector4i.ZERO
+	return Vector4i(
+		parts[0].strip_edges().to_int(),
+		parts[1].strip_edges().to_int(),
+		parts[2].strip_edges().to_int(),
+		parts[3].strip_edges().to_int(),
+	)
+
+
+## Every band the phone's own report names: for each of the four ways up, the band that is the system bars and the
+## band that is those and the display's configuration besides - always eight, in the order `BAND_ROWS` names them.
+##
+## **The eight are answered together or not at all.** A report naming only some of the four ways up would leave every
+## name after the gap against the wrong band, and a name read off one list by an index into another is the
+## second-engine mistake this project works hardest to avoid. So an empty list is a report this reader does not know,
+## which is a different answer from a phone that keeps nothing - the caller says which of the two it found.
+static func kept_bands_from(text: String) -> Array[Vector4i]:
+	var none: Array[Vector4i] = []
+	var bands: Array[Vector4i] = []
+	for rotation: String in ROTATIONS:
+		var row: String = _the_line_naming(text, rotation + "={")
+		if row.is_empty():
+			return none
+		bands.append(_a_rectangle_after(row, "overrideNonDecorInsets="))
+		bands.append(_a_rectangle_after(row, "overrideConfigInsets="))
+	return bands
+
+
+## A band as a person reads it.
+static func band_words(band: Vector4i) -> String:
+	return "left=%d top=%d right=%d bottom=%d" % [band.x, band.y, band.z, band.w]
+
+
+## The one line that says what the two readings mean together: whether the band the program reports **is** the phone's
+## camera cutout, **is** one of the bands the phone keeps for its own furniture, or is neither. The last is the answer
+## worth having - it is what says Godot's safe area and this phone's insets disagree about this device.
+static func band_verdict(program: Vector4i, cutout: Vector4i, kept: Array[Vector4i]) -> String:
+	if program == Vector4i.ZERO:
+		return "the program reported no band at all, which is what a desk answers and not what a phone does."
+	if program == cutout:
+		return "the program's reading IS the phone's own camera cutout."
+	for i: int in kept.size():
+		if program == kept[i]:
+			return "the program's reading IS the band the phone keeps: %s." % BAND_ROWS[i]
+	return (
+		"the program's reading matches none of the bands the phone names, so Godot's safe area and the phone's own"
+		+ " report disagree about this device."
+	)
+
+
+## The line of `text` that carries `mark`, or nothing when no line does.
+static func _the_line_naming(text: String, mark: String) -> String:
+	for raw: String in text.split("\n"):
+		var line: String = raw.strip_edges()
+		if line.contains(mark):
+			return line
+	return ""
+
+
+## The band the phone writes as two pairs of numbers - `[100,84][0,42]` - as (left, top, right, bottom). Zero when the
+## mark is not there, so a report naming no such band is no reading rather than a band of nothing.
+static func _a_rectangle_after(text: String, mark: String) -> Vector4i:
+	var at: int = text.find(mark)
+	if at < 0:
+		return Vector4i.ZERO
+	var tail: String = text.substr(at + mark.length())
+	var first: int = tail.find("]")
+	if first < 0:
+		return Vector4i.ZERO
+	var second: int = tail.find("]", first + 1)
+	if second < 0:
+		return Vector4i.ZERO
+	var parts: PackedStringArray = (
+		tail.substr(0, second + 1).replace("][", ",").replace("[", "").replace("]", "").split(",")
+	)
+	if parts.size() < 4:
+		return Vector4i.ZERO
+	return Vector4i(
+		parts[0].strip_edges().to_int(),
+		parts[1].strip_edges().to_int(),
+		parts[2].strip_edges().to_int(),
+		parts[3].strip_edges().to_int(),
+	)
 
 ## The files a build is made from: what reaches the phone's program, and nothing else. A test, a doc or a dev tool
 ## is nothing to export for, so a tree full of yesterday's tests is not a reason to install again.
@@ -285,6 +418,28 @@ const ScreenshotReaderScript := preload("res://scripts/screenshot_reader.gd")
 const CAPTURE_DIR := "res://build/"
 const LINE_CELL := Vector2i(150, 404)
 const LINE_TAPS: Array[Vector2i] = [Vector2i(620, 1150), Vector2i(800, 1450)]
+
+## The one upright hold this tool writes for the board. The board reads it when it starts, and `hold_words` is the
+## reader that says whether it took - so what this writes and what a person is told cannot drift apart.
+const UPRIGHT_HOLD := "{\"orientation\": \"portrait\"}"
+
+## Where a file made on this computer is put on the device before it is moved into the program's own storage.
+## **`dd` with an `if=` is how a file gets there**: `run-as <pkg> sh -c "cat > files/x"` fails because the device's
+## outer shell eats the redirect, and a pipe cannot be sent through `OS.execute` at all.
+##
+## **`/data/local/tmp`, and never `/sdcard`.** Measured 2026-11-17: a hold staged on `/sdcard` left the board
+## reading `{"orientation": "landscape"}` after the write - the program's own uid cannot read an arbitrary public
+## file under scoped storage, so `dd` had nothing to copy. `/data/local/tmp` is the device's own scratch space,
+## readable by `run-as` and writable by `adb push`.
+const STAGING := "/data/local/tmp/"
+const STAGED_HOLD := "phone_hold.json"
+
+## How long a run waits for a phone that has left the link before it gives up and says so.
+const DEVICE_WAIT := 60.0
+
+## What a `--keep` name may be made of, so that a name a person types can never point this tool's writing at a place
+## outside the capture directory.
+const LETTERS_IN_A_NAME := "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 ## Where adb was found, once, at the start: the SDK copy, or a bare one on the path.
 var _adb_path: String = ""
@@ -346,14 +501,30 @@ func _one_pass() -> void:
 		_put_the_screen_back()
 		return
 
+	# **A reading needs no build, so it happens before anything is made or put on the device.** `--band` is the one
+	# question this tool asks that a desk cannot answer at all - a computer has no cutout - and the one the menu bar's
+	# lift turned on: the block named every control that had strayed *into* the band the device keeps and never how big
+	# the band was, so the size of the lift could only be guessed at from a picture and arithmetic.
+	if "--band" in asked:
+		await _read_the_band()
+		_put_the_screen_back()
+		return
+
 	# **Giving up the old log is what makes a reading fresh**, and it happens before anything is asked of the
 	# device, because a block is a moment and the file does not stamp it. **One call site**: `--fresh`, `--install`,
 	# `--build` and `--launch` all want the same thing, and the first version had two of them clearing it, so the
 	# line saying so was printed twice.
 	var building: bool = "--build" in asked
 	var putting_it_on: bool = building or "--install" in asked
-	var cleared: bool = "--fresh" in asked or putting_it_on or "--launch" in asked
-	if cleared:
+	# **A launch gives up the log itself, and closer to the act.** A build takes minutes and the program already on the
+	# phone publishes blocks all the while, so a log cleared before the build is full of the *old* build's moments by
+	# the time the install lands - and the wait below then finds one of them in half a second and calls the program up.
+	# Measured 2026-11-17: the reading that followed was the previous build's, down to a field that no longer exists in
+	# the tree. What a reading must be newer than is the **launch**, so that is where the log is given up when there is
+	# one; every other run gives it up here, before anything is asked of the device.
+	var launching: bool = putting_it_on or "--launch" in asked
+	var cleared: bool = "--fresh" in asked or putting_it_on
+	if cleared and not launching:
 		_clear_the_log()
 	# **A build that would not be made stops the run**, rather than installing the last one: nothing below would be
 	# a reading of the change that was asked for, and a screen read from the wrong build is the mistake this whole
@@ -364,9 +535,18 @@ func _one_pass() -> void:
 			_put_the_screen_back()
 			return
 	if putting_it_on:
+		# **A ten-minute export is long enough for a phone to leave the USB link.** Measured 2026-11-17: the install
+		# that followed read `adb: no devices/emulators found` and nothing said what to do about it, while the build
+		# had already been made and the answer was one more command. The wait is bounded and the refusal names that.
+		if not await _wait_for_the_device(DEVICE_WAIT):
+			_put_the_screen_back()
+			return
 		print("PHONE installing %s" % APK)
 		print("PHONE %s" % _line(["install", "-r", ProjectSettings.globalize_path(APK)]).strip_edges())
 	if putting_it_on or "--launch" in asked:
+		# The other half of the rule above: the log is given up **here**, after the build and the install, so that it
+		# holds nothing but what the program that is about to start publishes.
+		_clear_the_log()
 		_line(["shell", "am", "force-stop", PACKAGE])
 		print("PHONE launching %s" % ACTIVITY)
 		_line(["shell", "am", "start", "-n", ACTIVITY])
@@ -431,6 +611,8 @@ func _one_pass() -> void:
 	print("PHONE the hold: %s" % hold_words(_line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"])))
 	_report_the_build()
 	_photograph_the_screen()
+	if "--keep" in asked:
+		_keep_the_picture(asked)
 	if "--crop" in asked:
 		_crop_the_picture(asked)
 	# Named for what it is rather than `log`: `log` is a built-in function, and a local that shadows one is a
@@ -499,13 +681,25 @@ func _report_the_fold(logcat: String) -> void:
 ## own USB settings panel on the screen - and nothing here needs it, because a completed line leaves a tool in
 ## hand and BACK's ladder puts that tool away and then asks.
 func _capture_the_two_gaps() -> void:
+	# **Both halves of a capture belong to this verb.** The board's hold lives in `user://orientation.json` and the
+	# way up the *device* is lives in its own settings: two owners, which is why this used to stop and print the
+	# `dd` line for a person to run by hand - measured 2026-11-17, that refusal fired on every capture and the
+	# hand-written file was one more thing to remember between two runs. It writes both halves now, reads the hold
+	# back in the board's own words to prove it took, and hands both back on every way out.
+	_turn_the_device("portrait")
+	_hold_the_board_as_found()
+	# The view the block already in the log names, before anything relaunches the program: a program that has just
+	# started is in 3D overhead whatever view a person was using, and nothing else remembers it.
+	_view_as_found = HudProbeScript.read_view_line(
+		"\n".join(newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"])))
+	)
+	_write_the_board_hold(UPRIGHT_HOLD)
 	var hold: String = hold_words(_line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"]))
 	print("PHONE the hold: %s" % hold)
 	if not hold.begins_with("the board is held upright"):
-		print("PHONE so this is NOT the capture the two gaps ask for. Hold the board upright first, on the device:")
-		print(
-			"      echo '{\"orientation\": \"portrait\"}' | adb shell run-as %s dd of=files/orientation.json" % PACKAGE
-		)
+		print("PHONE the board would not take the upright hold - %s - so nothing was photographed." % hold)
+		print("      The hold and the device's own rotation are handed back as they were found.")
+		_hand_the_board_back()
 		return
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CAPTURE_DIR))
 
@@ -527,20 +721,208 @@ func _capture_the_two_gaps() -> void:
 		print("PHONE a page is still up after BACK - pressing once more so the picture is the board")
 		_line(["shell", "input", "keyevent", "4"])
 		await get_tree().create_timer(4.0).timeout
-	_save_a_screenshot("board_upright.png")
+	_save_a_screenshot(_a_capture_picture("board_upright.png"))
 
 	_line(["shell", "input", "tap", str(LINE_CELL.x), str(LINE_CELL.y)])
 	await get_tree().create_timer(3.0).timeout
 	for point: Vector2i in LINE_TAPS:
 		_line(["shell", "input", "tap", str(point.x), str(point.y)])
 		await get_tree().create_timer(2.0).timeout
-	_save_a_screenshot("a_line_drawn.png")
+	_save_a_screenshot(_a_capture_picture("a_line_drawn.png"))
 
 	_line(["shell", "input", "keyevent", "4"])
 	await get_tree().create_timer(6.0).timeout
-	_save_a_screenshot("the_unsaved_question.png")
+	_save_a_screenshot(_a_capture_picture("the_unsaved_question.png"))
 	print("PHONE the program is still alive as pid %s" % _first_line(_line(["shell", "pidof", PACKAGE])))
 	print("PHONE three pictures in %s - and what the probe says about each is in the log beside them" % CAPTURE_DIR)
+	# And the phone is handed back the way it was found, in the other direction: the hold it started with, and the
+	# program on the board with nothing in front of it - a step a person used to do by hand, twice, with a
+	# force-stop and a BACK.
+	_hand_the_board_back()
+	await _put_the_program_back()
+	# **The view is the one thing this run cannot hand back, and the reason is measured.** A view change publishes
+	# no block - what a block follows is the pages up - so the newest block's own view can be several turns old:
+	# measured 2026-11-17, the log's newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and
+	# a first version of this *pressed* the toggle on that reading and turned the board to 3D the wrong way. So the
+	# view is named and left to the person, whose own button says which way it goes - `2D plan  (Q)` from the 3D
+	# view - which is better than a run guessing and being wrong with confidence.
+	print("PHONE the view: a launch starts in the 3D overhead view whatever was in use, and a view change publishes")
+	var named: String = "no view at all" if _view_as_found.is_empty() else _view_as_found
+	print("      no block, so the block above knows no better than this (%s) - press the view button" % named)
+	print("      yourself if you were not in the 3D overhead view.")
+
+
+## **The band the program reports, beside the band the phone reports.** Two owners, neither restated: the program's
+## half comes out of the newest block, where `PhoneHud.band_as_reported` wrote it, and the phone's half comes out of
+## the phone's own `dumpsys`. The verdict compares them, because a pile of numbers with no answer is what this whole
+## exercise was: on the A16W the bar was found 212 px down a screen the phone keeps only 84 px of, and no line said so.
+func _read_the_band() -> void:
+	var block: String = "\n".join(
+		newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"]))
+	)
+	if block.is_empty():
+		print("PHONE the log holds no block, so there is no program reading to set beside the phone's. Launch it")
+		print("      once - `--launch --wait 20` - and ask again.")
+		return
+	if not block.contains(HudProbeScript.BAND_MARK):
+		# **A block that names no band line is a different answer from a program that reported no band**, and once
+		# both are read as four zeros they look identical. Measured 2026-11-17, the first live run answered
+		# `left=0 top=0 right=0 bottom=0` for exactly this reason - the build on the device predated the line - and
+		# the verdict below then blamed Godot's safe area for a reading that had never been made.
+		print(
+			"PHONE the block the phone published names no band line at all (%s), so the build on the device predates"
+			% HudProbeScript.BAND_MARK
+		)
+		print("      it. One export makes this half real: `--build --launch`, then ask again.")
+	var program: Vector4i = HudProbeScript.read_display_band_line(block)
+	print("PHONE the band the program reports: %s" % band_words(program))
+	var report: String = _line(["shell", "dumpsys", "window", "displays"])
+	var cutout: Vector4i = cutout_insets_from(report)
+	print("PHONE the phone's own report:       %s  (its camera cutout)" % band_words(cutout))
+	print("PHONE and what it keeps, by the way up the device is held:")
+	var kept: Array[Vector4i] = kept_bands_from(report)
+	if kept.is_empty():
+		print("      nothing - this report names no kept bands at all, so which of the two answers is missing is")
+		print("      the report rather than the device.")
+		return
+	for i: int in mini(kept.size(), BAND_ROWS.size()):
+		print("      %s  %s" % [BAND_ROWS[i], band_words(kept[i])])
+	print("PHONE %s" % band_verdict(program, cutout, kept))
+
+
+## The board's hold in `user://orientation.json`, kept **verbatim** so it can be handed back exactly as it was
+## found: `{"orientation": "portrait"}` and a file that is not JSON at all are both things this device has held,
+## and a reader that re-serialised one would be handing back something the board never had.
+var _hold_as_found: String = ""
+var _held_the_board: bool = false
+
+## The view the block already in the log was taken in, in the program's own words, read before the capture
+## relaunches the program - the copy of it that a relaunch destroys.
+var _view_as_found: String = ""
+
+
+## Read the hold the board is obeying now, before anything changes it.
+func _hold_the_board_as_found() -> void:
+	_hold_as_found = _line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"])
+	_held_the_board = true
+
+
+## Write the hold the board takes at its launch, staged on the device and moved in with `dd`.
+func _write_the_board_hold(wanted: String) -> void:
+	var here: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(STAGED_HOLD))
+	var file := FileAccess.open(here, FileAccess.WRITE)
+	if file == null:
+		print("PHONE the hold could not be written here (%s), so the board's own was left alone" % here)
+		return
+	file.store_string(wanted)
+	file.close()
+	_line(["push", here, STAGING + STAGED_HOLD])
+	_line(["shell", "run-as", PACKAGE, "dd", "if=%s" % (STAGING + STAGED_HOLD), "of=files/orientation.json"])
+
+
+## Hand the board's hold back exactly as it was found - or take the file away again if the device had none, which
+## is a hold of its own: `hold_words` reads that as the wide default.
+func _hand_the_board_back() -> void:
+	if not _held_the_board:
+		return
+	_held_the_board = false
+	if _hold_as_found.strip_edges().is_empty():
+		_line(["shell", "run-as", PACKAGE, "rm", "-f", "files/orientation.json"])
+	else:
+		_write_the_board_hold(_hold_as_found)
+	print(
+		"PHONE the board's own hold is handed back: %s"
+		% hold_words(_line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"]))
+	)
+
+
+## Put the program back on the board with nothing in front of it - the way a run finds it, and the step a person
+## used to do by hand after every capture.
+func _put_the_program_back() -> void:
+	_line(["shell", "am", "force-stop", PACKAGE])
+	_line(["shell", "am", "start", "-n", ACTIVITY])
+	await get_tree().create_timer(10.0).timeout
+	_line(["shell", "input", "keyevent", "4"])
+	await get_tree().create_timer(4.0).timeout
+	print("PHONE the program is back on the board with nothing in front of it")
+
+
+## Wait, two seconds at a time, for a phone that has left the link to come back - and where it does not, name it in
+## terms of what the run had already done, rather than letting a wall of `adb ... ended with -1` be the last word.
+func _wait_for_the_device(seconds: float) -> bool:
+	var waited: float = 0.0
+	while waited < seconds:
+		_line(["start-server"])
+		if a_device_is_here(_line(["devices", "-l"])):
+			if waited > 0.0:
+				print("PHONE the phone is back in the link after %.1f s" % waited)
+			return true
+		await get_tree().create_timer(2.0).timeout
+		waited += 2.0
+	print("PHONE the phone is not in the link, and has not come back in %d s." % int(seconds))
+	print("      %s" % the_device_left_words(true))
+	return false
+
+
+## Keep this run's picture under a name of your own, so the next run does not overwrite this one's evidence.
+##
+## The picture is always pulled as `the_screen_now.png` - the name a person goes looking for - which is why three
+## runs in a row on 2026-11-17 each had to be copied aside by hand, and the first one's picture was lost before
+## anybody noticed.
+func _keep_the_picture(asked: PackedStringArray) -> void:
+	var words: String = the_word_after(asked, "--keep")
+	if words.is_empty():
+		print("PHONE `--keep` wants a name - `--keep widened_bar` - and nothing was kept.")
+		return
+	var name: String = kept_picture_name(words)
+	var from: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(THE_SCREEN_NOW))
+	var to: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(name))
+	if DirAccess.copy_absolute(from, to) != OK:
+		print("PHONE there was no picture to keep as %s" % name)
+		return
+	print("PHONE the picture is kept as %s%s" % [CAPTURE_DIR, name])
+
+
+## The file a `--keep` name is written as: made of letters, digits and underscores, ending `.png`, and inside the
+## capture directory whatever was typed. A name is a person's own words; a path is not somewhere a name should be
+## able to point a tool that writes files.
+static func kept_picture_name(words: String) -> String:
+	var said: String = words.strip_edges().to_lower()
+	var safe: String = ""
+	for index: int in said.length():
+		var letter: String = said.substr(index, 1)
+		if LETTERS_IN_A_NAME.contains(letter):
+			safe += letter
+		elif letter == " " or letter == "-":
+			safe += "_"
+	if safe.replace("_", "").is_empty():
+		safe = "kept"
+	return "%s.png" % safe
+
+
+## The name a capture's picture is written under: its own, or the `--keep` name in front of it, so that a second
+## capture does not overwrite the first one's evidence.
+##
+## **A gap documented is not a gap fixed.** These three - `board_upright.png`, `a_line_drawn.png`,
+## `the_unsaved_question.png` - were the names they carried on 2026-11-17, so every capture after the first wrote
+## over the pictures a person was still looking at, and the note that `--keep` did not apply to a capture was the
+## whole of what was done about it. Pure, and with the `--keep` words handed in rather than read, so a test can
+## hold what a run would be told without being one.
+static func capture_picture_name(kept_words: String, own: String) -> String:
+	if kept_words.strip_edges().is_empty():
+		return own
+	return "%s_%s" % [kept_picture_name(kept_words).trim_suffix(".png"), own]
+
+
+## What to say when the phone is not in reach for the step that needed it. Named rather than generic, because
+## what a person does next depends on how far the run had got: a build already made is not one to make again.
+static func the_device_left_words(a_build_was_made: bool) -> String:
+	if a_build_was_made:
+		return (
+			"The build is already made, so put the phone back in reach and run `--install --launch` -"
+			+ " there is nothing left to export."
+		)
+	return "Put the phone back in reach - a cable is the reliable route - and run the same command again."
 
 
 ## Whether the newest block in the probe's log names a page.
@@ -551,6 +933,12 @@ func _capture_the_two_gaps() -> void:
 ## rather than trusting it, and why every run takes a picture.
 func _a_page_is_still_up() -> bool:
 	return a_block_names_a_page(newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"])))
+
+
+## The name this capture's picture goes under, from the `--keep` this run was given - the one place the run's own
+## arguments are read, so a picture's name is decided by `capture_picture_name` and nothing else.
+func _a_capture_picture(own: String) -> String:
+	return capture_picture_name(the_word_after(OS.get_cmdline_user_args(), "--keep"), own)
 
 
 ## One screenshot, taken on the device and pulled back as a file.
@@ -1593,8 +1981,15 @@ func _report(kept: String, cleared: bool, logcat: String) -> void:
 	# A16W, a centre at y 1654 aimed at a 1080-tall landscape screen reached nothing, and nothing said so. The
 	# space is the screen and not the room, because the block's own `tap` lines are the screen's pixels - see
 	# `tap_words`.
+	# **The screen is read off the newest block, not off the log.** `read_screen_line` takes the first `native=`
+	# it finds, and the first block in a log is not always about the screen in front of a person - measured on the
+	# A16W 2026-11-17: a launch block on a phone lying on a desk is an **upright** block (`scale=0.91
+	# shape=standing`, `native=(1080, 2340)`), because the program's window is portrait for its first moment and
+	# re-lays out. Measuring a lying block's centre against that called a press that had plainly landed a miss:
+	# `--press "2D plan"` moved the button's own label and still printed "outside the screen the block was taken
+	# on, (1080, 2340)". The newest block is the one the tap was sent against, so it is the one to measure in.
 	if _sent_a_tap:
-		print("  %s" % tap_words(_tapped, HudProbeScript.read_screen_line(kept)))
+		print("  %s" % tap_words(_tapped, HudProbeScript.read_screen_line("\n".join(lines))))
 
 
 ## How long ago the newest block in the log was published, in a person's words - or nothing when the device's clock

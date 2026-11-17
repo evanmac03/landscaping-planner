@@ -833,8 +833,8 @@ var _saying_the_screen: bool = false
 ## The pages that were up when the screen was last said, and whether anything has been said at all. This is what
 ## asks for a new block, and it is written **when a block is said** rather than when a change is noticed, so a
 ## change arriving while a block is being taken is said by a later frame rather than lost.
-var _pages_as_said: PackedStringArray = PackedStringArray()
-var _has_said_the_pages: bool = false
+var _screen_as_said: PackedStringArray = PackedStringArray()
+var _has_said_the_screen: bool = false
 
 ## How long the top bar is given to stop folding before the probe reads the screen. The fold runs on every
 ## frame and takes about twenty of them to settle (measured on the phone: 14 titles, 10, 9, while its room went
@@ -847,7 +847,13 @@ const MENU_BAR_SETTLING_FRAMES := 60
 ## the ones that are *up*, since a page hidden behind the board is not on the screen and must not be said.
 func _the_pages_up() -> PackedStringArray:
 	var up := PackedStringArray()
-	for window: Window in get_viewport().get_embedded_subwindows():
+	# **A HUD that is not in a tree has no screen to walk.** The guard is here rather than at each caller because this
+	# is the state a block is compared against: one caller is the launch block, taken while the door is still being
+	# built, and a test holds the rule about the view without a scene at all.
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return up
+	for window: Window in viewport.get_embedded_subwindows():
 		if not window.visible:
 			continue
 		# The page's rectangle through the probe's own reader, which is the one the block's `page` line is written
@@ -858,7 +864,30 @@ func _the_pages_up() -> PackedStringArray:
 	return up
 
 
-## Say what is on the screen when the pages up differ from the pages the last block was about - a debug build only.
+## The view the screen is in now, in the program's own words: the top bar's mode label, which is the very label the
+## block's `row` line publishes and the very words `HudProbe.read_view_line` reads back.
+##
+## **A view change published no block until this was added**, and that cost a diagnosis. Measured on the A16W on
+## 2026-11-17: the newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and a tool that
+## trusted the block pressed the view toggle the wrong way and turned the board into what it had just left. The
+## label is read rather than the controller's own mode, deliberately: what a person is shown and what a reader reads
+## back are then the same words, so a second naming of the view cannot appear between them.
+func _the_view_up() -> String:
+	if mode_label == null:
+		return ""
+	return mode_label.text
+
+
+## **Everything the screen's own block is about**: the pages standing on it, and the view it is in. One reading, taken
+## both by the ask below and by the record in `_the_screen_said`, so what is watched and what is written cannot be
+## two different things.
+func _the_screen_now() -> PackedStringArray:
+	var now: PackedStringArray = _the_pages_up()
+	now.append("view %s" % _the_view_up())
+	return now
+
+
+## Say what is on the screen when the screen differs from the screen the last block was about - a debug build only.
 ##
 ## **One rule, asked of the screen rather than told by the pages**, and the reason is a fault measured on the A16W
 ## on 2026-11-14. The block used to be published from signals connected in `_ready` to the pages that existed
@@ -870,11 +899,17 @@ func _the_pages_up() -> PackedStringArray:
 ## A rule that watches the *screen* cannot miss a page however it was built, and it says a page arriving and a page
 ## being put away as the single thing they are: the screen changed. It also asks one question rather than three
 ## signals, so a press that puts one page away and opens another says one block and not two.
+##
+## **And the view is part of what the screen is, not of what the pages are.** A view change moves no page, so it
+## published no block at all until it was added here - and a block's own `ModeLabel` words could then be several turns
+## old: measured on the A16W, the newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and a
+## tool that trusted it pressed the view toggle the wrong way. What is compared is `_the_screen_now`: the pages up,
+## and the view's own words.
 func _notice_the_pages_changing() -> void:
 	if not HudProbeScript.on():
 		return
-	var now: PackedStringArray = _the_pages_up()
-	if _has_said_the_pages and now == _pages_as_said:
+	var now: PackedStringArray = _the_screen_now()
+	if _has_said_the_screen and now == _screen_as_said:
 		return
 	_the_screen_said()
 
@@ -912,8 +947,8 @@ func _the_screen_said() -> void:
 	_saying_the_screen = false
 	# Recorded before the block is built, so what is remembered as said is the screen this block is about. A change
 	# arriving while the block is being built is therefore still a change on the next frame.
-	_pages_as_said = _the_pages_up()
-	_has_said_the_pages = true
+	_screen_as_said = _the_screen_now()
+	_has_said_the_screen = true
 	_say_the_screen()
 
 
@@ -1746,8 +1781,38 @@ func lift_the_top_bar_by(inset: int) -> void:
 	if _bar_offsets_as_drawn.x == INF:
 		_bar_offsets_as_drawn = Vector2(top_bar.offset_top, top_bar.offset_bottom)
 	var down: float = float(maxi(inset, 0))
-	top_bar.offset_top = _bar_offsets_as_drawn.x + down
+	# **The plate runs to the top of the screen and only its words are lifted.** Measured on the A16W lying down:
+	# lifting the plate as well left 212 px of bare sheet above the first button, which is what a person sees as a
+	# bar that is not at the top. The bar's plate keeps the top the scene drew and grows *downward* by what the
+	# device keeps - so the strip it reserves is filled - while the row of menus inside it is the thing moved clear
+	# of the status bar and the camera cutout.
+	top_bar.offset_top = _bar_offsets_as_drawn.x
 	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
+	# The row inside is lifted by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its
+	# child out itself, so an offset set on the child is overwritten by the next layout. The stylebox is
+	# **duplicated first** - the scene gives this panel, the palette and both hint plates the same sub-resource, and
+	# growing it in place would push the contents of all four - and the margin the scene drew is remembered once,
+	# for the reason the offsets are.
+	if not top_bar.has_meta(&"margin_as_drawn"):
+		var plate: StyleBox = top_bar.get_theme_stylebox(&"panel")
+		var drawn: float = 0.0
+		if plate is StyleBoxFlat:
+			drawn = (plate as StyleBoxFlat).content_margin_top
+		top_bar.set_meta(&"margin_as_drawn", drawn)
+	var lifted: bool = top_bar.has_meta(&"row_lifted")
+	if down > 0.0:
+		var plate: StyleBox = top_bar.get_theme_stylebox(&"panel")
+		if plate is StyleBoxFlat:
+			var mine: StyleBoxFlat = (plate as StyleBoxFlat).duplicate() as StyleBoxFlat
+			mine.content_margin_top = float(top_bar.get_meta(&"margin_as_drawn")) + down
+			top_bar.add_theme_stylebox_override(&"panel", mine)
+			top_bar.set_meta(&"row_lifted", true)
+	elif lifted:
+		# **Nothing to clear, so the plate's own margin is handed back rather than left lifted** - a desk, or a
+		# device that has stopped keeping a band: the override this pass put there is taken away, which is the whole
+		# of what it did, and the bar is the bar the scene drew again.
+		top_bar.remove_theme_stylebox_override(&"panel")
+		top_bar.remove_meta(&"row_lifted")
 
 
 ## The gap the scene already keeps between the top bar's foot and the palette, and between the palette's foot

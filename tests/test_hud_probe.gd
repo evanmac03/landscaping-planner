@@ -7,6 +7,9 @@ extends Node
 ## engine's own answer, and what a screenshot's pixels really are is checked on the glass.
 
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
+## The block's publisher, for the one reading of it a desk can hold: what a block is *about*. The pages half of that
+## needs a viewport and is measured on the glass; the half added here - the view - is a label's own words.
+const HudScript := preload("res://scripts/hud.gd")
 const WindowPostureScript := preload("res://scripts/window_posture.gd")
 const InViewScript := preload("res://scripts/in_view.gd")
 const TouchTargetScript := preload("res://scripts/touch_target.gd")
@@ -211,6 +214,11 @@ func test_the_device_line_carries_what_the_program_answered() -> void:
 	assert(
 		all.contains("shape=standing"),
 		"and which way up its window is, worked out from the room on the line above: %s" % all,
+	)
+	assert(all.contains("insets   room "), "and the band the device keeps, so the bar's lift is read and not guessed")
+	assert(
+		all.contains("room l=0 t=0 r=0 b=0"),
+		"which on a desk is nothing on every side, the honest answer where there is no cutout: %s" % all,
 	)
 	assert(all.contains("Two fingers: pan"), "and the words the foot of the screen is showing")
 	assert(all.contains("Line: click two ends"), "and the words the tool line is showing")
@@ -603,3 +611,113 @@ func test_a_control_the_suite_builds_carries_an_engine_name_and_is_still_the_pro
 	built.name = "FitButton"
 	assert(not HudProbeScript._the_engines_own(built), "and one the program named is not: %s" % built.name)
 	_free_made()
+
+
+## **The centre a block hands a driver is a place something can be pressed.** A control a box above it is cutting
+## off is published as the part that shows, so the centre stands inside the box rather than on whatever is drawn
+## below the fold. Measured on the A16W lying down: `Line / 1` was published as `screen (45, 609) .. (488, 826)`
+## with its centre at (266, 718) while the palette's box - the clip - ended at 673, so the centre the block offered
+## was a place on the plate under the palette, and a tap there pressed nothing.
+##
+## Compared as shapes and as the words the writer itself makes, because a headless runner's 64 x 64 dummy display
+## scales every rectangle: two readings of the same shape agree at any scale and a pair of numbers does not.
+func test_the_centre_a_box_cuts_off_is_the_centre_of_the_part_that_shows() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	_control(root, box, Vector2(0.0, 0.0), Vector2(400.0, 400.0))
+	# Sixty of its hundred and twenty rows stand inside the box, so it is drawn and its centre is not the control's.
+	# The shapes are this large because a headless runner's dummy display scales the whole screen by 0.04 and the
+	# list drops anything whose drawn part measures under one of *those* pixels - a shape question in the scaled
+	# space, not a floor in anybody's real pixels.
+	var half := Button.new()
+	half.text = "Move"
+	_control(box, half, Vector2(20.0, 340.0), Vector2(200.0, 120.0))
+
+	var shown: Rect2 = HudProbeScript.drawn_rect(half)
+	assert(shown.get_center() != HudProbeScript.screen_rect(half).get_center(), "the part that shows has a centre of its own")
+	var listed: PackedStringArray = HudProbeScript.tap_lines(root, "the board")
+	assert(listed.size() == 1, "one thing a finger could hit: %s" % str(listed))
+	assert(
+		listed[0].ends_with("centre %s" % HudProbeScript._point_words(shown.get_center())),
+		"and the centre it is listed with is the centre of what is drawn: %s" % listed[0],
+	)
+	assert(
+		not listed[0].ends_with("centre %s" % HudProbeScript._point_words(HudProbeScript.screen_rect(half).get_center())),
+		"rather than the centre of the whole control, which stands below the fold",
+	)
+	_free_made()
+
+
+## **A block names the view it was taken in, and it is the only copy of that.** A controller that relaunches the
+## program changes the view under a person's hands - a program that has just started is in 3D overhead - so the
+## words the block published before that are what a run can put back. Read beside `row_lines`, the writer.
+func test_the_view_a_block_was_taken_in_is_read_off_its_own_row_line() -> void:
+	var as_written: String = (
+		"PROBE row      the top bar  ModeLabel       min=(104.0, 77.0)  size=(104.0, 77.0)"
+		+ "  at=(948, 5)  font=56  shown=false  \"2D PLAN\""
+	)
+	assert(HudProbeScript.read_view_line(as_written) == "2D PLAN", HudProbeScript.read_view_line(as_written))
+	assert(
+		HudProbeScript.read_view_line(as_written.replace("2D PLAN", "3D OVERHEAD")) == "3D OVERHEAD",
+		"and the words are the label's own, whatever they say",
+	)
+	assert(HudProbeScript.read_view_line("") == "", "no block, no view")
+	assert(
+		HudProbeScript.read_view_line("PROBE device finger=true dpi=450.0") == "",
+		"and a block that names no view is not read as one",
+	)
+
+
+func test_the_bands_the_block_names_are_read_back_as_the_four_numbers_they_are() -> void:
+	# A block's `insets` line carries two bands, and only one of them is the display's: the first is that band's share
+	# of the room the bar is laid out in, and it is a different number in a different space. The display's half is the
+	# one a tool sets beside what the phone says about itself.
+	var as_written: String = (
+		"PROBE insets   room l=0 t=52 r=0 b=0   display l=0 t=100 r=0 b=0"
+	)
+	assert(
+		HudProbeScript.read_display_band_line(as_written) == Vector4i(0, 100, 0, 0),
+		"the display's own band, and not the room's share of it: %s"
+		% str(HudProbeScript.read_display_band_line(as_written)),
+	)
+	assert(
+		HudProbeScript.read_display_band_line("PROBE insets   room l=0 t=52 r=0 b=0") == Vector4i.ZERO,
+		"a line with no display half is no reading, not a reading of nothing",
+	)
+	assert(
+		HudProbeScript.read_display_band_line("PROBE device finger=true dpi=450.0") == Vector4i.ZERO,
+		"and a block that names no band reads as none",
+	)
+	assert(
+		HudProbeScript.read_display_band_line("") == Vector4i.ZERO,
+		"as does no block at all",
+	)
+
+
+func test_a_view_change_is_a_change_the_block_follows() -> void:
+	# **The rule the notice turns on.** A block is said when the screen differs from the screen the last one was about,
+	# and the view is part of the screen: until the view was added to that state, changing it published nothing at all,
+	# so a block's own `ModeLabel` words could be several turns old - measured on the A16W, the newest block said
+	# `3D OVERHEAD` while the glass plainly showed the 2D plan, and a tool that trusted it turned the board the wrong
+	# way. The HUD enters no tree here, so what is held is the state and not a publishing.
+	var hud: HudScript = HudScript.new()
+	var label := Label.new()
+	label.text = "2D PLAN"
+	hud.mode_label = label
+	assert(
+		hud._the_view_up() == "2D PLAN",
+		"the view is named in the program's own words, the ones the row line prints: %s" % hud._the_view_up(),
+	)
+
+	var before: PackedStringArray = hud._the_screen_now()
+	label.text = "3D OVERHEAD"
+	var after: PackedStringArray = hud._the_screen_now()
+	assert(before != after, "a view change is a change to what a block is about: %s" % str(after))
+	assert(after.has("view 3D OVERHEAD"), "and the view travels in that state, in those same words")
+
+	hud.mode_label = null
+	assert(hud._the_view_up() == "", "a HUD with no label names no view rather than a stale one")
+
+	hud.free()
+	label.free()

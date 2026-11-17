@@ -33,22 +33,39 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 	bar.offset_top = 12.0
 	bar.offset_bottom = 62.0
 	hud.top_bar = bar
+	# What the plate's own margin was before anything moved it: the assertion below is that it moved by the band,
+	# rather than by a number a theme might one day change.
+	var plate: StyleBox = bar.get_theme_stylebox(&"panel")
+	var was: float = 0.0
+	if plate is StyleBoxFlat:
+		was = (plate as StyleBoxFlat).content_margin_top
 
 	hud.lift_the_top_bar_by(100)
-	assert(is_equal_approx(bar.offset_top, 112.0), "the bar's top takes the band: %s" % str(bar.offset_top))
-	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot moves with it: %s" % str(bar.offset_bottom))
-	assert(is_equal_approx(bar.offset_bottom - bar.offset_top, 50.0), "so its height is the height the scene drew")
+	assert(is_equal_approx(bar.offset_top, 12.0), "the plate keeps the top the scene drew: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 162.0), "and grows downward by the band: %s" % str(bar.offset_bottom))
+	# **The words are what is lifted**, through the plate's own content margin - the thing a `PanelContainer` lays its
+	# child out by, where an offset set on the child would be overwritten by the next layout. Measured on the A16W:
+	# lifting the plate as well left 212 px of bare sheet above the first button, which is a bar that is not at the
+	# top; the plate runs to the top now and only its row of menus is clear of the camera cutout.
+	assert(plate is StyleBoxFlat, "a plate has a flat background to measure")
+	var margin_now: float = (bar.get_theme_stylebox(&"panel") as StyleBoxFlat).content_margin_top
+	assert(is_equal_approx(margin_now, was + 100.0), "the row inside is lifted by the band: %s" % str(margin_now))
 
-	# **A turn re-runs the pass that does this**, so it has to answer the same thing every time: a lift that read
-	# its own output back would walk the bar down the screen by a band on every rotation.
+	# **A turn re-runs the pass that does this**, so it has to answer the same thing every time: a lift that read its
+	# own output back would walk the bar down the screen by a band on every rotation.
 	hud.lift_the_top_bar_by(100)
-	assert(is_equal_approx(bar.offset_top, 112.0), "the second pass moves nothing: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_top, 12.0), "the second pass moves nothing: %s" % str(bar.offset_top))
 	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is where it was: %s" % str(bar.offset_bottom))
+	assert(
+		is_equal_approx((bar.get_theme_stylebox(&"panel") as StyleBoxFlat).content_margin_top, was + 100.0),
+		"and the row is lifted once rather than twice",
+	)
 
 	# A device with nothing to clear - every desk - is given the bar the scene drew, to the pixel.
 	hud.lift_the_top_bar_by(0)
 	assert(is_equal_approx(bar.offset_top, 12.0), "nothing to clear puts it back: %s" % str(bar.offset_top))
 	assert(is_equal_approx(bar.offset_bottom, 62.0), "both offsets, exactly: %s" % str(bar.offset_bottom))
+	assert(not bar.has_theme_stylebox_override(&"panel"), "and the plate's own margin is handed back, not left lifted")
 
 	# And the desk's own reading is the same answer: a bar not in a tree has no viewport, and a screen with no
 	# safe area keeps nothing back either way.
@@ -96,6 +113,29 @@ func test_no_furniture_and_no_room_answer_zero_on_every_side() -> void:
 	assert(nothing == Vector4i.ZERO, "a display reporting no cutout costs a page nothing")
 	var unstated: Vector4i = PhoneHudScript.cutout_insets(Vector2i.ZERO, Vector2i(1080, 2340), safe)
 	assert(unstated == Vector4i.ZERO, "and neither does a room with no size to take a share of")
+
+
+## **The band is one reading, in the display's own pixels, and a room's share of it is another.** Kept apart so that
+## a figure in a block can be compared with what the phone itself is asked: the two are different numbers in
+## different spaces, and reading one as the other is how the menu bar's lift was guessed at rather than measured.
+func test_the_display_reports_its_band_before_any_share_of_a_room_is_taken() -> void:
+	# The A16W upright: a 100 px camera cutout along the top and nothing else.
+	var upright: Vector4i = PhoneHudScript.band_edges(Vector2i(1080, 2340), Rect2i(0, 100, 1080, 2240))
+	assert(upright == Vector4i(0, 100, 0, 0), "the raw reading, uncut by any room: %s" % str(upright))
+
+	# And on its side, where the same camera is on the left and the top band is gone.
+	var sideways: Vector4i = PhoneHudScript.band_edges(Vector2i(2340, 1080), Rect2i(120, 0, 2220, 1080))
+	assert(sideways == Vector4i(120, 0, 0, 0), "a sideways phone keeps its band on the left: %s" % str(sideways))
+
+	# A display that promises nothing, and one with no size, both answer zero rather than a guess.
+	assert(
+		PhoneHudScript.band_edges(Vector2i(1080, 2340), Rect2i(0, 0, 1080, 2340)) == Vector4i.ZERO,
+		"a display keeping nothing has no band",
+	)
+	assert(
+		PhoneHudScript.band_edges(Vector2i.ZERO, Rect2i(0, 100, 0, 0)) == Vector4i.ZERO,
+		"and neither does one that will not say how big it is",
+	)
 
 
 func _reset() -> void:

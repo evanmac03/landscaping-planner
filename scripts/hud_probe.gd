@@ -232,6 +232,18 @@ static func device_lines(
 	)
 	lines.append("room     viewport=%s native=%s" % [str(room), str(native)])
 	lines.append("strip    the top %d px of the room is the bar's, and no page may be placed in it" % strip)
+	# **The band the device keeps, in this room's own pixels and in the display's.** The room half is the figure
+	# `Hud` lifts the top bar by, so the line says what the bar was moved by rather than leaving it to be worked out
+	# from a picture; the display half is the reading a person compares with what the phone itself reports. Measured
+	# 2026-11-17, this line was missing: the bar's first button stood 212 px down and the block named every control
+	# that had strayed *into* the band (`unsafe`) while never saying how large the band was, so the size of the lift
+	# could only be guessed at.
+	var kept: Vector4i = PhoneHudScript.cutout_here(room)
+	var shown: Vector4i = PhoneHudScript.band_as_reported()
+	lines.append(
+		"insets   room l=%d t=%d r=%d b=%d   display l=%d t=%d r=%d b=%d"
+		% [kept.x, kept.y, kept.z, kept.w, shown.x, shown.y, shown.z, shown.w]
+	)
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)
 	return lines
@@ -288,12 +300,20 @@ static func row_lines(row: Control, what: String, room: float) -> PackedStringAr
 ##
 ## The walk **stops at a `Window`**: a page answers for its own controls, and this is asked once for the
 ## board's own chrome and once inside each page that is up, so the two lists never overlap.
+##
+## **The rectangle published is the part that is *drawn*, and the centre is that part's.** A control a box above
+## it is clipping - on a phone, the palette's cells inside its scroller - is half in the picture and half below
+## the fold, and the whole of it is not a place anything can be pressed. Published as its layout rectangle, its
+## centre could stand on whatever is drawn below the fold. Measured on the A16W lying down: `Line / 1` was given
+## as `screen (45, 609) .. (488, 826)` with its centre at (266, 718) while the palette's box - the clip - ended at
+## 673, so the centre the block handed a driver was a place on the plate under the palette and a tap there pressed
+## nothing. `drawn_rect` is the reader the `overlap` lines already use for exactly this reason.
 static func tap_lines(root: Node, scope: String) -> PackedStringArray:
 	var lines := PackedStringArray()
 	for control: Control in _controls_under(root):
 		if not _tappable(control):
 			continue
-		var rect: Rect2 = screen_rect(control)
+		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
 		lines.append(
@@ -1205,6 +1225,72 @@ static func read_room_line(text: String) -> Vector2i:
 ## Read here, beside the writer and beside its sibling above, for the reason that comment gives.
 static func read_screen_line(text: String) -> Vector2i:
 	return _a_pair_after(text, SCREEN_MARK)
+
+
+## Where the `row` line that says which view is up names itself: the top bar's own mode label, whose words are the
+## program's own name for the view - `2D PLAN` in the plan, `3D OVERHEAD` from above.
+const VIEW_MARK := "ModeLabel"
+
+
+## The view a block was taken in, in the program's own words, read off the `row` line that publishes it - or nothing
+## when the block names none.
+##
+## Read beside the writer, for the reason the reader above is: `row_lines` writes the line and the words are the
+## label's own text, so a second way of naming a view cannot appear here. A controller that relaunches the program
+## changes the view under a person's hands - a program that has just started is in 3D overhead whatever view was in
+## use - and this is the only copy of what was there before.
+static func read_view_line(text: String) -> String:
+	for line: String in text.split("\n"):
+		if not line.contains(VIEW_MARK):
+			continue
+		var last: int = line.rfind("\"")
+		if last < 0:
+			continue
+		var first: int = line.rfind("\"", last - 1)
+		if first < 0:
+			continue
+		return line.substr(first + 1, last - first - 1)
+	return ""
+
+
+## Where the `insets` line's **display** half begins: the band the display itself reports, in the display's own pixels.
+## The line carries two bands and this is only one of them - the `room` half is that band's share of the room the bar
+## is laid out in, which is a different number in a different space.
+const BAND_MARK := "display l="
+
+
+## The band the block's `insets` line says **the display** reports, as (left, top, right, bottom) - all zeros when the
+## block names none, so a missing line is no reading rather than a reading of nothing.
+##
+## What is read back is the program's own answer (`PhoneHud.band_as_reported`), and that is the whole point: a tool
+## setting this beside what the phone says about itself has to start from what the program actually answered, not from
+## what the tool thinks it ought to have answered.
+##
+## Read here, beside the marker that writes it, for the same reason as its siblings above.
+static func read_display_band_line(text: String) -> Vector4i:
+	for raw: String in text.split("\n"):
+		var line: String = raw.strip_edges()
+		# **The line is read field by field.** It carries more than one band - the room's share, the display's whole
+		# band, and what the system bars alone take - and each is its own run of `name l=0 t=0 r=0 b=0` after three
+		# spaces. Reading to the end of the line instead puts the *next* field's numbers in this one's fourth place.
+		for field: String in line.split("   "):
+			var at: int = field.find(BAND_MARK)
+			if at < 0:
+				continue
+			# `display l=0 t=0 r=0 b=0`: the four letters are the field's own separators, so the shape is read back
+			# with one replacement rather than a second walk over the numbers.
+			var tail: String = field.substr(at + BAND_MARK.length())
+			tail = tail.replace(" t=", ",").replace(" r=", ",").replace(" b=", ",")
+			var parts: PackedStringArray = tail.split(",")
+			if parts.size() < 4:
+				continue
+			return Vector4i(
+				parts[0].strip_edges().to_int(),
+				parts[1].strip_edges().to_int(),
+				parts[2].strip_edges().to_int(),
+				parts[3].strip_edges().to_int(),
+			)
+	return Vector4i.ZERO
 
 
 ## The **density** the block's `device` line states for the glass this program is running on: the device's own

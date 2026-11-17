@@ -8,6 +8,100 @@ extends Node
 ## device-side half is proved by running the tool itself.
 
 const ToolScript := preload("res://tools/phone_touch_pass.gd")
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
+
+
+## The A16W's own `dumpsys window displays`, cut to the fields a band comes from. **Every field here was read off the
+## device**, not written from what the format was thought to be - which is why the rectangle is spelled with the dash
+## the phone really uses, the one thing that would otherwise have been guessed wrong.
+const A16W_SAID := (
+	"    init=1080x2340 450dpi mMinSizeOfResizeableTaskDp=220"
+	+ "\n    initCutout=DisplayCutout{insets=Rect(0, 100 - 0, 0)"
+	+ " waterfall=Insets{left=0, top=0, right=0, bottom=0} sideOverrides={}}"
+	+ "\n      ROTATION_0={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[0,100][0,42],"
+	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,100][0,42]}"
+	+ "\n      ROTATION_90={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[100,0][0,42],"
+	+ " configInsets=[0,0][0,0], overrideConfigInsets=[100,84][0,42]}"
+	+ "\n      ROTATION_180={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[0,0][0,142],"
+	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,100][0,142]}"
+	+ "\n      ROTATION_270={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[0,0][100,42],"
+	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,84][100,42]}"
+	+ "\n      mDisplayCutoutTouchableRegionSize=34"
+)
+
+
+func test_the_phones_own_band_is_read_out_of_the_phones_own_report() -> void:
+	assert(
+		ToolScript.cutout_insets_from(A16W_SAID) == Vector4i(0, 100, 0, 0),
+		(
+			"the camera cutout comes out of the rectangle the phone writes with a dash in it, which is the shape a"
+			+ " comma-split would have read as three numbers: %s" % str(ToolScript.cutout_insets_from(A16W_SAID))
+		),
+	)
+
+	var kept: Array[Vector4i] = ToolScript.kept_bands_from(A16W_SAID)
+	assert(kept.size() == 8, "one band per kind per way up, and the size is the report's own: %d" % kept.size())
+	assert(kept[0] == Vector4i(0, 100, 0, 42), "upright, the camera at the top: %s" % str(kept[0]))
+	assert(
+		ToolScript.BAND_ROWS[0].begins_with("ROTATION_0"),
+		"and the name at that index is the one that band belongs to: %s" % ToolScript.BAND_ROWS[0],
+	)
+	assert(kept[3] == Vector4i(100, 84, 0, 42), "on its side, the camera is on the left and the top is kept too")
+	assert(kept[5] == Vector4i(0, 100, 0, 142), "upside down, the bar along the foot is the biggest of them")
+	assert(kept[6] == Vector4i(0, 0, 100, 42), "and the other side, the camera is on the right")
+
+
+func test_a_report_this_reader_does_not_know_is_no_bands_rather_than_bands_of_nothing() -> void:
+	# The distinction the caller prints: a phone keeping nothing and a report this cannot read are different answers,
+	# and a pile of zeros claiming to be the second is how a wrong reading gets to look like a measurement.
+	assert(
+		ToolScript.kept_bands_from("init=1080x2340 450dpi").is_empty(),
+		"a report with no insets block answers no bands at all",
+	)
+	assert(
+		ToolScript.kept_bands_from(A16W_SAID.replace("ROTATION_270={", "gone={")).is_empty(),
+		"and so does one that names only three of the four ways up, because a name read off one list by an index"
+		+ " into another is how a band gets called by the wrong name",
+	)
+	assert(
+		ToolScript.cutout_insets_from("init=1080x2340 450dpi") == Vector4i.ZERO,
+		"a report with no cutout in it answers nothing rather than a guess",
+	)
+
+
+func test_the_band_the_tool_looks_for_is_the_one_the_probe_writes() -> void:
+	# The tool's own check for a build that predates the band line is only true while it looks for the marker the
+	# probe really writes. Two strings, one of them in `scripts/`, and this is what keeps them the same one.
+	assert(
+		HudProbeScript.BAND_MARK == "display l=",
+		"the marker a block writes its band with: %s" % HudProbeScript.BAND_MARK,
+	)
+
+
+func test_the_verdict_names_which_of_the_two_readings_the_program_matched() -> void:
+	var cutout := Vector4i(0, 100, 0, 0)
+	var kept: Array[Vector4i] = [Vector4i(0, 100, 0, 42), Vector4i(100, 84, 0, 42)]
+	assert(
+		ToolScript.band_verdict(cutout, cutout, kept).contains("IS the phone's own camera cutout"),
+		ToolScript.band_verdict(cutout, cutout, kept),
+	)
+	assert(
+		ToolScript.band_verdict(kept[1], cutout, kept).contains("IS the band the phone keeps"),
+		"a reading that is one of the phone's own bands is named as such: %s"
+		% ToolScript.band_verdict(kept[1], cutout, kept),
+	)
+	assert(
+		ToolScript.band_verdict(Vector4i(0, 200, 0, 0), cutout, kept).contains("matches none"),
+		(
+			"and a reading the phone never states says so, which is the whole answer worth having - it is what a"
+			+ " disagreement between Godot's safe area and the phone looks like"
+		),
+	)
+	assert(
+		ToolScript.band_verdict(Vector4i.ZERO, cutout, kept).contains("no band at all"),
+		"with a desk's own answer kept apart from a disagreement: %s"
+		% ToolScript.band_verdict(Vector4i.ZERO, cutout, kept),
+	)
 
 
 func test_a_tap_is_read_from_the_two_numbers_a_person_types() -> void:
@@ -777,4 +871,85 @@ func test_the_word_after_a_flag_is_the_first_thing_that_is_not_a_flag() -> void:
 		ToolScript.tap_filter(PackedStringArray(["--taps", "Cancel"]))
 		== ToolScript.the_word_after(PackedStringArray(["--taps", "Cancel"]), "--taps"),
 		"`--taps` reads its word by the same rule, because it is the same rule",
+	)
+
+
+## **The screen a tap is measured against is the newest block's, not the log's first.** A log holds every block
+## since it was cleared, and the block a launch publishes is not always about the screen in front of a person:
+## measured on the A16W on 2026-11-17, a phone lying on the desk published an **upright** block first
+## (`scale=0.91 shape=standing`, `native=(1080, 2340)`) and a lying one after it, because the program's window is
+## portrait for its first moment and re-lays out. Measuring a lying block's centre - (1163, 299), inside the
+## 2340 x 1080 screen that published it - against the log's own first screen called a press that had plainly
+## landed a miss: `--press "2D plan"` moved the button's own label and the run still said "outside the screen".
+## The reader is right; the block it is handed is the whole log rather than the newest block.
+func test_a_tap_is_measured_against_the_newest_blocks_screen_not_the_logs_first() -> void:
+	# A block begins at the probe's own heading, and the blank lines adb leaves between them are not the separator:
+	# this is the shape `probe.log` really has, taken from the writer's own constant rather than retyped.
+	var head: String = "PROBE %s\n" % ToolScript.BLOCK_HEAD
+	var log := (
+		head
+		+ "PROBE room     viewport=(1185, 2567) native=(1080, 2340)\n"
+		+ head
+		+ "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
+	)
+	var newest: String = "\n".join(ToolScript.newest_block(log))
+	var screen: Vector2i = HudProbeScript.read_screen_line(newest)
+	assert(screen == Vector2i(2340, 1080), "the newest block's own screen: %s" % str(screen))
+	assert(
+		ToolScript.tap_words(Vector2i(1163, 299), screen).begins_with("the tap at (1163, 299) is inside"),
+		"so a centre that landed is read as one: %s" % ToolScript.tap_words(Vector2i(1163, 299), screen),
+	)
+	assert(
+		ToolScript.tap_words(Vector2i(1163, 299), HudProbeScript.read_screen_line(log)).begins_with(
+			"the tap at (1163, 299) is outside"
+		),
+		"where the log's first block is the one that cries wolf - which is why the call site is handed the newest",
+	)
+
+
+## A `--keep` name is a person's own words, and the file it becomes is made of letters, digits and underscores, ends
+## `.png`, and stays inside the capture directory whatever was typed - a name is a person's, and a path is not
+## somewhere a name should be able to point a tool that writes files.
+func test_a_kept_picture_name_is_a_name_and_never_a_path() -> void:
+	assert(
+		ToolScript.kept_picture_name("Widened Bar") == "widened_bar.png",
+		ToolScript.kept_picture_name("Widened Bar"),
+	)
+	assert(
+		ToolScript.kept_picture_name("  after-build  ") == "after_build.png",
+		"spaces and dashes are the one separator a name is written with",
+	)
+	assert(
+		ToolScript.kept_picture_name("../../etc/passwd") == "etcpasswd.png",
+		"a path typed as a name stays a name: %s" % ToolScript.kept_picture_name("../../etc/passwd"),
+	)
+	assert(ToolScript.kept_picture_name("...") == "kept.png", "and a name with nothing in it becomes the plain one")
+
+
+## A phone that leaves the link mid-run is named in terms of what the run had already done: after an export there is
+## nothing to export again, and before one there is nothing to install - the same command is the answer.
+func test_a_phone_that_left_the_link_is_told_what_to_do_next() -> void:
+	var after: String = ToolScript.the_device_left_words(true)
+	assert(after.contains("--install --launch"), "a build already made is not one to make again: %s" % after)
+	assert(after.contains("nothing left to export"), "and that is the whole of it: %s" % after)
+	var before: String = ToolScript.the_device_left_words(false)
+	assert(not before.contains("--install"), "with no build made there is nothing to install: %s" % before)
+	assert(before.contains("again"), "so the same command again is the answer: %s" % before)
+
+
+## A capture's three pictures carry the same names every time, so a second capture wrote over the first one's
+## evidence - a gap that was only documented until this ran. Given a `--keep` name they are prefixed by it, and
+## with none they keep the names a person goes looking for.
+func test_a_capture_picture_is_prefixed_by_a_kept_name_or_keeps_its_own() -> void:
+	assert(
+		ToolScript.capture_picture_name("", "board_upright.png") == "board_upright.png",
+		"with no name asked for, the picture keeps its own",
+	)
+	assert(
+		ToolScript.capture_picture_name("Widened Bar", "board_upright.png") == "widened_bar_board_upright.png",
+		ToolScript.capture_picture_name("Widened Bar", "board_upright.png"),
+	)
+	assert(
+		ToolScript.capture_picture_name("../../etc", "a_line_drawn.png") == "etc_a_line_drawn.png",
+		"and a path typed as a name is still only a name",
 	)
