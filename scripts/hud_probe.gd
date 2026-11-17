@@ -1172,6 +1172,14 @@ const ROOM_MARK := "room     viewport=("
 ## centres are published in and so the space a tap is a place in. See `read_screen_line`.
 const SCREEN_MARK := "native=("
 
+## Where the `device` line's **density** begins: the glass's own answer in pixels per logical inch, which is the
+## number a phone build is developed against and the one that goes stale in a fixture. See `read_device_density`.
+const DENSITY_MARK := "dpi="
+
+## Where that same line's **scale** begins: the screen's pixels per logical one, this way up. The leading space is
+## part of the mark because `scale=` on its own could be a word in another line's prose.
+const SCALE_MARK := " scale="
+
 
 ## The room a block was taken in, read back out of the block's own line - or a room of no size where the line is
 ## not there.
@@ -1197,6 +1205,45 @@ static func read_room_line(text: String) -> Vector2i:
 ## Read here, beside the writer and beside its sibling above, for the reason that comment gives.
 static func read_screen_line(text: String) -> Vector2i:
 	return _a_pair_after(text, SCREEN_MARK)
+
+
+## The **density** the block's `device` line states for the glass this program is running on: the device's own
+## answer, in pixels per logical inch.
+##
+## **Why this exists.** The numbers a phone is developed against get written down - a fixture in a tool, a constant
+## in a test - and a written number goes stale the moment the device does. Three test fixtures carried
+## `PHONE_DPI := 384.6`, an estimate from the first draft, while the A16W's own glass reports **450.0** - which is
+## a fixture pinning a phone nobody has, and no desk test can say so, because a desk has no phone to disagree with.
+##
+## Read here beside the writer (`device_lines`) and beside its siblings either side, for the reason those comments
+## give: the reader and the writer of one line are one thing, and a second reader is the defect this project works
+## hardest to avoid. A line that is not there answers `0.0` - **no reading rather than a reading of nothing**,
+## which is what lets a caller say it has nothing to check against instead of comparing with zero.
+static func read_device_density(text: String) -> float:
+	return _a_number_after(text, DENSITY_MARK)
+
+
+## The **scale** that same line states - the screen's own pixels per logical one, this way up. Portrait and
+## landscape answer differently on a phone (0.91 and 1.62 on the A16W), which is why a block, taken one way up,
+## can only ever judge one of the two: `tools/phone_touch_pass.gd` says so where it makes that judgement.
+static func read_device_scale(text: String) -> float:
+	return _a_number_after(text, SCALE_MARK)
+
+
+## The number a marker is followed by, or `0.0` when no line carries one - the same shape as `_a_pair_after` one
+## figure down, and the same rule about a miss.
+##
+## The rest of the line is handed to `String.to_float`, which reads a number only where one begins and stops at the
+## first character that is not part of it: `450.0 scale=1.62 shape=lying` reads 450.0, so no bracket is needed to
+## end the figure, and `Vector2i(1080, 2340)` reads nothing rather than a 0 that could be compared with a phone's.
+static func _a_number_after(text: String, mark: String) -> float:
+	for raw: String in text.split("\n"):
+		var line: String = raw.strip_edges()
+		var at: int = line.find(mark)
+		if at < 0:
+			continue
+		return line.substr(at + mark.length()).to_float()
+	return 0.0
 
 
 ## The two numbers inside the brackets a marker is followed by, or `Vector2i.ZERO` when no line carries them.

@@ -30,6 +30,247 @@ func test_the_wait_defaults_and_will_not_be_asked_for_less_than_two_seconds() ->
 	tool.free()
 
 
+## **A build is made again for exactly three reasons, and every one of them reaches the phone.** A script or a
+## scene written after it; the export preset written after it - a preset decides what a build *contains*, and
+## Android's INTERNET permission took a fresh export before the phone had it (2026-11-10); and a tree nobody can
+## walk at all, which is answered by making a build rather than by believing an age.
+func test_a_build_is_made_again_only_when_something_that_reaches_the_phone_has_moved() -> void:
+	var made: int = 1_700_000_000
+	var nothing: Dictionary = {
+		"count": 0,
+		"newest": 0,
+		"path": "",
+		"paths": PackedStringArray(),
+		"readable": true,
+	}
+	assert(
+		ToolScript.rebuild_reason(made, nothing, made - 100, made + 60).is_empty(),
+		"a build with nothing newer than it, and a preset older still, is the work in hand",
+	)
+	var changed: Dictionary = {
+		"count": 2,
+		"newest": made + 30,
+		"path": "res://scripts/hud.gd",
+		"paths": PackedStringArray(["res://scripts/hud.gd", "res://scenes/main.tscn"]),
+		"readable": true,
+	}
+	var scripted: String = ToolScript.rebuild_reason(made, changed, made - 100, made + 60)
+	assert(scripted.contains("changed since"), "a script written after it makes it stale: %s" % scripted)
+	assert(scripted.contains("hud.gd"), "and the file is named rather than counted: %s" % scripted)
+	var preset: String = ToolScript.rebuild_reason(made, nothing, made + 10, made + 60)
+	assert(preset.contains("export_presets.cfg"), "a preset written after it does too: %s" % preset)
+	var unreadable: Dictionary = { "count": 0, "newest": 0, "path": "", "readable": false }
+	assert(
+		not ToolScript.rebuild_reason(made, unreadable, made - 100, made + 60).is_empty(),
+		"and a tree nobody could walk is answered by making a build, not by trusting an age",
+	)
+	assert(
+		not ToolScript.rebuild_reason(0, nothing, 0, made).is_empty(),
+		"and a build that is not there at all is the plainest reason there is",
+	)
+
+
+## The three words `--turn` takes, and the fourth answer: **a typo is not a hold.** A word this does not know
+## leaves the device alone rather than picking a rotation for somebody's phone.
+func test_the_turn_reads_three_words_and_refuses_any_other() -> void:
+	assert(ToolScript.turn_of(PackedStringArray(["--turn", "portrait"])) == "portrait", "upright, as asked")
+	assert(ToolScript.turn_of(PackedStringArray(["--turn", "landscape"])) == "landscape", "on its side, as asked")
+	assert(ToolScript.turn_of(PackedStringArray(["--turn", "auto"])) == "auto", "and the device's own answer")
+	for refused: String in ["sideways", "1", "", "Portrait"]:
+		assert(
+			ToolScript.turn_of(PackedStringArray(["--turn", refused])).is_empty(),
+			"`%s` is not a way up this will hold a phone in" % refused,
+		)
+	assert(ToolScript.turn_of(PackedStringArray([])).is_empty(), "and no flag at all is no turn")
+
+
+## **What the device reports is the reading; what was written to it is an intention.** A `settings put` Android
+## refused looks exactly like one it obeyed until something is read back, so the line carries both readings and
+## refuses to call the device held when its own numbers disagree.
+func test_a_turn_says_what_the_device_reports_rather_than_what_was_asked() -> void:
+	var taken: String = ToolScript.turn_words("landscape", "1", "0")
+	assert(taken.contains("lying"), "the device's own answer is a word, not a number: %s" % taken)
+	assert(taken.contains("user_rotation=1"), "and the number it reported is in it: %s" % taken)
+	var refused: String = ToolScript.turn_words("portrait", "1", "1")
+	assert(refused.contains("NOT take the hold"), "a device that did not take it says so: %s" % refused)
+	assert(refused.contains("user_rotation=1"), "naming what it reports instead: %s" % refused)
+	assert(
+		ToolScript.turn_words("portrait", "0", "0").contains("upright"),
+		"while the upright hold reads as upright",
+	)
+	assert(
+		ToolScript.turn_words("auto", "0", "1").contains("its own answer again"),
+		"and going back to the device's own answer is its own sentence",
+	)
+	assert(
+		ToolScript.turn_words("auto", "0", "0").contains("would not go back"),
+		"which is refused as plainly when the device keeps it",
+	)
+	assert(ToolScript.turn_words("", "0", "0").is_empty(), "and no turn asked for says nothing at all")
+
+
+## The export is asked for with **both paths absolute** - the project with `--path`, the file to write in full - so
+## a tool started from another directory builds this project rather than whatever sits beside the shell.
+func test_the_export_names_the_project_and_the_file_in_full() -> void:
+	var argv: Array[String] = ToolScript.export_argv()
+	assert(argv.has("--export-debug"), "the export is the one Godot is asked for: %s" % str(argv))
+	assert(argv.has("Android (phone)"), "on the preset this project builds for a phone with")
+	var names_the_build: bool = false
+	var names_the_project: bool = false
+	for argument: String in argv:
+		if argument.ends_with("phone-adapt.apk") and not argument.begins_with("res://"):
+			names_the_build = true
+		if argument == ProjectSettings.globalize_path("res://"):
+			names_the_project = true
+	assert(names_the_build, "the build's own file is named by its place on this computer: %s" % str(argv))
+	assert(names_the_project, "and so is the project, so where a person stood cannot change it")
+
+
+## **The phone's own numbers, out of the blocks the log holds** - every one of them for the scale, because a phone
+## answers differently in each orientation and a rotation publishes a block. That is what lets a scale a file
+## states be *judged* rather than shrugged at when the phone has been seen both ways up. A log with nothing in it is
+## **no reading**, which is what lets the check say it has nothing to compare a file against instead of comparing
+## every file with zero and calling them all wrong.
+func test_the_phones_numbers_are_read_from_the_blocks_the_log_holds() -> void:
+	# **Every line of a block carries the `PROBE ` prefix** - in `probe.log` as well as in logcat, which
+	# `test_hud_probe` holds down - and `blocks_in` reads the blocks by it: a fixture written without the prefix is
+	# read as *no block at all*, which is how this test first failed and is worth keeping in front of a reader.
+	var lying: String = (
+		"PROBE --- what is on the screen ---\n"
+		+ "PROBE device   finger=true zooming=true touchscreen=true dpi=450.0 scale=1.62 shape=lying\n"
+		+ "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
+	)
+	var upright: String = (
+		"PROBE --- what is on the screen ---\n"
+		+ "PROBE device   finger=true zooming=true touchscreen=true dpi=450.0 scale=0.91 shape=standing\n"
+		+ "PROBE room     viewport=(1185, 2567) native=(1080, 2340)"
+	)
+	var said: Dictionary = ToolScript.the_phones_numbers(lying + "\n" + upright)
+	assert(is_equal_approx(float(said.get("dpi", 0.0)), 450.0), "the density, off the newest block: %s" % str(said))
+	assert(is_equal_approx(float(said.get("scale", 0.0)), 0.91), "and its own scale, this way up: %s" % str(said))
+	var scales: Array = said.get("scales", [])
+	assert(scales.size() == 2, "**both** orientations' scales, since the log has seen both: %s" % str(said))
+	assert(
+		is_equal_approx(float(scales[0]), 0.91) and is_equal_approx(float(scales[1]), 1.62),
+		"in order, and one of each: %s" % str(said),
+	)
+	assert(int(said.get("blocks", 0)) == 2, "and how many blocks were read: %s" % str(said))
+	# A lone block is a reading still - and a text with no heading in it at all is read as one block rather than
+	# refused, which is what the same block looks like with the prefix taken off.
+	var lone: Dictionary = ToolScript.the_phones_numbers(lying)
+	assert(is_equal_approx(float(lone.get("dpi", 0.0)), 450.0), "one block in the log is a reading: %s" % str(lone))
+	assert(int(lone.get("blocks", 0)) == 1, "and it counts as the one block it is")
+	var bare: Dictionary = ToolScript.the_phones_numbers(lying.replace("PROBE ", ""))
+	assert(is_equal_approx(float(bare.get("dpi", 0.0)), 450.0), "and a bare block with no prefix: %s" % str(bare))
+	assert(int(bare.get("blocks", 0)) == 1, "read as the one block it is")
+	var absent: Dictionary = ToolScript.the_phones_numbers("")
+	assert(float(absent.get("dpi", 0.0)) == 0.0, "no block, no density - and not a zero to compare against")
+	assert(float(absent.get("scale", 0.0)) == 0.0, "and no scale either")
+
+
+## **A stated density is a fault; a stated scale may be the other orientation's**, and one block cannot tell which.
+## This is the check that would have caught three fixtures carrying `PHONE_DPI := 384.6` while the phone that is
+## actually on the desk says 450.0 - a number a desk cannot disagree with, which is why it needs a device.
+func test_a_files_number_is_compared_with_the_phones_own_and_a_stale_one_is_named() -> void:
+	var said: Dictionary = { "dpi": 450.0, "scale": 1.62, "scales": [1.62] }
+	var stale: Dictionary = ToolScript.stated_numbers_in("sample.gd", "const PHONE_DPI := 384.6", said)
+	var stale_ones: Array = stale.get("disagrees", [])
+	assert(stale_ones.size() == 1, "a density the phone disagrees with is named: %s" % str(stale))
+	assert(String(stale_ones[0]).contains("384.6"), "with the number it states in it: %s" % str(stale_ones[0]))
+	assert(String(stale_ones[0]).contains("sample.gd:1"), "and where it is: %s" % str(stale_ones[0]))
+	assert(int(stale.get("agreed", 0)) == 0, "and it is not counted among the ones that agree")
+	assert(
+		int(ToolScript.stated_numbers_in("sample.gd", "const PHONE_DPI := 450.0", said).get("agreed", 0)) == 1,
+		"while the phone's own density agrees, and is counted as read",
+	)
+	# The other name this project's tools use for a density, and a typed `const`: both are read, not left as
+	# numbers nobody checks. `hud_layout_check.gd` spells it `PHONE_DENSITY`.
+	var other_names: Dictionary = ToolScript.stated_numbers_in(
+		"hud_layout_check.gd", "const PHONE_DENSITY := 450.0\nconst PHONE_DPI: float = 450.0", said
+	)
+	assert(int(other_names.get("agreed", 0)) == 2, "both spellings of a density are read: %s" % str(other_names))
+	# **The orientation trap.** 0.91 is this phone's portrait scale and 1.62 its landscape one, so a landscape
+	# block cannot judge a fixture holding the upright figure: it is named as unjudged, never as a fault, because
+	# calling it one would be the false positive this project's doctrine is written against.
+	var upright: Dictionary = ToolScript.stated_numbers_in(
+		"test_hud_question.gd", "const PHONE_SCALE_UPRIGHT := 0.91", said
+	)
+	var no_faults: Array = upright.get("disagrees", [])
+	assert(no_faults.is_empty(), "the other orientation's scale is not called a fault: %s" % str(upright))
+	var unjudged: Array = upright.get("not_this_way_up", [])
+	assert(unjudged.size() == 1, "it is named as one this block cannot judge: %s" % str(upright))
+	assert(
+		String(unjudged[0]).contains("cannot say"),
+		"and that naming says why rather than guessing: %s" % str(unjudged[0]),
+	)
+	assert(
+		String(unjudged[0]).contains("not this orientation's"),
+		"while still saying which way up the block it is about was: %s" % str(unjudged[0]),
+	)
+	# **A log that has seen the phone both ways up judges both**, and then a scale matching neither is a *fault*
+	# rather than a shrug - named with the scales the phone itself states. This is what the instrument is for.
+	var both: Dictionary = { "dpi": 450.0, "scale": 1.62, "scales": [0.91, 1.62] }
+	assert(
+		int(ToolScript.stated_numbers_in("sample.gd", "const PHONE_SCALE_UPRIGHT := 0.91", both).get("agreed", 0)) == 1,
+		"the upright scale agrees once the log knows it",
+	)
+	var nowhere: Dictionary = ToolScript.stated_numbers_in("sample.gd", "const PHONE_SCALE := 0.5", both)
+	var faults: Array = nowhere.get("disagrees", [])
+	assert(faults.size() == 1, "and a scale this phone has never stated is a fault: %s" % str(nowhere))
+	assert(String(faults[0]).contains("0.91"), "naming the scales the phone does state: %s" % str(faults[0]))
+	var no_shrug: Array = nowhere.get("not_this_way_up", [])
+	assert(no_shrug.is_empty(), "with no shrug left over it: %s" % str(nowhere))
+	assert(
+		int(ToolScript.stated_numbers_in("sample.gd", "const PHONE_SCALE := 1.62", said).get("agreed", 0)) == 1,
+		"while this way up's own scale does agree",
+	)
+	# **What the check cannot see, said rather than left to be discovered.** A number under another name, or inside
+	# a Vector, or a quoted one, is not read at all - so the count of what was looked at is the honest measure of
+	# the check, and a run that read nothing proves nothing.
+	var nothing: Dictionary = ToolScript.stated_numbers_in(
+		"sample.gd",
+		(
+			"const TABLE_DPI_LIMIT := 384.6\n"
+			+ "const HELD_UPRIGHT := Vector2i(1080, 2340)\n"
+			+ "const PHONE_LABEL := \"450\""
+		),
+		said,
+	)
+	assert(int(nothing.get("agreed", 0)) == 0, "the name decides what is read: %s" % str(nothing))
+	var none_found: Array = nothing.get("disagrees", [])
+	assert(none_found.is_empty(), "and a number that is not a stated density is not read as one: %s" % str(nothing))
+	# **Two constants the first live run called faults before the rule was narrowed, on 2026-11-17.** A density
+	# floor is not a device's density and a tablet's is another device's entirely: both are `_DPI` constants this
+	# phone disagrees with, and neither is a number *for this phone*. Calling them faults is the false positive the
+	# project's doctrine is written against, so the name is the whole basis of the rule and this holds it there.
+	var not_for_this_phone: Dictionary = ToolScript.stated_numbers_in(
+		"sample.gd", "const HELD_DPI := 200.0\nconst TABLET_DPI := 300.0", said
+	)
+	var no_such_faults: Array = not_for_this_phone.get("disagrees", [])
+	assert(no_such_faults.is_empty(), "a floor and a tablet are not this phone's numbers: %s" % str(not_for_this_phone))
+	assert(int(not_for_this_phone.get("agreed", 0)) == 0, "and they are not read as this phone's either")
+
+
+## One line read as a stated number, and the two shapes a name may take - because a fixture may be typed, and a
+## comment or a longer expression after the number is not part of it.
+func test_a_stated_number_is_read_only_where_one_begins() -> void:
+	var plain: Dictionary = ToolScript.a_stated_number("const PHONE_DPI := 384.6")
+	assert(String(plain.get("name", "")) == "PHONE_DPI", "the name: %s" % str(plain))
+	assert(is_equal_approx(float(plain.get("value", 0.0)), 384.6), "and the number: %s" % str(plain))
+	var typed: Dictionary = ToolScript.a_stated_number("const PHONE_DPI: float = 450.0")
+	assert(String(typed.get("name", "")) == "PHONE_DPI", "a typed const reads the same: %s" % str(typed))
+	assert(is_equal_approx(float(typed.get("value", 0.0)), 450.0), "with its own number: %s" % str(typed))
+	assert(
+		is_equal_approx(
+			float(ToolScript.a_stated_number("const PHONE_DPI := 450.0  # the A16W").get("value", 0.0)), 450.0
+		),
+		"and a comment after the number is not part of it",
+	)
+	assert(ToolScript.a_stated_number("var PHONE_DPI := 450.0").is_empty(), "a var is not a stated constant")
+	assert(ToolScript.a_stated_number("const HELD := Vector2i(1080, 2340)").is_empty(), "a Vector is no number")
+	assert(ToolScript.a_stated_number("const PHONE_NAME := \"450\"").is_empty(), "and a quoted one is not either")
+
+
 ## **A tap is a place on the glass, so it is measured against the screen - not against the room.** A block's `tap`
 ## lines are the screen's own pixels; the `room` line's `viewport=` figure is the logical room a page is laid out
 ## in, 1.62 times smaller on the A16W. Measuring one against the other called a press that had plainly landed a

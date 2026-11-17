@@ -218,15 +218,22 @@ Questions that compare a shape with a shape - `offscreen`, `page-edge`, `reach` 
 scaling both sides changes neither answer.
 
 **The phone's own report** is `tools/phone_touch_pass.tscn`: one command that pulls `probe.log` off the device and
-prints the newest block's touch lines in that order, with `--install --launch` to put a build on it and `--tap X Y`
-to press at a centre the probe itself reported. A real OS tap *does* reach a control inside a page's `Window` on
-the device - measured on the A16W - which is the opposite of what `run_scene`'s injection can do, so pages on a
-phone are driven by tapping the probe's own centres.
+prints the newest block's touch lines in that order. **`--build`** makes the build before installing it - the
+engine's own export, run only when a script, a scene or the preset has moved - and **`--turn`** holds the device
+the way up it is asked for while the program starts, handing it back when the run ends. **`--numbers`** checks the
+numbers this project states for a phone against the phone's own, which is the one check a desk cannot make. It
+also installs and launches (`--install --launch`) and presses at a centre the probe itself reported (`--tap X Y`).
+A real OS tap *does* reach a control inside a page's `Window` on the device - measured on the A16W - which is the
+opposite of what `run_scene`'s injection can do, so pages on a phone are driven by tapping the probe's own centres.
 
-**On a phone**: build `--export-debug "Android (phone)" build/phone-adapt.apk`, `adb install -r`, start
-it, then pull `probe.log` and `adb exec-out screencap -p > build/phone.png`. An injected *tap* does not
-reach a control inside an embedded `Window`; a keyevent does, so a page is reached with TAB and ENTER.
-`screencap` comes out in the display's own orientation, and `adb` is not on the PATH - the SDK copy is.
+**On a phone**: `phone_touch_pass --build --launch` is the whole of it - it exports if anything that reaches the
+phone has moved (three minutes, and nothing is exported when nothing has), installs, starts, waits for a block, and
+hashes the phone's own copy against the file to say they are the same build. `--turn landscape` (or `portrait`)
+holds the device's own rotation while the program starts, and hands it back when the run ends. By hand the same
+steps are `--export-debug "Android (phone)" build/phone-adapt.apk`, `adb install -r`, start it, then pull
+`probe.log` and `adb exec-out screencap -p > build/phone.png`. An injected *tap* does not reach a control inside an
+embedded `Window`; a keyevent does, so a page is reached with TAB and ENTER. `screencap` comes out in the display's
+own orientation, and `adb` is not on the PATH - the SDK copy is.
 
 **The discipline.** A rectangle is a statement by the program about itself; the glass is what a person
 sees. When the two disagree, the disagreement gets a name - a line, a measurement of the glass, or a

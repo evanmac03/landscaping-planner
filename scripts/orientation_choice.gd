@@ -22,6 +22,10 @@ class_name OrientationChoice
 
 extends RefCounted
 
+## Which platform this is: a window can only be asked to change the way up it is on one that lets it, and that
+## reading is `DevicePlatform`'s rather than this file's.
+const DevicePlatformScript := preload("res://scripts/device_platform.gd")
+
 const LANDSCAPE := &"landscape"
 const PORTRAIT := &"portrait"
 const FOLLOW := &"follow"
@@ -145,9 +149,10 @@ static func can_turn(platform_is_mobile: bool) -> bool:
 	return platform_is_mobile
 
 
-## Whether the window running this is one that can turn.
+## Whether the window running this is one that can turn - the platform's own answer, read in `DevicePlatform`
+## rather than asked for here, because the same fact is needed by two other files.
 static func can_turn_here() -> bool:
-	return can_turn(OS.has_feature("mobile"))
+	return can_turn(DevicePlatformScript.is_mobile())
 
 
 ## Ask the window for a hold, on a platform that can take the asking.

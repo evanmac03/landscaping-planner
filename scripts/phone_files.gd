@@ -25,6 +25,10 @@ enum Device {
 ## given, so "any file" is the only filter that cannot hide the file the door was opened for.
 const ANY_FILE_FILTER := "Any file ; *.*"
 
+## Which platform this is, read in `DevicePlatform` - the one file that asks the machine - so that this file's
+## own question about the picker is not a second answer to it.
+const DevicePlatformScript := preload("res://scripts/device_platform.gd")
+
 static var _device: Device = Device.AUTO
 
 
@@ -38,6 +42,9 @@ static func force(device: Device) -> void:
 
 
 ## Whether this program is running on a phone.
+##
+## The machine's own answer is `DevicePlatform.is_android`'s, and it is asked there and nowhere else; what this
+## file adds is the door a demonstration or a test states a device through.
 static func on_phone() -> bool:
 	match _device:
 		Device.PHONE:
@@ -45,7 +52,7 @@ static func on_phone() -> bool:
 		Device.COMPUTER:
 			return false
 		_:
-			return OS.has_feature("android")
+			return DevicePlatformScript.is_android()
 
 
 ## Whether the system this program is running on has a file picker of its own.

@@ -17,6 +17,9 @@ extends Window
 const CameraCaptureScript := preload("res://scripts/camera_capture.gd")
 const HeldOrientationScript := preload("res://scripts/held_orientation.gd")
 const PhotoStoreScript := preload("res://scripts/field_photo_store.gd")
+## Which platform this is, because the permission this page asks for is Android's alone: read in
+## `DevicePlatform` rather than asked for here.
+const DevicePlatformScript := preload("res://scripts/device_platform.gd")
 
 ## The window was closed by its own close button.
 signal closed()
@@ -181,9 +184,9 @@ func shut() -> void:
 
 
 ## Whether this program has been allowed the camera. A computer's webcam is not gated, so there is nothing
-## to be allowed there.
+## to be allowed there - and which platform that is, `DevicePlatform` reads rather than this page.
 func permitted() -> bool:
-	if not OS.has_feature("android"):
+	if not DevicePlatformScript.is_android():
 		return true
 	return OS.get_granted_permissions().has(CameraCaptureScript.ANDROID_CAMERA)
 
@@ -191,7 +194,7 @@ func permitted() -> bool:
 ## Ask for the camera, once. Android answers on its own screen, so nothing here waits for the answer: the
 ## page reads it again on the next frame, which is also when the feeds appear.
 func _ask_for_the_camera() -> void:
-	if _asked or not OS.has_feature("android") or permitted():
+	if _asked or not DevicePlatformScript.is_android() or permitted():
 		return
 	_asked = true
 	OS.request_permission(CameraCaptureScript.ANDROID_CAMERA)

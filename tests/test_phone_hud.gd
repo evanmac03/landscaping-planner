@@ -4,7 +4,7 @@ extends Node
 ##
 ## The densities below are the phone this was written for: 2340 by 1080, drawn at 1.2 by the window and
 ## then 1.35 by the phone's own scale - 1.62 in all, so the canvas is 1444 px across. When that phone was
-## finally measured it reported 450 dots to the inch rather than the 384.6 assumed here; the arithmetic
+## finally measured it reported 450 dots to the inch, which is the number these fixtures carry; the arithmetic
 ## reads whatever the device says, so these numbers only fix what the tests are exercised at. That is why
 ## a 29-pixel palette row is 2.3 mm across on a computer and a row of 61 is 5.5 mm on the phone.
 
@@ -13,8 +13,9 @@ const PhoneFilesScript := preload("res://scripts/phone_files.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
 const PlannerHudScript := preload("res://scripts/hud.gd")
 
-## The phone: its density, and the scale its canvas ends up drawn at.
-const PHONE_DPI := 384.6
+## The phone: its density, and the scale its canvas ends up drawn at. The density is the A16W's own reading of
+## its glass, so a fixture here states the phone this program is actually aimed at.
+const PHONE_DPI := 450.0
 const PHONE_SCALE := 1.62
 
 

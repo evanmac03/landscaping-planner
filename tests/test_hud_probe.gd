@@ -465,6 +465,43 @@ func test_the_screen_a_block_was_taken_on_is_read_back_off_the_same_line() -> vo
 	)
 
 
+## **The glass's own two numbers, read back out of the one line that writes them.** They are what a phone build is
+## developed against and what a fixture goes stale on: three test fixtures carried `PHONE_DPI := 384.6` while the
+## A16W's own glass reports **450.0** (2026-11-17), which is why `tools/phone_touch_pass.gd`'s `--numbers` reads
+## them from here rather than spelling out a parse of its own.
+##
+## Both answer `0.0` for a block that is not there - **no reading rather than a reading of nothing** - which is
+## what lets the check that uses them say it has nothing to compare a file's number against, instead of comparing
+## every file with zero and calling them all wrong.
+func test_the_glass_itself_is_read_back_off_the_device_line() -> void:
+	var as_written: String = "device   finger=true zooming=true touchscreen=true dpi=450.0 scale=1.62 shape=lying"
+	assert(
+		is_equal_approx(HudProbeScript.read_device_density(as_written), 450.0),
+		"the density the phone's own glass reports: %f" % HudProbeScript.read_device_density(as_written),
+	)
+	assert(
+		is_equal_approx(HudProbeScript.read_device_scale(as_written), 1.62),
+		"and the scale it is drawn at this way up: %f" % HudProbeScript.read_device_scale(as_written),
+	)
+	# The siblings' own rule, which matters more here: the figure is **not** bracketed, so the rest of the line
+	# must not fool it - `scale=1.62` follows `dpi=450.0` on the very same line, and each reader stops where its
+	# own number ends.
+	assert(
+		not is_equal_approx(HudProbeScript.read_device_density(as_written), 1.62),
+		"the density is not the scale that follows it",
+	)
+	assert(
+		not is_equal_approx(HudProbeScript.read_device_scale(as_written), 450.0),
+		"and the scale is not the density that came before it",
+	)
+	assert(HudProbeScript.read_device_density("") == 0.0, "no block, no density")
+	assert(HudProbeScript.read_device_scale("") == 0.0, "no block, no scale")
+	assert(
+		HudProbeScript.read_device_density("room     viewport=(1444, 666) native=(2340, 1080)") == 0.0,
+		"and a block with no device line at all is no reading of the glass",
+	)
+
+
 ## Both band questions read the platform, so a desk - and a headless runner, which has no display at all -
 ## answers nothing rather than answering about a monitor nobody is standing at.
 func test_a_room_that_is_not_a_phones_names_nothing_in_a_kept_band() -> void:

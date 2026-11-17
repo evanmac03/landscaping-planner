@@ -10,7 +10,8 @@ extends Node
 ##
 ## **The log is the phone's, and so is the reading.** A desk cannot be told to lay out like a phone - Godot's
 ## embedded game refuses a window size change - which is why this drives the installed program rather than
-## pretending to be one. It touches nothing on this computer but adb.
+## pretending to be one. It touches nothing on this computer but adb - and, when `--build` is asked, the engine's
+## own export, which is the one step that makes a build to install.
 ##
 ## **A phone in reach is the first thing it asks about, and the refusal names it.** An instrument that has
 ## nothing to say and one that cannot ask are different readings: with no device in reach, the log's absence is
@@ -30,6 +31,8 @@ extends Node
 ##     ... -- --swipe 540 1800 540 1200                         drag, to bring a control below a scroller into view
 ##     ... -- --crop 0 1700 1080 500                            that band of the picture, twice as big
 ##     ... -- --install --launch --wait 3                       make the phone run the build on disk
+##     ... -- --build --launch --wait 25                        make a build first if anything reaching the phone has moved
+##     ... -- --turn landscape --build --launch --wait 25        ...holding the device on its side, put back after
 ##     ... -- --tap 540 552                                     press at a place of your own choosing
 ##     ... -- --key tab                                         press a key the device's own input can send
 ##     ... -- --clear-pages                                     BACK until nothing is in front of the board
@@ -37,12 +40,19 @@ extends Node
 ##     ... -- --blocks                                          every block the log holds, by age, and what it named
 ##     ... -- --overlay                                         the block's own rectangles marked on the picture
 ##     ... -- --installed                                       what the phone is running, by the hash of its own copy
+##     ... -- --numbers                                         the numbers this project states for a phone, against the phone
 ##     ... -- --capture                                         the board upright, a line, then the question
 ##
 ## **From a shell, with no display**: the tool touches nothing on this computer but adb, so nothing here wants the
 ## editor or a window open.
 ##
+## **Run it bare, or into a file - not into a pipe.** Measured 2026-11-17: the same pass written to a file returned
+## `exit=0` with the whole report printed, while the same run through `| tail` never came back at all. The tool had
+## finished; something it starts through adb outlived it and held the pipe open, so nothing downstream ever saw the
+## end of the output. `> build/phone_pass.txt` is how to keep a copy of a run and still get the prompt back.
+##
 ##     GODOT_MCP_RUNTIME=0 <godot> --headless --path . res://tools/phone_touch_pass.tscn -- --fresh
+##     GODOT_MCP_RUNTIME=0 <godot> --headless --path . res://tools/phone_touch_pass.tscn -- --turn landscape --build --launch
 ##
 ## **The picture is the arbiter and the block is not.** A block is published when the pages up change, so a
 ## rectangle in the newest one can be older than what is on the glass - measured 2026-11-14, a whole diagnosis was
@@ -176,6 +186,33 @@ const PACKAGE := "ca.storm.landscapingplanner"
 const ACTIVITY := "ca.storm.landscapingplanner/com.godot.game.GodotAppLauncher"
 const APK := "res://build/phone-adapt.apk"
 
+## The preset `--build` makes, and the file that decides what a build *contains* - permissions among them.
+##
+## A preset edit changes the APK without touching a single script: Android's INTERNET permission was added to one
+## on 2026-11-10 and took a fresh export before the phone had it. So the preset's own time is part of the question
+## "is the build still the work in hand", rather than a thing a person has to remember.
+const PRESET := "res://export_presets.cfg"
+const PRESET_NAME := "Android (phone)"
+
+## The words `--turn` takes, and the rotation each means to Android: 0 upright, 1 on its side. `auto` is the third
+## word and is deliberately not in here, because it names the device's own answer rather than a rotation of ours.
+const TURNS: Dictionary = { "portrait": "0", "landscape": "1" }
+
+## How long `--build` waits for the engine's own export before it stops waiting and says so. A ceiling rather than
+## nothing: without one an export that wedged would leave a tool that looks frozen, which is what a person reaches
+## for Ctrl-C about.
+const EXPORT_CEILING := 900.0
+
+## How near two numbers must be to be the same one. A block writes its density to one decimal and its scale to two
+## (`%.1f` and `%.2f` in `HudProbe.device_lines`), so a fixture carrying `1.622` where the block says `1.62` is the
+## same reading and not a fault.
+const NEAR_ENOUGH := 0.01
+
+## The trees a stated phone-number may hide in: the program, and the two dev trees. `addons/` is third-party and
+## is never walked. **The program is included on purpose** - it is not supposed to state a phone's density at all,
+## since it reads one, so a script under `res://scripts` that did would be the first thing worth knowing.
+const STATED_ROOTS: Array[String] = ["res://scripts", "res://tools", "res://tests"]
+
 ## What the program is showing, in the order a person wants it: the device it is answering as, the room it was
 ## taken in, the strip at the top of it that no page may be placed in, the line at the foot and the box beside
 ## the plan, the page in front of all of it, the colour drawn above that page's top edge, and every meeting the
@@ -257,6 +294,12 @@ var _adb_path: String = ""
 var _tapped: Vector2i = Vector2i.ZERO
 var _sent_a_tap: bool = false
 
+## What the device's own rotation was before `--turn` set it: read before it is touched, so the run can hand back
+## exactly what it found rather than a guess about what a person had chosen.
+var _was_auto: String = ""
+var _was_rotation: String = ""
+var _turned: bool = false
+
 
 func _ready() -> void:
 	# One exit for the whole tool: a pass that returns early - no adb on this machine - ends the same way a
@@ -287,21 +330,43 @@ func _one_pass() -> void:
 	print("PHONE %s" % _first_line(_line(["version"])))
 	print("PHONE %s" % devices.strip_edges().replace("\n", " | "))
 
+	# **Which way up the device is, asked for by name.** This is the *device's* own rotation, and it is a different
+	# thing from the board's hold in `user://orientation.json` that `hold_words` reads below: a capture wants both,
+	# and `--capture` says so when its own half is missing. A word this does not know is refused rather than
+	# guessed at, because a typo that holds somebody's phone at random is worse than a line saying what it wanted.
+	if "--turn" in asked:
+		if turn_of(asked).is_empty():
+			print("PHONE `--turn` wants `portrait`, `landscape` or `auto` - `--turn landscape` - and the device's")
+			print("      rotation was left alone. This is the device's rotation, not the board's hold.")
+		else:
+			_turn_the_device(turn_of(asked))
+
 	if "--capture" in asked:
 		await _capture_the_two_gaps()
+		_put_the_screen_back()
 		return
 
 	# **Giving up the old log is what makes a reading fresh**, and it happens before anything is asked of the
-	# device, because a block is a moment and the file does not stamp it. **One call site**: `--fresh`, `--install`
-	# and `--launch` all want the same thing, and the first version had two of them clearing it, so the line
-	# saying so was printed twice.
-	var cleared: bool = "--fresh" in asked or "--install" in asked or "--launch" in asked
+	# device, because a block is a moment and the file does not stamp it. **One call site**: `--fresh`, `--install`,
+	# `--build` and `--launch` all want the same thing, and the first version had two of them clearing it, so the
+	# line saying so was printed twice.
+	var building: bool = "--build" in asked
+	var putting_it_on: bool = building or "--install" in asked
+	var cleared: bool = "--fresh" in asked or putting_it_on or "--launch" in asked
 	if cleared:
 		_clear_the_log()
-	if "--install" in asked:
+	# **A build that would not be made stops the run**, rather than installing the last one: nothing below would be
+	# a reading of the change that was asked for, and a screen read from the wrong build is the mistake this whole
+	# tool is about.
+	if building:
+		var made_now: bool = await _make_the_build()
+		if not made_now:
+			_put_the_screen_back()
+			return
+	if putting_it_on:
 		print("PHONE installing %s" % APK)
 		print("PHONE %s" % _line(["install", "-r", ProjectSettings.globalize_path(APK)]).strip_edges())
-	if "--install" in asked or "--launch" in asked:
+	if putting_it_on or "--launch" in asked:
 		_line(["shell", "am", "force-stop", PACKAGE])
 		print("PHONE launching %s" % ACTIVITY)
 		_line(["shell", "am", "start", "-n", ACTIVITY])
@@ -384,11 +449,18 @@ func _one_pass() -> void:
 	# The bar's own line and the blocks themselves are both stamped by the device and not by the file, so both are
 	# read from logcat - **once**, in the one format that carries a clock - and that one read is above the block
 	# report, which wants the age it carries.
-	if "--installed" in asked:
+	# `--build` asks it too, because the whole point of making a build and putting it on is that the phone is now
+	# running the work in hand - and the hash of the phone's own installed copy is the only reading that can say so.
+	if building or "--installed" in asked:
 		_report_what_the_phone_runs()
 	if "--blocks" in asked:
 		_report_the_blocks(logcat)
+	if "--numbers" in asked:
+		_report_the_stated_numbers(probe_log)
 	_report_the_fold(logcat)
+	# **The screen is put back last**, after `_photograph_the_screen` has taken its picture: the picture is of the
+	# device as it is held, and that picture is the whole reason holding it is worth doing.
+	_put_the_screen_back()
 
 
 ## The top bar's own numbers, out of logcat: the durable evidence for the one thing a single block cannot show -
@@ -740,6 +812,185 @@ static func key_words(key_name: String) -> String:
 	return "`%s` is not a key this tool knows: it sends %s." % [key_name, ", ".join(PackedStringArray(KEYS.keys()))]
 
 
+## What the phone's own glass says, out of the blocks the text handed over holds: the newest for the density, and
+## **all of them together for the scale** - through `HudProbe`'s own two readers, so that the line's writer and its
+## reader stay one thing.
+##
+## **A phone answers its scale differently in each orientation** - 0.91 upright and 1.62 on its side, on the A16W -
+## and a rotation publishes a block, so a log that has seen both is a log that knows both. Reading every block is
+## what lets a scale a file states be *judged* rather than only named as one this block cannot judge, and it costs
+## nothing: the log has already been pulled off the phone. The density comes from the newest block alone, since one
+## glass has one.
+##
+## A text with no block heading in it is read as one block rather than refused, so a caller holding a fragment gets
+## the same answer. Nothing at all is **no reading**, never a zero to compare a file's number against.
+static func the_phones_numbers(kept: String) -> Dictionary:
+	var blocks: Array[String] = blocks_in(kept)
+	if blocks.is_empty():
+		blocks.append(kept)
+	var scales: Array[float] = []
+	for one: String in blocks:
+		var got: float = HudProbeScript.read_device_scale(one)
+		if got <= 0.0:
+			continue
+		var known: bool = false
+		for had: float in scales:
+			if absf(got - had) <= NEAR_ENOUGH:
+				known = true
+		if not known:
+			scales.append(got)
+	scales.sort()
+	var newest: String = blocks[blocks.size() - 1]
+	return {
+		"dpi": HudProbeScript.read_device_density(newest),
+		"scale": HudProbeScript.read_device_scale(newest),
+		"scales": scales,
+		"blocks": blocks.size(),
+	}
+
+
+## The scales a phone's blocks state, as a person reads them - `0.91 and 1.62` - to two places, because that is
+## how the block itself writes them. One place words this, for the greeting line and for a fault alike.
+static func _scales_text(scales: Array) -> String:
+	var shown: PackedStringArray = PackedStringArray()
+	for one: Variant in scales:
+		shown.append("%.2f" % float(one))
+	return " and ".join(shown)
+
+
+## The numbers **one file** states for a phone, sorted against what the phone itself says:
+## `{ "disagrees": [...], "not_this_way_up": [...], "agreed": n }`, each entry the path, the line and the words.
+##
+## **The fault this exists for.** A device's numbers get written down - a fixture in a tool, a constant in a test -
+## and they go stale the moment the device does. Three test fixtures carried `PHONE_DPI := 384.6` while the A16W
+## reports 450.0, which is a fixture pinning a phone nobody has - and no desk test can say so, because a desk has
+## no phone to disagree with. The check found them on its first live run, 2026-11-17, and they were corrected; it
+## stays because the next fixture will be written by somebody who has not measured the device.
+##
+## **What it looks for, and what it cannot.** A `const <NAME> := <number>` whose name **names the phone** - it
+## carries `PHONE` - and ends in `_DPI`/`_DENSITY` (a density) or carries `_SCALE` (a scale, `PHONE_SCALE_UPRIGHT`
+## included). Everything else is **not seen**: a number inside a `Vector2i`, a number under another name, a number
+## that belongs to another device. That last one is not hypothetical: **the first live run, 2026-11-17, named
+## `touch_input.gd`'s `HELD_DPI := 200.0` - the floor below which a device is not one held in a hand - and
+## `tablet_demo.gd`'s `TABLET_DPI := 300.0`, a tablet's density, as faults against this phone.** Both are `_DPI`
+## constants the phone has every right to disagree with and neither is a number *for this phone*, which is the
+## false positive this project's doctrine is written against. The name is the whole basis of the rule, it is said
+## here rather than left to be discovered, and the report says how many numbers it found so that a thin look
+## cannot pass for a clean one. Every instrument here is a floor, named as a floor.
+##
+## **The scale is judged against every scale the phone's blocks have stated**, because a phone answers differently
+## in each orientation and a rotation publishes a block: a log that has seen both knows both, and a scale matching
+## neither is then a **genuine fault**, named with the scales the phone does state. A log holding only one block
+## can judge only that one, and a scale matching neither is then named as **one this block cannot judge** rather
+## than condemned - a fixture holding the other orientation's 0.91 against a landscape block's 1.62 is right, and
+## calling it a fault would be the false positive this project warns about.
+##
+## **A density is a density whichever way the phone is lying**, so a density that disagrees is always a fault: one
+## glass has one.
+static func stated_numbers_in(path: String, text: String, said: Dictionary) -> Dictionary:
+	var disagreeing: Array[String] = []
+	var not_this_way_up: Array[String] = []
+	var agreed: int = 0
+	var lines := text.split("\n")
+	for i in lines.size():
+		var line: String = String(lines[i]).strip_edges()
+		if not line.begins_with("const "):
+			continue
+		var told: Dictionary = a_stated_number(line)
+		if told.is_empty():
+			continue
+		var named: String = String(told.get("name", ""))
+		var value: float = float(told.get("value", 0.0))
+		var where: String = "%s:%d: %s" % [path, i + 1, line]
+		if _is_a_density_name(named):
+			var density: float = float(said.get("dpi", 0.0))
+			if density <= 0.0:
+				continue
+			if absf(value - density) <= NEAR_ENOUGH:
+				agreed += 1
+			else:
+				disagreeing.append(
+					"%s - states %.1f, and the phone's own glass says %.1f" % [where, value, density]
+				)
+		elif _is_a_scale_name(named):
+			var scales: Array = said.get("scales", [])
+			if scales.is_empty():
+				continue
+			var matched: bool = false
+			for one: Variant in scales:
+				if absf(value - float(one)) <= NEAR_ENOUGH:
+					matched = true
+			if matched:
+				agreed += 1
+			elif scales.size() == 1:
+				not_this_way_up.append(
+					(
+						"%s - states %.2f, and the block's glass is %.2f this way up: not this orientation's,"
+						% [where, value, float(scales[0])]
+					)
+					+ " and one run's log cannot say whether it is the other's or has gone stale"
+				)
+			else:
+				disagreeing.append(
+					(
+						"%s - states %.2f, and this phone's own blocks state %s"
+						% [where, value, _scales_text(scales)]
+					)
+				)
+	return {
+		"disagrees": disagreeing,
+		"not_this_way_up": not_this_way_up,
+		"agreed": agreed,
+	}
+
+
+## One line read as a stated number: `{ "name": "PHONE_DPI", "value": 450.0 }`, or nothing at all when the line is
+## not a `const` naming a plain number.
+##
+## A `Vector2i` or a quoted string is deliberately **nothing** rather than a zero: `String.to_float` reads a number
+## only where one begins, and a zero would then be compared with a phone's own answer and reported as a fault the
+## file never stated. The one shape a name may take is `NAME` or `NAME: Type`, so `:=` and `=` read alike.
+static func a_stated_number(line: String) -> Dictionary:
+	if not line.begins_with("const "):
+		return {}
+	var rest: String = line.trim_prefix("const ").strip_edges()
+	var shut: int = rest.find("=")
+	if shut < 0:
+		return {}
+	var left: String = rest.substr(0, shut).strip_edges()
+	var named: String = left
+	var colon: int = left.find(":")
+	if colon >= 0:
+		named = left.substr(0, colon).strip_edges()
+	var value: String = rest.substr(shut + 1).strip_edges()
+	if value.is_empty() or not "0123456789+-".contains(value.substr(0, 1)):
+		return {}
+	return { "name": named, "value": value.to_float() }
+
+
+## Whether a constant's name claims to be **this phone's** density, or its scale - the reason `HELD_DPI` and
+## `TABLET_DPI` are left alone, which the doc above records the live run saying.
+static func _is_a_density_name(named: String) -> bool:
+	return named.contains("PHONE") and (named.ends_with("_DPI") or named.ends_with("_DENSITY"))
+
+
+static func _is_a_scale_name(named: String) -> bool:
+	return named.contains("PHONE") and (named.ends_with("_SCALE") or named.contains("_SCALE_"))
+
+
+## Every `.gd` in the three trees that hold this project's own code, sorted so a report names the same files in the
+## same order every time - the walk `files_since` already makes for its own question, asked for this one.
+static func _files_that_state_a_number() -> Array[String]:
+	var found: Array[Dictionary] = []
+	for root: String in STATED_ROOTS:
+		_gather(root, [".gd"], found)
+	var out: Array[String] = []
+	for one: Dictionary in found:
+		out.append(String(one.get("path", "")))
+	out.sort()
+	return out
+
+
 ## Whether the build on disk is still the work in hand, and the line to make a new one when it is not.
 ##
 ## The mistake this exists to prevent is the one a phone makes easy: reading a screen that the program in hand has
@@ -752,6 +1003,56 @@ func _report_the_build() -> void:
 	print("PHONE %s" % build_words(made, since, int(Time.get_unix_time_from_system())))
 	if int(since.get("count", 0)) > 0:
 		print("      %s" % export_words())
+
+
+## The numbers this project states for a phone, against the phone's own answer - **the one check a desk cannot
+## make**, and the reason this is asked of a device rather than of the tree.
+##
+## It names every file and line that disagrees, says how much it read so that a clean pass cannot be mistaken for a
+## check with nothing in front of it, and names separately the numbers a single block cannot judge.
+func _report_the_stated_numbers(kept: String) -> void:
+	var said: Dictionary = the_phones_numbers(kept)
+	print("")
+	print("--- the numbers this project states for a phone ---")
+	var density: float = float(said.get("dpi", 0.0))
+	if density <= 0.0:
+		print("  the blocks in the log state no density, so there is nothing to check a file's numbers against.")
+		print("  A device in reach with `--launch` publishes one; without a phone this cannot be asked at all.")
+		return
+	print(
+		"  the phone's own glass, out of the %d block(s) in the log: dpi=%.1f, and the scale(s) %s"
+		% [int(said.get("blocks", 0)), density, _scales_text(said.get("scales", []))]
+	)
+	var paths: Array[String] = _files_that_state_a_number()
+	var agreed: int = 0
+	var disagreeing: Array[String] = []
+	var not_this_way_up: Array[String] = []
+	for path: String in paths:
+		var here: Dictionary = stated_numbers_in(path, FileAccess.get_file_as_string(path), said)
+		agreed += int(here.get("agreed", 0))
+		var against: Array = here.get("disagrees", [])
+		for one: Variant in against:
+			disagreeing.append(str(one))
+		var unjudged: Array = here.get("not_this_way_up", [])
+		for one: Variant in unjudged:
+			not_this_way_up.append(str(one))
+	var stated: int = agreed + disagreeing.size() + not_this_way_up.size()
+	print("  read %d file(s) and found %d number(s) stated for a phone" % [paths.size(), stated])
+	if disagreeing.is_empty():
+		print("  none of them disagrees with this phone.")
+	else:
+		print("  ** these disagree with this phone:")
+		for one: String in disagreeing:
+			print("     %s" % one)
+	if not not_this_way_up.is_empty():
+		print("  and these no single run's block can judge: **a phone states one scale per orientation**, and this")
+		print("  log holds one run's blocks - measured 2026-11-17, a landing run clears the device's log and a")
+		print("  rotation publishes no block at all. Run this again held the other way up and read both reports:")
+		for one: String in not_this_way_up:
+			print("     %s" % one)
+	if stated == 0:
+		print("  ** nothing at all was looked at, so this proves nothing: a number under another name, or inside")
+		print("     a Vector, is not seen by this check.")
 
 
 ## Whether the phone is running the build on disk, by the only reading that can say so: the hash of the copy it has
@@ -819,6 +1120,104 @@ static func export_words() -> String:
 		"GODOT_MCP_RUNTIME=0 <godot> --headless --path . --export-debug \"Android (phone)\" %s"
 		% APK.trim_prefix("res://")
 	)
+
+
+## Why the build on disk has to be made again, or **nothing at all** when it is still the work in hand.
+##
+## This is the rule `--build` runs on, and it is the same one `_report_the_build` states a person's evidence with -
+## so the tool cannot call a build stale in one line and current in the next. Three things make a build stale: a
+## script or a scene written after it, the preset written after it (a preset decides what a build *contains*), and
+## a tree that cannot be walked at all - which is answered by making a build rather than by trusting an age.
+##
+## **An empty answer is the answer** - the shape `hash_of`, `apk_path_from` and `the_word_after` already have - and
+## it is what says no export is worth spending a minute on.
+static func rebuild_reason(made: int, since: Dictionary, preset: int, now: int) -> String:
+	if made <= 0:
+		return "there is no build at %s yet" % APK
+	if not bool(since.get("readable", false)):
+		return "the tree could not be walked from here, so this makes a build rather than trusting an age"
+	if preset > made:
+		return (
+			"%s has been written since the build, and a preset decides what a build contains"
+			% PRESET.trim_prefix("res://")
+		)
+	if int(since.get("count", 0)) == 0:
+		return ""
+	return build_words(made, since, now)
+
+
+## The engine's own argv for making that build. `export_words` is the same command written out for a person to
+## copy, and the two are kept beside each other so a change to one is a change to the other.
+##
+## **Both paths are absolute**, and that is the one thing here that must not depend on where a person stood: the
+## project is named with `--path` and the file to write is named in full, so a tool started from another directory
+## builds this project rather than whatever is beside the shell.
+static func export_argv() -> Array[String]:
+	var argv: Array[String] = [
+		"--headless",
+		"--path",
+		ProjectSettings.globalize_path("res://"),
+		"--export-debug",
+		PRESET_NAME,
+		ProjectSettings.globalize_path(APK),
+	]
+	return argv
+
+
+## Make the build, or say plainly that the one on disk is still the work in hand. False when the export refused,
+## and the caller stops on a false: nothing below it would be a reading of the change that was asked for.
+##
+## **The engine is run with `GODOT_MCP_RUNTIME=0` in its environment**, which is not a detail of taste: without it
+## the export's own process binds this project's runtime port and claims the entry a real game session uses. It is
+## set around the one call that starts the process and put straight back, because the child reads it as it is
+## spawned and nothing after that asks for it.
+##
+## **It is started and then polled rather than waited on** (`create_process`, not `execute`), so the engine's own
+## words reach the terminal while it works. `OS.execute` captures them, and a two-minute export that says nothing
+## at all is a tool somebody interrupts. The ceiling is what stops a wedged export being waited on for ever.
+func _make_the_build() -> bool:
+	var made: int = FileAccess.get_modified_time(APK)
+	var since: Dictionary = files_since(REBUILD_ROOTS, REBUILD_SUFFIXES, made)
+	var preset: int = FileAccess.get_modified_time(PRESET)
+	var now: int = int(Time.get_unix_time_from_system())
+	var why: String = rebuild_reason(made, since, preset, now)
+	if why.is_empty():
+		print(
+			"PHONE nothing was exported: the build on disk is %s old, and nothing that reaches the phone - and"
+			% age_words(maxi(now - made, 0))
+			+ " no preset - has been written since"
+		)
+		return true
+	print("PHONE making a build, because %s" % why)
+	print("PHONE %s %s" % [OS.get_executable_path(), " ".join(PackedStringArray(export_argv()))])
+	var was_the_bridge: String = OS.get_environment("GODOT_MCP_RUNTIME")
+	OS.set_environment("GODOT_MCP_RUNTIME", "0")
+	var pid: int = OS.create_process(OS.get_executable_path(), PackedStringArray(export_argv()))
+	OS.set_environment("GODOT_MCP_RUNTIME", was_the_bridge)
+	if pid <= 0:
+		print("PHONE the engine would not start at all, so there is no build to put on the phone.")
+		return false
+	var waited: float = 0.0
+	while OS.is_process_running(pid) and waited < EXPORT_CEILING:
+		await get_tree().create_timer(0.5).timeout
+		waited += 0.5
+	if OS.is_process_running(pid):
+		print(
+			"PHONE the export is still running after %d s, and this stops waiting for it: the engine's process is"
+			% int(EXPORT_CEILING)
+		)
+		print("      still going (pid %d) and %s may be half written. Nothing was put on the phone." % [pid, APK])
+		return false
+	var code: int = OS.get_process_exit_code(pid)
+	if code != 0:
+		print(
+			"PHONE the export ended with %d, so what would go on the phone is the last build, and it was not sent."
+			% code
+		)
+		print("      The engine's own words are above this line.")
+		return false
+	print("PHONE the build is made: %s" % APK)
+	return true
 
 
 ## Every file under these roots, and the newest of them, measured against the moment a build was made.
@@ -970,6 +1369,91 @@ static func hold_words(text: String) -> String:
 		if String(chosen) == "portrait":
 			return "the board is held upright (%s)" % said
 	return "the board is not held upright (%s), so a capture would be the other way up" % said
+
+
+## Which way up `--turn` was asked to hold the device: one of `TURNS`' words, or `auto`, or nothing at all when it
+## was not asked for. A word this does not know reads as **not asked**, so a typo never holds a phone at random.
+static func turn_of(asked: PackedStringArray) -> String:
+	var wanted: String = the_word_after(asked, "--turn")
+	if wanted == "auto" or TURNS.has(wanted):
+		return wanted
+	return ""
+
+
+## A word for which way up a phone is, in the program's own vocabulary: the board reports `shape=lying` of a room
+## wider than it is tall, and `hold_words` says "held upright" of the other.
+static func the_way_up(wanted: String) -> String:
+	if wanted == "portrait":
+		return "upright"
+	return "lying"
+
+
+## What the device says about which way up it is, in words.
+##
+## **Read back off the device rather than assumed from the command**, which is the whole point of it: a
+## `settings put` that was refused looks exactly like one that was obeyed until something is read, and a report
+## that states the command is a report of an intention. So this says what was asked for, what the device actually
+## reports, and refuses to call it held when it is not.
+static func turn_words(wanted: String, rotation: String, auto: String) -> String:
+	if wanted.is_empty():
+		return ""
+	var rotation_said: String = rotation.strip_edges()
+	var auto_said: String = auto.strip_edges()
+	if wanted == "auto":
+		if auto_said == "1":
+			return "the device is taking its own answer again (accelerometer_rotation=1)"
+		return (
+			"the device would not go back to its own answer: it reports accelerometer_rotation=%s" % auto_said
+		)
+	if auto_said == "0" and rotation_said == String(TURNS.get(wanted, "")):
+		return (
+			"the device is held %s: it reports user_rotation=%s with auto-rotate off"
+			% [the_way_up(wanted), rotation_said]
+		)
+	return (
+		"the device would NOT take the hold: `--turn %s` asks for user_rotation=%s with auto-rotate off, and it"
+		% [wanted, String(TURNS.get(wanted, ""))]
+		+ " reports user_rotation=%s, accelerometer_rotation=%s" % [rotation_said, auto_said]
+	)
+
+
+## Hold the device the way `--turn` asked, remembering what it held before so the run can hand it back.
+##
+## **The program reads this when it starts**, which is why the useful form of it is `--turn landscape --launch`:
+## whatever is already on the screen keeps the shape it was given. `_photograph_the_screen` then photographs it as
+## held, and the picture is the reason to hold it at all.
+func _turn_the_device(wanted: String) -> void:
+	_was_auto = _line(["shell", "settings", "get", "system", "accelerometer_rotation"])
+	_was_rotation = _line(["shell", "settings", "get", "system", "user_rotation"])
+	_turned = true
+	if wanted == "auto":
+		_line(["shell", "settings", "put", "system", "accelerometer_rotation", "1"])
+	else:
+		_line(["shell", "settings", "put", "system", "accelerometer_rotation", "0"])
+		_line(["shell", "settings", "put", "system", "user_rotation", String(TURNS.get(wanted, "0"))])
+	var rotation: String = _line(["shell", "settings", "get", "system", "user_rotation"])
+	var auto: String = _line(["shell", "settings", "get", "system", "accelerometer_rotation"])
+	print("PHONE %s" % turn_words(wanted, rotation, auto))
+
+
+## Hand the device's own rotation back, exactly as it was found, and only if this run changed it.
+##
+## **Called on every way out that could have got past the turn** - the capture's own return, a build that would not
+## be made, and the end of the pass - which is the discipline the phone demos already keep. A phone left locked in
+## a landscape nobody chose is a phone its owner has to go and fix by hand, and this tool has no business doing
+## that to somebody's handset. A value the device would not give is left alone rather than written as empty.
+func _put_the_screen_back() -> void:
+	if not _turned:
+		return
+	_turned = false
+	if not _was_auto.strip_edges().is_empty():
+		_line(["shell", "settings", "put", "system", "accelerometer_rotation", _was_auto.strip_edges()])
+	if not _was_rotation.strip_edges().is_empty():
+		_line(["shell", "settings", "put", "system", "user_rotation", _was_rotation.strip_edges()])
+	print(
+		"PHONE the device's own rotation is put back: accelerometer_rotation=%s, user_rotation=%s"
+		% [_was_auto.strip_edges(), _was_rotation.strip_edges()]
+	)
 
 
 ## Where adb is: the SDK copy this project was driven from, or a bare one on the path.

@@ -9,7 +9,7 @@ const ReadingSizeScript := preload("res://scripts/reading_size.gd")
 
 ## The phone this program is aimed at: the same two numbers `tools/phone_gui_probe.gd` states a device with.
 const SCALE := 1.62
-const DENSITY := 384.6
+const DENSITY := 450.0
 
 
 func test_the_body_text_this_program_lays_out_is_too_small_for_a_phone() -> void:

@@ -14,7 +14,7 @@ const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 ## written by a test run.
 const HERE := "user://reading-size-test.json"
 
-const PHONE_DPI := 384.6
+const PHONE_DPI := 450.0
 const PHONE_SCALE := 1.62
 
 

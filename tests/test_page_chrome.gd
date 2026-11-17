@@ -261,8 +261,9 @@ func test_the_inset_a_scrolling_page_asks_for_is_counted_off_the_wrapper_that_ca
 	_free_pages()
 
 
-## The phone's density and the scale this build draws the canvas at, for the tests below.
-const PHONE_DPI := 384.6
+## The phone's density and the scale this build draws the canvas at, for the tests below. The density is the
+## A16W's own reading of its glass, and a test states it through `PhoneHud.force_density`.
+const PHONE_DPI := 450.0
 const PHONE_SCALE := 1.62
 
 
@@ -653,7 +654,7 @@ func test_a_page_that_already_scrolls_is_not_wrapped_a_second_time() -> void:
 ## the screen with its buttons below the fold: the width is what makes its sentences short enough to read, and
 ## the height is what puts its last row on the glass at all. What even the room cannot hold still scrolls.
 func test_a_page_too_tall_on_a_phone_is_given_the_room() -> void:
-	PhoneHudScript.force_density(384.6)
+	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
 	var page: Window = _page()
 	page.min_size = Vector2i(400, 300)
@@ -705,7 +706,7 @@ func test_a_page_too_tall_on_a_computer_keeps_the_size_its_page_declared() -> vo
 ## The width is the repair for a page that has outgrown its own, not something every page on a phone gets: a
 ## page with room to spare keeps the shape its own author chose for it.
 func test_a_phones_page_that_fits_keeps_the_width_its_page_declared() -> void:
-	PhoneHudScript.force_density(384.6)
+	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
 	var page: Window = _page()
 	page.min_size = Vector2i(400, 800)
@@ -727,7 +728,7 @@ func test_a_phones_page_that_fits_keeps_the_width_its_page_declared() -> void:
 ## most of the page, and the door came out a card **45.1% of the screen's width and 24.1% of its height**,
 ## centred, with its buttons below the fold. Measured off two screenshots of that phone.
 func test_the_front_door_uses_the_room_on_a_phone() -> void:
-	PhoneHudScript.force_density(384.6)
+	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
 	var door := StartWindowScript.new()
 	door.build()
@@ -794,7 +795,7 @@ func test_the_front_door_gives_its_first_choice_the_keyboard_even_shown_by_its_o
 ## 474 px of a 1080 px screen: it is shown during the HUD's `_ready` and the chrome pass that follows calls
 ## `_the_canvas_changed_shape()`, which puts every page that is up back through `placed_again`.
 func test_a_page_given_the_room_keeps_it_when_the_room_changes_shape() -> void:
-	PhoneHudScript.force_density(384.6)
+	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
 	var door: Window = StartWindowScript.new()
 	door.build()
