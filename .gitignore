@@ -24,6 +24,11 @@ tmp_*
 # `--export-debug "Android (phone)"` puts the APK, and the preset is the file to keep.
 build/
 
+# Godoban's own task boards, written by the editor plugin into the project so they travel
+# with it. They are this desk's notes about the work, not the work: a board changes whenever
+# a person drags a card, which is exactly the kind of churn a repository should not carry.
+godoban_boards/
+
 # The MCP bridge is somebody else's addon, installed rather than written here. Its
 # sibling `addons/ziva_agent/` is ignored for the same reason; `addons/context_tools/`
 # is not, because that one is this project's own AI Context dock.
@@ -49,3 +54,13 @@ addons/GDQuest_GDScript_formatter/
 # Regenerable plant-ID fixtures for the reading gallery: 9 MB of PNGs that no test reads, and that
 # every export excludes. Pictures for a run, not project source.
 assets/generated/*reading_test*
+
+# Three more editor-only packages installed per machine while they were tried out: a task board, a
+# GDScript-to-other-language transpiler (GPL, which must not travel with this project), and a syntax
+# highlighter. None is referenced by this project's own code, so none is source here.
+# `addons/PlantGenerator/` and `addons/StyleboxFancy/` are deliberately NOT ignored - they are vendored
+# because the plan is to use them (the generator to make plant models, the stylebox at runtime), and the
+# two `tools/` demos that drive them preload their scripts.
+addons/godoban/
+addons/gdscript2all/
+addons/syntax_plus/
