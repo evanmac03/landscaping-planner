@@ -14,6 +14,7 @@ extends Node
 
 const LayoutCheck := preload("res://tools/hud_layout_check.gd")
 const PlantCheck := preload("res://tools/plant_scene_check.gd")
+const Audit := preload("res://tools/audit.gd")
 
 
 ## The audit's whole premise is that each check is a function it can call on a game it brought up
@@ -150,3 +151,25 @@ func test_what_a_finger_changes_can_be_put_back_exactly() -> void:
 	)
 	assert(put_away.visible, "and the child the fitting put away is shown again")
 	hud.free()
+
+
+## The scene walk leaves the third-party trees alone, and that is a reading with a scope rather than a bare
+## count: `SKIP_DIRS` grew from the editor's cache to ten trees as packages were installed and two were
+## vendored (`PlantGenerator` and `StyleboxFancy`), and a scene inside one of them is not this project's to
+## load - an editor-only scene, or the addon's own broken `calculator.tscn`, is a finding about a package and
+## not about the game. The walk is run here the way the audit runs it, so a name dropped from the list - which
+## would send the walk back into one of those scenes - fails rather than passing quietly.
+func test_the_scene_walk_leaves_the_third_party_trees_alone() -> void:
+	var found := PackedStringArray()
+	Audit._collect("res://", found)
+	assert(not found.is_empty(), "the walk finds this project's own scenes")
+	for path: String in found:
+		for skipped: String in Audit.SKIP_DIRS:
+			assert(
+				not path.contains("/" + skipped + "/"),
+				"%s came back from the walk and is inside a tree it leaves alone: %s" % [path, skipped],
+			)
+	assert(
+		Audit.SKIP_DIRS.has("PlantGenerator") and Audit.SKIP_DIRS.has("StyleboxFancy"),
+		"the two vendored packages are among the trees the walk leaves alone",
+	)

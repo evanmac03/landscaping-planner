@@ -12,6 +12,12 @@ extends Node
 ## table to naming a file that is really there, because an index with a dead line in it sends a person
 ## somewhere that is not there and is worse than no index at all.
 ##
+## **And the walk's scope is named here, because a verdict with an unstated scope is not a reading.** The
+## audit's "every scene loads" check leaves the third-party trees alone - the editor's cache, and the packages
+## installed here or vendored rather than written here - and the count it prints cannot be weighed without them.
+## That list is the audit's own `SKIP_DIRS`, published by the walk below and summarized here; this file keeps no
+## copy of it, so the two cannot disagree.
+##
 ## **Every figure comes from the module that owns it** - `PhoneHud` states the row a finger needs, the
 ## engine states its own version and its own settings, and whether there is a screen to measure on at all
 ## is `HudProbe`'s question, asked of it here rather than asked again: `tests/test_screen_doctrine.gd`
@@ -43,7 +49,7 @@ const INSTRUMENTS: Array[Dictionary] = [
 	},
 	{
 		"name": "audit",
-		"question": "one pass: the plant check, the HUD layout, the page layout, every scene loading",
+		"question": "one pass: the plant check, the HUD layout, the page layout, every scene of this project's own loading",
 		"scene": "res://tools/audit.tscn",
 	},
 	{
@@ -197,6 +203,11 @@ func _run_the_checks() -> void:
 		if bool(row["ok"]):
 			passed += 1
 	print("  audit         %d of %d checks passed" % [passed, rows.size()])
+	print(
+		"  walk          the scene walk leaves %d tree(s) alone - the editor's cache and the packages"
+		% AuditScript.SKIP_DIRS.size()
+	)
+	print("                installed here or vendored rather than written here, named by the audit above")
 	print("  the suite     not in this process: res://tools/run_tests.tscn  (see the note on this function)")
 
 

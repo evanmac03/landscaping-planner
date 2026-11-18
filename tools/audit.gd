@@ -122,6 +122,12 @@ static func _resources_load() -> Dictionary:
 		instance.free()
 
 	print("=== EVERY SCENE AND RESOURCE LOADS (%d files, %d nodes) ===" % [paths.size(), nodes])
+	# **The reading, beside its consequence.** "n files load" cannot be weighed without the list of what was
+	# not looked at, and SKIP_DIRS has grown from the editor's cache to ten trees as packages were installed
+	# and two were vendored. A scene inside one of them is not this project's to load, so a fault in one is not
+	# this project's fault - and without this line a reader has no way to tell the two apart.
+	print("  the walk leaves %d tree(s) alone: %s" % [SKIP_DIRS.size(), ", ".join(SKIP_DIRS)])
+	print("  and a scene inside one of them is not this project's to load")
 	for path: String in broken:
 		print("  WILL NOT LOAD  %s" % path)
 	var summary: String
