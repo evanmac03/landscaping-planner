@@ -661,7 +661,7 @@ func _one_pass() -> void:
 	# lift turned on: the block named every control that had strayed *into* the band the device keeps and never how big
 	# the band was, so the size of the lift could only be guessed at from a picture and arithmetic.
 	if "--band" in asked:
-		await _read_the_band()
+		_read_the_band()
 		_put_the_screen_back()
 		return
 
@@ -1104,13 +1104,13 @@ func _keep_the_picture(asked: PackedStringArray) -> void:
 	if words.is_empty():
 		print("PHONE `--keep` wants a name - `--keep widened_bar` - and nothing was kept.")
 		return
-	var name: String = kept_picture_name(words)
+	var chosen: String = kept_picture_name(words)
 	var from: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(THE_SCREEN_NOW))
-	var to: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(name))
+	var to: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(chosen))
 	if DirAccess.copy_absolute(from, to) != OK:
-		print("PHONE there was no picture to keep as %s" % name)
+		print("PHONE there was no picture to keep as %s" % chosen)
 		return
-	print("PHONE the picture is kept as %s%s" % [CAPTURE_DIR, name])
+	print("PHONE the picture is kept as %s%s" % [CAPTURE_DIR, chosen])
 
 
 ## The file a `--keep` name is written as: made of letters, digits and underscores, ending `.png`, and inside the
@@ -2521,8 +2521,8 @@ static func named_boxes_of(lines: PackedStringArray, kind: String) -> Array[Dict
 		if rect.size.x <= 0 or rect.size.y <= 0:
 			continue
 		var at: int = line.rfind("screen (")
-		var name: String = line.substr(kind.length(), at - kind.length()).strip_edges()
-		found.append({ "name": name, "rect": rect })
+		var box_name: String = line.substr(kind.length(), at - kind.length()).strip_edges()
+		found.append({ "name": box_name, "rect": rect })
 	return found
 
 

@@ -25,9 +25,30 @@ const PageCheck := preload("res://tools/page_layout_check.gd")
 ## How long the game is given to lay itself out and read its own scene before anything is measured.
 const SETTLING_FRAMES := 5
 
-## What the resource walk does not descend into: the editor's own cache, and the one package here that
-## is not this project's (`addons/ziva_agent` is the agent itself).
-const SKIP_DIRS: Array[String] = [".godot", "ziva_agent"]
+## What the resource walk does not descend into. **The editor's own cache, and the packages installed here
+## rather than written here** - and it is no longer one package. This list held only `ziva_agent` when the
+## note above was written, and said so; eight tool addons have been installed since, and these are the ones
+## that carry a scene. Two shapes of false finding live in them, and neither is a fault of this project:
+## `StyleboxFancy`'s corner inspector holds an `EditorSpinSlider`, which cannot be instantiated outside the
+## editor, so the walk met it and reported sixteen errors against a project with nothing wrong with it; and
+## `PlantGenerator` ships a `calculator.tscn` whose root node is a `Node` wearing a script that extends
+## `RefCounted`, which cannot be assigned to the node at all, and whose `ext_resource` path no longer
+## resolves (only its uid still does). Both are the same as a rectangle read from a stale block - a finding
+## about a package, not about the game. `.gitignore` draws this line for the packages it names, calling
+## them "not source"; this is that list, and it stops before their scenes rather than trying to tell an
+## editor scene from a game one.
+const SKIP_DIRS: Array[String] = [
+	".godot",
+	"ziva_agent",
+	"godot_mcp_toolkit",
+	"crabbyconsole",
+	"GDQuest_GDScript_formatter",
+	"godoban",
+	"gdscript2all",
+	"StyleboxFancy",
+	"syntax_plus",
+	"PlantGenerator",
+]
 
 
 func _ready() -> void:

@@ -127,12 +127,12 @@ static func recorded(tree: SceneTree) -> Dictionary:
 ## leaves a shorter record where the real one was.
 static func write_record(path: String, pages: Dictionary) -> bool:
 	var names := PackedStringArray()
-	for name: String in pages.keys():
-		names.append(name)
+	for page_name: String in pages.keys():
+		names.append(page_name)
 	names.sort()
 	var sorted: Dictionary = {}
-	for name: String in names:
-		sorted[name] = pages[name]
+	for page_name: String in names:
+		sorted[page_name] = pages[page_name]
 	var document: Dictionary = { "note": NOTE, "pages": sorted }
 	var folder: String = path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(folder)):
@@ -218,34 +218,34 @@ static func _children_of(page: Window) -> int:
 static func differences(measured: Dictionary, record: Dictionary) -> Array[String]:
 	var said: Array[String] = []
 	var names := PackedStringArray()
-	for name: String in measured.keys():
-		names.append(name)
-	for name: String in record.keys():
-		if not names.has(name):
-			names.append(name)
+	for page_name: String in measured.keys():
+		names.append(page_name)
+	for page_name: String in record.keys():
+		if not names.has(page_name):
+			names.append(page_name)
 	names.sort()
-	for name: String in names:
-		if not record.has(name):
+	for page_name: String in names:
+		if not record.has(page_name):
 			said.append(
-				"%s is a page this project has and the record does not: measure it and record it" % name
+				"%s is a page this project has and the record does not: measure it and record it" % page_name
 			)
 			continue
-		if not measured.has(name):
-			said.append("%s is in the record and is no longer a page here: take its line out" % name)
+		if not measured.has(page_name):
+			said.append("%s is in the record and is no longer a page here: take its line out" % page_name)
 			continue
-		var was: Dictionary = _of(record[name])
-		var now: Dictionary = _of(measured[name])
+		var was: Dictionary = _of(record[page_name])
+		var now: Dictionary = _of(measured[page_name])
 		if bool(was["read"]) != bool(now["read"]):
 			said.append(
 				"%s: %s -> %s"
-				% [name, "a page that was read" if was["read"] else "a page that could not be read", (
+				% [page_name, "a page that was read" if was["read"] else "a page that could not be read", (
 					"a page that was read" if now["read"] else "a page that could not be read"
 				)]
 			)
 		for fact: String in FACTS:
 			if _same(was[fact], now[fact]):
 				continue
-			said.append("%s: %s %s -> %s" % [name, fact, _said(was[fact]), _said(now[fact])])
+			said.append("%s: %s %s -> %s" % [page_name, fact, _said(was[fact]), _said(now[fact])])
 	return said
 
 
@@ -322,16 +322,16 @@ func test_the_record_is_in_the_pages_own_names_and_in_order() -> void:
 	var record: Dictionary = read_record(GOLDEN)
 	assert(not record.is_empty(), "there is a record to read")
 	var as_written := PackedStringArray()
-	for name: String in record.keys():
-		as_written.append(name)
+	for page_name: String in record.keys():
+		as_written.append(page_name)
 	var in_order := as_written.duplicate()
 	in_order.sort()
 	assert(as_written == in_order, "the record's pages are sorted: %s" % ", ".join(as_written))
-	for name: String in as_written:
-		assert(not name.contains("."), "%s is a page's own name, with no file extension" % name)
-		var entry: Dictionary = record[name]
+	for page_name: String in as_written:
+		assert(not page_name.contains("."), "%s is a page's own name, with no file extension" % page_name)
+		var entry: Dictionary = record[page_name]
 		for fact: String in FACTS:
-			assert(entry.has(fact), "%s states %s" % [name, fact])
+			assert(entry.has(fact), "%s states %s" % [page_name, fact])
 
 
 ## A guard that cannot fail is not a guard, so the comparison is run against differences written here by hand -

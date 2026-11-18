@@ -121,9 +121,9 @@ static func write_set(set_name: String, directory: String = DEFAULT_DIR) -> Arra
 
 
 ## Writes every set in the hardscape catalog. Returns what it wrote, for a report.
-static func write_sets(catalog: HardscapeMaterial, directory: String = DEFAULT_DIR) -> Array[String]:
+static func write_sets(directory: String = DEFAULT_DIR) -> Array[String]:
 	var out: Array[String] = []
-	for set_name: String in catalog.set_names():
+	for set_name: String in HardscapeMaterial.set_names():
 		out.append_array(write_set(set_name, directory))
 	return out
 
