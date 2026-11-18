@@ -30,6 +30,107 @@ const A16W_SAID := (
 )
 
 
+## The A16W's four frames, as the phone writes them: the area left when the bars and the cutout have had their ground.
+## Upright and upside-down are taller than wide, lying and its other side are wider than tall - which is the only
+## thing that tells the four apart from the outside.
+const A16W_FRAMES := (
+	"      ROTATION_0={overrideNonDecorInsets=[0,100][0,42], overrideNonDecorFrame=[0,100][1080,2298]}"
+	+ "\n      ROTATION_90={overrideNonDecorInsets=[100,0][0,42], overrideNonDecorFrame=[100,0][2340,1038]}"
+	+ "\n      ROTATION_180={overrideNonDecorInsets=[0,0][0,142], overrideNonDecorFrame=[0,0][1080,2198]}"
+	+ "\n      ROTATION_270={overrideNonDecorInsets=[0,0][100,42], overrideNonDecorFrame=[0,0][2240,1038]}"
+)
+
+
+func test_the_frame_is_chosen_by_its_shape_and_the_programs_own_reading_never_by_a_rotation() -> void:
+	var standing := Vector2i(1185, 2567)
+	var lying := Vector2i(1444, 666)
+
+	# Standing: one frame is taller than it is wide, and it is the one, with no rotation named anywhere.
+	assert(
+		ToolScript.the_band_rect(A16W_FRAMES, standing, Vector4i(0, 100, 0, 0))
+		== Rect2i(0, 100, 1080, 2198),
+		"standing, the frame with the camera along its top",
+	)
+
+	# Lying: two frames are wider than tall, and the program's own reading says which - a band on the left is the
+	# camera on the left, and that is ROTATION_90's frame. This is the pair a rotation name would have had to guess.
+	assert(
+		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(100, 0, 0, 0))
+		== Rect2i(100, 0, 2240, 1038),
+		"lying, with the camera on the left, the frame that gives ground there",
+	)
+	assert(
+		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(0, 0, 100, 0))
+		== Rect2i(0, 0, 2240, 1038),
+		"and the other side, the frame that gives it on the right - told apart by the reading, not by a rotation",
+	)
+
+	# And a report or a room that says nothing is no frame rather than a guess at one.
+	assert(
+		ToolScript.the_band_rect("nothing here at all", lying, Vector4i.ZERO) == Rect2i(),
+		"a report naming no frame gives no frame",
+	)
+	assert(
+		ToolScript.the_band_rect(A16W_FRAMES, Vector2i.ZERO, Vector4i.ZERO) == Rect2i(),
+		"and neither does a room with no shape to match",
+	)
+
+
+## **The judgement, on a block and a band both written by hand**, so that what the sentence says can be held without a
+## phone. The band is the A16W's lying frame - the camera on the left, so nothing may stand in the first 100 px - and
+## the three controls are the three cases: one wholly inside, one whose **middle** the band covers, and one that only
+## reaches in. The two questions are the block's own two words, and the middle one is the sharper.
+func test_each_control_in_the_band_is_named_by_the_modules_own_sentence() -> void:
+	var lines := PackedStringArray(
+		[
+			"tap      Fit         screen (700, 10) .. (760, 70) 60x60 px  centre (730, 40)",
+			"tap      Line / 1    screen (10, 200) .. (100, 260) 90x60 px  centre (55, 230)",
+			"tap      Polyline / 2 screen (80, 300) .. (140, 360) 60x60 px  centre (110, 330)",
+		]
+	)
+	var band := Rect2i(100, 0, 2240, 1038)
+
+	var middle: PackedStringArray = ToolScript.middle_in_the_band(lines, band)
+	assert(middle.size() == 1, "one control takes a finger where the device keeps: %s" % str(middle))
+	assert(middle[0].contains("Line / 1"), "named as the block named it: %s" % middle[0])
+	assert(middle[0].contains("middle"), "and named by what it is - the middle, where a finger lands: %s" % middle[0])
+
+	var reaching: PackedStringArray = ToolScript.reaching_into_the_band(lines, band)
+	assert(reaching.size() == 2, "two reach in, which is a wider question than the one above: %s" % str(reaching))
+	assert(not "\n".join(reaching).contains("Fit"), "and the control wholly inside is named by neither")
+
+	assert(
+		ToolScript.middle_in_the_band(lines, Rect2i()).is_empty(),
+		"a device that keeps nothing judges nothing, rather than judging every control against a band that is not there",
+	)
+
+
+## **A picture has to be a picture of this program**, and the only instrument that can say so is the phone's own
+## window list: a block is a memory of a screen, the photograph is the glass, and a run on 2026-11-17 marked the board's
+## rectangles onto a photograph of the music player without a word. Both forms the phone writes are read.
+func test_the_focused_window_is_read_as_a_package_and_a_screen_showing_nothing_names_none() -> void:
+	assert(
+		ToolScript.package_of_the_focused_window(
+			"  mCurrentFocus=Window{9f4b2c1 u0 ca.storm.landscapingplanner/ca.storm.landscapingplanner.MainActivity}"
+		) == "ca.storm.landscapingplanner",
+		"the package, and not the window's id beside it nor the activity after it",
+	)
+	assert(
+		ToolScript.package_of_the_focused_window(
+			"  mCurrentFocus=Window{com.android.music/com.android.music.MusicBrowserActivity}"
+		) == "com.android.music",
+		"and another program is named as itself, which is the whole point of asking",
+	)
+	assert(
+		ToolScript.package_of_the_focused_window("  mCurrentFocus=null") == "",
+		"a phone showing nothing names nothing, so nothing can be claimed to be on the glass",
+	)
+	assert(
+		ToolScript.package_of_the_focused_window("  mFocusedApp=ActivityRecord{1a2b com.android.music}") == "",
+		"and a dump with no `mCurrentFocus` at all gives nothing rather than the first package it can find",
+	)
+
+
 func test_the_phones_own_band_is_read_out_of_the_phones_own_report() -> void:
 	assert(
 		ToolScript.cutout_insets_from(A16W_SAID) == Vector4i(0, 100, 0, 0),
@@ -101,6 +202,22 @@ func test_the_verdict_names_which_of_the_two_readings_the_program_matched() -> v
 		ToolScript.band_verdict(Vector4i.ZERO, cutout, kept).contains("no band at all"),
 		"with a desk's own answer kept apart from a disagreement: %s"
 		% ToolScript.band_verdict(Vector4i.ZERO, cutout, kept),
+	)
+
+
+## **A verdict that says "matches none" has to say what that means**, or the next reader investigates the whole
+## question again. Measured on the A16W, 2026-11-17: the program could not see the phone's system bars at all,
+## because Godot's safe area is the display cutout and `screen_get_usable_rect` answers the whole screen there - so
+## the sentence is the finding, and it has to name the door the fix would come through.
+func test_a_reading_that_matches_nothing_says_the_program_cannot_see_the_band() -> void:
+	var said: String = ToolScript.band_verdict(
+		Vector4i(0, 200, 0, 0), Vector4i(0, 100, 0, 0), [Vector4i(100, 0, 0, 42)]
+	)
+	assert(said.contains("cannot see this"), "it names the gap rather than the disagreement: %s" % said)
+	assert(said.contains("JNI"), "and where the fix would have to come from")
+	assert(
+		not said.contains("report disagree"),
+		"and it no longer invites a reader to argue with a reading that was never made",
 	)
 
 
@@ -405,7 +522,8 @@ func test_the_hold_is_read_and_an_unreadable_one_is_named_rather_than_believed()
 	)
 	assert(
 		ToolScript.hold_words("{\"orientation\": \"landscape\"}").contains("not held upright"),
-		"a hold that says landscape is not the one the two gaps ask for",
+		"a hold that says landscape is not upright - which is the right ask for a device turned landscape, and the "
+		+ "wrong one for a device turned portrait",
 	)
 	assert(
 		ToolScript.hold_words("{orientation:portrait}").contains("not readable JSON"),
@@ -414,6 +532,44 @@ func test_the_hold_is_read_and_an_unreadable_one_is_named_rather_than_believed()
 	assert(
 		ToolScript.hold_words("").contains("no orientation.json"),
 		"an absent hold names the file that is missing rather than reading as a default",
+	)
+
+
+func test_the_board_s_hold_follows_the_turn_so_a_lying_device_gets_a_lying_board() -> void:
+	assert(
+		ToolScript.hold_for("portrait") == ToolScript.UPRIGHT_HOLD,
+		"a device turned upright is given the upright hold",
+	)
+	assert(
+		ToolScript.hold_for("landscape") == ToolScript.LYING_HOLD,
+		"a device turned landscape is given the lying hold, or every page is laid out for the wrong shape",
+	)
+	assert(
+		ToolScript.hold_for("") == ToolScript.UPRIGHT_HOLD,
+		"and a run that asked for no turn keeps the upright default, so the every-day capture is unchanged",
+	)
+	assert(
+		ToolScript.hold_for("auto") == ToolScript.UPRIGHT_HOLD,
+		"a turn by the device's own accelerometer is not the landscape word, so it takes the upright hold",
+	)
+
+
+func test_whether_the_board_took_its_hold_is_asked_of_the_text_it_was_given() -> void:
+	assert(
+		ToolScript.hold_took(ToolScript.hold_words(ToolScript.LYING_HOLD), ToolScript.LYING_HOLD),
+		"a board holding the lying hold has taken it",
+	)
+	assert(
+		not ToolScript.hold_took(ToolScript.hold_words(ToolScript.UPRIGHT_HOLD), ToolScript.LYING_HOLD),
+		"and a board still upright under a lying ask has not - the answer is always about the ask",
+	)
+	assert(
+		not ToolScript.hold_took(ToolScript.hold_words("{orientation:portrait}"), ToolScript.UPRIGHT_HOLD),
+		"an unreadable hold is never the text this tool wrote, however the file is worded",
+	)
+	assert(
+		not ToolScript.hold_took(ToolScript.hold_words(""), ToolScript.UPRIGHT_HOLD),
+		"and neither is an absent one",
 	)
 
 

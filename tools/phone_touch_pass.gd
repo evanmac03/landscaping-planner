@@ -285,6 +285,142 @@ static func cutout_insets_from(text: String) -> Vector4i:
 	)
 
 
+## **The band to judge a block against**: the phone's own frame for the way up that block was taken in, read from the
+## block's own room and its own band display - so the place and the rectangles compared with it come from one moment,
+## and a block that names no room gives no band rather than a standing one borrowed from somewhere else.
+static func the_band_from_a_block(block: String, report: String) -> Rect2i:
+	return the_band_rect(
+		report, HudProbeScript.read_room_line(block), HudProbeScript.read_display_band_line(block)
+	)
+
+
+## The controls whose **middle** is inside a band the device keeps - the sharper of the two questions, because a finger
+## lands where it was aimed rather than where a control reaches. Measured on the A16W: a control the block published a
+## centre for had that centre on the foot plate, and a tap there pressed nothing at all.
+static func middle_in_the_band(lines: PackedStringArray, safe: Rect2i) -> PackedStringArray:
+	var said := PackedStringArray()
+	for fault: Dictionary in SafeAreaScript.centre_faults(_items_for(lines, safe)):
+		said.append(SafeAreaScript.centre_sentence(fault))
+	return said
+
+
+## The controls that **reach** into one, which is the right answer for a control mostly under the band and a false
+## alarm for a large one that merely overlaps an edge. Both questions are asked, in the block's own two words, because
+## which of them matters is the reader's judgement and not this tool's.
+static func reaching_into_the_band(lines: PackedStringArray, safe: Rect2i) -> PackedStringArray:
+	var said := PackedStringArray()
+	for fault: Dictionary in SafeAreaScript.faults(_items_for(lines, safe)):
+		said.append(SafeAreaScript.sentence(fault))
+	return said
+
+
+## Every control the block publishes a centre for, as the items `SafeArea` judges - **its own item shape**, so the
+## judgement stays in the one place that already makes it and this only says where the rectangles come from. A device
+## that keeps nothing gives an empty list, because every control is outside a band that is not there.
+static func _items_for(lines: PackedStringArray, safe: Rect2i) -> Array:
+	var items: Array = []
+	if safe.size.x <= 0 or safe.size.y <= 0:
+		return items
+	for one: Dictionary in named_boxes_of(lines, "tap"):
+		items.append({ "name": one["name"], "rect": one["rect"], "safe": safe })
+	return items
+
+
+## **Which program the phone is actually showing**, read off `dumpsys window`'s `mCurrentFocus` line - or nothing when
+## no window is focused, which the phone writes as `mCurrentFocus=null`.
+##
+## This is the question a picture cannot be trusted without. A block in `probe.log` is a memory of a screen, and the
+## photograph is the glass now: on 2026-11-17 a block about the board was drawn onto a photograph of the phone's own
+## music player, and nothing said a word, because no instrument here had ever compared the two. Both forms the phone
+## writes are read - `Window{9f4b2c1 u0 pkg/activity}`, with the window's id before the package, and `Window{pkg/...}`
+## without it - so this reads the token before the `/` and not a fixed column.
+static func package_of_the_focused_window(text: String) -> String:
+	for line: String in text.split("\n"):
+		var at: int = line.find("mCurrentFocus=")
+		if at < 0:
+			continue
+		var rest: String = line.substr(at + "mCurrentFocus=".length()).strip_edges()
+		var slash: int = rest.find("/")
+		if slash < 0:
+			return ""
+		var before: String = rest.substr(0, slash)
+		return before.substr(maxi(before.rfind("{"), before.rfind(" ")) + 1).strip_edges()
+	return ""
+
+
+## Every `Frame=` field in the report, as rectangles - **corners, not insets**, which is what `SafeArea` wants and
+## what the insets reader above must not be pointed at. A rotation's frame is the area left when the system bars and
+## the display's own furniture have had their ground, which is exactly the place a control has to stand in.
+static func frames_after(text: String, mark: String) -> Array[Rect2i]:
+	var found: Array[Rect2i] = []
+	var from: int = 0
+	while true:
+		var at: int = text.find(mark, from)
+		if at < 0:
+			break
+		var tail: String = text.substr(at + mark.length())
+		var first: int = tail.find("]")
+		var second: int = -1
+		if first >= 0:
+			second = tail.find("]", first + 1)
+		if second < 0:
+			break
+		var parts: PackedStringArray = (
+			tail.substr(0, second + 1).replace("][", ",").replace("[", "").replace("]", "").split(",")
+		)
+		if parts.size() >= 4:
+			var left: int = parts[0].strip_edges().to_int()
+			var top: int = parts[1].strip_edges().to_int()
+			var right: int = parts[2].strip_edges().to_int()
+			var bottom: int = parts[3].strip_edges().to_int()
+			found.append(Rect2i(left, top, right - left, bottom - top))
+		from = at + mark.length()
+	return found
+
+
+## **The frame the phone is keeping, chosen without ever naming a rotation.** This is the safe rectangle a control is
+## judged against, in screen pixels like every rectangle a block publishes.
+##
+## **No rotation is named, and that is measured rather than cautious.** On the A16W lying down,
+## `settings get system user_rotation` read **0** with auto-rotate **on**, so the device's own setting said portrait
+## while the program reported `shape=lying` - and `dumpsys input`'s `SurfaceOrientation` no longer exists at all. So
+## the four frames are told apart by what they *are*: a frame taller than it is wide belongs to a standing window and
+## a wider one to a lying window, which halves the list, and the two that remain are separated by the side the
+## **program's own reading** names - a band on the left picks the frame with the deepest left edge, and one on the
+## right the frame whose right edge is furthest in. The program's reading is the one witness that knows which way up
+## the phone is, because it is looking at the screen the phone is actually showing.
+static func the_band_rect(report: String, room: Vector2i, shown: Vector4i) -> Rect2i:
+	if room.x <= 0 or room.y <= 0:
+		return Rect2i()
+	var of_the_shape: Array[Rect2i] = []
+	for frame: Rect2i in frames_after(report, "overrideNonDecorFrame="):
+		if frame.size.x <= 0 or frame.size.y <= 0:
+			continue
+		if (frame.size.y > frame.size.x) == (room.y > room.x):
+			of_the_shape.append(frame)
+	if of_the_shape.is_empty():
+		return Rect2i()
+	if of_the_shape.size() == 1:
+		return of_the_shape[0]
+	if shown.x > 0:
+		var deepest_left: Rect2i = of_the_shape[0]
+		for frame: Rect2i in of_the_shape:
+			if frame.position.x > deepest_left.position.x:
+				deepest_left = frame
+		return deepest_left
+	if shown.z > 0:
+		var deepest_right: Rect2i = of_the_shape[0]
+		for frame: Rect2i in of_the_shape:
+			if frame.end.x < deepest_right.end.x:
+				deepest_right = frame
+		return deepest_right
+	var deepest_top: Rect2i = of_the_shape[0]
+	for frame: Rect2i in of_the_shape:
+		if frame.position.y > deepest_top.position.y:
+			deepest_top = frame
+	return deepest_top
+
+
 ## Every band the phone's own report names: for each of the four ways up, the band that is the system bars and the
 ## band that is those and the display's configuration besides - always eight, in the order `BAND_ROWS` names them.
 ##
@@ -321,8 +457,10 @@ static func band_verdict(program: Vector4i, cutout: Vector4i, kept: Array[Vector
 		if program == kept[i]:
 			return "the program's reading IS the band the phone keeps: %s." % BAND_ROWS[i]
 	return (
-		"the program's reading matches none of the bands the phone names, so Godot's safe area and the phone's own"
-		+ " report disagree about this device."
+		"the program's reading matches none of the bands the phone names - which means **the program cannot see this"
+		+ " band at all**: Godot's `get_display_safe_area` is the display cutout and nothing more, and"
+		+ " `screen_get_usable_rect` answers the whole screen here. Giving it ground needs the phone's own insets"
+		+ " over JNI, so this is a gap to report rather than a reading to argue with."
 	)
 
 
@@ -337,6 +475,11 @@ static func _the_line_naming(text: String, mark: String) -> String:
 
 ## The band the phone writes as two pairs of numbers - `[100,84][0,42]` - as (left, top, right, bottom). Zero when the
 ## mark is not there, so a report naming no such band is no reading rather than a band of nothing.
+##
+## **This reads an `Insets=` field, where the pairs are insets**, and it must not be pointed at a `Frame=` field. The
+## phone writes both in the same `[a,b][c,d]` shape and they mean different things: `overrideNonDecorInsets=[0,100][0,42]`
+## is left 0, top 100, right 0, foot 42, while `overrideNonDecorFrame=[0,100][1080,2298]` is a *rectangle's corners*.
+## `frames_after` is the other reader, and the two are separate because the shapes are.
 static func _a_rectangle_after(text: String, mark: String) -> Vector4i:
 	var at: int = text.find(mark)
 	if at < 0:
@@ -376,6 +519,11 @@ const THE_BOXES := "the_boxes.png"
 ## board - both translucent, so the pixels a mark is about are still read through it.
 const TAP_BOX := Color(0.1, 1.0, 0.9, 0.7)
 const PAGE_BOX := Color(1.0, 0.72, 0.1, 0.7)
+
+## And the **band the device keeps**, in a third colour, because it is the one thing a picture of this screen cannot
+## otherwise show: `screencap` captures the program's own framebuffer, and the camera cutout, the status bar and the
+## nav bar are drawn by the system on top of it. A control inside this rectangle is a control a finger may not reach.
+const BAND_BOX := Color(1.0, 0.25, 0.55, 0.8)
 const BOX_THICKNESS := 3
 
 ## How many BACKs `--clear-pages` will send before it stops and says what is still up. A page that will not go away
@@ -404,6 +552,10 @@ const BLOCK_HEAD := "--- what is on the screen ---"
 ## pixels, and whether those pixels are on the screen the program is drawing on is the block's answer.
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
+## The judgement about a rectangle against a band - handed the band and asked the question, which is what it was
+## written for: "the device's numbers are handed in rather than restated". Nothing about a band is decided here.
+const SafeAreaScript := preload("res://scripts/safe_area.gd")
+
 ## The picture read as numbers, for the one question no rectangle can answer: what is actually on the glass. The
 ## crop `--crop` writes is this module's own `doubled`, so the enlargement a person reads a letter off and the one
 ## this tool makes cannot be two different enlargements.
@@ -419,9 +571,12 @@ const CAPTURE_DIR := "res://build/"
 const LINE_CELL := Vector2i(150, 404)
 const LINE_TAPS: Array[Vector2i] = [Vector2i(620, 1150), Vector2i(800, 1450)]
 
-## The one upright hold this tool writes for the board. The board reads it when it starts, and `hold_words` is the
-## reader that says whether it took - so what this writes and what a person is told cannot drift apart.
+## The two holds this tool writes for the board. The board reads one when it starts, and `hold_words` is the reader
+## that says whether it took - so what this writes and what a person is told cannot drift apart. **Which one is
+## written follows `--turn`**, through the one `hold_for` below: a lying device under an upright hold gets a page
+## laid out for the wrong shape, which is the fault this pairing exists to stop.
 const UPRIGHT_HOLD := "{\"orientation\": \"portrait\"}"
+const LYING_HOLD := "{\"orientation\": \"landscape\"}"
 
 ## Where a file made on this computer is put on the device before it is moved into the program's own storage.
 ## **`dd` with an `if=` is how a file gets there**: `run-as <pkg> sh -c "cat > files/x"` fails because the device's
@@ -627,7 +782,33 @@ func _one_pass() -> void:
 	if "--taps" in asked:
 		_report_the_taps(probe_log, asked)
 	if "--overlay" in asked:
-		_draw_the_boxes(newest_block(probe_log))
+		# **Is this program on the glass at all?** The rectangles below come from the newest block in `probe.log` - a
+		# memory of a screen that may be hours old - while the picture is whatever the phone is showing now. Asked of
+		# `dumpsys window`, which names the focused window's package: if it is not this program then there is no screen
+		# here to mark, however good the rectangles are, and drawing them anyway is a picture that lies about itself.
+		var focused: String = package_of_the_focused_window(_line(["shell", "dumpsys", "window"]))
+		if focused != PACKAGE:
+			print("")
+			print("--- the phone is not showing this program ---")
+			print("  its window is %s" % ("nothing - no window is focused" if focused.is_empty() else focused))
+			print("  so the picture just pulled is another program's screen, and the newest block in `probe.log` is a")
+			print("  memory of the board rather than a description of what is in the photograph. **Nothing is drawn.**")
+			print("  Bring %s to the front, run the bare pass, then ask for the overlay again." % PACKAGE)
+			# **And the last marked picture goes with it.** A refusal that leaves the previous run's file on disk is a
+			# refusal somebody can still open, and that file is the lie itself rather than the blocks drawn on it.
+			var stale: String = ProjectSettings.globalize_path(CAPTURE_DIR + THE_BOXES)
+			if FileAccess.file_exists(stale) and DirAccess.remove_absolute(stale) == OK:
+				print("  the marked picture from the last run (%s) is removed with it." % THE_BOXES)
+			return
+		var block: PackedStringArray = newest_block(probe_log)
+		# The band is read here, from the phone's own report, and handed to the drawer - the same two inputs `--band`
+		# uses, so the rectangle on the picture and the sentence in the reading are the same answer about one screen.
+		_draw_the_boxes(
+			block,
+			the_band_from_a_block(
+				"\n".join(block), _line(["shell", "dumpsys", "window", "displays"])
+			),
+		)
 	# The bar's own line and the blocks themselves are both stamped by the device and not by the file, so both are
 	# read from logcat - **once**, in the one format that carries a clock - and that one read is above the block
 	# report, which wants the age it carries.
@@ -686,18 +867,30 @@ func _capture_the_two_gaps() -> void:
 	# `dd` line for a person to run by hand - measured 2026-11-17, that refusal fired on every capture and the
 	# hand-written file was one more thing to remember between two runs. It writes both halves now, reads the hold
 	# back in the board's own words to prove it took, and hands both back on every way out.
-	_turn_the_device("portrait")
+	#
+	# **`--turn` owns the device's rotation, and this verb does not overrule it.** The pass-level code has already
+	# applied `--turn` by the time this runs, and a second `_turn_the_device` here was the one that always won - so
+	# `--turn landscape --capture` held the device upright whatever was asked, which is why the unsaved-changes
+	# question could only ever be photographed one way up. A capture with no `--turn` at all is still held upright,
+	# so the every-day run is unchanged.
+	var asked_turn: String = turn_of(OS.get_cmdline_user_args())
+	var the_turn: String = asked_turn if not asked_turn.is_empty() else "portrait"
+	var the_hold: String = hold_for(the_turn)
+	_turn_the_device(the_turn)
 	_hold_the_board_as_found()
 	# The view the block already in the log names, before anything relaunches the program: a program that has just
 	# started is in 3D overhead whatever view a person was using, and nothing else remembers it.
 	_view_as_found = HudProbeScript.read_view_line(
 		"\n".join(newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"])))
 	)
-	_write_the_board_hold(UPRIGHT_HOLD)
+	_write_the_board_hold(the_hold)
 	var hold: String = hold_words(_line(["shell", "run-as", PACKAGE, "cat", "files/orientation.json"]))
 	print("PHONE the hold: %s" % hold)
-	if not hold.begins_with("the board is held upright"):
-		print("PHONE the board would not take the upright hold - %s - so nothing was photographed." % hold)
+	if not hold_took(hold, the_hold):
+		print(
+			"PHONE the board would not take the %s hold - %s - so nothing was photographed."
+			% [the_way_up(the_turn), hold]
+		)
 		print("      The hold and the device's own rotation are handed back as they were found.")
 		_hand_the_board_back()
 		return
@@ -721,18 +914,18 @@ func _capture_the_two_gaps() -> void:
 		print("PHONE a page is still up after BACK - pressing once more so the picture is the board")
 		_line(["shell", "input", "keyevent", "4"])
 		await get_tree().create_timer(4.0).timeout
-	_save_a_screenshot(_a_capture_picture("board_upright.png"))
+	_save_the_capture_picture_if_ours("board_%s.png" % the_way_up(the_turn))
 
 	_line(["shell", "input", "tap", str(LINE_CELL.x), str(LINE_CELL.y)])
 	await get_tree().create_timer(3.0).timeout
 	for point: Vector2i in LINE_TAPS:
 		_line(["shell", "input", "tap", str(point.x), str(point.y)])
 		await get_tree().create_timer(2.0).timeout
-	_save_a_screenshot(_a_capture_picture("a_line_drawn.png"))
+	_save_the_capture_picture_if_ours("a_line_drawn.png")
 
 	_line(["shell", "input", "keyevent", "4"])
 	await get_tree().create_timer(6.0).timeout
-	_save_a_screenshot(_a_capture_picture("the_unsaved_question.png"))
+	_save_the_capture_picture_if_ours("the_unsaved_question.png")
 	print("PHONE the program is still alive as pid %s" % _first_line(_line(["shell", "pidof", PACKAGE])))
 	print("PHONE three pictures in %s - and what the probe says about each is in the log beside them" % CAPTURE_DIR)
 	# And the phone is handed back the way it was found, in the other direction: the hold it started with, and the
@@ -764,6 +957,17 @@ func _read_the_band() -> void:
 		print("PHONE the log holds no block, so there is no program reading to set beside the phone's. Launch it")
 		print("      once - `--launch --wait 20` - and ask again.")
 		return
+	# **The age of the block this verdict is about, said before the verdict.** A block is a memory of a screen, and
+	# read without its age a block taken at launch reads as though it were about the glass in front of a person now -
+	# the mistake this tool exists to prevent, and one it made again on 2026-11-18, when a `--band` run pronounced on
+	# where the palette stood while nothing established that the block was newer than the launch hours before. Every
+	# line below is about *that* block, so the age comes first and the verdict is not read without it.
+	var age: String = _age_of_the_newest_block(_line(["logcat", "-d", "-s", "godot:I", "-v", "epoch"]))
+	if age.is_empty():
+		print("PHONE the age of the newest block could not be read off the device's own log, so the verdict below is")
+		print("      about a screen at a moment nothing here can name. Relaunch the program and ask again.")
+	else:
+		print("PHONE the block this verdict is about is %s old" % age)
 	if not block.contains(HudProbeScript.BAND_MARK):
 		# **A block that names no band line is a different answer from a program that reported no band**, and once
 		# both are read as four zeros they look identical. Measured 2026-11-17, the first live run answered
@@ -788,6 +992,32 @@ func _read_the_band() -> void:
 	for i: int in mini(kept.size(), BAND_ROWS.size()):
 		print("      %s  %s" % [BAND_ROWS[i], band_words(kept[i])])
 	print("PHONE %s" % band_verdict(program, cutout, kept))
+	# **And which controls stand in it, judged by `SafeArea` rather than by a rule written here.** The frame is the
+	# phone's own for the way up this block was taken in, and the rectangles are the block's own - both in screen
+	# pixels, so nothing is converted between spaces. The two questions are the block's own two words: a **middle**
+	# inside the band is why a press goes to the system, and a control that merely **reaches** into it is a false alarm
+	# for a large button overlapping an edge.
+	#
+	# The lines are taken down to the block's own words first, because the block writes each of them with a `PROBE `
+	# in front and the readers here look for the line itself.
+	var body := PackedStringArray()
+	for raw: String in block.split("\n"):
+		body.append(raw.trim_prefix("PROBE ").strip_edges())
+	var band: Rect2i = the_band_from_a_block(block, report)
+	if band.size.x <= 0 or band.size.y <= 0:
+		print("PHONE no frame could be picked for this block, so nothing was judged against one - a reading that is")
+		print("      missing rather than a screen with no band.")
+		return
+	print("PHONE the frame this screen is keeping: %s" % str(band))
+	var middle: PackedStringArray = middle_in_the_band(body, band)
+	var reaching: PackedStringArray = reaching_into_the_band(body, band)
+	if middle.is_empty() and reaching.is_empty():
+		print("PHONE and nothing a finger could aim at stands in it.")
+		return
+	for said: String in middle:
+		print("PHONE %s" % said)
+	for said: String in reaching:
+		print("PHONE %s" % said)
 
 
 ## The board's hold in `user://orientation.json`, kept **verbatim** so it can be handed back exactly as it was
@@ -950,6 +1180,31 @@ func _save_a_screenshot(file_name: String) -> void:
 	_line(["shell", "screencap", "-p", far])
 	var here: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(file_name))
 	print("PHONE %s" % _line(["pull", far, here]).strip_edges().replace("\n", " | "))
+
+
+## Save one of the capture's pictures - but only if this program is the one on the glass.
+##
+## **The same question `--overlay` asks, through the same reader.** On 2026-11-18 a landscape capture's third picture
+## came out as a photograph of the phone's music player: the phone had drifted to VLC between the launch and the last
+## press, and nothing objected, so a picture of another app sat in `build/` beside two honest ones looking exactly
+## like one of them. A run that keeps a picture of somebody else's screen is worse than one that keeps none.
+##
+## **A refusal that leaves the old picture in place is not a refusal.** The file of that name is removed, so a run
+## that could not photograph the question does not leave the last run's answer sitting there to be mistaken for it.
+func _save_the_capture_picture_if_ours(own: String) -> bool:
+	var focused: String = package_of_the_focused_window(_line(["shell", "dumpsys", "window"]))
+	if focused == PACKAGE:
+		_save_a_screenshot(_a_capture_picture(own))
+		return true
+	var here: String = ProjectSettings.globalize_path(CAPTURE_DIR.path_join(_a_capture_picture(own)))
+	if FileAccess.file_exists(here):
+		DirAccess.remove_absolute(here)
+	print(
+		"PHONE %s was NOT photographed: the phone is showing %s"
+		% [own, "nothing - no window is focused" if focused.is_empty() else focused]
+	)
+	print("      A picture of another program's screen is not this program's, so none was saved.")
+	return false
 
 
 ## Throw the device's log away, so that whatever is read next was published after this moment.
@@ -1776,6 +2031,20 @@ static func the_way_up(wanted: String) -> String:
 	return "lying"
 
 
+## The hold the board must be given for a device turned a given way. **The one pairing**, so a `--turn` and the hold
+## it implies cannot disagree: a device turned landscape means a lying board, and an upright hold under a lying device
+## lays every page out for the wrong shape.
+static func hold_for(turned: String) -> String:
+	return LYING_HOLD if turned == "landscape" else UPRIGHT_HOLD
+
+
+## Whether the board took the hold it was given, asked of `hold_words`' own reading rather than of a phrase copied
+## out of it. `hold_words` quotes the device's file back verbatim, so the question is whether that quote is the text
+## this tool wrote - which is one test in either orientation, and no second vocabulary to keep in step.
+static func hold_took(said: String, wrote: String) -> bool:
+	return not wrote.is_empty() and said.contains(wrote)
+
+
 ## What the device says about which way up it is, in words.
 ##
 ## **Read back off the device rather than assumed from the command**, which is the whole point of it: a
@@ -1854,16 +2123,52 @@ func _find_adb() -> String:
 	return ""
 
 
+## Whether `--time` was asked for, and what the door has cost so far. Kept beside `_line` rather than at the top of
+## the file because the door is the only thing that reads them.
+var _timing: bool = false
+var _timing_asked: bool = false
+var _timed_seconds: float = 0.0
+var _timed_calls: int = 0
+
+
 ## One adb command, its text handed back - this call's output and not a word of anything earlier.
+##
+## **And, when `--time` is asked for, what it cost.** Every phone-side reading and every byte that moves goes through
+## this one door, so timing here answers "where do the minutes go" in the one place that can: measured 2026-11-18,
+## the export is 53 s and *where the rest went was then guessed wrong twice* - the pictures belong to `--capture`
+## alone, and a bare `--build --launch` ends in two prints. `OS.execute` blocks, so the wall clock around it is the
+## phone's own answer and the USB cable's, never an estimate. The running total is printed with each line, because a
+## phase that is slow and a phase that is merely last look the same without it.
 func _line(arguments: Array[String]) -> String:
+	if not _timing_asked:
+		_timing_asked = true
+		_timing = "--time" in OS.get_cmdline_user_args()
+	var started: int = Time.get_ticks_msec()
 	var output: Array = []
 	var code: int = OS.execute(_adb_path, PackedStringArray(arguments), output, true)
+	var cost: float = float(Time.get_ticks_msec() - started) / 1000.0
+	if _timing:
+		_timed_calls += 1
+		_timed_seconds += cost
+		print(
+			"PHONE adb %-9s %5.1f s  (run %5.1f s in %d call(s))  %s"
+			% [arguments[0], cost, _timed_seconds, _timed_calls, _short_command(arguments)]
+		)
 	if code != 0:
 		print("PHONE adb %s ended with %d" % [arguments[0], code])
 	var text: String = ""
 	for part: Variant in output:
 		text += str(part)
 	return text
+
+
+## What one command was, short enough for one line. The point is to know *which* door the time went through: a
+## `sha256sum` of the 95 MB installed APK and a `cat` of one small file differ in their first words, not in length.
+static func _short_command(arguments: Array[String]) -> String:
+	var words: PackedStringArray = PackedStringArray()
+	for one: String in arguments:
+		words.append(one if one.length() <= 24 else one.substr(0, 21) + "...")
+	return " ".join(words)
 
 
 ## The first line of something, for a one-line summary of a command that answers in several.
@@ -2154,8 +2459,12 @@ func _report_the_whole_block(kept: String) -> void:
 ## **This is the doctrine's own step turned into a file**: a rectangle is a statement by the program about itself,
 ## the glass is what a person sees, and the only way to know the two agree is to put one on the other. A control a
 ## finger can aim at is marked in one colour with a dot at the centre the block published; the page standing in
-## front of the board in the other, because a page's rectangle is a different question from a button's.
-func _draw_the_boxes(lines: PackedStringArray) -> void:
+## front of the board in the other, because a page's rectangle is a different question from a button's - and **the
+## band the device keeps in a third**, which is the part of this screen no screenshot of the program can contain.
+##
+## The band is **handed in**, not worked out here: the caller has the phone's own report, and the frame it picks is the
+## same one `--band` judges against, so the picture and the reading cannot become two answers.
+func _draw_the_boxes(lines: PackedStringArray, band: Rect2i) -> void:
 	var from: String = CAPTURE_DIR + THE_SCREEN_NOW
 	var picture: Image = ScreenshotReaderScript.read(from)
 	print("")
@@ -2172,6 +2481,9 @@ func _draw_the_boxes(lines: PackedStringArray) -> void:
 		ScreenshotReaderScript.outline(picture, Rect2i(at.x - 1, at.y - 1, 3, 3), TAP_BOX, 3)
 	for rect: Rect2i in pages:
 		ScreenshotReaderScript.outline(picture, rect, PAGE_BOX, BOX_THICKNESS)
+	var drew_the_band: bool = band.size.x > 0 and band.size.y > 0
+	if drew_the_band:
+		ScreenshotReaderScript.outline(picture, band, BAND_BOX, BOX_THICKNESS)
 	var to: String = CAPTURE_DIR + THE_BOXES
 	var wrote: Error = ScreenshotReaderScript.write(picture, to)
 	if wrote != OK:
@@ -2180,6 +2492,10 @@ func _draw_the_boxes(lines: PackedStringArray) -> void:
 	print("--- the block's own rectangles, marked on %s ---" % from)
 	print("  %d control(s) a finger can aim at, in cyan, with a dot at the centre the block published" % taps.size())
 	print("  %d page(s) standing in front of the board, in amber" % pages.size())
+	if drew_the_band:
+		print("  the band the device keeps, in pink - **the part of this screen the program cannot see**")
+	else:
+		print("  no band was drawn: the phone's own report named no frame for the way up this block was taken in")
 	print("  wrote %s - hold it beside the block: a rectangle not on the control it names is a fault" % to)
 
 
@@ -2187,12 +2503,26 @@ func _draw_the_boxes(lines: PackedStringArray) -> void:
 ## whose rectangle cannot be read.
 static func boxes_of(lines: PackedStringArray, kind: String) -> Array[Rect2i]:
 	var found: Array[Rect2i] = []
+	for one: Dictionary in named_boxes_of(lines, kind):
+		found.append(one["rect"])
+	return found
+
+
+## The same rectangles, each carrying the words its line gives it. **One walk, two answers**: a picture needs a
+## rectangle and a judgement needs a name, and a second reader of the same line is how two readings of one block come
+## to disagree. The name is the line's own words before its `screen (...)` - so a control is named exactly as the
+## block named it - and a line whose words are empty is named by `SafeArea`'s own default rather than by this tool.
+static func named_boxes_of(lines: PackedStringArray, kind: String) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
 	for line: String in lines:
 		if not line.begins_with(kind + " "):
 			continue
 		var rect: Rect2i = rect_of(line)
-		if rect.size.x > 0 and rect.size.y > 0:
-			found.append(rect)
+		if rect.size.x <= 0 or rect.size.y <= 0:
+			continue
+		var at: int = line.rfind("screen (")
+		var name: String = line.substr(kind.length(), at - kind.length()).strip_edges()
+		found.append({ "name": name, "rect": rect })
 	return found
 
 
