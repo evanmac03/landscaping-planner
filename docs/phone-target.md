@@ -543,3 +543,46 @@ adb exec-out run-as ca.storm.landscapingplanner cat files/probe.log
 That route works because the build is debuggable, which is the same condition as `HudProbe.on()`: a release build carries the code and never runs it, and writes no file either.
 
 **It gives up its oldest lines rather than filling the phone.** Past `HudProbe.LOG_LIMIT` (1 MB) the file keeps the newest `LOG_KEEP` (500 KB). The cut is made at a line break and never inside one, so a block is never half a block, and the rewrite goes through `user://probe.log.writing` and is renamed into place - the same rule every other written file here follows, so an interrupted trim leaves the log it had rather than half of the one it was making.
+
+## 14. The rules this follows, and the one it breaks
+
+The numbers in this document are mostly not this project's invention, and writing them down here is so
+that the next reader does not have to derive them again. Three come from Android and Material, and each
+was **read off the source** rather than remembered - a rule a person reads in a document and the rule a
+phone enforces have been known to differ, which is why the device is asked as well as the guide.
+
+**A touch target is 48 by 48 dp.** Android's own accessibility guidance asks that "each interactive UI
+element have a focusable area, or touch target size, of at least 48dpx48dp". A dp is 1/160 inch, so on
+this phone's measured 450 dpi that is **7.6 mm, or 135 px** - and this program states `TOUCH_MM` **5.5**,
+which is 97 px. That is a *judgement and not an oversight*, and `PhoneHud`'s own comment carries the
+reason: at 48 dp a row is 135 px of a 349-pixel palette, twelve screens of scrolling for one list of
+tools. 5.5 mm is the floor of a comfortable thumb, the palette scrolls, and the number can be raised in
+that one place without touching a layout. The probe's `small` line enforces *this* number, so a control
+below Material's floor is deliberately not called a fault.
+
+**Text is 4.5:1 against its background, and 3:1 when it is large.** The same guidance asks for at least
+4.5:1 below 18sp and 3:1 at or above it, and `scripts/contrast.gd` carries exactly those two numbers as
+`LEAST` and `LEAST_LARGE`. The module *is* the rule rather than a restatement of it, and the probe asks
+it page by page.
+
+**Android 15 enforces edge-to-edge, and this is the one rule the program breaks.** From Android's
+behaviour changes for apps targeting API 35: "Apps are edge-to-edge by default ... content draws behind
+the system navigation bar unless insets are applied ... you must handle insets." This build reports
+`targetSdk=36` - read off the phone, since the preset states no target at all - and the room it is given
+is the whole screen, so it **is** edge-to-edge and it applies **the display cutout only**.
+`DisplayServer.get_display_safe_area` is the cutout and nothing more, and the one other door,
+`screen_get_usable_rect`, answers the whole screen on this Android. So the navigation bar's 42 px along
+the foot is given ground by no page and no control, and doing so needs the phone's own `WindowInsets`
+over JNI - an Android plugin, and a custom Gradle build to carry it, neither of which this project has.
+It is written here rather than fixed because it is a **compliance gap and not a nicety**, and a gap
+nobody can see is the kind that gets forgotten.
+
+**And the window's own size class** is section 11's business: Android's five breakpoints, taken from the
+window's shorter side, held by `tests/test_window_class.gd`.
+
+Where the two were read from, for whoever needs to check them rather than remember them:
+[Make apps more accessible](https://developer.android.com/guide/topics/ui/accessibility/apps) for the
+touch target and the contrast ratios, and
+[About Android 15 behaviour changes](https://developer.android.com/about/versions/15/behavior-changes-15)
+for the edge-to-edge enforcement. `tests/test_phone_target.gd` holds the numbers quoted above to the
+modules that own them, so a floor moved in one place cannot leave this section describing another.

@@ -23,6 +23,7 @@ why it does it that way, and what was rejected. Read the one for the area you ar
 | `docs/irrigation-subsystem-spec.md`, `docs/lighting-subsystem-spec.md` | those two modules |
 | `docs/workflow-efficiency-spec.md` | the quality-of-life features |
 | `docs/help-manual.md`, `docs/github-releases.md` | the in-app manual, and the release workflow |
+| `docs/phone-target.md` | the phone: the build, the touch seams, the HUD's floors in millimetres, the platform rules the GUI follows - and the one it does not |
 
 ## The shape of a feature
 

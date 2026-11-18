@@ -695,6 +695,20 @@ func test_the_bands_the_block_names_are_read_back_as_the_four_numbers_they_are()
 	)
 
 
+func test_the_room_a_block_was_taken_in_is_read_back_from_the_room_line() -> void:
+	# The room is what a turn changes and nothing else does, so it is the figure that says which way up a block's
+	# rectangles are about - read beside the writer, like its two siblings, and not from the display's own pixels.
+	var as_written: String = "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
+	assert(
+		HudProbeScript.read_room_line(as_written) == Vector2i(1444, 666),
+		"the room, and not the screen beside it: %s" % str(HudProbeScript.read_room_line(as_written)),
+	)
+	assert(
+		HudProbeScript.read_room_line("PROBE device finger=true") == Vector2i.ZERO,
+		"and a block naming no room reads as none rather than as the screen's size",
+	)
+
+
 func test_a_view_change_is_a_change_the_block_follows() -> void:
 	# **The rule the notice turns on.** A block is said when the screen differs from the screen the last one was about,
 	# and the view is part of the screen: until the view was added to that state, changing it published nothing at all,
@@ -715,6 +729,16 @@ func test_a_view_change_is_a_change_the_block_follows() -> void:
 	var after: PackedStringArray = hud._the_screen_now()
 	assert(before != after, "a view change is a change to what a block is about: %s" % str(after))
 	assert(after.has("view 3D OVERHEAD"), "and the view travels in that state, in those same words")
+
+	# **And the room is part of it**, because a turn changes nothing else on the screen: a rotation publishes no
+	# page event and no view change, so without the room a phone turned on its side leaves the newest block
+	# describing the way up it used to be - and anything judging a rectangle against the band a device keeps would
+	# be comparing a lying screen with a standing band. The HUD enters no tree, so what is held is the state's own
+	# shape rather than a number.
+	var state: PackedStringArray = hud._the_screen_now()
+	assert(state.size() == 2, "with no page up the state is the view and the room: %s" % str(state))
+	assert(state[0].begins_with("view "), "the view, named the way the block names it: %s" % state[0])
+	assert(state[1].begins_with("room "), "and the room beside it, so a turn is a change to what a block is about")
 
 	hud.mode_label = null
 	assert(hud._the_view_up() == "", "a HUD with no label names no view rather than a stale one")

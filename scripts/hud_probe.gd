@@ -1212,8 +1212,6 @@ const SCALE_MARK := " scale="
 ##
 ## The marker is searched for rather than anchored to, because the same block arrives both as the probe wrote it
 ## and behind the `PROBE ` a log line carries.
-static func read_room_line(text: String) -> Vector2i:
-	return _a_pair_after(text, ROOM_MARK)
 
 
 ## **The screen's own pixels, which is the space a block's `tap` centres are published in.** The `room` line
@@ -1225,6 +1223,12 @@ static func read_room_line(text: String) -> Vector2i:
 ## Read here, beside the writer and beside its sibling above, for the reason that comment gives.
 static func read_screen_line(text: String) -> Vector2i:
 	return _a_pair_after(text, SCREEN_MARK)
+
+
+## The **room** a block was taken in - the viewport a page is laid out in, and the one thing a turn changes on a screen
+## that publishes nothing else. Read here beside the writer, for the same reason as its siblings.
+static func read_room_line(text: String) -> Vector2i:
+	return _a_pair_after(text, ROOM_MARK)
 
 
 ## Where the `row` line that says which view is up names itself: the top bar's own mode label, whose words are the

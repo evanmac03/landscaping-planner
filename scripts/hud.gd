@@ -881,9 +881,28 @@ func _the_view_up() -> String:
 ## **Everything the screen's own block is about**: the pages standing on it, and the view it is in. One reading, taken
 ## both by the ask below and by the record in `_the_screen_said`, so what is watched and what is written cannot be
 ## two different things.
+## The room a page lands in, as this HUD asks its own viewport for it - **one expression, one owner**, because the
+## block and the state a block is compared against must not be able to read two different rooms.
+func _the_room() -> Vector2i:
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return Vector2i.ZERO
+	return Vector2i(viewport.get_visible_rect().size)
+
+
+## **Everything the screen's own block is about**: the pages standing on it, the view it is in, and the room they are
+## all in. One reading, taken both by the ask above and by the record in `_the_screen_said`, so what is watched and
+## what is written cannot be two different things.
+##
+## **The room belongs in it because a turn changes nothing else.** A rotation publishes no page event and no view
+## change, so without this a phone turned on its side left the newest block describing the way up it used to be - and
+## every instrument that judges a rectangle against the band a device keeps would then be comparing a lying screen
+## with a standing band. Measured on the A16W on 2026-11-17, the device's own setting is not the answer either:
+## `settings get system user_rotation` read **0** with auto-rotate **on** while the program reported `shape=lying`.
 func _the_screen_now() -> PackedStringArray:
 	var now: PackedStringArray = _the_pages_up()
 	now.append("view %s" % _the_view_up())
+	now.append("room %s" % str(_the_room()))
 	return now
 
 
@@ -979,7 +998,7 @@ func _say_the_screen() -> void:
 	var lines := PackedStringArray()
 	# The room, read once: it is the viewport's own visible rectangle, which is both what a page lands in and
 	# what this window's shape is worked out from.
-	var room: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
+	var room: Vector2i = _the_room()
 	lines.append_array(
 		HudProbeScript.device_lines(
 			shows_touch_controls(),
@@ -1703,6 +1722,13 @@ func _size_the_chrome_for_the_device() -> void:
 	# The bar is lifted **before** the strip below is read off its foot, so that what a page may not reach is where
 	# the bar now stands rather than where the scene drew it.
 	lift_the_top_bar_clear_of_the_device()
+	# **And the left column, from the band's own trigger.** `place_the_left_column_for_a_device` is the one door that
+	# places the palette, but the only thing that used to call it was the foot plate *changing height* - and a band
+	# appears when the phone turns or the layout is rebuilt, neither of which moves that plate. So the left ground was
+	# never applied: measured 2026-11-18 on a build that contained the fix, the palette still stood 55 px inside the
+	# camera band, the same number as before it. Called here as well, deferred for the reason that door's own comment
+	# gives - the placement must land *after* the layout that changed. Two triggers, one door, nothing rewritten.
+	place_the_left_column_for_a_device.call_deferred()
 	# A page's title bar is drawn *above* the page's own rectangle, so a page is allowed to reach the top of
 	# the screen - which is what keeps its own bar from being clipped. The top bar is at that top, though, and
 	# a page placed there drew its title and its close cross over the menu titles. So the strip no page may use
@@ -1754,6 +1780,13 @@ func _state_the_strip_the_pages_may_not_use() -> bool:
 ## the camera cutout, a rounded corner - and put it back exactly where the scene drew it where there is nothing
 ## to clear.
 ##
+## The palette's own **left and right** offsets, remembered for the same reason `_palette_offsets_as_drawn` is, and
+## kept as a second pair rather than a wider first one: that one is handed to `offsets_for_the_left_column`, whose
+## answer is about the column's *height*, so widening it would put a horizontal number into an argument about a
+## vertical one. Declared here, beside the one function that reads it.
+var _palette_sides_as_drawn: Vector2 = Vector2(INF, INF)
+
+
 ## **This was the last thing on the screen standing in that band.** Measured on the A16W held upright, the three
 ## view buttons and the menus sat 81 px inside the strip the device keeps, with their middles at y 67, so a tap on
 ## `Fit` was answered by the system instead of by the program. Everything else had already learned it: a page's
@@ -1869,6 +1902,17 @@ func place_the_left_column_for_a_device() -> void:
 		return
 	if _palette_offsets_as_drawn.x == INF:
 		_palette_offsets_as_drawn = Vector2(palette.offset_top, palette.offset_bottom)
+	# **The ground the device keeps at the left**, which this column was never given: a phone held sideways puts its
+	# camera on the left, and measured on the A16W lying down the palette stood at x=16 while the device keeps the
+	# first 100 px of the screen - so six of its controls each reached 55 px into that band and a thumb aimed at a
+	# tool met the system instead. Read off `cutout_here`, the one reader of the band, and kept in its own pair for
+	# the reason above. A desk's insets are all zero, so the scene's offsets come back to the pixel.
+	if _palette_sides_as_drawn.x == INF:
+		_palette_sides_as_drawn = Vector2(palette.offset_left, palette.offset_right)
+	var band: Vector4i = PhoneHudScript.cutout_here(Vector2i(palette.get_parent_area_size()))
+	var across: float = float(maxi(band.x, 0))
+	palette.offset_left = _palette_sides_as_drawn.x + across
+	palette.offset_right = _palette_sides_as_drawn.y + across
 	# All three are siblings under `Root`, so a neighbour's own rectangle is already in the space the
 	# palette's offsets are measured in, and the palette's parent area is the room they are measured against.
 	var bar_foot: float = top_bar.position.y + top_bar.size.y
