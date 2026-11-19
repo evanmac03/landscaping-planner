@@ -7,6 +7,68 @@ rather than back at a desk. The device this was built against is a Samsung SM-A1
 screen's advertised size, and the program reads the real number either way, so only the
 arithmetic in the demonstrations moved with it.
 
+## Where to start, if you have not designed for a phone before
+
+**The order that works here is: read the rule, find the module that already owns it, then measure on the phone.**
+Nothing on these pages was designed by eye at a desk. A desk cannot answer for a phone - its band is nothing, its
+density is a monitor's, its finger is a mouse - and the instruments in section 13 exist because the rectangle a
+program draws and the pixels a person sees are two different statements that are allowed to disagree.
+
+**1. This document is already the digest.** Read section 4 (the HUD on a phone, stated in millimetres), then section
+5 (which devices are answered with a finger, and which are not), then sections 10, 11 and 12 for the row a menu's
+own entries are given, the window's size class, and what a press looks like. **Section 14 is the one to come back
+to:** it states the two numbers this program took from Android, the one Android rule it breaks and why, and where
+each of them was read from - and `tests/test_phone_target.gd` reads those numbers back out of the modules that own
+them, so the prose cannot drift away from the code.
+
+**2. Then the platform's own sources, in this order.**
+
+- **Material 3** (`m3.material.io`) - its **Target sizes** page and its **Grids & spacing** page carry the rule that
+  changes every layout decision: how large a target a fingertip needs, and how far apart two of them must stand
+  before a thumb can tell them apart. Section 14 works the platform's numbers into this phone's own pixels, and
+  says why this program states a smaller floor anyway.
+- **Android's accessibility help on touch target size** (`support.google.com/accessibility/android`) - the same
+  rule, and a short procedure for checking it by hand. The probe's own lines are that procedure done for every
+  control on the screen at once, which is section 13.
+- **Android's adaptive app guidance** (`developer.android.com/develop/adaptive-apps`, and **Adapt layouts** under
+  `developer.android.com/design/ui/mobile`) - the quality guidelines there are a checklist with guideline IDs and
+  test IDs, so they read as a familiar document rather than a foreign one, this program already keeping an audit of
+  itself. Two of its rules matter most here: decide from the **window's size class** first and its height second,
+  and adapt by **reflow, reveal or a change of presentation** rather than by stretching a component. One line of it
+  is a rule this program obeys by construction - **do not lock an app to portrait**, because a window that cannot
+  turn is a window that letterboxes.
+
+**3. Godot's own page is "Multiple resolutions"**, under *Rendering* in the online manual (`docs.godotengine.org`),
+and most of what it asks for is already taken in `project.godot`: the `canvas_items` stretch mode, the `expand`
+aspect, and a handheld orientation of `sensor`, so the device may turn the window and `OrientationChoice` decides
+case by case what the board does about it. The one piece of that page's advice this program **declines** is the
+default theme scale of 1.5 to 2.0, because this program carries no theme at all - its words are sized per device at
+run time instead (`PhoneHud.font_size`, `ReadingSize`). A static scale is one answer for every screen, and the whole
+of this document is about one program giving two answers.
+
+**4. The rule already has a module, and that is where a number changes.** The table below is a map and not a second
+statement of anything: **no row in it may name a number**, because the file each row points at is where the number
+lives.
+
+| the rule | the file that owns it |
+| --- | --- |
+| how large a target a finger must have | `scripts/touch_target.gd`, and the device floor in `PhoneHud` |
+| how close two targets may stand | `scripts/spacing.gd` |
+| the bands the device keeps for itself | `scripts/safe_area.gd`, `PhoneHud.cutout_here` |
+| words large enough for the density | `scripts/legibility.gd`, `ReadingSize` |
+| ink a person can read against what is behind it | `scripts/contrast.gd` |
+| the window's size class and its breakpoints | `WindowClass` |
+| which way up the window is, and its shape | `WindowPosture`, `scripts/held_orientation.gd` |
+| a control the room cannot hold | `scripts/in_view.gd` |
+| two controls drawn in one rectangle | `scripts/stacked.gd` |
+
+**5. And the rule of the house that makes all of it safe: ask a capability, never a platform.** A difference between
+a desk and a phone is a question with **one owner** - `shows_touch_controls()` for whether a finger is being served,
+`PhoneHud` for the device's own numbers, `DevicePlatform` for the platform's name - and
+`tests/test_device_doctrine.gd` names any file that asks the machine for itself. That is what lets an edit meant for
+the phone leave a desk exactly where it was, and it is also why "make it Android-only" cannot be done by putting
+code somewhere else: there is one GUI, one set of scenes and one HUD, and it *asks*.
+
 ## 1. The build
 
 `export_presets.cfg` holds `[preset.1]` "Android (phone)": arm64-v8a alone, package
