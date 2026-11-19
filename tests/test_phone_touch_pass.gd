@@ -11,6 +11,50 @@ const ToolScript := preload("res://tools/phone_touch_pass.gd")
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
 
+## **A numbered `tap` line is still read exactly as it was.** The probe now ends each tap line with the control's
+## number in the block, and this tool's own readers find a line's rectangle by the **last** `screen (` and its name
+## by the words before that - so the number must change neither. Held here because these two readers are what mark
+## the block's rectangles on the glass: a number that quietly moved a rectangle would paint every control in the
+## wrong place, and the picture is the arbiter.
+func test_a_numbered_tap_line_gives_the_rectangle_and_the_name_it_gave_before() -> void:
+	const PLAIN := (
+		"tap      the board                    \"Line / 1\""
+		+ "                        screen (28, 115) .. (131, 169) 103x54 px  centre (80, 142)"
+	)
+	var before: Rect2i = ToolScript.rect_of(PLAIN)
+	assert(before == Rect2i(28, 115, 103, 54), "the rectangle is the line's last `screen (`: %s" % str(before))
+	assert(
+		ToolScript.rect_of(PLAIN + "  #4") == before,
+		"a numbered line gives the very rectangle it gave unnumbered"
+	)
+	var named: Array[Dictionary] = ToolScript.named_boxes_of(PackedStringArray([PLAIN + "  #4"]), "tap")
+	assert(named.size() == 1, "one line, one box")
+	assert(
+		not String(named[0]["name"]).contains("#"),
+		"the number is after the rectangle, so it cannot reach the name: %s" % String(named[0]["name"])
+	)
+	assert(int(named[0]["n"]) == 4, "and the box carries the block's own number for it: %s" % str(named[0]["n"]))
+
+
+## **A number is read off the end of a `tap` line, and only from the end.** A caption is free to hold a `#` - and
+## some do - so a reader that took the first one it found would number a control from the words of another. A line
+## from a block written before the numbers existed answers 0, which is what tells a caller to leave the number off
+## rather than draw one it made up.
+func test_the_number_of_a_line_is_its_last_token_and_nothing_else() -> void:
+	const A_LINE := (
+		"tap      the board                    \"Line / 1\""
+		+ "                        screen (28, 115) .. (131, 169) 103x54 px  centre (80, 142)"
+	)
+	assert(ToolScript.number_in(A_LINE + "  #4") == 4, "the number a numbered line ends with")
+	assert(ToolScript.number_in(A_LINE + "  #12") == 12, "however many digits it has")
+	assert(ToolScript.number_in(A_LINE) == 0, "a line from before the numbers existed has none")
+	assert(
+		ToolScript.number_in("tap   the board   \"Row #3\"   screen (1, 2) .. (3, 4) 2x2 px  centre (2, 3)") == 0,
+		"and a caption holding a # is not the number"
+	)
+	assert(ToolScript.number_in("page   start_window  \"A page\"") == 0, "and a line of another kind has none either")
+
+
 ## The A16W's own `dumpsys window displays`, cut to the fields a band comes from. **Every field here was read off the
 ## device**, not written from what the format was thought to be - which is why the rectangle is spelled with the dash
 ## the phone really uses, the one thing that would otherwise have been guessed wrong.

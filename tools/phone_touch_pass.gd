@@ -544,6 +544,16 @@ const PAGE_BOX := Color(1.0, 0.72, 0.1, 0.7)
 const BAND_BOX := Color(1.0, 0.25, 0.55, 0.8)
 const BOX_THICKNESS := 3
 
+## The plate and the ink a marked control's number is drawn in, **stated here rather than borrowed from
+## `screen_shot`**: a capture off a phone and a desk's screen are lit differently, and this tool already states
+## every mark of its own. How that number is *placed* - above the corner where there is room, on it where there is
+## not - is `ScreenshotReader.numbered`'s, in the one module that draws, so the two pictures cannot place one
+## number apart. The scale is larger than the desk's because this picture is 1080 px across and read at arm's
+## length.
+const NUMBER_PLATE := Color(0.0, 0.0, 0.0, 0.75)
+const NUMBER_INK := Color(1.0, 1.0, 1.0, 1.0)
+const NUMBER_SCALE := 3
+
 ## How many BACKs `--clear-pages` will send before it stops and says what is still up. A page that will not go away
 ## is something to read, not a reason to keep pressing.
 const MAX_PAGES_TO_CLEAR := 4
@@ -2513,11 +2523,20 @@ func _draw_the_boxes(lines: PackedStringArray, band: Rect2i) -> void:
 		return
 	var taps: Array[Rect2i] = boxes_of(lines, "tap")
 	var pages: Array[Rect2i] = boxes_of(lines, "page")
-	for rect: Rect2i in taps:
+	# **And the number the block gave each of them**, drawn where there is room for it, so that the picture and the
+	# block's own `tap` lines are one legend: a rectangle says where a control stands, its number says which line it
+	# is, and nothing has to be matched up by eye.
+	var numbered: int = 0
+	for one: Dictionary in named_boxes_of(lines, "tap"):
+		var rect: Rect2i = one["rect"]
 		ScreenshotReaderScript.outline(picture, rect, TAP_BOX, BOX_THICKNESS)
 		# The centre the block published, as a filled 3 by 3: an outline as thick as a 3 px box is wide fills it.
 		var at: Vector2i = rect.get_center()
 		ScreenshotReaderScript.outline(picture, Rect2i(at.x - 1, at.y - 1, 3, 3), TAP_BOX, 3)
+		var number: int = int(one["n"])
+		if number > 0:
+			ScreenshotReaderScript.numbered(picture, rect, number, NUMBER_PLATE, NUMBER_INK, NUMBER_SCALE)
+			numbered += 1
 	for rect: Rect2i in pages:
 		ScreenshotReaderScript.outline(picture, rect, PAGE_BOX, BOX_THICKNESS)
 	var drew_the_band: bool = band.size.x > 0 and band.size.y > 0
@@ -2530,6 +2549,17 @@ func _draw_the_boxes(lines: PackedStringArray, band: Rect2i) -> void:
 		return
 	print("--- the block's own rectangles, marked on %s ---" % from)
 	print("  %d control(s) a finger can aim at, in cyan, with a dot at the centre the block published" % taps.size())
+	print(
+		(
+			"  %d of them carry the block's own number, so the block's own `tap` lines are this picture's legend"
+			% numbered
+		)
+	)
+	if numbered == 0 and taps.size() > 0:
+		print(
+			"      none did: this block was written before the numbers existed, so the legend is the order of the"
+		)
+		print("      lines and nothing in the picture. A newer block numbers every control.")
 	print("  %d page(s) standing in front of the board, in amber" % pages.size())
 	if drew_the_band:
 		print("  the band the device keeps, in pink - **the part of this screen the program cannot see**")
@@ -2561,8 +2591,26 @@ static func named_boxes_of(lines: PackedStringArray, kind: String) -> Array[Dict
 			continue
 		var at: int = line.rfind("screen (")
 		var box_name: String = line.substr(kind.length(), at - kind.length()).strip_edges()
-		found.append({ "name": box_name, "rect": rect })
+		found.append({ "name": box_name, "rect": rect, "n": number_in(line) })
 	return found
+
+
+## The number a `tap` line ends with - **the block's own number for that control** - or 0 for a line that has none,
+## which is every line of a block written before the numbers existed.
+##
+## It is read as the line's **last token**, so a caption that happens to hold a `#` cannot be mistaken for the
+## number, and a line that ends in a word rather than in `#n` answers 0 rather than a number made up from whatever
+## digits it holds. A caller with 0 draws the rectangle and leaves the number off, which is the honest picture of a
+## block that never said one.
+static func number_in(line: String) -> int:
+	var at: int = line.rfind(" ")
+	if at < 0:
+		return 0
+	var tail: String = line.substr(at + 1).strip_edges()
+	if not tail.begins_with("#"):
+		return 0
+	var said: String = tail.substr(1)
+	return int(said) if said.is_valid_int() else 0
 
 
 ## The screen rectangle a line published, in the probe's own words for one: `(x, y) .. (x, y) WxH px`.
