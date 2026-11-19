@@ -7,7 +7,7 @@ extends Node
 ##
 ## **It reads, it names, and it drives the two checks that can be run in this process; it decides
 ## nothing.** The checks this project owns are good and there are many of them, so the fault this file
-## exists to cure is not a missing check - it is that the sixteen instruments in the table below have to
+## exists to cure is not a missing check - it is that the instruments in the table below have to
 ## be known before any one of them can be reached. `tests/test_debug_toolbox.gd` holds every line of that
 ## table to naming a file that is really there, because an index with a dead line in it sends a person
 ## somewhere that is not there and is worse than no index at all.
@@ -66,6 +66,11 @@ const INSTRUMENTS: Array[Dictionary] = [
 		"name": "console",
 		"question": "what the running program thinks: :where, :pages, :probe, :mode, :doc",
 		"scene": "res://tools/console.tscn",
+	},
+	{
+		"name": "vocabulary",
+		"question": "what this program itself calls things: its pages, its menus, its tools, its keys and its layers",
+		"scene": "res://tools/vocabulary.tscn",
 	},
 	{
 		"name": "gui_sweep",

@@ -105,8 +105,10 @@ Every feature here has the same six parts. A change that adds one and not the ot
   `-- res://tests plant_`. Ziva's `run_tests` runs the same files. **CI runs the suite** -
   `.github/workflows/workflow-checks.yml` runs it on every pull request and on a push to `main`, and validates the release workflow guide.
 - **The dev tools**: `res://tools/` holds one-off checks that are run, not shipped - `audit.gd` (one
-  pass: plant check, HUD layout, every scene loads), `plant_scene_check.gd`, `hud_layout_check.gd`, `console.gd`,
-  and the per-feature `*_demo.gd` scripts. Run them with Ziva's `execute_script` or as a scene.
+  pass: plant check, HUD layout, every scene loads), `plant_scene_check.gd`, `hud_layout_check.gd`,
+  `console.gd`, `vocabulary.gd` (the names the program itself uses - its pages, menus, tools, keys
+  and layers), and the per-feature `*_demo.gd` scripts. `debug_toolbox.gd` is the index of them
+  all, with the question each one answers. Run them with Ziva's `execute_script` or as a scene.
 - **The development console**: run `res://tools/console.tscn` and the console opens over the running
   game; `:help` lists its commands and a line without a leading `:` runs as GDScript. When the question
   is about the running program - where a control sits on screen, what the live tree holds, what changes

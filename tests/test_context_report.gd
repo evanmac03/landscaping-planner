@@ -87,6 +87,7 @@ func test_the_snapshot_lists_its_subjects() -> void:
 		"field-capture",
 		"workflow",
 		"help",
+		"gui-vocabulary",
 	]:
 		assert(names.has(expected), "%s is one of them" % expected)
 		assert(ContextReportScript.has_subject(expected), "and it is buildable")
@@ -171,6 +172,23 @@ func test_every_specification_is_either_quoted_by_a_pack_or_named_as_needing_non
 		ContextReportScript._spec_lines().size() == on_disk.size(),
 		"the whole snapshot lists every document in docs/",
 	)
+
+
+## The vocabulary pack is the one subject that is a **dictionary** rather than a subsystem, and the rule
+## that makes it worth having is that it hands a reader the owner of each word instead of a copy of the
+## words. A pack that pasted the menus in would be a second list of them - right on the day it was built
+## and wrong the first time somebody adds an entry - which is the fault this project works hardest to
+## avoid. So: the tool that prints the vocabulary is named, the modules that own the words are detailed
+## in full, and no menu entry is quoted.
+func test_the_vocabulary_pack_sends_a_reader_to_the_owner_rather_than_a_copy_of_the_words() -> void:
+	var text: String = ContextReportScript.build_subject("gui-vocabulary")
+
+	assert(text.contains("res://tools/vocabulary.tscn"), "it names the tool that prints the vocabulary")
+	assert(text.contains("### res://scripts/page_index.gd"), "it details the module that names the pages")
+	assert(text.contains("### res://scripts/draft/draft_tool.gd"), "and the one table of drawing tools")
+	assert(text.contains("### res://tools/vocabulary.gd"), "and the tool itself, so the sections are known")
+	for menu_entry: String in ["Recover unsaved work", "Take off the plan", "Open the pipeline board"]:
+		assert(not text.contains(menu_entry), "it carries no copy of the menus: %s" % menu_entry)
 
 
 func test_every_subject_names_scripts_that_exist() -> void:

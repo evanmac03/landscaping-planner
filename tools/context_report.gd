@@ -663,6 +663,38 @@ const SUBJECTS := {
 		],
 		"data": [],
 	},
+	"gui-vocabulary": {
+		"title": "the program's own words - its pages, its menus, its tools, its keys and its layers",
+		"when": "Changing or adding anything a person reads the name of - a page, a menu entry, a drawing tool, a key, a layer - or asking what this program already calls a thing.",
+		"brief": [
+			"The work: putting a name on something a person sees. This program has one vocabulary and",
+			"**one module owns each word of it**, so the work is nearly always to ask the owner rather",
+			"than to write a list. `PageIndex` names the pages; the standing `MenuBar` is the only thing",
+			"that can say what the menus hold, because Godot draws a bar's titles itself rather than on a",
+			"node; `DraftTool.DRAFTING_TOOLS` is the one table of drawing tools; `Hud.drafting_rows` is",
+			"the rows the Keys reference shows; and the controller's own `layer_choices` is what a drawing",
+			"can be drawn on.",
+			"",
+			"**`res://tools/vocabulary.tscn` prints every one of them**, each section saying which module",
+			"it came from. It is a dev tool, so it ships with nothing and the export excludes `tools/*`.",
+			"**No pack quotes a list of menus or pages**: a quoted list is a second answer, and it is",
+			"wrong the first time somebody adds an entry. Read the owner.",
+			"",
+			"There is **no specification for this vocabulary**, and that is not an omission. A",
+			"specification says what a subsystem does; this is the dictionary the subsystems are written",
+			"in, and what holds it down is a test - `test_vocabulary.gd` compares each section of the tool",
+			"with the owner it came from, so the tool cannot come to describe a page the program does not",
+			"have.",
+		],
+		"scripts": [
+			"res://scripts/page_index.gd",
+			"res://scripts/draft/draft_tool.gd",
+			"res://tools/vocabulary.gd",
+		],
+		"also": ["Hud", "DraftController", "HudProbe", "PageChrome", "MenuBar", "Topmost", "ScreenshotReader"],
+		"sections": [],
+		"data": [],
+	},
 }
 
 ## The specifications **no pack quotes**, each with a sentence saying why not.
