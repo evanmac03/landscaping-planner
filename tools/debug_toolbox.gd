@@ -7,7 +7,7 @@ extends Node
 ##
 ## **It reads, it names, and it drives the two checks that can be run in this process; it decides
 ## nothing.** The checks this project owns are good and there are many of them, so the fault this file
-## exists to cure is not a missing check - it is that the fifteen instruments in the table below have to
+## exists to cure is not a missing check - it is that the sixteen instruments in the table below have to
 ## be known before any one of them can be reached. `tests/test_debug_toolbox.gd` holds every line of that
 ## table to naming a file that is really there, because an index with a dead line in it sends a person
 ## somewhere that is not there and is worse than no index at all.
@@ -91,6 +91,11 @@ const INSTRUMENTS: Array[Dictionary] = [
 		"name": "gui_overlap_show",
 		"question": "the picture that shows one surface drawn over another",
 		"scene": "res://tools/gui_overlap_show.tscn",
+	},
+	{
+		"name": "screen_shot",
+		"question": "a picture of the screen as it is now, with the moment named - or one region of any picture, twice as big",
+		"scene": "res://tools/screen_shot.tscn",
 	},
 	{
 		"name": "page_chrome_probe",
