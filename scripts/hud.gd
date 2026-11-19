@@ -859,9 +859,7 @@ func _the_pages_up() -> PackedStringArray:
 			continue
 		# The page's rectangle through the probe's own reader, which is the one the block's `page` line is written
 		# with: the state watched here and the rectangle said there cannot then be two different readings.
-		up.append(
-			"%s %s" % [PageLayoutScript.page_name(window), str(HudProbeScript.window_rect(window))]
-		)
+		up.append("%s %s" % [PageLayoutScript.page_name(window), str(HudProbeScript.window_rect(window))])
 	return up
 
 
@@ -983,9 +981,7 @@ func drawn_surfaces() -> Array:
 	var board: Control = get_node_or_null(^"Root") as Control
 	var surfaces: Array = HudProbeScript.words_in(board)
 	if top_bar != null:
-		surfaces.append(
-			DrawnSurfacesScript.top_bar("the top bar", Rect2i(HudProbeScript.screen_rect(top_bar)))
-		)
+		surfaces.append(DrawnSurfacesScript.top_bar("the top bar", Rect2i(HudProbeScript.screen_rect(top_bar))))
 	for window: Window in get_viewport().get_embedded_subwindows():
 		if window.visible:
 			surfaces.append_array(HudProbeScript.page_surfaces(window))
@@ -1022,9 +1018,7 @@ func _say_the_screen() -> void:
 			draft_hints_label.text if draft_hints_label != null else "",
 		)
 	)
-	lines.append_array(
-		HudProbeScript.row_lines(menu_bar.get_parent() as Control, "the top bar", menu_bar_room())
-	)
+	lines.append_array(HudProbeScript.row_lines(menu_bar.get_parent() as Control, "the top bar", menu_bar_room()))
 	# **A tap line carries the control's number in this block**, counted from one and carried across the parts: the
 	# board's controls are numbered here and a page's carry on from the board's count where the pages are walked,
 	# near the foot of this function. The count is threaded rather than worked out twice - a second walk of the
@@ -1040,11 +1034,7 @@ func _say_the_screen() -> void:
 	# driver wants to know when a click does nothing.
 	lines.append_array(HudProbeScript.offscreen_lines(get_node_or_null(^"Root"), "the board"))
 	lines.append_array(
-		HudProbeScript.reach_lines(
-			get_node_or_null(^"Root"),
-			get_viewport().get_embedded_subwindows(),
-			"the board",
-		)
+		HudProbeScript.reach_lines(get_node_or_null(^"Root"), get_viewport().get_embedded_subwindows(), "the board")
 	)
 	# Then the two the phone needs and the desk does not. What a finger would be asked to hit is only a question
 	# while a finger is the thing being served - the desk's own 31 px buttons are right for a mouse - and a whole
@@ -1059,19 +1049,12 @@ func _say_the_screen() -> void:
 		# which space that is: handed over in layout pixels it compared 107 with 97 and called every button
 		# on the screen ten pixels short.
 		var finger_least: int = HudProbeScript.finger_floor(get_node_or_null(^"Root"))
-		lines.append_array(
-			HudProbeScript.small_lines(get_node_or_null(^"Root"), "the board", finger_least)
-		)
+		lines.append_array(HudProbeScript.small_lines(get_node_or_null(^"Root"), "the board", finger_least))
 		lines.append_array(HudProbeScript.close_lines(get_node_or_null(^"Root"), "the board"))
 		lines.append_array(HudProbeScript.unsafe_lines(get_node_or_null(^"Root"), "the board"))
 		lines.append_array(HudProbeScript.middle_lines(get_node_or_null(^"Root"), "the board"))
 		lines.append_array(
-			HudProbeScript.tiny_lines(
-				get_node_or_null(^"Root"),
-				"the board",
-				finger_scale,
-				finger_density,
-			)
+			HudProbeScript.tiny_lines(get_node_or_null(^"Root"), "the board", finger_scale, finger_density)
 		)
 		for window: Window in get_viewport().get_embedded_subwindows():
 			if window.visible:
@@ -1080,9 +1063,7 @@ func _say_the_screen() -> void:
 				lines.append_array(HudProbeScript.close_lines(window, finger_page))
 				lines.append_array(HudProbeScript.unsafe_lines(window, finger_page))
 				lines.append_array(HudProbeScript.middle_lines(window, finger_page))
-				lines.append_array(
-					HudProbeScript.tiny_lines(window, finger_page, finger_scale, finger_density)
-				)
+				lines.append_array(HudProbeScript.tiny_lines(window, finger_page, finger_scale, finger_density))
 	lines.append_array(HudProbeScript.page_edge_lines(get_viewport().get_embedded_subwindows()))
 	# Then the one thing a rectangle cannot say: whether a box is being *scrolled*, and whether the room to
 	# have made it bigger was there all along. A picture cannot tell a box that scrolls from one that clipped
@@ -1101,18 +1082,10 @@ func _say_the_screen() -> void:
 			var a_pages_own: PackedStringArray = HudProbeScript.page_lines(window, number)
 			lines.append_array(a_pages_own)
 			number += HudProbeScript.taps_in(a_pages_own)
-			lines.append_array(
-				HudProbeScript.crowded_lines(window, PageLayoutScript.page_name(window))
-			)
-			lines.append_array(
-				HudProbeScript.offscreen_lines(window, PageLayoutScript.page_name(window))
-			)
-			lines.append_array(
-				HudProbeScript.words_lines(window, PageLayoutScript.page_name(window))
-			)
-			lines.append_array(
-				HudProbeScript.clipped_lines(window, PageLayoutScript.page_name(window))
-			)
+			lines.append_array(HudProbeScript.crowded_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.offscreen_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.words_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.clipped_lines(window, PageLayoutScript.page_name(window)))
 	# What the glass says about the one rectangle no layout knows: a page's title bar is drawn by Godot above
 	# the page and a phone draws it taller than the theme says, so it is read here and printed beside the
 	# theme's own answer. Only where there is a screen to read it off: a headless run has no framebuffer - the
@@ -1176,9 +1149,7 @@ func _process(delta: float) -> void:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
 	# Both overhead views share one zoom, so one conversion serves them both.
-	overlay.set_pixels_per_metre(
-		ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size)
-	)
+	overlay.set_pixels_per_metre(ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size))
 	# Arming the tools happens on a key press inside the view controller, which has
 	# no signal for it, and it is one bool: reading it is cheaper than routing it.
 	# The legend and the palette both go away on the ground, where the tools do
@@ -1448,12 +1419,7 @@ const DRAFT_BOX_ROWS := 4
 ## The full reference has not gone anywhere. It is the Keys page, `drafting_rows` below, which is where a
 ## list of every key belongs - and it is where the coverage test looks for every bound key, so a key cannot
 ## quietly stop being described by moving out of this box.
-static func tool_box_rows(
-	tool_name: String,
-	key: String,
-	description: String,
-	keys: String,
-) -> Array[String]:
+static func tool_box_rows(tool_name: String, key: String, description: String, keys: String) -> Array[String]:
 	var rows: Array[String] = []
 	rows.append(tool_name if key == "" else "%s   (%s)" % [tool_name, key])
 	if description != "":
@@ -1467,12 +1433,7 @@ static func tool_box_rows(
 
 
 ## The same, as one block of text for a label.
-static func tool_box_text(
-	tool_name: String,
-	key: String,
-	description: String,
-	keys: String,
-) -> String:
+static func tool_box_text(tool_name: String, key: String, description: String, keys: String) -> String:
 	return "\n".join(PackedStringArray(tool_box_rows(tool_name, key, description, keys)))
 
 
@@ -1837,8 +1798,9 @@ func lift_the_top_bar_by(inset: int) -> void:
 		top_bar.add_theme_stylebox_override(
 			&"panel",
 			ChromeStyleScript.bar_plate(
-				plate_as_drawn, plate_as_drawn.content_margin_top + _bar_offsets_as_drawn.x + down
-			)
+				plate_as_drawn,
+				plate_as_drawn.content_margin_top + _bar_offsets_as_drawn.x + down,
+			),
 		)
 		top_bar.set_meta(&"row_lifted", true)
 	elif top_bar.has_meta(&"row_lifted"):
@@ -1953,17 +1915,8 @@ func place_the_left_column_for_a_device() -> void:
 	var bar_foot: float = top_bar.position.y + top_bar.size.y
 	var plate_top: float = hints.position.y
 	var room: float = palette.get_parent_area_size().y
-	var least: float = PhoneHudScript.row_height(
-		PhoneHudScript.canvas_scale(get_window()),
-		PhoneHudScript.dpi(),
-	)
-	var placed: Vector2 = offsets_for_the_left_column(
-		bar_foot,
-		plate_top,
-		_palette_offsets_as_drawn,
-		room,
-		least,
-	)
+	var least: float = PhoneHudScript.row_height(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	var placed: Vector2 = offsets_for_the_left_column(bar_foot, plate_top, _palette_offsets_as_drawn, room, least)
 	palette.offset_top = placed.x
 	palette.offset_bottom = placed.y
 
@@ -1971,10 +1924,7 @@ func place_the_left_column_for_a_device() -> void:
 func size_for_a_finger(draw_up: bool) -> int:
 	if not draw_up:
 		return 0
-	var fitted: int = fit_the_chrome_for_a_finger(
-		PhoneHudScript.canvas_scale(get_window()),
-		PhoneHudScript.dpi(),
-	)
+	var fitted: int = fit_the_chrome_for_a_finger(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
 	_put_away_what_the_top_bar_cannot_hold()
 	return fitted
 
@@ -2267,15 +2217,7 @@ func _build_presentation_panel() -> void:
 		16.0,
 		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.",
 	)
-	_sun_day = _spin(
-		"SunDay",
-		1.0,
-		366.0,
-		1.0,
-		" d",
-		172.0,
-		"Day of the year. 172 is the solstice.",
-	)
+	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0, "Day of the year. 172 is the solstice.")
 	_sun_latitude = _spin(
 		"SunLatitude",
 		-90.0,
@@ -2518,11 +2460,7 @@ func _on_apply_sun() -> void:
 	# The site and the moment, together: the presenter turns the clock time into the
 	# site's own sky, which is where the longitude and the offset earn their place.
 	presentation.apply_sun(
-		SunStudyScript.site(
-			float(_sun_latitude.value),
-			float(_sun_longitude.value),
-			float(_sun_utc_offset.value),
-		),
+		SunStudyScript.site(float(_sun_latitude.value), float(_sun_longitude.value), float(_sun_utc_offset.value)),
 		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value)),
 	)
 
@@ -3467,9 +3405,7 @@ func menu_title_widths(words: Array[String]) -> Array[float]:
 	if font != null and point_size > 0:
 		var around: float = menu_button_chrome(bar)
 		for title: String in words:
-			widths.append(
-				around + font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, point_size).x
-			)
+			widths.append(around + font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, point_size).x)
 	if borrowed:
 		bar.free()
 	return widths
@@ -3998,21 +3934,13 @@ func _ask(question: ConfirmationDialog) -> void:
 	# take its size again afterwards was tried and is worse - `reset_size` walks the window into the room's
 	# corner, and the A16W measured the `Discard` button standing 95 px into the band the device keeps.
 	if shows_touch_controls():
-		fit_a_question_for_a_finger(
-			question,
-			PhoneHudScript.canvas_scale(get_window()),
-			PhoneHudScript.dpi(),
-		)
+		fit_a_question_for_a_finger(question, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
 	question.popup_centered_clamped()
 
 
 ## The measuring half of `_ask`, with the device stated rather than read, so that a test can hold what a phone
 ## would be told without being one - the same door `fit_the_chrome_for_a_finger` is for the chrome.
-func fit_a_question_for_a_finger(
-	question: ConfirmationDialog,
-	drawn_at: float,
-	density: float,
-) -> int:
+func fit_a_question_for_a_finger(question: ConfirmationDialog, drawn_at: float, density: float) -> int:
 	return PhoneHudScript.fit_the_chrome_for_a_finger(question, drawn_at, density)
 
 
@@ -4606,10 +4534,7 @@ func page_help_refusal() -> String:
 	if PageHelpScript.WITHOUT_NEED.has(asked):
 		return String(PageHelpScript.WITHOUT_NEED[asked])
 	if PageHelpScript.NOT_YET_WRITTEN.has(asked):
-		return "the manual has not reached \"%s\" yet: %s" % [
-			asked,
-			String(PageHelpScript.NOT_YET_WRITTEN[asked]),
-		]
+		return "the manual has not reached \"%s\" yet: %s" % [asked, String(PageHelpScript.NOT_YET_WRITTEN[asked])]
 	return "the manual has nothing about \"%s\"" % asked
 
 
@@ -5304,11 +5229,9 @@ func open_dxf_panel() -> void:
 		var option := choice as OptionButton
 		var needed := int(_pending_dxf.get("insunits", 0)) == 0
 		option.disabled = not needed
-		option.tooltip_text = (
-			"this file does not say what its units are"
+		option.tooltip_text = ("this file does not say what its units are"
 			if needed
-			else "the file states its own units"
-		)
+			else "the file states its own units")
 	var answer := _dxf_panel.get_node_or_null(^"Page/Column/Buttons/ImportDxf")
 	if answer is Button:
 		(answer as Button).disabled = not dxf_import_enabled()
@@ -5331,9 +5254,7 @@ func close_dxf_panel() -> void:
 ## `item_selected`, so this cannot come back round.
 func choose_dxf_units(units: String) -> void:
 	_dxf_units = units
-	var choice := (
-		_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null
-	)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		for index in option.item_count:
@@ -5346,9 +5267,7 @@ func choose_dxf_units(units: String) -> void:
 ## What the units drop-down is currently showing, for a run that wants to see that it agrees with what
 ## the file was read as.
 func dxf_units_text() -> String:
-	var choice := (
-		_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null
-	)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		if option.item_count > 0:
@@ -5540,9 +5459,7 @@ func landxml_report_text() -> String:
 ## Whether what was read may go on the drawing. A refused file is *shown* rather than hidden, because
 ## the usual reason is the one question it can still answer.
 func landxml_import_enabled() -> bool:
-	return (
-		_draft != null and _draft.document != null and LandXmlFileScript.is_usable(_pending_landxml)
-	)
+	return (_draft != null and _draft.document != null and LandXmlFileScript.is_usable(_pending_landxml))
 
 
 ## Read the plat in hand again, with the units a person chose. Called on open and whenever the choice
@@ -5572,11 +5489,9 @@ func open_landxml_panel() -> void:
 		var option := choice as OptionButton
 		var needed := String(_pending_landxml.get("declared_unit", "")).is_empty()
 		option.disabled = not needed
-		option.tooltip_text = (
-			"this plat does not say what its units are"
+		option.tooltip_text = ("this plat does not say what its units are"
 			if needed
-			else "the file states its own units"
-		)
+			else "the file states its own units")
 	var answer := _landxml_panel.get_node_or_null(^"Page/Column/Buttons/ImportLandXml")
 	if answer is Button:
 		(answer as Button).disabled = not landxml_import_enabled()
@@ -5765,11 +5680,9 @@ func _on_osm_fetch(centre: Dictionary, radius_m: float) -> void:
 		return
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
-	_osm_window.say(
-		("the map was not read"
+	_osm_window.say(("the map was not read"
 			if not bool(plan.get("ok", false))
-			else OsmFileScript.describe(plan))
-	)
+			else OsmFileScript.describe(plan)))
 
 
 ## The chooser for a map already saved on disk. Anywhere on the disk, because it is a file somebody
@@ -5789,11 +5702,9 @@ func _on_osm_chosen(path: String) -> void:
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
 	_osm_window.say(
-		(
-			"the map was not read"
+		("the map was not read"
 			if not bool(_pending_osm.get("ok", false))
-			else OsmFileScript.describe(_pending_osm)
-		)
+			else OsmFileScript.describe(_pending_osm))
 	)
 
 
@@ -6012,11 +5923,9 @@ func apply_to_the_picture() -> void:
 		return
 	_refresh_underlay_window()
 	_underlay_window.say(
-		(
-			_draft.last_message
+		(_draft.last_message
 			if bool(changed.get("changed", false))
-			else "the picture already lies like that"
-		)
+			else "the picture already lies like that")
 	)
 
 
@@ -6392,9 +6301,7 @@ func render_sun_study(moments: Array) -> Dictionary:
 	if presentation == null:
 		return _refuse_sun_render("there is no presentation to render from")
 	if moments.is_empty():
-		return _refuse_sun_render(
-			"no moment of this study has the sun up, so there is nothing to render"
-		)
+		return _refuse_sun_render("no moment of this study has the sun up, so there is nothing to render")
 	_sun_render_moments = moments.duplicate()
 	_sun_render_names = SunReportScript.still_names(moments)
 	_sun_render_index = 0
@@ -6456,10 +6363,7 @@ func _finish_sun_render() -> void:
 		return
 	if _sun_render_written == 0 and _sun_render_refused == 0:
 		return
-	var words := "%d still%s written" % [
-		_sun_render_written,
-		"" if _sun_render_written == 1 else "s",
-	]
+	var words := "%d still%s written" % [_sun_render_written, "" if _sun_render_written == 1 else "s"]
 	if _sun_render_refused > 0:
 		words += ", %d moment%s could not be rendered" \
 				% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
@@ -7405,12 +7309,7 @@ func _plant_order_book() -> CostBook:
 func write_plant_order(job_id: String, supplier: String) -> Dictionary:
 	if _job_desk == null:
 		_build_job_desk()
-	var written: Dictionary = PlantOrderScript.write_orders(
-		_job_desk,
-		job_id,
-		plant_order_plan(),
-		supplier,
-	)
+	var written: Dictionary = PlantOrderScript.write_orders(_job_desk, job_id, plant_order_plan(), supplier)
 	if bool(written["ok"]):
 		_plant_order_state = _plant_order_signature()
 		# What the job has committed has moved, so the cost page and the menu lines are stale.
@@ -7425,8 +7324,7 @@ func _on_plant_order_requested(job_id: String, supplier: String) -> void:
 		return
 	if bool(written["ok"]):
 		_plant_order_window.say(
-			"written, and waiting to be issued: %s"
-			% PlantOrderScript.orders_words(written["orders"])
+			"written, and waiting to be issued: %s" % PlantOrderScript.orders_words(written["orders"])
 		)
 	else:
 		_plant_order_window.say(String(written["reason"]))
@@ -7445,9 +7343,7 @@ func _on_yield_order_requested(rows: Array) -> void:
 		PageChromeScript.show_centred(_plant_order_window)
 	release_keyboard_focus(self)
 	if _yield_window != null:
-		_yield_window.say(
-			"handed %d kind%s to the nursery order" % [rows.size(), "" if rows.size() == 1 else "s"]
-		)
+		_yield_window.say("handed %d kind%s to the nursery order" % [rows.size(), "" if rows.size() == 1 else "s"])
 
 
 ## Point the order page at the rows a household's count comes to, priced, and fill it - without showing
@@ -7519,16 +7415,12 @@ func food_places() -> Array:
 	var map: ZoneMapScript = _ground_map()
 	if map == null:
 		return places
-	places.append(
-		{ "name": "the whole site", "profile": map.base.copy(), "summary": map.base.describe() }
-	)
+	places.append({ "name": "the whole site", "profile": map.base.copy(), "summary": map.base.describe() })
 	for raw: Variant in map.zones:
 		var zone: Variant = raw
 		var stated: TerrainProfile = zone.profile
 		var profile: TerrainProfile = stated.merged_over(map.base)
-		places.append(
-			{ "name": String(zone.name), "profile": profile, "summary": profile.describe() }
-		)
+		places.append({ "name": String(zone.name), "profile": profile, "summary": profile.describe() })
 	return places
 
 
@@ -7889,9 +7781,7 @@ func _yield_signature() -> String:
 		return ""
 	var parts: PackedStringArray = PackedStringArray()
 	for plant: PlantSpecies in catalogue.all():
-		parts.append(
-			"%s:%d:%d" % [String(plant.id), plant.yield_per_plant_g, plant.need_per_person_g]
-		)
+		parts.append("%s:%d:%d" % [String(plant.id), plant.yield_per_plant_g, plant.need_per_person_g])
 	return "|".join(parts)
 
 
@@ -7975,11 +7865,7 @@ func _season_signature() -> String:
 	if _draft == null or _draft.document == null:
 		return "no drawing"
 	var document: DraftDocument = _draft.document
-	return "%d:%d:%d" % [
-		document.get_instance_id(),
-		document.season_last_frost,
-		document.season_first_frost,
-	]
+	return "%d:%d:%d" % [document.get_instance_id(), document.season_last_frost, document.season_first_frost]
 
 
 ## What the Site menu says about the season, in one line. Lower-cased at the front because a menu
@@ -7988,10 +7874,7 @@ func _season_text() -> String:
 	var document: DraftDocument = _draft.document if _draft != null else null
 	if document == null:
 		return "there is no drawing to state a growing season on"
-	var words := GrowingSeasonScript.season_text(
-		document.season_last_frost,
-		document.season_first_frost,
-	)
+	var words := GrowingSeasonScript.season_text(document.season_last_frost, document.season_first_frost)
 	if words.is_empty():
 		return "the growing season is not stated"
 	return words.substr(0, 1).to_lower() + words.substr(1)
@@ -8264,10 +8147,7 @@ func _jobs_text() -> String:
 	if _job_desk == null:
 		return "no crews and no jobs yet"
 	var line: String = _job_desk.describe()
-	if (
-		_billing_ledger != null
-		and not (_billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0)
-	):
+	if (_billing_ledger != null and not (_billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0)):
 		line = "%s, %s" % [line, _billing_ledger.describe()]
 	if _ledger_desk != null and (_ledger_desk.count() > 0 or _ledger_desk.issues() > 0):
 		line = "%s, %s" % [line, _ledger_desk.describe()]
@@ -8937,9 +8817,7 @@ func _on_sheet_plot(index: int) -> void:
 	var path: String = _draft.plot_sheet(index, _planting_rows())
 	# What the plotter said, and where the sheet went: a plot is reported by its file, because the only
 	# thing a person does next with a sheet is open it.
-	_sheet_window.say(
-		"%s -> %s" % [_draft.last_message, path] if not path.is_empty() else _draft.last_message
-	)
+	_sheet_window.say("%s -> %s" % [_draft.last_message, path] if not path.is_empty() else _draft.last_message)
 
 
 func _on_sheet_plot_set() -> void:
@@ -9013,10 +8891,7 @@ func _refresh_revision_window() -> void:
 	if state == _revision_state:
 		return
 	_revision_state = state
-	_revision_window.set_identity(
-		StoreScript.display_name(_draft.drawing_path),
-		_draft.revisions.dropped,
-	)
+	_revision_window.set_identity(StoreScript.display_name(_draft.drawing_path), _draft.revisions.dropped)
 	_revision_window.set_revisions(_draft.revision_rows())
 
 
@@ -9129,9 +9004,7 @@ func open_plant_key_window() -> void:
 	if _plant_key_window == null:
 		return
 	_plant_key_window.bind(plant_list())
-	_plant_key_window.suit_to(
-		view_controller.ground_at_cursor() if view_controller != null else { }
-	)
+	_plant_key_window.suit_to(view_controller.ground_at_cursor() if view_controller != null else { })
 	PageChromeScript.show_centred(_plant_key_window)
 	release_keyboard_focus(self)
 
@@ -9175,10 +9048,7 @@ func _on_plant_key_chosen(species_id: StringName) -> void:
 		return
 	var species: PlantSpecies = plant_list().get_species(species_id)
 	var named: String = species.display_name() if species != null else String(species_id)
-	_plant_say(
-		"%s is named, but nothing here can be planted yet: open a drawing with a yard first."
-		% named
-	)
+	_plant_say("%s is named, but nothing here can be planted yet: open a drawing with a yard first." % named)
 
 
 ## Put the last chosen plant back in hand. With nothing chosen yet, the library is what is wanted,
@@ -9259,9 +9129,7 @@ func _menu_read_ground(_entry: Dictionary) -> void:
 	var document: DraftDocument = _draft.document
 	var count: int = document.read_environment_from_drawing()
 	if count <= 0:
-		_plant_say(
-			"the drawing has no buildings or hard surfaces on it, so it says nothing about the ground"
-		)
+		_plant_say("the drawing has no buildings or hard surfaces on it, so it says nothing about the ground")
 		return
 	_plant_say("read %d area%s of ground from the drawing" % [count, "" if count == 1 else "s"])
 	_refresh_menus()
@@ -9338,10 +9206,7 @@ func _on_plant_import_chosen(path: String) -> void:
 		_plant_say(String(written["reason"]))
 		return
 	var refused: Array = report["refused"]
-	var words: String = "imported %d new, %d replaced" % [
-		int(report["added"]),
-		int(report["replaced"]),
-	]
+	var words: String = "imported %d new, %d replaced" % [int(report["added"]), int(report["replaced"])]
 	if not refused.is_empty():
 		words += ", %d refused" % refused.size()
 	_refresh_plant_browser()
@@ -9420,10 +9285,7 @@ func _refresh_plant_menu() -> void:
 	var stop := _find_item(&"plant.stop")
 	if not stop.is_empty():
 		var stop_popup: PopupMenu = stop[0]
-		stop_popup.set_item_disabled(
-			int(stop[1]),
-			view_controller == null or not view_controller.is_planting(),
-		)
+		stop_popup.set_item_disabled(int(stop[1]), view_controller == null or not view_controller.is_planting())
 
 # --- the front door -------------------------------------------------------------------------------
 
@@ -9522,12 +9384,7 @@ func _say_what_the_window_was_asked_for(why: StringName, shape: StringName) -> v
 	if not HudProbeScript.on():
 		return
 	print(
-		OrientationChoiceScript.report_words(
-			why,
-			shape,
-			is_the_doorway_up(),
-			OrientationChoiceScript.can_turn_here(),
-		)
+		OrientationChoiceScript.report_words(why, shape, is_the_doorway_up(), OrientationChoiceScript.can_turn_here())
 	)
 
 
@@ -9707,10 +9564,7 @@ func the_doorway_is_up() -> bool:
 ## the camera is the one where it shows most: a viewfinder held the way a wide board is held is a picture of a
 ## plant lying on its side, which is what a phone held upright over a landscape board used to get.
 func the_shape_for_the_window() -> StringName:
-	return OrientationChoiceScript.for_the_window(
-		the_doorway_is_up() or is_camera_window_open(),
-		_orientation,
-	)
+	return OrientationChoiceScript.for_the_window(the_doorway_is_up() or is_camera_window_open(), _orientation)
 
 
 ## The pages a change of the window's shape has to put back where they belong: every page in a `Window`, and

@@ -43,7 +43,10 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 	# rather than by bare board and the row of menus inside is pushed clear of it. The 12 is the scene's own top
 	# offset, which the plate no longer uses: the row has to be moved by it as well or it would ride up with the plate.
 	assert(is_equal_approx(bar.offset_top, 0.0), "the plate runs to the screen's own top: %s" % str(bar.offset_top))
-	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is the scene's, grown by the band: %s" % str(bar.offset_bottom))
+	assert(
+		is_equal_approx(bar.offset_bottom, 162.0),
+		"and its foot is the scene's, grown by the band: %s" % str(bar.offset_bottom),
+	)
 	# The plate is replaced by the one `ChromeStyle` draws, which is the one place a chrome plate is styled - and it
 	# is deliberately not a `StyleBoxFlat`, so nothing here may read it as one.
 	assert(bar.has_theme_stylebox_override(&"panel"), "the lifted plate is this program's own, not the theme's")
@@ -201,10 +204,7 @@ func test_the_foot_line_is_given_the_ground_the_device_keeps_and_never_drifts() 
 	# **A turn re-runs this**, so it has to answer the same thing every time: a pass that read its own output back
 	# would walk the foot line up the screen by a band on every rotation.
 	hud.give_the_foot_line(46)
-	assert(
-		is_equal_approx(foot.offset_bottom, -58.0),
-		"the second pass moves nothing: %s" % str(foot.offset_bottom),
-	)
+	assert(is_equal_approx(foot.offset_bottom, -58.0), "the second pass moves nothing: %s" % str(foot.offset_bottom))
 	assert(
 		is_equal_approx(drafting.offset_bottom, -108.0),
 		"and the drafting line is where it was: %s" % str(drafting.offset_bottom),
@@ -214,10 +214,7 @@ func test_the_foot_line_is_given_the_ground_the_device_keeps_and_never_drifts() 
 	# scene's own two numbers back, to the pixel.
 	hud.give_the_foot_line(0)
 	assert(is_equal_approx(foot.offset_bottom, -12.0), "nothing to clear puts it back: %s" % str(foot.offset_bottom))
-	assert(
-		is_equal_approx(drafting.offset_bottom, -62.0),
-		"both plates, exactly: %s" % str(drafting.offset_bottom),
-	)
+	assert(is_equal_approx(drafting.offset_bottom, -62.0), "both plates, exactly: %s" % str(drafting.offset_bottom))
 
 	# One of the two missing is not a fault of the other: the plate that is there is still given its ground.
 	hud.draft_hints = null

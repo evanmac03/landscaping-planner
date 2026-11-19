@@ -44,14 +44,8 @@ const BlankPictureScript := preload("res://scripts/blank_picture.gd")
 ## glass with the project's own stretch gives 1444 by 666, which is exactly what the device reports (`scale=1.62`,
 ## being min(2340/1600, 1080/900) * 1.35) - so both ways up are reproduced from the display alone.
 const SHAPES: Dictionary = {
-	"standing": {
-		"glass": Vector2i(1080, 2340),
-		"usable": Rect2i(0, 100, 1080, 2240),
-	},
-	"lying": {
-		"glass": Vector2i(2340, 1080),
-		"usable": Rect2i(100, 0, 2240, 1080),
-	},
+	"standing": { "glass": Vector2i(1080, 2340), "usable": Rect2i(0, 100, 1080, 2240) },
+	"lying": { "glass": Vector2i(2340, 1080), "usable": Rect2i(100, 0, 2240, 1080) },
 }
 const PHONE_DPI := 450.0
 
@@ -136,7 +130,6 @@ func _ready() -> void:
 	# and a program that draws *into* it look identical on paper: both are a flat rectangle of one colour. That
 	# marker is gone now that the nesting is known to be right - a picture that lies is worse than no picture - and
 	# the run's own verdicts above are what says whether the view holds anything.
-
 	_app = load("res://scenes/main.tscn").instantiate()
 	_app.name = "App"
 	_view.add_child(_app)

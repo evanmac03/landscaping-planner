@@ -7,7 +7,6 @@ extends Node
 ## A run that quietly states the wrong shape answers every question with the wrong device and looks perfectly
 ## healthy doing it, which is the whole reason these three are here rather than left to a person's eye.
 
-
 ## A line that names neither way up is the standing glass, which is what every reading in this project was taken at
 ## until the lying one was written down.
 const Screen := preload("res://tools/phone_screen.gd")
@@ -19,7 +18,7 @@ func test_a_line_that_names_no_shape_is_standing_and_lying_is_what_the_verb_says
 	assert(Screen.shape_from(PackedStringArray(["--lying"])) == "lying", "--lying is lying")
 	assert(
 		Screen.shape_from(PackedStringArray(["--lying", "--standing"])) == "lying",
-		"--lying wins when both are given"
+		"--lying wins when both are given",
 	)
 
 
@@ -66,9 +65,9 @@ func test_the_shot_path_is_read_off_the_line_or_says_no_picture_was_asked_for() 
 	assert(Screen.shot_path(PackedStringArray(["--shot"])) == Screen.TO_SCREEN, "a bare --shot is the tool's own place")
 	assert(
 		Screen.shot_path(PackedStringArray(["--shot", "res://build/x.png"])) == "res://build/x.png",
-		"a word after --shot is where it goes"
+		"a word after --shot is where it goes",
 	)
 	assert(
 		Screen.shot_path(PackedStringArray(["--lying", "--shot"])) == Screen.TO_SCREEN,
-		"a bare --shot last is the same as a bare --shot"
+		"a bare --shot last is the same as a bare --shot",
 	)

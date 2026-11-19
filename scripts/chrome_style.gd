@@ -48,6 +48,7 @@ const SIDE := 16.0
 const FOOT := 9.0
 const ANTI_ALIASING_SIZE := 1.0
 
+
 ## The top bar's plate: the plate the scene drew, with the row's own top inset handed in and the rule laid just
 ## inside its edge.
 ##

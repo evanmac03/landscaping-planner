@@ -542,7 +542,13 @@ static func layer_pen(layer: DraftLayer, pen_table: DraftPlotStyleTable) -> Line
 	return pen_table.resolve_for(layer.screen_colour, fallback)
 
 
-static func _emit_legend(writer: DraftPdfWriter, document: DraftDocument, pen_table: DraftPlotStyleTable, plan: Dictionary, options: Dictionary) -> void:
+static func _emit_legend(
+	writer: DraftPdfWriter,
+	document: DraftDocument,
+	pen_table: DraftPlotStyleTable,
+	plan: Dictionary,
+	options: Dictionary,
+) -> void:
 	var rect: Rect2 = plan["legend_pt"]
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
@@ -915,7 +921,13 @@ static func _scale_label(plan: Dictionary) -> String:
 	return PlotScaleScript.metric_label(plan["scale"])
 
 
-static func _emit_entity(writer: DraftPdfWriter, document: DraftDocument, entity: EntityScript, pen_table: DraftPlotStyleTable, plan: Dictionary) -> void:
+static func _emit_entity(
+	writer: DraftPdfWriter,
+	document: DraftDocument,
+	entity: EntityScript,
+	pen_table: DraftPlotStyleTable,
+	plan: Dictionary,
+) -> void:
 	var layer: DraftLayer = document.layers.get_layer(entity.layer)
 	var style := _plot_style(entity, layer, pen_table)
 
@@ -975,7 +987,13 @@ static func _dash_points(style: LineStyleScript) -> Array[float]:
 ## outline directly is what puts dimensions on the sheet whole: their extension
 ## lines, their arrowheads and their measurement are derived in one place and
 ## arrive here the same way they arrive on screen.
-static func _emit_layout(writer: DraftPdfWriter, entity: EntityScript, layer: DraftLayer, document: DraftDocument, plan: Dictionary) -> void:
+static func _emit_layout(
+	writer: DraftPdfWriter,
+	entity: EntityScript,
+	layer: DraftLayer,
+	document: DraftDocument,
+	plan: Dictionary,
+) -> void:
 	var parts: Dictionary = RenderScript.layout(
 		entity,
 		layer,
@@ -1037,7 +1055,14 @@ static func _emit_layout(writer: DraftPdfWriter, entity: EntityScript, layer: Dr
 ## Circles and arcs are the shapes most likely to be large on a sheet, so they
 ## are emitted as real curves rather than sampled polylines: a client zooming
 ## into the PDF must not be able to see facets, and a tree pit has to stay round.
-static func _emit_arc(writer: DraftPdfWriter, centre: Vector2, radius: float, start: float, sweep: float, plan: Dictionary) -> void:
+static func _emit_arc(
+	writer: DraftPdfWriter,
+	centre: Vector2,
+	radius: float,
+	start: float,
+	sweep: float,
+	plan: Dictionary,
+) -> void:
 	if radius <= 0.0 or absf(sweep) < 1e-9:
 		return
 	var segments := maxi(int(ceil(absf(sweep) / (PI * 0.5))), 1)
@@ -1089,7 +1114,13 @@ static func _emit_circle_path_pt(writer: DraftPdfWriter, centre: Vector2, radius
 ## One quarter of that circle, from one radius vector to the next going
 ## anticlockwise. Each control point sits off its own radius along the tangent, so
 ## the same control length serves all four quarters.
-static func _circle_quarter(writer: DraftPdfWriter, centre: Vector2, from_vector: Vector2, to_vector: Vector2, control: float) -> void:
+static func _circle_quarter(
+	writer: DraftPdfWriter,
+	centre: Vector2,
+	from_vector: Vector2,
+	to_vector: Vector2,
+	control: float,
+) -> void:
 	writer.curve_to(
 		centre + from_vector + Vector2(-from_vector.y, from_vector.x).normalized() * control,
 		centre + to_vector + Vector2(to_vector.y, -to_vector.x).normalized() * control,

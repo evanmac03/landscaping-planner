@@ -36,7 +36,10 @@ static func files() -> Array[String]:
 ## question, so a line naming that call has it removed before the shapes are looked for, and a device
 ## question beside it on the same line is still caught. The exception clears the call, never the line.
 static func offences(
-	text: String, path: String, shapes: Array[String], left_alone: Array[String] = []
+	text: String,
+	path: String,
+	shapes: Array[String],
+	left_alone: Array[String] = [],
 ) -> Array[String]:
 	var out: Array[String] = []
 	var lines := text.split("\n")

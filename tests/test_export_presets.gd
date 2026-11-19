@@ -31,11 +31,7 @@ const FILTERS: Array[String] = ["include_filter", "exclude_filter"]
 ## "does not" needs - `the Linux preset keeps out` against `the Windows preset does not keep out`. "Ships" and
 ## "keeps out" are not the same verb, and one form used for both would be a half-truth of the kind this project
 ## refuses.
-const FILTER_VERBS: Dictionary = {
-	"include_filter": ["ships", "ship"],
-	"exclude_filter": ["keeps out", "keep out"],
-}
-
+const FILTER_VERBS: Dictionary = { "include_filter": ["ships", "ship"], "exclude_filter": ["keeps out", "keep out"] }
 
 # --- the rule --------------------------------------------------------------------------------------------------
 
@@ -58,15 +54,11 @@ static func presets_in(path: String) -> Array[Dictionary]:
 		# is the whole of what follows the dot names one.
 		if not section.trim_prefix("preset.").is_valid_int():
 			continue
-		var held: Dictionary = {}
+		var held: Dictionary = { }
 		for key: String in FILTERS:
 			held[key] = _paths_in(String(config.get_value(section, key, "")))
 		found.append(
-			{
-				"section": section,
-				"name": String(config.get_value(section, "name", section)),
-				"filters": held,
-			}
+			{ "section": section, "name": String(config.get_value(section, "name", section)), "filters": held }
 		)
 	return found
 
@@ -74,7 +66,7 @@ static func presets_in(path: String) -> Array[Dictionary]:
 ## The paths written in one filter, as a set - a `Dictionary` used for its keys, so that a path written twice
 ## counts once and the order it was written in is not part of the answer.
 static func _paths_in(filter: String) -> Dictionary:
-	var paths: Dictionary = {}
+	var paths: Dictionary = { }
 	for one: String in filter.split(",", false):
 		var trimmed: String = one.strip_edges()
 		if not trimmed.is_empty():
@@ -109,9 +101,9 @@ static func disagreements(presets: Array[Dictionary]) -> Array[String]:
 		var words: Array = FILTER_VERBS.get(key, ["states", "state"])
 		var verb: String = String(words[0])
 		var bare: String = String(words[1])
-		var wanted: PackedStringArray = _listed((first.get("filters", {}) as Dictionary).get(key, {}))
+		var wanted: PackedStringArray = _listed((first.get("filters", { }) as Dictionary).get(key, { }))
 		for preset: Dictionary in presets:
-			var mine: PackedStringArray = _listed((preset.get("filters", {}) as Dictionary).get(key, {}))
+			var mine: PackedStringArray = _listed((preset.get("filters", { }) as Dictionary).get(key, { }))
 			if mine == wanted:
 				continue
 			var extra := PackedStringArray()
@@ -134,7 +126,6 @@ static func disagreements(presets: Array[Dictionary]) -> Array[String]:
 					% [key, name, bare, " and ".join(missing), first_name]
 				)
 	return said
-
 
 # --- the guard -------------------------------------------------------------------------------------------------
 
@@ -165,9 +156,7 @@ func test_the_preset_the_phone_tool_exports_through_is_one_of_them() -> void:
 ## two directions a filter can differ in, and the one difference that is not one.
 func test_the_guard_names_the_preset_that_states_something_different() -> void:
 	var fewer := _a_preset("preset.2", "Linux", { "tests/*": true, "tools/*": true })
-	var more := _a_preset(
-		"preset.0", "Windows Desktop", { "tests/*": true, "tools/*": true, "scenes/*": true }
-	)
+	var more := _a_preset("preset.0", "Windows Desktop", { "tests/*": true, "tools/*": true, "scenes/*": true })
 	var both: Array[Dictionary] = [more, fewer]
 	var said: Array[String] = disagreements(both)
 	assert(said.size() == 1, "one preset stating less is one disagreement: %s" % str(said))

@@ -58,9 +58,10 @@ func _ready() -> void:
 	var shot: Image = get_viewport().get_texture().get_image()
 	var where: String = ProjectSettings.globalize_path("res://build/plants_2d_and_3d.png")
 	var saved: int = shot.save_png(where)
-	print("PLANT wrote %s (%dx%d): %s" % [
-		where, shot.get_width(), shot.get_height(), "ok" if saved == OK else "SAVE FAILED %d" % saved
-	])
+	print(
+		"PLANT wrote %s (%dx%d): %s"
+		% [where, shot.get_width(), shot.get_height(), "ok" if saved == OK else "SAVE FAILED %d" % saved]
+	)
 	get_tree().quit()
 
 
@@ -98,9 +99,10 @@ func _the_2d_pane() -> Control:
 	# Half of his own scale sits between the two readings, which is how a number with no owner is set.
 	plant.scale = Vector2(0.55, 0.55)
 	_plant_2d = plant
-	print("PLANT 2D: preset '%s', axiom '%s', step %d of %d, branch length %s" % [
-		PRESET_2D, plant.axiom, plant.current_step, plant.max_steps, plant.branch_length
-	])
+	print(
+		"PLANT 2D: preset '%s', axiom '%s', step %d of %d, branch length %s"
+		% [PRESET_2D, plant.axiom, plant.current_step, plant.max_steps, plant.branch_length]
+	)
 	return pane
 
 
@@ -140,9 +142,10 @@ func _the_3d_pane() -> Control:
 	plant.leaf_texture = load(LEAF)
 	plant._draw()
 	_plant_3d = plant
-	print("PLANT 3D: preset '%s', axiom '%s', step %d of %d, branch length %s" % [
-		PRESET_3D, plant.axiom, plant.current_step, plant.max_steps, plant.branch_length
-	])
+	print(
+		"PLANT 3D: preset '%s', axiom '%s', step %d of %d, branch length %s"
+		% [PRESET_3D, plant.axiom, plant.current_step, plant.max_steps, plant.branch_length]
+	)
 	return pane
 
 

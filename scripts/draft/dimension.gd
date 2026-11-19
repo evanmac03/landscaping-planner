@@ -36,7 +36,12 @@ const AXIS_EPSILON := 1e-9
 ## Returns lines to stroke, marks to fill and labels to place. A view that only
 ## wants linework can ignore the other two, which is what the 3D overlay does: it
 ## has no way to draw filled triangles or text.
-static func layout(entity: DraftEntity, plot_scale: float, units: DraftUnits = null, style: DraftDimensionStyle = null) -> Dictionary:
+static func layout(
+	entity: DraftEntity,
+	plot_scale: float,
+	units: DraftUnits = null,
+	style: DraftDimensionStyle = null,
+) -> Dictionary:
 	var looks: DraftDimensionStyle = style if style != null else DimensionStyleScript.architectural()
 	var from: Vector2 = entity.point(0)
 	var to: Vector2 = entity.point(1)
@@ -117,7 +122,13 @@ static func style_for(entity: DraftEntity, document: DraftDocument = null) -> Dr
 
 
 ## A radius is a leader out to the edge with the value beside it.
-static func _radius(from: Vector2, to: Vector2, plot_scale: float, units: DraftUnits, looks: DraftDimensionStyle) -> Dictionary:
+static func _radius(
+	from: Vector2,
+	to: Vector2,
+	plot_scale: float,
+	units: DraftUnits,
+	looks: DraftDimensionStyle,
+) -> Dictionary:
 	var radius := from.distance_to(to)
 	var direction := (to - from).normalized()
 	var lines: Array[PackedVector2Array] = [PackedVector2Array([from, to])]
@@ -165,7 +176,13 @@ static func _radius(from: Vector2, to: Vector2, plot_scale: float, units: DraftU
 ##
 ## This is the one dimension that takes no `units`, for the reason above: a degree is a degree, so
 ## there is nothing for the drawing's system to decide.
-static func _angular(entity: DraftEntity, corner: Vector2, along_a: Vector2, plot_scale: float, looks: DraftDimensionStyle) -> Dictionary:
+static func _angular(
+	entity: DraftEntity,
+	corner: Vector2,
+	along_a: Vector2,
+	plot_scale: float,
+	looks: DraftDimensionStyle,
+) -> Dictionary:
 	var along_b := Vector2(entity.params[6], entity.params[7])
 	var radius: float = entity.params[4]
 	var side_a := along_a - corner

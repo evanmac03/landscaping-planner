@@ -15,12 +15,12 @@ func test_the_hud_declares_one_palette_column_and_it_is_the_scenes_node() -> voi
 	var board: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
 	assert(
 		board.contains("@onready var palette_column: PalettePanelScript = %PaletteColumn"),
-		"the palette's controls are read from the scene's own node, under the one name the HUD uses"
+		"the palette's controls are read from the scene's own node, under the one name the HUD uses",
 	)
 	assert(
 		not board.contains("palette_columnf"),
 		"and nothing in the file goes by a name like it: a second one, left null, is how the palette came "
-		+ "to have no buttons while every check still passed"
+		+ "to have no buttons while every check still passed",
 	)
 
 
@@ -33,6 +33,6 @@ func test_the_hud_scene_carries_the_node_that_name_resolves_to() -> void:
 	var script: Script = null if column == null else column.get_script()
 	assert(
 		script != null and String(script.resource_path).ends_with("palette_panel.gd"),
-		"and it carries the palette panel's own script, which is the class the member is typed as"
+		"and it carries the palette panel's own script, which is the class the member is typed as",
 	)
 	board.free()

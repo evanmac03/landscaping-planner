@@ -40,13 +40,8 @@ func test_an_autoload_of_the_projects_own_would_have_to_be_inert_outside_an_edit
 		if not _is_the_projects_own(path):
 			continue
 		var source := FileAccess.get_file_as_string(path)
-		var inert := (
-			source.contains("Engine.is_editor_hint()") or source.contains("OS.has_feature(\"editor\")")
-		)
-		assert(
-			inert,
-			"%s is an autoload of this project's own and never puts itself out: %s" % [autoload_name, path],
-		)
+		var inert := (source.contains("Engine.is_editor_hint()") or source.contains("OS.has_feature(\"editor\")"))
+		assert(inert, "%s is an autoload of this project's own and never puts itself out: %s" % [autoload_name, path])
 		judged.append(autoload_name)
 	if judged.is_empty():
 		print(
@@ -58,11 +53,9 @@ func test_an_autoload_of_the_projects_own_would_have_to_be_inert_outside_an_edit
 ## Every autoload and the path it names, read where Godot keeps them (`autoload/<Name>`) through the one
 ## reader for that shape, so a mistake in that reading shows up here as well as in its own test.
 func _autoloads() -> Dictionary:
-	var autoloads: Dictionary = {}
+	var autoloads: Dictionary = { }
 	for autoload_name: String in Toolbox.autoload_names():
-		var path := str(
-			ProjectSettings.get_setting(Toolbox.AUTOLOAD_PREFIX + autoload_name, "")
-		).trim_prefix("*")
+		var path := str(ProjectSettings.get_setting(Toolbox.AUTOLOAD_PREFIX + autoload_name, "")).trim_prefix("*")
 		if path.begins_with("uid://"):
 			path = ResourceUID.get_id_path(ResourceUID.text_to_id(path))
 		autoloads[autoload_name] = path

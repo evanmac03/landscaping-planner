@@ -23,15 +23,12 @@ func test_a_numbered_tap_line_gives_the_rectangle_and_the_name_it_gave_before() 
 	)
 	var before: Rect2i = ToolScript.rect_of(PLAIN)
 	assert(before == Rect2i(28, 115, 103, 54), "the rectangle is the line's last `screen (`: %s" % str(before))
-	assert(
-		ToolScript.rect_of(PLAIN + "  #4") == before,
-		"a numbered line gives the very rectangle it gave unnumbered"
-	)
+	assert(ToolScript.rect_of(PLAIN + "  #4") == before, "a numbered line gives the very rectangle it gave unnumbered")
 	var named: Array[Dictionary] = ToolScript.named_boxes_of(PackedStringArray([PLAIN + "  #4"]), "tap")
 	assert(named.size() == 1, "one line, one box")
 	assert(
 		not String(named[0]["name"]).contains("#"),
-		"the number is after the rectangle, so it cannot reach the name: %s" % String(named[0]["name"])
+		"the number is after the rectangle, so it cannot reach the name: %s" % String(named[0]["name"]),
 	)
 	assert(int(named[0]["n"]) == 4, "and the box carries the block's own number for it: %s" % str(named[0]["n"]))
 
@@ -50,7 +47,7 @@ func test_the_number_of_a_line_is_its_last_token_and_nothing_else() -> void:
 	assert(ToolScript.number_in(A_LINE) == 0, "a line from before the numbers existed has none")
 	assert(
 		ToolScript.number_in("tap   the board   \"Row #3\"   screen (1, 2) .. (3, 4) 2x2 px  centre (2, 3)") == 0,
-		"and a caption holding a # is not the number"
+		"and a caption holding a # is not the number",
 	)
 	assert(ToolScript.number_in("page   start_window  \"A page\"") == 0, "and a line of another kind has none either")
 
@@ -69,8 +66,7 @@ const A16W_SAID := (
 	+ "\n      ROTATION_180={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[0,0][0,142],"
 	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,100][0,142]}"
 	+ "\n      ROTATION_270={nonDecorInsets=[0,0][0,0], overrideNonDecorInsets=[0,0][100,42],"
-	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,84][100,42]}"
-	+ "\n      mDisplayCutoutTouchableRegionSize=34"
+	+ " configInsets=[0,0][0,0], overrideConfigInsets=[0,84][100,42]}" + "\n      mDisplayCutoutTouchableRegionSize=34"
 )
 
 
@@ -90,9 +86,7 @@ const A16W_FRAMES := (
 ## nothing about the half it skipped. The verb that would have won is **named**, and the shape a build is actually
 ## for - a build with an install and a launch - is left alone.
 func test_a_build_beside_a_verb_that_answers_early_is_refused_and_the_verb_named() -> void:
-	var both: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
-		PackedStringArray(["--build", "--band"])
-	)
+	var both: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(PackedStringArray(["--build", "--band"]))
 	assert(both.size() == 1, str(both))
 	assert(both[0] == "--band", str(both))
 	var capturing: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
@@ -115,21 +109,18 @@ func test_the_frame_is_chosen_by_its_shape_and_the_programs_own_reading_never_by
 
 	# Standing: one frame is taller than it is wide, and it is the one, with no rotation named anywhere.
 	assert(
-		ToolScript.the_band_rect(A16W_FRAMES, standing, Vector4i(0, 100, 0, 0))
-		== Rect2i(0, 100, 1080, 2198),
+		ToolScript.the_band_rect(A16W_FRAMES, standing, Vector4i(0, 100, 0, 0)) == Rect2i(0, 100, 1080, 2198),
 		"standing, the frame with the camera along its top",
 	)
 
 	# Lying: two frames are wider than tall, and the program's own reading says which - a band on the left is the
 	# camera on the left, and that is ROTATION_90's frame. This is the pair a rotation name would have had to guess.
 	assert(
-		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(100, 0, 0, 0))
-		== Rect2i(100, 0, 2240, 1038),
+		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(100, 0, 0, 0)) == Rect2i(100, 0, 2240, 1038),
 		"lying, with the camera on the left, the frame that gives ground there",
 	)
 	assert(
-		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(0, 0, 100, 0))
-		== Rect2i(0, 0, 2240, 1038),
+		ToolScript.the_band_rect(A16W_FRAMES, lying, Vector4i(0, 0, 100, 0)) == Rect2i(0, 0, 2240, 1038),
 		"and the other side, the frame that gives it on the right - told apart by the reading, not by a rotation",
 	)
 
@@ -180,13 +171,15 @@ func test_the_focused_window_is_read_as_a_package_and_a_screen_showing_nothing_n
 	assert(
 		ToolScript.package_of_the_focused_window(
 			"  mCurrentFocus=Window{9f4b2c1 u0 ca.storm.landscapingplanner/ca.storm.landscapingplanner.MainActivity}"
-		) == "ca.storm.landscapingplanner",
+		)
+		== "ca.storm.landscapingplanner",
 		"the package, and not the window's id beside it nor the activity after it",
 	)
 	assert(
 		ToolScript.package_of_the_focused_window(
 			"  mCurrentFocus=Window{com.android.music/com.android.music.MusicBrowserActivity}"
-		) == "com.android.music",
+		)
+		== "com.android.music",
 		"and another program is named as itself, which is the whole point of asking",
 	)
 	assert(
@@ -285,14 +278,13 @@ func test_the_verdict_names_which_of_the_two_readings_the_program_matched() -> v
 ## the `kept` line the block now publishes beside its `insets` line.
 func test_a_reading_that_matches_nothing_says_the_program_cannot_read_the_band() -> void:
 	var said: String = ToolScript.band_verdict(
-		Vector4i(0, 200, 0, 0), Vector4i(0, 100, 0, 0), [Vector4i(100, 0, 0, 42)]
+		Vector4i(0, 200, 0, 0),
+		Vector4i(0, 100, 0, 0),
+		[Vector4i(100, 0, 0, 42)],
 	)
 	assert(said.contains("cannot read this"), "it names the gap rather than the disagreement: %s" % said)
 	assert(said.contains("KEPT_FEET"), "and says where the ground comes from instead: %s" % said)
-	assert(
-		not said.contains("over JNI"),
-		"and it no longer promises a fix that was made without JNI: %s" % said,
-	)
+	assert(not said.contains("over JNI"), "and it no longer promises a fix that was made without JNI: %s" % said)
 	assert(
 		not said.contains("report disagree"),
 		"and it does not invite a reader to argue with a reading that was never made",
@@ -325,13 +317,7 @@ func test_the_wait_defaults_and_will_not_be_asked_for_less_than_two_seconds() ->
 ## walk at all, which is answered by making a build rather than by believing an age.
 func test_a_build_is_made_again_only_when_something_that_reaches_the_phone_has_moved() -> void:
 	var made: int = 1_700_000_000
-	var nothing: Dictionary = {
-		"count": 0,
-		"newest": 0,
-		"path": "",
-		"paths": PackedStringArray(),
-		"readable": true,
-	}
+	var nothing: Dictionary = { "count": 0, "newest": 0, "path": "", "paths": PackedStringArray(), "readable": true }
 	assert(
 		ToolScript.rebuild_reason(made, nothing, made - 100, made + 60).is_empty(),
 		"a build with nothing newer than it, and a preset older still, is the work in hand",
@@ -383,10 +369,7 @@ func test_a_turn_says_what_the_device_reports_rather_than_what_was_asked() -> vo
 	var refused: String = ToolScript.turn_words("portrait", "1", "1")
 	assert(refused.contains("NOT take the hold"), "a device that did not take it says so: %s" % refused)
 	assert(refused.contains("user_rotation=1"), "naming what it reports instead: %s" % refused)
-	assert(
-		ToolScript.turn_words("portrait", "0", "0").contains("upright"),
-		"while the upright hold reads as upright",
-	)
+	assert(ToolScript.turn_words("portrait", "0", "0").contains("upright"), "while the upright hold reads as upright")
 	assert(
 		ToolScript.turn_words("auto", "0", "1").contains("its own answer again"),
 		"and going back to the device's own answer is its own sentence",
@@ -475,14 +458,18 @@ func test_a_files_number_is_compared_with_the_phones_own_and_a_stale_one_is_name
 	# The other name this project's tools use for a density, and a typed `const`: both are read, not left as
 	# numbers nobody checks. `hud_layout_check.gd` spells it `PHONE_DENSITY`.
 	var other_names: Dictionary = ToolScript.stated_numbers_in(
-		"hud_layout_check.gd", "const PHONE_DENSITY := 450.0\nconst PHONE_DPI: float = 450.0", said
+		"hud_layout_check.gd",
+		"const PHONE_DENSITY := 450.0\nconst PHONE_DPI: float = 450.0",
+		said,
 	)
 	assert(int(other_names.get("agreed", 0)) == 2, "both spellings of a density are read: %s" % str(other_names))
 	# **The orientation trap.** 0.91 is this phone's portrait scale and 1.62 its landscape one, so a landscape
 	# block cannot judge a fixture holding the upright figure: it is named as unjudged, never as a fault, because
 	# calling it one would be the false positive this project's doctrine is written against.
 	var upright: Dictionary = ToolScript.stated_numbers_in(
-		"test_hud_question.gd", "const PHONE_SCALE_UPRIGHT := 0.91", said
+		"test_hud_question.gd",
+		"const PHONE_SCALE_UPRIGHT := 0.91",
+		said,
 	)
 	var no_faults: Array = upright.get("disagrees", [])
 	assert(no_faults.is_empty(), "the other orientation's scale is not called a fault: %s" % str(upright))
@@ -520,8 +507,7 @@ func test_a_files_number_is_compared_with_the_phones_own_and_a_stale_one_is_name
 		"sample.gd",
 		(
 			"const TABLE_DPI_LIMIT := 384.6\n"
-			+ "const HELD_UPRIGHT := Vector2i(1080, 2340)\n"
-			+ "const PHONE_LABEL := \"450\""
+			+ "const HELD_UPRIGHT := Vector2i(1080, 2340)\n" + "const PHONE_LABEL := \"450\""
 		),
 		said,
 	)
@@ -533,7 +519,9 @@ func test_a_files_number_is_compared_with_the_phones_own_and_a_stale_one_is_name
 	# phone disagrees with, and neither is a number *for this phone*. Calling them faults is the false positive the
 	# project's doctrine is written against, so the name is the whole basis of the rule and this holds it there.
 	var not_for_this_phone: Dictionary = ToolScript.stated_numbers_in(
-		"sample.gd", "const HELD_DPI := 200.0\nconst TABLET_DPI := 300.0", said
+		"sample.gd",
+		"const HELD_DPI := 200.0\nconst TABLET_DPI := 300.0",
+		said,
 	)
 	var no_such_faults: Array = not_for_this_phone.get("disagrees", [])
 	assert(no_such_faults.is_empty(), "a floor and a tablet are not this phone's numbers: %s" % str(not_for_this_phone))
@@ -551,7 +539,8 @@ func test_a_stated_number_is_read_only_where_one_begins() -> void:
 	assert(is_equal_approx(float(typed.get("value", 0.0)), 450.0), "with its own number: %s" % str(typed))
 	assert(
 		is_equal_approx(
-			float(ToolScript.a_stated_number("const PHONE_DPI := 450.0  # the A16W").get("value", 0.0)), 450.0
+			float(ToolScript.a_stated_number("const PHONE_DPI := 450.0  # the A16W").get("value", 0.0)),
+			450.0,
 		),
 		"and a comment after the number is not part of it",
 	)
@@ -645,10 +634,7 @@ func test_whether_the_board_took_its_hold_is_asked_of_the_text_it_was_given() ->
 		not ToolScript.hold_took(ToolScript.hold_words("{orientation:portrait}"), ToolScript.UPRIGHT_HOLD),
 		"an unreadable hold is never the text this tool wrote, however the file is worded",
 	)
-	assert(
-		not ToolScript.hold_took(ToolScript.hold_words(""), ToolScript.UPRIGHT_HOLD),
-		"and neither is an absent one",
-	)
+	assert(not ToolScript.hold_took(ToolScript.hold_words(""), ToolScript.UPRIGHT_HOLD), "and neither is an absent one")
 
 
 ## **An instrument that has nothing to say is not the same as one that cannot ask.** Measured 2026-11-14 with the
@@ -794,13 +780,7 @@ func test_the_tree_is_asked_whether_a_script_has_changed_since_the_build_was_mad
 ## the count alone could not support.
 func test_a_stale_build_names_the_files_that_changed_and_counts_the_rest() -> void:
 	var newest_first: PackedStringArray = PackedStringArray(
-		[
-			"res://tools/e.gd",
-			"res://tools/d.gd",
-			"res://tools/c.gd",
-			"res://tools/b.gd",
-			"res://tools/a.gd",
-		]
+		["res://tools/e.gd", "res://tools/d.gd", "res://tools/c.gd", "res://tools/b.gd", "res://tools/a.gd"]
 	)
 	var several: String = ToolScript.build_words(
 		1_000_000,
@@ -1121,10 +1101,8 @@ func test_a_tap_is_measured_against_the_newest_blocks_screen_not_the_logs_first(
 	# this is the shape `probe.log` really has, taken from the writer's own constant rather than retyped.
 	var head: String = "PROBE %s\n" % ToolScript.BLOCK_HEAD
 	var log := (
-		head
-		+ "PROBE room     viewport=(1185, 2567) native=(1080, 2340)\n"
-		+ head
-		+ "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
+		head + "PROBE room     viewport=(1185, 2567) native=(1080, 2340)\n"
+		+ head + "PROBE room     viewport=(1444, 666) native=(2340, 1080)"
 	)
 	var newest: String = "\n".join(ToolScript.newest_block(log))
 	var screen: Vector2i = HudProbeScript.read_screen_line(newest)
@@ -1134,9 +1112,9 @@ func test_a_tap_is_measured_against_the_newest_blocks_screen_not_the_logs_first(
 		"so a centre that landed is read as one: %s" % ToolScript.tap_words(Vector2i(1163, 299), screen),
 	)
 	assert(
-		ToolScript.tap_words(Vector2i(1163, 299), HudProbeScript.read_screen_line(log)).begins_with(
-			"the tap at (1163, 299) is outside"
-		),
+		ToolScript
+		.tap_words(Vector2i(1163, 299), HudProbeScript.read_screen_line(log))
+		.begins_with("the tap at (1163, 299) is outside"),
 		"where the log's first block is the one that cries wolf - which is why the call site is handed the newest",
 	)
 

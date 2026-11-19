@@ -139,13 +139,7 @@ const LEAF_VENATION := &"leaf_venation"
 
 ## The five, in the order a person is asked them: the coarsest thing to see first, the veins of a leaf
 ## last, because that is the one most people have never looked at.
-const LEAF_TRAITS: Array[StringName] = [
-	LEAF_ARRANGEMENT,
-	LEAF_COMPLEXITY,
-	LEAF_SHAPE,
-	LEAF_MARGIN,
-	LEAF_VENATION,
-]
+const LEAF_TRAITS: Array[StringName] = [LEAF_ARRANGEMENT, LEAF_COMPLEXITY, LEAF_SHAPE, LEAF_MARGIN, LEAF_VENATION]
 
 const ARR_ALTERNATE := 1
 const ARR_OPPOSITE := 2
@@ -250,12 +244,7 @@ const MONTH_NAMES := [
 ##
 ## The seasons are meteorological (spring is March to May), which is the parting every garden calendar
 ## uses. Winter wraps the new year, which is why the months are a list rather than a run.
-const SEASONS := {
-	&"spring": [3, 4, 5],
-	&"summer": [6, 7, 8],
-	&"autumn": [9, 10, 11],
-	&"winter": [12, 1, 2],
-}
+const SEASONS := { &"spring": [3, 4, 5], &"summer": [6, 7, 8], &"autumn": [9, 10, 11], &"winter": [12, 1, 2] }
 
 ## The colours a flower is offered as, in the order a key asks them. A colour answer is a **bucket**, not
 ## the shade a nursery chose: the shipped list holds 125 distinct shades, which is not 125 answers anybody
@@ -614,7 +603,6 @@ func drainage_text() -> String:
 func category_name() -> String:
 	return String(CATEGORY_NAMES.get(category, "?"))
 
-
 # --- the leaf ------------------------------------------------------------------------------
 
 
@@ -670,7 +658,6 @@ static func names_for(trait_name: StringName) -> Dictionary:
 		LEAF_VENATION:
 			return VENATION_NAMES
 	return { }
-
 
 # --- food ---------------------------------------------------------------------------------
 

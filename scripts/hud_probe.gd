@@ -358,7 +358,13 @@ static func tap_lines(root: Node, scope: String, first: int = 1) -> PackedString
 		lines.append(
 			(
 				"tap      %-28s %-34s screen %s  centre %s  #%d"
-				% [scope, "\"%s\"" % String(one["name"]), _rect_words(rect), _point_words(rect.get_center()), int(one["n"])]
+				% [
+					scope,
+					"\"%s\"" % String(one["name"]),
+					_rect_words(rect),
+					_point_words(rect.get_center()),
+					int(one["n"]),
+				]
 			)
 		)
 	return lines
@@ -832,9 +838,7 @@ static func tap_boxes(root: Node, scope: String, room: Vector2i) -> Array:
 		# while a person is being asked something. It is not a thing that got in the way.
 		if Rect2i(rect).encloses(Rect2i(0, 0, room.x, room.y)):
 			continue
-		boxes.append(
-			{ "name": _press_name(scope, control), "rect": Rect2i(rect), "enabled": _answers_a_tap(control) }
-		)
+		boxes.append({ "name": _press_name(scope, control), "rect": Rect2i(rect), "enabled": _answers_a_tap(control) })
 	return boxes
 
 
@@ -860,7 +864,7 @@ static func what_is_at(board: Node, pages: Array, board_scope: String, point: Ve
 	if parts.is_empty():
 		return "there is nothing on the screen to ask about"
 	var room: Vector2i = screen_room(board if board != null else parts[0]["root"])
-	var reached: Dictionary = {}
+	var reached: Dictionary = { }
 	# Named `standing_on` and not `on`: this class already has an `on()` - the gate that says whether a build
 	# speaks at all - and a local shadowing it is a reload error the engine reports on every run.
 	var standing_on: String = ""
@@ -1323,7 +1327,6 @@ const DENSITY_MARK := "dpi="
 ## Where that same line's **scale** begins: the screen's pixels per logical one, this way up. The leading space is
 ## part of the mark because `scale=` on its own could be a word in another line's prose.
 const SCALE_MARK := " scale="
-
 
 ## The room a block was taken in, read back out of the block's own line - or a room of no size where the line is
 ## not there.

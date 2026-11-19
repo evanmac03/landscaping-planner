@@ -84,7 +84,6 @@ const FACTS: Array[String] = ["declared", "wanted_width", "children", "scrolls"]
 ## between two runs of the same code; a whole pixel is a layout that moved, which is what this exists to catch.
 const SAME_LAYOUT := 0.1
 
-
 # --- the record ------------------------------------------------------------------------------------------------
 
 
@@ -98,12 +97,12 @@ const SAME_LAYOUT := 0.1
 ## reading before they meet - see `_of` - rather than compared as dictionaries, which cannot be compared at all.
 static func read_record(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return {}
+		return { }
 	var held: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not (held is Dictionary):
-		return {}
-	var pages: Variant = (held as Dictionary).get("pages", {})
-	return pages if pages is Dictionary else {}
+		return { }
+	var pages: Variant = (held as Dictionary).get("pages", { })
+	return pages if pages is Dictionary else { }
 
 
 ## Every page's own measurements, measured as a desk:
@@ -114,7 +113,7 @@ static func read_record(path: String) -> Dictionary:
 ## than left out: a page that has *become* unreadable is a change like any other, and a record that dropped it
 ## would report that change as nothing.
 static func recorded(tree: SceneTree) -> Dictionary:
-	var pages: Dictionary = {}
+	var pages: Dictionary = { }
 	for path: String in PageIndexScript.scripts():
 		pages[path.get_file().get_basename()] = await _measure_one(path, tree)
 	return pages
@@ -130,7 +129,7 @@ static func write_record(path: String, pages: Dictionary) -> bool:
 	for page_name: String in pages.keys():
 		names.append(page_name)
 	names.sort()
-	var sorted: Dictionary = {}
+	var sorted: Dictionary = { }
 	for page_name: String in names:
 		sorted[page_name] = pages[page_name]
 	var document: Dictionary = { "note": NOTE, "pages": sorted }
@@ -143,10 +142,7 @@ static func write_record(path: String, pages: Dictionary) -> bool:
 		return false
 	file.store_string(JSON.stringify(document, "\t") + "\n")
 	file.close()
-	return (
-		DirAccess.rename_absolute(ProjectSettings.globalize_path(temp), ProjectSettings.globalize_path(path))
-		== OK
-	)
+	return (DirAccess.rename_absolute(ProjectSettings.globalize_path(temp), ProjectSettings.globalize_path(path)) == OK)
 
 
 ## Build one page, measure it as a desk, and take it down again, answering with the page's entry.
@@ -205,7 +201,6 @@ static func _children_of(page: Window) -> int:
 			shown += 1
 	return shown
 
-
 # --- the rule --------------------------------------------------------------------------------------------------
 
 
@@ -226,9 +221,7 @@ static func differences(measured: Dictionary, record: Dictionary) -> Array[Strin
 	names.sort()
 	for page_name: String in names:
 		if not record.has(page_name):
-			said.append(
-				"%s is a page this project has and the record does not: measure it and record it" % page_name
-			)
+			said.append("%s is a page this project has and the record does not: measure it and record it" % page_name)
 			continue
 		if not measured.has(page_name):
 			said.append("%s is in the record and is no longer a page here: take its line out" % page_name)
@@ -238,9 +231,11 @@ static func differences(measured: Dictionary, record: Dictionary) -> Array[Strin
 		if bool(was["read"]) != bool(now["read"]):
 			said.append(
 				"%s: %s -> %s"
-				% [page_name, "a page that was read" if was["read"] else "a page that could not be read", (
-					"a page that was read" if now["read"] else "a page that could not be read"
-				)]
+				% [
+					page_name,
+					"a page that was read" if was["read"] else "a page that could not be read",
+					("a page that was read" if now["read"] else "a page that could not be read"),
+				]
 			)
 		for fact: String in FACTS:
 			if _same(was[fact], now[fact]):
@@ -298,7 +293,6 @@ static func _said(value: Variant) -> String:
 		return "%.1f" % value
 	return str(value)
 
-
 # --- the guard -------------------------------------------------------------------------------------------------
 
 
@@ -309,8 +303,7 @@ func test_the_desks_layout_is_what_was_recorded_for_it() -> void:
 	var measured: Dictionary = await recorded(get_tree())
 	assert(
 		measured.size() == PageIndexScript.scripts().size(),
-		"every page this project has was measured: %d of %d"
-		% [measured.size(), PageIndexScript.scripts().size()],
+		"every page this project has was measured: %d of %d" % [measured.size(), PageIndexScript.scripts().size()],
 	)
 	var said: Array[String] = differences(measured, record)
 	assert(said.is_empty(), "and it is where it was recorded:\n  " + "\n  ".join(said))

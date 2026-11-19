@@ -213,7 +213,11 @@ static func _written_when(path: String) -> String:
 ## screen around it held still is the one a person wants to look at. **Every band is printed**, however many
 ## there are, because a list that stopped early would be a list pretending to be the whole of the difference.
 static func compared_lines(
-	before: Image, after: Image, before_when: String, after_when: String, ordered_by_writing: bool
+	before: Image,
+	after: Image,
+	before_when: String,
+	after_when: String,
+	ordered_by_writing: bool,
 ) -> PackedStringArray:
 	var lines := PackedStringArray()
 	lines.append("=== what moved between two pictures ===")
@@ -269,7 +273,8 @@ func _take_the_screen(asked: Dictionary) -> void:
 				(
 					"SCREEN SHOT the HUD has no method %s to open a page with: res://tools/page_index.gd lists"
 					+ " every page this project has, with the method that opens it"
-				) % page
+				)
+				% page
 			)
 			return
 		hud.call(page)
@@ -286,9 +291,7 @@ func _take_the_screen(asked: Dictionary) -> void:
 	await RenderingServer.frame_post_draw
 	var picture: Image = get_viewport().get_texture().get_image()
 	var wrote: Error = ScreenshotReaderScript.write(picture, TO_SCREEN)
-	for line: String in live_lines(
-		picture, HudProbeScript.screen_room(self), _the_pages_up(main), TO_SCREEN, wrote
-	):
+	for line: String in live_lines(picture, HudProbeScript.screen_room(self), _the_pages_up(main), TO_SCREEN, wrote):
 		print(line)
 	if not String(asked["against"]).is_empty():
 		_say_what_moved_since(String(asked["against"]), picture)
@@ -374,7 +377,7 @@ static func _draw_one_number(picture: Image, rect: Rect2i, number: int) -> void:
 		Vector2i(
 			ScreenshotReaderScript.label_width(text, NUMBER_SCALE) + 2,
 			ScreenshotReaderScript.GLYPH_DOWN * NUMBER_SCALE + 2,
-		)
+		),
 	)
 	if plate.position.y - plate.size.y >= 0:
 		plate.position.y -= plate.size.y
@@ -439,8 +442,7 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 				var numbers: Array[int] = _numbers_from(args, at + 1)
 				if numbers.size() < 4:
 					asked["complaint"] = (
-						"a rectangle is four numbers - x y w h - and %d could be read after %s"
-						% [numbers.size(), verb]
+						"a rectangle is four numbers - x y w h - and %d could be read after %s" % [numbers.size(), verb]
 					)
 					return asked
 				asked[verb.substr(2)] = Rect2i(numbers[0], numbers[1], numbers[2], numbers[3])
@@ -494,7 +496,11 @@ static func _numbers_from(args: PackedStringArray, at: int) -> Array[int]:
 ## Everything it needs is handed in, which is what makes the wording itself testable with no scene, no window
 ## and no file: a picture of a known size, a room, a list of the probe's own page lines, and a path.
 static func live_lines(
-	picture: Image, room: Vector2i, up: PackedStringArray, to: String, wrote: Error
+	picture: Image,
+	room: Vector2i,
+	up: PackedStringArray,
+	to: String,
+	wrote: Error,
 ) -> PackedStringArray:
 	var lines := PackedStringArray()
 	lines.append("=== a picture of the screen, taken now ===")
@@ -537,7 +543,9 @@ static func file_lines(path: String) -> PackedStringArray:
 	lines.append("  file        %s" % path)
 	lines.append("  picture     %d x %d" % [picture.get_width(), picture.get_height()])
 	var written: int = FileAccess.get_modified_time(path)
-	lines.append("  written     %s, %s" % [Time.get_datetime_string_from_unix_time(written, true), _ago_from_now(written)])
+	lines.append(
+		"  written     %s, %s" % [Time.get_datetime_string_from_unix_time(written, true), _ago_from_now(written)]
+	)
 	lines.append("  note        the time above is the whole reason this line is here: a picture on disk answers")
 	lines.append("              the question it was taken for, and says nothing about the one being asked now.")
 	return lines
@@ -644,9 +652,7 @@ static func band_lines(picture: Image, x: int, within: Rect2i) -> PackedStringAr
 		return PackedStringArray(["SCREEN SHOT there is no picture to read a column of"])
 	var all: Array[Dictionary] = ScreenshotReaderScript.bands_down(picture, x)
 	if all.is_empty():
-		return PackedStringArray(
-			["SCREEN SHOT column x=%d is not in a %d-wide picture" % [x, picture.get_width()]]
-		)
+		return PackedStringArray(["SCREEN SHOT column x=%d is not in a %d-wide picture" % [x, picture.get_width()]])
 	var first: int = within.position.y
 	var last: int = within.position.y + within.size.y - 1
 	var crossing: Array[Dictionary] = []
@@ -659,7 +665,10 @@ static func band_lines(picture: Image, x: int, within: Rect2i) -> PackedStringAr
 	for which: int in showing:
 		lines.append("              " + ScreenshotReaderScript.sentence(crossing[which]))
 	if crossing.size() > showing:
-		lines.append("              %d further run(s), left out: a column with this many colours is a shaded" % (crossing.size() - showing))
+		lines.append(
+			"              %d further run(s), left out: a column with this many colours is a shaded"
+			% (crossing.size() - showing)
+		)
 		lines.append("              surface, and the answer there is the picture rather than a list of rows.")
 	return lines
 

@@ -399,9 +399,7 @@ func test_a_conifer_and_a_plant_nobody_eats_are_the_filters_own_answers() -> voi
 		_ids(catalogue.filter({ "conifer": false })) == PackedStringArray(["BUXUS-SEMPERVIRENS", "THYMUS-SERPYLLUM"]),
 		"an evergreen tag does not make a conifer",
 	)
-	assert(
-		_ids(catalogue.filter({ "not_edible": true })) == PackedStringArray(["BUXUS-SEMPERVIRENS", "PICEA-ABIES"]),
-	)
+	assert(_ids(catalogue.filter({ "not_edible": true })) == PackedStringArray(["BUXUS-SEMPERVIRENS", "PICEA-ABIES"]))
 	assert(CatalogueScript.unknown_criterion({ "conifer": true }) == "", "the filter knows the new criteria")
 	assert(CatalogueScript.unknown_criterion({ "not_edible": true }) == "")
 
@@ -423,7 +421,10 @@ func test_a_species_states_its_leaves_or_states_nothing_about_them() -> void:
 	var back: SpeciesScript = SpeciesScript.from_dict(maple.to_dict())
 	assert(back.leaf_shape == maple.leaf_shape, "the leaves survive the file as whole numbers")
 	assert(back.leaf_trait(SpeciesScript.LEAF_MARGIN) == SpeciesScript.MRG_LOBED, "and read back the same")
-	assert(SpeciesScript.names_for(SpeciesScript.LEAF_MARGIN).has(SpeciesScript.MRG_LOBED), "a trait reads its own words")
+	assert(
+		SpeciesScript.names_for(SpeciesScript.LEAF_MARGIN).has(SpeciesScript.MRG_LOBED),
+		"a trait reads its own words",
+	)
 	# A bit outside a trait's own table is a mistyped number rather than a leaf.
 	var wrong: SpeciesScript = _maple()
 	wrong.leaf_venation = 99

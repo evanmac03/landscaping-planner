@@ -46,7 +46,7 @@ func test_a_number_is_laid_above_the_corner_or_on_it_when_there_is_no_room() -> 
 	var plate_height: int = ScreenshotReaderScript.GLYPH_DOWN * 2 + 2
 	assert(
 		roomy.get_pixel(10, 30 - plate_height) != DARK,
-		"and with room above it, the number stands above the corner rather than over the caption"
+		"and with room above it, the number stands above the corner rather than over the caption",
 	)
 	assert(roomy.get_pixel(10, 30) == DARK, "so the control's own words are left alone")
 
@@ -62,7 +62,7 @@ func test_a_number_is_five_by_seven_a_digit_and_its_width_says_so() -> void:
 	assert(ScreenshotReaderScript.label_width("123", 1) == 15, "and at their own size, five pixels each")
 	assert(
 		ScreenshotReaderScript.label_width("#12", 2) == 30,
-		"a character the table does not have still takes its room, so what follows is not drawn over it"
+		"a character the table does not have still takes its room, so what follows is not drawn over it",
 	)
 
 

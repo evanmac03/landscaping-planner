@@ -46,9 +46,10 @@ func _ready() -> void:
 	var shot: Image = get_viewport().get_texture().get_image()
 	var where: String = ProjectSettings.globalize_path("res://build/stylebox_fancy.png")
 	var saved: int = shot.save_png(where)
-	print("STYLEBOX wrote %s (%dx%d): %s" % [
-		where, shot.get_width(), shot.get_height(), "ok" if saved == OK else "SAVE FAILED %d" % saved
-	])
+	print(
+		"STYLEBOX wrote %s (%dx%d): %s"
+		% [where, shot.get_width(), shot.get_height(), "ok" if saved == OK else "SAVE FAILED %d" % saved]
+	)
 	get_tree().quit()
 
 
@@ -126,7 +127,8 @@ func _a_fancy_one(curvature: float, border_count: int) -> StyleBox:
 		inside.ignore_stack = true
 		fancy.borders.append(inside)
 
-	print("STYLEBOX fancy: curvature %s, %d border(s), %d corners at radius %d, detail %d" % [
-		curvature, fancy.borders.size(), 4, fancy.corner_radius_top_left, fancy.corner_detail
-	])
+	print(
+		"STYLEBOX fancy: curvature %s, %d border(s), %d corners at radius %d, detail %d"
+		% [curvature, fancy.borders.size(), 4, fancy.corner_radius_top_left, fancy.corner_detail]
+	)
 	return fancy

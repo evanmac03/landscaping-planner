@@ -94,7 +94,6 @@ func test_the_force_door_answers_for_a_device_and_auto_reads_the_machine() -> vo
 	)
 	_reset()
 
-
 ## Whether a canvas is **drawn up** is not asked here any more. It was a screen's diagonal against seven
 ## inches, which was the right answer bought with the wrong unit - a phone held sideways has no room in its
 ## *height*, and by width it is not a phone at all. It is `WindowClass.is_small`'s question now, and the two

@@ -33,10 +33,7 @@ func test_the_scenes_plate_is_the_look_this_file_states() -> void:
 		and is_equal_approx(drawn.content_margin_right, ChromeStyleScript.SIDE),
 		"and the same inset down the sides",
 	)
-	assert(
-		is_equal_approx(drawn.content_margin_bottom, ChromeStyleScript.FOOT),
-		"and the same inset at the foot",
-	)
+	assert(is_equal_approx(drawn.content_margin_bottom, ChromeStyleScript.FOOT), "and the same inset at the foot")
 
 
 ## What a phone's bar wears: the scene's own look, with the row pushed down by the number handed in.
@@ -45,7 +42,8 @@ func test_the_phone_plate_is_the_scenes_look_with_the_row_lifted() -> void:
 	var plate: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
 	assert(
 		is_equal_approx(plate.content_margin_top, LIFTED_BY),
-		"the row is lifted by the number handed in, not by this file's own idea of it: %s" % str(plate.content_margin_top),
+		"the row is lifted by the number handed in, not by this file's own idea of it: %s"
+		% str(plate.content_margin_top),
 	)
 	assert(
 		is_equal_approx(plate.content_margin_left, drawn.content_margin_left)
@@ -91,8 +89,7 @@ func test_covering_the_bar_does_not_move_the_panels_that_share_the_scenes_plate(
 	assert(one != two, "each lift is a stylebox of its own")
 	assert(two != drawn, "and never the scene's own plate")
 	assert(
-		is_equal_approx(drawn.content_margin_left, was_side)
-		and is_equal_approx(drawn.content_margin_top, was_top),
+		is_equal_approx(drawn.content_margin_left, was_side) and is_equal_approx(drawn.content_margin_top, was_top),
 		"and the plate it was derived from is left exactly as it was",
 	)
 

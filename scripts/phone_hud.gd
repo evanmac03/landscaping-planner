@@ -164,9 +164,7 @@ static func cutout_top(room: Vector2i) -> int:
 ## written down here rather than read from anywhere. A screen this table does not name is answered with a zero,
 ## because a band guessed at is worse than the clearance the scene already keeps: 8 px of bare board under the foot
 ## line is a small fault, and a foot line pushed up the screen on a device that keeps nothing is a large one.
-const KEPT_FEET: Dictionary = {
-	Vector2i(1080, 2340): 42,
-}
+const KEPT_FEET: Dictionary = { Vector2i(1080, 2340): 42 }
 
 
 ## How far that foot band reaches up from the bottom of the screen this program is running on, in the display's own

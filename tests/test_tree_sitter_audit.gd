@@ -14,13 +14,7 @@ const Audit := preload("res://tools/tree_sitter_audit.gd")
 ## A project with nothing wrong in it - every file read, nothing left to type - is the pass, and it is the
 ## only thing that is.
 func test_a_clean_run_is_no_faults() -> void:
-	var clean := {
-		"ran": true,
-		"tripped": 0,
-		"typable": 0,
-		"no_return": 0,
-		"params": Audit.DELIBERATE_PARAMETERS,
-	}
+	var clean := { "ran": true, "tripped": 0, "typable": 0, "no_return": 0, "params": Audit.DELIBERATE_PARAMETERS }
 	assert(Audit.faults(clean) == 0, "a project with nothing wrong in it passes")
 
 
@@ -34,13 +28,7 @@ func test_a_run_that_could_not_happen_is_a_fault() -> void:
 ## Each of the three faults fails the gate on its own, so no one of them can hide behind the others.
 func test_each_fault_fails_the_gate_alone() -> void:
 	for key: String in ["tripped", "typable", "no_return"]:
-		var broken := {
-			"ran": true,
-			"tripped": 0,
-			"typable": 0,
-			"no_return": 0,
-			"params": Audit.DELIBERATE_PARAMETERS,
-		}
+		var broken := { "ran": true, "tripped": 0, "typable": 0, "no_return": 0, "params": Audit.DELIBERATE_PARAMETERS }
 		broken[key] = 1
 		assert(Audit.faults(broken) > 0, "one " + key + " is a fault")
 

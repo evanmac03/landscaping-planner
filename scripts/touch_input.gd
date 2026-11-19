@@ -86,7 +86,6 @@ static func answered_by_a_thumb(
 		return false
 	return desk_row_mm < thumb_mm
 
-
 ## How much screen, edge to edge, is a phone's and not a tablet's.
 ##
 ## Sizing for a finger and drawing the canvas up are two different answers, and a tablet needs only the first:

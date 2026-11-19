@@ -232,9 +232,7 @@ const STATED_ROOTS: Array[String] = ["res://scripts", "res://tools", "res://test
 ## because the block named every control that had strayed *into* that band and never how big it was - the line at
 ## the foot and the box beside the plan, the page in front of all of it, the colour drawn above that page's top
 ## edge, and every meeting the drawn-surfaces rule named.
-const SCREEN_LINES: Array[String] = [
-	"device", "room", "strip", "insets", "foot", "tool", "page", "drawn", "overlap"
-]
+const SCREEN_LINES: Array[String] = ["device", "room", "strip", "insets", "foot", "tool", "page", "drawn", "overlap"]
 
 ## The lines that name trouble a finger would have, printed after the screen so the news is never buried: a target
 ## under the floor, two a thumb cannot tell apart, one standing in a band the device keeps (or with its middle in
@@ -305,9 +303,7 @@ static func cutout_insets_from(text: String) -> Vector4i:
 ## block's own room and its own band display - so the place and the rectangles compared with it come from one moment,
 ## and a block that names no room gives no band rather than a standing one borrowed from somewhere else.
 static func the_band_from_a_block(block: String, report: String) -> Rect2i:
-	return the_band_rect(
-		report, HudProbeScript.read_room_line(block), HudProbeScript.read_display_band_line(block)
-	)
+	return the_band_rect(report, HudProbeScript.read_room_line(block), HudProbeScript.read_display_band_line(block))
 
 
 ## The controls whose **middle** is inside a band the device keeps - the sharper of the two questions, because a finger
@@ -520,6 +516,7 @@ static func _a_rectangle_after(text: String, mark: String) -> Vector4i:
 		parts[2].strip_edges().to_int(),
 		parts[3].strip_edges().to_int(),
 	)
+
 
 ## The files a build is made from: what reaches the phone's program, and nothing else. A test, a doc or a dev tool
 ## is nothing to export for, so a tree full of yesterday's tests is not a reason to install again.
@@ -846,9 +843,7 @@ func _one_pass() -> void:
 		# uses, so the rectangle on the picture and the sentence in the reading are the same answer about one screen.
 		_draw_the_boxes(
 			block,
-			the_band_from_a_block(
-				"\n".join(block), _line(["shell", "dumpsys", "window", "displays"])
-			),
+			the_band_from_a_block("\n".join(block), _line(["shell", "dumpsys", "window", "displays"])),
 		)
 	# The bar's own line and the blocks themselves are both stamped by the device and not by the file, so both are
 	# read from logcat - **once**, in the one format that carries a clock - and that one read is above the block
@@ -991,9 +986,7 @@ func _capture_the_two_gaps() -> void:
 ## the phone's own `dumpsys`. The verdict compares them, because a pile of numbers with no answer is what this whole
 ## exercise was: on the A16W the bar was found 212 px down a screen the phone keeps only 84 px of, and no line said so.
 func _read_the_band() -> void:
-	var block: String = "\n".join(
-		newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"]))
-	)
+	var block: String = "\n".join(newest_block(_line(["shell", "run-as", PACKAGE, "cat", "files/probe.log"])))
 	if block.is_empty():
 		print("PHONE the log holds no block, so there is no program reading to set beside the phone's. Launch it")
 		print("      once - `--launch --wait 20` - and ask again.")
@@ -1601,9 +1594,7 @@ static func stated_numbers_in(path: String, text: String, said: Dictionary) -> D
 			if absf(value - density) <= NEAR_ENOUGH:
 				agreed += 1
 			else:
-				disagreeing.append(
-					"%s - states %.1f, and the phone's own glass says %.1f" % [where, value, density]
-				)
+				disagreeing.append("%s - states %.1f, and the phone's own glass says %.1f" % [where, value, density])
 		elif _is_a_scale_name(named):
 			var scales: Array = said.get("scales", [])
 			if scales.is_empty():
@@ -1624,16 +1615,9 @@ static func stated_numbers_in(path: String, text: String, said: Dictionary) -> D
 				)
 			else:
 				disagreeing.append(
-					(
-						"%s - states %.2f, and this phone's own blocks state %s"
-						% [where, value, _scales_text(scales)]
-					)
+					("%s - states %.2f, and this phone's own blocks state %s" % [where, value, _scales_text(scales)])
 				)
-	return {
-		"disagrees": disagreeing,
-		"not_this_way_up": not_this_way_up,
-		"agreed": agreed,
-	}
+	return { "disagrees": disagreeing, "not_this_way_up": not_this_way_up, "agreed": agreed }
 
 
 ## One line read as a stated number: `{ "name": "PHONE_DPI", "value": 450.0 }`, or nothing at all when the line is
@@ -1644,11 +1628,11 @@ static func stated_numbers_in(path: String, text: String, said: Dictionary) -> D
 ## file never stated. The one shape a name may take is `NAME` or `NAME: Type`, so `:=` and `=` read alike.
 static func a_stated_number(line: String) -> Dictionary:
 	if not line.begins_with("const "):
-		return {}
+		return { }
 	var rest: String = line.trim_prefix("const ").strip_edges()
 	var shut: int = rest.find("=")
 	if shut < 0:
-		return {}
+		return { }
 	var left: String = rest.substr(0, shut).strip_edges()
 	var named: String = left
 	var colon: int = left.find(":")
@@ -1656,7 +1640,7 @@ static func a_stated_number(line: String) -> Dictionary:
 		named = left.substr(0, colon).strip_edges()
 	var value: String = rest.substr(shut + 1).strip_edges()
 	if value.is_empty() or not "0123456789+-".contains(value.substr(0, 1)):
-		return {}
+		return { }
 	return { "name": named, "value": value.to_float() }
 
 
@@ -1934,7 +1918,10 @@ static func files_since(roots: Array[String], suffixes: Array[String], when: int
 		return { "count": 0, "newest": 0, "path": "", "paths": PackedStringArray(), "readable": true }
 	# **Newest first**, so the few a person is shown are the ones most likely to matter, while the count still
 	# carries the whole of it.
-	newer.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["when"]) > int(b["when"]))
+	newer.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a["when"]) > int(b["when"]),
+	)
 	var paths: PackedStringArray = PackedStringArray()
 	for one: Dictionary in newer:
 		paths.append(String(one["path"]))
@@ -2108,9 +2095,7 @@ static func turn_words(wanted: String, rotation: String, auto: String) -> String
 	if wanted == "auto":
 		if auto_said == "1":
 			return "the device is taking its own answer again (accelerometer_rotation=1)"
-		return (
-			"the device would not go back to its own answer: it reports accelerometer_rotation=%s" % auto_said
-		)
+		return ("the device would not go back to its own answer: it reports accelerometer_rotation=%s" % auto_said)
 	if auto_said == "0" and rotation_said == String(TURNS.get(wanted, "")):
 		return (
 			"the device is held %s: it reports user_rotation=%s with auto-rotate off"
@@ -2556,9 +2541,7 @@ func _draw_the_boxes(lines: PackedStringArray, band: Rect2i) -> void:
 		)
 	)
 	if numbered == 0 and taps.size() > 0:
-		print(
-			"      none did: this block was written before the numbers existed, so the legend is the order of the"
-		)
+		print("      none did: this block was written before the numbers existed, so the legend is the order of the")
 		print("      lines and nothing in the picture. A newer block numbers every control.")
 	print("  %d page(s) standing in front of the board, in amber" % pages.size())
 	if drew_the_band:

@@ -125,10 +125,7 @@ func test_the_guard_reads_the_program_and_the_tools() -> void:
 ## here by hand rather than found in the tree, so it is still a guard on the day the tree is clean - and
 ## against the shapes it must **not** catch, which are the ones it would be useless for catching falsely.
 func test_the_guard_catches_a_second_answer_and_leaves_writing_about_it_alone() -> void:
-	assert(
-		_offences("if OS.has_feature(\"android\"):", "sample.gd").size() == 1,
-		"a device branch is caught",
-	)
+	assert(_offences("if OS.has_feature(\"android\"):", "sample.gd").size() == 1, "a device branch is caught")
 	assert(_offences("if OS.get_name() == \"Android\":", "sample.gd").size() == 1, "and one by name")
 	assert(
 		_offences("if DisplayServer.is_touchscreen_available():", "sample.gd").size() == 1,
@@ -147,10 +144,7 @@ func test_the_guard_catches_a_second_answer_and_leaves_writing_about_it_alone() 
 		"while the editor question, which this program is entitled to ask, is left alone",
 	)
 	assert(
-		(
-			_offences("if OS.has_feature(\"android\") and not OS.has_feature(\"editor\"):", "sample.gd").size()
-			== 1
-		),
+		(_offences("if OS.has_feature(\"android\") and not OS.has_feature(\"editor\"):", "sample.gd").size() == 1),
 		"and the exception clears the call it names, not the device question beside it on the same line",
 	)
 	assert(
@@ -179,10 +173,7 @@ func test_the_files_that_used_to_ask_now_read_the_one_owner() -> void:
 		var text: String = Scan.read(path)
 		assert(text.contains("device_platform.gd"), path + " reads the platform through DevicePlatform")
 		var offences := _offences(text, path)
-		assert(
-			offences.is_empty(),
-			path + " asks the machine nothing itself any more: " + ", ".join(offences),
-		)
+		assert(offences.is_empty(), path + " asks the machine nothing itself any more: " + ", ".join(offences))
 		assert(not ASKED_HERE.has(path), path + " is not a file the device is allowed to be asked in")
 
 

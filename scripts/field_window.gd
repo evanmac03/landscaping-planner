@@ -782,7 +782,10 @@ func _offer_the_key() -> void:
 	if candidate_ids().size() <= 1:
 		return
 	var settle := _button(_settle_row, "SettleWithKey", SETTLE_WITH_KEY)
-	settle.pressed.connect(func() -> void: key_requested.emit(candidate_ids()))
+	settle.pressed.connect(
+		func() -> void:
+			key_requested.emit(candidate_ids()),
+	)
 	PageChrome.takes_the_keyboard_if_up(self)
 
 

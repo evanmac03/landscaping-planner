@@ -101,9 +101,7 @@ func test_the_controls_of_a_block_are_numbered_from_where_they_are_told_and_coun
 	assert(lines[0].ends_with("#1"), "the first control is number one: %s" % lines[0])
 	assert(lines[1].ends_with("#2"), "and the second carries on: %s" % lines[1])
 	assert(HudProbeScript.taps_in(lines) == 2, "two lines, two controls")
-	var carried: PackedStringArray = HudProbeScript.tap_lines(
-		root, "a page", HudProbeScript.taps_in(lines) + 1
-	)
+	var carried: PackedStringArray = HudProbeScript.tap_lines(root, "a page", HudProbeScript.taps_in(lines) + 1)
 	assert(carried[0].ends_with("#3"), "a part told to carry on numbers from there: %s" % carried[0])
 	_free_made()
 
@@ -129,9 +127,10 @@ func test_the_tap_lines_are_the_rendering_of_the_controls_the_walk_found() -> vo
 		assert(String(controls[index]["scope"]) == "the board", "and the part it stands on")
 		assert(
 			lines[index].contains(HudProbeScript._rect_words(rect)),
-			"and the line is written from that very rectangle: %s" % lines[index]
+			"and the line is written from that very rectangle: %s" % lines[index],
 		)
 	_free_made()
+
 
 var _made: Array[Node] = []
 
@@ -754,7 +753,10 @@ func test_the_centre_a_box_cuts_off_is_the_centre_of_the_part_that_shows() -> vo
 	_control(box, half, Vector2(20.0, 340.0), Vector2(200.0, 120.0))
 
 	var shown: Rect2 = HudProbeScript.drawn_rect(half)
-	assert(shown.get_center() != HudProbeScript.screen_rect(half).get_center(), "the part that shows has a centre of its own")
+	assert(
+		shown.get_center() != HudProbeScript.screen_rect(half).get_center(),
+		"the part that shows has a centre of its own",
+	)
 	var listed: PackedStringArray = HudProbeScript.tap_lines(root, "the board")
 	assert(listed.size() == 1, "one thing a finger could hit: %s" % str(listed))
 	assert(
@@ -792,9 +794,7 @@ func test_the_bands_the_block_names_are_read_back_as_the_four_numbers_they_are()
 	# A block's `insets` line carries two bands, and only one of them is the display's: the first is that band's share
 	# of the room the bar is laid out in, and it is a different number in a different space. The display's half is the
 	# one a tool sets beside what the phone says about itself.
-	var as_written: String = (
-		"PROBE insets   room l=0 t=52 r=0 b=0   display l=0 t=100 r=0 b=0"
-	)
+	var as_written: String = ("PROBE insets   room l=0 t=52 r=0 b=0   display l=0 t=100 r=0 b=0")
 	assert(
 		HudProbeScript.read_display_band_line(as_written) == Vector4i(0, 100, 0, 0),
 		"the display's own band, and not the room's share of it: %s"
@@ -808,10 +808,7 @@ func test_the_bands_the_block_names_are_read_back_as_the_four_numbers_they_are()
 		HudProbeScript.read_display_band_line("PROBE device finger=true dpi=450.0") == Vector4i.ZERO,
 		"and a block that names no band reads as none",
 	)
-	assert(
-		HudProbeScript.read_display_band_line("") == Vector4i.ZERO,
-		"as does no block at all",
-	)
+	assert(HudProbeScript.read_display_band_line("") == Vector4i.ZERO, "as does no block at all")
 
 
 func test_the_room_a_block_was_taken_in_is_read_back_from_the_room_line() -> void:

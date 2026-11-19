@@ -172,11 +172,8 @@ func _say_the_machine() -> void:
 	var scale: float = PhoneHudScript.canvas_scale(get_window())
 	var density: float = PhoneHudScript.dpi()
 	print(
-		"  row a thumb needs %.1f px   (canvas scale %.2f, density %.0f)" % [
-			PhoneHudScript.row_height(scale, density),
-			scale,
-			density,
-		]
+		"  row a thumb needs %.1f px   (canvas scale %.2f, density %.0f)"
+		% [PhoneHudScript.row_height(scale, density), scale, density]
 	)
 
 

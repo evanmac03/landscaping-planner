@@ -24,14 +24,14 @@ const COLORS := {
 ## Each rule is a capture query and the kind it colours. The query names the node, so the tree decides
 ## what matches; nothing here reads the shape of a word.
 const RULES := [
-	{"kind": "class", "query": "(class_name_statement name: (name) @c)"},
-	{"kind": "signal", "query": "(signal_statement name: (name) @c)"},
-	{"kind": "constant", "query": "(const_statement name: (name) @c)"},
-	{"kind": "function", "query": "(function_definition name: (name) @c)"},
-	{"kind": "string", "query": "(string) @c"},
-	{"kind": "number", "query": "(integer) @c"},
-	{"kind": "number", "query": "(float) @c"},
-	{"kind": "comment", "query": "(comment) @c"},
+	{ "kind": "class", "query": "(class_name_statement name: (name) @c)" },
+	{ "kind": "signal", "query": "(signal_statement name: (name) @c)" },
+	{ "kind": "constant", "query": "(const_statement name: (name) @c)" },
+	{ "kind": "function", "query": "(function_definition name: (name) @c)" },
+	{ "kind": "string", "query": "(string) @c" },
+	{ "kind": "number", "query": "(integer) @c" },
+	{ "kind": "number", "query": "(float) @c" },
+	{ "kind": "comment", "query": "(comment) @c" },
 ]
 
 ## The colour a line falls back to outside a coloured span, taken from the editor's own ink so the spans
@@ -39,7 +39,7 @@ const RULES := [
 var _default: Color = Color.WHITE
 
 ## line number -> Array of {start, end, color}. Built once per parse, read a line at a time.
-var _spans: Dictionary = {}
+var _spans: Dictionary = { }
 
 
 ## Rebuild the spans. Called by the TextEdit when it wants the cache, and by the demo after setting text.
@@ -75,20 +75,23 @@ func _rebuild() -> void:
 func _get_line_syntax_highlighting(line: int) -> Dictionary:
 	var spans: Array = _spans.get(line, [])
 	if spans.is_empty():
-		return {}
+		return { }
 	var entries: Array = []
 	for span: Dictionary in spans:
-		entries.append({"col": int(span["start"]), "color": span["color"]})
-		entries.append({"col": int(span["end"]), "color": _default})
-	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["col"]) < int(b["col"]))
-	var line_data: Dictionary = {}
+		entries.append({ "col": int(span["start"]), "color": span["color"] })
+		entries.append({ "col": int(span["end"]), "color": _default })
+	entries.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a["col"]) < int(b["col"]),
+	)
+	var line_data: Dictionary = { }
 	for entry: Dictionary in entries:
 		if not line_data.has(entry["col"]):
-			line_data[entry["col"]] = {"color": entry["color"]}
+			line_data[entry["col"]] = { "color": entry["color"] }
 	return line_data
 
 
 func _add_span(line: int, start_col: int, end_col: int, color: Color) -> void:
 	var spans: Array = _spans.get(line, [])
-	spans.append({"start": start_col, "end": end_col, "color": color})
+	spans.append({ "start": start_col, "end": end_col, "color": color })
 	_spans[line] = spans

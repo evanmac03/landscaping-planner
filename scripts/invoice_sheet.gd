@@ -772,7 +772,13 @@ static func _baseline(plan: Dictionary, top_mm: float, size_mm: float) -> float:
 	return (page_mm.y - top_mm - size_mm) * POINTS_PER_MM
 
 
-static func _draw_right(writer: DraftPdfWriter, text: String, right_points: float, baseline: float, size_points: float) -> void:
+static func _draw_right(
+	writer: DraftPdfWriter,
+	text: String,
+	right_points: float,
+	baseline: float,
+	size_points: float,
+) -> void:
 	if text.is_empty():
 		return
 	writer.draw_text(Vector2(right_points - writer.text_width(text, size_points), baseline), text, size_points)
@@ -792,7 +798,13 @@ static func _draw_caption(writer: DraftPdfWriter, plan: Dictionary, x_mm: float,
 ## sat at its mirrored height - the table rule through the column headings, the totals rule through
 ## the totals heading, and nothing in a set of coordinate tests or a reading of the words to say so.
 ## A render said so, and `test_no_rule_is_drawn_through_a_line_of_text` now says so.
-static func _rule(writer: DraftPdfWriter, plan: Dictionary, top_mm: float, from_points: float, to_points: float) -> void:
+static func _rule(
+	writer: DraftPdfWriter,
+	plan: Dictionary,
+	top_mm: float,
+	from_points: float,
+	to_points: float,
+) -> void:
 	var page_mm: Vector2 = plan["page_mm"]
 	var y_points: float = (page_mm.y - top_mm) * POINTS_PER_MM
 	writer.save_state()

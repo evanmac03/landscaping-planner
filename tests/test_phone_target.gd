@@ -36,10 +36,7 @@ func _the_spec() -> String:
 ## held here so neither can move alone: a floor raised to the platform's would have to change the paragraph saying
 ## why it is not.
 func test_the_touch_floor_is_stated_and_the_platforms_number_is_beside_it() -> void:
-	assert(
-		PhoneHudScript.TOUCH_MM == 5.5,
-		"the thumb floor this program chose: %s" % str(PhoneHudScript.TOUCH_MM),
-	)
+	assert(PhoneHudScript.TOUCH_MM == 5.5, "the thumb floor this program chose: %s" % str(PhoneHudScript.TOUCH_MM))
 	var spec: String = _the_spec()
 	assert(spec.contains("`TOUCH_MM` **5.5**"), "and the authority states it as the module does")
 	assert(spec.contains("48 by 48 dp"), "beside the platform's own rule")
@@ -110,9 +107,7 @@ func test_the_reading_orders_map_names_files_that_are_there_and_states_no_number
 	for row: String in rows:
 		assert(
 			not _holds_a_digit(row),
-			(
-				"a row of the map states no number, because the number belongs to the file it names: " + row
-			),
+			("a row of the map states no number, because the number belongs to the file it names: " + row),
 		)
 
 
@@ -174,14 +169,9 @@ func _holds_a_digit(text: String) -> bool:
 ## reading order in it at all - so they are still guards on the day the authority is clean, which is every day.
 func test_the_reading_orders_guard_can_fail() -> void:
 	var hand_written: String = (
-		"## Where to start\n\n"
-		+ "Read `scripts/spacing.gd` first.\n\n"
-		+ "| the rule | the file that owns it |\n"
-		+ "| --- | --- |\n"
-		+ "| how close two targets may stand | `scripts/spacing.gd` |\n"
-		+ "| how near the word 5.5 mm is | `scripts/legibility.gd` |\n"
-		+ "\n"
-		+ "## 1. The build\n"
+		"## Where to start\n\n" + "Read `scripts/spacing.gd` first.\n\n" + "| the rule | the file that owns it |\n"
+		+ "| --- | --- |\n" + "| how close two targets may stand | `scripts/spacing.gd` |\n"
+		+ "| how near the word 5.5 mm is | `scripts/legibility.gd` |\n" + "\n" + "## 1. The build\n"
 	)
 	var rows: PackedStringArray = _the_maps_rows(_the_reading_order(hand_written))
 	assert(rows.size() == 2, "the table's body is read and its two heading lines are not rows: %d" % rows.size())

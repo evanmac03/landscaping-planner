@@ -28,22 +28,20 @@ func test_the_numbering_verb_is_taken_and_the_runs_it_cannot_share_are_refused()
 	var alone: Dictionary = Shot.asked_for(PackedStringArray(["--named"]))
 	assert(bool(alone["named"]), "--named is a verb this tool has")
 	assert(String(alone["complaint"]).is_empty(), "and there is nothing the matter with it on its own")
-	var region: Dictionary = Shot.asked_for(
-		PackedStringArray(["--named", "--zoom", "0", "0", "10", "10"])
-	)
+	var region: Dictionary = Shot.asked_for(PackedStringArray(["--named", "--zoom", "0", "0", "10", "10"]))
 	assert(
 		String(region["complaint"]).contains("--named") and String(region["complaint"]).contains("--zoom"),
-		"a region and a number are named as the pair that cannot share: %s" % String(region["complaint"])
+		"a region and a number are named as the pair that cannot share: %s" % String(region["complaint"]),
 	)
 	var on_disk: Dictionary = Shot.asked_for(PackedStringArray(["--named", "--from", NOT_THERE]))
 	assert(
 		String(on_disk["complaint"]).contains("picture on disk"),
-		"and a picture already on disk is refused for what it is: %s" % String(on_disk["complaint"])
+		"and a picture already on disk is refused for what it is: %s" % String(on_disk["complaint"]),
 	)
 	var typo: Dictionary = Shot.asked_for(PackedStringArray(["--naming"]))
 	assert(
 		String(typo["complaint"]).contains("--named"),
-		"and the refusal that lists the verbs has this one in the list"
+		"and the refusal that lists the verbs has this one in the list",
 	)
 
 
@@ -60,18 +58,18 @@ func test_a_number_is_drawn_above_the_controls_corner_and_on_it_when_there_is_no
 	var untouched: Color = picture.get_pixel(59, 39)
 	assert(
 		picture.get_pixel(10, 8) != untouched,
-		"with no room above it, the number is laid on the control's own corner"
+		"with no room above it, the number is laid on the control's own corner",
 	)
 	var roomy := Image.create_empty(60, 40, false, Image.FORMAT_RGBA8)
 	roomy.fill_rect(Rect2i(0, 0, 60, 40), Color(0.9, 0.9, 0.9))
 	Shot._draw_one_number(roomy, Rect2i(10, 30, 40, 20), 7)
 	assert(
 		roomy.get_pixel(10, 30 - plate_height) != untouched,
-		"and with room above it, the number stands above the corner rather than over the caption"
+		"and with room above it, the number stands above the corner rather than over the caption",
 	)
 	assert(
 		roomy.get_pixel(10, 30) == untouched,
-		"so the control's own words are left alone: the corner pixel is still the paper it was"
+		"so the control's own words are left alone: the corner pixel is still the paper it was",
 	)
 	var drawn: PackedByteArray = picture.get_data()
 	Shot._draw_one_number(null, Rect2i(0, 0, 10, 10), 3)
@@ -268,9 +266,7 @@ func test_a_rectangles_bounds_are_stated_inclusively() -> void:
 func test_the_live_line_names_the_picture_the_room_and_the_pages_that_are_up() -> void:
 	var picture: Image = Image.create_empty(100, 60, false, Image.FORMAT_RGBA8)
 	var up := PackedStringArray(["page     AnalyticsWindow  \"Analytics\"  at (12, 9) size (474, 700)"])
-	var said := "\n".join(
-		Shot.live_lines(picture, Vector2i(1600, 900), up, "res://build/the_screen.png", OK)
-	)
+	var said := "\n".join(Shot.live_lines(picture, Vector2i(1600, 900), up, "res://build/the_screen.png", OK))
 	assert(said.contains("100 x 60"), said)
 	assert(said.contains("1600 x 900"), said)
 	assert(said.contains("1 up"), said)
@@ -293,9 +289,7 @@ func test_no_page_up_is_said_rather_than_left_blank() -> void:
 func test_a_picture_that_could_not_be_written_says_what_refused_it() -> void:
 	var picture: Image = Image.create_empty(100, 60, false, Image.FORMAT_RGBA8)
 	var said := "\n".join(
-		Shot.live_lines(
-			picture, Vector2i(1600, 900), PackedStringArray(), "res://nowhere/x.png", ERR_CANT_CREATE
-		)
+		Shot.live_lines(picture, Vector2i(1600, 900), PackedStringArray(), "res://nowhere/x.png", ERR_CANT_CREATE)
 	)
 	assert(said.contains("could not be written"), said)
 	assert(said.contains("res://nowhere/x.png"), said)
@@ -347,7 +341,7 @@ func test_both_moments_are_named_and_the_ordering_is_said_out_loud() -> void:
 			picture,
 			"the earlier  res://a.png   written 2 minute(s) ago",
 			"the later    res://b.png   written under a minute ago",
-			true
+			true,
 		)
 	)
 	assert(said.contains("res://a.png"), said)

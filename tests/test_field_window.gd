@@ -400,7 +400,10 @@ func test_a_reading_that_offered_several_plants_offers_the_key() -> void:
 	_forget_questions()
 	_answers.append(_answer([_plant(THYME_NAME, 0.7), _plant(BOX, 0.6)]))
 	var heard: Array[StringName] = []
-	page.key_requested.connect(func(ids: Array[StringName]) -> void: heard.append_array(ids))
+	page.key_requested.connect(
+		func(ids: Array[StringName]) -> void:
+			heard.append_array(ids),
+	)
 	page.identify_photo()
 	assert(page.candidate_count() == 2, "the reading offered two plants: %d" % page.candidate_count())
 	var ids: Array[StringName] = page.candidate_ids()

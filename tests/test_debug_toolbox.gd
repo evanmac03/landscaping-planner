@@ -23,10 +23,7 @@ func test_the_autoloads_are_read_where_godot_keeps_them() -> void:
 	var setting_names: Array[String] = _autoloads_in_the_settings()
 	assert(
 		toolbox_names == setting_names,
-		(
-			"the toolbox reports every autoload Godot has and no other: %s against %s"
-			% [toolbox_names, setting_names]
-		),
+		("the toolbox reports every autoload Godot has and no other: %s against %s" % [toolbox_names, setting_names]),
 	)
 	for autoload_name: String in toolbox_names:
 		assert(

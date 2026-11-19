@@ -28,7 +28,7 @@ signal layer_switched(layer_name: StringName, shown: bool)
 var _set: DraftLayerSetScript = null
 
 ## The toggles, by the layer each one stands for.
-var _toggles: Dictionary[StringName, CheckButton] = {}
+var _toggles: Dictionary[StringName, CheckButton] = { }
 
 ## The column the toggles are stacked in, the scroller it lives in, the panel around it, and the line that says
 ## how many layers show.

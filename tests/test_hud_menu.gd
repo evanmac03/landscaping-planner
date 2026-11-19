@@ -88,12 +88,9 @@ func test_the_panels_visibility_is_written_in_exactly_one_place() -> void:
 	assert(owner >= 0, "the one writer is `_refresh_presentation_panel`")
 	assert(
 		text.find("presentation_panel.visible =") > owner,
-		"and the write is inside that function, after its own definition"
+		"and the write is inside that function, after its own definition",
 	)
-	assert(
-		text.count("_refresh_presentation_panel()") >= 3,
-		"which the setter, the frame and the definition all reach"
-	)
+	assert(text.count("_refresh_presentation_panel()") >= 3, "which the setter, the frame and the definition all reach")
 
 
 ## The View menu carries the reading size: one entry per answer, and the answer in hand on the snapshot the

@@ -119,8 +119,10 @@ func scan() -> Dictionary:
 		_collect(root, files)
 	files.sort()
 
-	print("################ TREE-SITTER AUDIT: %d script(s) under %s ################" % [files.size(), ", ".join(ROOTS)])
-	var totals: Dictionary = {}
+	print(
+		"################ TREE-SITTER AUDIT: %d script(s) under %s ################" % [files.size(), ", ".join(ROOTS)]
+	)
+	var totals: Dictionary = { }
 	for key: String in COUNTS:
 		totals[key] = 0
 	var clean := 0
@@ -140,7 +142,10 @@ func scan() -> Dictionary:
 		if not (row["errors"] as Array).is_empty():
 			tripped += 1
 			for error: Dictionary in (row["errors"] as Array):
-				print("  %s:%d  %s" % [path, int(error["start_line"]) + 1, String(error["text"]).strip_edges().substr(0, 60)])
+				print(
+					"  %s:%d  %s"
+					% [path, int(error["start_line"]) + 1, String(error["text"]).strip_edges().substr(0, 60)]
+				)
 		else:
 			clean += 1
 
@@ -151,7 +156,10 @@ func scan() -> Dictionary:
 	print("  tripped        %d file(s)" % tripped)
 	for key: String in COUNTS:
 		print("  %-14s %d" % [key, int(totals[key])])
-	print("  plain `var =`  %d  (of which %d are a Variant by nature)" % [by_nature.size() + typable.size(), by_nature.size()])
+	print(
+		"  plain `var =`  %d  (of which %d are a Variant by nature)"
+		% [by_nature.size() + typable.size(), by_nature.size()]
+	)
 	print("  no return type %d function(s)" % no_return.size())
 	print("  untyped params %d  (the gate allows %d of these)" % [untyped_params.size(), DELIBERATE_PARAMETERS])
 
@@ -185,9 +193,7 @@ static func faults(found: Dictionary) -> int:
 	if not bool(found.get("ran", false)):
 		return 1
 	return (
-		int(found.get("tripped", 0))
-		+ int(found.get("typable", 0))
-		+ int(found.get("no_return", 0))
+		int(found.get("tripped", 0)) + int(found.get("typable", 0)) + int(found.get("no_return", 0))
 		+ maxi(0, int(found.get("params", 0)) - DELIBERATE_PARAMETERS)
 	)
 
@@ -197,7 +203,9 @@ func _finish(found: Dictionary) -> void:
 	var count := faults(found)
 	print("")
 	if count == 0:
-		print("TREE-SITTER AUDIT: every file read in full, every declaration typed, the parameters within the allowance")
+		print(
+			"TREE-SITTER AUDIT: every file read in full, every declaration typed, the parameters within the allowance"
+		)
 	elif not bool(found.get("ran", false)):
 		print("TREE-SITTER AUDIT: the check could not run, so nothing was read and nothing is cleared")
 	else:

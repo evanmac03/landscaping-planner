@@ -78,7 +78,9 @@ static func page_lines() -> PackedStringArray:
 	var lines := PackedStringArray()
 	var pages: Array[String] = PageIndexScript.scripts()
 	lines.append("")
-	lines.append("the pages        %d, from PageIndex - the name first, then the script that is the page" % pages.size())
+	lines.append(
+		"the pages        %d, from PageIndex - the name first, then the script that is the page" % pages.size()
+	)
 	for path: String in pages:
 		lines.append("  %-30s %s" % [PageIndexScript.page_name(path), path])
 	return lines
