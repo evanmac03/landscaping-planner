@@ -703,6 +703,10 @@ const PACKLESS_DOCS := [
 		"why": "it documents the third-party Godot Dev Workflow dock under `addons/`, which is not this project's own code and is not what a context pack is written to change",
 	},
 	{
+		"doc": "res://docs/gdscript-formatting.md",
+		"why": "it records a third-party formatter's style, the sweep that settles a tree, and the two places this project's own code had to be written around that tool - none of which is a subsystem a pack is written to change",
+	},
+	{
 		"doc": "res://docs/phone-target.md",
 		"why": "it is about the platform rather than about one subsystem: it spans drawing, walking and every import door at once, so any single pack quoting it would be quoting rules for work it does not describe",
 	},

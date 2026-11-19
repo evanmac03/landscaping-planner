@@ -59,3 +59,32 @@ jobs:
         run: |
           & .\tools\github.ps1 -Action Validate -Godot $env:WORKFLOW_GODOT
           if (-not $?) { throw 'Workflow validation failed.' }
+
+  formatting:
+    name: GDScript formatting at 120
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the verified GDScript formatter 0.28.0
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The formatter is not in this repository - the addon is gitignored and ships no binary - so the
+          # release is fetched here, pinned by version and checked against the hash measured from it.
+          $zip = Join-Path $env:RUNNER_TEMP 'gdscript-formatter.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/GDQuest/GDScript-formatter/releases/download/0.28.0/gdscript-formatter-0.28.0-windows-x86_64.exe.zip' -OutFile $zip
+          $expected = 'f4012ceb0ece52af7e0f617ceb267fee386512b51b0808f12743667b01ad7626'
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $expected) { throw 'Formatter download hash mismatch.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'gdfmt'
+          Expand-Archive -LiteralPath $zip -DestinationPath $destination
+          "WORKFLOW_FORMATTER=$(Join-Path $destination 'gdscript-formatter-0.28.0-windows-x86_64.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Check that every script is formatted
+        run: |
+          # --verify-structure is the formatter's own verdict on its transformation: without it a run writes
+          # the very output its checker refuses, which is how two files here stayed unformatted. See
+          # docs/gdscript-formatting.md.
+          & $env:WORKFLOW_FORMATTER --check --max-line-length 120 --verify-structure scripts tests tools
+          if ($LASTEXITCODE -ne 0) { throw "A file is not formatted. Run the sweep in docs/gdscript-formatting.md and commit the result." }

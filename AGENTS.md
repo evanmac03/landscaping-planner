@@ -24,6 +24,7 @@ why it does it that way, and what was rejected. Read the one for the area you ar
 | `docs/workflow-efficiency-spec.md` | the quality-of-life features |
 | `docs/help-manual.md`, `docs/github-releases.md` | the in-app manual, and the release workflow |
 | `docs/phone-target.md` | the phone: the build, the touch seams, the HUD's floors in millimetres, the platform rules the GUI follows - and the one it does not |
+| `docs/gdscript-formatting.md` | the house style the formatter defines, the sweep that settles a tree, and the one construct that breaks it |
 
 ## The shape of a feature
 
@@ -103,7 +104,10 @@ Every feature here has the same six parts. A change that adds one and not the ot
   127.0.0.1:6570 and claims this project's runtime entry from a real game session. It exits
   non-zero when anything failed. One file with `-- res://tests/test_<module>.gd`; a name filter with
   `-- res://tests plant_`. Ziva's `run_tests` runs the same files. **CI runs the suite** -
-  `.github/workflows/workflow-checks.yml` runs it on every pull request and on a push to `main`, and validates the release workflow guide.
+  `.github/workflows/workflow-checks.yml` runs it on every pull request and on a push to `main`, and
+  validates the release workflow guide. **CI checks the formatting too**: the same file's `formatting` job
+  fetches the verified GDScript formatter and refuses a file that is not formatted at 120 -
+  `docs/gdscript-formatting.md` is the style, the sweep, and the one construct that breaks it.
 - **The dev tools**: `res://tools/` holds one-off checks that are run, not shipped - `audit.gd` (one
   pass: plant check, HUD layout, every scene loads), `plant_scene_check.gd`, `hud_layout_check.gd`,
   `console.gd`, `vocabulary.gd` (the names the program itself uses - its pages, menus, tools, keys
