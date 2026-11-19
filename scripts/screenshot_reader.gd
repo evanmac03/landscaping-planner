@@ -14,6 +14,11 @@ extends RefCounted
 ## blows a small region up so that two title bars standing in the same rows - words drawn over words - are
 ## legible to a person reading the picture, which is the only way that fault was ever settled.
 ##
+##
+## It **writes** as well as reads: `outline` says where a rectangle stands, and `label` says *which* control it is -
+## the number a block gave it, drawn as blocks of colour because an `Image` has no letters and a picture pulled off
+## a phone has no renderer anywhere near it. A capture and the block's own lines are then one legend.
+##
 ## Nothing here decides anything. It takes an `Image` and gives back rows and colours, and the file helpers
 ## around it are only there so a caller does not have to remember which of Godot's fifty `Image` statics it
 ## wanted; a picture that is not there, a column outside it, or a region that runs off it are answered with
@@ -119,6 +124,96 @@ static func outline(image: Image, rect: Rect2i, colour: Color, thickness: int) -
 			if mini(along, down) >= thickness:
 				continue
 			image.set_pixel(x, y, image.get_pixel(x, y).blend(colour))
+
+
+## The five-by-seven shape of each of the ten digits: one string per digit, its seven rows separated by `/`, so
+## that a **number** can be drawn on a picture.
+##
+## An `Image` cannot draw text, and this project reads a picture with no renderer anywhere near it - the captures a
+## phone tool pulls off a device are the most important pictures here, and nothing on a desk drew them. So a number
+## is drawn the same way everything else here is drawn: as blocks of colour.
+##
+## The table is the whole vocabulary. A character that is not one of the ten digits still takes its own room and
+## leaves that column blank, so a caller that hands over `#12` gets `12` with a gap where the `#` was - there is no
+## five-by-seven alphabet here, and inventing one would be a font nobody asked for.
+const DIGITS := {
+	"0": "01110/10001/10001/10001/10001/10001/01110",
+	"1": "00100/01100/00100/00100/00100/00100/01110",
+	"2": "01110/10001/00001/00010/00100/01000/11111",
+	"3": "11111/00010/00100/00010/00001/10001/01110",
+	"4": "00010/00110/01010/10010/11111/00010/00010",
+	"5": "11111/10000/11110/00001/00001/10001/01110",
+	"6": "00110/01000/10000/11110/10001/10001/01110",
+	"7": "11111/00001/00010/00100/01000/01000/01000",
+	"8": "01110/10001/10001/01110/10001/10001/01110",
+	"9": "01110/10001/10001/01111/00001/00010/01100",
+}
+
+## One digit's own shape, the table's and not a caller's: stated once so that the drawer and the measurer below
+## cannot come to disagree about how big a number is.
+const GLYPH_ACROSS := 5
+const GLYPH_DOWN := 7
+
+
+## How many pixels wide a piece of text will be drawn at a scale, so a caller can stand a number inside a rectangle
+## or beside one without guessing. Every character is counted, including the ones the table does not have.
+static func label_width(text: String, scale: int = 2) -> int:
+	return text.length() * GLYPH_ACROSS * maxi(scale, 1)
+
+
+## **A number drawn on the picture**, its top-left at `at`, each pixel of the table grown into a block of `scale` by
+## `scale` - so that the control a block numbered can be found on the glass by that same number.
+##
+## `outline` says where a rectangle is; this says which one it is, and the two together are what makes a picture
+## self-explaining: the block's own lines are the legend, the numbers are on the customs, and nothing is matched up
+## by eye. Blended, like `outline`, so what is underneath is still read through the number - the colour's alpha is
+## how much of it is laid on. A label reaching past the edge of the picture is drawn as far as there is picture,
+## because asking an `Image` for a pixel outside it is an error rather than a drawing.
+static func label(image: Image, at: Vector2i, text: String, colour: Color, scale: int = 2) -> void:
+	if image == null or scale <= 0:
+		return
+	var step: int = GLYPH_ACROSS * scale
+	for index: int in text.length():
+		var rows: PackedStringArray = String(DIGITS.get(text[index], "")).split("/")
+		for row: int in mini(rows.size(), GLYPH_DOWN):
+			var shape: String = rows[row]
+			for column: int in mini(shape.length(), GLYPH_ACROSS):
+				if shape[column] != "1":
+					continue
+				# Where this one block of the digit starts across, which is the number's own left edge plus the
+				# whole of every digit before it and every column before this one.
+				var left: int = at.x + index * step + column * scale
+				for down: int in range(at.y + row * scale, at.y + row * scale + scale):
+					for across: int in range(left, left + scale):
+						if down < 0 or across < 0:
+							continue
+						if down >= image.get_height() or across >= image.get_width():
+							continue
+						image.set_pixel(across, down, image.get_pixel(across, down).blend(colour))
+
+
+## **A number laid at a rectangle, the way every picture in this project lays one.**
+##
+## The rule is here, in the one module that draws, rather than in each tool - so the desk's picture and the phone's
+## capture cannot place a number differently. It goes **above** the rectangle's top-left corner where there is room
+## for it, and on the corner itself where there is not. Above, because a number laid over a caption covers the very
+## words a person is matching it to - the fault the `overlap` lines exist for, and the one the first numbered
+## picture showed on every button of the palette; on the corner, because a control standing in the screen's own top
+## rows has nothing above it, and a number drawn off the picture is a number nobody can read.
+##
+## The plate is laid with `outline` **at a thickness as tall as the box**, which is that function's own documented
+## way of filling a rectangle: a second painter with a fill of its own is exactly how two pictures of one screen
+## come to disagree about what is on it. The colours are the caller's, because a capture off a phone and a desk's
+## screen are lit differently and each tool already states the marks it draws.
+static func numbered(image: Image, rect: Rect2i, number: int, plate: Color, ink: Color, scale: int = 2) -> void:
+	if image == null:
+		return
+	var text: String = str(number)
+	var corner := Rect2i(rect.position, Vector2i(label_width(text, scale) + 2, GLYPH_DOWN * scale + 2))
+	if corner.position.y - corner.size.y >= 0:
+		corner.position.y -= corner.size.y
+	outline(image, corner, plate, corner.size.y)
+	label(image, corner.position + Vector2i(1, 1), text, ink, scale)
 
 
 ## A picture from a file, or nothing when there is no file there or it is not a picture this can read.

@@ -21,6 +21,63 @@ const SCRATCH_MARK := "user://the-screen-shot-test-mark.png"
 const NOT_THERE := "user://there-is-no-picture-at-this-path.png"
 
 
+## **A number on the screen is a verb of its own, and it has its own refusals.** The picture of numbers answers
+## "which control is which", and the three things it cannot share a run with - a region, a rectangle, and a picture
+## already on disk - are refused by name rather than quietly turned into something else.
+func test_the_numbering_verb_is_taken_and_the_runs_it_cannot_share_are_refused() -> void:
+	var alone: Dictionary = Shot.asked_for(PackedStringArray(["--named"]))
+	assert(bool(alone["named"]), "--named is a verb this tool has")
+	assert(String(alone["complaint"]).is_empty(), "and there is nothing the matter with it on its own")
+	var region: Dictionary = Shot.asked_for(
+		PackedStringArray(["--named", "--zoom", "0", "0", "10", "10"])
+	)
+	assert(
+		String(region["complaint"]).contains("--named") and String(region["complaint"]).contains("--zoom"),
+		"a region and a number are named as the pair that cannot share: %s" % String(region["complaint"])
+	)
+	var on_disk: Dictionary = Shot.asked_for(PackedStringArray(["--named", "--from", NOT_THERE]))
+	assert(
+		String(on_disk["complaint"]).contains("picture on disk"),
+		"and a picture already on disk is refused for what it is: %s" % String(on_disk["complaint"])
+	)
+	var typo: Dictionary = Shot.asked_for(PackedStringArray(["--naming"]))
+	assert(
+		String(typo["complaint"]).contains("--named"),
+		"and the refusal that lists the verbs has this one in the list"
+	)
+
+
+## **The number goes above the control's corner where there is room, and on it where there is not.** Above keeps the
+## number off the caption it names; the corner is the fallback for a control standing in the screen's own top rows,
+## where a number placed above would be off the picture entirely.
+func test_a_number_is_drawn_above_the_controls_corner_and_on_it_when_there_is_no_room() -> void:
+	var picture := Image.create_empty(60, 40, false, Image.FORMAT_RGBA8)
+	picture.fill_rect(Rect2i(0, 0, 60, 40), Color(0.9, 0.9, 0.9))
+	var paper: PackedByteArray = picture.get_data()
+	Shot._draw_one_number(picture, Rect2i(10, 8, 40, 20), 7)
+	assert(picture.get_data() != paper, "something is drawn for a control that has a number")
+	var plate_height: int = ScreenshotReaderScript.GLYPH_DOWN * Shot.NUMBER_SCALE + 2
+	var untouched: Color = picture.get_pixel(59, 39)
+	assert(
+		picture.get_pixel(10, 8) != untouched,
+		"with no room above it, the number is laid on the control's own corner"
+	)
+	var roomy := Image.create_empty(60, 40, false, Image.FORMAT_RGBA8)
+	roomy.fill_rect(Rect2i(0, 0, 60, 40), Color(0.9, 0.9, 0.9))
+	Shot._draw_one_number(roomy, Rect2i(10, 30, 40, 20), 7)
+	assert(
+		roomy.get_pixel(10, 30 - plate_height) != untouched,
+		"and with room above it, the number stands above the corner rather than over the caption"
+	)
+	assert(
+		roomy.get_pixel(10, 30) == untouched,
+		"so the control's own words are left alone: the corner pixel is still the paper it was"
+	)
+	var drawn: PackedByteArray = picture.get_data()
+	Shot._draw_one_number(null, Rect2i(0, 0, 10, 10), 3)
+	assert(picture.get_data() == drawn, "and no picture at all is not a reason to fail")
+
+
 ## A rectangle is four numbers, and one that is short is refused in a sentence that says how many it got. The
 ## count is the point: "a rectangle is four numbers" on its own leaves a caller counting their own line.
 func test_a_rectangle_is_four_numbers_and_a_short_one_is_refused_by_name() -> void:

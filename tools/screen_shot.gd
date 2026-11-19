@@ -46,6 +46,7 @@ extends Node
 ##     ... -- --from res://build/board.png                          a picture already on disk, and its age
 ##     ... -- --from <picture> --zoom x y w h                       one region of it, twice as big, and read
 ##     ... -- --from <picture> --mark x y w h                       one rectangle drawn onto it, to be looked at
+##     ... -- --named                                               the screen now, with every control numbered at it
 ##     ... -- --from <picture> --against <picture>                 what moved between two pictures, and when each
 ##     ... -- --against <picture>                                  the screen now, against the picture that run left
 ##
@@ -62,12 +63,24 @@ const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const ScreenshotReaderScript := preload("res://scripts/screenshot_reader.gd")
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const PageIndexScript := preload("res://scripts/page_index.gd")
+const PageLayoutScript := preload("res://scripts/page_layout.gd")
 const StillnessScript := preload("res://scripts/stillness.gd")
 
 ## Where a picture lands when no `--to` names another place.
 const TO_SCREEN := "res://build/the_screen.png"
 const TO_ZOOM := "res://build/the_zoom.png"
 const TO_MARK := "res://build/the_marked.png"
+
+## Where a numbered picture lands. A place of its own rather than over `the_screen.png`, because the two answer
+## different questions - one is what the screen looks like, the other is which control is which - and overwriting
+## the first with the second would cost a person a picture they were looking at.
+const TO_NAMED := "res://build/the_screen_named.png"
+
+## The plate a number sits on and the ink it is drawn in. The plate is not decoration: a number drawn straight onto
+## a caption is a number nobody can read, which is the same lesson the `overlap` lines were built on.
+const NUMBER_PLATE := Color(0.0, 0.0, 0.0, 0.62)
+const NUMBER_INK := Color(1.0, 1.0, 1.0, 1.0)
+const NUMBER_SCALE := 2
 
 ## How many colour runs down one column are worth printing before the column is called shaded and the picture
 ## is handed over instead. A shaded surface - the plan canvas, a panel lit from one side - is hundreds of runs,
@@ -286,6 +299,87 @@ func _take_the_screen(asked: Dictionary) -> void:
 	elif bool(asked["mark_asked"]):
 		for line: String in mark_lines(picture, asked["mark"], to if not to.is_empty() else TO_MARK):
 			print(line)
+	elif bool(asked["named"]):
+		for line: String in named_lines(picture, hud, TO_NAMED):
+			print(line)
+
+
+## **Every control on the screen, its number drawn at it, with the block's own lines as the legend.**
+##
+## The numbers and the rectangles come from `HudProbe.tap_controls` - the very walk the block's `tap` lines are
+## written from - numbered from one and carried across the parts in the block's own order, so the picture and the
+## legend cannot name two different controls. Nothing here decides what a control is called, how big it is, or
+## which one it is; this tool phrases an answer and draws it.
+##
+## A number goes **above** the control's top-left corner where there is room for one, and on the corner itself when
+## the control stands in the screen's own top rows - the corner being the one place a number is always on the screen.
+## A number laid over a caption would cover the words a person is matching it to, which is the fault the `overlap`
+## lines exist for and the one the first version of this picture showed on every button.
+func named_lines(picture: Image, hud: Node, to: String) -> PackedStringArray:
+	var lines := PackedStringArray()
+	var board: Node = hud.get_node_or_null(^"Root")
+	var parts: Array = [{ "root": board, "scope": "the board" }]
+	for node: Node in hud.get_viewport().get_embedded_subwindows():
+		var page: Window = node as Window
+		if page != null and page.visible:
+			parts.append({ "root": page, "scope": PageLayoutScript.page_name(page) })
+	var legend := PackedStringArray()
+	var number: int = 1
+	for part: Dictionary in parts:
+		var root: Node = part["root"]
+		var scope: String = String(part["scope"])
+		var controls: Array[Dictionary] = HudProbeScript.tap_controls(root, scope, number)
+		for one: Dictionary in controls:
+			_draw_one_number(picture, Rect2i(one["rect"] as Rect2), int(one["n"]))
+		legend.append_array(HudProbeScript.tap_lines(root, scope, number))
+		number += controls.size()
+	lines.append("=== the screen, with every control numbered ===")
+	var wrote: Error = ScreenshotReaderScript.write(picture, to)
+	if wrote != OK:
+		lines.append("  the picture could not be written: %s refused with %s" % [to, error_string(wrote)])
+		return lines
+	lines.append("  wrote       %s" % to)
+	if legend.is_empty():
+		lines.append("  nothing a finger can tap is on the screen, so no number was drawn on it.")
+		return lines
+	lines.append(
+		(
+			"  numbered    %d control(s), #1 to #%d, each just above its own control or on its corner where"
+			+ " there is no room above it"
+		)
+		% [legend.size(), legend.size()]
+	)
+	lines.append("  the legend  is the block's own lines, in the order the numbers run:")
+	lines.append_array(legend)
+	return lines
+
+
+## One control's number, on a plate of its own, **above** the control's top-left corner where there is room for it
+## and on the corner itself where there is not.
+##
+## Above rather than on the corner because a number laid over a caption covers the very words a person is matching
+## it to - the fault the `overlap` lines exist for, and the one the picture of the first version showed on every
+## button of the palette. A control standing in the screen's own top rows has nothing above it, and then the corner
+## is the only place the number can be.
+##
+## The plate is laid by `ScreenshotReader.outline` **with a thickness as tall as the box**, which is that
+## function's own documented way of filling a rectangle: a second painter with a fill of its own is exactly how two
+## pictures of one screen come to disagree about what is on it.
+static func _draw_one_number(picture: Image, rect: Rect2i, number: int) -> void:
+	if picture == null:
+		return
+	var text: String = str(number)
+	var plate := Rect2i(
+		rect.position,
+		Vector2i(
+			ScreenshotReaderScript.label_width(text, NUMBER_SCALE) + 2,
+			ScreenshotReaderScript.GLYPH_DOWN * NUMBER_SCALE + 2,
+		)
+	)
+	if plate.position.y - plate.size.y >= 0:
+		plate.position.y -= plate.size.y
+	ScreenshotReaderScript.outline(picture, plate, NUMBER_PLATE, plate.size.y)
+	ScreenshotReaderScript.label(picture, plate.position + Vector2i(1, 1), text, NUMBER_INK, NUMBER_SCALE)
 
 
 ## Every page that is up, each as the line `HudProbe` writes for it.
@@ -326,6 +420,7 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 		"zoom_asked": false,
 		"mark": Rect2i(),
 		"mark_asked": false,
+		"named": false,
 	}
 	var at: int = 0
 	while at < args.size():
@@ -337,6 +432,9 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 					return asked
 				asked[verb.substr(2)] = args[at + 1]
 				at += 2
+			"--named":
+				asked["named"] = true
+				at += 1
 			"--zoom", "--mark":
 				var numbers: Array[int] = _numbers_from(args, at + 1)
 				if numbers.size() < 4:
@@ -350,13 +448,28 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 				at += 5
 			_:
 				asked["complaint"] = (
-					"%s is not one of this tool's verbs: --from, --against, --page, --to, --zoom, --mark" % verb
+					(
+						"%s is not one of this tool's verbs: --from, --against, --page, --to, --zoom, --mark,"
+						+ " --named"
+					)
+					% verb
 				)
 				return asked
 	if bool(asked["zoom_asked"]) and bool(asked["mark_asked"]):
 		asked["complaint"] = (
 			"a region can be zoomed or a rectangle marked, not both in one run: they are two different"
 			+ " pictures, and one --to cannot name two"
+		)
+	if bool(asked["named"]) and (bool(asked["zoom_asked"]) or bool(asked["mark_asked"])):
+		asked["complaint"] = (
+			"a numbered screen is a picture of its own: --named cannot share a run with --zoom or --mark,"
+			+ " which each name a picture of their own"
+		)
+	if bool(asked["named"]) and not String(asked["from"]).is_empty():
+		asked["complaint"] = (
+			"--named numbers the controls of the program that is running now, and a picture on disk is not that"
+			+ " program: there is nothing left to ask what each control is called. Photograph the screen, or"
+			+ " pull the numbers off the picture with --mark"
 		)
 	return asked
 

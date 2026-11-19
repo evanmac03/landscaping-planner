@@ -324,23 +324,52 @@ static func row_lines(row: Control, what: String, room: float) -> PackedStringAr
 ## as `screen (45, 609) .. (488, 826)` with its centre at (266, 718) while the palette's box - the clip - ended at
 ## 673, so the centre the block handed a driver was a place on the plate under the palette and a tap there pressed
 ## nothing. `drawn_rect` is the reader the `overlap` lines already use for exactly this reason.
-static func tap_lines(root: Node, scope: String) -> PackedStringArray:
-	var lines := PackedStringArray()
+##
+## **Each line ends with the control's own number in the block**, which is what lets a picture carry that number at
+## the control while the block's own lines are read as its legend - the same list, so nothing has to be matched up
+## by eye. `first` is where the count starts, so that a page's controls carry on from the board's. The number is
+## deliberately the **last** thing on the line: every reader of a block finds the rectangle by the last `screen (`
+## and the name by the words before it, and both of the phone's own readers (`PhoneTouchPass.rect_of` and
+## `named_boxes_of`) are written that way.
+## Every control of one part that a finger could hit, **as data rather than as a line**: the number it carries in
+## the block, what it is called, and the rectangle that is *drawn* - which is the part of it a picture shows.
+##
+## This is the one walk. A `tap` line is a rendering of it and a number drawn at a control on a picture is another,
+## so the legend, the block and the picture cannot come to name two different controls - and there is no second
+## pass of the tree for a caller that wants rectangles rather than words.
+static func tap_controls(root: Node, scope: String, first: int = 1) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	var number: int = first
 	for control: Control in _controls_under(root):
 		if not _tappable(control):
 			continue
 		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
+		found.append({ "n": number, "scope": scope, "name": _caption(control), "rect": rect })
+		number += 1
+	return found
+
+
+static func tap_lines(root: Node, scope: String, first: int = 1) -> PackedStringArray:
+	var lines := PackedStringArray()
+	for one: Dictionary in tap_controls(root, scope, first):
+		var rect: Rect2 = one["rect"]
 		lines.append(
-			"tap      %-28s %-34s screen %s  centre %s"
-			% [scope, "\"%s\"" % _caption(control), _rect_words(rect), _point_words(rect.get_center())]
+			(
+				"tap      %-28s %-34s screen %s  centre %s  #%d"
+				% [scope, "\"%s\"" % String(one["name"]), _rect_words(rect), _point_words(rect.get_center()), int(one["n"])]
+			)
 		)
 	return lines
 
 
 ## One page as it stands: what it is, the rectangle it was given, and every control a finger could hit.
-static func page_lines(page: Window) -> PackedStringArray:
+##
+## `first` is where this page's controls are numbered from, so a page's taps carry on from the board's rather than
+## every part numbering from one: a picture with the numbers drawn at the controls needs one count and not a count
+## per part, and the block states the parts in the order a person reads them.
+static func page_lines(page: Window, first: int = 1) -> PackedStringArray:
 	var lines := PackedStringArray()
 	if page == null:
 		return lines
@@ -354,8 +383,22 @@ static func page_lines(page: Window) -> PackedStringArray:
 			_rect_words(window_rect(page)),
 		]
 	)
-	lines.append_array(tap_lines(page, PageLayoutScript.page_name(page)))
+	lines.append_array(tap_lines(page, PageLayoutScript.page_name(page), first))
 	return lines
+
+
+## How many `tap` lines a run of block lines holds - so that whoever is numbering the block's controls can carry the
+## count on from one part to the next.
+##
+## It counts **lines**, and the lines are the authority on that: a second walk of the controls to count them would
+## be the very thing this project spends most of its effort avoiding, a second answer to a question that already has
+## one. A numbered line still begins with `tap `, so the count is unaffected by the numbering itself.
+static func taps_in(lines: PackedStringArray) -> int:
+	var found: int = 0
+	for line: String in lines:
+		if line.begins_with("tap "):
+			found += 1
+	return found
 
 
 ## Every control under a root, **stopping at a `Window`**: a page answers for its own controls, and this is
@@ -770,6 +813,84 @@ static func offscreen_lines(root: Node, scope: String) -> PackedStringArray:
 	return lines
 
 
+## Every box a tap could stop at inside **one part** of the screen - the board, or one page - in the order they
+## are drawn, which is the whole of what `Topmost` needs to answer with.
+##
+## This is the walk the block's own `reach` lines have always made, given a name so that asking about **one
+## point** and reporting every button cannot come to disagree about what is at a place: a control the mouse
+## passes through is not handed over at all, a control covering the whole room is the screen's own backdrop
+## rather than a thing in the way, and the name on each box is the one the block prints.
+static func tap_boxes(root: Node, scope: String, room: Vector2i) -> Array:
+	var boxes: Array = []
+	for control: Control in _controls_under(root):
+		if not _a_tap_stops_here(control):
+			continue
+		var rect: Rect2 = screen_rect(control)
+		if rect.size.x < 1.0 or rect.size.y < 1.0:
+			continue
+		# A control covering the whole room is the screen's own backdrop, stopping the mouse on purpose
+		# while a person is being asked something. It is not a thing that got in the way.
+		if Rect2i(rect).encloses(Rect2i(0, 0, room.x, room.y)):
+			continue
+		boxes.append(
+			{ "name": _press_name(scope, control), "rect": Rect2i(rect), "enabled": _answers_a_tap(control) }
+		)
+	return boxes
+
+
+## **What a tap at a point would reach, and the program's own name for it** - the question a person asks when
+## they mean "that one, there" and the answer they can then say out loud.
+##
+## The parts are asked **each against its own furniture**, exactly as the `reach` lines are: the board is what a
+## tap standing on the board meets, and a page over it is what a tap on the page meets. A point that reaches
+## something in both is answered by the page, because the page is drawn later - and the answer says which part it
+## was on, so the board's palette and a page's own list cannot be confused for one another.
+##
+## Nothing is measured a second time: the boxes, their names and their rectangles are `tap_boxes`', and the rule
+## that picks the winner out of them is `Topmost`'s. A point where nothing takes the mouse says so rather than
+## answering with an empty line.
+static func what_is_at(board: Node, pages: Array, board_scope: String, point: Vector2i) -> String:
+	var parts: Array = []
+	if board != null:
+		parts.append({ "root": board, "scope": board_scope })
+	for node: Node in pages:
+		var page: Window = node as Window
+		if page != null and page.visible:
+			parts.append({ "root": page, "scope": PageLayoutScript.page_name(page) })
+	if parts.is_empty():
+		return "there is nothing on the screen to ask about"
+	var room: Vector2i = screen_room(board if board != null else parts[0]["root"])
+	var reached: Dictionary = {}
+	# Named `standing_on` and not `on`: this class already has an `on()` - the gate that says whether a build
+	# speaks at all - and a local shadowing it is a reload error the engine reports on every run.
+	var standing_on: String = ""
+	for part: Dictionary in parts:
+		var top: Dictionary = TopmostScript.at(point, tap_boxes(part["root"], part["scope"], room))
+		if top.is_empty():
+			continue
+		reached = top
+		standing_on = String(part["scope"])
+	if reached.is_empty():
+		return (
+			"nothing takes a tap at (%d, %d): the control there passes the mouse through, or nothing is there"
+			% [point.x, point.y]
+		)
+	var rect: Rect2i = reached["rect"]
+	var said: String = "%s  on %s  screen (%d, %d) .. (%d, %d)  %d x %d px" % [
+		String(reached["name"]),
+		standing_on,
+		rect.position.x,
+		rect.position.y,
+		rect.end.x,
+		rect.end.y,
+		rect.size.x,
+		rect.size.y,
+	]
+	if not bool(reached["enabled"]):
+		return said + "  - and it is switched off, so a tap there does nothing"
+	return said
+
+
 ## Every button the GUI is showing and whether a tap on it would reach it: the one question a driver asks when a
 ## click does nothing at all, and the one nothing here could answer. A button drawn under a page is perfectly
 ## sized, perfectly worded, and unreachable.
@@ -807,20 +928,7 @@ static func reach_lines(board: Node, pages: Array, board_scope: String) -> Packe
 	for part: Dictionary in parts:
 		var root: Node = part["root"]
 		var scope: String = part["scope"]
-		var boxes: Array = []
-		for control: Control in _controls_under(root):
-			if not _a_tap_stops_here(control):
-				continue
-			var rect: Rect2 = screen_rect(control)
-			if rect.size.x < 1.0 or rect.size.y < 1.0:
-				continue
-			# A control covering the whole room is the screen's own backdrop, stopping the mouse on purpose
-			# while a person is being asked something. It is not a thing that got in the way.
-			if Rect2i(rect).encloses(Rect2i(0, 0, room.x, room.y)):
-				continue
-			boxes.append(
-				{ "name": _press_name(scope, control), "rect": Rect2i(rect), "enabled": _answers_a_tap(control) }
-			)
+		var boxes: Array = tap_boxes(root, scope, room)
 		for control: Control in _controls_under(root):
 			if not _a_tap_stops_here(control) or not (control is BaseButton):
 				continue

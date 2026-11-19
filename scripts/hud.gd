@@ -1025,7 +1025,14 @@ func _say_the_screen() -> void:
 	lines.append_array(
 		HudProbeScript.row_lines(menu_bar.get_parent() as Control, "the top bar", menu_bar_room())
 	)
-	lines.append_array(HudProbeScript.tap_lines(self, "the board"))
+	# **A tap line carries the control's number in this block**, counted from one and carried across the parts: the
+	# board's controls are numbered here and a page's carry on from the board's count where the pages are walked,
+	# near the foot of this function. The count is threaded rather than worked out twice - a second walk of the
+	# controls could number a control the lines do not name.
+	var number: int = 1
+	var board_taps: PackedStringArray = HudProbeScript.tap_lines(self, "the board", number)
+	lines.append_array(board_taps)
+	number += HudProbeScript.taps_in(board_taps)
 	# Then the two questions nothing here could answer until now. Every other figure in this block measures a
 	# control against *another control*; neither of these did. One asks whether a control is drawn past the edge
 	# of the screen - which nothing can be done about from inside the program, and the phone's own view buttons
@@ -1091,7 +1098,9 @@ func _say_the_screen() -> void:
 	lines.append_array(HudProbeScript.clipped_lines(get_node_or_null(^"Root"), "the board"))
 	for window: Window in get_viewport().get_embedded_subwindows():
 		if window.visible:
-			lines.append_array(HudProbeScript.page_lines(window))
+			var a_pages_own: PackedStringArray = HudProbeScript.page_lines(window, number)
+			lines.append_array(a_pages_own)
+			number += HudProbeScript.taps_in(a_pages_own)
 			lines.append_array(
 				HudProbeScript.crowded_lines(window, PageLayoutScript.page_name(window))
 			)

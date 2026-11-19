@@ -23,6 +23,97 @@ func _a_picture() -> Image:
 	return image
 
 
+## A blank picture of any size, in the one colour, so that what a drawn number inks can be read off it.
+func _a_blank(w: int, h: int) -> Image:
+	var image := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	image.fill_rect(Rect2i(0, 0, w, h), DARK)
+	return image
+
+
+## **A number is laid above the rectangle's corner where there is room, and on the corner where there is not** - the
+## one rule the two tools that draw numbers share, and it lives here because this is the module that draws them. A
+## number laid over a caption covers the words a person is matching it to; a number above a control standing in the
+## screen's own top rows would be off the picture entirely.
+func test_a_number_is_laid_above_the_corner_or_on_it_when_there_is_no_room() -> void:
+	var plate := Color(0.0, 0.0, 0.0, 1.0)
+	var ink := Color(1.0, 1.0, 1.0, 1.0)
+	var no_room := _a_blank(60, 40)
+	ScreenshotReaderScript.numbered(no_room, Rect2i(10, 4, 40, 20), 7, plate, ink, 2)
+	assert(no_room.get_pixel(10, 4) != DARK, "with nothing above it, the number is laid on the corner itself")
+
+	var roomy := _a_blank(60, 40)
+	ScreenshotReaderScript.numbered(roomy, Rect2i(10, 30, 40, 20), 7, plate, ink, 2)
+	var plate_height: int = ScreenshotReaderScript.GLYPH_DOWN * 2 + 2
+	assert(
+		roomy.get_pixel(10, 30 - plate_height) != DARK,
+		"and with room above it, the number stands above the corner rather than over the caption"
+	)
+	assert(roomy.get_pixel(10, 30) == DARK, "so the control's own words are left alone")
+
+	var untouched: PackedByteArray = roomy.get_data()
+	ScreenshotReaderScript.numbered(null, Rect2i(0, 0, 10, 10), 3, plate, ink, 2)
+	assert(roomy.get_data() == untouched, "and no picture at all is not a reason to fail")
+
+
+## **A digit is five by seven and the width says so**, which is the whole of the label's vocabulary - the table's
+## own shape, stated once in the module so that the drawer and the measurer cannot disagree about it.
+func test_a_number_is_five_by_seven_a_digit_and_its_width_says_so() -> void:
+	assert(ScreenshotReaderScript.label_width("12", 2) == 20, "two digits at twice the size, twenty pixels")
+	assert(ScreenshotReaderScript.label_width("123", 1) == 15, "and at their own size, five pixels each")
+	assert(
+		ScreenshotReaderScript.label_width("#12", 2) == 30,
+		"a character the table does not have still takes its room, so what follows is not drawn over it"
+	)
+
+
+## **An `8` comes out the way the table has it, at the size it was asked for** - and nothing outside that box. The
+## pixel assertions are the ones that would catch a table transcribed sideways or a scale applied to one axis only,
+## which a count of inked pixels could not tell apart.
+func test_a_digit_is_drawn_as_the_table_has_it_and_only_inside_its_own_box() -> void:
+	var image := _a_blank(24, 20)
+	ScreenshotReaderScript.label(image, Vector2i(2, 2), "8", LIGHT, 2)
+	# An `8` is `01110` on its top row: at scale 2 its first column is x 2..3 and its third is x 6..7.
+	assert(image.get_pixel(2, 2).is_equal_approx(DARK), "the first column of an 8's top row is a gap")
+	assert(image.get_pixel(3, 2).is_equal_approx(DARK), "and the whole of that gap, not one pixel of it")
+	assert(not image.get_pixel(6, 2).is_equal_approx(DARK), "while the third column of the top row is drawn")
+	assert(image.get_pixel(20, 2).is_equal_approx(DARK), "nothing is drawn past the number's own width")
+	assert(image.get_pixel(2, 18).is_equal_approx(DARK), "nor past its own height")
+
+
+## A character the table does not have is **a blank and not a failure**: the block's own lines write `#` before a
+## number, and a caller hands over what the line said, so the drawer takes that room and leaves the paper alone
+## rather than stopping or inventing a shape.
+func test_a_character_the_table_does_not_have_takes_its_room_and_draws_nothing() -> void:
+	var image := _a_blank(30, 20)
+	var before: PackedByteArray = image.get_data()
+	ScreenshotReaderScript.label(image, Vector2i(1, 1), "#", LIGHT, 2)
+	assert(image.get_data() == before, "nothing is drawn for it")
+	assert(ScreenshotReaderScript.label_width("#", 2) == 10, "and it still takes a column's worth of room")
+
+
+## **A number is only drawn where there is paper.** A control standing at the very edge of a phone's screen is
+## exactly where this happens, and the capture a tool has just pulled off a device is the last picture that should
+## be lost to a number drawn one block too far right - `Image` treats a pixel outside itself as an error rather
+## than as nothing.
+##
+## The label is placed so that part of it is on the paper and part is not, and the part that is *drawn* is a block
+## the table inks rather than the blank corner of a digit: a number whose only visible pixel is a gap would prove
+## nothing about clamping.
+func test_a_number_reaching_past_the_edge_is_drawn_as_far_as_there_is_picture() -> void:
+	var image := _a_blank(12, 12)
+	ScreenshotReaderScript.label(image, Vector2i(4, 4), "88", LIGHT, 2)
+	var inked: bool = false
+	for down: int in 12:
+		for across: int in 12:
+			if not image.get_pixel(across, down).is_equal_approx(DARK):
+				inked = true
+	assert(inked, "the part of the number that is on the picture is drawn")
+	var before: PackedByteArray = image.get_data()
+	ScreenshotReaderScript.label(image, Vector2i(-100, -100), "8", LIGHT, 2)
+	ScreenshotReaderScript.label(image, Vector2i(200, 200), "8", LIGHT, 2)
+	assert(image.get_data() == before, "and a number wholly off the picture draws nothing and breaks nothing")
+
+
 func test_bands_down_says_the_rows_each_colour_runs_from_and_to() -> void:
 	var bands: Array[Dictionary] = ScreenshotReaderScript.bands_down(_a_picture(), 1)
 	assert(bands.size() == 3, "two changes of colour make three runs")

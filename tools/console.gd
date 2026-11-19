@@ -64,6 +64,11 @@ const COMMANDS: Array[Dictionary] = [
 		"help": "where <path> - the on-screen rectangle of a control, or a page's whole report",
 	},
 	{
+		"name": &"what",
+		"method": &"_what",
+		"help": "what x y - the control a tap at that point would reach, in the program's own words for it",
+	},
+	{
 		"name": &"pages",
 		"method": &"_pages",
 		"help": "pages - every page the project has; the ones that are up, where they stand, and whether they fit",
@@ -184,6 +189,34 @@ func _where(first: String = "", second: String = "", third: String = "") -> Stri
 		]
 	else:
 		return "'%s' is a %s, which has no rectangle on the screen" % [wanted, node.get_class()]
+	print(said)
+	return said
+
+
+## `:what x y` - what a tap at a point would reach, in the program's own words for it.
+##
+## The inverse of `:where`, and the answer to the question a path cannot be given for: a person looking at the
+## screen has a place, not a name. The point is in the same screen pixels every rectangle here is measured in -
+## so a centre read off a block's `tap` line, or off a picture, can be handed straight in.
+##
+## The rule that picks the control is `Topmost`'s, the naming and the rectangles are the probe's, and this reads
+## off the same three things the board's own report passes to the same function: `Hud/Root`, the embedded pages,
+## and the word "the board". Nothing is worked out a second time here, which is why a `:what` answer and a block
+## cannot come to disagree about what is at a place.
+func _what(first: String = "", second: String = "", third: String = "") -> String:
+	var words: String = ("%s %s %s" % [first, second, third]).strip_edges()
+	var parts: PackedStringArray = words.split(" ", false)
+	if parts.size() < 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
+		return "which point? two screen pixels, for example: what 540 700"
+	var hud: Node = _somewhere("Hud")
+	if hud == null or not is_instance_valid(hud):
+		return "there is nothing on the screen to ask about - run this scene, which puts the program up"
+	var said: String = HudProbeScript.what_is_at(
+		hud.get_node_or_null(^"Root"),
+		hud.get_viewport().get_embedded_subwindows(),
+		"the board",
+		Vector2i(parts[0].to_int(), parts[1].to_int()),
+	)
 	print(said)
 	return said
 

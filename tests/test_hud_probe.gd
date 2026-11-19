@@ -18,6 +18,121 @@ const TouchTargetScript := preload("res://scripts/touch_target.gd")
 ## one behind on every run of the suite.
 const SCRATCH := "user://test_probe.log"
 
+
+## **What a tap at a point would reach, in the program's own words** - the reading a person needs when they can
+## point at a thing but have no name for it.
+##
+## The point asked about is the middle of the rectangle `HudProbe` itself reports for the button, because a floor
+## counted in pixels needs a screen to count it on: a headless run's display is a dummy whose transform is the
+## identity, so the question here is which control the answer *names*, never what the pixel is.
+##
+## The button is sized for the dummy screen rather than for the eye. A headless run draws the canvas at a
+## twentieth of its size inside a room 64 px square, so a button of a few dozen pixels arrives a single pixel
+## wide - and its middle, truncated to whole pixels, falls *outside* that one - while one large enough to be read
+## is large enough to cover the whole room and be skipped as the screen's own backdrop. 400 by 200 is inside both
+## bounds at either scale, so the same tree answers on a desk with a real screen and in a headless run.
+func test_what_is_at_names_the_control_a_tap_would_reach_and_the_part_it_is_on() -> void:
+	var root: Control = _root()
+	var button := Button.new()
+	button.text = "Fit"
+	var placed: Control = _control(root, button, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+
+	var said: String = HudProbeScript.what_is_at(root, [], "the board", _middle_of(placed))
+	assert(said.contains("Fit"), "the answer says what it is called: " + said)
+	assert(said.contains("on the board"), "and which part of the screen that is: " + said)
+	assert(said.contains("screen ("), "and where it stands, in the pixels a screenshot is taken in: " + said)
+	_free_made()
+
+
+## A point where nothing takes the mouse **says so** rather than answering with a blank line: "nothing happened
+## when I clicked" is the question this exists for, and a blank would be the same answer as a control the probe
+## had never heard of.
+func test_a_point_that_reaches_nothing_says_so_rather_than_answering_blank() -> void:
+	var root: Control = _root()
+	var button := Button.new()
+	button.text = "Fit"
+	_control(root, button, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+
+	var said: String = HudProbeScript.what_is_at(root, [], "the board", Vector2i(9000, 9000))
+	assert(said.contains("nothing takes a tap at (9000, 9000)"), said)
+	assert(said.contains("passes the mouse through"), said)
+	_free_made()
+
+
+## A button switched off **is** reached and is said to be switched off - which is the whole of the answer somebody
+## hunting a button that does nothing is looking for, and a different answer from reaching nothing at all.
+func test_a_switched_off_button_is_reached_and_is_said_to_be_switched_off() -> void:
+	var root: Control = _root()
+	var button := Button.new()
+	button.text = "Fit"
+	button.disabled = true
+	var placed: Control = _control(root, button, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+
+	var said: String = HudProbeScript.what_is_at(root, [], "the board", _middle_of(placed))
+	assert(said.contains("Fit"), said)
+	assert(said.contains("switched off"), said)
+	assert(said.contains("a tap there does nothing"), said)
+	_free_made()
+
+
+## The middle of the rectangle the probe itself reports for a control, so that the point asked about is one the
+## probe would publish rather than a pixel count no headless run could vouch for.
+func _middle_of(control: Control) -> Vector2i:
+	return Vector2i(HudProbeScript.screen_rect(control).get_center())
+
+
+## **The block's controls are numbered**, and the number is the last thing on a tap line: a picture can then carry
+## that number at the control while the block's own lines are read as its legend, with nothing matched up by eye.
+##
+## The two halves of the rule are here together because they are one arrangement: a part numbers from where it is
+## *told* - which is how a page's controls carry on from the board's - and `taps_in` is what tells the next part
+## where to start, by counting the lines rather than walking the controls a second time.
+func test_the_controls_of_a_block_are_numbered_from_where_they_are_told_and_counted_by_lines() -> void:
+	var root: Control = _root()
+	var one := Button.new()
+	one.text = "Fit"
+	_control(root, one, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+	var other := Button.new()
+	other.text = "Ground view"
+	_control(root, other, Vector2(0.0, 220.0), Vector2(400.0, 120.0))
+
+	var lines: PackedStringArray = HudProbeScript.tap_lines(root, "a page")
+	assert(lines.size() == 2, "two controls a finger can hit, two lines: %s" % str(lines))
+	assert(lines[0].ends_with("#1"), "the first control is number one: %s" % lines[0])
+	assert(lines[1].ends_with("#2"), "and the second carries on: %s" % lines[1])
+	assert(HudProbeScript.taps_in(lines) == 2, "two lines, two controls")
+	var carried: PackedStringArray = HudProbeScript.tap_lines(
+		root, "a page", HudProbeScript.taps_in(lines) + 1
+	)
+	assert(carried[0].ends_with("#3"), "a part told to carry on numbers from there: %s" % carried[0])
+	_free_made()
+
+
+## **The lines and the controls are one walk.** A picture that numbers the controls reads `tap_controls` and a
+## person reads the `tap` lines, so the two must name the same controls with the same rectangles - otherwise the
+## picture and its legend disagree about the very thing the legend exists for.
+func test_the_tap_lines_are_the_rendering_of_the_controls_the_walk_found() -> void:
+	var root: Control = _root()
+	var one := Button.new()
+	one.text = "Fit"
+	_control(root, one, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+	var other := Button.new()
+	other.text = "Ground view"
+	_control(root, other, Vector2(0.0, 220.0), Vector2(400.0, 120.0))
+
+	var controls: Array[Dictionary] = HudProbeScript.tap_controls(root, "the board")
+	var lines: PackedStringArray = HudProbeScript.tap_lines(root, "the board")
+	assert(controls.size() == 2 and lines.size() == 2, "two controls a finger can hit, two lines")
+	for index: int in controls.size():
+		var rect: Rect2 = controls[index]["rect"]
+		assert(int(controls[index]["n"]) == index + 1, "each control carries its number in the block")
+		assert(String(controls[index]["scope"]) == "the board", "and the part it stands on")
+		assert(
+			lines[index].contains(HudProbeScript._rect_words(rect)),
+			"and the line is written from that very rectangle: %s" % lines[index]
+		)
+	_free_made()
+
 var _made: Array[Node] = []
 
 
@@ -621,6 +736,10 @@ func test_a_control_the_suite_builds_carries_an_engine_name_and_is_still_the_pro
 ##
 ## Compared as shapes and as the words the writer itself makes, because a headless runner's 64 x 64 dummy display
 ## scales every rectangle: two readings of the same shape agree at any scale and a pair of numbers does not.
+##
+## The centre is asked for by `contains` rather than by the end of the line, because a tap line now ends with the
+## control's own number in the block - and the number is the tail on purpose, so that every reader of a block still
+## finds the rectangle by the last `screen (` and the name and centre by what stands before it.
 func test_the_centre_a_box_cuts_off_is_the_centre_of_the_part_that_shows() -> void:
 	var root: Control = _root()
 	var box := Control.new()
@@ -639,11 +758,11 @@ func test_the_centre_a_box_cuts_off_is_the_centre_of_the_part_that_shows() -> vo
 	var listed: PackedStringArray = HudProbeScript.tap_lines(root, "the board")
 	assert(listed.size() == 1, "one thing a finger could hit: %s" % str(listed))
 	assert(
-		listed[0].ends_with("centre %s" % HudProbeScript._point_words(shown.get_center())),
+		listed[0].contains("centre %s" % HudProbeScript._point_words(shown.get_center())),
 		"and the centre it is listed with is the centre of what is drawn: %s" % listed[0],
 	)
 	assert(
-		not listed[0].ends_with("centre %s" % HudProbeScript._point_words(HudProbeScript.screen_rect(half).get_center())),
+		not listed[0].contains("centre %s" % HudProbeScript._point_words(HudProbeScript.screen_rect(half).get_center())),
 		"rather than the centre of the whole control, which stands below the fold",
 	)
 	_free_made()
