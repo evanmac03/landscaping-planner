@@ -258,7 +258,7 @@ static func device_lines(
 	else:
 		lines.append(
 			"kept     the foot: nothing stated for a %d by %d screen, so the scene's own clearance stands"
-			% [DisplayServer.screen_get_size().x, DisplayServer.screen_get_size().y]
+			% [PhoneHudScript.screen_here().x, PhoneHudScript.screen_here().y]
 		)
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)

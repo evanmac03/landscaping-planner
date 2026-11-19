@@ -704,6 +704,14 @@ program's own viewport when the board is what is up. The event pushed is the one
 bound to rather than a key chosen by the tool, and the focus is given up first: a focused control
 swallows the key before `_unhandled_input` sees it at all.
 
+**Both ways up are stated, from the device's own numbers.** `--lying` states the phone on its side, and standing
+is what silence means. Each shape's glass and usable rectangle come from the one table, read off the A16W's own
+block rather than derived - lying is 2340 by 1080 with the same 100 px turned to the left - and the *room* is
+deliberately not stated, because it is the program's own arithmetic: a lying window with the project's own
+stretch yields the 1444 by 666 with `scale=1.62` that the device itself reports, so both attitudes are reproduced
+from the display alone. A `--word` that is not one of the tool's verbs is refused by name, because a typo would
+otherwise state the standing glass, answer every question with it, and say nothing about having done it.
+
 ## 14. The rules this follows, and the one it breaks
 
 The numbers in this document are mostly not this project's invention, and writing them down here is so

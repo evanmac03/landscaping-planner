@@ -33,9 +33,30 @@ const BlankPictureScript := preload("res://scripts/blank_picture.gd")
 ## The phone this program is aimed at, as its own report states it: the glass, its camera cut into the top 100 px,
 ## and the density its panel is measured at. **All three go together** - a stated screen on a desk that is not also
 ## told its density answers nothing at all, because `on_a_finger_here` asks a touchscreen *and* a dense panel.
-const GLASS := Vector2i(1080, 2340)
-const CAMERA := Rect2i(0, 100, 1080, 2240)
+## **The glass and the usable rectangle, for each way up the board can be held.**
+##
+## Every number here was read off the A16W's own block rather than derived: standing it reports 1080 by 2340 with
+## the cutout at the top (`display l=0 t=100`), and lying it reports 2340 by 1080 with the cutout turned to the
+## **left** (`display l=100 t=0`, the same 100 px the notch is worth, now standing at the left edge). The usable
+## rectangle is the whole glass less that inset, which is the shape `PhoneHud.force_display` takes.
+##
+## The *room* is not here, because it is the program's own arithmetic and not a statement: a window of the lying
+## glass with the project's own stretch gives 1444 by 666, which is exactly what the device reports (`scale=1.62`,
+## being min(2340/1600, 1080/900) * 1.35) - so both ways up are reproduced from the display alone.
+const SHAPES: Dictionary = {
+	"standing": {
+		"glass": Vector2i(1080, 2340),
+		"usable": Rect2i(0, 100, 1080, 2240),
+	},
+	"lying": {
+		"glass": Vector2i(2340, 1080),
+		"usable": Rect2i(100, 0, 2240, 1080),
+	},
+}
 const PHONE_DPI := 450.0
+
+## The verbs this tool has. Everything after a verb is its own value, and a value here never begins with `--`.
+const VERBS: PackedStringArray = ["--shot", "--door", "--standing", "--lying"]
 
 ## Where a bare `--shot` writes, so an unasked-for path still leaves the picture somewhere findable.
 const TO_SCREEN := "res://build/phone_screen.png"
@@ -52,15 +73,30 @@ var _phone: Window = null
 var _screen: SubViewportContainer = null
 var _view: SubViewport = null
 var _app: Node = null
+## The display this run states, from `SHAPES` and the line's own way-up. Held rather than looked up at each use so
+## that the window, the title and the two lines that name the glass cannot come to disagree about it.
+var _glass: Vector2i = Vector2i(1080, 2340)
+var _usable: Rect2i = Rect2i(0, 100, 1080, 2240)
 
 
 func _ready() -> void:
 	var asked := PackedStringArray(OS.get_cmdline_user_args())
+	var complaint: String = unknown_verb(asked)
+	if not complaint.is_empty():
+		print("PHONE SCREEN %s" % complaint)
+		get_tree().quit(1)
+		return
+	# **Which way up the board is being asked about**, from the line: `--lying` states the phone on its side, and
+	# standing is what silence means. The glass and the usable rectangle come from the one table, because a display
+	# stated half one way up and half the other is exactly the lie that taking both halves avoids.
+	var place: Dictionary = SHAPES[shape_from(asked)]
+	_glass = place["glass"]
+	_usable = place["usable"]
 	_state_the_device()
 
 	_phone = Window.new()
-	_phone.title = "the A16W's glass, 1080 by 2340"
-	_phone.size = GLASS
+	_phone.title = "the A16W's glass, %d by %d" % [_glass.x, _glass.y]
+	_phone.size = _glass
 	# **The project's own stretch is handed on, not copied.** A `Window` made at runtime starts with canvas scaling
 	# switched off, so a 1080 by 2340 window given only the canvas factor came out an **800 by 1733** room - the
 	# window divided by 1.35 and nothing else, measured 2026-11-18 - and the cutout and the foot band then took
@@ -138,10 +174,17 @@ func _ready() -> void:
 
 	# **The block above is the reading this scene exists to make possible**, and it is the program's own words:
 	# a run says whether the room, the bands and the foot are the phone's before any picture is taken.
-	print("PHONE SCREEN: a %d by %d window, and the program's own block above it" % [GLASS.x, GLASS.y])
+	print("PHONE SCREEN: a %d by %d window, and the program's own block above it" % [_glass.x, _glass.y])
 
 	var shot: String = shot_path(asked)
 	if shot.is_empty():
+		# **A run with no `--shot` still has to end.** The block above *is* the reading, and a scene that simply
+		# returned left the process up for ever - measured 2026-11-19, a bare run printed its block and was then
+		# killed by a five-minute ceiling, having never quit. The program is put away first, in the same order every
+		# other ending here uses, so the notifications land on a tree that still holds them.
+		await _leave_the_app_standing()
+		_put_the_device_back()
+		get_tree().quit()
 		return
 	await RenderingServer.frame_post_draw
 	var picture: Image = _view.get_texture().get_image()
@@ -178,7 +221,7 @@ func _ready() -> void:
 	# is resampled here, because a picture of the layout is worth more than a blurred copy of the screen.
 	print(
 		"PHONE SCREEN: wrote %s, %d by %d - the room's own canvas, the glass being %d by %d"
-		% [shot, picture.get_width(), picture.get_height(), GLASS.x, GLASS.y]
+		% [shot, picture.get_width(), picture.get_height(), _glass.x, _glass.y]
 	)
 	# **The program is put away before this scene quits**, rather than left for the exit to free: a live game torn
 	# down mid-frame answered a resize on a viewport it no longer had (`disable_3d` on a null) and placed a page
@@ -205,7 +248,7 @@ func _leave_the_app_standing() -> void:
 func _state_the_device() -> void:
 	PhoneHudScript.force_density(PHONE_DPI)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
-	PhoneHudScript.force_display(GLASS, CAMERA)
+	PhoneHudScript.force_display(_glass, _usable)
 
 
 ## Hand the real display and the real device question back, so a run leaves this desk as it found it.
@@ -243,6 +286,31 @@ func _press_escape() -> void:
 			var out: InputEvent = event.duplicate()
 			out.set("pressed", held)
 			handed_to.push_input(out)
+
+
+## Which way up the line asks the board to be: `--lying` is the phone on its side, and **silence means standing**,
+## because standing is what every reading in this project was taken at until the lying one was written down.
+##
+## `--lying` wins if both are given, and neither is a *rotation*: a rotation is a number and the program's own word
+## for a shape is what a person reads in the block (`shape=lying`), so the shapes are named and the rotations are
+## not.
+static func shape_from(asked: PackedStringArray) -> String:
+	if "--lying" in asked:
+		return "lying"
+	return "standing"
+
+
+## A `--word` this tool does not have, as a sentence ready to print - or nothing when every one of them is known.
+##
+## A typo is **refused rather than ignored**: `--lynig` would otherwise state the standing glass and say nothing
+## about having done it, and the sibling tool's own words for exactly this apply here - a typo that holds somebody's
+## phone at random is worse than a line saying what it wanted. The value after a verb is a path or a word and never
+## begins with `--`, so every `--` word here is a verb.
+static func unknown_verb(asked: PackedStringArray) -> String:
+	for word: String in asked:
+		if word.begins_with("--") and not VERBS.has(word):
+			return "%s is not one of this tool's verbs: --shot, --door, --standing, --lying" % word
+	return ""
 
 
 ## The path after `--shot`, or nothing when none was asked for. A bare `--shot` writes to `TO_SCREEN`, and the two
