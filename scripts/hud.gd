@@ -22,6 +22,7 @@ const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd
 ## What is on the screen, said out loud, on a build that may be driven from another computer: the figures a
 ## driver would otherwise have to read off a screenshot.
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
+const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
 const CameraWindowScript := preload("res://scripts/camera_window.gd")
 const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
 ## The reader's own choice of how big the words are drawn, where the platform states none.
@@ -1719,29 +1720,15 @@ func _on_palette_command(action: StringName) -> void:
 func _size_the_chrome_for_the_device() -> void:
 	_touch_screen = PhoneHudScript.on_a_finger_here()
 	size_for_a_finger(_touch_screen)
-	# The bar is lifted **before** the strip below is read off its foot, so that what a page may not reach is where
-	# the bar now stands rather than where the scene drew it.
-	lift_the_top_bar_clear_of_the_device()
-	# **And the left column, from the band's own trigger.** `place_the_left_column_for_a_device` is the one door that
-	# places the palette, but the only thing that used to call it was the foot plate *changing height* - and a band
-	# appears when the phone turns or the layout is rebuilt, neither of which moves that plate. So the left ground was
-	# never applied: measured 2026-11-18 on a build that contained the fix, the palette still stood 55 px inside the
-	# camera band, the same number as before it. Called here as well, deferred for the reason that door's own comment
-	# gives - the placement must land *after* the layout that changed. Two triggers, one door, nothing rewritten.
-	place_the_left_column_for_a_device.call_deferred()
-	# A page's title bar is drawn *above* the page's own rectangle, so a page is allowed to reach the top of
-	# the screen - which is what keeps its own bar from being clipped. The top bar is at that top, though, and
-	# a page placed there drew its title and its close cross over the menu titles. So the strip no page may use
-	# is stated here, where the chrome has just been sized, and what a page may not reach is the bar's own
-	# foot - read off the bar's *rectangle* rather than the offset the scene gives it, because a phone's bar is
-	# taller than a desk's (measured: 61 against 50, a foot of 70 against 62) and the scene's number is only
-	# the desk's. Stated whether or not the bar is on screen, because a page that moved when the bar appeared
-	# would be worse than one simply placed low; and stated by one door and no other, so that no page can land
-	# by one answer and then stand beside a bar drawn to another.
-	_state_the_strip_the_pages_may_not_use()
-	# And a page that is already up is put back, because it was placed before this pass ran: the front door is,
-	# and it is shown as this HUD starts. The same door a change of the room's shape uses, so that "every page
-	# lands below the bar" is true of every page rather than of most of them.
+	# **Everything worked out from the room is stated in the one door below**, and that door is also the one a
+	# turn goes through - which is the whole point of it. The bar's lift clear of the device's own band, the
+	# strip no page may use, and the palette's own ground are all readings of the room, and stating them here
+	# alone left a phone turned after launch keeping the chrome the room before the turn had asked for.
+	# Measured on the A16W: the block taken lying down asks for nothing and the one taken standing shows the
+	# three view buttons **81 px inside the band the camera keeps**, their middles inside it - the very fault
+	# `lift_the_top_bar_by` exists to stop, on the one shape that was never re-asked. The order is that door's,
+	# and it matters: the bar is lifted before the strip is read off its foot, and both before a page is placed
+	# by them.
 	_the_canvas_changed_shape()
 	# The palette's two ends are held between the bar above it and the hint plate below it, on the frame after
 	# this one: the fonts were changed a moment ago, so neither the bar's foot nor the plate's top stands where
@@ -1793,10 +1780,12 @@ var _palette_sides_as_drawn: Vector2 = Vector2(INF, INF)
 ## contents are lifted by `PageChrome.content_room_in`, a page is placed inside the insets, and a page's title bar
 ## is kept below this bar - the bar itself was the one thing that never asked.
 ##
-## The bar is anchored to the top and hangs from it, so lifting it is its two offsets moved together: its height
-## is the distance between them, and that does not change. A computer is never moved, because
-## `PhoneHud.cutout_top` answers zero for a screen with no safe area and for anything not served a finger - so a
-## desk's bar is the bar the scene drew, to the pixel.
+## **Where a band is kept, the plate runs to the screen's own top and only its row is lifted.** The plate covers
+## the band the camera sits in, so the bar reads as one pane running off the top of the glass, and the row of
+## menus inside it is pushed clear. The plate given there is `ChromeStyle`'s, which is the one place a chrome
+## plate is styled; where there is no band to clear the override is taken away and the bar is the bar the scene
+## drew, to the pixel. A computer never moves at all, because `PhoneHud.cutout_top` answers zero for a screen
+## with no safe area and for anything not served a finger.
 func lift_the_top_bar_clear_of_the_device() -> void:
 	var viewport: Viewport = get_viewport()
 	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
@@ -1813,35 +1802,34 @@ func lift_the_top_bar_by(inset: int) -> void:
 		return
 	if _bar_offsets_as_drawn.x == INF:
 		_bar_offsets_as_drawn = Vector2(top_bar.offset_top, top_bar.offset_bottom)
+	# **The plate the scene drew is remembered whole**, not only its margin: the plate that replaces it is derived
+	# from it, so its paper, its corners and its insets are read off the one statement of them - and after the
+	# override is set `get_theme_stylebox` answers the new plate rather than the scene's, which is why it is kept.
+	if not top_bar.has_meta(&"plate_as_drawn"):
+		top_bar.set_meta(&"plate_as_drawn", top_bar.get_theme_stylebox(&"panel"))
+	var plate_as_drawn: StyleBox = top_bar.get_meta(&"plate_as_drawn")
 	var down: float = float(maxi(inset, 0))
-	# **The plate runs to the top of the screen and only its words are lifted.** Measured on the A16W lying down:
-	# lifting the plate as well left 212 px of bare sheet above the first button, which is what a person sees as a
-	# bar that is not at the top. The bar's plate keeps the top the scene drew and grows *downward* by what the
-	# device keeps - so the strip it reserves is filled - while the row of menus inside it is the thing moved clear
-	# of the status bar and the camera cutout.
-	top_bar.offset_top = _bar_offsets_as_drawn.x
+	var lifted: bool = down > 0.0
+	# **The plate runs to the top of the screen and only its row is lifted.** Measured on the A16W, lifting the
+	# plate as well left 212 px of bare sheet above the first button, which is what a person sees as a bar that is
+	# not at the top. Where the device keeps a band along the top - a phone's camera cutout - the plate's own top
+	# is the screen's own top, so the band is covered by the bar rather than by bare board and the row inside is
+	# pushed clear of it.
+	top_bar.offset_top = 0.0 if lifted else _bar_offsets_as_drawn.x
 	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
-	# The row inside is lifted by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its
-	# child out itself, so an offset set on the child is overwritten by the next layout. The stylebox is
-	# **duplicated first** - the scene gives this panel, the palette and both hint plates the same sub-resource, and
-	# growing it in place would push the contents of all four - and the margin the scene drew is remembered once,
-	# for the reason the offsets are.
-	if not top_bar.has_meta(&"margin_as_drawn"):
-		var plate: StyleBox = top_bar.get_theme_stylebox(&"panel")
-		var drawn: float = 0.0
-		if plate is StyleBoxFlat:
-			drawn = (plate as StyleBoxFlat).content_margin_top
-		top_bar.set_meta(&"margin_as_drawn", drawn)
-	var lifted: bool = top_bar.has_meta(&"row_lifted")
-	if down > 0.0:
-		var plate: StyleBox = top_bar.get_theme_stylebox(&"panel")
-		if plate is StyleBoxFlat:
-			var mine: StyleBoxFlat = (plate as StyleBoxFlat).duplicate() as StyleBoxFlat
-			mine.content_margin_top = float(top_bar.get_meta(&"margin_as_drawn")) + down
-			top_bar.add_theme_stylebox_override(&"panel", mine)
-			top_bar.set_meta(&"row_lifted", true)
-	elif lifted:
-		# **Nothing to clear, so the plate's own margin is handed back rather than left lifted** - a desk, or a
+	# The row is moved by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its child
+	# out itself, so an offset set on the child is overwritten by the next layout. The distance is the scene's own
+	# margin, plus the distance the plate's top has just moved up, plus what the device keeps.
+	if lifted:
+		top_bar.add_theme_stylebox_override(
+			&"panel",
+			ChromeStyleScript.bar_plate(
+				plate_as_drawn, plate_as_drawn.content_margin_top + _bar_offsets_as_drawn.x + down
+			)
+		)
+		top_bar.set_meta(&"row_lifted", true)
+	elif top_bar.has_meta(&"row_lifted"):
+		# **Nothing to clear, so the scene's own plate is handed back rather than left replaced** - a desk, or a
 		# device that has stopped keeping a band: the override this pass put there is taken away, which is the whole
 		# of what it did, and the bar is the bar the scene drew again.
 		top_bar.remove_theme_stylebox_override(&"panel")
@@ -9698,11 +9686,28 @@ func _pages_that_are_up() -> Array[Window]:
 	return up
 
 
-## The room a page is placed in has changed shape, so any page still up is put back where it belongs.
-## `show_centred` is a position rather than an anchor, so without this a page that is up through a turn (or a
-## resize, or the editor's pane changing size) keeps the place it was given for the old room. Only the place
-## is asked for again - not a second keyboard, and not a second finger-sizing.
+## The room has changed shape: state the chrome that is worked out from it, then put every page still up back
+## where it belongs. `show_centred` is a position rather than an anchor, so without this a page that is up
+## through a turn (or a resize, or the editor's pane changing size) keeps the place it was given for the old
+## room. Only the place is asked for again - not a second keyboard, and not a second finger-sizing.
+##
+## **The chrome is sized from the room too, and this is the one door that says so - startup and a turn alike.**
+## The bar's lift clear of the device's own band is a reading of the room, and it used to be taken once, as this
+## HUD started: measured on the A16W, the block taken lying down asks for nothing and the one taken standing
+## shows the three view buttons **81 px inside the band the camera keeps**, their middles inside it - the very
+## fault `lift_the_top_bar_by` exists to stop, on the one shape that was never re-asked. The strip no page may
+## use and the palette's own ground both hang off the bar's foot, so they are re-stated here as well, in the
+## one order that cannot disagree with itself: the bar is lifted, the strip is read off its new foot, and then
+## the pages are placed by it.
+##
+## The palette's left ground goes through its one door, deferred, because the placement must land *after* the
+## layout that changed. The band arrives when the phone turns or the layout is rebuilt rather than when the
+## foot plate moves, which is why calling that door only from the plate's own trigger missed it entirely
+## (measured 2026-11-18: the palette stood 55 px inside the camera band on a build that contained the fix).
 func _the_canvas_changed_shape() -> void:
+	lift_the_top_bar_clear_of_the_device()
+	_state_the_strip_the_pages_may_not_use()
+	place_the_left_column_for_a_device.call_deferred()
 	for page: Window in _pages_that_are_up():
 		# The camera fills the room on a phone rather than sitting in the middle of it, so it is put back
 		# through its own door: a viewfinder re-placed as a centred page would shrink the moment the phone

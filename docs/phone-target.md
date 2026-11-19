@@ -132,6 +132,51 @@ rectangle the audit measured before the change and after it.
 On a computer every function here returns nothing to do, which is what keeps the desk's HUD
 exactly as it was drawn.
 
+### 4.2 The top bar: a plate that runs under the camera, and a rule inside it
+
+The bar is anchored to the top of the screen, and where the device keeps a band along that edge - the
+A16W's is 110 px of the room, on the `insets` line of the probe's own block - the plate is drawn from the
+glass's own top edge, so that the band is covered by the bar rather than by bare board, and the row of
+menus inside it is pushed clear by exactly what the device keeps. The plate keeps the 8 px rounded top
+corners and the 12 px the scene insets it by at the sides, so it reads as one pane running off the top of
+the glass rather than as a strip laid across it. Measured standing: the strip the bar reserves went from
+the 91 px a landscape bar had left behind to **247 px** of the room, the row's own first line from
+`at=(16, 9)` to `at=(16, 131)`, and the three view buttons out of the band altogether - six `unsafe` and
+`middle` findings became none.
+
+The plate is a `StyleBoxFancy` (`addons/StyleboxFancy/`, vendored) rather than the scene's `StyleBoxFlat`,
+and `scripts/chrome_style.gd` is its **one owner**. Two things about it are worth writing down, because
+both were learned by looking at the glass rather than by reading a property:
+
+- **The plate is derived from the one the scene drew.** `ChromeStyle.bar_plate` reads the paper, the
+  corners and the insets off `hud.tscn`'s own plate instead of stating them a second time, so a change to
+  the desk's bar cannot leave the phone's describing a different pane. The scene gives its bar, its
+  palette and both hint plates the *same* sub-resource, so the phone's plate is a new stylebox besides:
+  growing a shared one in place would push the contents of all four.
+- **The rule inside the edge is three pixels and sits six inside it, and neither number is a taste.** In
+  `StyleBoxFancy._draw_border`'s anti-aliased path the outer rect is pulled in by half the anti-aliasing
+  width and the inner rect pushed out by the same half, so the ring that actually reaches the glass is
+  `width - anti_aliasing_size` wide. A one-pixel hairline therefore draws **nothing at all**, and the first
+  version of this plate was indistinguishable from the flat box it replaced. That is a fault no rectangle
+  reports and no test could have guessed at, which is why the plate was cropped twice and looked at.
+
+Where a device keeps no band the override is taken away and the bar is the bar the scene drew, to the
+pixel. `tests/test_chrome_style.gd` holds the scene's plate and this file's numbers together, and
+`tests/test_phone_hud.gd` holds the lift itself.
+
+**A phone lying on its side has no band along the top at all.** The A16W's notch turns with the device, so
+the inset it keeps - 110 px of the room standing - is 62 px along the *left* edge once the phone is lying,
+which is why the palette is given ground on that side, and the bar keeps the landscape bar it always had:
+the 91 px strip. Measured on the A16W on 2026-11-18: lying, the probe's own `insets` line reads
+`room l=62 t=0` and the strip is 91; standing, the band is along the top and the strip is 247.
+
+**And the whole chrome is now stated once per shape, not once per launch.** `get_viewport().size_changed`
+re-runs the pass that sizes the chrome for the device, so a phone turned after starting gets the new
+room's bar, strip and palette rather than the ones it launched with. Before that the row stood **81 px
+inside** the camera band with its own middles inside it once the glass had turned, and the bar's words
+were fitted once at the other shape's scale - 25 px where the screen asks 45, and rows 54 px tall where a
+finger wants 97. Both move with the shape now.
+
 ## 5. Which devices are answered with a finger, and which are not
 
 The question is not which operating system the program is running on. `TouchInput` asks the device, and
@@ -172,8 +217,8 @@ needed: no".
   page is shown (`PageChrome.size_for_a_finger`, which `show_centred` calls); a menu is fitted in
   **words and in row** - see §10. Their text fields, lists and headings are still the desk's, because
   a field grows with its font and making one grow is a change to that page rather than to a thumb.
-- The palette is the only screen surface resized. The menu bar, the top bar and the presentation panel
-  are unchanged.
+- The palette is the only screen surface resized. The top bar's **row** is fitted now too, and re-fitted
+  when the glass changes shape (§4.2); the presentation panel is still unchanged.
 - The **foot strip speaks a desk's language** on a phone. The ground view's line was the first one fixed -
   `HINTS_GROUND_ON_A_FINGER`, chosen by the same `shows_touch_controls` that decides whether the thumb pad
   is built at all - because a phone in a garden has no keys *and* no mouse, and the two gestures it does

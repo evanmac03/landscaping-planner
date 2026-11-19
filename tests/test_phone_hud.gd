@@ -33,31 +33,37 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 	bar.offset_top = 12.0
 	bar.offset_bottom = 62.0
 	hud.top_bar = bar
-	# What the plate's own margin was before anything moved it: the assertion below is that it moved by the band,
-	# rather than by a number a theme might one day change.
-	var plate: StyleBox = bar.get_theme_stylebox(&"panel")
-	var was: float = 0.0
-	if plate is StyleBoxFlat:
-		was = (plate as StyleBoxFlat).content_margin_top
+	# What the plate's own margin was before anything moved it: the assertions below are that it moved by the band
+	# and by the distance the plate's own top moved, rather than by numbers a theme might one day change.
+	var was: float = bar.get_theme_stylebox(&"panel").content_margin_top
 
 	hud.lift_the_top_bar_by(100)
-	assert(is_equal_approx(bar.offset_top, 12.0), "the plate keeps the top the scene drew: %s" % str(bar.offset_top))
-	assert(is_equal_approx(bar.offset_bottom, 162.0), "and grows downward by the band: %s" % str(bar.offset_bottom))
-	# **The words are what is lifted**, through the plate's own content margin - the thing a `PanelContainer` lays its
-	# child out by, where an offset set on the child would be overwritten by the next layout. Measured on the A16W:
-	# lifting the plate as well left 212 px of bare sheet above the first button, which is a bar that is not at the
-	# top; the plate runs to the top now and only its row of menus is clear of the camera cutout.
-	assert(plate is StyleBoxFlat, "a plate has a flat background to measure")
-	var margin_now: float = (bar.get_theme_stylebox(&"panel") as StyleBoxFlat).content_margin_top
-	assert(is_equal_approx(margin_now, was + 100.0), "the row inside is lifted by the band: %s" % str(margin_now))
+	# **The plate runs to the top of the screen and only its row is lifted.** Where the device keeps a band along the
+	# top - a phone's camera cutout - the plate's own top is the glass's own top, so the band is covered by the bar
+	# rather than by bare board and the row of menus inside is pushed clear of it. The 12 is the scene's own top
+	# offset, which the plate no longer uses: the row has to be moved by it as well or it would ride up with the plate.
+	assert(is_equal_approx(bar.offset_top, 0.0), "the plate runs to the screen's own top: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is the scene's, grown by the band: %s" % str(bar.offset_bottom))
+	# The plate is replaced by the one `ChromeStyle` draws, which is the one place a chrome plate is styled - and it
+	# is deliberately not a `StyleBoxFlat`, so nothing here may read it as one.
+	assert(bar.has_theme_stylebox_override(&"panel"), "the lifted plate is this program's own, not the theme's")
+	assert(
+		not (bar.get_theme_stylebox(&"panel") is StyleBoxFlat),
+		"and it is the stylebox `ChromeStyle` draws rather than the scene's flat one",
+	)
+	var margin_now: float = bar.get_theme_stylebox(&"panel").content_margin_top
+	assert(
+		is_equal_approx(margin_now, was + 12.0 + 100.0),
+		"the row is the scene's margin, plus the 12 the plate's top moved up, plus the band: %s" % str(margin_now),
+	)
 
 	# **A turn re-runs the pass that does this**, so it has to answer the same thing every time: a lift that read its
 	# own output back would walk the bar down the screen by a band on every rotation.
 	hud.lift_the_top_bar_by(100)
-	assert(is_equal_approx(bar.offset_top, 12.0), "the second pass moves nothing: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_top, 0.0), "the second pass moves nothing: %s" % str(bar.offset_top))
 	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is where it was: %s" % str(bar.offset_bottom))
 	assert(
-		is_equal_approx((bar.get_theme_stylebox(&"panel") as StyleBoxFlat).content_margin_top, was + 100.0),
+		is_equal_approx(bar.get_theme_stylebox(&"panel").content_margin_top, was + 12.0 + 100.0),
 		"and the row is lifted once rather than twice",
 	)
 
