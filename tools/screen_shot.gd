@@ -46,6 +46,8 @@ extends Node
 ##     ... -- --from res://build/board.png                          a picture already on disk, and its age
 ##     ... -- --from <picture> --zoom x y w h                       one region of it, twice as big, and read
 ##     ... -- --from <picture> --mark x y w h                       one rectangle drawn onto it, to be looked at
+##     ... -- --from <picture> --against <picture>                 what moved between two pictures, and when each
+##     ... -- --against <picture>                                  the screen now, against the picture that run left
 ##
 ## **A screen is needed to take a picture, and none is needed to read one.** `HudProbe._a_real_screen()` is
 ## asked before a framebuffer is read - a headless run's display is a dummy and a picture of it is a picture of
@@ -60,6 +62,7 @@ const MainScene: PackedScene = preload("res://scenes/main.tscn")
 const ScreenshotReaderScript := preload("res://scripts/screenshot_reader.gd")
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const PageIndexScript := preload("res://scripts/page_index.gd")
+const StillnessScript := preload("res://scripts/stillness.gd")
 
 ## Where a picture lands when no `--to` names another place.
 const TO_SCREEN := "res://build/the_screen.png"
@@ -93,8 +96,11 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 	var handed_in := String(asked["from"])
+	var against := String(asked["against"])
 	if not handed_in.is_empty():
 		_say_a_picture_on_disk(handed_in, asked)
+		if not against.is_empty():
+			_say_what_moved_between(against, handed_in)
 		# A run with no window has nothing left to draw, so it ends here rather than waiting to be killed.
 		get_tree().quit()
 		return
@@ -126,6 +132,107 @@ func _say_a_picture_on_disk(path: String, asked: Dictionary) -> void:
 		print("  next        one region of it, twice as big, or one rectangle drawn onto it:")
 		print("              --from %s --zoom x y w h" % path)
 		print("              --from %s --mark x y w h" % path)
+
+
+## What moved between two pictures **already on disk**, each read and the pair put in the order they were written.
+##
+## A pair named by hand - "the capture off the phone, and the picture of the desk" - is the case this exists for,
+## and **neither order of naming is a mistake**: whichever was written first is the earlier one, and the answer
+## says which was which. The ordering is `FileAccess.get_modified_time`'s, and a pair written within the same
+## second keeps the order it was named in.
+func _say_what_moved_between(one: String, other: String) -> void:
+	var a: Image = ScreenshotReaderScript.read(one)
+	var b: Image = ScreenshotReaderScript.read(other)
+	if a == null or b == null:
+		var missing: String = one if a == null else other
+		print("SCREEN SHOT there is no readable picture at %s, so there is nothing to compare with" % missing)
+		return
+	var a_when: int = FileAccess.get_modified_time(one)
+	var b_when: int = FileAccess.get_modified_time(other)
+	var b_is_earlier: bool = b_when < a_when
+	var earlier_path: String = other if b_is_earlier else one
+	var later_path: String = one if b_is_earlier else other
+	for line: String in compared_lines(
+		b if b_is_earlier else a,
+		a if b_is_earlier else b,
+		"the earlier  %s   written %s" % [earlier_path, _written_when(earlier_path)],
+		"the later    %s   written %s" % [later_path, _written_when(later_path)],
+		a_when != b_when,
+	):
+		print(line)
+
+
+## The picture just taken, against one already on disk: **the reading loop**, where the earlier picture is the
+## one the last run left and this run's is the screen as it is now.
+##
+## The order is **known** here rather than worked out - the picture just taken is the later one whatever the
+## clock says - which is why this does not go through the by-writing rule above.
+func _say_what_moved_since(earlier: String, now_picture: Image) -> void:
+	var before: Image = ScreenshotReaderScript.read(earlier)
+	if before == null:
+		print("SCREEN SHOT there is no readable picture at %s to compare this screen with" % earlier)
+		return
+	for line: String in compared_lines(
+		before,
+		now_picture,
+		"the earlier  %s   written %s" % [earlier, _written_when(earlier)],
+		"the later    the screen just photographed, in this run",
+		false,
+	):
+		print(line)
+
+
+## A file's writing time as a person reads it, the same two ways `file_lines` gives it - so the two pictures of a
+## pair are told apart even when both were written a minute ago.
+static func _written_when(path: String) -> String:
+	var written: int = FileAccess.get_modified_time(path)
+	return "%s, %s" % [Time.get_datetime_string_from_unix_time(written, true), _ago_from_now(written)]
+
+
+## Two pictures of one screen, and what moved between them - **the whole of the arithmetic is `Stillness`'s**,
+## and what this adds is the pair's two moments, because a difference is only meaningful with when each was
+## taken. That is the same rule `--from` follows with a single picture, and the reason this verb exists at all: a
+## picture answers the question it was taken for, and a *pair* is the only thing that can answer "did what I just
+## changed move anything".
+##
+## Nothing here is decided: a band is named and not judged, exactly as `Stillness` names it - a caret blinking is
+## an animation doing its job, a progress line moving is a screen working, and a caption that moved while the
+## screen around it held still is the one a person wants to look at. **Every band is printed**, however many
+## there are, because a list that stopped early would be a list pretending to be the whole of the difference.
+static func compared_lines(
+	before: Image, after: Image, before_when: String, after_when: String, ordered_by_writing: bool
+) -> PackedStringArray:
+	var lines := PackedStringArray()
+	lines.append("=== what moved between two pictures ===")
+	lines.append("  %s" % before_when)
+	lines.append("  %s" % after_when)
+	if before == null or after == null:
+		lines.append("  one of the two is not a picture this could read, so there is nothing to compare.")
+		return lines
+	if not StillnessScript.same_shape(before, after):
+		lines.append(
+			(
+				"  these are not one screen: %d x %d against %d x %d. Subtracting two shapes would invent a"
+				% [before.get_width(), before.get_height(), after.get_width(), after.get_height()]
+			)
+		)
+		lines.append("  change along the whole of the shorter one, so this pair answers with nothing at all.")
+		return lines
+	if ordered_by_writing:
+		lines.append("  ordered      by when each was written, not by the order they were named")
+	var bands: Array[Dictionary] = StillnessScript.bands(before, after)
+	if bands.is_empty():
+		lines.append("  nothing moved: the two pictures are the same screen, row for row.")
+		return lines
+	lines.append(
+		(
+			"  moved        %d band(s) of rows, %.1f%% of the picture's height:"
+			% [bands.size(), StillnessScript.moved_share(bands, after.get_height()) * 100.0]
+		)
+	)
+	for band: Dictionary in bands:
+		lines.append("              " + StillnessScript.sentence(band))
+	return lines
 
 
 ## The desk's own screen, now.
@@ -170,6 +277,8 @@ func _take_the_screen(asked: Dictionary) -> void:
 		picture, HudProbeScript.screen_room(self), _the_pages_up(main), TO_SCREEN, wrote
 	):
 		print(line)
+	if not String(asked["against"]).is_empty():
+		_say_what_moved_since(String(asked["against"]), picture)
 	var to: String = String(asked["to"])
 	if bool(asked["zoom_asked"]):
 		for line: String in doubled_lines(picture, asked["zoom"], to if not to.is_empty() else TO_ZOOM):
@@ -210,6 +319,7 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 	var asked: Dictionary = {
 		"complaint": "",
 		"from": "",
+		"against": "",
 		"page": "",
 		"to": "",
 		"zoom": Rect2i(),
@@ -221,7 +331,7 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 	while at < args.size():
 		var verb: String = args[at]
 		match verb:
-			"--from", "--page", "--to":
+			"--from", "--page", "--to", "--against":
 				if at + 1 >= args.size():
 					asked["complaint"] = "%s wants a value after it and the line ended with it" % verb
 					return asked
@@ -240,7 +350,7 @@ static func asked_for(args: PackedStringArray) -> Dictionary:
 				at += 5
 			_:
 				asked["complaint"] = (
-					"%s is not one of this tool's verbs: --from, --page, --to, --zoom, --mark" % verb
+					"%s is not one of this tool's verbs: --from, --against, --page, --to, --zoom, --mark" % verb
 				)
 				return asked
 	if bool(asked["zoom_asked"]) and bool(asked["mark_asked"]):

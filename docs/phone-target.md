@@ -232,6 +232,18 @@ which is why the palette is given ground on that side, and the bar keeps the lan
 the 91 px strip. Measured on the A16W on 2026-11-18: lying, the probe's own `insets` line reads
 `room l=62 t=0` and the strip is 91; standing, the band is along the top and the strip is 247.
 
+**The foot of the screen keeps a band the program is told rather than reads.** The A16W's own report names
+it - `overrideNonDecorFrame=[0,100][1080,2298]` upright, `[100,0][2340,1038]` lying, so **42 px** along the
+foot either way - and Godot has **no answer for it**: `screen_get_usable_rect` reports the whole screen
+there, so a band built out of both readings comes back to the cutout alone. Every other surface had already
+learned about the top; the plate at the foot was still anchored 12 px above the bottom of the room, so its
+own lowest row stood in the band the system draws over. `PhoneHud.KEPT_FEET` states the number for the
+screens this project has measured and answers **zero** for any other, and `Hud.give_the_foot_line` takes it
+off the offsets the scene drew - 12 for the working line, 62 for the one a tool in hand reads - rather than
+writing new ones, so a device that turns out to keep nothing is handed the scene's own numbers back to the
+pixel. The band, and its share of the room, are printed in the block beside `insets`, because that line is
+the cutout alone and would otherwise read as a program giving the foot no ground at all.
+
 **And the whole chrome is now stated once per shape, not once per launch.** `get_viewport().size_changed`
 re-runs the pass that sizes the chrome for the device, so a phone turned after starting gets the new
 room's bar, strip and palette rather than the ones it launched with. Before that the row stood **81 px
@@ -650,6 +662,47 @@ adb exec-out run-as ca.storm.landscapingplanner cat files/probe.log
 That route works because the build is debuggable, which is the same condition as `HudProbe.on()`: a release build carries the code and never runs it, and writes no file either.
 
 **It gives up its oldest lines rather than filling the phone.** Past `HudProbe.LOG_LIMIT` (1 MB) the file keeps the newest `LOG_KEEP` (500 KB). The cut is made at a line break and never inside one, so a block is never half a block, and the rewrite goes through `user://probe.log.writing` and is renamed into place - the same rule every other written file here follows, so an interrupted trim leaves the log it had rather than half of the one it was making.
+
+### 13.1 The phone's own room on a desk, so its layout is desk work
+
+Every figure this document states about a phone was, until now, only obtainable by building an APK,
+installing it and looking at the device. `tools/phone_screen.tscn` answers the same questions on the
+desk: it states the A16W through the doors the program already has - `PhoneHud.force_density`,
+`PhoneHud.force_display` and `TouchInput.force`, none of them new - hangs `main.tscn` inside a
+`SubViewport`, and prints the program's own block. Measured 2026-11-18, the run and the device agree
+line for line: room `viewport=(1185, 2567) native=(1080, 2340)`, strip 247 px, insets `room l=0 t=110`
+over `display l=0 t=100`, kept foot `42 px of the display, 46 of the room`, and the palette's own
+rectangles identical to the pixel (`Move / J` at `screen (26, 1979) .. (169, 2050) 144x71`). With
+`--shot` it writes a picture of the room's canvas at 1185 by 2567 - and `--door` leaves the front door
+standing, for looking at that - and the picture set beside a capture taken off the phone is the same
+screen element for element: the same bar, the same palette in the same order, and the foot line
+wrapping at the same three points.
+
+Three things are worth knowing before reading its block.
+
+**The room comes from the window, and the scale from the same one.** A `Window` is what makes
+`canvas_scale` answer the phone's 0.91, and the fitting is sized by it. A `Window` made at runtime
+starts with canvas scaling switched off, so the project's own `content_scale_size`, mode and aspect are
+handed on from the root window rather than copied, and the room that follows is the device's 1185 by
+2567. A `Window` is also *unreadable* - an embedded one is composited into its parent, so its texture
+comes back one flat colour - which is why the program hangs inside a `SubViewport` instead: a
+`SubViewportContainer` with `stretch` gives it exactly the window's visible rectangle, and what is then
+read is the canvas, at the room's own pixels rather than the glass's.
+
+**A desk cannot be the glass, so three lines are the desk's.** `InView` compares a control with the
+root viewport's rectangle **deliberately** - that is the rule that found the phone's own view buttons
+drawn off the glass - and the finger floor is converted through the same room. On a phone the root
+window *is* the glass; on a desk it is the desk, so `offscreen`, `page-edge` and `small` report this
+window's numbers rather than the device's (a floor of 144 where the device states 107, which is
+1600/1185 of it). The run says so rather than dropping those lines, and the device's own block is the
+arbiter for them: it reports none of the three.
+
+**A page in a `Window` answers for itself.** The program says it in its own comment - a focused window
+takes the keyboard into its own viewport, so the HUD never sees an Escape meant for one - so the tool
+hands the event to the page the HUD itself would reach first (`Hud.page_in_front`), and to the
+program's own viewport when the board is what is up. The event pushed is the one `draft_cancel` is
+bound to rather than a key chosen by the tool, and the focus is given up first: a focused control
+swallows the key before `_unhandled_input` sees it at all.
 
 ## 14. The rules this follows, and the one it breaks
 

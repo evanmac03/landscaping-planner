@@ -94,13 +94,18 @@ const INSTRUMENTS: Array[Dictionary] = [
 	},
 	{
 		"name": "screen_shot",
-		"question": "a picture of the screen as it is now, with the moment named - or one region of any picture, twice as big",
+		"question": "a picture of the screen as it is now, with the moment named - one region of any picture twice as big, or what moved between two pictures and when each was taken",
 		"scene": "res://tools/screen_shot.tscn",
 	},
 	{
 		"name": "page_chrome_probe",
 		"question": "a page's own strip, and a colour walk down the screen",
 		"scene": "res://tools/page_chrome_probe.tscn",
+	},
+	{
+		"name": "phone_screen",
+		"question": "the program laid out in the A16W's own room on this desk, with a picture of it and the device's own block",
+		"scene": "res://tools/phone_screen.tscn",
 	},
 	{
 		"name": "phone_touch_sweep",

@@ -245,6 +245,59 @@ func test_a_picture_that_could_not_be_written_says_what_refused_it() -> void:
 	assert(said.contains(error_string(ERR_CANT_CREATE)), said)
 
 
+## Two pictures of **different shapes** are not one screen, and subtracting them would invent a change along the
+## whole of the shorter one. Refused in a sentence that names both sizes, rather than answering with a difference
+## nobody could have taken.
+func test_two_pictures_of_different_shapes_are_refused_rather_than_subtracted() -> void:
+	var small: Image = Image.create_empty(4, 10, false, Image.FORMAT_RGBA8)
+	var other: Image = Image.create_empty(4, 12, false, Image.FORMAT_RGBA8)
+	var said := "\n".join(Shot.compared_lines(small, other, "the earlier  a", "the later    b", false))
+	assert(said.contains("4 x 10"), said)
+	assert(said.contains("4 x 12"), said)
+	assert(said.contains("not one screen"), said)
+	assert(said.contains("nothing at all"), said)
+
+
+## A pair that is the same screen says **nothing moved**, in those words: an empty list of bands would read as a
+## question this tool forgot to ask.
+func test_a_pair_that_is_one_screen_says_nothing_moved() -> void:
+	var picture: Image = _a_column_picture()
+	var said := "\n".join(Shot.compared_lines(picture, picture, "a", "b", false))
+	assert(said.contains("nothing moved"), said)
+
+
+## Rows that did move are reported with the rows, the columns and how much of any one row - **through
+## `Stillness`'s own sentence**, because the arithmetic of a difference is that module's and not this tool's.
+func test_the_rows_that_moved_are_named_with_their_columns_and_their_share() -> void:
+	var before: Image = _a_column_picture()
+	var after: Image = _a_column_picture()
+	after.set_pixel(1, 5, Color(1, 1, 1))
+	var said := "\n".join(Shot.compared_lines(before, after, "a", "b", false))
+	assert(said.contains("row 5"), said)
+	assert(said.contains("columns 1..1"), said)
+	assert(said.contains("1 band(s)"), said)
+	assert(said.contains("10.0%"), said)
+
+
+## Both pictures' moments are in the answer, and a pair put in order by when it was written **says so**: the
+## ordering is a decision this tool made, and a reader who named the two the other way round would otherwise
+## never know it had been made.
+func test_both_moments_are_named_and_the_ordering_is_said_out_loud() -> void:
+	var picture: Image = _a_column_picture()
+	var said := "\n".join(
+		Shot.compared_lines(
+			picture,
+			picture,
+			"the earlier  res://a.png   written 2 minute(s) ago",
+			"the later    res://b.png   written under a minute ago",
+			true
+		)
+	)
+	assert(said.contains("res://a.png"), said)
+	assert(said.contains("res://b.png"), said)
+	assert(said.contains("ordered"), said)
+
+
 ## A four-by-ten picture whose rows are three flat runs: red from row 0 to 3, green to 6, blue to 9. Flat plates
 ## are what this tool reads - a bar, a rule, the edge of a panel - and the runs of a flat column are the rows a
 ## rectangle has to be compared against.

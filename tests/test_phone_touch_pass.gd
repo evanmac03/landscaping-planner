@@ -41,6 +41,30 @@ const A16W_FRAMES := (
 )
 
 
+## A verb that answers before anything is made cannot be asked for beside a build: `--capture` and `--band` both
+## return above the build path, so `--build --band` in one line would read the band, never make the build, and say
+## nothing about the half it skipped. The verb that would have won is **named**, and the shape a build is actually
+## for - a build with an install and a launch - is left alone.
+func test_a_build_beside_a_verb_that_answers_early_is_refused_and_the_verb_named() -> void:
+	var both: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
+		PackedStringArray(["--build", "--band"])
+	)
+	assert(both.size() == 1, str(both))
+	assert(both[0] == "--band", str(both))
+	var capturing: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
+		PackedStringArray(["--build", "--capture"])
+	)
+	assert(capturing.size() == 1 and capturing[0] == "--capture", str(capturing))
+	var a_build_with_a_launch: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
+		PackedStringArray(["--build", "--install", "--launch", "--wait", "25"])
+	)
+	assert(a_build_with_a_launch.is_empty(), "a build with an install and a launch is one run's work")
+	var a_band_on_its_own: PackedStringArray = ToolScript.verbs_that_answer_before_a_build(
+		PackedStringArray(["--band"])
+	)
+	assert(a_band_on_its_own.size() == 1, "a band on its own is unaffected: nothing there asks for a build")
+
+
 func test_the_frame_is_chosen_by_its_shape_and_the_programs_own_reading_never_by_a_rotation() -> void:
 	var standing := Vector2i(1185, 2567)
 	var lying := Vector2i(1444, 666)
@@ -206,18 +230,28 @@ func test_the_verdict_names_which_of_the_two_readings_the_program_matched() -> v
 
 
 ## **A verdict that says "matches none" has to say what that means**, or the next reader investigates the whole
-## question again. Measured on the A16W, 2026-11-17: the program could not see the phone's system bars at all,
+## question again. Measured on the A16W, 2026-11-17: the program could not *read* the phone's system bars at all,
 ## because Godot's safe area is the display cutout and `screen_get_usable_rect` answers the whole screen there - so
-## the sentence is the finding, and it has to name the door the fix would come through.
-func test_a_reading_that_matches_nothing_says_the_program_cannot_see_the_band() -> void:
+## the sentence is the finding, and it has to name the door the ground comes through.
+##
+## **And that door is no longer JNI**, which is what this test said until 2026-11-18. The foot band the phone keeps
+## is now stated in `PhoneHud.KEPT_FEET` and given to the plates at the foot, so a verdict still promising that
+## "giving it ground needs the phone's own insets over JNI" would be a sentence left standing from before the fix -
+## the kind this project sends back. What it must say instead is where the number came from and where to read it:
+## the `kept` line the block now publishes beside its `insets` line.
+func test_a_reading_that_matches_nothing_says_the_program_cannot_read_the_band() -> void:
 	var said: String = ToolScript.band_verdict(
 		Vector4i(0, 200, 0, 0), Vector4i(0, 100, 0, 0), [Vector4i(100, 0, 0, 42)]
 	)
-	assert(said.contains("cannot see this"), "it names the gap rather than the disagreement: %s" % said)
-	assert(said.contains("JNI"), "and where the fix would have to come from")
+	assert(said.contains("cannot read this"), "it names the gap rather than the disagreement: %s" % said)
+	assert(said.contains("KEPT_FEET"), "and says where the ground comes from instead: %s" % said)
+	assert(
+		not said.contains("over JNI"),
+		"and it no longer promises a fix that was made without JNI: %s" % said,
+	)
 	assert(
 		not said.contains("report disagree"),
-		"and it no longer invites a reader to argue with a reading that was never made",
+		"and it does not invite a reader to argue with a reading that was never made",
 	)
 
 

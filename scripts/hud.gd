@@ -1011,7 +1011,11 @@ func _say_the_screen() -> void:
 			# the figure a phone is read by, and it is worth printing beside the room because the two ways up
 			# a phone can be held disagree about it by a factor of five.
 			PageChromeScript.reserved_above,
-			DisplayServer.screen_get_size(),
+			# **The stated display, not a second reading of the desk's.** `native` is the figure a person compares
+			# the room against, and `PhoneHud.screen_here` is the one place a screen is read: a phone-shaped
+			# window on a desk is a 1080 by 2340 glass whatever monitor is showing it (measured 2026-11-18, where
+			# this line still said 2560 by 1600 beside a room of the A16W's own size).
+			PhoneHudScript.screen_here(),
 			DisplayServer.is_touchscreen_available(),
 			WindowPostureScript.of(room),
 			hints_label.text if hints_label != null else "",
@@ -1834,6 +1838,40 @@ func lift_the_top_bar_by(inset: int) -> void:
 		# of what it did, and the bar is the bar the scene drew again.
 		top_bar.remove_theme_stylebox_override(&"panel")
 		top_bar.remove_meta(&"row_lifted")
+
+
+## Give the plates at the foot of the screen the ground the device keeps there, and put them back exactly where the
+## scene drew them where there is nothing to clear.
+##
+## **This is the one band the program is told rather than reads.** Godot's safe area is the display cutout and
+## nothing more, so `screen_get_usable_rect` answers the whole screen over the A16W's **42 px** of nav bar - a band
+## the phone's own report names (`overrideNonDecorFrame=[0,100][1080,2298]`) and the program cannot ask it for.
+## `PhoneHud` states it for the devices this project has measured and answers zero for every other, so a desk and a
+## phone nobody has put on this desk are both left exactly as the scene drew them.
+func give_the_foot_line_clear_of_the_device() -> void:
+	var viewport: Viewport = get_viewport()
+	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
+	give_the_foot_line(PhoneHudScript.kept_foot(room))
+
+
+## The measuring half, with the band stated rather than read, so a test can hold what a phone would be told
+## without being one - the same door `lift_the_top_bar_by` is.
+##
+## **Both plates move, because both are the foot line**: `Hints` is what a working board reads and `DraftHints`
+## what a tool in hand reads, and the two trade places in the same rows. **The scene's own offset is remembered and
+## the band taken off it**, rather than a new offset written, because the desk's own numbers are the floor - which
+## is what lets the band be handed back to the pixel on a device that turns out to keep nothing. Nothing here is
+## styled, so unlike the bar there is no plate to hand back as well.
+func give_the_foot_line(band: int) -> void:
+	if hints == null and draft_hints == null:
+		return
+	var up: float = float(maxi(band, 0))
+	for plate: PanelContainer in [hints, draft_hints]:
+		if plate == null:
+			continue
+		if not plate.has_meta(&"foot_as_drawn"):
+			plate.set_meta(&"foot_as_drawn", plate.offset_bottom)
+		plate.offset_bottom = float(plate.get_meta(&"foot_as_drawn")) - up
 
 
 ## The gap the scene already keeps between the top bar's foot and the palette, and between the palette's foot
@@ -9696,9 +9734,11 @@ func _pages_that_are_up() -> Array[Window]:
 ## HUD started: measured on the A16W, the block taken lying down asks for nothing and the one taken standing
 ## shows the three view buttons **81 px inside the band the camera keeps**, their middles inside it - the very
 ## fault `lift_the_top_bar_by` exists to stop, on the one shape that was never re-asked. The strip no page may
-## use and the palette's own ground both hang off the bar's foot, so they are re-stated here as well, in the
-## one order that cannot disagree with itself: the bar is lifted, the strip is read off its new foot, and then
-## the pages are placed by it.
+## use and the palette's own ground both hang off the bar's foot, so they are re-stated here as well, in the one
+## order that cannot disagree with itself: the bar is lifted, the foot line is given the ground the device keeps
+## below it, the strip is read off the bar's new foot, and then the pages are placed by it. **The foot line comes
+## before the palette** because the column's foot is held off the plate's top: a plate moved after the column
+## was placed would leave the last of its rows standing in the band the plate had just cleared.
 ##
 ## The palette's left ground goes through its one door, deferred, because the placement must land *after* the
 ## layout that changed. The band arrives when the phone turns or the layout is rebuilt rather than when the
@@ -9706,6 +9746,7 @@ func _pages_that_are_up() -> Array[Window]:
 ## (measured 2026-11-18: the palette stood 55 px inside the camera band on a build that contained the fix).
 func _the_canvas_changed_shape() -> void:
 	lift_the_top_bar_clear_of_the_device()
+	give_the_foot_line_clear_of_the_device()
 	_state_the_strip_the_pages_may_not_use()
 	place_the_left_column_for_a_device.call_deferred()
 	for page: Window in _pages_that_are_up():

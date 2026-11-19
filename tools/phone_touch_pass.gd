@@ -205,6 +205,12 @@ const PRESET_NAME := "Android (phone)"
 ## word and is deliberately not in here, because it names the device's own answer rather than a rotation of ours.
 const TURNS: Dictionary = { "portrait": "0", "landscape": "1" }
 
+## The verbs that answer their own question and **return before anything is made**: `--capture` and `--band` are
+## each the whole of their run, and both `return` above the build path. A `--build` asked beside one of them would
+## therefore be the half that never happened, silently - and the reading that followed would be of the build
+## already on the phone, which is the mistake this whole tool exists to prevent. So the pair is refused by name.
+const VERBS_THAT_ANSWER_BEFORE_A_BUILD: PackedStringArray = ["--capture", "--band"]
+
 ## How long `--build` waits for the engine's own export before it stops waiting and says so. A ceiling rather than
 ## nothing: without one an export that wedged would leave a tool that looks frozen, which is what a person reaches
 ## for Ctrl-C about.
@@ -258,6 +264,16 @@ const BAND_ROWS: PackedStringArray = [
 ## the panel was made with, where `baseCutout` is the one a rotation is worked out from - the two agree on the A16W,
 ## and this reads the first because it is the number a person compares with the panel's specification.
 const CUTOUT_MARK := "initCutout=DisplayCutout{insets=Rect("
+
+
+## Which of those verbs the line asks for, so that the refusal can **name the one that would have won** rather
+## than saying "a build and a reading cannot share a line" about a line whose own verbs are not mentioned.
+static func verbs_that_answer_before_a_build(asked: PackedStringArray) -> PackedStringArray:
+	var found := PackedStringArray()
+	for verb: String in VERBS_THAT_ANSWER_BEFORE_A_BUILD:
+		if verb in asked:
+			found.append(verb)
+	return found
 
 
 ## The band a phone's own report says it keeps, as (left, top, right, bottom), for the reading in `text`. This is the
@@ -457,10 +473,12 @@ static func band_verdict(program: Vector4i, cutout: Vector4i, kept: Array[Vector
 		if program == kept[i]:
 			return "the program's reading IS the band the phone keeps: %s." % BAND_ROWS[i]
 	return (
-		"the program's reading matches none of the bands the phone names - which means **the program cannot see this"
+		"the program's reading matches none of the bands the phone names - which means **the program cannot read this"
 		+ " band at all**: Godot's `get_display_safe_area` is the display cutout and nothing more, and"
-		+ " `screen_get_usable_rect` answers the whole screen here. Giving it ground needs the phone's own insets"
-		+ " over JNI, so this is a gap to report rather than a reading to argue with."
+		+ " `screen_get_usable_rect` answers the whole screen here. What it cannot read it is **told**:"
+		+ " `PhoneHud.KEPT_FEET` states the foot band for the screens this project has measured, and `Hud` gives"
+		+ " the plates at the foot their ground by it - so the figures to set against the phone's own bars are the"
+		+ " `kept` line above."
 	)
 
 
@@ -629,6 +647,19 @@ func _one_pass() -> void:
 		print("PHONE no adb at %s, and none on the path - is the SDK still where it was?" % ADB)
 		return
 	var asked: PackedStringArray = OS.get_cmdline_user_args()
+	# **A verb that answers before anything is made cannot be asked for beside a build.** `--capture` and `--band`
+	# both return above the build path, so `--build --band` in one line would read the band, never make the build,
+	# and say nothing about having skipped it - and the band it read would be of the build already on the phone.
+	# That is the one shape of mistake this tool exists to prevent, so the line is refused and the two runs to make
+	# instead are printed. Everything else is unaffected: a build with `--install` and `--launch` is one run's work.
+	var early: PackedStringArray = verbs_that_answer_before_a_build(asked)
+	if "--build" in asked and not early.is_empty():
+		print("PHONE `--build` and %s were asked for in one line, and only one of them can happen:" % " ".join(early))
+		print("      the build would be the half that never ran. Nothing was built and nothing was read - make the")
+		print("      build its own run, and ask %s after it:" % " ".join(early))
+		print("          ... -- --build --launch --wait 25")
+		print("          ... -- %s" % " ".join(early))
+		return
 	var devices: String = _line(["devices", "-l"])
 	if not a_device_is_here(devices):
 		print("PHONE no phone is in reach, so there is nothing to read. adb said:")
@@ -991,6 +1022,14 @@ func _read_the_band() -> void:
 		return
 	for i: int in mini(kept.size(), BAND_ROWS.size()):
 		print("      %s  %s" % [BAND_ROWS[i], band_words(kept[i])])
+	# **And the band the program is _told_ rather than reads, in the block's own words.** The `insets` reading above
+	# is the display cutout, so on its own it says the program gives the foot no ground - which stopped being true on
+	# 2026-11-18, when `PhoneHud.KEPT_FEET` began stating the foot band for the screens this project has measured.
+	# Quoted rather than re-worded: it is the one line in the block that is a statement about the project rather than
+	# a reading of the device, and a second reading of it here could only disagree with it.
+	for raw: String in block.split("\n"):
+		if raw.contains("kept ") and raw.contains("the foot"):
+			print("PHONE the band the program is told for the foot: %s" % raw.trim_prefix("PROBE ").strip_edges())
 	print("PHONE %s" % band_verdict(program, cutout, kept))
 	# **And which controls stand in it, judged by `SafeArea` rather than by a rule written here.** The frame is the
 	# phone's own for the way up this block was taken in, and the rectangles are the block's own - both in screen

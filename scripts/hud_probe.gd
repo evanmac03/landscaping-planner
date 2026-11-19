@@ -244,6 +244,22 @@ static func device_lines(
 		"insets   room l=%d t=%d r=%d b=%d   display l=%d t=%d r=%d b=%d"
 		% [kept.x, kept.y, kept.z, kept.w, shown.x, shown.y, shown.z, shown.w]
 	)
+	# **The one band the program is *told* rather than reads**, and printed for the same reason the `insets` line
+	# is: the `insets` reading above is the display cutout alone, so a program that gives the foot its own ground
+	# as well would otherwise read as a program that gives it none. Both figures are here - the display's, which is
+	# what a person compares with the phone's own report, and the room's, which is what the plates were moved by -
+	# and where nothing is stated the line says so rather than printing a zero nobody could tell from a zero band.
+	var kept_foot: int = PhoneHudScript.kept_foot(room)
+	if kept_foot > 0:
+		lines.append(
+			"kept     the foot: %d px of the display, %d of the room (stated, not read)"
+			% [PhoneHudScript.stated_foot(), kept_foot]
+		)
+	else:
+		lines.append(
+			"kept     the foot: nothing stated for a %d by %d screen, so the scene's own clearance stands"
+			% [DisplayServer.screen_get_size().x, DisplayServer.screen_get_size().y]
+		)
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)
 	return lines

@@ -144,6 +144,149 @@ func test_the_display_reports_its_band_before_any_share_of_a_room_is_taken() -> 
 	)
 
 
+## **The foot band is the one piece of a phone's furniture this program is told rather than reads**, and it is told
+## in the wrong space on purpose: the 42 px is what the A16W's own report says it keeps along its foot, while the
+## room the foot line is laid out in is 2567 px tall where the glass is 2340. The figure the plates are moved by is
+## therefore a share of the room and not the number itself - the same conversion the four sides of a cutout go
+## through, held here so that the two cannot round differently.
+func test_the_stated_foot_band_becomes_the_rooms_own_pixels() -> void:
+	assert(
+		PhoneHudScript.KEPT_FEET.get(Vector2i(1080, 2340), 0) == 42,
+		"the phone this program is written for keeps 42 px along its foot",
+	)
+	var upright: int = PhoneHudScript.share_of_the_room(42, 2340, 2567)
+	assert(upright == roundi(2567.0 * (42.0 / 2340.0)), "upright that is its share of the room: %d" % upright)
+	var lying: int = PhoneHudScript.share_of_the_room(42, 1080, 666)
+	assert(lying == roundi(666.0 * (42.0 / 1080.0)), "and lying down the room's own share of it: %d" % lying)
+
+	# A screen nobody stated a band for, and a screen or a room with no size at all, answer nothing rather than a
+	# guess: the clearance the scene already keeps is the floor this program may not go below, and a band borrowed
+	# from another device would push the foot line up a screen that keeps nothing.
+	assert(not PhoneHudScript.KEPT_FEET.has(Vector2i(1440, 3120)), "a screen this table does not name")
+	assert(
+		PhoneHudScript.share_of_the_room(0, 3120, 3413) == 0,
+		"is answered with no ground at all rather than a band borrowed from another device",
+	)
+	assert(PhoneHudScript.share_of_the_room(42, 0, 2567) == 0, "a screen that will not say its size is not a screen")
+	assert(PhoneHudScript.share_of_the_room(42, 2340, 0) == 0, "and neither is a room with no height")
+
+
+## **The foot line was the one thing on the screen left standing where the phone keeps its nav bar.** Everything
+## else had learned about the top band - a page's contents are lifted, the bar's row is lifted - and the plate at
+## the foot was still anchored 12 px from the bottom of the room. Measured on the A16W held upright on 2026-11-18:
+## the program's own `insets` reading is `display l=0 t=100 r=0 b=0` while the phone reports `bottom=42` in every
+## rotation but the upside-down one, so the foot line's own last row stood under the system's bar.
+##
+## The band is **stated** here rather than read, which is the whole reason the door exists: on this desk the foot
+## is 0 whatever the screen says, and a device that keeps a band along its foot is not a thing this machine can be.
+func test_the_foot_line_is_given_the_ground_the_device_keeps_and_never_drifts() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+	var foot := PanelContainer.new()
+	var drafting := PanelContainer.new()
+	foot.offset_bottom = -12.0
+	drafting.offset_bottom = -62.0
+	hud.hints = foot
+	hud.draft_hints = drafting
+
+	hud.give_the_foot_line(46)
+	assert(
+		is_equal_approx(foot.offset_bottom, -58.0),
+		"the foot line is the scene's own 12 px minus the band: %s" % str(foot.offset_bottom),
+	)
+	assert(
+		is_equal_approx(drafting.offset_bottom, -108.0),
+		"and the line a tool in hand reads keeps its own 62: %s" % str(drafting.offset_bottom),
+	)
+
+	# **A turn re-runs this**, so it has to answer the same thing every time: a pass that read its own output back
+	# would walk the foot line up the screen by a band on every rotation.
+	hud.give_the_foot_line(46)
+	assert(
+		is_equal_approx(foot.offset_bottom, -58.0),
+		"the second pass moves nothing: %s" % str(foot.offset_bottom),
+	)
+	assert(
+		is_equal_approx(drafting.offset_bottom, -108.0),
+		"and the drafting line is where it was: %s" % str(drafting.offset_bottom),
+	)
+
+	# A device that keeps nothing - every desk, and every screen this project has not measured - is handed the
+	# scene's own two numbers back, to the pixel.
+	hud.give_the_foot_line(0)
+	assert(is_equal_approx(foot.offset_bottom, -12.0), "nothing to clear puts it back: %s" % str(foot.offset_bottom))
+	assert(
+		is_equal_approx(drafting.offset_bottom, -62.0),
+		"both plates, exactly: %s" % str(drafting.offset_bottom),
+	)
+
+	# One of the two missing is not a fault of the other: the plate that is there is still given its ground.
+	hud.draft_hints = null
+	hud.give_the_foot_line(46)
+	assert(is_equal_approx(foot.offset_bottom, -58.0), "the plate that is there is still given the ground")
+
+	hud.hints = null
+	hud.draft_hints = null
+	foot.free()
+	drafting.free()
+	hud.free()
+
+
+## **The display itself can be stated, which is what it takes to draw a phone's layout on a desk.** A desk cannot be
+## a phone - no 450 dpi panel, no camera cutout, and no navigation band - so every number below has to be handed in
+## rather than read, and this is the door that hands the last of them in.
+##
+## Stating the size alone is not enough, which is worth holding down: the cutout would answer nothing, and a phone
+## drawn with nothing to clear is the fault this file's whole top half exists to stop. Stating the furniture alone
+## is not either, because that furniture is a *share* of the screen it is measured against - the A16W's cutout is
+## the top 100 px of a 1080 by 2340 glass and would be 1580 px of a 2880-wide desk, which is exactly what a
+## desk-stated phone came out with before this door existed.
+func test_a_display_can_be_stated_and_answers_as_the_phone_it_names() -> void:
+	var room := Vector2i(1185, 2567)
+	# **Both halves of "a phone" are stated, because a stated display is nothing on its own.** `on_a_finger_here`
+	# asks a touchscreen *and* a density of at least `HELD_DPI`, and this desk fails the density half - so every door
+	# below would answer zero for the one device this test is here to answer for. The demonstration states both for
+	# the same reason, and the density is the A16W's own reported 450.
+	PhoneHudScript.force_density(PHONE_DPI)
+	PhoneHudScript.force_display(Vector2i(1080, 2340), Rect2i(0, 100, 1080, 2240))
+	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+
+	assert(PhoneHudScript.screen_here() == Vector2i(1080, 2340), "the stated glass is the one answered")
+	assert(
+		PhoneHudScript.safe_area_here() == Rect2i(0, 100, 1080, 2240),
+		"and the stated furniture with it: %s" % str(PhoneHudScript.safe_area_here()),
+	)
+	# The A16W's own readings, from the numbers its report carries: the camera is cut into the top of the glass,
+	# and upright that is 110 px of the room the bar is laid out in.
+	var insets: Vector4i = PhoneHudScript.cutout_here(room)
+	assert(
+		insets.y == roundi(2567.0 * (100.0 / 2340.0)),
+		"the cutout is the stated display's, in the room's own pixels: %s" % str(insets),
+	)
+	assert(
+		PhoneHudScript.band_as_reported() == Vector4i(0, 100, 0, 0),
+		"and the raw reading stays the raw reading: %s" % str(PhoneHudScript.band_as_reported()),
+	)
+	# **The foot band is a table keyed by the screen**, which is the other reason a stated screen matters: a desk
+	# claiming this glass is told the 42 px the A16W keeps along its foot, where the desk itself is told nothing.
+	assert(
+		PhoneHudScript.stated_foot() == 42,
+		"a stated A16W is told the band it keeps: %d" % PhoneHudScript.stated_foot(),
+	)
+	assert(
+		PhoneHudScript.kept_foot(room) == roundi(2567.0 * (42.0 / 2340.0)),
+		"and the room's own share of it: %d" % PhoneHudScript.kept_foot(room),
+	)
+
+	# A screen of nothing puts the real display back, so a demonstration cannot leave this desk claiming a phone.
+	PhoneHudScript.force_display(Vector2i.ZERO, Rect2i())
+	assert(
+		PhoneHudScript.screen_here() == DisplayServer.screen_get_size(DisplayServer.window_get_current_screen()),
+		"nothing stated answers the real screen again",
+	)
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+	PhoneHudScript.force_density(0.0)
+
+
 func _reset() -> void:
 	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
 

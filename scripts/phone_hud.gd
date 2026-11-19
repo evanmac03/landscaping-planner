@@ -69,7 +69,7 @@ static func on_a_finger_here() -> bool:
 ## it is not a phone at all, and it is its 384 dp of *height* that has no room. The screen is handed in as it
 ## really is, so the scale is 1.0.
 static func zooming_here() -> bool:
-	return on_a_finger_here() and WindowClassScript.is_small(DisplayServer.screen_get_size(), 1.0, dpi())
+	return on_a_finger_here() and WindowClassScript.is_small(screen_here(), 1.0, dpi())
 
 
 ## What a phone's own furniture - the camera cutout, the status bar, a rounded edge - takes off each side of
@@ -90,11 +90,22 @@ static func cutout_insets(room: Vector2i, screen: Vector2i, safe: Rect2i) -> Vec
 		return Vector4i.ZERO
 	var edges: Vector4i = band_edges(screen, safe)
 	return Vector4i(
-		roundi(float(room.x) * (float(edges.x) / float(screen.x))),
-		roundi(float(room.y) * (float(edges.y) / float(screen.y))),
-		roundi(float(room.x) * (float(edges.z) / float(screen.x))),
-		roundi(float(room.y) * (float(edges.w) / float(screen.y))),
+		share_of_the_room(edges.x, screen.x, room.x),
+		share_of_the_room(edges.y, screen.y, room.y),
+		share_of_the_room(edges.z, screen.x, room.x),
+		share_of_the_room(edges.w, screen.y, room.y),
 	)
+
+
+## **One side's share of the room it becomes, and the only arithmetic that turns a figure read off a display into
+## one laid out in a room.** A band is a fact about the glass and a room's pixels are not the glass's, so the two
+## are joined by that screen's own side and nothing else. Written once because it has two callers - the four sides
+## of a cutout and the foot band below - and a second conversion that rounded the other way would be the same fact
+## in two places, disagreeing by a pixel, which is the fault this file exists to avoid.
+static func share_of_the_room(of_the_screen: int, screen_side: int, room_side: int) -> int:
+	if screen_side <= 0 or room_side <= 0:
+		return 0
+	return roundi(float(room_side) * (float(of_the_screen) / float(screen_side)))
 
 
 ## **The band as the display itself reports it**, in the display's own pixels, as (left, top, right, bottom). Kept
@@ -127,8 +138,7 @@ static func band_edges(screen: Vector2i, safe: Rect2i) -> Vector4i:
 static func band_as_reported() -> Vector4i:
 	if not on_a_finger_here():
 		return Vector4i.ZERO
-	var screen: int = DisplayServer.window_get_current_screen()
-	return band_edges(DisplayServer.screen_get_size(screen), DisplayServer.get_display_safe_area())
+	return band_edges(screen_here(), safe_area_here())
 
 
 ## The same answer for the display this program is running on. All four zero on a desk - this furniture is a
@@ -136,8 +146,7 @@ static func band_as_reported() -> Vector4i:
 static func cutout_here(room: Vector2i) -> Vector4i:
 	if not on_a_finger_here():
 		return Vector4i.ZERO
-	var screen: int = DisplayServer.window_get_current_screen()
-	return cutout_insets(room, DisplayServer.screen_get_size(screen), DisplayServer.get_display_safe_area())
+	return cutout_insets(room, screen_here(), safe_area_here())
 
 
 ## How far that furniture reaches down from the top of the screen, in the room's own pixels. Its own reading
@@ -146,10 +155,84 @@ static func cutout_top(room: Vector2i) -> int:
 	return cutout_here(room).y
 
 
+## The band the devices this project has measured keep along their **foot**, in the display's own pixels, keyed by
+## the size of the screen it was measured on.
+##
+## **This is the one piece of a phone's furniture the program has to be told, and the reason is in the paragraph
+## above `band_as_reported`.** The A16W keeps 42 px there for the nav bar - its own report,
+## `overrideNonDecorFrame=[0,100][1080,2298]`, says so - and Godot has **no answer for it**, so the number is
+## written down here rather than read from anywhere. A screen this table does not name is answered with a zero,
+## because a band guessed at is worse than the clearance the scene already keeps: 8 px of bare board under the foot
+## line is a small fault, and a foot line pushed up the screen on a device that keeps nothing is a large one.
+const KEPT_FEET: Dictionary = {
+	Vector2i(1080, 2340): 42,
+}
+
+
+## How far that foot band reaches up from the bottom of the screen this program is running on, in the display's own
+## pixels - the reading a person compares with what the phone itself reports. Zero on a desk, on a device nobody
+## has measured, and on anything not served a finger.
+static func stated_foot() -> int:
+	if not on_a_finger_here():
+		return 0
+	return int(KEPT_FEET.get(screen_here(), 0))
+
+
+## The same band in the room's own pixels, which is the space the foot line is laid out in: the figure `Hud` gives
+## the plates at the foot their ground by, and the room's half of what the block prints beside the display's. Its
+## own function, beside `cutout_top`, because the two are the top and the foot of the same question.
+static func kept_foot(room: Vector2i) -> int:
+	if not on_a_finger_here() or room.y <= 0:
+		return 0
+	var size: Vector2i = screen_here()
+	if size.y <= 0:
+		return 0
+	return share_of_the_room(int(KEPT_FEET.get(size, 0)), size.y, room.y)
+
+
 ## State what a device would be told about its density, for a demonstration or a test - and 0 puts the
 ## real reading back. The same door `TouchInput.force` and `PhoneFiles.force` are, asked of a third thing.
 static func force_density(density: float) -> void:
 	_forced_density = density
+
+
+## State the display a device would be answering from, for a demonstration or a test - and a size of nothing puts
+## the real display back. The same door `force_density` and `TouchInput.force` are, asked of the thing they both
+## assume.
+##
+## **A screen and its safe area together, because they are one fact and either half alone is a lie.** The A16W's
+## glass is 1080 by 2340 with its camera cut into the top 100 px; a desk has no cutout and reports the whole screen
+## as the area it will draw in. A stated size with no furniture leaves every phone band answering zero - a phone
+## drawn with nothing to clear - and stated furniture with no size takes its share of whatever screen is at hand,
+## which is how a desk-stated phone came out with a 1580 px band down its left side.
+static func force_display(screen: Vector2i, safe: Rect2i) -> void:
+	_forced_screen = screen
+	_forced_safe = safe
+
+
+## The display's own size, as this program is told it: the stated one, or the real screen when nothing is stated.
+##
+## **The one place it is read**, so that the cutout, the foot band and the class of window cannot be answered from
+## two different screens in the same pass - which is the shape of fault the arithmetic beside them exists to avoid.
+static func screen_here() -> Vector2i:
+	if _forced_screen.x > 0 and _forced_screen.y > 0:
+		return _forced_screen
+	return DisplayServer.screen_get_size(DisplayServer.window_get_current_screen())
+
+
+## The same for the safe area, which is what a display promises a program it will not draw over.
+static func safe_area_here() -> Rect2i:
+	if _forced_screen.x > 0 and _forced_screen.y > 0:
+		return _forced_safe
+	return DisplayServer.get_display_safe_area()
+
+
+## Where a stated display is held, beside the one door that states it and the two that answer it. **`static`,
+## because every door in this file is**: the whole file is arithmetic about a device nobody has to have, so there is
+## no instance to keep a stated screen on - and a plain member here is a parse error at the two functions that read
+## it, not a warning.
+static var _forced_screen: Vector2i = Vector2i.ZERO
+static var _forced_safe: Rect2i = Rect2i()
 
 
 ## The half of `apply` that can be told the answer rather than reading it, so that a test can hold what a
