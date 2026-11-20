@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://cv7cwk27cxtoe"]
 
-[ext_resource type="Script" path="res://tools/stylebox_fancy_demo.gd" id="1_demo"]
+[ext_resource type="Script" uid="uid://0vegg4fuewyn" path="res://tools/stylebox_fancy_demo.gd" id="1_demo"]
 
-[node name="StyleBoxFancyDemo" type="Control"]
+[node name="StyleBoxFancyDemo" type="Control" unique_id=304054593]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
