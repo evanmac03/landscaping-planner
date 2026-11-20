@@ -240,6 +240,25 @@ const SCREEN_LINES: Array[String] = ["device", "room", "strip", "insets", "foot"
 ## cannot hold.
 const TOUCH_LINES: Array[String] = ["small", "close", "unsafe", "middle", "tiny", "clipped", "offscreen"]
 
+## The words an engine uses when something it was told to bring up did not come up: the faults a pass over the
+## **screen** cannot see, and the reason a clean report used to be possible over an unclean launch.
+##
+## **A build can be perfect and still start with these.** Measured on the SM-A166W, 2026-11-10: a build that
+## carried an autoload it did not contain logged "Error loading extension" and "Node CrabbyConsole of type
+## CrabConsole cannot be created. A placeholder will be created instead." on every launch - and the program went
+## on to draw a screen with nothing wrong on it, so the pass named no trouble at all. `SCRIPT ERROR` is the same
+## kind of line, because the engine prints it with `ERROR:` in front of it.
+##
+## **Why markers rather than the word "error".** A launch is full of numbers and names that a fault rule cannot
+## tell from a reading, and a search for "error" would name a line that says how many errors there were. `ERROR:` -
+## the engine's own prefix, capitalised and with its colon - is a statement that something failed, and so are the
+## two sentences a loader and a placeholder print.
+const LAUNCH_FAULT_MARKERS: Array[String] = ["ERROR:", "Error loading extension", "cannot be created"]
+
+## How many fault lines the report prints whole before it starts counting instead. A build that fails on every
+## frame can print hundreds of them, and a report nobody can read is not a reading - but the count is always said.
+const LAUNCH_FAULTS_SHOWN := 6
+
 ## The four ways up a phone's own report lists its kept bands in, and the two bands it gives per way up. Read by name
 ## rather than by position, so a report that lists them in another order is still read the same way.
 const ROTATIONS: PackedStringArray = ["ROTATION_0", "ROTATION_90", "ROTATION_180", "ROTATION_270"]
@@ -873,8 +892,11 @@ func _one_pass() -> void:
 func _report_the_fold(logcat: String) -> void:
 	var folded: Dictionary = MenuBarPlan.read_menubar_line(logcat)
 	if folded.is_empty():
-		print("PHONE the top bar printed nothing: a release build does not say what it folded, and neither does a")
-		print("      run that never laid the bar out. Nothing here is a reading of the bar.")
+		print("PHONE the top bar printed nothing. Three reasons, and none of them is a fault on its own: a release")
+		print("      build does not say what it folded; a run that never laid the bar out has nothing to fold; and")
+		print("      **a device answered with a finger has no bar to fold at all** - the menus give way to the four")
+		print("      controls of `TouchRow` and the plan is reached through the drawer, so the fold returns before")
+		print("      it measures anything rather than publishing a reading of furniture that is not on the screen.")
 		return
 	print("PHONE the top bar, last word: %s" % folded["line"])
 	print("      %s" % MenuBarPlan.bar_words(folded))
@@ -2283,6 +2305,9 @@ func _the_tap(asked: PackedStringArray) -> Vector2i:
 ## `cleared` is what a block cannot say about itself: a block is a moment with no stamp on it, so a log that holds
 ## nothing means something different when this run has just emptied it.
 func _report(kept: String, cleared: bool, logcat: String) -> void:
+	# **First, and before the early return below.** A build that could not bring something up may publish no block
+	# at all, and that is the case these faults matter most in - so they are said whether or not the screen did.
+	_report_the_launch(logcat)
 	var blocks: Array[String] = blocks_in(kept)
 	if blocks.is_empty():
 		if cleared:
@@ -2329,6 +2354,87 @@ func _report(kept: String, cleared: bool, logcat: String) -> void:
 	# on, (1080, 2340)". The newest block is the one the tap was sent against, so it is the one to measure in.
 	if _sent_a_tap:
 		print("  %s" % tap_words(_tapped, HudProbeScript.read_screen_line("\n".join(lines))))
+
+
+## What the engine said when the program came up, if it said anything that is a fault.
+##
+## **This is the one thing in this report the touch rules cannot name.** A build can be missing a library for the
+## device it was installed on - a GDExtension with no Android build, or an autoload the build carries and does not
+## contain - and still draw a screen with nothing wrong on it, because the engine reports the failure and steps
+## over it. Measured on the SM-A166W, 2026-11-10: every launch of such a build logged "Error loading extension"
+## and a placeholder node, and a pass that looked only at rectangles called it clean.
+##
+## It is printed **before** the geometry, because a fault at launch is about every figure below it, and it is
+## said as a count and then in the engine's own words - never as a verdict. Whether a particular line matters is
+## the reader's to judge; that it happened is not.
+func _report_the_launch(logcat: String) -> void:
+	var found: PackedStringArray = launch_faults(logcat)
+	if found.is_empty():
+		return
+	var now: float = float(Time.get_unix_time_from_system())
+	var newest: float = 0.0
+	var oldest: float = 0.0
+	for line: String in found:
+		var when: float = when_a_line_was_logged(line)
+		if when <= 0.0:
+			continue
+		newest = maxf(newest, when)
+		if oldest <= 0.0 or when < oldest:
+			oldest = when
+	# **The age is stated, and a window is deliberately not.** This reader cannot know when the program was
+	# launched - the device's clock and this machine's are two clocks - so it never says "at launch". It says how
+	# old the faults are and leaves the reader to see whether they belong to the run in front of them. Measured
+	# 2026-11-20: a log holding 48,306 fault lines from a build an hour gone read as a clean launch under a
+	# sentence claiming they came up with it.
+	var span: String = ""
+	if newest > 0.0:
+		span = ", the newest %s ago" % age_words(maxi(int(now - newest), 0))
+		if oldest > 0.0 and oldest < newest:
+			span += " and the oldest %s ago" % age_words(maxi(int(now - oldest), 0))
+	print("PHONE the log holds %d engine fault line(s)%s - a screen can be clean over this:" % [found.size(), span])
+	# **Newest first.** The question a reader has is what the engine last complained about, and the log is
+	# chronological, so the tail is the end a person wants. The count below is of what is not shown.
+	for offset: int in mini(found.size(), LAUNCH_FAULTS_SHOWN):
+		print("      %s" % found[found.size() - 1 - offset])
+	if found.size() > LAUNCH_FAULTS_SHOWN:
+		print("      ... and %d further line(s) before these" % (found.size() - LAUNCH_FAULTS_SHOWN))
+
+
+## When the device's clock stamped a log line, in absolute seconds - or 0.0 for a line it did not stamp.
+##
+## logcat is read with `-v epoch` for exactly this: the stamp is an absolute number, so an age is a subtraction
+## rather than two clocks' opinions of what "14:44" means. A line with no stamp is not a fault the less - it
+## simply cannot be dated - and 0.0 tells a caller that rather than handing it a guess.
+static func when_a_line_was_logged(line: String) -> float:
+	var trimmed: String = line.strip_edges()
+	if trimmed.is_empty():
+		return 0.0
+	var head: String = trimmed.split(" ", false)[0]
+	if not head.is_valid_float():
+		return 0.0
+	return head.to_float()
+
+
+## The lines in a device's log that say something failed to come up, oldest first and each said once.
+##
+## The log is handed in rather than read here, so this rule can be held by a test with no phone in sight. A line
+## is the device's own record and is **not reworded** - a reader comparing this against `adb logcat` must find the
+## same words in the same order - and a line that repeats is kept once, because a fault that happens on every
+## launch is one fault to go and fix.
+static func launch_faults(log: String) -> PackedStringArray:
+	var found := PackedStringArray()
+	for line: String in log.split("\n", false):
+		var said: String = line.strip_edges()
+		if said.is_empty():
+			continue
+		var matched: bool = false
+		for marker: String in LAUNCH_FAULT_MARKERS:
+			if said.contains(marker):
+				matched = true
+				break
+		if matched and not found.has(said):
+			found.append(said)
+	return found
 
 
 ## How long ago the newest block in the log was published, in a person's words - or nothing when the device's clock

@@ -52,6 +52,68 @@ func test_the_number_of_a_line_is_its_last_token_and_nothing_else() -> void:
 	assert(ToolScript.number_in("page   start_window  \"A page\"") == 0, "and a line of another kind has none either")
 
 
+## **The two sentences a phone logged on every launch of a build that carried a library it did not contain.** Both
+## were read off the SM-A166W on 2026-11-10, on a build that went on to draw a screen with nothing wrong on it -
+## which is why the pass reported no trouble at all. The touch rules ask about rectangles and cannot see a library
+## that never loaded; this rule is what says so, and `SCRIPT ERROR` is the same kind of line, printed by the engine
+## with `ERROR:` in front of it.
+func test_a_launch_fault_is_named_the_way_the_device_logs_it() -> void:
+	var log := (
+		"1763605000.123456  1234  1234 I godot   : Error loading extension\n"
+		+ "1763605000.223456  1234  1234 E godot   : ERROR: Node CrabbyConsole of type CrabConsole"
+		+ " cannot be created. A placeholder will be created instead.\n"
+	)
+	var found: PackedStringArray = ToolScript.launch_faults(log)
+	assert(found.size() == 2, "both sentences are faults: %s" % str(found))
+	assert(String(found[0]).contains("Error loading extension"), "the loader's own words: %s" % String(found[0]))
+	assert(
+		String(found[1]).contains("cannot be created"),
+		"and the placeholder's, on the line that begins with ERROR:: %s" % String(found[1]),
+	)
+	assert(
+		ToolScript.launch_faults("godot   : SCRIPT ERROR: Parse Error: Identifier \"x\" not found").size() == 1,
+		"a script error is the same kind of line and is named too",
+	)
+
+
+## **A line that says how many errors there were is not one of them**, and neither is a block. This is the whole
+## reason the rule names markers instead of searching for the word "error": a log is full of numbers a fault rule
+## cannot tell from a reading, and naming a report's own summary as a fault is the defect a marker avoids.
+func test_a_count_of_errors_and_a_block_are_not_faults() -> void:
+	assert(
+		ToolScript.launch_faults("godot   : 0 errors, 3 warnings, and the launch was clean").is_empty(),
+		"a count of errors is not a fault",
+	)
+	assert(
+		ToolScript.launch_faults("godot   : PROBE --- what is on the screen ---").is_empty(),
+		"and neither is the program's own block",
+	)
+	assert(ToolScript.launch_faults("").is_empty(), "and an empty log has nothing to say")
+
+
+## A fault that happens on every launch is **one** fault however often the log carries it: the report is read by a
+## person, and the same sentence four times is one thing to go and fix.
+func test_the_same_fault_logged_again_is_reported_once() -> void:
+	const LINE := "1763605000.1  1234  1234 I godot   : Error loading extension"
+	var found: PackedStringArray = ToolScript.launch_faults("%s\n%s\n%s\n" % [LINE, LINE, LINE])
+	assert(found.size() == 1, "one fault, said once: %s" % str(found))
+	assert(found[0] == LINE, "and the line is the device's own, unreworded: %s" % String(found[0]))
+
+
+## **An age is a subtraction, and a line the device did not stamp has none.** logcat is read with `-v epoch` for
+## exactly this reason: the stamp is an absolute second, so how old a fault is comes from here rather than from two
+## clocks' opinions of what "14:44" means. A line that cannot be dated must answer nothing, never a guess - and
+## the report says so in words instead of claiming the fault came up with the program.
+func test_a_lines_age_comes_from_the_devices_own_stamp_or_from_nothing() -> void:
+	var stamped: float = ToolScript.when_a_line_was_logged(
+		"1795138280.048 14410 14514 E godot   : ERROR: Node CrabbyConsole cannot be created"
+	)
+	assert(stamped > 1795138279.0 and stamped < 1795138281.0, "the leading epoch is the stamp: %f" % stamped)
+	assert(ToolScript.when_a_line_was_logged("godot   : ERROR: x") == 0.0, "a line with no stamp has no age")
+	assert(ToolScript.when_a_line_was_logged("") == 0.0, "and neither has nothing at all")
+	assert(ToolScript.when_a_line_was_logged("PROBE device   finger=true") == 0.0, "a block line is not stamped either")
+
+
 ## The A16W's own `dumpsys window displays`, cut to the fields a band comes from. **Every field here was read off the
 ## device**, not written from what the format was thought to be - which is why the rectangle is spelled with the dash
 ## the phone really uses, the one thing that would otherwise have been guessed wrong.
