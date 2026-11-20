@@ -54,6 +54,12 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 layout_mode = 2
 theme_override_constants/separation = 14
 
+[node name="TouchRow" type="HBoxContainer" parent="Root/TopBar/Row"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
 [node name="MenuBar" type="MenuBar" parent="Root/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -203,6 +209,89 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5
+
+[node name="TouchSheet" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -420.0
+offset_right = -12.0
+offset_bottom = -212.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Column" type="VBoxContainer" parent="Root/TouchSheet"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Root/TouchSheet/Column"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/TouchSheet/Column/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Sheet"
+
+[node name="Close" type="Button" parent="Root/TouchSheet/Column/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="Body" type="VBoxContainer" parent="Root/TouchSheet/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="TouchDock" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Column" type="VBoxContainer" parent="Root/TouchDock"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ToolStrip" type="PanelContainer" parent="Root/TouchDock/Column"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="StripScroll" type="ScrollContainer" parent="Root/TouchDock/Column/ToolStrip"]
+layout_mode = 2
+vertical_scroll_mode = 0
+
+[node name="Strip" type="HBoxContainer" parent="Root/TouchDock/Column/ToolStrip/StripScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Tabs" type="HBoxContainer" parent="Root/TouchDock/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="PaintedSheet" type="Control" parent="Root"]
 unique_name_in_owner = true

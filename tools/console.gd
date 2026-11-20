@@ -21,6 +21,11 @@ extends Node
 ## its own classes are never named. What it needs from the program is nothing at all, which is why this can
 ## be a scene rather than a change to the program.
 ##
+## **The addon's own documentation is the source for what it offers and how a command is registered** -
+## <https://bauxitedev.github.io/crabbyconsole/> - and its custom-command page is the one this file follows: a
+## name, a callable, and every argument arriving as a string. Read that before reaching for a feature here, and
+## read it before filing anything against the addon.
+##
 ## ## Asking the program where things are
 ##
 ##     :where <path>    the on-screen rectangle of a control, in the screen pixels a person or `input tap` wants
@@ -57,6 +62,9 @@ const PageLayoutScript := preload("res://scripts/page_layout.gd")
 ## place: a sixth verb is a sixth entry here and nothing else. The name and the method are `StringName`s
 ## because that is how the console takes them, and each method is reached by name rather than by anything
 ## the addon owns.
+const PhoneHudScript := preload("res://scripts/phone_hud.gd")
+const PageChromeScript := preload("res://scripts/page_chrome.gd")
+
 const COMMANDS: Array[Dictionary] = [
 	{
 		"name": &"where",
@@ -83,6 +91,16 @@ const COMMANDS: Array[Dictionary] = [
 		"name": &"doc",
 		"method": &"_doc",
 		"help": "doc - the drawing: how many entities, which layers, the file, and whether it is unsaved",
+	},
+	{
+		"name": &"bands",
+		"method": &"_bands",
+		"help": "bands - the bands a device keeps at its own edges, and the strip no page may stand in",
+	},
+	{
+		"name": &"dock",
+		"method": &"_dock",
+		"help": "dock - a finger's own furniture: what is in it, where it stands, and how tall the floors make it",
 	},
 ]
 
@@ -156,9 +174,9 @@ func _take_the_commands(the_console: Node) -> void:
 ## through `Viewport.get_screen_transform()`. This method decides only which of the probe's readers answers -
 ## a page answers for itself with its whole report, a control with its rectangle - and says what it was told.
 ##
-## The three parameters are joined because how the console hands a command's arguments over is written down
-## nowhere in what it ships: one string, the whole line, and one parameter per word all arrive as something
-## this can read, and a node path has no spaces to lose between them.
+## The three parameters are joined because the documentation does not state how many arguments a fixed-arity
+## callable is handed: its own example reads as one per word (`:sum 1 2` into `func(a, b)`), and every argument
+## arrives as a string either way. A node path has no spaces to lose, so all three shapes read it the same.
 func _where(first: String = "", second: String = "", third: String = "") -> String:
 	var wanted: String = ("%s %s %s" % [first, second, third]).strip_edges()
 	if wanted.is_empty():
@@ -347,6 +365,102 @@ func _the_layer_in_hand(draft: Node) -> String:
 		if StringName(choice["name"]) == layer:
 			return "%s - %s" % [layer, choice["purpose"]]
 	return String(layer)
+
+
+## `:bands` - the bands the device keeps at its own edges, and the strip a page may not stand in.
+##
+## Every figure is the module that already owns it: the four insets are `PhoneHud.cutout_here`, the foot is
+## `kept_foot` - the stated table for the swipe that goes back, which the engine does not report as a safe
+## area - the strip is `PageChrome.reserved_above`, and the two floors are `row_height` and `font_size`. Nothing
+## is worked out a second time here, and the floors matter most: a number copied into a tool would be a second
+## answer to how tall a thumb is, free to drift from the one the program draws at.
+##
+## On a desk every band reads zero and the floors are still stated, because that is the truth there - it is the
+## floors and not the bands that say whether a phone's furniture would fit this screen.
+func _bands(_first: String = "", _second: String = "", _third: String = "") -> String:
+	var hud: Node = _somewhere("Hud")
+	if hud == null:
+		return "there is no board to ask - run this scene, which puts the program up"
+	var room: Vector2i = Vector2i(hud.get_viewport().get_visible_rect().size)
+	var band: Vector4i = PhoneHudScript.cutout_here(room)
+	var scale: float = PhoneHudScript.canvas_scale(hud.call(&"get_window") as Window)
+	return "\n".join(
+		[
+			"room     %d x %d in the room's own pixels" % [room.x, room.y],
+			"keeps    left %d   top %d   right %d   foot %d" % [band.x, band.y, band.z, PhoneHudScript.kept_foot(room)],
+			"pages    no page stands above %d (the strip PageChrome reserves)" % PageChromeScript.reserved_above,
+			"floors   a row is %.0f px and type is %d px, at scale %.3f and density %.0f"
+			% [
+				PhoneHudScript.row_height(scale, PhoneHudScript.dpi()),
+				PhoneHudScript.font_size(scale, PhoneHudScript.dpi()),
+				scale,
+				PhoneHudScript.dpi(),
+			],
+		]
+	)
+
+
+## `:dock` - the furniture a finger gets and a desk does not: what the dock offers, where the bar and the dock
+## stand, and whether either is being drawn at all.
+##
+## The rectangles are the controls' own, the names are the scene's own node names, and the tab names are read
+## out of the HUD's own constant rather than listed here - a tool that named the tabs a second time would be the
+## second vocabulary this project spends its effort avoiding. A computer answers that the furniture is there and
+## not drawn, which is exactly what a desk does with it.
+func _dock(_first: String = "", _second: String = "", _third: String = "") -> String:
+	var hud: Node = _somewhere("Hud")
+	if hud == null:
+		return "there is no board to ask - run this scene, which puts the program up"
+	var row: Node = hud.get_node_or_null(^"Root/TopBar/Row/TouchRow")
+	var dock: Node = hud.get_node_or_null(^"Root/TouchDock")
+	if row == null or dock == null:
+		return "this HUD carries no touch furniture - the scene it was built from is older than the dock"
+	var tabs: Array = Array(hud.get_script().get_script_constant_map().get("TOUCH_TABS", []))
+	return "\n".join(
+		[
+			"tabs     %s" % "  ".join(PackedStringArray(tabs)),
+			"bar      %s" % _a_controls_rectangle(hud, row),
+			"dock     %s" % _a_controls_rectangle(hud, dock),
+			"strip    %s" % _a_controls_rectangle(hud, dock.get_node_or_null(^"Column/ToolStrip")),
+			"sheet    %s" % _a_controls_rectangle(hud, hud.get_node_or_null(^"Root/TouchSheet")),
+			"drawn    the bar's row %s, the dock %s - a desk draws neither"
+			% [_said_out_loud(row), _said_out_loud(dock)],
+		]
+	)
+
+
+## One control's rectangle, in the room's own pixels and in the screen pixels a person or `input tap` wants.
+##
+## The two are stated together because they are what a mismatch is found by: a control measured in the room and
+## aimed at in screen pixels is how the phone's own view buttons came out drawn where nothing could reach them.
+## The screen figure is the room's own multiplied by the canvas scale, which is the direction this project
+## measured (`1185` logical to `1080` screen on the A16W, at a scale of `0.91`).
+func _a_controls_rectangle(hud: Node, control: Node) -> String:
+	if control == null:
+		return "(the scene carries no such control)"
+	var rect: Rect2 = (control as Control).get_global_rect()
+	var scale: float = PhoneHudScript.canvas_scale(hud.call(&"get_window") as Window)
+	var here: String = "at (%.0f,%.0f) size %.0fx%.0f" % [rect.position.x, rect.position.y, rect.size.x, rect.size.y]
+	if scale <= 0.0:
+		return "%s %s (the room's own pixels; this screen states no scale)" % [control.name, here]
+	return (
+		"%s %s  ->  screen at (%.0f,%.0f) size %.0fx%.0f"
+		% [
+			control.name,
+			here,
+			rect.position.x * scale,
+			rect.position.y * scale,
+			rect.size.x * scale,
+			rect.size.y * scale,
+		]
+	)
+
+
+## Whether a control is being drawn, in words rather than as a flag.
+func _said_out_loud(control: Node) -> String:
+	if control == null:
+		return "absent"
+	return "shown" if (control as Control).is_visible_in_tree() else "put away"
 
 
 ## `:doc` - the drawing itself: how much is in it, which layers it has, where it lives, and whether what is

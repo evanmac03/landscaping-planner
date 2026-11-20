@@ -198,6 +198,22 @@ const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
 ## decision; its menus are built in code from `menu_plan()`, because what is in them is derived
 ## from the tables that already describe those commands.
 @onready var menu_bar: MenuBar = %MenuBar
+## The furniture a finger gets and a desk does not: the row of controls that stands inside the top bar where
+## the fourteen menus stand, and the dock along the foot of the screen. Both are in the scene and hidden, so a
+## desk draws exactly what it always drew; `get_node_or_null` rather than `%` because a HUD built from a scene
+## that has not been through this file's own scene file still has to load.
+@onready var touch_row: HBoxContainer = get_node_or_null(^"Root/TopBar/Row/TouchRow") as HBoxContainer
+@onready var touch_dock: PanelContainer = get_node_or_null(^"Root/TouchDock") as PanelContainer
+@onready var touch_strip: PanelContainer = get_node_or_null(^"Root/TouchDock/Column/ToolStrip") as PanelContainer
+@onready var touch_strip_row: HBoxContainer = get_node_or_null(^"Root/TouchDock/Column/ToolStrip/StripScroll/Strip") as HBoxContainer
+@onready var touch_tabs: HBoxContainer = get_node_or_null(^"Root/TouchDock/Column/Tabs") as HBoxContainer
+## The sheet a finger opens instead of a full page: the plant picker standing over the board rather than
+## replacing it. A page is a `Window` the whole screen wide; a sheet is a plate the drawing stays visible
+## around, which is what a person choosing a plant wants - the bed they are planting is still on the screen.
+@onready var touch_sheet: PanelContainer = get_node_or_null(^"Root/TouchSheet") as PanelContainer
+@onready var touch_sheet_title: Label = get_node_or_null(^"Root/TouchSheet/Column/Header/Title") as Label
+@onready var touch_sheet_close: Button = get_node_or_null(^"Root/TouchSheet/Column/Header/Close") as Button
+@onready var touch_sheet_body: VBoxContainer = get_node_or_null(^"Root/TouchSheet/Column/Body") as VBoxContainer
 
 ## The drafting controller, when the scene has one. Held because the palette drives
 ## it and the legend reports on it.
@@ -717,6 +733,9 @@ func _ready() -> void:
 	# in hand: one writer for both, so arming a tool cannot leave the box describing the tool before it.
 	_build_palette()
 	_build_touch_pad()
+	# The other half of the touch furniture: the row that stands where the menus stand and the dock along the
+	# foot. Built after the palette, because every control the dock offers is a control the palette already made.
+	_build_touch_furniture()
 	_build_plant_panel()
 	_build_presentation_panel()
 	_build_painted_actions()
@@ -1165,12 +1184,19 @@ func _process(delta: float) -> void:
 	# and a stick on the glass there would be a second way to move a view that already has a better one.
 	if _touch_pad != null:
 		_touch_pad.visible = working and not overhead and shows_touch_controls()
+	# **On a device answered with a finger the two columns a desk draws give way to the two bars a thumb
+	# reaches.** The vertical palette beside the plan and the fourteen menus across the top are both the shape a
+	# mouse and a wide room make; a phone gets the dock along its foot and four controls where the menus stood.
+	# `_show_the_touch_furniture` is the one place that says which of the two arrangements is up, so the answer
+	# is stated once rather than worked out again by everything that draws near it.
+	var on_a_finger: bool = shows_touch_controls()
 	if palette.get_child_count() > 0:
-		palette.visible = working and overhead
+		palette.visible = working and overhead and not on_a_finger
 		_refresh_palette()
 		_refresh_plant_panel()
 	if top_bar != null:
 		top_bar.visible = working
+	_show_the_touch_furniture(working and overhead)
 	if overlay != null:
 		overlay.visible = working
 	# The panel is the one piece of this furniture a *person* owns as well as the view: the Present menu puts
@@ -1709,6 +1735,14 @@ func _size_the_chrome_for_the_device() -> void:
 	# the finished layout will put it, and a control asked for a size it has not laid out yet answers the size
 	# it had before. The desk's own numbers are the floor, so a desk keeps exactly the rectangle it drew.
 	place_the_left_column_for_a_device.call_deferred()
+	# The dock is placed from the room and the band the device keeps along its foot, so it is read here where
+	# the room is really known, and again on the frame after - a panel asked for its size before it has laid out
+	# answers the size it had before, which is the same reason the palette's own placement is deferred.
+	_place_the_touch_dock.call_deferred()
+	# The six panels that stand over the board are placed by the same reading and put back by it too, so a desk
+	# that was shown a finger's arrangement - which the layout check does, and then lets go of - is left exactly
+	# as the scene drew it rather than holding a phone's panels.
+	_place_the_overlay_panels.call_deferred()
 	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
 
@@ -1919,6 +1953,595 @@ func place_the_left_column_for_a_device() -> void:
 	var placed: Vector2 = offsets_for_the_left_column(bar_foot, plate_top, _palette_offsets_as_drawn, room, least)
 	palette.offset_top = placed.x
 	palette.offset_bottom = placed.y
+
+
+# --- the furniture a finger gets instead of a desk's -----------------------------------------------------
+
+## The tabs a phone's dock carries, left to right.
+##
+## **Every one of them is a door to something that already exists**, which is what keeps a dock from becoming a
+## second place a tool is offered. `Draw` and `Dim` are the one `DraftTool.DRAFTING_TOOLS` list split where that
+## list already splits - the six shapes and the measure first, the four dimensions after - `Edit` is
+## `DraftController.EDIT_TOOLS`, `Plants` opens the library that already stands beside the palette, and `More`
+## opens the drawer. `More` is not a menu of its own: a bar too narrow for fourteen menus already gathers the
+## tail of them under a `More`, and this is that same gathering reached from the thumb's end of the screen.
+const TOUCH_TABS: Array[String] = ["Draw", "Dim", "Edit", "Plants", "More"]
+
+## The four dimension kinds, read off the tool module's own enum rather than written down as numbers: they are
+## what tells the `Dim` tab's tools from the `Draw` tab's, and a number copied here would be a second statement
+## of which tool draws a dimension, free to drift from the one the palette builds its own buttons from.
+const DIMENSION_KINDS: Array = [
+	DraftToolScript.Kind.DIMENSION,
+	DraftToolScript.Kind.DIMENSION_LINEAR,
+	DraftToolScript.Kind.DIMENSION_RADIUS,
+	DraftToolScript.Kind.DIMENSION_ANGULAR,
+]
+
+## How much of the room a sheet takes. A share of the room's own height rather than a number of pixels, so the
+## same plate is right on any screen - and the board keeps the rest, which is the whole reason a sheet stands
+## over the drawing instead of replacing it.
+const SHEET_OF_THE_ROOM := 0.45
+
+## The tab in hand, by its name in `TOUCH_TABS`. Empty until one is pressed.
+var _touch_tab: String = ""
+## The drawer: the whole plan as one popup of one submenu per menu, made the first time somebody asks for it.
+var _touch_drawer: PopupMenu = null
+
+
+## Build the two pieces of furniture a finger gets and a desk does not: the row of controls that stands inside
+## the top bar where the fourteen menus stand, and the dock along the foot of the screen.
+##
+## It builds nothing on a computer, and the two plates it wears are the scene's own look drawn again by
+## `ChromeStyle` - a colour and a corner radius written here would be the drift that file exists to prevent.
+func _build_touch_furniture() -> void:
+	if touch_row == null or touch_dock == null or touch_tabs == null or touch_strip == null:
+		return
+	_build_the_touch_row()
+	_build_the_touch_tabs()
+	_apply_the_touch_plates()
+	if touch_sheet_close != null and not touch_sheet_close.pressed.is_connected(_close_the_touch_sheet):
+		touch_sheet_close.pressed.connect(_close_the_touch_sheet)
+
+
+## The four controls the top bar carries on a phone, where a desk carries fourteen menus: the drawer, the layer
+## the next shape is drawn on, the view, and the command palette.
+##
+## They are **words rather than the glyphs the shape of this furniture suggests**, and that is measured rather
+## than chosen: this engine draws no glyph the theme's own font does not hold, and the two that read best on
+## paper - a hamburger and a magnifier - are in none of the fonts a build carries. A button wearing an empty box
+## says nothing at all, so each of these says what it does.
+func _build_the_touch_row() -> void:
+	if touch_row.get_child_count() > 0:
+		return
+	touch_row.add_child(_a_touch_button("Menu", "Everything the menus hold", _show_the_touch_drawer))
+	touch_row.add_child(_a_touch_button("Layer", "The layer the next shape is drawn on", _show_the_layer_choices))
+	touch_row.add_child(_a_touch_button("View", "The 2D plan, the 3D view and the ground", _turn_the_view))
+	touch_row.add_child(_a_touch_button("Find", "Find a command by its name", toggle_command_palette))
+
+
+## One button of the touch furniture, sized by the same two floors every other control on a device is sized by.
+##
+## **The height is `PhoneHud.row_height`, read rather than restated**, so a control built here and a palette
+## fitted there cannot come out at two different heights on one screen. A button taller than its own row is what
+## puts a control's middle inside a band the device keeps, which is a fault this project has measured twice.
+func _a_touch_button(words: String, tooltip: String, door: Callable) -> Button:
+	var button := Button.new()
+	button.text = words
+	button.tooltip_text = tooltip
+	button.pressed.connect(door)
+	# The focus is off every button the HUD draws, and for the reason the palette's own note keeps: Godot hands
+	# Tab to focus navigation the moment a Control holds it, and a focused button swallows the keys a drawing
+	# tool is driven by.
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(0.0, _touch_row_height())
+	button.add_theme_font_size_override("font_size", _touch_type_size())
+	return button
+
+
+## A row's height on this device, in the room's own pixels.
+func _touch_row_height() -> float:
+	return PhoneHudScript.row_height(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+
+
+## The size words are drawn at on this device: the millimetre floor `PhoneHud` states, never a number chosen here.
+func _touch_type_size() -> int:
+	return PhoneHudScript.font_size(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+
+
+## The dock's tabs, one per name in `TOUCH_TABS`, each as wide a share of the row as the rest.
+func _build_the_touch_tabs() -> void:
+	if touch_tabs.get_child_count() > 0:
+		return
+	for tab: String in TOUCH_TABS:
+		var button: Button = _a_touch_button(tab, _touch_tab_tooltip(tab), _press_a_touch_tab.bind(tab))
+		button.toggle_mode = true
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		touch_tabs.add_child(button)
+
+
+## What each tab opens, in the words a person reads on the glass.
+func _touch_tab_tooltip(tab: String) -> String:
+	match tab:
+		"Draw":
+			return "The shapes a plan is drawn with"
+		"Dim":
+			return "The dimensions a plan is measured with"
+		"Edit":
+			return "Change what is already drawn"
+		"Plants":
+			return "The plant library"
+	return "The rest of the menu"
+
+
+## **Show the two plates through `ChromeStyle`, off the plate the scene drew.** The bar's own look is read from
+## `top_bar`, which is the one control in the scene wearing it, so the dock and the strip are the same pane as
+## the bar rather than three panes three people styled. The dock is drawn wide and flat, so its corners are
+## round at the top and square at the foot and its rule runs along the top edge alone; the strip floats, so it
+## keeps every corner and the whole rule. On a desk the plates are still replaced - the look is identical, and a
+## control that is never shown costs nothing.
+func _apply_the_touch_plates() -> void:
+	if top_bar == null:
+		return
+	var drawn: StyleBox = top_bar.get_theme_stylebox(&"panel")
+	if touch_dock != null:
+		touch_dock.add_theme_stylebox_override(&"panel", ChromeStyleScript.dock_plate(drawn, 0.0))
+	if touch_strip != null:
+		touch_strip.add_theme_stylebox_override(&"panel", ChromeStyleScript.floating_plate(drawn))
+	# The sheet wears the plate for the panels anchored to the foot as well: one look, asked of the one function
+	# that derives it from the bar's own. The six panels take theirs in `_place_the_overlay_panels`, which is
+	# where their placement lives and which runs after they have been built.
+	var along_the_foot: StyleBox = _a_dock_plate()
+	if touch_sheet != null and along_the_foot != null:
+		touch_sheet.add_theme_stylebox_override(&"panel", along_the_foot)
+
+
+## Say which of the two arrangements is up: the dock and the row of controls, or the palette and the menus.
+##
+## `working` is the question the frame has already asked - whether the drawing's own furniture belongs on the
+## screen at all - so a presentation and a painted sheet put this away with everything else.
+func _show_the_touch_furniture(working: bool) -> void:
+	var on_a_finger: bool = shows_touch_controls()
+	if touch_row != null:
+		touch_row.visible = on_a_finger and working
+	# The menus stand exactly where they always did on a desk; on a finger the drawer is the same plan reached
+	# from a button a thumb can hit, so the bar itself is not drawn twice.
+	if menu_bar != null:
+		menu_bar.visible = not on_a_finger
+	if touch_dock != null:
+		touch_dock.visible = on_a_finger and working
+	# A sheet is part of the drawing's furniture rather than a page of its own, so a presentation or a painted
+	# sheet puts it away with the rest - and whatever it borrowed is handed straight back when that happens.
+	if touch_sheet != null and touch_sheet.visible and not (on_a_finger and working):
+		_close_the_touch_sheet()
+
+
+## Put the dock along the foot of the screen, above whatever the device keeps there for itself.
+##
+## The band is the one the devices this project has measured keep along their foot - the swipe that goes back,
+## which the engine does not report as a safe area - and it is read off `PhoneHud` rather than stated here. On a
+## desk every number is zero and the scene's own offsets come back unchanged, which is the same floor
+## `offsets_for_the_left_column` keeps for the palette.
+##
+## The rect is stated **zero-height** and grows upward, because `grow_vertical` is the beginning: a panel's
+## height is its own contents' and not a number written into a file for one screen.
+func _place_the_touch_dock() -> void:
+	if touch_dock == null or not shows_touch_controls():
+		return
+	var room: Vector2i = Vector2i(touch_dock.get_parent_area_size())
+	var margin: float = float(
+		PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	)
+	var foot: float = float(PhoneHudScript.kept_foot(room))
+	# **Two things the dock may not be drawn over, and the second is the one that was missed.** The first is the
+	# band the device keeps along its foot - the swipe that goes back, which the engine does not report as a safe
+	# area and which `PhoneHud` states instead. The second is the **line of hints**, which at a finger's type
+	# wraps onto three lines and stands far higher up the screen than a desk's one-line plate does: a dock placed
+	# above the device's band alone was drawn straight over the words a person is reading.
+	#
+	# This is the same fault `place_the_left_column_for_a_device` was written for, found on the other piece of
+	# furniture and by the same instrument - a check that asks whether the panel stands *between* the bar's foot
+	# and the foot line's top. Both ends are floors for the reason that placement keeps: a desk's own numbers are
+	# already inside them and come back to the pixel.
+	var from_the_foot: float = maxf(foot + margin, float(room.y) - _the_top_of_the_foot_line() + PALETTE_GAP)
+	touch_dock.offset_left = margin
+	touch_dock.offset_right = -margin
+	touch_dock.offset_bottom = -from_the_foot
+	touch_dock.offset_top = touch_dock.offset_bottom
+	_place_the_touch_sheet.call_deferred()
+
+
+## The top of the line of hints, in the room's own pixels: what is standing at the foot of the screen that the
+## dock and the sheet may not be drawn over.
+##
+## Read off the plate's own rectangle rather than from the offsets the scene gave it, because that plate is
+## exactly what moves when the type grows - the scene's 846 is right for a desk's one line of words and wrong by
+## most of a screen for a phone's three.
+##
+## Zero when there is no plate to read, which is the honest answer for a hidden one: a plate that is not drawn
+## cannot be drawn over, and a stale rectangle from a plate that was put away would hold this furniture up the
+## screen for no reason at all.
+func _the_top_of_the_foot_line() -> float:
+	if hints == null or not hints.visible:
+		return 0.0
+	var where: Rect2 = hints.get_global_rect()
+	return maxf(where.position.y, 0.0)
+
+
+## Stand the sheet above the dock's own row rather than over it, so the tabs stay reachable while it is open -
+## a sheet that covered its own door would be a panel with no way back to the board.
+##
+## **The dock's height is its own contents', so it is read rather than assumed**, and this is asked on the frame
+## after the dock was placed for the reason every fitting here is deferred: a control asked for its size before
+## it has laid out answers the size it had before. A sheet placed from a guess would either cover the tabs or
+## leave a gap the width of a row.
+##
+## Its own height is a share of the room and not its contents' minimum: a sheet is the board with a panel over
+## part of it, so it is *sized* to the room - a sheet that grew to its contents would cover the drawing it
+## exists to leave visible.
+func _place_the_touch_sheet() -> void:
+	if touch_sheet == null or touch_dock == null or not shows_touch_controls():
+		return
+	var room: Vector2i = Vector2i(touch_sheet.get_parent_area_size())
+	var margin: float = float(
+		PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	)
+	# Above the dock as the dock really stands - its own offsets, read rather than worked out a second time -
+	# so the two cannot come to overlap: the dock has already been held clear of the foot line, and the sheet
+	# inherits that clearance by standing on the dock's own top.
+	var above_the_dock: float = absf(touch_dock.offset_bottom) + maxf(touch_dock.size.y, _touch_row_height())
+	var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * _touch_row_height())
+	touch_sheet.offset_left = margin
+	touch_sheet.offset_right = -margin
+	touch_sheet.offset_bottom = -above_the_dock
+	touch_sheet.offset_top = -(above_the_dock + tall)
+
+
+## The plate a panel wears on a finger: the dock's own look, drawn by the one place that states it.
+##
+## A sheet anchored to the foot has no visible foot edge, so it is round where a person sees it against the board
+## and square where it runs off the glass, with its rule along the top edge alone. Every panel that stands there
+## wears this, and it is `ChromeStyle`'s plate rather than a second one written here.
+func _a_dock_plate() -> StyleBox:
+	if top_bar == null:
+		return null
+	return ChromeStyleScript.dock_plate(top_bar.get_theme_stylebox(&"panel"), 0.0)
+
+
+## The six panels that stand over the board, as the wrappers the HUD itself built.
+##
+## **Named by the HUD's own members rather than by a path.** A list of node paths would go stale the moment one
+## was renamed, and a panel that was never built - the ones that need a drawing, in a HUD with none - is simply
+## skipped rather than being a missing node to work around.
+func _the_overlay_panels() -> Array[Control]:
+	var out: Array[Control] = []
+	for wrapper: Control in [_keys_panel, _site_report_panel, _dxf_panel, _hatch_page, _water_page, _light_page]:
+		if wrapper != null:
+			out.append(wrapper)
+	return out
+
+
+## One panel's wrapper anchored as a band along the foot of the screen, from the room's height and the three
+## numbers the caller has read. Pure, and the whole of the placement: `_place_the_overlay_panels` reads the room
+## and the device's own figures off the things themselves and this decides what to do with them, so what a phone
+## would be told can be held by a test without being one - the same split `offsets_for_the_left_column` keeps.
+##
+## The wrapper stays a `CenterContainer`, so the panel is centred **within the band** rather than stretched to it,
+## which is what keeps a short panel short and a tall one from running past the top of the screen.
+static func settle_a_panel_on_the_foot(wrapper: Control, margin: float, clear_of_the_foot: float, tall: float) -> void:
+	if wrapper == null:
+		return
+	# The preset first and the offsets after, because a preset is allowed to move the offsets it is applied to
+	# and numbers written before it would be overwritten.
+	wrapper.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	wrapper.offset_left = margin
+	wrapper.offset_right = -margin
+	wrapper.offset_bottom = -clear_of_the_foot
+	wrapper.offset_top = -(clear_of_the_foot + tall)
+
+
+## Stand the six panels along the foot of the screen on a finger, where a desk centres them over the board.
+##
+## **The board stays visible, which is the whole point of the change.** A desk's room is wide, and a panel 520 px
+## across leaves plenty of drawing either side of it; a phone's room is a hand's width, so the same panel centred
+## lands squarely over the middle of the work - the one place a person is looking. Anchored to the foot it takes
+## the strip at the bottom of the screen instead, which a thumb covers anyway.
+##
+## Nothing new has to be pressed to put one away: **every one of these six was already built with its own Close
+## button**, so the header a sheet needs is the header it has. This states where they stand and what they wear,
+## not how they are worked.
+##
+## **A panel too tall for the band is refused the band by name and left where the desk draws it.** Four of the six
+## are longer than the screen at a finger's type, and a `CenterContainer` centres its child - so a taller-than-band
+## panel would be centred *in the band* and land off the top of the screen, worse than the middle of the board it
+## sits over now. Those four still want the scroller every over-tall page already gets from `PageChrome`.
+##
+## A desk is put back exactly as the scene left it - the full-rect wrapper and the plate the scene's own bar
+## carries - because a tool that states a finger and then releases it (the layout check does) must not leave the
+## desk holding a phone's arrangement.
+func _place_the_overlay_panels() -> void:
+	var on_a_finger: bool = shows_touch_controls()
+	for wrapper: Control in _the_overlay_panels():
+		var page: Control = wrapper.get_node_or_null(^"Page") as Control
+		if on_a_finger:
+			var room: Vector2i = Vector2i(wrapper.get_parent_area_size())
+			var margin: float = float(
+				PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+			)
+			var foot: float = float(PhoneHudScript.kept_foot(room))
+			if touch_dock != null:
+				# Above the dock rather than above the room's own foot: a panel opened from the dock that stood
+				# over the dock's tabs would take away the one control that opened it.
+				foot = absf(touch_dock.offset_bottom) + maxf(touch_dock.size.y, _touch_row_height())
+			var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * _touch_row_height())
+			# **Only a panel that fits the band is given it, and that is measured rather than assumed.** Four of
+			# these six are far taller than the screen at a finger's type - the keys reference and the water and
+			# light panels are lists - and a `CenterContainer` **centres** its child in whatever room it has. A
+			# panel taller than its band would therefore be centred in the band and land off the *top* of the
+			# screen, which is worse than the middle of the board it sits over now. Measured on this desk room at
+			# a finger: `KeysPanel` wants 4199 px against a 405 px band, `WaterPanel` and `LightPanel` 1527, and
+			# `HatchPanel` 1155 - while `SiteReportPanel` and `DxfPanel` want 405 and fit exactly.
+			#
+			# A panel that cannot be a sheet is left exactly as the desk draws it, and what it still wants is the
+			# scroller every over-tall *page* already gets from `PageChrome` - the same answer this program has
+			# for anything taller than the room it stands in.
+			if page != null and page.get_combined_minimum_size().y <= tall:
+				settle_a_panel_on_the_foot(wrapper, margin, foot + PALETTE_GAP, tall)
+				var plate: StyleBox = _a_dock_plate()
+				if plate != null:
+					page.add_theme_stylebox_override(&"panel", plate)
+			else:
+				wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+		else:
+			wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+			if page != null and top_bar != null:
+				page.add_theme_stylebox_override(&"panel", top_bar.get_theme_stylebox(&"panel"))
+
+
+## One tab was pressed.
+##
+## **Two of the five tabs are doors rather than groups**, and they are opened without touching the strip: the
+## plant picker opens as a sheet over the board, and `More` is the drawer. The three that are groups **put the
+## palette's own buttons back before taking the ones they want**, so a tool is one button in one place at a time
+## and switching tabs cannot leave a group stranded in the strip.
+##
+## **A second press on the tab in hand puts the strip away.** A group is a thing a thumb opens and closes, and
+## the room above the dock belongs to the board whenever nothing is being chosen - which is most of the time.
+func _press_a_touch_tab(tab: String) -> void:
+	var putting_it_away: bool = tab == _touch_tab and touch_strip != null and touch_strip.visible
+	if tab == "Plants":
+		_touch_tab = tab
+		_mark_the_touch_tab()
+		_open_the_plant_sheet()
+		return
+	if tab == "More":
+		_touch_tab = tab
+		_mark_the_touch_tab()
+		_show_the_touch_drawer()
+		return
+	if putting_it_away:
+		_touch_tab = ""
+		if touch_strip != null:
+			touch_strip.visible = false
+		_put_the_touch_tools_back()
+		_mark_the_touch_tab()
+		return
+	_touch_tab = tab
+	_mark_the_touch_tab()
+	_put_the_touch_tools_back()
+	var wanted: Array[Button] = _touch_tools_for(tab)
+	if touch_strip == null or touch_strip_row == null:
+		return
+	touch_strip.visible = not wanted.is_empty()
+	for button: Button in wanted:
+		button.reparent(touch_strip_row, false)
+	_fit_the_touch_strip.call_deferred()
+
+
+## Say which tab is in hand, on the tabs themselves.
+##
+## A toggle button that is down is the whole of what a person is told about which group the strip is showing,
+## and nothing else on the screen says it: the strip's own buttons carry no group name, because a tool's name is
+## its own. The tabs are told here rather than left to the engine's own toggling, so the row cannot come to show
+## two tabs down - which is what a press the engine toggled while this file cleared a different one would do.
+func _mark_the_touch_tab() -> void:
+	if touch_tabs == null:
+		return
+	for child: Node in touch_tabs.get_children():
+		if child is Button:
+			var button: Button = child as Button
+			button.button_pressed = button.text == _touch_tab
+
+
+## The buttons one group tab shows: the palette's own, filtered - never a second list of tools.
+func _touch_tools_for(tab: String) -> Array[Button]:
+	var out: Array[Button] = []
+	if palette_column == null:
+		return out
+	var tools: Array[Button] = palette_column.tool_buttons()
+	match tab:
+		"Draw":
+			for index in tools.size():
+				if not DIMENSION_KINDS.has(int(PalettePanelScript.DRAFTING_TOOLS[index][2])):
+					out.append(tools[index])
+		"Dim":
+			for index in tools.size():
+				if DIMENSION_KINDS.has(int(PalettePanelScript.DRAFTING_TOOLS[index][2])):
+					out.append(tools[index])
+		"Edit":
+			out.append_array(palette_column.edit_buttons())
+	return out
+
+
+## Open the sheet: a plate over the board's foot, titled and closable, holding whatever a tab put in it.
+##
+## **A sheet rather than a page.** A page is a `Window` the width of the screen, and it is where a person goes to
+## do something; a sheet stands over part of the board, which is what choosing a plant wants - the bed being
+## planted stays on the screen while the picker is in hand. Opening one puts the strip away, because the two
+## share the room above the dock and a strip left standing under a sheet is furniture with nothing to do.
+func _open_the_touch_sheet(title: String) -> void:
+	if touch_sheet == null:
+		return
+	_put_the_touch_tools_back()
+	if touch_strip != null:
+		touch_strip.visible = false
+	if touch_sheet_title != null:
+		touch_sheet_title.text = title
+	touch_sheet.visible = true
+	_place_the_touch_sheet.call_deferred()
+
+
+## Close the sheet and hand back whatever it borrowed.
+func _close_the_touch_sheet() -> void:
+	if touch_sheet == null or not touch_sheet.visible:
+		return
+	touch_sheet.visible = false
+	_return_what_the_sheet_borrowed()
+	# The tab that opened it is no longer holding anything, so it comes up with the sheet: a tab left down over
+	# an empty stretch of board would say a group is being shown when nothing is.
+	if _touch_tab == "Plants":
+		_touch_tab = ""
+		_mark_the_touch_tab()
+
+
+## **The sheet borrows; it does not copy.** The plant picker is `PalettePanel`'s own panel - the very one a desk
+## has standing beside the plan - moved in for as long as the sheet is up and handed back when it closes.
+##
+## A second picker built for a phone would be a second catalogue to keep in step with the first, which is the
+## fault this project works hardest to avoid, and a plant chosen from one would reach the drawing by a different
+## door than a plant chosen from the other. What the sheet adds is a place to stand, not a thing to press.
+func _open_the_plant_sheet() -> void:
+	_open_the_touch_sheet("Plants")
+	if _plant_panel == null or touch_sheet_body == null:
+		return
+	if _plant_panel.get_parent() == touch_sheet_body:
+		return
+	_plant_panel.reparent(touch_sheet_body, false)
+
+
+## Hand a borrowed panel back to the column it was built in, so a desk - and the next opening of the palette -
+## finds it exactly where it belongs.
+func _return_what_the_sheet_borrowed() -> void:
+	if _plant_panel == null or palette_column == null:
+		return
+	if _plant_panel.get_parent() != palette_column:
+		_plant_panel.reparent(palette_column, false)
+
+
+## Return every button standing in the strip to the column it was built in.
+func _put_the_touch_tools_back() -> void:
+	if palette_column == null or touch_strip_row == null:
+		return
+	for child: Node in touch_strip_row.get_children():
+		if child is Button:
+			(child as Button).reparent(palette_column, false)
+
+
+## Lay the strip's buttons out for a finger, on the frame after they were moved: a control asked for a size
+## before it has laid out answers the size it had before, which is the reason every fitting in this file is
+## deferred.
+func _fit_the_touch_strip() -> void:
+	if touch_strip_row == null:
+		return
+	ToolPaletteScript.fit_a_strip(touch_strip_row, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+
+
+## Show the drawer: the whole plan gathered as one popup of one submenu per menu.
+##
+## **It is the plan through the bar's own renderer**, not a second menu written for a phone. `_build_menu` fills
+## the popups and keeps the entries, so an entry added to the plan arrives here and in the bar in one edit, an
+## entry whose need this scene cannot meet is shown switched off by the same rule, and its tick is set by the
+## same pass that sets the bar's own. What is built here is one level of nesting, which is a *gathering* of the
+## plan rather than another statement of it.
+func _show_the_touch_drawer() -> void:
+	if _touch_drawer == null:
+		_touch_drawer = _a_drawer()
+		add_child(_touch_drawer)
+	_where_the_drawer_stands(_touch_drawer)
+	_touch_drawer.popup()
+
+
+## The drawer's popup, built from the plan itself.
+func _a_drawer() -> PopupMenu:
+	var drawer := PopupMenu.new()
+	drawer.name = "TouchDrawer"
+	_build_menu(drawer, touch_drawer_plan(menu_plan()))
+	return drawer
+
+
+## The plan gathered for the drawer: **one submenu per menu**, named by the menu's own title and holding the
+## menu's own items.
+##
+## Static and pure, so what the drawer offers can be held against what the bar offers without a popup, a scene
+## or a device - which is the question that matters about it. Nothing here words a command, names a method or
+## decides a need: it is a *gathering*, and every one of those things is still read off the plan by the bar's
+## own renderer when the popup is filled.
+static func touch_drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
+	var gathered: Array[Dictionary] = []
+	for index in plan.size():
+		var menu: Dictionary = plan[index]
+		gathered.append(
+			{
+				"kind": &"submenu",
+				"id": "drawer.%d" % index,
+				"label": String(menu["title"]),
+				"items": Array(menu.get("items", [])),
+			}
+		)
+	return gathered
+
+
+## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the
+## bar's own menus keep the same fitting for the same reason.
+func _where_the_drawer_stands(drawer: PopupMenu) -> void:
+	# The row if it is there and the bar otherwise, written as its own assignment rather than as a ternary:
+	# the two are siblings with no common ancestor below `Control`, and GDScript refuses a conditional whose
+	# values it cannot reconcile - which is a parse error, not a warning.
+	var anchor: Control = top_bar
+	if touch_row != null:
+		anchor = touch_row
+	if anchor != null:
+		var where: Rect2 = anchor.get_global_rect()
+		drawer.position = Vector2i((where.position + Vector2(0.0, where.size.y)).round())
+	if shows_touch_controls():
+		PhoneHudScript.fit_the_chrome_for_a_finger(
+			drawer,
+			PhoneHudScript.canvas_scale(get_window()),
+			PhoneHudScript.dpi(),
+		)
+
+
+## The layers the next shape can be drawn on, offered as a popup.
+##
+## The names are the palette's own list and the choice goes to **the same door the palette's own signal
+## reaches**, so a layer chosen from here and one chosen from the column are one act and not two.
+func _show_the_layer_choices() -> void:
+	if palette_column == null:
+		return
+	var names: Array[StringName] = palette_column.layer_names()
+	if names.is_empty():
+		return
+	var chooser := PopupMenu.new()
+	chooser.name = "TouchLayers"
+	for layer_name: StringName in names:
+		chooser.add_item(String(layer_name))
+	chooser.id_pressed.connect(_choose_a_layer_from.bind(chooser, names))
+	chooser.close_requested.connect(chooser.queue_free)
+	add_child(chooser)
+	_where_the_drawer_stands(chooser)
+	chooser.popup()
+
+
+## A layer was chosen, by the index of the name in the list the popup was filled from.
+func _choose_a_layer_from(index: int, chooser: PopupMenu, names: Array[StringName]) -> void:
+	chooser.queue_free()
+	if index >= 0 and index < names.size():
+		_on_layer_chosen(names[index])
+
+
+## The one view control the top bar carries on a finger: the same door the desk's own button presses.
+func _turn_the_view() -> void:
+	if view_controller != null:
+		view_controller.toggle_overhead()
 
 
 func size_for_a_finger(draw_up: bool) -> int:
@@ -3201,6 +3824,13 @@ func _fill_menu_bar(plan: Array[Dictionary]) -> void:
 ## this is called on every frame, so the cheap comparison comes first.
 func _fold_menu_bar_to_fit() -> void:
 	if menu_bar == null:
+		return
+	# **A drawer does not fold.** On a device answered with a finger the menus are not drawn at all - the four
+	# controls of `TouchRow` stand in their place and the plan is reached through the drawer - so the fold has
+	# nothing to fit and nothing to say. Left running it would fold a bar nobody sees, for a room it does not
+	# stand in, and print a `MENUBAR` line about it: a reading, published, of furniture that is not on the
+	# screen. That is worse than a missing reading, because the tools that read this line would believe it.
+	if shows_touch_controls():
 		return
 	var room: float = menu_bar_room()
 	if is_equal_approx(room, _menu_room):

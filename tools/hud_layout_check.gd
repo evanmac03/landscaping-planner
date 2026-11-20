@@ -90,8 +90,19 @@ const PHONE_DENSITY := 450.0
 ## itself: the suite runs headless, so a rule that read the machine here could only ever be tested by refusing.
 ## The one place that answers whether there is a screen is `HudProbe._a_real_screen`, and `run` passes its answer.
 static func palette_between_the_bar_and_the_foot(root: Control, there_is_a_screen: bool) -> Dictionary:
+	return panel_between_the_bar_and_the_foot(root, there_is_a_screen, ^"Palette")
+
+
+## The same question asked of any of the furniture that stands between the bar and the foot line.
+##
+## **It is asked by name because there are two answers on two devices.** A desk stands the palette there and a
+## finger stands the dock, so a check that could only ask about the palette would report FIT for furniture that
+## is not on the screen on a phone and say nothing at all about the furniture that is - which is exactly the gap
+## this function was split out to close. The panel is found by its own node name and everything else is the same
+## measurement, so the two answers cannot come to mean different things.
+static func panel_between_the_bar_and_the_foot(root: Control, there_is_a_screen: bool, named: NodePath) -> Dictionary:
 	var top_bar: Control = root.get_node_or_null(^"TopBar") as Control
-	var palette: Control = root.get_node_or_null(^"Palette") as Control
+	var palette: Control = root.get_node_or_null(named) as Control
 	var foot: Control = root.get_node_or_null(^"Hints") as Control
 	if top_bar == null or palette == null or foot == null:
 		return { "asked": false, "held": false }
@@ -521,6 +532,61 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			hud._size_the_chrome_for_the_device()
 		for i in 4:
 			await tree.process_frame
+	# **The furniture that stands there on a finger is shown before it is measured**, and it is the dock rather
+	# than the palette: the palette gives way to it on a device answered with a finger, so asking only about the
+	# palette would report FIT for something that is not on the screen and say nothing about what is. The HUD's
+	# own door does the showing - the pass above measures a HUD that is not processing, so nothing else would -
+	# and `_remember_what_a_finger_changes` took every control's `visible` before any of this, so the room is
+	# put back exactly as it was found.
+	if hud != null and hud.has_method("_show_the_touch_furniture"):
+		hud._show_the_touch_furniture(true)
+	for i in 4:
+		await tree.process_frame
+	var dock_place: Dictionary = panel_between_the_bar_and_the_foot(root, there_is_a_screen, ^"TouchDock")
+	if bool(dock_place.get("asked", false)):
+		if bool(dock_place["held"]):
+			print(
+				(
+					"  and the dock, which is what stands there on a finger, is between the same two:"
+					+ " the bar's foot (%.1f) and the foot line's top (%.1f)"
+				)
+				% [dock_place["bar_foot"], dock_place["foot_top"]]
+			)
+		else:
+			clashes += 1
+			print(
+				(
+					"  the dock is drawn over the bar or the foot line: top %.1f against a bar foot of %.1f,"
+					+ " foot %.1f against a line top of %.1f"
+				)
+				% [
+					dock_place["palette_top"],
+					dock_place["bar_foot"],
+					dock_place["palette_foot"],
+					dock_place["foot_top"],
+				]
+			)
+	else:
+		print("  the dock was not asked about: %s" % String(dock_place.get("why", "it is not in this HUD")))
+	# **The six panels that stand over the board.** A desk centres them over the work; a finger stands them along
+	# the foot, and this is where that is read rather than asserted - the same reading the palette's and the dock's
+	# places are taken by, asked of the wrappers the HUD built. A panel that was never built is skipped, so a HUD
+	# with no drawing reports the ones it has.
+	if hud != null and hud.has_method("_the_overlay_panels"):
+		var on_the_foot := PackedStringArray()
+		for wrapper: Node in hud.call(&"_the_overlay_panels"):
+			# **The panel, not the wrapper.** The wrapper is a `CenterContainer` and grows to whatever its child
+			# needs, so its rectangle says nothing about where a person sees the panel - and a panel taller than
+			# its wrapper is *centred* in it, which is how one ends up off the top or the bottom of the screen.
+			# The `Page` inside is the plate on the glass, so that is the rectangle this reports.
+			var page: Control = (wrapper as Control).get_node_or_null(^"Page") as Control
+			if page == null:
+				continue
+			on_the_foot.append("%s %.0f..%.0f" % [wrapper.name, page.position.y, page.position.y + page.size.y])
+		if on_the_foot.is_empty():
+			print("  this HUD holds none of the six panels over the board (three of them want a drawing)")
+		else:
+			print("  the panels over the board stand as bands down the screen, at: %s" % "   ".join(on_the_foot))
 	var place: Dictionary = palette_between_the_bar_and_the_foot(root, there_is_a_screen)
 	var palette_loose := 0
 	if not bool(place["asked"]):

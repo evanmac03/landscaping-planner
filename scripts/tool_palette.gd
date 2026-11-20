@@ -124,6 +124,33 @@ static func reflow_the_edit_row(panel: Control, column: Node, edit_buttons: Arra
 ## fonts change, the panel still reports the width of its own contents, which is how the desk's six edit
 ## columns were re-flowed to four. Anchors and offsets are what the scene wrote down, so they answer on the
 ## first frame and every frame after it.
+## Lay a horizontal strip of tool buttons out for a finger: one row, every cell a row tall, scrolling sideways
+## when the tools outrun the screen.
+##
+## **This is a placement and not a second vocabulary.** The buttons are `PalettePanel`'s own - the HUD moves them
+## into the strip - so a tool is one button however it is reached, and the only number here is the row height,
+## read off `PhoneHud` rather than chosen: it is the same floor `fit` lays the vertical column out at.
+##
+## Nothing is measured across the row, and that is deliberate. A strip that fitted its tools to the screen would
+## have to drop some of them on a narrow one, and a tool nobody can see is a tool nobody has; the `ScrollContainer`
+## the strip stands in is what keeps every one of them reachable. **It is also the half of the phone's own
+## faults this furniture was drawn to cure** - the vertical column was measured clipped below the fold, so the
+## last of its tools could not be pressed at all.
+static func fit_a_strip(strip: Control, drawn_at: float, density: float) -> void:
+	if strip == null:
+		return
+	var height: float = PhoneHudScript.row_height(drawn_at, density)
+	if height <= 0.0:
+		return
+	for child: Node in strip.get_children():
+		if child is Control:
+			# **A square cell, and a *minimum* rather than a width.** The floor says how big a target a thumb
+			# needs; a tool whose own words are longer than that keeps them, because a minimum only ever gives a
+			# control more room than it asked for. Setting a width here instead would cut a long tool's name, and
+			# a tool whose name is cut is a tool nobody can tell from the one beside it.
+			(child as Control).custom_minimum_size = Vector2(height, height)
+
+
 static func room(panel: Control) -> float:
 	if panel == null:
 		return 0.0

@@ -204,14 +204,30 @@ func test_a_difference_of_order_alone_is_not_a_disagreement() -> void:
 const SCRATCH := "build/*"
 
 
-## The presets that would ship the scratch directory, in the words a person gave them: empty when every one of
-## them keeps it out.
-static func scratch_kept_out(presets: Array[Dictionary]) -> Array[String]:
+## The presets whose exclude filter does not carry one path, in the words a person gave them: empty when every
+## one of them keeps it out.
+##
+## One rule and one reader, however many paths have to be kept out - a second function written for the second
+## path would be two statements of one question, free to disagree about what "kept out" means.
+static func presets_that_ship(presets: Array[Dictionary], path: String) -> Array[String]:
 	var slipped: Array[String] = []
 	for preset: Dictionary in presets:
 		var kept: Dictionary = (preset.get("filters", { }) as Dictionary).get("exclude_filter", { })
-		if not kept.has(SCRATCH):
+		if not kept.has(path):
 			slipped.append(String(preset.get("name", "a preset")))
+	return slipped
+
+
+## The presets that would ship the scratch directory.
+static func scratch_kept_out(presets: Array[Dictionary]) -> Array[String]:
+	return presets_that_ship(presets, SCRATCH)
+
+
+## The presets that would ship a development addon - the ones named in `DEV_ADDONS`.
+static func dev_addons_kept_out(presets: Array[Dictionary]) -> Array[String]:
+	var slipped: Array[String] = []
+	for path: String in DEV_ADDONS:
+		slipped.append_array(presets_that_ship(presets, path))
 	return slipped
 
 
@@ -219,6 +235,32 @@ static func scratch_kept_out(presets: Array[Dictionary]) -> Array[String]:
 func test_every_preset_keeps_the_tools_own_scratch_out_of_the_build() -> void:
 	var slipped: Array[String] = scratch_kept_out(presets_in(PRESETS))
 	assert(slipped.is_empty(), "%s is kept out of every build; these do not: %s" % [SCRATCH, " and ".join(slipped)])
+
+
+## **A development addon is not part of the program, and one that ships anyway is a build that fails on the
+## glass.** `addons/tree_sitter_gd/` is the case, and it was found on a phone rather than at a desk: the
+## GDExtension states libraries for macOS, Linux and Windows and **none for `android.arm64`**, so the exported
+## build carried a `.gdextension` the device cannot load - and the launch log said so in three lines
+## (`Error loading extension`, `dynamic library not found`, `No GDExtension library found for current OS and
+## architecture`). It is a parser for the editor's own tooling and upstream the program does not touch, which is
+## what puts it in this list rather than beside the program's runtime addons. The same list holds the other
+## development-only addons a preset could forget, because the fault is one shape however many there are.
+const DEV_ADDONS: Array[String] = [
+	"addons/tree_sitter_gd/*",
+	"addons/crabbyconsole/*",
+	"addons/godot_mcp_toolkit/*",
+	"addons/godot_ai/*",
+	"addons/ziva_agent/*",
+	"addons/github_tools/*",
+]
+
+
+func test_every_preset_keeps_the_development_addons_out_of_the_build() -> void:
+	var slipped: Array[String] = dev_addons_kept_out(presets_in(PRESETS))
+	assert(
+		slipped.is_empty(),
+		"every development addon is kept out of every build; these are not: %s" % " and ".join(slipped),
+	)
 
 
 ## And the guard can fail: a preset written here by hand without the line is named, and one with it is not - so

@@ -58,6 +58,51 @@ const ANTI_ALIASING_SIZE := 1.0
 ## keeps, plus the distance the plate's own top moved up. The caller knows that figure, because it is the caller
 ## that read the display and moved the bar; this file only draws.
 static func bar_plate(drawn: StyleBox, content_top: float) -> StyleBox:
+	var plate: Variant = _plate_from(drawn)
+	# The row is the one margin the caller states, and it is set **after** the scene's, or the scene's would win.
+	plate.content_margin_top = content_top
+	_add_the_full_rule(plate)
+	return plate as StyleBox
+
+
+## A plate anchored to the foot of the screen: `TouchDock` under a finger, and the sheets that open over it.
+##
+## Two things make it a dock rather than a bar stood on its head. **The corners are round at the top and square
+## at the foot** - the top is the edge a person sees against the board, and the foot runs off the glass - and
+## **the rule is drawn on the top edge alone**, for the same reason: it is the seam where the plate meets the
+## board, not a frame around an edge nothing can see.
+##
+## The top margin is the caller's, exactly as the bar's lift is: this file only draws, and the caller is the one
+## that read the device and knows how far down the plate's own contents have to stand.
+static func dock_plate(drawn: StyleBox, content_top: float) -> StyleBox:
+	var plate: Variant = _plate_from(drawn)
+	plate.corner_radius_bottom_left = 0
+	plate.corner_radius_bottom_right = 0
+	plate.content_margin_top = content_top
+	_add_a_top_rule(plate)
+	return plate as StyleBox
+
+
+## A plate that floats clear of every edge, with all four corners round and the rule all the way round: the
+## `ToolStrip` drawn above the dock. It states no margin of its own, so the one the scene drew is the one it
+## wears - a floating plate has not been lifted by anything.
+static func floating_plate(drawn: StyleBox) -> StyleBox:
+	var plate: Variant = _plate_from(drawn)
+	_add_the_full_rule(plate)
+	return plate as StyleBox
+
+
+## The plate the scene drew, as the addon's own stylebox - **the one statement of the look this file has**, so
+## that a plate made for a new piece of furniture cannot be a subtly different pane from the bar's.
+##
+## Everything the scene states is read back here: the colour, all four corners, the corner detail, the
+## anti-aliasing and **all four** content margins - the top one included, which a lifted plate then overrides.
+## Copying the top rather than leaving it is what keeps that fourth margin from arriving as the stylebox class's
+## own unset value and being resolved against a theme this project does not have.
+##
+## The constants declared above stand in only where the plate cannot be read, which is a `StyleBox` that is not a
+## `StyleBoxFlat` - the case `tests/test_chrome_style.gd` holds against the scene for exactly that reason.
+static func _plate_from(drawn: StyleBox) -> Variant:
 	var plate: Variant = FancyScript.new()
 	plate.draw_center = true
 	plate.color = PAPER
@@ -68,6 +113,7 @@ static func bar_plate(drawn: StyleBox, content_top: float) -> StyleBox:
 	plate.corner_detail = CORNER_DETAIL
 	plate.content_margin_left = SIDE
 	plate.content_margin_right = SIDE
+	plate.content_margin_top = FOOT
 	plate.content_margin_bottom = FOOT
 	plate.anti_aliasing_size = ANTI_ALIASING_SIZE
 	# The scene's own plate is read wherever it is one this file can read, so that the colour, the corners and the
@@ -83,13 +129,18 @@ static func bar_plate(drawn: StyleBox, content_top: float) -> StyleBox:
 		plate.corner_detail = flat.corner_detail
 		plate.content_margin_left = flat.content_margin_left
 		plate.content_margin_right = flat.content_margin_right
+		plate.content_margin_top = flat.content_margin_top
 		plate.content_margin_bottom = flat.content_margin_bottom
 		plate.anti_aliasing_size = flat.anti_aliasing_size
-	# The row is the one margin the caller states, and it is set **after** the scene's, or the scene's would win.
-	plate.content_margin_top = content_top
-	# **Filled, not replaced.** `borders` is a typed `Array[StyleBorder]`, so an array literal is refused at run
-	# time; appending to the array the stylebox already owns is what keeps it typed, and needs no class name
-	# spelled here.
+	return plate
+
+
+## The rule laid just inside the plate's edge, **on all four sides** - the bar's own, and the floating strip's.
+##
+## **Filled, not replaced.** `borders` is a typed `Array[StyleBorder]`, so an array literal is refused at run
+## time; appending to the array the stylebox already owns is what keeps it typed, and needs no class name
+## spelled here.
+static func _add_the_full_rule(plate: Variant) -> void:
 	var rule: Variant = BorderScript.new()
 	rule.color = RULE
 	rule.width_left = RULE_WIDTH
@@ -101,4 +152,21 @@ static func bar_plate(drawn: StyleBox, content_top: float) -> StyleBox:
 	rule.inset_right = RULE_INSET
 	rule.inset_bottom = RULE_INSET
 	plate.borders.append(rule)
-	return plate as StyleBox
+
+
+## The same rule on the **top edge alone**, which is the seam a plate anchored to the foot of the screen meets
+## the board at. The sides and the foot run off the glass, so a ring drawn there would be a line at an edge
+## nothing can see, and the two corners it would round are square besides.
+##
+## A width of zero draws no ring at all, so this is the one rule narrowed rather than a second look stated
+## differently - which is what keeps a dock's seam and a bar's seam the same colour, the same width and the same
+## distance inside the plate.
+static func _add_a_top_rule(plate: Variant) -> void:
+	var rule: Variant = BorderScript.new()
+	rule.color = RULE
+	rule.width_left = 0
+	rule.width_top = RULE_WIDTH
+	rule.width_right = 0
+	rule.width_bottom = 0
+	rule.inset_top = RULE_INSET
+	plate.borders.append(rule)

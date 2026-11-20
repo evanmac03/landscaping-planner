@@ -94,6 +94,75 @@ func test_covering_the_bar_does_not_move_the_panels_that_share_the_scenes_plate(
 	)
 
 
+## **A dock is a bar stood on its head, and only in the two ways that matter.** The corners are round at the top
+## - the edge a person sees against the board - and square at the foot, which runs off the glass; nothing else
+## about the look moves, because it is derived from the same scene plate the bar's own plate is.
+func test_the_dock_is_round_at_the_top_and_square_at_the_foot() -> void:
+	var drawn: StyleBoxFlat = _the_scenes_plate()
+	var dock: StyleBox = ChromeStyleScript.dock_plate(drawn, 0.0)
+	var round: int = dock.get(&"corner_radius_top_left")
+	var square: int = dock.get(&"corner_radius_bottom_left")
+	assert(round == drawn.corner_radius_top_left, "the top corners keep the scene's: %d" % round)
+	assert(square == 0, "and the foot's are square, so the plate runs off the glass: %d" % square)
+	assert(dock.get(&"corner_radius_bottom_right") == 0, "both corners at the foot, not just one")
+	assert(dock.get(&"color") == drawn.bg_color, "and it is the same paper as the bar: %s" % str(dock.get(&"color")))
+
+
+## The dock's rule is the bar's rule narrowed: one ring, on the top edge alone, still wide enough to survive the
+## anti-aliasing that erased the first version of it. A ring drawn on all four sides at the foot of the screen
+## would be a frame around an edge nothing can see.
+func test_the_dock_wears_the_rule_on_its_top_edge_alone() -> void:
+	var plate: StyleBox = ChromeStyleScript.dock_plate(_the_scenes_plate(), 0.0)
+	var rules: Array = plate.get(&"borders")
+	assert(rules.size() == 1, "the plate wears one rule: %d" % rules.size())
+	if rules.size() != 1:
+		return
+	var rule: Variant = rules[0]
+	var aa: float = plate.get(&"anti_aliasing_size")
+	assert(
+		float(rule.width_top) - aa > 0.0,
+		"and the top of it survives the anti-aliasing: %s wide against %s" % [str(rule.width_top), str(aa)],
+	)
+	assert(
+		float(rule.width_left) == 0.0 and float(rule.width_right) == 0.0 and float(rule.width_bottom) == 0.0,
+		"and the other three sides draw nothing at all",
+	)
+
+
+## The tool strip floats clear of every edge: all four corners round and the rule the whole way round, wearing
+## the margin the scene drew rather than a lift - it is the one plate here that nothing has pushed.
+func test_a_floating_plate_keeps_every_corner_and_the_whole_rule() -> void:
+	var drawn: StyleBoxFlat = _the_scenes_plate()
+	var plate: StyleBox = ChromeStyleScript.floating_plate(drawn)
+	assert(
+		plate.get(&"corner_radius_bottom_left") == drawn.corner_radius_bottom_left
+		and plate.get(&"corner_radius_bottom_right") == drawn.corner_radius_bottom_right,
+		"the foot's corners are as round as the top's",
+	)
+	var rules: Array = plate.get(&"borders")
+	assert(rules.size() == 1, "the plate wears one rule: %d" % rules.size())
+	if rules.size() != 1:
+		return
+	var rule: Variant = rules[0]
+	assert(float(rule.width_left) > 0.0 and float(rule.width_bottom) > 0.0, "and it goes all the way round")
+	assert(
+		is_equal_approx(plate.content_margin_top, drawn.content_margin_top),
+		"and it wears the scene's own top margin, not a lift: %s" % str(plate.content_margin_top),
+	)
+
+
+## **Every touch plate is a stylebox of its own**, for the reason the bar's own is: the scene hands one plate to
+## the bar, the palette and the hint plates, so a plate grown in place would move all of them at once when one
+## of them was lifted to clear a device's band.
+func test_no_two_touch_plates_are_the_same_stylebox() -> void:
+	var drawn: StyleBoxFlat = _the_scenes_plate()
+	var bar: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
+	var dock: StyleBox = ChromeStyleScript.dock_plate(drawn, 0.0)
+	var strip: StyleBox = ChromeStyleScript.floating_plate(drawn)
+	assert(bar != dock and dock != strip and bar != strip, "each plate stands on its own: %s" % str([bar, dock, strip]))
+	assert(dock != drawn and strip != drawn, "and none of them is the scene's own plate")
+
+
 ## The scene's own bar plate, read off a tree of its own that is freed again - a test about a scene loads one.
 ## The plate is duplicated before the free so the numbers survive the node, and it is a reading either way.
 func _the_scenes_plate() -> StyleBoxFlat:
