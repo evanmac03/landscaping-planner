@@ -44,11 +44,14 @@ const MainScene: PackedScene = preload("res://scenes/main.tscn")
 ## and a page must be opened through its door rather than built on its own, or it is measured at the size a desk
 ## lays it out at rather than the one a finger is given. A second list here would be a second opinion about which
 ## pages a finger may meet.
+##
+## **What a door opened is read through the same file**, for the same reason: six of the doors open a panel, which
+## is a `Control` laid over the drawing rather than a page, and a search for a `Window` here would report every one
+## of them as *nothing came up* - a panel being something a finger has to press just as much as a page is.
 const SweepScript := preload("res://tools/gui_sweep.gd")
 const PAGES: Array[String] = SweepScript.PAGES
 
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
-const PageLayoutScript := preload("res://scripts/page_layout.gd")
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
 
@@ -118,19 +121,22 @@ static func run(tree: SceneTree, there_is_a_screen: bool) -> Dictionary:
 		if not hud.has_method(door):
 			print("PHONE SWEEP   %-24s - no such door" % door)
 			continue
+		# What a door put up is read through `gui_sweep`'s own walk rather than a second search here: the two
+		# sweeps drive one door list, so they must agree about what a door opened.
+		var before: Array[Node] = SweepScript.doors_up(hud)
 		hud.call(door)
 		for _i: int in 8:
 			await tree.process_frame
-		var page: Window = _the_page(hud)
-		if page == null:
+		var up: Node = SweepScript.what_came_up(before, SweepScript.doors_up(hud))
+		if up == null:
 			print("PHONE SWEEP   %-24s - nothing came up" % door)
 			continue
 		swept += 1
-		var scope: String = PageLayoutScript.page_name(page)
-		var short: PackedStringArray = HudProbeScript.small_lines(page, scope, least)
-		var close: PackedStringArray = HudProbeScript.close_lines(page, scope)
-		var tiny: PackedStringArray = HudProbeScript.tiny_lines(page, scope, scale, density)
-		var cut: PackedStringArray = HudProbeScript.clipped_lines(page, scope)
+		var scope: String = SweepScript.scope_of(up)
+		var short: PackedStringArray = HudProbeScript.small_lines(up, scope, least)
+		var close: PackedStringArray = HudProbeScript.close_lines(up, scope)
+		var tiny: PackedStringArray = HudProbeScript.tiny_lines(up, scope, scale, density)
+		var cut: PackedStringArray = HudProbeScript.clipped_lines(up, scope)
 		var found: int = short.size() + close.size() + tiny.size() + cut.size()
 		faults += found
 		if found > 0:
@@ -146,7 +152,7 @@ static func run(tree: SceneTree, there_is_a_screen: bool) -> Dictionary:
 			print("PHONE SWEEP           neighbour, legible, and showing all of its words")
 		for line: String in short + close + tiny + cut:
 			print("PHONE SWEEP           %s" % line)
-		page.hide()
+		SweepScript.put_away(up)
 		for _i: int in 4:
 			await tree.process_frame
 
@@ -174,13 +180,3 @@ static func run(tree: SceneTree, there_is_a_screen: bool) -> Dictionary:
 static func _leave_the_device_as_it_was() -> void:
 	PhoneHudScript.force_density(0.0)
 	TouchInputScript.force(TouchInputScript.Answer.AUTO)
-
-
-## The page the HUD just put up: the visible `Window` among its own children, which is how a page is found by
-## something that did not open it.
-static func _the_page(hud: Node) -> Window:
-	for node: Node in hud.get_children():
-		var page: Window = node as Window
-		if page != null and page.visible:
-			return page
-	return null

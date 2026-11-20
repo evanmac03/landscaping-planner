@@ -75,6 +75,49 @@ func test_a_switched_off_button_is_reached_and_is_said_to_be_switched_off() -> v
 	_free_made()
 
 
+## **A button a tap cannot act on is two different things**, and a caller that counts faults has to be able to tell
+## them apart: a button something else stands over cannot be pressed by anybody, while one that is there and
+## switched off is the design - a state button is dead until its field holds something. The block's lines say both
+## in words; `reach_findings` says which is which, and it is the *same* walk those lines are rendered from.
+func test_a_switched_off_button_and_a_covered_one_are_told_apart() -> void:
+	var root: Control = _root()
+	var dead := Button.new()
+	dead.text = "Take it back"
+	dead.disabled = true
+	_control(root, dead, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+
+	var findings: Array[Dictionary] = HudProbeScript.reach_findings(root, [], "the board")
+	assert(findings.size() == 1, "one button a tap cannot act on: %s" % str(findings))
+	assert(bool(findings[0]["switched_off"]), "and it is the switched-off kind: %s" % str(findings[0]))
+	assert(String(findings[0]["line"]).contains("switched off"), "which its line says in words")
+	var lines: PackedStringArray = HudProbeScript.reach_lines(root, [], "the board")
+	assert(lines.size() == 1, "and the lines are that one walk rendered")
+	assert(lines[0] == String(findings[0]["line"]), "line for line, so the two cannot disagree: %s" % lines[0])
+	_free_made()
+
+
+## The other kind, which is the one a fault is: a button drawn where it can be seen with something else over it.
+## The two are told apart by the answer rather than by reading the sentence, which is what a caller counting faults
+## needs - it counts this one and only names the other.
+func test_a_button_that_something_stands_over_is_not_the_switched_off_kind() -> void:
+	var root: Control = _root()
+	var buried := Button.new()
+	buried.text = "Place on the plan"
+	_control(root, buried, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+	var over := Button.new()
+	over.text = "A page's own button"
+	_control(root, over, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+
+	var findings: Array[Dictionary] = HudProbeScript.reach_findings(root, [], "the board")
+	var covered: int = 0
+	for one: Dictionary in findings:
+		if not bool(one["switched_off"]):
+			covered += 1
+	assert(covered == 1, "the buried one is the covered kind: %s" % str(findings))
+	assert(String(findings[0]["line"]).contains("instead"), "and its line says what a tap would reach instead")
+	_free_made()
+
+
 ## The middle of the rectangle the probe itself reports for a control, so that the point asked about is one the
 ## probe would publish rather than a pixel count no headless run could vouch for.
 func _middle_of(control: Control) -> Vector2i:

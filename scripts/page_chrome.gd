@@ -385,7 +385,9 @@ static func show_centred(page: Window) -> Vector2i:
 	# Before the clamp, because a taller control makes a taller page and the floor is worked out after.
 	size_for_a_finger(page)
 	takes_the_keyboard(page)
-	return _land(page, page.min_size)
+	# The floor this door starts from is the size the page declares rather than `min_size`, which is zero on a
+	# page that has never been placed - and a floor of zero is no floor at all. See `the_floor_a_page_lands_on`.
+	return _land(page, the_floor_a_page_lands_on(page))
 
 
 ## Land a page in the room: place it at the floor it asked for, give it the whole room if what it holds wants
@@ -414,6 +416,14 @@ static func _land(page: Window, preferred: Vector2i) -> Vector2i:
 		landed_at = _place(page, content_room(page))
 	# And last, for what the room itself cannot hold.
 	scroll_if_it_does_not_fit(page, landed_at)
+	# **And asked again whenever the contents change their mind about their own size**, because the figure above
+	# is read in the same call as the placement and a `Container` works out what it needs on the frame *after* its
+	# width changes. Measured on the desk: the sowing page's column reported 750 when it landed and 801 four
+	# frames later, so the wrap was never made and its `Column` and `Status` stood 13 px past the foot of the room
+	# - words a person could not reach at all. `minimum_size_changed` is the signal a container gives for exactly
+	# this, and the question is idempotent: a page that fits is left alone, and a page already inside a scroll is
+	# left with the wrapper it has.
+	ask_again_when_the_contents_settle(page)
 	return landed_at
 
 
@@ -506,8 +516,27 @@ static func takes_the_room(page: Window) -> Vector2i:
 static func placed_again(page: Window) -> Vector2i:
 	if page == null:
 		return Vector2i.ZERO
+	return _land(page, the_floor_a_page_lands_on(page))
+
+
+## **The floor a page lands on, worked out in one place**, because `show_centred` and `placed_again` differ in the
+## floor they hand `_land` and in nothing else: a floor worked out twice is a floor that can disagree with itself,
+## which is what `_land`'s own note forbids - and it did. This door read `page.min_size`, which is **zero** on a
+## page that has never been placed, and zero is not a clamp: `clamped_minimum` answers zero, Godot's
+## `popup_centered_clamped` falls back to what the page's *contents* want, and the page landed at the size of its
+## contents with nothing held against the room at all. Measured on a 1600 by 900 desk: the sun page declares
+## 1020 by 820 where the room allows 802, came out 820 tall at y=89, and stood 9 px past the foot of the screen -
+## a fault the instrument named (`page-edge`) and the arithmetic should have prevented.
+##
+## The **width** is the wider of the two, because `_place` leaves the width a page was granted on `min_size.x` and
+## reading only what the page declares would undo the widening a phone gave it - see `placed_again`. The **height**
+## is what the page declares, because `min_size.y` holds last time's clamp and a page brought down to a short
+## screen would never grow back.
+static func the_floor_a_page_lands_on(page: Window) -> Vector2i:
+	if page == null:
+		return Vector2i.ZERO
 	var declared: Vector2i = PageLayoutScript.declared_size(page)
-	return _land(page, Vector2i(maxi(declared.x, page.min_size.x), declared.y))
+	return Vector2i(maxi(declared.x, page.min_size.x), declared.y)
 
 
 ## Where a page goes and how big it is: the one arithmetic both doors share, `show_centred` when a page
@@ -563,6 +592,34 @@ static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool
 	return true
 
 
+## The mark that says a page's contents have already been told to give their size again, so that landing the same
+## page twice cannot leave two connections on one signal - and a page *is* landed again on every shape change.
+const SCROLL_WATCHED_AT := &"scroll_watched_at"
+
+
+## **Ask the scroll question again whenever a page's contents change their own size**, which is the one moment the
+## answer can change after the page has landed. The decision itself is not remade here: it is `scroll_if_it_does_not_fit`
+## asked with the height the page has now, so there is still one rule about what fits and this only chooses when to
+## ask it. A page whose contents grow while it is open - the manual's body, which is empty until a subject is
+## chosen - is the case a single reading at landing time cannot see.
+static func ask_again_when_the_contents_settle(page: Window) -> void:
+	if page == null:
+		return
+	var contents: Control = PageLayoutScript.content_root(page)
+	if contents == null or page.has_meta(SCROLL_WATCHED_AT):
+		return
+	page.set_meta(SCROLL_WATCHED_AT, true)
+	contents.minimum_size_changed.connect(_ask_for_a_scroll_if_it_does_not_fit.bind(page))
+
+
+## **The question asked again, with the height the page has now** rather than the one it landed with: a page
+## re-landed since it was first watched has been given a different height, and the last landing is the one that
+## says what its contents have to fit. Nothing is decided here - `scroll_if_it_does_not_fit` is the one rule.
+static func _ask_for_a_scroll_if_it_does_not_fit(page: Window) -> void:
+	if is_instance_valid(page):
+		scroll_if_it_does_not_fit(page, page.size)
+
+
 ## Put a page's column inside a scroll where it stands.
 ##
 ## The insets move from the column onto the wrapper, because a `ScrollContainer` positions the child it holds
@@ -573,7 +630,17 @@ static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool
 static func _wrap_in_a_scroll(page: Window, contents: Control) -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = SCROLL_NAME
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# **The wrapper stands exactly where the column stood**, anchors and offsets both, rather than being anchored
+	# to the page's four edges with the column's offsets read as the padding. For a page whose column is anchored
+	# to its edges - which is how a page is built, and what the padding read below assumes - the two are the same
+	# thing, and every page that scrolls on a phone is that page. A column given a rectangle of its own carries
+	# that rectangle in its offsets, though, and read as padding those put the wrapper 1068 px past the page's
+	# right edge: measured on the desk, the plant library's page 1080 px wide in a 1600 px room, its new scroll
+	# drawn 808 px past the right edge and 607 px past the foot.
+	scroll.anchor_left = contents.anchor_left
+	scroll.anchor_top = contents.anchor_top
+	scroll.anchor_right = contents.anchor_right
+	scroll.anchor_bottom = contents.anchor_bottom
 	scroll.offset_left = contents.offset_left
 	scroll.offset_top = contents.offset_top
 	scroll.offset_right = contents.offset_right

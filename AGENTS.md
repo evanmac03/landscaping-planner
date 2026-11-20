@@ -170,7 +170,7 @@ belongs, two spaces that are a slip rather than the separator this program uses.
 when every reader agrees - letters in capitals in the middle of a sentence are deliberately **not**
 policed, because this program's text is full of codes and names in capitals (`NONE`, `CAD`, `UTC-5`,
 `L1.1`, `010-SURVEY-PROP`) and a rule that cannot tell a shout from a layer name names the vocabulary
-rather than a fault. `tools/gui_sweep.tscn` opens every page that holds prose or a list and reports each
+rather than a fault. `tools/gui_sweep.tscn` opens every door a page or a panel is reached by and reports each
 one's cut boxes and wrong words; `tools/hud_layout_check.gd` names the same two things for whatever is up,
 and names rather than counts them, because a deliberate scroller and a caption a person chose are
 judgements. `tools/gui_sense_demo.tscn` is the same page placed with the page strip and without it.

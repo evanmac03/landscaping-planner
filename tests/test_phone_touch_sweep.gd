@@ -1,8 +1,8 @@
 extends Node
 
 ## The phone's own finger questions, asked of every page on a desk: what the sweep is allowed to say where there is
-## no screen, and the two things it must never grow - a second list of pages, or a second opinion about whether a
-## screen is there at all.
+## no screen, and the three things it must never grow - a second list of pages, a second opinion about whether a
+## screen is there at all, or a second search for what a door opened.
 
 const SweepScript := preload("res://tools/phone_touch_sweep.gd")
 const GuiSweepScript := preload("res://tools/gui_sweep.gd")
@@ -35,6 +35,22 @@ func test_a_sweep_with_no_screen_refuses_and_states_no_device() -> void:
 func test_the_pages_swept_are_the_pages_the_prose_sweep_opens() -> void:
 	assert(SweepScript.PAGES == GuiSweepScript.PAGES, "the finger sweep sweeps the doors the prose sweep opens")
 	assert(SweepScript.PAGES.size() > 30, "and it sweeps the pages there are: %d" % SweepScript.PAGES.size())
+
+
+## **One search for what a door opened, too.** Six of those doors open a panel, which is a `Control` laid over the
+## drawing rather than a `Window`, so a search for a visible `Window` over here answers *nothing came up* about a
+## panel a finger does have to press - and then leaves it standing, with the next door's panel drawn on top of it.
+## The walk is `gui_sweep`'s, because that is where the door list is and where this question belongs; the source is
+## read rather than a tree built, because neither file needs one to answer this.
+func test_what_a_door_opened_is_not_searched_for_a_second_time_here() -> void:
+	var source: String = FileAccess.get_file_as_string("res://tools/phone_touch_sweep.gd")
+	assert(not source.contains("func _the_page"), "the finger sweep has no page search of its own")
+	assert(
+		source.contains("SweepScript.doors_up("),
+		"and it reads what is up through the prose sweep's own walk, which is where the doors are",
+	)
+	assert(source.contains("SweepScript.what_came_up("), "and the same walk for what came up")
+	assert(source.contains("SweepScript.put_away("), "and puts away whatever it found, a panel as much as a page")
 
 
 ## **The screen is the one owner's answer, asked once.** Whether there is a screen is `HudProbe._a_real_screen`'s

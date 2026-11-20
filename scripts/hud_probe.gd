@@ -916,8 +916,14 @@ static func what_is_at(board: Node, pages: Array, board_scope: String, point: Ve
 ##
 ## The strip above a page is deliberately not asked about: Godot draws that as the page's own title bar, which is
 ## a bar rather than a control, and `DrawnSurfaces` already reports it against the words it must not cover.
-static func reach_lines(board: Node, pages: Array, board_scope: String) -> PackedStringArray:
-	var lines := PackedStringArray()
+##
+## **The findings are data and the lines are a rendering of it**, because a caller has to be able to weigh the
+## two kinds apart. A button something else stands over cannot be pressed by anybody; a button that is there and
+## switched off is the design - a state button is dead until its field holds something - so a caller that counts
+## faults counts the first and names the second. Both are the same walk, so neither reader can come to a
+## different answer about what is at a place.
+static func reach_findings(board: Node, pages: Array, board_scope: String) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
 	var parts: Array = []
 	if board != null:
 		parts.append({ "root": board, "scope": board_scope })
@@ -926,7 +932,7 @@ static func reach_lines(board: Node, pages: Array, board_scope: String) -> Packe
 		if page != null and page.visible:
 			parts.append({ "root": page, "scope": PageLayoutScript.page_name(page) })
 	if parts.is_empty():
-		return lines
+		return found
 	var first: Node = parts[0]["root"]
 	var room: Vector2i = screen_room(board if board != null else first)
 	for part: Dictionary in parts:
@@ -945,8 +951,19 @@ static func reach_lines(board: Node, pages: Array, board_scope: String) -> Packe
 				continue
 			var wanted: String = _press_name(scope, control)
 			var gap: Dictionary = TopmostScript.mistake(TopmostScript.middle(Rect2i(rect)), boxes, wanted)
-			if not gap.is_empty():
-				lines.append("reach    %s" % TopmostScript.sentence(gap))
+			if gap.is_empty():
+				continue
+			found.append(
+				{ "line": "reach    %s" % TopmostScript.sentence(gap), "switched_off": bool(gap["switched_off"]) }
+			)
+	return found
+
+
+## The same findings as the block's own `reach` lines, in the order the parts are asked.
+static func reach_lines(board: Node, pages: Array, board_scope: String) -> PackedStringArray:
+	var lines := PackedStringArray()
+	for one: Dictionary in reach_findings(board, pages, board_scope):
+		lines.append(String(one["line"]))
 	return lines
 
 

@@ -649,6 +649,94 @@ func test_a_page_that_already_scrolls_is_not_wrapped_a_second_time() -> void:
 	_free_pages()
 
 
+## **The floor a page lands on is the size it declares, not `min_size`.** A page that has never been placed has
+## `min_size` zero, and a floor of zero is no floor at all: `clamped_minimum` answers zero, Godot's
+## `popup_centered_clamped` falls back to what the page's contents want, and nothing is held against the room.
+## Measured on a 1600 by 900 desk: the sun page declares 1020 by 820 where the room allows 802, landed 820 tall
+## at y=89, and stood 9 px past the foot of the screen - a fault `gui_sweep` named and the arithmetic should have
+## prevented.
+##
+## The width is the exception, and this holds that too: `_place` leaves the width a page was granted on
+## `min_size.x`, so reading only what the page declares would undo the widening a phone gave it.
+func test_the_floor_a_page_lands_on_is_the_size_it_declares_and_not_a_zero_minimum() -> void:
+	var page: Window = _page()
+	page.set_script(StartWindowScript)
+	# A page whose `min_size` says nothing at all, which is what a page the HUD has just built reads - measured
+	# on the desk: the sun page's own minimum was zero when the door was called.
+	page.min_size = Vector2i.ZERO
+	assert(
+		PageChromeScript.the_floor_a_page_lands_on(page) == StartWindowScript.SIZE,
+		"a page whose minimum says nothing still lands on the size it declares: %s"
+		% str(PageChromeScript.the_floor_a_page_lands_on(page)),
+	)
+	page.min_size = Vector2i(StartWindowScript.SIZE.x + 200, 100)
+	assert(
+		PageChromeScript.the_floor_a_page_lands_on(page)
+		== Vector2i(StartWindowScript.SIZE.x + 200, StartWindowScript.SIZE.y),
+		"and a page already given a width keeps it, taking the height it declares: %s"
+		% str(PageChromeScript.the_floor_a_page_lands_on(page)),
+	)
+	_free_pages()
+
+
+## **A page's contents can outgrow it after it has landed**, which one reading at landing time cannot see: a
+## `Container` works out what it needs on the frame *after* its width changes. Measured on the desk: the sowing
+## page's column reported 750 when it landed and 801 four frames later, so no wrap was made and its `Column` and
+## `Status` stood 13 px past the foot of the room - words a person could not reach at all.
+func test_a_column_that_outgrows_its_page_after_landing_is_wrapped_in_a_scroll() -> void:
+	var page: Window = _page()
+	page.min_size = Vector2i(400, 300)
+	add_child(page)
+	var root: VBoxContainer = PageChromeScript.column(page)
+	var row: Control = Control.new()
+	row.custom_minimum_size = Vector2(0.0, 100.0)
+	root.add_child(row)
+
+	PageChromeScript.show_centred(page)
+	assert(PageLayoutScript.scroll_of(root) == null, "a page whose contents fit it is left exactly as it was built")
+	row.custom_minimum_size = Vector2(0.0, 4000.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert(
+		PageLayoutScript.scroll_of(root) != null,
+		"and a column that grows past its page is wrapped the moment it says its size has changed",
+	)
+	remove_child(page)
+	_free_pages()
+
+
+## **The wrapper stands exactly where the column stood.** A page's column is anchored to the page's four edges and
+## its offsets are the padding - but a column given a rectangle of its own carries that rectangle in the same four
+## numbers, and a wrapper anchored to the page's edges reads them as padding instead. Measured on the desk: the
+## plant library's page 1080 px wide inside a 1600 px room, its new scroll drawn 808 px past the right edge and
+## 607 px past the foot - a control nobody could reach, named by the very next sweep.
+func test_the_scroll_a_page_is_given_stands_where_the_column_stood() -> void:
+	var page: Window = _page()
+	page.min_size = Vector2i(400, 300)
+	add_child(page)
+	var root: VBoxContainer = PageChromeScript.column(page)
+	# A column with a rectangle of its own rather than the page's edges, which is the plant library's shape.
+	root.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	root.offset_left = 24.0
+	root.offset_top = 24.0
+	root.offset_right = 224.0
+	root.offset_bottom = 124.0
+	var stood_at: Rect2 = root.get_rect()
+	var tall: Control = Control.new()
+	tall.custom_minimum_size = Vector2(0.0, 4000.0)
+	root.add_child(tall)
+
+	PageChromeScript.show_centred(page)
+	var scroll: ScrollContainer = PageLayoutScript.scroll_of(root)
+	assert(scroll != null, "a column too tall for its page is wrapped")
+	assert(
+		scroll.get_rect() == stood_at,
+		"and the wrapper stands where the column stood: %s against %s" % [str(scroll.get_rect()), str(stood_at)],
+	)
+	remove_child(page)
+	_free_pages()
+
+
 ## A page whose contents want more height than the room it landed in is given **the room** - across and down -
 ## before it is given a scroll. On a phone a page is laid out for a desk and comes out a band in the middle of
 ## the screen with its buttons below the fold: the width is what makes its sentences short enough to read, and
