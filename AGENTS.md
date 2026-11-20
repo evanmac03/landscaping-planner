@@ -255,5 +255,11 @@ test that pins the number - rather than a guess about which of them is right.
   plant catalogue, sheets, revisions and the autosave copies all live under `user://`; renaming moves
   all of it.
 - **Do not commit a generated context snapshot** or anything else produced by a tool run.
+- **Do not leave anything a tool run produced inside `res://`.** The formatter's scratch, a sweep's photograph, an
+  exported package: `build/` is where those belong - it is gitignored, and `export_presets.cfg` keeps it out of
+  every build. A script copied under `res://` is not inert. It registers the same `class_name` as the original,
+  and the generated registry the exporter bakes into a build then names that class twice, so the real script stops
+  compiling. That is how the phone build went out with a `PROBE` block that never appeared; the copy was in a
+  gitignored directory, and gitignore does not keep Godot's scanner out.
 - **Do not commit without being asked.** The repository is worked on a branch at a time, and the
   release workflow refuses a dirty tree.

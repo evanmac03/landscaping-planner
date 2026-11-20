@@ -191,6 +191,46 @@ func test_a_difference_of_order_alone_is_not_a_disagreement() -> void:
 	assert(disagreements(both).is_empty(), "the same paths in another order are the same paths")
 
 
+# --- the scratch the tools write -------------------------------------------------------------------------------
+
+## The tools' own scratch is kept out of every build, and this is where that is held to.
+##
+## `build/` is inside `res://` and on no build's allow-list: it holds what the dev tools photograph and export, and
+## whatever the formatter was given to write. The file that keeps it out is `export_presets.cfg`, one line per
+## preset, and nothing else reads it - so a preset that forgot the line would put every screenshot the desk has
+## taken, and a debug package, inside what a person installs. A script left there is worse than a stray picture: it
+## registers the same `class_name` as the original, and the registry the exporter bakes into a build then names
+## that class twice, which is how the phone build went out with a `PROBE` block that never appeared.
+const SCRATCH := "build/*"
+
+
+## The presets that would ship the scratch directory, in the words a person gave them: empty when every one of
+## them keeps it out.
+static func scratch_kept_out(presets: Array[Dictionary]) -> Array[String]:
+	var slipped: Array[String] = []
+	for preset: Dictionary in presets:
+		var kept: Dictionary = (preset.get("filters", { }) as Dictionary).get("exclude_filter", { })
+		if not kept.has(SCRATCH):
+			slipped.append(String(preset.get("name", "a preset")))
+	return slipped
+
+
+## Every preset this program is built from keeps the tools' scratch out.
+func test_every_preset_keeps_the_tools_own_scratch_out_of_the_build() -> void:
+	var slipped: Array[String] = scratch_kept_out(presets_in(PRESETS))
+	assert(slipped.is_empty(), "%s is kept out of every build; these do not: %s" % [SCRATCH, " and ".join(slipped)])
+
+
+## And the guard can fail: a preset written here by hand without the line is named, and one with it is not - so
+## the check above is a check of the file and not of itself.
+func test_the_scratch_guard_names_a_preset_that_would_ship_it() -> void:
+	var forgot := _a_preset("preset.2", "Linux", { "tests/*": true })
+	var kept := _a_preset("preset.0", "Windows Desktop", { SCRATCH: true })
+	var slipped: Array[String] = scratch_kept_out([kept, forgot])
+	assert(slipped.size() == 1 and slipped[0] == "Linux", "the one that would ship it is named: %s" % str(slipped))
+	assert(scratch_kept_out([kept]).is_empty(), "and the one that keeps it out is not named")
+
+
 ## A preset as the reader hands one over, written by hand so that the controls above do not depend on the file
 ## being right: both filters present, and one of them stated.
 func _a_preset(section: String, name: String, excluded: Dictionary) -> Dictionary:
