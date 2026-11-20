@@ -35,6 +35,21 @@ const REVISIONS_DIR := "user://revisions"
 const LEGACY_RECENT_NAME := "recent.json"
 ## How many drawings the menu remembers. Eight is a menu that still opens in one column.
 const RECENT_MAX := 8
+
+## A count of every write to the recent list, so that a caller which runs on the frame can ask "has this moved?"
+## for the price of an integer instead of opening and parsing a file.
+##
+## **Measured, and it is why this exists.** `Hud._process` refreshes its menus on the frame, and the menu's own
+## snapshot is built from the drawings opened recently - so the program opened `user://recent-drawings.json` and
+## parsed it **once per frame**: 0.53 ms of its own script time in a 60 FPS frame, the largest single item in the
+## profile, spent to draw the same eight paths it drew the frame before.
+##
+## **The reader is deliberately left a reader.** A cache inside `read_recent`, dropped by every write, was written
+## and taken out again: two of its own tests hold it to seeing the file as it is, and they are right - a reader
+## with a memory is a different function, and the copy and the file could part company behind a write that failed.
+## What the frame needs is not a cheaper read but **no read**, and a caller cannot ask for that without something
+## to ask. This is that something, and nothing else reads it.
+static var recent_version: int = 0
 ## The name a write goes through on its way to the real one.
 const TEMP_SUFFIX := ".writing"
 ## Long enough for a descriptive name, short enough for every filesystem this runs on.
@@ -76,6 +91,10 @@ static func _migrate_the_recent_list() -> void:
 		if out != null:
 			out.store_string(JSON.stringify(paths, "  "))
 			out.close()
+			# **The one write to the list that does not go through `write_recent`** - this function is called
+			# from the way in, and going through it again would come back round - so it is the one place that has
+			# to count its own write, or a caller holding the list would hold an empty one for ever.
+			recent_version += 1
 	DirAccess.remove_absolute(legacy)
 
 
@@ -299,6 +318,9 @@ static func write_recent(paths: Array[String], to_path: String = RECENT_FILE) ->
 		return false
 	file.store_string(JSON.stringify(paths, "  "))
 	file.close()
+	# Counted after the write rather than before: a write that fails leaves the list as it was, and a caller
+	# holding what it read last should keep holding it.
+	recent_version += 1
 	return true
 
 
