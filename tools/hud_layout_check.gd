@@ -575,14 +575,22 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 	if hud != null and hud.has_method("_the_overlay_panels"):
 		var on_the_foot := PackedStringArray()
 		for wrapper: Node in hud.call(&"_the_overlay_panels"):
-			# **The panel, not the wrapper.** The wrapper is a `CenterContainer` and grows to whatever its child
-			# needs, so its rectangle says nothing about where a person sees the panel - and a panel taller than
-			# its wrapper is *centred* in it, which is how one ends up off the top or the bottom of the screen.
-			# The `Page` inside is the plate on the glass, so that is the rectangle this reports.
-			var page: Control = (wrapper as Control).get_node_or_null(^"Page") as Control
+			# **The panel, not the wrapper**, and what its contents want beside where it stands. The wrapper is a
+			# `CenterContainer` and grows to whatever its child needs, so its rectangle says nothing about where a
+			# person sees the panel - while the figure that decides whether a panel *can* be a band along the foot
+			# is how tall its contents come, which is `PageLayout`'s own answer and not a second one taken here.
+			var control: Control = wrapper as Control
+			var page: Control = control.get_node_or_null(^"Page") as Control
 			if page == null:
 				continue
-			on_the_foot.append("%s %.0f..%.0f" % [wrapper.name, page.position.y, page.position.y + page.size.y])
+			var column: Control = page.get_node_or_null(PageLayoutScript.CONTENT_NODE) as Control
+			var wants: float = PageLayoutScript.wanted_contents(column).y if column != null else -1.0
+			# **On the screen, not inside the wrapper.** A `CenterContainer` places the panel somewhere inside
+			# itself, so the panel's own `position` is measured from the wrapper and says nothing about where a
+			# person sees it. The first version of this line printed exactly that and read as "the placement did
+			# nothing" while the placement had worked; `get_global_rect` is the rectangle on the glass.
+			var where: Rect2 = page.get_global_rect()
+			on_the_foot.append("%s at %.0f..%.0f (wants %.0f)" % [control.name, where.position.y, where.end.y, wants])
 		if on_the_foot.is_empty():
 			print("  this HUD holds none of the six panels over the board (three of them want a drawing)")
 		else:

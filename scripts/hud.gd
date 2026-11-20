@@ -1739,10 +1739,20 @@ func _size_the_chrome_for_the_device() -> void:
 	# the room is really known, and again on the frame after - a panel asked for its size before it has laid out
 	# answers the size it had before, which is the same reason the palette's own placement is deferred.
 	_place_the_touch_dock.call_deferred()
-	# The six panels that stand over the board are placed by the same reading and put back by it too, so a desk
-	# that was shown a finger's arrangement - which the layout check does, and then lets go of - is left exactly
-	# as the scene drew it rather than holding a phone's panels.
-	_place_the_overlay_panels.call_deferred()
+	# **The six panels are not moved to the foot, and this is measured rather than unfinished.** Anchoring their
+	# wrappers to a band along the foot was written and run, and the readings say it cannot work: every one of
+	# these wrappers is a `CenterContainer`, which places its child **centred in whatever room it has** and has no
+	# alignment to ask for anything else (`CenterContainer` carries no such property - checked against the class
+	# rather than assumed). Measured on the A16W's numbers at this desk room: `SiteReportPanel`, whose 257 px of
+	# contents fit the 405 px band comfortably, came out at `603..870` - its foot **260 px below the band it was
+	# given**, drawn over the tucked hint line at 733 and past the foot of the 900 px room. A band that moves the
+	# wrapper and not the panel is worse than the middle of the board it was meant to improve.
+	#
+	# What these six need is a container that can **place** a child rather than centre it - the scroller
+	# `PageChrome` already gives an over-tall page is the same answer, and it is what four of them want anyway
+	# (`KeysPanel` asks 4189 px of a 405 px band at a finger's type, `WaterPanel` and `LightPanel` 1518,
+	# `HatchPanel` 941). `settle_a_panel_on_the_foot` and `_the_overlay_panels` are left in place, tested and
+	# uncalled, as the rule that container will use.
 	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
 
@@ -2241,6 +2251,18 @@ static func settle_a_panel_on_the_foot(wrapper: Control, margin: float, clear_of
 
 ## Stand the six panels along the foot of the screen on a finger, where a desk centres them over the board.
 ##
+## **NOT WIRED UP, and the reason is measured.** It was called from `_size_the_chrome_for_the_device` and run, and
+## the reading it produced is why the call is gone: a wrapper anchored to a band does not put the panel in the
+## band, because every one of these wrappers is a `CenterContainer` - which centres its child in whatever room it
+## has and carries no alignment to ask for anything else. `SiteReportPanel`, whose 257 px of contents fit a 405 px
+## band with room to spare, came out at `603..870` against a band at `205..610`: its foot 260 px below the band
+## and over the foot line. **The wrapper's rectangle was right and the panel's was not, which is the whole
+## lesson - what a person sees is the child, and a container that centres cannot be told otherwise.**
+##
+## Kept because it is the placement a container that can *place* a child will want, and because the pure half of
+## it is tested. What these six need is a scroller, the same answer `PageChrome` already gives an over-tall page -
+## and four of them want it regardless of where they stand.
+##
 ## **The board stays visible, which is the whole point of the change.** A desk's room is wide, and a panel 520 px
 ## across leaves plenty of drawing either side of it; a phone's room is a hand's width, so the same panel centred
 ## lands squarely over the middle of the work - the one place a person is looking. Anchored to the foot it takes
@@ -2273,18 +2295,28 @@ func _place_the_overlay_panels() -> void:
 				# over the dock's tabs would take away the one control that opened it.
 				foot = absf(touch_dock.offset_bottom) + maxf(touch_dock.size.y, _touch_row_height())
 			var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * _touch_row_height())
-			# **Only a panel that fits the band is given it, and that is measured rather than assumed.** Four of
-			# these six are far taller than the screen at a finger's type - the keys reference and the water and
-			# light panels are lists - and a `CenterContainer` **centres** its child in whatever room it has. A
-			# panel taller than its band would therefore be centred in the band and land off the *top* of the
-			# screen, which is worse than the middle of the board it sits over now. Measured on this desk room at
-			# a finger: `KeysPanel` wants 4199 px against a 405 px band, `WaterPanel` and `LightPanel` 1527, and
-			# `HatchPanel` 1155 - while `SiteReportPanel` and `DxfPanel` want 405 and fit exactly.
+			# **Whether a panel can be a sheet is asked of the module that owns the question**, not worked out
+			# here: `PageLayout.wanted_contents` is how tall the contents of a page's column come to, with the
+			# gaps between them and any hidden row left out - the very figure `hud_layout_check` prints when it
+			# says a column wants so many pixels in the box it has. A number worked out a second time here could
+			# disagree with the line a person reads in the audit.
+			#
+			# **Only a panel that fits the band is given it.** Four of these six are far taller than the screen at
+			# a finger's type - the keys reference and the water and light panels are lists - and a
+			# `CenterContainer` **centres** its child in whatever room it has. A panel taller than its band would
+			# therefore be centred in the band and land off the *top* of the screen, which is worse than the
+			# middle of the board it sits over now. Measured at this desk room on a finger: `KeysPanel` wants 4199
+			# px against a 405 px band, `WaterPanel` and `LightPanel` 1527, and `HatchPanel` 1155 - while
+			# `SiteReportPanel` and `DxfPanel` want 405 and fit exactly.
 			#
 			# A panel that cannot be a sheet is left exactly as the desk draws it, and what it still wants is the
 			# scroller every over-tall *page* already gets from `PageChrome` - the same answer this program has
 			# for anything taller than the room it stands in.
-			if page != null and page.get_combined_minimum_size().y <= tall:
+			var column: Control = null
+			if page != null:
+				column = page.get_node_or_null(PageChromeScript.COLUMN_NAME) as Control
+			var wants: float = PageLayoutScript.wanted_contents(column).y if column != null else INF
+			if wants <= tall:
 				settle_a_panel_on_the_foot(wrapper, margin, foot + PALETTE_GAP, tall)
 				var plate: StyleBox = _a_dock_plate()
 				if plate != null:
