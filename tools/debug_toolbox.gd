@@ -123,6 +123,11 @@ const INSTRUMENTS: Array[Dictionary] = [
 		"scene": "res://tools/phone_touch_pass.tscn",
 	},
 	{
+		"name": "touch_hud_workspace",
+		"question": "the phone's HUD standing still - the bar's four words, the dock's five tabs and the sheet - for looking at and pushing about in the editor rather than reading out of a block",
+		"scene": "res://tools/touch_hud_workspace.tscn",
+	},
+	{
 		"name": "plant_scene_check",
 		"question": "one species of every category planted in the real main.tscn",
 		"scene": "res://tools/plant_scene_check.tscn",
