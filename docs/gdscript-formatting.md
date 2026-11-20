@@ -38,18 +38,22 @@ It answers *All 637 file(s) are formatted* and exits 0, or exits 1 and names wha
 
 ## 3. The one construct that breaks it
 
-**An expression longer than 120 characters that is not inside brackets.** To wrap one, the formatter can only
-fall back on backslash continuations, and it splits at whatever boundary it finds - so `node.a.b` is broken
-after `node`, and two of the three lines it produces end in a backslash. **Its own `--verify-structure`
-refuses that transformation**, and without the flag the unverified output disagrees with itself on the next
-pass, which reads like a file that never settles. Two files here sat unformatted for a week for exactly this
-reason, and the way out was in our code rather than the tool's: bracket the condition, or split the
-expression into statements.
+**A line over the budget whose wrap would split a member access from its object.** The formatter wraps a long
+expression by bracketing it where it can, and a long condition of plain boolean names is wrapped that way
+quite happily. When there is no bracket to use it falls back on backslash continuations instead, and splits
+at whatever boundary it finds: `Global.getAbility[...].targetRange` comes apart into `Global \` /
+`.getAbility[...] \` / `.targetRange`, and `dock._result_link` into `dock \` / `._result_link \` / `.visible`.
+**Its own `--verify-structure` refuses that transformation** - the checker refusing a transform the tool has
+just made, rather than two formats disagreeing: feeding the unverified output straight back in is stable, and
+the "file that never settles" this document used to report was read wrong. Two files here sat outside every
+formatting sweep for a week for this reason, because `--check` over a directory **stops at such a file** and
+never reports on the rest of the tree at all. The way out was in our code rather than the tool's: bracket the
+condition, or split the expression into statements.
 
-    # refused: 130 characters with nothing to wrap inside
-    if not width_known or not height_known or not depth_known:
+    # refused: 130 characters, and the wrap splits the chain (measured on 0.28.0)
+    unit.followTarget = unit.position.distance_to(unit.targetUnit.position) > Global.getAbility[abilityIdsPrioritized[0]].targetRange
 
-    # formatted: the wrap has somewhere to happen
+    # the way out: bracket the condition, so the wrap has somewhere to happen
     if (
         not width_known
         or not height_known
@@ -58,6 +62,12 @@ expression into statements.
 
 A file's formatted output must parse as the input did, so rewriting an expression is safe - and both ways out
 read better than the line they replace.
+
+**Two shapes that are not the trigger**, measured 2026-11-20, so a future bisection can skip them: a plain
+`or`-chain of boolean names over the budget (145 characters - bracketed normally), and a long `and`-chain of
+member accesses assigned to a variable (160 characters - bracketed normally). **Reported upstream** as
+<https://github.com/GDQuest/GDScript-formatter/issues/366>, with this project's measurements added to another
+reporter's case - the same mechanism, still open on 0.28.0.
 
 ## 4. The check in CI
 
