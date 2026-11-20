@@ -32,8 +32,8 @@ extends RefCounted
 ## `PlantSuitability` and `CropSun` keep, because a green ring for a check that never ran is the one
 ## answer this must not give.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 
 ## The four verdicts, borrowed from the suitability check so there is one vocabulary and one set of
 ## colours in the whole program.

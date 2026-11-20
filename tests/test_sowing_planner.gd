@@ -5,8 +5,8 @@ extends Node
 ## no screen. A species is made through `PlantSpecies.make`, the way the catalogue makes one.
 
 const PlannerScript := preload("res://scripts/sowing_planner.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 ## A temperate garden: last frost 20 May, first frost 7 October, so 140 days.
 const LAST := 140

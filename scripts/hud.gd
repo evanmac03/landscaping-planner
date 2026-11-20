@@ -156,7 +156,7 @@ const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
-const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
+const PlantLabelsScript := preload("res://scripts/plants/plant_labels.gd")
 
 @export var view_controller: ViewController
 ## The presentation director. Absent in a scene that has no presentation, in which
@@ -361,12 +361,12 @@ var _recent_filled: String = ""
 ## The plant list: JSON under `user://plants`, seeded on the first run from the list the project
 ## ships with, for the same reason the cost book is JSON - a catalogue is four thousand entries a
 ## nursery mails you as a spreadsheet, not four thousand `.tres` files (spec §2.3).
-const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
-const PlantPanelScript := preload("res://scripts/plant_panel.gd")
+const PlantCatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlantBrowserScript := preload("res://scripts/plants/plant_browser.gd")
+const PlantPanelScript := preload("res://scripts/plants/plant_panel.gd")
 const ToolPaletteScript := preload("res://scripts/tool_palette.gd")
 const PalettePanelScript = preload("res://scripts/palette_panel.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
@@ -424,20 +424,20 @@ const BizHttpTransportScript := preload("res://scripts/biz/http_transport.gd")
 const CloseoutWindowScript := preload("res://scripts/closeout_window.gd")
 const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
 const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
-const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const PlantSpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 ## The nursery order: the drawing's planting list and the price list turned into what to buy, and from
 ## whom. The arithmetic is business arithmetic, so the module lives with the business modules; the page
 ## is a screen, so it does not.
 const PlantOrderScript := preload("res://scripts/biz/plant_order.gd")
-const PlantOrderWindowScript := preload("res://scripts/plant_order_window.gd")
+const PlantOrderWindowScript := preload("res://scripts/plants/plant_order_window.gd")
 const FoodWindowScript := preload("res://scripts/food_window.gd")
 const RotationWindowScript := preload("res://scripts/rotation_window.gd")
 const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
 const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
 const SeasonWindowScript := preload("res://scripts/season_window.gd")
 const FieldCaptureWindowScript := preload("res://scripts/field_window.gd")
-const PlantKeyWindowScript := preload("res://scripts/plant_key_window.gd")
+const PlantKeyWindowScript := preload("res://scripts/plants/plant_key_window.gd")
 const SowingWindowScript := preload("res://scripts/sowing_window.gd")
 const YieldWindowScript := preload("res://scripts/yield_window.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")

@@ -12,7 +12,7 @@ extends Node
 ## nothing to clean up afterwards.
 
 const MainScene := preload("res://scenes/main.tscn")
-const PageScript := preload("res://scripts/plant_key_window.gd")
+const PageScript := preload("res://scripts/plants/plant_key_window.gd")
 ## Which page a script is, and which subject of the manual describes it. Both are the project's own single
 ## sources for those two questions, so neither is worked out a second time here.
 const IndexScript := preload("res://scripts/page_index.gd")

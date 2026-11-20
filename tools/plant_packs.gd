@@ -35,9 +35,9 @@ extends RefCounted
 ## walks the model's meshes and `run()` prints what it found, and `tests/test_plant_packs.gd` measures
 ## the files on disk against the table every time the suite runs.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
 const ModelsScript := preload("res://tools/plant_models.gd")
 const ExpansionScript := preload("res://tools/plant_expansion.gd")

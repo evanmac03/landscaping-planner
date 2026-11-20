@@ -6,7 +6,7 @@ extends Node
 ## *picture* to the plan it is drawn from: a swatch that stopped being the plan's symbol would be a
 ## plant that looks like one thing while being planted as another.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
 
 const SEED := "res://data/plants/nursery_list.json"

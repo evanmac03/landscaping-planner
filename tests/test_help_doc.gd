@@ -10,7 +10,7 @@ extends Node
 
 const HelpDocScript := preload("res://scripts/help_doc.gd")
 const HudScript := preload("res://scripts/hud.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const StatusHistoryScript := preload("res://scripts/draft/status_history.gd")
 
 ## The word each menu's subject is documented under, one per menu in the bar. A menu with nothing

@@ -4,7 +4,7 @@ extends Node
 ## The page owns no plan of its own and writes nothing itself, so every one of these is a bare `.new()`
 ## with no window server, no drawing and no scene - which is the point of the arrangement.
 
-const WindowScript := preload("res://scripts/plant_order_window.gd")
+const WindowScript := preload("res://scripts/plants/plant_order_window.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
 const BookScript := preload("res://scripts/biz/cost_book.gd")
 const ItemScript := preload("res://scripts/biz/cost_item.gd")
@@ -12,7 +12,7 @@ const MoneyScript := preload("res://scripts/biz/money.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")
 const LineScript := preload("res://scripts/biz/estimate_line.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 const SEED := "res://data/biz/costbook.json"
 const TREE_ITEM := &"plant-tree-50mm"

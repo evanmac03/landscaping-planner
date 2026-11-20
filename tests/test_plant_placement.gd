@@ -4,9 +4,9 @@ extends Node
 ## The yard here is a bare `Node3D`: planting needs somewhere to put the plant and nothing else, and
 ## a test that needed the whole scene would be a test about the scene.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
 
 const SEED := "res://data/plants/nursery_list.json"

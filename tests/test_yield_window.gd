@@ -5,9 +5,9 @@ extends Node
 ## `popup_centered` needs a screen and a test does not have one.
 
 const PageScript := preload("res://scripts/yield_window.gd")
-const YieldScript := preload("res://scripts/plant_yield.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const YieldScript := preload("res://scripts/plants/plant_yield.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 
 func _crop(species_id: StringName, name: String, gives: int, eats: int) -> PlantSpecies:

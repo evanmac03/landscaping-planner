@@ -5,7 +5,7 @@ extends Node
 ## The pure half is driven with a list of points and no scene at all; the drawing half
 ## builds a controller with its parts but no tree, the way the editing tools are tested.
 
-const Labels := preload("res://scripts/plant_labels.gd")
+const Labels := preload("res://scripts/plants/plant_labels.gd")
 const Ctrl := preload("res://scripts/draft/draft_controller.gd")
 const Tool := preload("res://scripts/draft/draft_tool.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")

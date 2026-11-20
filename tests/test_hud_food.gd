@@ -15,7 +15,7 @@ const HudScript := preload("res://scripts/hud.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 
 func _drawing() -> DraftController:

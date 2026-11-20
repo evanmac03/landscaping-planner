@@ -5,11 +5,11 @@ extends Node
 ## `PlantBrowser.new()` plus `bind()` is the whole browser, and every question these tests ask is a
 ## question a designer asks of the real one.
 
-const BrowserScript := preload("res://scripts/plant_browser.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const BrowserScript := preload("res://scripts/plants/plant_browser.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 

@@ -354,7 +354,7 @@ cannot be plotted carrying two different lists.
 ## 5a. A bed at a spacing
 
 A designer does not place a hedge fourteen clicks at a time. They say "45 cm apart, staggered"
-and the plan answers with the planting. `PlantSpacing` (`scripts/plant_spacing.gd`) is that
+and the plan answers with the planting. `PlantSpacing` (`scripts/plants/plant_spacing.gd`) is that
 arithmetic and nothing else: given an outline the plan already draws, a spacing and an arrangement
 it returns the points a plant goes at, and it is the only place those points are decided - which
 is what keeps the symbols on the plan, the props in the yard, the count on the planting schedule
@@ -384,7 +384,7 @@ list the ground window shows, read through `ZoneMap.areas_of`.
 
 ## 6. The browser
 
-`scripts/plant_browser.gd` is a `Control` built in code, like the palette and the menu bar, because
+`scripts/plants/plant_browser.gd` is a `Control` built in code, like the palette and the menu bar, because
 every control in it is derived from a table that already exists - the categories, the sun bits, the
 water needs, the zones, the months, the tags in the catalogue and the collections a person has made.
 
@@ -413,7 +413,7 @@ squeezed into sixty pixels is one nobody can read the state of.
 
 ## 6a. The same catalogue in the palette
 
-`PlantPanel` (`scripts/plant_panel.gd`) is the other half of the browser, and the reason for it is
+`PlantPanel` (`scripts/plants/plant_panel.gd`) is the other half of the browser, and the reason for it is
 reach. The library answers *which* plant: it is a window with a search box and four thousand species
 behind it, and it is the right answer to a question you have to think about. It is the wrong answer to
 "put that one down again", which is what most of a planting day is - a bed is a dozen of the same
@@ -451,7 +451,7 @@ palette is slower than the window it is trying to save you from. A panel that qu
 of somebody's four thousand plants would be a worse answer than one that admits it is not the
 browser.
 
-The pictures come from `PlantIcons` (`scripts/plant_icons.gd`), shared with the browser, so the two
+The pictures come from `PlantIcons` (`scripts/plants/plant_icons.gd`), shared with the browser, so the two
 cannot show one plant two ways: the form decides the shape, the species' bloom colour decides the
 tint, and the cache is keyed "form|category" rather than by species - a hundred and thirty
 species drawn as three props are still three pictures, and four thousand are thirty.
@@ -489,7 +489,7 @@ this project allows is a window (spec REQ 8.7). Inside it the controls own the k
 nothing has changed. It is hidden until it is asked for.
 
 The palette section is the second way in, and the one that asks you to remember nothing:
-`scripts/plant_panel.gd` sits under the drawing tools whenever the working furniture is up, with the
+`scripts/plants/plant_panel.gd` sits under the drawing tools whenever the working furniture is up, with the
 same `L`-keyed button on it that opens the library. The library is for searching, the panel is for
 reaching, and both roads arm the same plant in the same controller.
 
@@ -545,7 +545,7 @@ menu, so a grey ring everywhere has an answer.
 
 ### 7a.5 Four verdicts, because two would be dishonest
 
-`scripts/plant_suitability.gd` (`PlantSuitability`) compares a species against a profile and returns a
+`scripts/plants/plant_suitability.gd` (`PlantSuitability`) compares a species against a profile and returns a
 verdict **plus one finding per property asked about** (`{key, label, wanted, found, outcome, because,
 brief}`):
 
@@ -669,7 +669,7 @@ menu that opens it.
 
 A planting list is what the drawing plants; an order is what a truck brings. The two are the same
 lines seen twice, and the join is `scripts/biz/plant_order.gd` (`PlantOrder`), which is static over
-the planting rows and the cost book, and `scripts/plant_order_window.gd` (`PlantOrderWindow`), which
+the planting rows and the cost book, and `scripts/plants/plant_order_window.gd` (`PlantOrderWindow`), which
 shows them and asks the two things only a person knows.
 
 The book prices the plant and a person names the nursery. A rate is the office's knowledge and
@@ -701,8 +701,8 @@ menu line and the write.
 
 The plant library is the thing you search when you know what you are looking for. A key is for the
 other moment: something is growing in front of you, you cannot name it, and there is nobody to ask.
-Plant menu → **Name a plant by answering questions** - the page in `scripts/plant_key_window.gd`,
-the arithmetic in `scripts/plant_key.gd` - asks what you can see, one question at a time, and the
+Plant menu → **Name a plant by answering questions** - the page in `scripts/plants/plant_key_window.gd`,
+the arithmetic in `scripts/plants/plant_key.gd` - asks what you can see, one question at a time, and the
 candidates come down until one plant is left. It is the person's door onto the same question a
 photograph is read to answer, and like that one it is reached from the menu rather than from
 anything about the drawing: it narrows the catalogue, and where the plant then goes is the planting's

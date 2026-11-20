@@ -8,7 +8,7 @@ extends RefCounted
 ## wrong thing, and a prop the tables do not know about is still drawn and still
 ## draggable, just generically.
 
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 ## Flat drafting colours, keyed by material resource path. The 3D materials are
 ## noise-textured, which leaves their albedo_color white and useless here, so

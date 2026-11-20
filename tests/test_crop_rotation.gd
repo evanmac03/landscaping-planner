@@ -14,9 +14,9 @@ extends Node
 ## mechanism or a tradition.
 
 const CropRotationScript := preload("res://scripts/crop_rotation.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 
 
 ## An edible crop of a stated family.

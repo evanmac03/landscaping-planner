@@ -7,9 +7,9 @@ extends Node
 ## comes back grey rather than green.
 
 const FoodWindowScript := preload("res://scripts/food_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const CropSunScript := preload("res://scripts/crop_sun.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 

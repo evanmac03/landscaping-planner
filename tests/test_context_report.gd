@@ -107,7 +107,7 @@ func test_every_subject_builds_a_pack_of_its_own() -> void:
 func test_a_pack_details_the_scripts_it_names() -> void:
 	var text: String = ContextReportScript.build_subject("field-capture")
 
-	assert(text.contains("### res://scripts/plant_id_resolver.gd"), "it details the resolver")
+	assert(text.contains("### res://scripts/plants/plant_id_resolver.gd"), "it details the resolver")
 	assert(text.contains("### res://scripts/survey_watcher.gd"), "and the watcher")
 	assert(text.contains("#### Methods"), "with the signatures a caller needs")
 	assert(text.contains("#### Constants"), "and the constants")
@@ -380,7 +380,7 @@ func test_the_files_a_pack_is_about_are_the_paths_a_git_query_needs() -> void:
 	var paths: PackedStringArray = ContextReportScript.fingerprint_paths("plant-id")
 
 	assert(paths.size() > 1, "a pack is about more than one file: %d" % paths.size())
-	assert(paths.has("res://scripts/plant_id_resolver.gd"), "its own scripts are named")
+	assert(paths.has("res://scripts/plants/plant_id_resolver.gd"), "its own scripts are named")
 	assert(paths.has("res://docs/plant-database-spec.md"), "and the documents it quotes")
 	for path: String in paths:
 		assert(FileAccess.file_exists(path), "and every one of them is there: %s" % path)

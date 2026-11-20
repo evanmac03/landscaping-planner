@@ -14,7 +14,7 @@ const OrderScript := preload("res://scripts/biz/purchase_order.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")
 const LineScript := preload("res://scripts/biz/estimate_line.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 const SEED := "res://data/biz/costbook.json"
 

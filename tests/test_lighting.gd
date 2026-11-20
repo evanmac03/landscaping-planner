@@ -10,7 +10,7 @@ extends Node
 ## up here as a number rather than as a plausible-looking difference.
 
 const LightingScript := preload("res://scripts/draft/lighting.gd")
-const SpacingScript := preload("res://scripts/plant_spacing.gd")
+const SpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 const Geom := preload("res://scripts/draft/geom2d.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 

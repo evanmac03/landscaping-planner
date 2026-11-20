@@ -33,18 +33,18 @@ extends RefCounted
 ## so a generated call has the right arguments) and **signals**.
 
 const SCRIPTS := [
-	"res://scripts/plant_species.gd",
-	"res://scripts/plant_catalogue.gd",
-	"res://scripts/plant_id_resolver.gd",
-	"res://scripts/plant_symbols.gd",
+	"res://scripts/plants/plant_species.gd",
+	"res://scripts/plants/plant_catalogue.gd",
+	"res://scripts/plants/plant_id_resolver.gd",
+	"res://scripts/plants/plant_symbols.gd",
 	"res://scripts/crop_sun.gd",
-	"res://scripts/plant_placement.gd",
-	"res://scripts/plant_suitability.gd",
+	"res://scripts/plants/plant_placement.gd",
+	"res://scripts/plants/plant_suitability.gd",
 	"res://scripts/io/field_manifest_exporter.gd",
 	"res://scripts/utils/bitmask_utils.gd",
 	"res://scripts/survey_watcher.gd",
 	"res://scripts/view_controller.gd",
-	"res://scripts/plant_browser.gd",
+	"res://scripts/plants/plant_browser.gd",
 	"res://scripts/draft/units.gd",
 	"res://scripts/draft/survey.gd",
 ]
@@ -89,11 +89,11 @@ const SUBJECTS := {
 			"This one is the plant-model half of knowing what a plant is.",
 		],
 		"scripts": [
-			"res://scripts/plant_species.gd",
-			"res://scripts/plant_catalogue.gd",
-			"res://scripts/plant_id_resolver.gd",
-			"res://scripts/plant_placement.gd",
-			"res://scripts/plant_suitability.gd",
+			"res://scripts/plants/plant_species.gd",
+			"res://scripts/plants/plant_catalogue.gd",
+			"res://scripts/plants/plant_id_resolver.gd",
+			"res://scripts/plants/plant_placement.gd",
+			"res://scripts/plants/plant_suitability.gd",
 			"res://scripts/utils/bitmask_utils.gd",
 		],
 		"also": [
@@ -146,10 +146,10 @@ const SUBJECTS := {
 		"scripts": [
 			"res://scripts/field_capture.gd",
 			"res://scripts/field_photo_store.gd",
-			"res://scripts/plant_identifier.gd",
+			"res://scripts/plants/plant_identifier.gd",
 			"res://scripts/survey_watcher.gd",
 			"res://scripts/io/field_manifest_exporter.gd",
-			"res://scripts/plant_id_resolver.gd",
+			"res://scripts/plants/plant_id_resolver.gd",
 			"res://scripts/utils/bitmask_utils.gd",
 		],
 		"also": [
@@ -197,12 +197,12 @@ const SUBJECTS := {
 			"grew past what a chat message holds when the leaves were added to a species.",
 		],
 		"scripts": [
-			"res://scripts/plant_species.gd",
-			"res://scripts/plant_catalogue.gd",
-			"res://scripts/plant_placement.gd",
-			"res://scripts/plant_spacing.gd",
-			"res://scripts/plant_suitability.gd",
-			"res://scripts/plant_browser.gd",
+			"res://scripts/plants/plant_species.gd",
+			"res://scripts/plants/plant_catalogue.gd",
+			"res://scripts/plants/plant_placement.gd",
+			"res://scripts/plants/plant_spacing.gd",
+			"res://scripts/plants/plant_suitability.gd",
+			"res://scripts/plants/plant_browser.gd",
 		],
 		"also": ["PlannerHud", "PlantIcons", "PlantLabels", "PlantPanel", "ZoneMap", "CropSun"],
 		"sections": [
@@ -232,7 +232,7 @@ const SUBJECTS := {
 			"from a name: one tree model is shared by four thousand trees, and a spruce and a maple must",
 			"not come out as the same green disc.",
 		],
-		"scripts": ["res://scripts/plant_symbols.gd"],
+		"scripts": ["res://scripts/plants/plant_symbols.gd"],
 		"also": ["PlantSymbols", "PlanStyle"],
 		"sections": [
 			{ "doc": "res://docs/plant-database-spec.md", "headings": ["4a. The symbol a species is drawn as"] },
@@ -538,13 +538,13 @@ const SUBJECTS := {
 			"rule this pack does not state should ask for one to be written down rather than invent it.",
 		],
 		"scripts": [
-			"res://scripts/plant_species.gd",
+			"res://scripts/plants/plant_species.gd",
 			"res://scripts/crop_sun.gd",
 			"res://scripts/crop_rotation.gd",
 			"res://scripts/harvest_calendar.gd",
 			"res://scripts/growing_season.gd",
 			"res://scripts/sowing_planner.gd",
-			"res://scripts/plant_yield.gd",
+			"res://scripts/plants/plant_yield.gd",
 		],
 		"also": [
 			"FoodWindow",
@@ -777,7 +777,7 @@ const SINGLE_SOURCES := [
 	{
 		"what": "the plant catalogue",
 		"one": "`PlantCatalogue`",
-		"path": "res://scripts/plant_catalogue.gd",
+		"path": "res://scripts/plants/plant_catalogue.gd",
 		"note": "every species the program knows; the HUD's `plant_list()` is the one instance a page is handed",
 	},
 	{
@@ -795,7 +795,7 @@ const SINGLE_SOURCES := [
 	{
 		"what": "the symbol vocabulary",
 		"one": "`PlantSymbols`",
-		"path": "res://scripts/plant_symbols.gd",
+		"path": "res://scripts/plants/plant_symbols.gd",
 		"note": "which shape a plant is drawn as, derived from what the plant is",
 	},
 	{
@@ -819,13 +819,13 @@ const SINGLE_SOURCES := [
 	{
 		"what": "reading and writing JSON",
 		"one": "`PlantCatalogue.read_json` and `PlantCatalogue.write_json`",
-		"path": "res://scripts/plant_catalogue.gd",
+		"path": "res://scripts/plants/plant_catalogue.gd",
 		"note": "every write goes through a temporary file and a rename; these two are that one place",
 	},
 	{
 		"what": "the verdict ordering",
 		"one": "`PlantSuitability.worst_of`",
-		"path": "res://scripts/plant_suitability.gd",
+		"path": "res://scripts/plants/plant_suitability.gd",
 		"note": "every check in the food garden asks it for its verdict rather than carrying a copy of the rule",
 	},
 	{

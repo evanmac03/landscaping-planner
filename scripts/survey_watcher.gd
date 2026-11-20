@@ -23,8 +23,8 @@ extends Node
 
 const FieldManifestExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 const FieldCaptureScript := preload("res://scripts/field_capture.gd")
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 
 ## Where the phone writes. The same name `FieldManifestExporter` writes.
 const DEFAULT_MANIFEST_PATH := "user://site_manifest.json"

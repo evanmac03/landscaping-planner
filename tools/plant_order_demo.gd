@@ -15,7 +15,7 @@ extends Node2D
 
 const MAIN := preload("res://scenes/main.tscn")
 const ViewScript := preload("res://scripts/view_controller.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")

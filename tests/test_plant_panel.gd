@@ -7,9 +7,9 @@ extends Node
 ## this panel has more kinds of control in it than any other, so the rule is asserted here rather
 ## than assumed.
 
-const PanelScript := preload("res://scripts/plant_panel.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const PanelScript := preload("res://scripts/plants/plant_panel.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 

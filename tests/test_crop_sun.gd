@@ -7,11 +7,11 @@ extends Node
 ## check's four words, and these tests read it the same way.
 
 const CropSunScript := preload("res://scripts/crop_sun.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
-const SuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const SuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 
 
 ## A crop wanting some number of hours of sun.

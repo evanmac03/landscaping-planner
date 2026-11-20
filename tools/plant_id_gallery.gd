@@ -23,10 +23,10 @@ extends Node
 ## photograph folder and the survey are all the tool's own, under `user://`.
 
 const FieldPageScript := preload("res://scripts/field_window.gd")
-const ChoiceScript := preload("res://scripts/plant_id_choice.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
-const LlmScript := preload("res://scripts/plant_id_llm.gd")
+const ChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const ResolverScript := preload("res://scripts/plants/plant_id_resolver.gd")
+const LlmScript := preload("res://scripts/plants/plant_id_llm.gd")
 const CaptureScript := preload("res://scripts/field_capture.gd")
 
 const LIST := "res://data/plants/nursery_list.json"

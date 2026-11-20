@@ -7,13 +7,13 @@ extends Node
 ## canopy. These tests hold the two halves of the fix together: the drawing's vocabulary and the
 ## catalogue's description of a plant, and the one call both the plan and the picture make.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantIconsScript := preload("res://scripts/plant_icons.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantIconsScript := preload("res://scripts/plants/plant_icons.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const CanvasScript := preload("res://scripts/plan_canvas.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 

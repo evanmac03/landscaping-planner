@@ -13,7 +13,7 @@ extends Node
 ## next time the game starts there is no survey left lying about.
 
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const FieldCaptureScript := preload("res://scripts/field_capture.gd")
 const MainScene := preload("res://scenes/main.tscn")
 

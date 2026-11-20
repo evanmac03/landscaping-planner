@@ -9,12 +9,12 @@ extends Node2D
 ## Run `res://tools/plant_symbols_demo.tscn`. It prints the symbol each plant was given, which is the
 ## half a picture cannot state.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlaceScript := preload("res://scripts/plant_placement.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlaceScript := preload("res://scripts/plants/plant_placement.gd")
 const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 const VIEWPORT := Vector2(1600.0, 900.0)

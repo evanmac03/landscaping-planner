@@ -6,7 +6,7 @@
 ## written down. No node, no scene and no file of its own but the one it makes in `user://`.
 extends Node
 
-const ChoiceScript := preload("res://scripts/plant_id_choice.gd")
+const ChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
 
 const TEMP := "user://plant_id_choice_test.json"
 

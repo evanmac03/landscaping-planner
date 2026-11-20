@@ -23,7 +23,7 @@ extends Window
 ## verdict vocabulary either. A crop that cannot be worked out is **reported apart**, naming which of the
 ## two facts is missing, rather than called good or wrong.
 
-const YieldScript := preload("res://scripts/plant_yield.gd")
+const YieldScript := preload("res://scripts/plants/plant_yield.gd")
 
 ## The page was closed by its own close button.
 signal closed

@@ -9,7 +9,7 @@ extends Node
 ## Run it with run_scene on res://tools/survey_live_check.tscn. It prints lines beginning "CHECK".
 
 const MAIN := "res://scenes/main.tscn"
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 ## Long enough for the 1.5 s Timer to fire at least once, with room to spare.
 const WAIT_SECONDS := 2.8

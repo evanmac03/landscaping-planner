@@ -10,7 +10,7 @@ extends Node
 ## survey that files a weed as an ornamental is worse than one that files nothing.
 
 const BitMaskScript := preload("res://scripts/utils/bitmask_utils.gd")
-const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
+const ResolverScript := preload("res://scripts/plants/plant_id_resolver.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 
 

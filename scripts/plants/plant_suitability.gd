@@ -29,9 +29,9 @@ extends RefCounted
 ## ring tells the truth about it, because the software's job is to inform the designer, not to
 ## overrule them.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 # --- the verdicts -------------------------------------------------------------------------
 

@@ -70,7 +70,7 @@ func test_the_modules_that_hand_an_area_on_do_not_word_one() -> void:
 		"res://scripts/draft/lighting.gd",
 		"res://scripts/draft/survey.gd",
 		"res://scripts/draft/survey_file.gd",
-		"res://scripts/plant_spacing.gd",
+		"res://scripts/plants/plant_spacing.gd",
 	]:
 		var found := offences_in(_read(path), path)
 		assert(found.is_empty(), path + " words an area by hand: " + ", ".join(PackedStringArray(found)))
@@ -81,7 +81,7 @@ func test_the_guard_reads_the_whole_scripts_tree() -> void:
 	var paths := _scripts()
 	assert(paths.size() > 30, "the walk found the scripts: %d" % paths.size())
 	assert(paths.has("res://scripts/draft/units.gd"), "including the writer")
-	assert(paths.has("res://scripts/plant_spacing.gd"), "and a file that delegates across two modules")
+	assert(paths.has("res://scripts/plants/plant_spacing.gd"), "and a file that delegates across two modules")
 	assert(not paths.has("res://tests/test_draft_core.gd"), "and nothing outside res://scripts")
 	for path: String in paths:
 		assert(not _read(path).is_empty(), path + " could be read")

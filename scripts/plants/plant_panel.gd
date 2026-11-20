@@ -26,7 +26,7 @@ signal stop_requested()
 ## are what its own controls say, and the outline belongs to the drawing.
 signal fill_requested(bed_key: String, spacing: float, arrangement: String)
 
-const SpacingScript := preload("res://scripts/plant_spacing.gd")
+const SpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 
 ## How many species the list will show. A palette is a quick picker, not a browser: a person who
 ## needs the four-thousandth plant wants the library's search box, and a list of four thousand rows

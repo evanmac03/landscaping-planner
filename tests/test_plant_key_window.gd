@@ -1,5 +1,5 @@
 extends Node
-## The plant key's page (`res://scripts/plant_key_window.gd`), driven off-tree.
+## The plant key's page (`res://scripts/plants/plant_key_window.gd`), driven off-tree.
 ##
 ## The rules held here are the ones a page can get wrong by itself: which controls a person answers with,
 ## that the answers offered change with the answers given, that a button which cannot act is disabled
@@ -11,9 +11,9 @@ extends Node
 ## walk through. The page is built and shown off-tree - no `popup_centered`, which needs a screen - and
 ## every test frees the page it made, or the runner reports resources still in use.
 
-const PageScript := preload("res://scripts/plant_key_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const PageScript := preload("res://scripts/plants/plant_key_window.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
 const ReadingsScript := preload("res://scripts/leaf_readings.gd")
 

@@ -15,7 +15,7 @@ extends RefCounted
 ## need does. Two vocabularies for one idea is how a check comes to compare "semi-shade" with
 ## "part shade" and decide they disagree.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## The light a place is in, one level at a time - a spot is not "full sun and part shade". The values
 ## are the species table's bits, so a plant's tolerated set can be tested against a place's single

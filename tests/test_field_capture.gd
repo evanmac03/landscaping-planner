@@ -7,10 +7,10 @@ extends Node
 ## plant is never reaches the plan, and a stated bit the model has no meaning for is refused by name.
 
 const CaptureScript := preload("res://scripts/field_capture.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const ResolverScript := preload("res://scripts/plants/plant_id_resolver.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 const THYME := "thymus-serpyllum"

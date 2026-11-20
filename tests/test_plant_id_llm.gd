@@ -8,7 +8,7 @@
 ## refused rather than pressed for a guess.
 extends Node
 
-const LlmScript := preload("res://scripts/plant_id_llm.gd")
+const LlmScript := preload("res://scripts/plants/plant_id_llm.gd")
 
 const THYME := "Thymus serpyllum"
 const BOX := "Buxus sempervirens"

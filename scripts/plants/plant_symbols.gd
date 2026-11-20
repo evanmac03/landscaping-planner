@@ -26,7 +26,7 @@ extends RefCounted
 ## Widths, radii and coordinates are all in the same normalised units, so a stroke keeps its weight
 ## against the symbol whatever size the plant is drawn at.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## The symbols, in the order a list offers them. A **form** is the prop a species stands in as - one
 ## tree model for every tree - and a **symbol** is the shape the plan draws for it, which is the thing

@@ -15,8 +15,8 @@ extends RefCounted
 ## `PlanStyle`, because "how big is this prop scene" is a plan-style question and not a plant one.
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## The subtree of the yard whose children are the planted objects. The same name `PlanCanvas` reads.
 const PLANTS := "Plants"

@@ -18,7 +18,7 @@ extends RefCounted
 ## `PlantSpecies.months_run_text`, so the months a plant **blooms**, the months a crop is **harvested**
 ## and the months a calendar has something **ready** are all said the same way.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## A year has twelve months, and the calendar is one list for each.
 const MONTHS := 12

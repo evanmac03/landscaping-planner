@@ -20,7 +20,7 @@ extends RefCounted
 
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 

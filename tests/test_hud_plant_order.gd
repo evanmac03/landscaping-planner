@@ -12,10 +12,10 @@ extends Node
 
 const HudScript := preload("res://scripts/hud.gd")
 const ViewControllerScript := preload("res://scripts/view_controller.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
-const OrderWindowScript := preload("res://scripts/plant_order_window.gd")
+const OrderWindowScript := preload("res://scripts/plants/plant_order_window.gd")
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")

@@ -1,5 +1,5 @@
 extends Node
-## The identification seam (`res://scripts/plant_identifier.gd`): what a classifier has to hand over, and
+## The identification seam (`res://scripts/plants/plant_identifier.gd`): what a classifier has to hand over, and
 ## what this program says while there is no classifier at all.
 ##
 ## The rules held here are the contract's own: an answer that names nothing is refused rather than
@@ -7,12 +7,12 @@ extends Node
 ## program goes through, and the model that answered is named on the record so a person can weigh it
 ## later instead of trusting it because it reached a screen.
 
-const IdentifierScript := preload("res://scripts/plant_identifier.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const IdentifierScript := preload("res://scripts/plants/plant_identifier.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 const CaptureScript := preload("res://scripts/field_capture.gd")
 
-const ChoiceScript := preload("res://scripts/plant_id_choice.gd")
+const ChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 const THYME := "thymus-serpyllum"

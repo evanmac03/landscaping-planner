@@ -20,7 +20,7 @@ extends Node
 
 const MAIN := preload("res://scenes/main.tscn")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const YardScript := preload("res://scripts/yard.gd")
 
 ## One species for each of these, taken from the list rather than named, so this keeps working when

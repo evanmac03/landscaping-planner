@@ -16,9 +16,9 @@ a network, and nothing in it needs a model to be installed.
 | the photograph | `scripts/field_photo_store.gd` | a picture kept under a name made from its own bytes |
 | the file | `scripts/io/field_manifest_exporter.gd` | a visit as a manifest, written atomically and read back |
 | the import | `scripts/survey_watcher.gd` | the manifest noticed, its plants placed, its names filed |
-| the choice | `scripts/plant_id_choice.gd` | the four ways a photograph can be read, and what the chosen one still needs |
-| the request | `scripts/plant_id_llm.gd` | the request a model is asked, and the reading of its answer |
-| the seam | `scripts/plant_identifier.gd` | the pipeline that runs the chosen way, and the one path into a record |
+| the choice | `scripts/plants/plant_id_choice.gd` | the four ways a photograph can be read, and what the chosen one still needs |
+| the request | `scripts/plants/plant_id_llm.gd` | the request a model is asked, and the reading of its answer |
+| the seam | `scripts/plants/plant_identifier.gd` | the pipeline that runs the chosen way, and the one path into a record |
 | the page | `scripts/field_window.gd` | the window a person uses on this machine to record a capture |
 | the door | `scripts/hud.gd` | Site > Record what is on site... |
 | the output | `scripts/vis/proposal_page.gd` | the photographs on a proposal page, captioned in words |

@@ -17,8 +17,8 @@ extends Node
 ## statement: the readings file holds only what somebody read.
 
 const ReadingsScript := preload("res://scripts/leaf_readings.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## The sheet a person fills in and the list it is written from. The readings file's own path is the module's,
 ## so the tool and the program cannot come to look in two different places.

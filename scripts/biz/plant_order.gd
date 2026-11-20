@@ -30,7 +30,7 @@ extends RefCounted
 const CostItemScript := preload("res://scripts/biz/cost_item.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const OrderScript := preload("res://scripts/biz/purchase_order.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 
 ## The phase a planting is bought against. The same name the takeoff's own layer table uses for

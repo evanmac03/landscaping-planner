@@ -49,8 +49,8 @@ extends RefCounted
 ## records and a person names the plant themselves, which is what the capture page is for.
 
 const FieldCaptureScript := preload("res://scripts/field_capture.gd")
-const PlantIdChoiceScript := preload("res://scripts/plant_id_choice.gd")
-const PlantIdLlmScript := preload("res://scripts/plant_id_llm.gd")
+const PlantIdChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
+const PlantIdLlmScript := preload("res://scripts/plants/plant_id_llm.gd")
 
 ## What a page says where a model would be, if there were a model.
 const NOTHING_INSTALLED := (

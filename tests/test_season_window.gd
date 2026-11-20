@@ -5,8 +5,8 @@ extends Node
 ## `popup_centered` needs a screen and a test does not have one.
 
 const PageScript := preload("res://scripts/season_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
 ## A temperate garden: 20 May to 7 October, 140 days.

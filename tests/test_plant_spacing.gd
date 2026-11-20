@@ -11,9 +11,9 @@ extends Node
 ## line that lands exactly on the outline is a point every polygon test is entitled to answer either
 ## way, and a count that depends on which way is a count that will fail on another machine.
 
-const SpacingScript := preload("res://scripts/plant_spacing.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SpacingScript := preload("res://scripts/plants/plant_spacing.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")

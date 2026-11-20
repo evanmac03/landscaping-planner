@@ -15,7 +15,7 @@ extends Node
 const WindowScript := preload("res://scripts/ground_window.gd")
 const Profile := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
-const Species := preload("res://scripts/plant_species.gd")
+const Species := preload("res://scripts/plants/plant_species.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")

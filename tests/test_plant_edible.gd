@@ -8,9 +8,9 @@ extends Node
 ## hold the two halves of that - the field round-trips and refuses what is wrong, and silence is a
 ## real answer.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const BrowserScript := preload("res://scripts/plant_browser.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const BrowserScript := preload("res://scripts/plants/plant_browser.gd")
 
 
 ## A shrub with nothing said about food: the ordinary entry in the catalogue.

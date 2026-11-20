@@ -9,10 +9,10 @@ extends Node
 
 const ModelsScript := preload("res://tools/plant_models.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 const LIST := "res://data/plants/nursery_list.json"
 

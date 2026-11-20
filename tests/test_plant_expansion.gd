@@ -6,9 +6,9 @@ extends Node
 ## things tested here are the things a person cannot see by reading it - that the additions and the
 ## shipped list are **the same list**, and that adding them again adds nothing.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const ExpansionScript := preload("res://tools/plant_expansion.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## A plant that was in the shipped list before the expansion, chosen because its own values are
 ## distinctive: if the importer ever replaced an existing entry instead of skipping it, this is the

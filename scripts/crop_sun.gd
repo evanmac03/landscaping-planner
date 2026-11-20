@@ -31,8 +31,8 @@ extends RefCounted
 ## than restated, so a page can show a light verdict and a suitability verdict in the same four colours
 ## and the same four words.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 

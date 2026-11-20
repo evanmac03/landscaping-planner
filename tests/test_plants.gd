@@ -5,8 +5,8 @@ extends Node
 ## editor's class cache has picked the file up, and a test that cannot run until the editor has
 ## rescanned is a test that fails for a reason that has nothing to do with the code.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 const SCRATCH := "user://plants/test-catalogue.json"
 const SCRATCH_COLLECTIONS := "user://plants/test-collections.json"

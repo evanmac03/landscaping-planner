@@ -14,7 +14,7 @@ extends RefCounted
 ## paid for twice.
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 ## How big a generated swatch is. Small enough that a whole catalogue is cheap, big enough that the
 ## shape of a symbol is legible. Callers ask `ItemList` to scale it to the size they want.

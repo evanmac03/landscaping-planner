@@ -1,5 +1,5 @@
 extends Node
-## The plant key (`res://scripts/plant_key.gd`): naming a plant by answering questions about it.
+## The plant key (`res://scripts/plants/plant_key.gd`): naming a plant by answering questions about it.
 ##
 ## What is held here is the arithmetic and the wording rather than a page: which question the key asks
 ## next, which plants an answer leaves, and what it says when one plant is left, when several cannot be
@@ -12,9 +12,9 @@ extends Node
 ## thousand nursery entries would be measured against a number nobody can check. The two files are
 ## preloaded by path, because a `class_name` is only visible once the editor has picked the file up.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const KeyScript := preload("res://scripts/plant_key.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const KeyScript := preload("res://scripts/plants/plant_key.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
 
 # --- the fixture -------------------------------------------------------------------------

@@ -7,9 +7,9 @@ extends Node
 ## data and a test does not edit the thing it is testing against.
 
 const ReadingsScript := preload("res://scripts/leaf_readings.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const KeyScript := preload("res://scripts/plant_key.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const KeyScript := preload("res://scripts/plants/plant_key.gd")
 
 const SHEET := "user://test_leaf_readings.json"
 

@@ -16,12 +16,12 @@ extends Node
 ## get wrong in a way nobody notices: a plan that says nothing about the ground must produce "I
 ## cannot tell you", never a confident green.
 
-const Suitability := preload("res://scripts/plant_suitability.gd")
+const Suitability := preload("res://scripts/plants/plant_suitability.gd")
 const Profile := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 ## The four checks that ask `Suitability.worst_of` for their verdict rather than carrying a copy of it.
 const CropSunScript := preload("res://scripts/crop_sun.gd")
 const RotationScript := preload("res://scripts/crop_rotation.gd")

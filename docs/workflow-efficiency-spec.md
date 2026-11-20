@@ -173,13 +173,13 @@ already decided against, for the reason `undo_stack.gd` gives.
 
 ## 4. Fast symbol placement - BUILT, and instancing was cancelled on purpose
 
-`scripts/plant_placement.gd`. `place()` fills in the scene path, gives the node a unique name, scales
+`scripts/plants/plant_placement.gd`. `place()` fills in the scene path, gives the node a unique name, scales
 it by `planting_scale` (the species' spread over the prop's base size), adds it to the `Plants` subtree
 *and* to the `placeable` group, and writes the species, height and spread into the node's metadata. So
 the size a plant is drawn at is not a copy of the catalogue - it is the catalogue, applied.
 
-Choosing is `PlantBrowser` (`scripts/plant_browser.gd`, the window with search and filters) or the
-palette panel (`scripts/plant_panel.gd`, built this turn). Either way: one click to choose, one click
+Choosing is `PlantBrowser` (`scripts/plants/plant_browser.gd`, the window with search and filters) or the
+palette panel (`scripts/plants/plant_panel.gd`, built this turn). Either way: one click to choose, one click
 on the plan, and it stays armed, because a bed is a dozen clicks and not a dozen trips through a
 window. Escape puts it away. Arming a plant puts the drawing tools away, so planting and drafting
 never both own the left button.
@@ -187,7 +187,7 @@ never both own the left button.
 **A whole bed at a spacing - BUILT, and it makes the sentence above the slow way.** Clicking a
 bed a plant at a time is right when a designer is composing it - that is what the reach argument
 is for - but it is not how a bed of a hundred groundcover plants gets planted. `PlantSpacing`
-(`scripts/plant_spacing.gd`) plants a bed from the outline the plan already draws: two controls in
+(`scripts/plants/plant_spacing.gd`) plants a bed from the outline the plan already draws: two controls in
 the palette say at what spacing and in which arrangement, the drop-down says which bed, and one
 press puts the planting down and reports what it did. Square or staggered, half a spread in from
 the edge by default, and a refusal rather than a half-planted bed when there is no answer -
@@ -618,7 +618,7 @@ drawing as empty, which is the count that says the page is blank rather than tha
    direction, and the check reports where the drawing contradicts itself about its own heights.
 
 10. ~~**Ordering the planting from a nursery.**~~ **Done.** Built as `scripts/biz/plant_order.gd`
-    and `scripts/plant_order_window.gd` with three test files; see the plant database spec,
+    and `scripts/plants/plant_order_window.gd` with three test files; see the plant database spec,
     section 7b. It prices the planting from the cost book and writes one draft purchase order per
     grower onto the job desk. It issues nothing, and the only two things the page asks for are the
     two things only a person knows: which job the plants are for, and which nursery they come from.

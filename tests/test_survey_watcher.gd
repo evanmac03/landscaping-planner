@@ -13,10 +13,10 @@ extends Node
 
 const WatcherScript := preload("res://scripts/survey_watcher.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
-const Suitability := preload("res://scripts/plant_suitability.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const Suitability := preload("res://scripts/plants/plant_suitability.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 

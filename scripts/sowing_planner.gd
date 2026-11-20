@@ -39,8 +39,8 @@ extends RefCounted
 ## than a guide. It says "sown on this day a crop that takes seventy-five days is ready about this day,
 ## and that is before the frost" - arithmetic on two stated facts, and no more.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 

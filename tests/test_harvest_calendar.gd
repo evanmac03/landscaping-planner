@@ -7,8 +7,8 @@ extends Node
 ## that crosses the new year is ready on both sides of it.
 
 const CalendarScript := preload("res://scripts/harvest_calendar.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 
 ## A crop cut in the months given (1..12).

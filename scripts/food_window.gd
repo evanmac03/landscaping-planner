@@ -25,7 +25,7 @@ extends Window
 const SIZE := Vector2i(940, 720)
 
 const CropSunScript := preload("res://scripts/crop_sun.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 
 const EXPLANATION := (
 	"Choose a bed and a crop. The light a bed is stated in stands for a span of "

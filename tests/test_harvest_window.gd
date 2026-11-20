@@ -7,8 +7,8 @@ extends Node
 ## blank January, and that an empty month says so rather than reading as a fault.
 
 const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const CalendarScript := preload("res://scripts/harvest_calendar.gd")
 
 

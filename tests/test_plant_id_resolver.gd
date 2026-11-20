@@ -7,7 +7,7 @@ extends Node
 ## resolver that answers every name with the nearest plant is worse than one that refuses,
 ## because a survey would file a weed as an ornamental and nobody would know.
 
-const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
+const ResolverScript := preload("res://scripts/plants/plant_id_resolver.gd")
 
 
 ## A species with just enough filled in to be resolved.

@@ -35,7 +35,7 @@ extends Window
 ## a designer most wants named. So the whole list is where the page starts, narrowing is a deliberate press,
 ## and the count is said out loud either way.
 
-const KeyScript := preload("res://scripts/plant_key.gd")
+const KeyScript := preload("res://scripts/plants/plant_key.gd")
 
 signal closed()
 ## The species somebody settled on. The page says which; who acts on it is the HUD's business.

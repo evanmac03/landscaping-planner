@@ -27,8 +27,8 @@ extends RefCounted
 ## skipped, not green.** A crop that records no time to maturity, or a drawing that states no season,
 ## is UNKNOWN - never a comfortable green fit that was never actually checked.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 
 ## The four verdicts, borrowed from the suitability check so there is one vocabulary and one set of

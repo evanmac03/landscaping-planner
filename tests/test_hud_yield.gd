@@ -11,8 +11,8 @@ extends Node
 ## `open_yield_window()` is only called where it is expected to do nothing.
 
 const HudScript := preload("res://scripts/hud.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 
 func _crop(species_id: StringName, name: String, gives: int, eats: int) -> PlantSpecies:

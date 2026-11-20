@@ -8,15 +8,15 @@ extends Node
 ## things to both, and that it puts nothing in the real photograph folder.
 
 const PageScript := preload("res://scripts/field_window.gd")
-const IdentifierScript := preload("res://scripts/plant_identifier.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const IdentifierScript := preload("res://scripts/plants/plant_identifier.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 const CaptureScript := preload("res://scripts/field_capture.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 const SCRATCH := "user://test_field_survey.json"
 const PHOTOS := "user://test_field_capture_photos"
-const ChoiceScript := preload("res://scripts/plant_id_choice.gd")
+const ChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
 
 const THYME := "thymus-serpyllum"
 const THYME_NAME := "Thymus serpyllum"

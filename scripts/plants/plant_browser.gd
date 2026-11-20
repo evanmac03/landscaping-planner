@@ -44,7 +44,7 @@ signal export_requested()
 signal note(text: String)
 
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 const ANY := -1
 

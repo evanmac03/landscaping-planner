@@ -37,9 +37,9 @@ extends Window
 
 const FieldCaptureScript := preload("res://scripts/field_capture.gd")
 const PhotoStoreScript := preload("res://scripts/field_photo_store.gd")
-const IdentifierScript := preload("res://scripts/plant_identifier.gd")
-const PlantIdChoiceScript := preload("res://scripts/plant_id_choice.gd")
-const ResolverScript := preload("res://scripts/plant_id_resolver.gd")
+const IdentifierScript := preload("res://scripts/plants/plant_identifier.gd")
+const PlantIdChoiceScript := preload("res://scripts/plants/plant_id_choice.gd")
+const ResolverScript := preload("res://scripts/plants/plant_id_resolver.gd")
 const ExporterScript := preload("res://scripts/io/field_manifest_exporter.gd")
 const WatcherScript := preload("res://scripts/survey_watcher.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")

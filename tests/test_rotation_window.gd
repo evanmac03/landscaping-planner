@@ -7,8 +7,8 @@ extends Node
 ## has stated comes back grey rather than green, and that the history is kept per bed.
 
 const RotationWindowScript := preload("res://scripts/rotation_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const CropRotationScript := preload("res://scripts/crop_rotation.gd")
 
 

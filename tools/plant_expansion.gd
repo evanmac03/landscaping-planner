@@ -33,8 +33,8 @@ extends RefCounted
 ## `blooms` is a run of months, "5,6", or `""` for a plant grown for its foliage - which is what
 ## sets `bloom_months` to zero, and why `note` on the foliage plants says what they are for.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 ## The shipped list, and the additions of this expansion.
 const SHIPPED_PATH := "res://data/plants/nursery_list.json"

@@ -18,7 +18,7 @@ extends Control
 ## rectangle wherever that target was built.
 
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 ## Emitted when a cell is pressed, carrying the kind of asset and the name on it. The program's own drag is
 ## started from a palette button; this is where a dock would begin the same gesture.

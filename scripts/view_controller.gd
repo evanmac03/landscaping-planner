@@ -36,9 +36,9 @@ const NO_PENDING := -1
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const SiteSceneryScript := preload("res://scripts/site_scenery.gd")
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)

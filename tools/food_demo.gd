@@ -15,7 +15,7 @@ extends Node2D
 
 const MAIN := preload("res://scenes/main.tscn")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 
 func _ready() -> void:

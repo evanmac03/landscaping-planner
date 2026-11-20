@@ -37,7 +37,7 @@ extends RefCounted
 ## works out is the count a nursery order is written from, and a yield plan prices through the same
 ## module as the yard's own planting, with no second set of arithmetic.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## Who the plan is for, when nobody has said. A household, offered as a starting point rather than a
 ## claim - the page states it, and the module only works from whatever it is handed.

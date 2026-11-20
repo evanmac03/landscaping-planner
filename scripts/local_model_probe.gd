@@ -33,9 +33,9 @@ extends RefCounted
 ## Sending one request is `PlantIdentifier.send_http`, and the address is split by the same
 ## `PlantIdLlm.split_url` the plant identifier uses, so a port or a path means one thing in this program.
 
-const Llm := preload("res://scripts/plant_id_llm.gd")
+const Llm := preload("res://scripts/plants/plant_id_llm.gd")
 const Fit := preload("res://scripts/device_model_fit.gd")
-const Identifier := preload("res://scripts/plant_identifier.gd")
+const Identifier := preload("res://scripts/plants/plant_identifier.gd")
 
 ## How long a machine is given to say which models it has. Asking a local server answers in milliseconds
 ## and a server on the network in about a second; anything slower than this is not a server that is

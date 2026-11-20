@@ -40,7 +40,7 @@ class_name Irrigation
 ## Specified in `docs/irrigation-subsystem-spec.md`.
 
 const Geom := preload("res://scripts/draft/geom2d.gd")
-const SpacingScript := preload("res://scripts/plant_spacing.gd")
+const SpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
 

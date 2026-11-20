@@ -743,7 +743,7 @@ moment the office can still do something about it.
 
 The one purchase order a landscape office writes over and over is the plants. Every job needs one,
 the quantities are already on the drawing and the rates are already in the book, so the drawing
-writes it: `scripts/biz/plant_order.gd` prices the planting, and `scripts/plant_order_window.gd`
+writes it: `scripts/biz/plant_order.gd` prices the planting, and `scripts/plants/plant_order_window.gd`
 shows the lines and asks the two questions only a person can answer.
 
 - **The book prices the plant; a person names the nursery.** A rate is the office's knowledge and
@@ -1620,7 +1620,7 @@ lists. `plan` returns one line per kind of plant with its quantity, its book ite
 extension and its own problem; `by_supplier` groups the lines by grower; and `write_orders` is the
 single door that puts them on the desk, through `JobDesk.make_purchase_order` rather than beside it.
 
-`PlantOrderWindow` (`scripts/plant_order_window.gd`) owns only what only a person knows - which job,
+`PlantOrderWindow` (`scripts/plants/plant_order_window.gd`) owns only what only a person knows - which job,
 which nursery - and nothing else. The plan arrives from `PlantOrder.plan`, the orders leave through
 `order_requested` for the HUD, and the page writes nothing itself, which is what lets the whole page
 be tested with no desk, no drawing and no screen.

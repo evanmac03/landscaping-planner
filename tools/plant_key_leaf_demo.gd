@@ -11,10 +11,10 @@ extends Node
 ##
 ## Run it with `run_scene res://tools/plant_key_leaf_demo.tscn` and look at the page; it quits itself.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const KeyWindowScript := preload("res://scripts/plant_key_window.gd")
-const KeyScript := preload("res://scripts/plant_key.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const KeyWindowScript := preload("res://scripts/plants/plant_key_window.gd")
+const KeyScript := preload("res://scripts/plants/plant_key.gd")
 
 const SECONDS_UP := 4.0
 

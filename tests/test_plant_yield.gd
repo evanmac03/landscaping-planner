@@ -4,9 +4,9 @@ extends Node
 ## The arithmetic is the module's alone, so this drives the module directly - no window, no drawing and
 ## no screen. A species is made through `PlantSpecies.make`, the way the catalogue makes one.
 
-const YieldScript := preload("res://scripts/plant_yield.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const YieldScript := preload("res://scripts/plants/plant_yield.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
 const BookScript := preload("res://scripts/biz/cost_book.gd")
 

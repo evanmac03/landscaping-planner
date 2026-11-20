@@ -35,8 +35,8 @@ extends RefCounted
 ## position the way everything else in the draft does it, `Vector3(x, 0, y)`, north being -Z.
 
 const Geom := preload("res://scripts/draft/geom2d.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 

@@ -11,7 +11,7 @@ extends Node
 
 const Probe := preload("res://scripts/local_model_probe.gd")
 const Fit := preload("res://scripts/device_model_fit.gd")
-const Choice := preload("res://scripts/plant_id_choice.gd")
+const Choice := preload("res://scripts/plants/plant_id_choice.gd")
 
 const LOCAL := "http://127.0.0.1:11434"
 
