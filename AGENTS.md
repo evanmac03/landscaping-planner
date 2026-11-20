@@ -42,8 +42,9 @@ Every feature here has the same six parts. A change that adds one and not the ot
 
 ## Conventions - how this project is written
 
-- **GDScript, Godot 4.7.** A file opens with `class_name X` then `extends Y`; the file name is the
-  snake_case of the class name, and there is one class per file.
+- **GDScript, Godot 4.7.** A file opens with `class_name X` then `extends Y`; one class per file, the file
+  named for the thing, and the class name the unique one (`crew.gd` is `CrewMember`, `hud.gd` is
+  `PlannerHud`).
 - **Everything is typed** - members, parameters and return types. `var x: Node = get_x()`, never
   `var x = get_x()`.
 - **Pure logic is `static` on a `RefCounted` class**, so a whole module is testable with no scene, no
