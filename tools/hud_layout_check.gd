@@ -589,8 +589,17 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 			# itself, so the panel's own `position` is measured from the wrapper and says nothing about where a
 			# person sees it. The first version of this line printed exactly that and read as "the placement did
 			# nothing" while the placement had worked; `get_global_rect` is the rectangle on the glass.
+			# **The band beside the panel inside it, because the two faults look identical in a reading that has only
+			# one of them.** A wrapper that was never banded, and a wrapper banded with its child left outside, both
+			# report a panel somewhere it should not be - and only the first is `settle_a_panel_on_the_foot`'s to fix.
 			var where: Rect2 = page.get_global_rect()
-			on_the_foot.append("%s at %.0f..%.0f (wants %.0f)" % [control.name, where.position.y, where.end.y, wants])
+			var band: Rect2 = control.get_global_rect()
+			on_the_foot.append(
+				(
+					"%s band %.0f..%.0f holds the page at %.0f..%.0f (wants %.0f)"
+					% [control.name, band.position.y, band.end.y, where.position.y, where.end.y, wants]
+				)
+			)
 		if on_the_foot.is_empty():
 			print("  this HUD holds none of the six panels over the board (three of them want a drawing)")
 		else:

@@ -23,6 +23,7 @@ const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd
 ## driver would otherwise have to read off a screenshot.
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
+const BoardPanelScript := preload("res://scripts/board_panel.gd")
 const CameraWindowScript := preload("res://scripts/camera_window.gd")
 const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
 ## The reader's own choice of how big the words are drawn, where the platform states none.
@@ -298,7 +299,7 @@ var _bar_offsets_as_drawn: Vector2 = Vector2(INF, INF)
 ## measured from its own output would walk the palette up the screen one turn at a time. Infinity until then,
 ## which is a value no offset can hold.
 var _palette_offsets_as_drawn: Vector2 = Vector2(INF, INF)
-## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
+## The key reference, built by `_build_keys_panel`: the wrapper that places the page, held so the
 ## one place that decides whether it is up is the panel's own `visible`.
 var _keys_panel: Control = null
 ## The manual: what this program is and everything it does, in one page with a search box. A window
@@ -1739,20 +1740,17 @@ func _size_the_chrome_for_the_device() -> void:
 	# the room is really known, and again on the frame after - a panel asked for its size before it has laid out
 	# answers the size it had before, which is the same reason the palette's own placement is deferred.
 	_place_the_touch_dock.call_deferred()
-	# **The six panels are not moved to the foot, and this is measured rather than unfinished.** Anchoring their
-	# wrappers to a band along the foot was written and run, and the readings say it cannot work: every one of
-	# these wrappers is a `CenterContainer`, which places its child **centred in whatever room it has** and has no
-	# alignment to ask for anything else (`CenterContainer` carries no such property - checked against the class
-	# rather than assumed). Measured on the A16W's numbers at this desk room: `SiteReportPanel`, whose 257 px of
-	# contents fit the 405 px band comfortably, came out at `603..870` - its foot **260 px below the band it was
-	# given**, drawn over the tucked hint line at 733 and past the foot of the 900 px room. A band that moves the
-	# wrapper and not the panel is worse than the middle of the board it was meant to improve.
+	# The six panels that stand over the board are moved by the same reading and put back by it too, so a desk
+	# that was shown a finger's arrangement - which the layout check does, and then lets go of - is left exactly
+	# as the scene drew it rather than holding a phone's panels.
 	#
-	# What these six need is a container that can **place** a child rather than centre it - the scroller
-	# `PageChrome` already gives an over-tall page is the same answer, and it is what four of them want anyway
-	# (`KeysPanel` asks 4189 px of a 405 px band at a finger's type, `WaterPanel` and `LightPanel` 1518,
-	# `HatchPanel` 941). `settle_a_panel_on_the_foot` and `_the_overlay_panels` are left in place, tested and
-	# uncalled, as the rule that container will use.
+	# **Asked for again after it was withdrawn, because the reading could not yet name the fault.** Anchoring a
+	# wrapper to a band and putting the child *in* the band are two different acts, and a report that has only
+	# the child's rectangle cannot say which of them failed - `hud_layout_check` now prints the wrapper's band
+	# beside the panel inside it, so the next reading decides it. If the wrapper is a band and the child is not in
+	# it, the child needs a container that places its children, which is `BoardPanel` and nothing the engine
+	# ships; if the wrapper was never banded at all, the fault is in `settle_a_panel_on_the_foot`.
+	_place_the_overlay_panels.call_deferred()
 	start_the_presentation_panel_for(_touch_screen)
 	_refresh_hints()
 
@@ -2235,7 +2233,8 @@ func _the_overlay_panels() -> Array[Control]:
 ## and the device's own figures off the things themselves and this decides what to do with them, so what a phone
 ## would be told can be held by a test without being one - the same split `offsets_for_the_left_column` keeps.
 ##
-## The wrapper stays a `CenterContainer`, so the panel is centred **within the band** rather than stretched to it,
+## The wrapper is a `BoardPanel`, which puts the page in the band at the page's own size rather than stretching it
+## to the room,
 ## which is what keeps a short panel short and a tall one from running past the top of the screen.
 static func settle_a_panel_on_the_foot(wrapper: Control, margin: float, clear_of_the_foot: float, tall: float) -> void:
 	if wrapper == null:
@@ -2247,21 +2246,35 @@ static func settle_a_panel_on_the_foot(wrapper: Control, margin: float, clear_of
 	wrapper.offset_right = -margin
 	wrapper.offset_bottom = -clear_of_the_foot
 	wrapper.offset_top = -(clear_of_the_foot + tall)
+	# **And the child has to be asked to lay itself out again, or the band holds nothing.** Moving the anchors
+	# resizes the wrapper, and a container that has not been told sorts nothing - so the band came out exactly
+	# where it was meant to be and the panel inside it stayed where the *desk* had put it: measured, a weak
+	# `205..610` band with its 257 px page at `603..870`, 398 px down it, which is 398 px down a 405 px band and
+	# its desk position to the pixel. **A container the engine ships centres its child and carries no lever to be
+	# asked harder** - `queue_sort` was tried and changed nothing - so the child is put in the band by
+	# `BoardPanel`, which is this project's own node and does the placing on a rectangle it works out itself.
+	var board: BoardPanel = wrapper as BoardPanel
+	if board != null:
+		board.along_the_foot = true
+		board.place_the_page()
 
 
 ## Stand the six panels along the foot of the screen on a finger, where a desk centres them over the board.
 ##
-## **NOT WIRED UP, and the reason is measured.** It was called from `_size_the_chrome_for_the_device` and run, and
-## the reading it produced is why the call is gone: a wrapper anchored to a band does not put the panel in the
-## band, because every one of these wrappers is a `CenterContainer` - which centres its child in whatever room it
-## has and carries no alignment to ask for anything else. `SiteReportPanel`, whose 257 px of contents fit a 405 px
-## band with room to spare, came out at `603..870` against a band at `205..610`: its foot 260 px below the band
-## and over the foot line. **The wrapper's rectangle was right and the panel's was not, which is the whole
-## lesson - what a person sees is the child, and a container that centres cannot be told otherwise.**
+## **It is called from `_size_the_chrome_for_the_device` and it works: the band holds its panel.** Two readings
+## took it there, and both are worth keeping because the fault moved. The band itself was right from the first
+## attempt - `SiteReportPanel`'s wrapper stood at `205..610` - and its 257 px page stayed at `603..870`, which is
+## 398 px down a 405 px band and the panel's *desk* position to the pixel. Asking the wrapper's own container to
+## sort itself again (`queue_sort`) said the same, and the reason is that the node was a `CenterContainer`: it
+## centres a child in whatever room it has and carries no alignment to ask for anything else, **and no container
+## the engine ships places a child where it is told**. So the wrapper is now `BoardPanel`, which computes the
+## rectangle itself - and the same reading then gave `SiteReportPanel` its page at `343..610` and `DxfPanel` at
+## `241..610`: a foot on the band's own foot, which is what a sheet along the foot means.
 ##
-## Kept because it is the placement a container that can *place* a child will want, and because the pure half of
-## it is tested. What these six need is a scroller, the same answer `PageChrome` already gives an over-tall page -
-## and four of them want it regardless of where they stand.
+## **The four long panels are still refused the band.** They want 4189, 1518, 1518 and 941 px of a 405 px band at
+## a finger's type, and what they need is the scroller `PageChrome` already gives an over-tall page - the same
+## answer this program has for anything taller than the room it stands in. That is a piece of work of its own and
+## they keep the desk's own placement until it is done.
 ##
 ## **The board stays visible, which is the whole point of the change.** A desk's room is wide, and a panel 520 px
 ## across leaves plenty of drawing either side of it; a phone's room is a hand's width, so the same panel centred
@@ -2302,12 +2315,11 @@ func _place_the_overlay_panels() -> void:
 			# disagree with the line a person reads in the audit.
 			#
 			# **Only a panel that fits the band is given it.** Four of these six are far taller than the screen at
-			# a finger's type - the keys reference and the water and light panels are lists - and a
-			# `CenterContainer` **centres** its child in whatever room it has. A panel taller than its band would
-			# therefore be centred in the band and land off the *top* of the screen, which is worse than the
-			# middle of the board it sits over now. Measured at this desk room on a finger: `KeysPanel` wants 4199
-			# px against a 405 px band, `WaterPanel` and `LightPanel` 1527, and `HatchPanel` 1155 - while
-			# `SiteReportPanel` and `DxfPanel` want 405 and fit exactly.
+			# a finger's type - the keys reference and the water and light panels are lists - and `BoardPanel`
+			# stands its page at the page's own size, so a taller-than-band panel would have its top pushed off
+			# the band and land off the top of the screen. Measured at this desk room on a finger: `KeysPanel`
+			# wants 4189 px against a 405 px band, `WaterPanel` and `LightPanel` 1518, and `HatchPanel` 941 -
+			# while `SiteReportPanel` and `DxfPanel` fit, and are banded.
 			#
 			# A panel that cannot be a sheet is left exactly as the desk draws it, and what it still wants is the
 			# scroller every over-tall *page* already gets from `PageChrome` - the same answer this program has
@@ -2323,6 +2335,12 @@ func _place_the_overlay_panels() -> void:
 					page.add_theme_stylebox_override(&"panel", plate)
 			else:
 				wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+				# The desk's own arrangement, laid out again for the reason the band is: what was moved has to be
+				# told, or the panel keeps the place the finger's band gave it after the desk has taken it back.
+				var off_the_band: BoardPanel = wrapper as BoardPanel
+				if off_the_band != null:
+					off_the_band.along_the_foot = false
+					off_the_band.place_the_page()
 		else:
 			wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 			if page != null and top_bar != null:
@@ -5232,7 +5250,7 @@ func _build_keys_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "KeysPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# The wrapper is only a placement; the panel inside it takes the clicks, so the drawing
@@ -5594,7 +5612,7 @@ func _build_site_report_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "SiteReportPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5666,7 +5684,7 @@ func _build_survey_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "SurveyPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5776,7 +5794,7 @@ func _build_dxf_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "DxfPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -6037,7 +6055,7 @@ func _build_landxml_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "LandXmlPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -7293,7 +7311,7 @@ func _build_hatch_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "HatchPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -7382,7 +7400,7 @@ func _build_irrigation_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "WaterPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -7504,7 +7522,7 @@ func _build_lighting_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "LightPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
