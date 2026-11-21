@@ -1993,106 +1993,62 @@ var _touch_drawer: PopupMenu = null
 ##
 ## It builds nothing on a computer, and the two plates it wears are the scene's own look drawn again by
 ## `ChromeStyle` - a colour and a corner radius written here would be the drift that file exists to prevent.
+## The furniture's own builders, as doors onto the module that now owns them.
+##
+## This file hands over the nodes it already holds and the doors a press reaches, and words none of it itself:
+## every size, every look and every name comes from `TouchFurniture`. It is a **door rather than a move**, because
+## `tools/touch_hud_workspace.gd` names `_build_touch_furniture` and `_apply_the_touch_plates` from outside, and a
+## development view has to keep working.
+func _furniture() -> TouchFurnitureScript:
+	var furniture: TouchFurnitureScript = TouchFurnitureScript.new()
+	furniture.row = touch_row
+	furniture.dock = touch_dock
+	furniture.strip = touch_strip
+	furniture.strip_row = touch_strip_row
+	furniture.tabs = touch_tabs
+	furniture.sheet = touch_sheet
+	furniture.sheet_close = touch_sheet_close
+	furniture.top_bar = top_bar
+	furniture.app_window = get_window()
+	furniture.drawer_door = _show_the_touch_drawer
+	furniture.layer_door = _show_the_layer_choices
+	furniture.view_door = _turn_the_view
+	furniture.find_door = toggle_command_palette
+	furniture.tab_door = _press_a_touch_tab
+	furniture.close_door = _close_the_touch_sheet
+	return furniture
+
+
 func _build_touch_furniture() -> void:
-	if touch_row == null or touch_dock == null or touch_tabs == null or touch_strip == null:
-		return
-	_build_the_touch_row()
-	_build_the_touch_tabs()
-	_apply_the_touch_plates()
-	if touch_sheet_close != null and not touch_sheet_close.pressed.is_connected(_close_the_touch_sheet):
-		touch_sheet_close.pressed.connect(_close_the_touch_sheet)
+	_furniture().build()
 
 
-## The four controls the top bar carries on a phone, where a desk carries fourteen menus: the drawer, the layer
-## the next shape is drawn on, the view, and the command palette.
-##
-## They are **words rather than the glyphs the shape of this furniture suggests**, and that is measured rather
-## than chosen: this engine draws no glyph the theme's own font does not hold, and the two that read best on
-## paper - a hamburger and a magnifier - are in none of the fonts a build carries. A button wearing an empty box
-## says nothing at all, so each of these says what it does.
 func _build_the_touch_row() -> void:
-	if touch_row.get_child_count() > 0:
-		return
-	touch_row.add_child(_a_touch_button("Menu", "Everything the menus hold", _show_the_touch_drawer))
-	touch_row.add_child(_a_touch_button("Layer", "The layer the next shape is drawn on", _show_the_layer_choices))
-	touch_row.add_child(_a_touch_button("View", "The 2D plan, the 3D view and the ground", _turn_the_view))
-	touch_row.add_child(_a_touch_button("Find", "Find a command by its name", toggle_command_palette))
+	_furniture().build_the_row()
 
 
-## One button of the touch furniture, sized by the same two floors every other control on a device is sized by.
-##
-## **The height is `PhoneHud.row_height`, read rather than restated**, so a control built here and a palette
-## fitted there cannot come out at two different heights on one screen. A button taller than its own row is what
-## puts a control's middle inside a band the device keeps, which is a fault this project has measured twice.
-func _a_touch_button(words: String, tooltip: String, door: Callable) -> Button:
-	var button := Button.new()
-	button.text = words
-	button.tooltip_text = tooltip
-	button.pressed.connect(door)
-	# The focus is off every button the HUD draws, and for the reason the palette's own note keeps: Godot hands
-	# Tab to focus navigation the moment a Control holds it, and a focused button swallows the keys a drawing
-	# tool is driven by.
-	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(0.0, _touch_row_height())
-	button.add_theme_font_size_override("font_size", _touch_type_size())
-	return button
-
-
-## A row's height on this device, in the room's own pixels.
-func _touch_row_height() -> float:
-	return PhoneHudScript.row_height(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
-
-
-## The size words are drawn at on this device: the millimetre floor `PhoneHud` states, never a number chosen here.
-func _touch_type_size() -> int:
-	return PhoneHudScript.font_size(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
-
-
-## The dock's tabs, one per name in `TOUCH_TABS`, each as wide a share of the row as the rest.
 func _build_the_touch_tabs() -> void:
-	if touch_tabs.get_child_count() > 0:
-		return
-	for tab: String in TOUCH_TABS:
-		var button: Button = _a_touch_button(tab, _touch_tab_tooltip(tab), _press_a_touch_tab.bind(tab))
-		button.toggle_mode = true
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		touch_tabs.add_child(button)
+	_furniture().build_the_tabs()
 
 
-## What each tab opens, in the words a person reads on the glass.
-func _touch_tab_tooltip(tab: String) -> String:
-	match tab:
-		"Draw":
-			return "The shapes a plan is drawn with"
-		"Dim":
-			return "The dimensions a plan is measured with"
-		"Edit":
-			return "Change what is already drawn"
-		"Plants":
-			return "The plant library"
-	return "The rest of the menu"
-
-
-## **Show the two plates through `ChromeStyle`, off the plate the scene drew.** The bar's own look is read from
-## `top_bar`, which is the one control in the scene wearing it, so the dock and the strip are the same pane as
-## the bar rather than three panes three people styled. The dock is drawn wide and flat, so its corners are
-## round at the top and square at the foot and its rule runs along the top edge alone; the strip floats, so it
-## keeps every corner and the whole rule. On a desk the plates are still replaced - the look is identical, and a
-## control that is never shown costs nothing.
 func _apply_the_touch_plates() -> void:
-	if top_bar == null:
-		return
-	var drawn: StyleBox = top_bar.get_theme_stylebox(&"panel")
-	if touch_dock != null:
-		touch_dock.add_theme_stylebox_override(&"panel", ChromeStyleScript.dock_plate(drawn, 0.0))
-	if touch_strip != null:
-		touch_strip.add_theme_stylebox_override(&"panel", ChromeStyleScript.floating_plate(drawn))
-	# The sheet wears the plate for the panels anchored to the foot as well: one look, asked of the one function
-	# that derives it from the bar's own. The six panels take theirs in `_place_the_overlay_panels`, which is
-	# where their placement lives and which runs after they have been built.
-	var along_the_foot: StyleBox = _a_dock_plate()
-	if touch_sheet != null and along_the_foot != null:
-		touch_sheet.add_theme_stylebox_override(&"panel", along_the_foot)
+	_furniture().apply_the_plates()
+
+
+func _a_dock_plate() -> StyleBox:
+	return _furniture().a_dock_plate()
+
+
+## A row's height on this device, kept as a door for the placement code below, which asks this question in four
+## places and states no size of its own. The answer is the furniture's, and it is asked of the furniture.
+func _touch_row_height() -> float:
+	return _furniture().row_height()
+
+
+## What a tab opens, in words - also read from outside, by `tests/test_touch_hud.gd`, which asks this script for
+## it rather than reaching for the module.
+func _touch_tab_tooltip(tab: String) -> String:
+	return _furniture().tab_tooltip(tab)
 
 
 ## Say which of the two arrangements is up: the dock and the row of controls, or the palette and the menus.
@@ -2201,12 +2157,6 @@ func _place_the_touch_sheet() -> void:
 ## A sheet anchored to the foot has no visible foot edge, so it is round where a person sees it against the board
 ## and square where it runs off the glass, with its rule along the top edge alone. Every panel that stands there
 ## wears this, and it is `ChromeStyle`'s plate rather than a second one written here.
-func _a_dock_plate() -> StyleBox:
-	if top_bar == null:
-		return null
-	return ChromeStyleScript.dock_plate(top_bar.get_theme_stylebox(&"panel"), 0.0)
-
-
 ## The six panels that stand over the board, as the wrappers the HUD itself built.
 ##
 ## **Named by the HUD's own members rather than by a path.** A list of node paths would go stale the moment one
