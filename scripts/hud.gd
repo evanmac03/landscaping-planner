@@ -2011,6 +2011,14 @@ func _furniture() -> TouchFurnitureScript:
 	furniture.top_bar = top_bar
 	furniture.hints = hints
 	furniture.menu_bar = menu_bar
+	furniture.palette_column = palette_column
+	furniture.sheet_title = touch_sheet_title
+	furniture.tab_in_hand = _touch_tab
+	# The plant sheet, the palette's own tool list and the handing back of a borrowed panel are all this HUD's
+	# business rather than the furniture's, so each arrives as a door.
+	furniture.plant_sheet_door = _open_the_plant_sheet
+	furniture.tools_for_door = _touch_tools_for
+	furniture.hand_back_door = _return_what_the_sheet_borrowed
 	# The finger question and the palette's own gap, both handed over as values: the module asks no device and
 	# states no number, and a view with no HUD can say `true` and still stand the furniture up.
 	furniture.on_a_finger = shows_touch_controls()
@@ -2235,49 +2243,11 @@ func _place_the_overlay_panels() -> void:
 ## **A second press on the tab in hand puts the strip away.** A group is a thing a thumb opens and closes, and
 ## the room above the dock belongs to the board whenever nothing is being chosen - which is most of the time.
 func _press_a_touch_tab(tab: String) -> void:
-	var putting_it_away: bool = tab == _touch_tab and touch_strip != null and touch_strip.visible
-	if tab == "Plants":
-		_touch_tab = tab
-		_mark_the_touch_tab()
-		_open_the_plant_sheet()
-		return
-	if tab == "More":
-		_touch_tab = tab
-		_mark_the_touch_tab()
-		_show_the_touch_drawer()
-		return
-	if putting_it_away:
-		_touch_tab = ""
-		if touch_strip != null:
-			touch_strip.visible = false
-		_put_the_touch_tools_back()
-		_mark_the_touch_tab()
-		return
-	_touch_tab = tab
-	_mark_the_touch_tab()
-	_put_the_touch_tools_back()
-	var wanted: Array[Button] = _touch_tools_for(tab)
-	if touch_strip == null or touch_strip_row == null:
-		return
-	touch_strip.visible = not wanted.is_empty()
-	for button: Button in wanted:
-		button.reparent(touch_strip_row, false)
-	_fit_the_touch_strip.call_deferred()
+	_furniture().press_a_tab(tab)
 
 
-## Say which tab is in hand, on the tabs themselves.
-##
-## A toggle button that is down is the whole of what a person is told about which group the strip is showing,
-## and nothing else on the screen says it: the strip's own buttons carry no group name, because a tool's name is
-## its own. The tabs are told here rather than left to the engine's own toggling, so the row cannot come to show
-## two tabs down - which is what a press the engine toggled while this file cleared a different one would do.
 func _mark_the_touch_tab() -> void:
-	if touch_tabs == null:
-		return
-	for child: Node in touch_tabs.get_children():
-		if child is Button:
-			var button: Button = child as Button
-			button.button_pressed = button.text == _touch_tab
+	_furniture().mark_the_tab()
 
 
 ## The buttons one group tab shows: the palette's own, filtered - never a second list of tools.
@@ -2302,28 +2272,12 @@ func _touch_tools_for(tab: String) -> Array[Button]:
 ## planted stays on the screen while the picker is in hand. Opening one puts the strip away, because the two
 ## share the room above the dock and a strip left standing under a sheet is furniture with nothing to do.
 func _open_the_touch_sheet(title: String) -> void:
-	if touch_sheet == null:
-		return
-	_put_the_touch_tools_back()
-	if touch_strip != null:
-		touch_strip.visible = false
-	if touch_sheet_title != null:
-		touch_sheet_title.text = title
-	touch_sheet.visible = true
-	_place_the_touch_sheet.call_deferred()
+	_furniture().open_the_sheet(title)
 
 
 ## Close the sheet and hand back whatever it borrowed.
 func _close_the_touch_sheet() -> void:
-	if touch_sheet == null or not touch_sheet.visible:
-		return
-	touch_sheet.visible = false
-	_return_what_the_sheet_borrowed()
-	# The tab that opened it is no longer holding anything, so it comes up with the sheet: a tab left down over
-	# an empty stretch of board would say a group is being shown when nothing is.
-	if _touch_tab == "Plants":
-		_touch_tab = ""
-		_mark_the_touch_tab()
+	_furniture().close_the_sheet()
 
 
 ## **The sheet borrows; it does not copy.** The plant picker is `PalettePanel`'s own panel - the very one a desk
@@ -2352,20 +2306,11 @@ func _return_what_the_sheet_borrowed() -> void:
 
 ## Return every button standing in the strip to the column it was built in.
 func _put_the_touch_tools_back() -> void:
-	if palette_column == null or touch_strip_row == null:
-		return
-	for child: Node in touch_strip_row.get_children():
-		if child is Button:
-			(child as Button).reparent(palette_column, false)
+	_furniture().put_the_tools_back()
 
 
-## Lay the strip's buttons out for a finger, on the frame after they were moved: a control asked for a size
-## before it has laid out answers the size it had before, which is the reason every fitting in this file is
-## deferred.
 func _fit_the_touch_strip() -> void:
-	if touch_strip_row == null:
-		return
-	ToolPaletteScript.fit_a_strip(touch_strip_row, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	_furniture().fit_the_strip()
 
 
 ## Show the drawer: the whole plan gathered as one popup of one submenu per menu.
@@ -2407,21 +2352,7 @@ static func touch_drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
 ## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the
 ## bar's own menus keep the same fitting for the same reason.
 func _where_the_drawer_stands(drawer: PopupMenu) -> void:
-	# The row if it is there and the bar otherwise, written as its own assignment rather than as a ternary:
-	# the two are siblings with no common ancestor below `Control`, and GDScript refuses a conditional whose
-	# values it cannot reconcile - which is a parse error, not a warning.
-	var anchor: Control = top_bar
-	if touch_row != null:
-		anchor = touch_row
-	if anchor != null:
-		var where: Rect2 = anchor.get_global_rect()
-		drawer.position = Vector2i((where.position + Vector2(0.0, where.size.y)).round())
-	if shows_touch_controls():
-		PhoneHudScript.fit_the_chrome_for_a_finger(
-			drawer,
-			PhoneHudScript.canvas_scale(get_window()),
-			PhoneHudScript.dpi(),
-		)
+	_furniture().where_the_drawer_stands(drawer)
 
 
 ## The layers the next shape can be drawn on, offered as a popup.

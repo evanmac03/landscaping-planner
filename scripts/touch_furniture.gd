@@ -84,6 +84,9 @@ static func drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
 const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 
+## The palette's own fitting of a strip of borrowed buttons, which is what lays the strip out for a finger.
+const ToolPaletteScript := preload("res://scripts/tool_palette.gd")
+
 
 # --- what it is given, and what it connects -----------------------------------------------------------------
 #
@@ -345,3 +348,141 @@ func place_the_sheet() -> void:
 	sheet.offset_right = -margin
 	sheet.offset_bottom = -above_the_dock
 	sheet.offset_top = -(above_the_dock + tall)
+
+
+## The palette whose buttons the strip borrows, and the sheet's own title.
+var palette_column: PalettePanel = null
+var sheet_title: Label = null
+
+## **Which tab is in hand, held here because it is the furniture's own state**: it is what the tabs are marked
+## from and what a second press of the same tab reads to know it is putting the strip away.
+var tab_in_hand: String = ""
+
+## What pressing the Plants tab opens, what the strip's buttons are chosen by, and what a closing sheet hands
+## back. Each is the HUD's own business - the plant picker, the palette's tool list - so each is a door.
+var plant_sheet_door: Callable = Callable()
+var tools_for_door: Callable = Callable()
+var hand_back_door: Callable = Callable()
+
+
+## Press a tab: show its tools, open what it opens, or put the strip away when it was already in hand.
+func press_a_tab(tab: String) -> void:
+	var putting_it_away: bool = tab == tab_in_hand and strip != null and strip.visible
+	if tab == "Plants":
+		tab_in_hand = tab
+		mark_the_tab()
+		if plant_sheet_door.is_valid():
+			plant_sheet_door.call()
+		return
+	if tab == "More":
+		tab_in_hand = tab
+		mark_the_tab()
+		if drawer_door.is_valid():
+			drawer_door.call()
+		return
+	if putting_it_away:
+		tab_in_hand = ""
+		if strip != null:
+			strip.visible = false
+		put_the_tools_back()
+		mark_the_tab()
+		return
+	tab_in_hand = tab
+	mark_the_tab()
+	put_the_tools_back()
+	if not tools_for_door.is_valid():
+		return
+	var wanted: Array[Button] = Array(tools_for_door.call(tab), TYPE_OBJECT, &"Array", [Button]) as Array[Button]
+	if strip == null or strip_row == null:
+		return
+	strip.visible = not wanted.is_empty()
+	for button: Button in wanted:
+		button.reparent(strip_row, false)
+	Callable(self, &"fit_the_strip").call_deferred()
+
+
+## Say which tab is in hand, on the tabs themselves.
+##
+## A toggle button that is down is the whole of what a person is told about which group the strip is showing,
+## and nothing else on the screen says it: the strip's own buttons carry no group name, because a tool's name is
+## its own. The tabs are told here rather than left to the engine's own toggling, so the row cannot come to show
+## two tabs down - which is what a press the engine toggled while this file cleared a different one would do.
+func mark_the_tab() -> void:
+	if tabs == null:
+		return
+	for child: Node in tabs.get_children():
+		if child is Button:
+			var button: Button = child as Button
+			button.button_pressed = button.text == tab_in_hand
+
+
+## Open the sheet: a plate over the board's foot, titled and closable, holding whatever a tab put in it.
+##
+## **A sheet rather than a page.** A page is a `Window` the width of the screen, and it is where a person goes to
+## do something; a sheet stands over part of the board, which is what choosing a plant wants - the bed being
+## planted stays on the screen while the picker is in hand. Opening one puts the strip away, because the two
+## share the room above the dock and a strip left standing under a sheet is furniture with nothing to do.
+func open_the_sheet(title: String) -> void:
+	if sheet == null:
+		return
+	put_the_tools_back()
+	if strip != null:
+		strip.visible = false
+	if sheet_title != null:
+		sheet_title.text = title
+	sheet.visible = true
+	Callable(self, &"place_the_sheet").call_deferred()
+
+
+## Close the sheet and hand back whatever it borrowed.
+func close_the_sheet() -> void:
+	if sheet == null or not sheet.visible:
+		return
+	sheet.visible = false
+	if hand_back_door.is_valid():
+		hand_back_door.call()
+	# The tab that opened it is no longer holding anything, so it comes up with the sheet: a tab left down over
+	# an empty stretch of board would say a group is being shown when nothing is.
+	if tab_in_hand == "Plants":
+		tab_in_hand = ""
+		mark_the_tab()
+
+
+## Return every button standing in the strip to the column it was built in.
+func put_the_tools_back() -> void:
+	if palette_column == null or strip_row == null:
+		return
+	for child: Node in strip_row.get_children():
+		if child is Button:
+			(child as Button).reparent(palette_column, false)
+
+
+## Lay the strip's buttons out for a finger, on the frame after they were moved: a control asked for a size
+## before it has laid out answers the size it had before, which is the reason every fitting here is deferred.
+func fit_the_strip() -> void:
+	if strip_row == null:
+		return
+	ToolPaletteScript.fit_a_strip(strip_row, PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi())
+
+
+## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the
+## bar's own menus keep the same fitting for the same reason.
+##
+## The drawer's *popup* is not built here: it is filled by the bar's own renderer, so it is the bar's business
+## and stays where that renderer is. Where it stands is furniture, and that is what this decides.
+func where_the_drawer_stands(drawer: PopupMenu) -> void:
+	# The row if it is there and the bar otherwise, written as its own assignment rather than as a ternary:
+	# the two are siblings with no common ancestor below `Control`, and GDScript refuses a conditional whose
+	# values it cannot reconcile - which is a parse error, not a warning.
+	var anchor: Control = top_bar
+	if row != null:
+		anchor = row
+	if anchor != null:
+		var where: Rect2 = anchor.get_global_rect()
+		drawer.position = Vector2i((where.position + Vector2(0.0, where.size.y)).round())
+	if on_a_finger:
+		PhoneHudScript.fit_the_chrome_for_a_finger(
+			drawer,
+			PhoneHudScript.canvas_scale(app_window),
+			PhoneHudScript.dpi(),
+		)
