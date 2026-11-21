@@ -28,6 +28,7 @@ class StubView:
 
 	var controller: Node = null
 
+
 	func draft_controller() -> Node:
 		return controller
 
@@ -45,12 +46,9 @@ func test_the_builder_follows_a_drawing_that_is_opened() -> void:
 	# A drawing with a building on it, filed where it can be opened again.
 	var building_id: int = controller.document.add(
 		Entity.make_rectangle(Vector2(2.0, 3.0), Vector2(6.0, 4.0)),
-		LayerSet.EXISTING_STRUCTURE
+		LayerSet.EXISTING_STRUCTURE,
 	)
-	assert(
-		bool(controller.save_drawing(DRAWING_PATH)["ok"]),
-		"the test's drawing could not be written"
-	)
+	assert(bool(controller.save_drawing(DRAWING_PATH)["ok"]), "the test's drawing could not be written")
 	builder.rebuild()
 	assert(builder.loft_count() == 1, "a building on the drawing should stand as one solid")
 
@@ -62,19 +60,10 @@ func test_the_builder_follows_a_drawing_that_is_opened() -> void:
 	assert(builder.loft_count() == 0, "the building was removed but is still standing")
 
 	# Open the file. This *replaces* the document, and it is the act the whole test exists for.
-	assert(
-		controller.open_drawing(DRAWING_PATH),
-		"the test's drawing could not be opened"
-	)
-	assert(
-		builder.document == controller.document,
-		"the builder is still deriving the drawing that was replaced"
-	)
+	assert(controller.open_drawing(DRAWING_PATH), "the test's drawing could not be opened")
+	assert(builder.document == controller.document, "the builder is still deriving the drawing that was replaced")
 	builder.rebuild()
-	assert(
-		builder.loft_count() == 1,
-		"the building in the opened drawing is not standing"
-	)
+	assert(builder.loft_count() == 1, "the building in the opened drawing is not standing")
 
 	builder.queue_free()
 	stub.queue_free()

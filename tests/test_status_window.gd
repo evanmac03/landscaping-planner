@@ -10,7 +10,6 @@ extends Node
 const WindowScript := preload("res://scripts/status_window.gd")
 const HistoryScript := preload("res://scripts/draft/status_history.gd")
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -28,7 +27,6 @@ func _holding(lines: Array) -> StatusWindow:
 		history.note(line)
 	page.set_history(history)
 	return page
-
 
 # --- the controls it has --------------------------------------------------------------
 
@@ -65,13 +63,12 @@ func test_the_page_is_built_once_however_many_times_it_is_asked_for() -> void:
 	page.free()
 
 
-func test_nothing_in_the_rows_takes_the_keyboard() -> void:
-	# Sentences to read, not a list to drive: whether the page keeps the reader's keys to itself is what
-	# decides whether Escape reaches it at all.
+func test_the_rows_are_built_without_a_keyboard_of_their_own() -> void:
+	# Sentences to read, not a list to drive. This asserts how the page *builds* the rows; what an open page
+	# does with the keyboard is the shared show's business, and is measured live rather than here.
 	var page := _holding(["line added", "shape added"])
-	assert(page.rows_are_keyboard_free(), "the rows hold no focus")
+	assert(page.rows_are_keyboard_free(), "the rows are built with no focus of their own")
 	page.free()
-
 
 # --- what it shows --------------------------------------------------------------------
 
@@ -135,13 +132,14 @@ func test_the_hint_is_the_guidance_and_the_status_is_what_the_page_did() -> void
 	var page := _holding(["line added"])
 	assert(page.said() == "", "the page has not done anything yet")
 	assert(page.status_text() == "", "so its status line says nothing")
-	assert(page.hint() == "the top row is what the plan is saying now, and it changes as you work.",
-		page.hint())
+	assert(page.hint() == "the top row is what the plan is saying now, and it changes as you work.", page.hint())
 	page.say("read back from the drawing")
 	assert(page.said() == "read back from the drawing", page.said())
 	assert(page.status_text() == "read back from the drawing", page.status_text())
-	assert(page.hint() == "the top row is what the plan is saying now, and it changes as you work.",
-		"and the guidance did not move")
+	assert(
+		page.hint() == "the top row is what the plan is saying now, and it changes as you work.",
+		"and the guidance did not move",
+	)
 	page.free()
 
 
@@ -157,14 +155,16 @@ func test_what_the_page_says_when_it_is_opened_is_the_last_thing_the_drawing_sai
 	assert(none.opening_words() == WindowScript.NO_DRAWING, none.opening_words())
 	none.free()
 
-
 # --- putting it away ------------------------------------------------------------------
 
 
 func test_closing_it_puts_it_away_and_says_so_once() -> void:
 	var page := _holding(["line added"])
 	var heard: Array[String] = []
-	page.closed.connect(func() -> void: heard.append("closed"))
+	page.closed.connect(
+		func() -> void:
+			heard.append("closed"),
+	)
 	page.request_close()
 	assert(not page.visible, "the page is away")
 	assert(heard.size() == 1, "and it said so once")
@@ -174,7 +174,10 @@ func test_closing_it_puts_it_away_and_says_so_once() -> void:
 func test_the_close_button_and_the_windows_own_close_are_the_same_door() -> void:
 	var page := _holding(["line added"])
 	var heard: Array[String] = []
-	page.closed.connect(func() -> void: heard.append("closed"))
+	page.closed.connect(
+		func() -> void:
+			heard.append("closed"),
+	)
 	var close_button := page.get_node_or_null(^"Column/Buttons/CloseButton") as Button
 	assert(close_button != null, "there is a Close button")
 	close_button.pressed.emit()

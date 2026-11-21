@@ -38,16 +38,18 @@ func _get_all_layers() -> Array[Dictionary]:
 	if document == null:
 		return result
 	for layer in document.layers.layers():
-		result.append({
-			"name": layer.name,
-			"purpose": layer.purpose,
-			"colour": layer.screen_colour,
-			"weight": layer.plot_weight_mm,
-			"linetype": layer.linetype,
-			"plots": layer.plots,
-			"is_locked": layer.locked,
-			"is_frozen": not layer.visible,
-		})
+		result.append(
+			{
+				"name": layer.name,
+				"purpose": layer.purpose,
+				"colour": layer.screen_colour,
+				"weight": layer.plot_weight_mm,
+				"linetype": layer.linetype,
+				"plots": layer.plots,
+				"is_locked": layer.locked,
+				"is_frozen": not layer.visible,
+			}
+		)
 	return result
 
 

@@ -27,15 +27,22 @@ const NOW := "2026-04-01"
 const WEEK_FROM := "2026-03-01"
 const WEEK_TO := "2026-03-07"
 
-
 # --- fixtures -----------------------------------------------------------------------------------
 
 
 ## A lead with a history: it arrived, it was proposed on a date if one is given, and it ended where it
 ## ended. Every date is an argument, because every figure here is measured on one.
-func _lead(lead_id: String, source: StringName, cents: int, arrived: String, stage: int,
-		decided: String = "", proposed: String = "", reason: StringName = &"",
-		expected: String = "") -> LeadScript:
+func _lead(
+	lead_id: String,
+	source: StringName,
+	cents: int,
+	arrived: String,
+	stage: int,
+	decided: String = "",
+	proposed: String = "",
+	reason: StringName = &"",
+	expected: String = "",
+) -> LeadScript:
 	var lead: LeadScript = LeadScript.new(lead_id, "Lead %s" % lead_id)
 	lead.source = source
 	lead.value_estimate = MoneyScript.of(cents)
@@ -60,11 +67,9 @@ func _pipeline() -> PipelineScript:
 	var pipe: PipelineScript = PipelineScript.new()
 	pipe.add(_lead("A", &"web", 1000000, "2025-11-02", LeadScript.WON, "2026-02-10", "2026-01-05"))
 	pipe.add(_lead("B", &"web", 3000000, "2025-12-01", LeadScript.WON, "2026-03-05", "2026-02-01"))
-	pipe.add(_lead("C", &"referral", 2000000, "2025-10-01", LeadScript.LOST, "2026-01-20",
-		"2025-11-15", &"price"))
+	pipe.add(_lead("C", &"referral", 2000000, "2025-10-01", LeadScript.LOST, "2026-01-20", "2025-11-15", &"price"))
 	pipe.add(_lead("D", &"sign", 500000, "2026-02-01", LeadScript.WITHDRAWN, "2026-03-02"))
-	pipe.add(_lead("E", &"web", 4000000, "2026-01-05", LeadScript.PROPOSED, "", "2026-01-20",
-		&"", "2026-03-20"))
+	pipe.add(_lead("E", &"web", 4000000, "2026-01-05", LeadScript.PROPOSED, "", "2026-01-20", &"", "2026-03-20"))
 	pipe.add(_lead("F", &"repeat", 1500000, "2026-02-20", LeadScript.VISIT))
 	return pipe
 
@@ -78,12 +83,12 @@ func _job_desk() -> JobDeskScript:
 	job.number = "J-1"
 	job.contract_sum = MoneyScript.of(2000000)
 	job.phases = [
-		{"cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE},
-		{"cost_code": "PLANTING", "budget": MoneyScript.of(400000), "basis": JobScript.PRICE},
+		{ "cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE },
+		{ "cost_code": "PLANTING", "budget": MoneyScript.of(400000), "basis": JobScript.PRICE },
 	]
 	desk.add_job(job)
 	var peter: CrewScript = CrewScript.new(&"P1", "Peter")
-	peter.add_availability({"kind": "DAY_OFF", "weekday": 0})
+	peter.add_availability({ "kind": "DAY_OFF", "weekday": 0 })
 	desk.add_crew(peter)
 	desk.add_crew(CrewScript.new(&"P2", "Paul"))
 	return desk
@@ -92,8 +97,7 @@ func _job_desk() -> JobDeskScript:
 ## An entry that really lasts `minutes`, starting at eight in the morning on a given day, approved or
 ## not. The end time is worked out from the duration rather than typed, so `minutes()` is what the test
 ## asked for and not what a mistyped clock happens to give.
-func _entry(entry_id: String, member: StringName, day: String, minutes: int,
-		approved: bool = true) -> EntryScript:
+func _entry(entry_id: String, member: StringName, day: String, minutes: int, approved: bool = true) -> EntryScript:
 	var entry: EntryScript = EntryScript.new(entry_id)
 	entry.job = "J1"
 	entry.cost_code = &"HARDSCAPE"
@@ -111,8 +115,7 @@ func _entry(entry_id: String, member: StringName, day: String, minutes: int,
 ## built the way a file hands one back: the stage and the decision date set with no reason beside them,
 ## which is the state the win/loss report has to cope with.
 func _unreasoned_loss(lead_id: String, cents: int, decided: String) -> LeadScript:
-	var lead: LeadScript = _lead(lead_id, &"sign", cents, "2025-09-01", LeadScript.PROPOSED, "",
-		"2025-10-01")
+	var lead: LeadScript = _lead(lead_id, &"sign", cents, "2025-09-01", LeadScript.PROPOSED, "", "2025-10-01")
 	lead.stage = LeadScript.LOST
 	lead.closed_at = decided
 	return lead
@@ -127,13 +130,19 @@ func _billing(job_records: JobDeskScript) -> BillingDeskScript:
 ## An issued invoice for a job, worth `cents` before tax, due `terms` days after it went out. The tax
 ## code is EXEMPT so the balance is the amount and nothing else - an ageing test should not be arithmetic
 ## about tax.
-func _invoice(number: String, job_label: String, cents: int, issued_at: String,
-		terms: int = 30) -> InvoiceScript:
+func _invoice(number: String, job_label: String, cents: int, issued_at: String, terms: int = 30) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("I-%s" % number)
 	invoice.job = job_label
-	invoice.customer = {"name": "Smith"}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(cents), &"HARDSCAPE", &"EXEMPT")
+	invoice.customer = { "name": "Smith" }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(cents),
+		&"HARDSCAPE",
+		&"EXEMPT",
+	)
 	assert(bool(invoice.issue(issued_at, terms, number)["ok"]), "the fixture invoice should issue")
 	return invoice
 
@@ -154,22 +163,30 @@ func _analytics(with_billing: bool = true) -> AnalyticsScript:
 	return made
 
 
-func _text_of(made: AnalyticsScript, key: String, from: String = FROM, to: String = TO,
-		now: String = NOW) -> String:
+func _text_of(made: AnalyticsScript, key: String, from: String = FROM, to: String = TO, now: String = NOW) -> String:
 	return made.figure(key, from, to, now).text()
-
 
 # --- the table ----------------------------------------------------------------------------------
 
 
 func test_every_figure_the_specification_lists_is_here_once_and_in_order() -> void:
 	var expected: Array[String] = [
-		"funnel", "win_rate", "lost_reasons", "average_sale", "average_cycle", "source_performance",
-		"pipeline_value", "slipped", "job_profitability", "cost_tracking", "backlog", "wip",
-		"ar_aging", "crew_utilisation",
+		"funnel",
+		"win_rate",
+		"lost_reasons",
+		"average_sale",
+		"average_cycle",
+		"source_performance",
+		"pipeline_value",
+		"slipped",
+		"job_profitability",
+		"cost_tracking",
+		"backlog",
+		"wip",
+		"ar_aging",
+		"crew_utilisation",
 	]
-	assert(AnalyticsScript.KEYS == expected,
-		"the keys are the table's own figures: %s" % str(AnalyticsScript.KEYS))
+	assert(AnalyticsScript.KEYS == expected, "the keys are the table's own figures: %s" % str(AnalyticsScript.KEYS))
 
 
 func test_every_figure_names_its_basis_and_its_label() -> void:
@@ -188,17 +205,16 @@ func test_a_report_over_nothing_refuses_the_figures_that_need_records() -> void:
 	var made: AnalyticsScript = AnalyticsScript.new()
 	var missing := made.unavailable()
 	assert(missing.size() >= 12, "almost every figure has nothing to read: %d" % missing.size())
-	assert(made.figure("funnel").missing.contains("no pipeline is loaded"),
-		made.figure("funnel").missing)
-	assert(made.figure("ar_aging").missing.contains("no billing ledger is loaded"),
-		made.figure("ar_aging").missing)
+	assert(made.figure("funnel").missing.contains("no pipeline is loaded"), made.figure("funnel").missing)
+	assert(made.figure("ar_aging").missing.contains("no billing ledger is loaded"), made.figure("ar_aging").missing)
 
 
 func test_describe_says_what_the_report_can_read() -> void:
-	assert(AnalyticsScript.new().describe() == "analytics with nothing to read",
-		AnalyticsScript.new().describe())
-	assert(_analytics().describe() == "analytics over the pipeline, the job desk, the billing ledger",
-		_analytics().describe())
+	assert(AnalyticsScript.new().describe() == "analytics with nothing to read", AnalyticsScript.new().describe())
+	assert(
+		_analytics().describe() == "analytics over the pipeline, the job desk, the billing ledger",
+		_analytics().describe(),
+	)
 
 
 func test_a_basis_is_printed_with_every_line() -> void:
@@ -209,18 +225,15 @@ func test_a_basis_is_printed_with_every_line() -> void:
 
 func test_a_window_with_no_ends_is_every_date_and_one_sided_windows_read_as_they_are() -> void:
 	assert(AnalyticsScript.window_text("", "") == "every date", AnalyticsScript.window_text("", ""))
-	assert(AnalyticsScript.window_text(FROM, "") == "everything from %s" % FROM,
-		AnalyticsScript.window_text(FROM, ""))
-	assert(AnalyticsScript.window_text("", TO) == "everything up to %s" % TO,
-		AnalyticsScript.window_text("", TO))
-
+	assert(AnalyticsScript.window_text(FROM, "") == "everything from %s" % FROM, AnalyticsScript.window_text(FROM, ""))
+	assert(AnalyticsScript.window_text("", TO) == "everything up to %s" % TO, AnalyticsScript.window_text("", TO))
 
 # --- the pipeline figures -----------------------------------------------------------------------
 
 
 func test_the_funnel_counts_where_a_lead_entered_a_stage_not_where_it_is_now() -> void:
 	var rows: Array = _analytics().figure("funnel", FROM, TO, NOW).value
-	var counts: Dictionary = {}
+	var counts: Dictionary = { }
 	for held in rows:
 		counts[int(held["stage"])] = int(held["count"])
 	# A and B arrived in November and December, which is outside this window, but both were proposed
@@ -267,8 +280,7 @@ func test_a_win_rate_over_a_loss_that_said_no_reason_is_refused_naming_how_many(
 	var made: AnalyticsScript = AnalyticsScript.new(pipe)
 	var figure: AnalyticsScript.Figure = made.figure("win_rate", FROM, TO, NOW)
 	assert(not figure.ok, "a blank reason is what the report is made of and it is missing")
-	assert(figure.missing == "win rate unavailable: 1 of 5 closed leads have no lost reason",
-		figure.missing)
+	assert(figure.missing == "win rate unavailable: 1 of 5 closed leads have no lost reason", figure.missing)
 
 
 func test_lost_reasons_are_tallied_by_reason_with_what_they_were_worth() -> void:
@@ -320,9 +332,7 @@ func test_average_cycle_measures_lead_to_close_and_estimate_to_decision() -> voi
 func test_a_cycle_whose_wins_recorded_no_proposal_says_that_half_is_unknown() -> void:
 	var pipe: PipelineScript = PipelineScript.new()
 	pipe.add(_lead("A", &"web", 1000000, "2026-01-02", LeadScript.WON, "2026-02-10"))
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(pipe).figure(
-		"average_cycle", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(pipe).figure("average_cycle", FROM, TO, NOW)
 	assert(figure.ok, figure.missing)
 	assert(int(figure.value["proposed_count"]) == 0, str(figure.value))
 	assert(figure.words.contains("no won lead recorded a proposal date"), figure.words)
@@ -370,7 +380,6 @@ func test_slipped_needs_an_as_of_date_too() -> void:
 	assert(not figure.ok, "nothing is late without a moment to be late at")
 	assert(figure.missing.contains("an as-of date is needed"), figure.missing)
 
-
 # --- the job figures ----------------------------------------------------------------------------
 
 
@@ -392,18 +401,14 @@ func test_a_job_with_no_budget_says_its_margin_is_not_known_rather_than_zero() -
 	var desk: JobDeskScript = _job_desk()
 	desk.jobs[0].phases = []
 	desk.log_time(_entry("T1", &"P1", "2026-03-03", 480))
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure(
-		"job_profitability", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure("job_profitability", FROM, TO, NOW)
 	assert(figure.ok, figure.missing)
 	assert(not bool(figure.value[0]["margin_known"]), str(figure.value[0]))
 	assert(figure.words.contains("1 job(s) have no margin"), figure.words)
 
 
 func test_job_profitability_with_no_job_desk_is_refused() -> void:
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(_pipeline()).figure(
-		"job_profitability", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(_pipeline()).figure("job_profitability", FROM, TO, NOW)
 	assert(not figure.ok, "there is no job desk to report on")
 	assert(figure.missing.contains("no job desk is loaded"), figure.missing)
 
@@ -441,18 +446,14 @@ func test_backlog_reads_the_invoices_and_not_the_desk_dictionary() -> void:
 func test_backlog_falls_back_to_the_desks_own_figure_and_says_that_it_has() -> void:
 	var desk: JobDeskScript = _job_desk()
 	desk.invoiced["J1"] = MoneyScript.of(500000)
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure(
-		"backlog", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure("backlog", FROM, TO, NOW)
 	assert(figure.ok, figure.missing)
 	assert(int(figure.value["cents"]) == 1500000, str(figure.value))
 	assert(figure.words.contains("no ledger is loaded"), figure.words)
 
 
 func test_backlog_with_nothing_recorded_as_billed_is_refused_naming_the_job() -> void:
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, _job_desk()).figure(
-		"backlog", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, _job_desk()).figure("backlog", FROM, TO, NOW)
 	assert(not figure.ok, "nothing says what has been billed, so what is left cannot be worked out")
 	assert(figure.missing.contains("nothing is recorded as billed against Smith"), figure.missing)
 
@@ -460,9 +461,7 @@ func test_backlog_with_nothing_recorded_as_billed_is_refused_naming_the_job() ->
 func test_a_job_billed_past_its_agreement_is_named_rather_than_hidden() -> void:
 	var desk: JobDeskScript = _job_desk()
 	desk.invoiced["J1"] = MoneyScript.of(2500000)
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure(
-		"backlog", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk).figure("backlog", FROM, TO, NOW)
 	assert(figure.ok, figure.missing)
 	assert(int(figure.value["cents"]) == -500000, str(figure.value))
 	assert(figure.words.contains("Smith has been billed past what was agreed"), figure.words)
@@ -476,12 +475,9 @@ func test_work_in_progress_is_cost_incurred_against_billed_to_date() -> void:
 
 
 func test_work_in_progress_with_nothing_billed_is_refused_rather_than_read_as_nothing() -> void:
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, _job_desk()).figure(
-		"wip", FROM, TO, NOW
-	)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, _job_desk()).figure("wip", FROM, TO, NOW)
 	assert(not figure.ok, "cost against billing needs a billed figure")
 	assert(figure.missing.contains("cost against billing cannot be worked out"), figure.missing)
-
 
 # --- money owed ---------------------------------------------------------------------------------
 
@@ -513,21 +509,29 @@ func test_ageing_leaves_out_a_void_invoice_and_one_that_never_went_out() -> void
 	ledger.invoices.append(voided)
 	var draft: InvoiceScript = InvoiceScript.new("I-DRAFT")
 	draft.job = "J-1"
-	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(70000), &"HARDSCAPE", &"EXEMPT")
-	ledger.invoices.append(draft)
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk, ledger).figure(
-		"ar_aging", FROM, TO, NOW
+	draft.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(70000),
+		&"HARDSCAPE",
+		&"EXEMPT",
 	)
+	ledger.invoices.append(draft)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk, ledger).figure("ar_aging", FROM, TO, NOW)
 	assert(int(figure.value["count"]) == 1, str(figure.value))
 	assert(int(figure.value["cents"]) == 100000, str(figure.value))
 
 
 func test_ageing_says_nothing_is_unpaid_rather_than_showing_four_zeroes() -> void:
 	var desk: JobDeskScript = _job_desk()
-	var figure: AnalyticsScript.Figure = AnalyticsScript.new(
-		null, desk, _billing(desk)
-	).figure("ar_aging", FROM, TO, NOW)
+	var figure: AnalyticsScript.Figure = AnalyticsScript.new(null, desk, _billing(desk)).figure(
+		"ar_aging",
+		FROM,
+		TO,
+		NOW,
+	)
 	assert(figure.ok, figure.missing)
 	assert(int(figure.value["count"]) == 0, str(figure.value))
 	assert(figure.words == "nothing is unpaid", figure.words)
@@ -537,7 +541,6 @@ func test_ageing_needs_an_as_of_date_because_an_age_is_an_age_today() -> void:
 	var figure: AnalyticsScript.Figure = _analytics().figure("ar_aging", FROM, TO, "")
 	assert(not figure.ok, "there is no age without a moment to age against")
 	assert(figure.missing.contains("an as-of date is needed"), figure.missing)
-
 
 # --- hours --------------------------------------------------------------------------------------
 
@@ -574,8 +577,10 @@ func test_an_unapproved_entry_is_not_an_hour_worked() -> void:
 	var figure: AnalyticsScript.Figure = _analytics().figure("crew_utilisation", WEEK_FROM, WEEK_TO)
 	for held in figure.value["rows"]:
 		if String(held["crew"]) == "P1":
-			assert(int(held["approved_minutes"]) == 480,
-				"the 300 minute entry nobody approved is not hours: %s" % str(held))
+			assert(
+				int(held["approved_minutes"]) == 480,
+				"the 300 minute entry nobody approved is not hours: %s" % str(held),
+			)
 
 
 func test_a_day_of_its_own_gives_a_whole_day_of_utilisation() -> void:
@@ -606,7 +611,6 @@ func test_a_crew_member_nobody_scheduled_shows_no_hours_but_is_still_listed() ->
 	assert(int(rows[2]["approved_minutes"]) == 0, str(rows[2]))
 	assert(int(rows[2]["ppm"]) == 0, str(rows[2]))
 
-
 # --- recomputable, and nothing cached -----------------------------------------------------------
 
 
@@ -619,12 +623,15 @@ func test_a_past_window_is_the_same_answer_when_it_is_asked_again_later() -> voi
 	# February and March get busier, and a report for a window that has already closed must not move
 	# because of it (REQ-B15, AC-B17).
 	made.pipeline.add(_lead("Z", &"web", 9000000, "2026-02-25", LeadScript.WON, "2026-03-20"))
-	made.pipeline.add(_lead("Y", &"web", 9000000, "2026-03-01", LeadScript.LOST, "2026-03-25",
-		"", &"timing"))
-	assert(made.figure("funnel", past_from, past_to, NOW).text() == before,
-		"a window that closed before either arrival cannot have changed")
-	assert(made.figure("funnel", FROM, TO, NOW).text() != whole_before,
-		"and the window they did arrive in must have changed")
+	made.pipeline.add(_lead("Y", &"web", 9000000, "2026-03-01", LeadScript.LOST, "2026-03-25", "", &"timing"))
+	assert(
+		made.figure("funnel", past_from, past_to, NOW).text() == before,
+		"a window that closed before either arrival cannot have changed",
+	)
+	assert(
+		made.figure("funnel", FROM, TO, NOW).text() != whole_before,
+		"and the window they did arrive in must have changed",
+	)
 
 
 func test_the_same_report_asked_twice_is_the_same_report() -> void:
@@ -661,9 +668,13 @@ func test_what_could_not_be_worked_out_names_its_own_missing_input() -> void:
 	var made: AnalyticsScript = AnalyticsScript.new(_pipeline())
 	made.set_working_day(480)
 	var missing := made.unavailable(FROM, TO, "")
-	assert(missing.has("Pipeline value unavailable: an as-of date is needed, because what is open is open now"),
-		str(missing))
-	assert(missing.has("Crew utilisation unavailable: no job desk is loaded, so there are no crews or timesheets"),
-		str(missing))
+	assert(
+		missing.has("Pipeline value unavailable: an as-of date is needed, because what is open is open now"),
+		str(missing),
+	)
+	assert(
+		missing.has("Crew utilisation unavailable: no job desk is loaded, so there are no crews or timesheets"),
+		str(missing),
+	)
 	for line: String in missing:
 		assert(line.contains("unavailable"), line)

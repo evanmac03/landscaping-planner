@@ -45,6 +45,29 @@ enum Kind {
 ## nothing, and committing a 0.000 mm line is a drafting mistake, not geometry.
 const MIN_SIZE := 1e-6
 
+## The drawing tools, in the order the number keys select them: the action that
+## selects one, the wording it is introduced by, and the tool it puts in your hand.
+##
+## One table serves both the key legend and the palette, so a tool cannot appear in
+## one and be missing from the other, and neither can describe a different tool from
+## the one the key selects.
+##
+## The *key* is read from the input map rather than written here, which is the half
+## that can be derived - and a legend naming a key that is not bound sends the reader
+## to a key that does nothing, so that half is the half worth deriving.
+const DRAFTING_TOOLS: Array = [
+	[&"draft_line", "line", Kind.LINE],
+	[&"draft_polyline", "polyline", Kind.POLYLINE],
+	[&"draft_rect", "rectangle", Kind.RECTANGLE],
+	[&"draft_circle", "circle", Kind.CIRCLE],
+	[&"draft_arc", "arc", Kind.ARC],
+	[&"draft_measure", "measure", Kind.MEASURE],
+	[&"draft_dimension", "aligned dim", Kind.DIMENSION],
+	[&"draft_dimension_linear", "linear dim", Kind.DIMENSION_LINEAR],
+	[&"draft_dimension_radius", "radial dim", Kind.DIMENSION_RADIUS],
+	[&"draft_dimension_angular", "angular dim", Kind.DIMENSION_ANGULAR],
+]
+
 var kind: Kind = Kind.SELECT
 var layer: StringName = &""
 
@@ -114,9 +137,9 @@ func is_measure() -> bool:
 ## so the three dimension commands cannot drift apart on that.
 static func is_dimension(tool_kind: Kind) -> bool:
 	return tool_kind == Kind.DIMENSION \
-		or tool_kind == Kind.DIMENSION_LINEAR \
-		or tool_kind == Kind.DIMENSION_RADIUS \
-		or tool_kind == Kind.DIMENSION_ANGULAR
+			or tool_kind == Kind.DIMENSION_LINEAR \
+			or tool_kind == Kind.DIMENSION_RADIUS \
+			or tool_kind == Kind.DIMENSION_ANGULAR
 
 
 ## Whether a tool states something about the ground's heights rather than drawing a shape: the spot
@@ -124,8 +147,8 @@ static func is_dimension(tool_kind: Kind) -> bool:
 ## tool draws on and by the commit itself, so those three cannot disagree about which tools these are.
 static func is_grading(tool_kind: Kind) -> bool:
 	return tool_kind == Kind.GRADE_SPOT \
-		or tool_kind == Kind.GRADE_CONTOUR \
-		or tool_kind == Kind.GRADE_SLOPE
+			or tool_kind == Kind.GRADE_CONTOUR \
+			or tool_kind == Kind.GRADE_SLOPE
 
 
 ## Which kind of grading record a grading tool states, or "" for any other tool. The words are the
@@ -157,7 +180,6 @@ func undo_point() -> bool:
 func cancel() -> void:
 	_points = PackedVector2Array()
 	_last_reason = ""
-
 
 # --- picking ------------------------------------------------------------------------
 
@@ -225,7 +247,7 @@ func finish() -> Dictionary:
 		return _result(false, null, null, _points.size())
 	if is_grading(kind):
 		return _grading_result(_points)
-	var entity = EntityScript.make_polyline(_points, false)
+	var entity := EntityScript.make_polyline(_points, false)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
 
@@ -236,7 +258,7 @@ func finish_closed() -> Dictionary:
 		return _result(false, null, null, _points.size())
 	if is_grading(kind):
 		return _grading_result(_points, true)
-	var entity = EntityScript.make_polyline(_points, true)
+	var entity := EntityScript.make_polyline(_points, true)
 	_points = PackedVector2Array()
 	return _result(true, entity, null, 0)
 
@@ -249,13 +271,13 @@ func finish_closed() -> Dictionary:
 ## the same channel a measurement does, and `DraftController` turns them into records and marks.
 func _grading_result(picked: PackedVector2Array, closed: bool = false) -> Dictionary:
 	if picked.is_empty():
-		return {"ok": false, "reason": "that is not a place on the ground"}
-	var payload := {"grading": grading_kind(kind), "points": picked, "closed": closed}
+		return { "ok": false, "reason": "that is not a place on the ground" }
+	var payload := { "grading": grading_kind(kind), "points": picked, "closed": closed }
 	_points = PackedVector2Array()
 	return _result(true, null, payload, 0)
 
 
-func _result(committed: bool, entity, measure, progress: int) -> Dictionary:
+func _result(committed: bool, entity: DraftEntity, measure, progress: int) -> Dictionary:
 	return {
 		"committed": committed,
 		"entity": entity,
@@ -268,12 +290,12 @@ func _result(committed: bool, entity, measure, progress: int) -> Dictionary:
 func _build() -> Dictionary:
 	if kind == Kind.LINE:
 		if _points[0].distance_to(_points[1]) <= MIN_SIZE:
-			return {"ok": false, "reason": "a line needs two distinct points"}
-		return {"ok": true, "entity": EntityScript.make_line(_points[0], _points[1]), "measure": null}
+			return { "ok": false, "reason": "a line needs two distinct points" }
+		return { "ok": true, "entity": EntityScript.make_line(_points[0], _points[1]), "measure": null }
 	if kind == Kind.RECTANGLE:
 		var size := (_points[1] - _points[0]).abs()
 		if size.x <= MIN_SIZE or size.y <= MIN_SIZE:
-			return {"ok": false, "reason": "a rectangle needs two distinct corners"}
+			return { "ok": false, "reason": "a rectangle needs two distinct corners" }
 		return {
 			"ok": true,
 			"entity": EntityScript.make_rectangle((_points[0] + _points[1]) * 0.5, size),
@@ -282,8 +304,8 @@ func _build() -> Dictionary:
 	if kind == Kind.CIRCLE:
 		var radius := _points[0].distance_to(_points[1])
 		if radius <= MIN_SIZE:
-			return {"ok": false, "reason": "a circle needs a radius"}
-		return {"ok": true, "entity": EntityScript.make_circle(_points[0], radius), "measure": null}
+			return { "ok": false, "reason": "a circle needs a radius" }
+		return { "ok": true, "entity": EntityScript.make_circle(_points[0], radius), "measure": null }
 	if kind == Kind.ARC:
 		var arc := _arc_from(_points[0], _points[1], _points[2])
 		return arc
@@ -296,21 +318,23 @@ func _build() -> Dictionary:
 	if kind == Kind.DIMENSION_ANGULAR:
 		return _angular_dimension(_points[0], _points[1], _points[2], _points[3])
 	if kind == Kind.MEASURE:
-		return {"ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1])}
+		return { "ok": true, "entity": null, "measure": _measure_between(_points[0], _points[1]) }
 	if kind == Kind.GRADE_SPOT:
 		return {
-			"ok": true, "entity": null,
-			"measure": {"grading": GradingScript.SPOT, "points": _points.duplicate(), "closed": false},
+			"ok": true,
+			"entity": null,
+			"measure": { "grading": GradingScript.SPOT, "points": _points.duplicate(), "closed": false },
 		}
 	if kind == Kind.GRADE_SLOPE:
 		var reason := _measured_pair_reason(_points[0], _points[1])
 		if reason != "":
-			return {"ok": false, "reason": "a slope arrow needs two distinct points"}
+			return { "ok": false, "reason": "a slope arrow needs two distinct points" }
 		return {
-			"ok": true, "entity": null,
-			"measure": {"grading": GradingScript.SLOPE, "points": _points.duplicate(), "closed": false},
+			"ok": true,
+			"entity": null,
+			"measure": { "grading": GradingScript.SLOPE, "points": _points.duplicate(), "closed": false },
 		}
-	return {"ok": false, "reason": "the %s tool takes no points" % kind}
+	return { "ok": false, "reason": "the %s tool takes no points" % kind }
 
 
 ## Why a pair of picks cannot be dimensioned, or "" when it can. All three
@@ -338,7 +362,7 @@ static func _measured_pair_reason(from: Vector2, to: Vector2) -> String:
 func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictionary:
 	var reason := _measured_pair_reason(from, to)
 	if reason != "":
-		return {"ok": false, "reason": reason}
+		return { "ok": false, "reason": reason }
 	var along := (to - from).normalized()
 	# The same side vector the dimension layout uses, so the line this returns
 	# lands exactly where the tool's own preview showed it.
@@ -346,7 +370,10 @@ func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictiona
 	return {
 		"ok": true,
 		"entity": EntityScript.make_dimension(
-			from, to, (placed - from).dot(sideways), EntityScript.DimensionKind.ALIGNED
+			from,
+			to,
+			(placed - from).dot(sideways),
+			EntityScript.DimensionKind.ALIGNED,
 		),
 		"measure": null,
 	}
@@ -364,7 +391,7 @@ func _dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictiona
 func _linear_dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> Dictionary:
 	var reason := _measured_pair_reason(from, to)
 	if reason != "":
-		return {"ok": false, "reason": reason}
+		return { "ok": false, "reason": reason }
 	var delta := to - from
 	var horizontal := absf(delta.x) >= absf(delta.y)
 	# The offset is a signed distance along the perpendicular axis, which is what
@@ -373,9 +400,7 @@ func _linear_dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> D
 	var offset := (placed - from).y if horizontal else (placed - from).x
 	return {
 		"ok": true,
-		"entity": EntityScript.make_dimension(
-			from, to, offset, EntityScript.DimensionKind.LINEAR
-		),
+		"entity": EntityScript.make_dimension(from, to, offset, EntityScript.DimensionKind.LINEAR),
 		"measure": null,
 	}
 
@@ -387,12 +412,10 @@ func _linear_dimension_between(from: Vector2, to: Vector2, placed: Vector2) -> D
 func _radius_dimension(centre: Vector2, edge: Vector2) -> Dictionary:
 	var reason := _measured_pair_reason(centre, edge)
 	if reason != "":
-		return {"ok": false, "reason": reason}
+		return { "ok": false, "reason": reason }
 	return {
 		"ok": true,
-		"entity": EntityScript.make_dimension(
-			centre, edge, 0.0, EntityScript.DimensionKind.RADIUS
-		),
+		"entity": EntityScript.make_dimension(centre, edge, 0.0, EntityScript.DimensionKind.RADIUS),
 		"measure": null,
 	}
 
@@ -406,21 +429,19 @@ func _radius_dimension(centre: Vector2, edge: Vector2) -> Dictionary:
 ## corner a person meant is settled by which sides they picked, and the arc is then always drawn on the
 ## side the corner opens onto - so nothing about the reading depends on a value the file would have to
 ## remember, and reopening the drawing cannot change what the angle says.
-func _angular_dimension(
-	corner: Vector2, along_a: Vector2, along_b: Vector2, placed: Vector2
-) -> Dictionary:
+func _angular_dimension(corner: Vector2, along_a: Vector2, along_b: Vector2, placed: Vector2) -> Dictionary:
 	var reason := _measured_pair_reason(corner, along_a)
 	if reason != "":
-		return {"ok": false, "reason": reason}
+		return { "ok": false, "reason": reason }
 	if corner.distance_to(along_b) <= MIN_SIZE:
-		return {"ok": false, "reason": "the second side needs a direction"}
+		return { "ok": false, "reason": "the second side needs a direction" }
 	var radius := corner.distance_to(placed)
 	if radius <= MIN_SIZE:
-		return {"ok": false, "reason": "the arc needs to stand off the corner"}
+		return { "ok": false, "reason": "the arc needs to stand off the corner" }
 	# Two sides in the same direction enclose nothing, so there is no angle to write.
 	var sweep := wrapf((along_b - corner).angle() - (along_a - corner).angle(), -PI, PI)
 	if absf(sweep) <= MIN_SIZE:
-		return {"ok": false, "reason": "those two sides are the same direction"}
+		return { "ok": false, "reason": "those two sides are the same direction" }
 	return {
 		"ok": true,
 		"entity": EntityScript.make_angular_dimension(corner, along_a, along_b, radius),
@@ -432,37 +453,27 @@ func _angular_dimension(
 func _arc_from(centre: Vector2, through: Vector2, finish_point: Vector2) -> Dictionary:
 	var radius := centre.distance_to(through)
 	if radius <= MIN_SIZE:
-		return {"ok": false, "reason": "an arc needs a radius"}
+		return { "ok": false, "reason": "an arc needs a radius" }
 	var start := Geom.angle_of(through - centre)
 	var end := Geom.angle_of(finish_point - centre)
 	var sweep := wrapf(end - start, -PI, PI)
 	if absf(sweep) <= MIN_SIZE:
-		return {"ok": false, "reason": "an arc needs a sweep"}
-	return {
-		"ok": true,
-		"entity": EntityScript.make_arc(centre, radius, start, sweep),
-		"measure": null,
-	}
+		return { "ok": false, "reason": "an arc needs a sweep" }
+	return { "ok": true, "entity": EntityScript.make_arc(centre, radius, start, sweep), "measure": null }
 
 
 ## What the measure tool reports. Deliberately raw numbers: formatting is the
 ## units module's business, and the units are the user's choice.
 func _measure_between(from: Vector2, to: Vector2) -> Dictionary:
 	var delta := to - from
-	return {
-		"distance": delta.length(),
-		"delta": delta,
-		"angle": Geom.angle_of(delta),
-		"area": null,
-	}
-
+	return { "distance": delta.length(), "delta": delta, "angle": Geom.angle_of(delta), "area": null }
 
 # --- preview ------------------------------------------------------------------------
 
 
 ## The shape as it would be if the user picked here. Null when there is nothing
 ## to show yet.
-func preview(cursor: Vector2):
+func preview(cursor: Vector2) -> DraftEntity:
 	var count := _points.size()
 	if count == 0:
 		return null
@@ -529,13 +540,18 @@ func preview(cursor: Vector2):
 ## A measurement preview for the measure tool, without committing anything.
 func preview_measure(cursor: Vector2) -> Dictionary:
 	if kind != Kind.MEASURE or _points.is_empty():
-		return {}
+		return { }
 	return _measure_between(_points[0], cursor)
-
 
 # --- status -------------------------------------------------------------------------
 
 
+## What the tool in hand is waiting for, in the drawing's own words.
+##
+## **No key is spelled out here**, and that is deliberate: a letter written into a string is a promise
+## that goes stale the moment a binding moves, and this prompt once promised C to close while nothing
+## listened for C. The keys that answer the tool in hand are read from their bindings and printed beside
+## this prompt on the one line at the foot of the screen - see `PlannerHud.hand_keys`.
 func status() -> String:
 	if kind == Kind.SELECT:
 		return "Click geometry to select it"
@@ -543,12 +559,12 @@ func status() -> String:
 		return "Specify the first point" if _points.is_empty() else "Specify the second point"
 	if kind == Kind.POLYLINE or kind == Kind.GRADE_CONTOUR:
 		return "Specify the first point" if _points.is_empty() \
-			else "Specify the next point, Enter to finish, C to close"
+				else "Specify the next point"
 	if kind == Kind.GRADE_SPOT:
 		return "Click the place the level is at"
 	if kind == Kind.GRADE_SLOPE:
 		return "Specify the top of the fall" if _points.is_empty() \
-			else "Specify the bottom - the arrow runs downhill"
+				else "Specify the bottom - the arrow runs downhill"
 	if kind == Kind.RECTANGLE:
 		return "Specify the first corner" if _points.is_empty() else "Specify the opposite corner"
 	if kind == Kind.CIRCLE:
@@ -567,7 +583,7 @@ func status() -> String:
 		return "Where the dimension line goes"
 	if kind == Kind.DIMENSION_RADIUS:
 		return "Specify the centre" if _points.is_empty() \
-			else "Specify a point on the circle"
+				else "Specify a point on the circle"
 	if kind == Kind.DIMENSION_ANGULAR:
 		if _points.is_empty():
 			return "Specify the corner of the angle"
@@ -609,3 +625,69 @@ static func label_for(tool_kind: Kind) -> String:
 	if tool_kind == Kind.GRADE_SLOPE:
 		return "Slope arrow"
 	return "?"
+
+
+## The ten shape and dimension tools are named by `DRAFTING_TOOLS`, one row each, beside the key that
+## selects them.
+##
+## The ground's three are not: they are bound as their own keys and listed beside the other keys the
+## drawing needs, so the link from a kind to the action that arms it is stated here rather than guessed at
+## by matching a tool's name against an action's. A letter written into a string - or a name matched
+## against another name - is what sends somebody to a key that does nothing.
+const GRADING_TOOLS := {
+	Kind.GRADE_SPOT: &"grade_spot",
+	Kind.GRADE_CONTOUR: &"grade_contour",
+	Kind.GRADE_SLOPE: &"grade_slope",
+}
+
+
+## The action that puts a tool in hand, or "" for one no action arms - the select tool, which is what is in
+## hand when nothing is.
+static func arming_action(tool_kind: Kind) -> StringName:
+	for pair: Array in DRAFTING_TOOLS:
+		if int(pair[2]) == tool_kind:
+			return pair[0]
+	return GRADING_TOOLS.get(tool_kind, &"")
+
+
+## What a tool is *for*, in one sentence, for the box beside the plan while that tool is in hand.
+##
+## The box used to carry the whole key reference, and every entry of it was a button in the palette
+## standing beside it - so a person reading the box was being told, twice over, which keys arm which
+## tool. What the palette cannot say is what the tool is *for*, and that is what this is: one sentence
+## per tool, kept here beside the tools themselves rather than in the HUD, so a tool cannot arrive
+## without one.
+##
+## Deliberately not the same sentence as `status()`. That one says what the hand wants *at this moment*
+## and changes with every pick; this one is true of the tool all the way through, which is the half a
+## person reads once, before they start.
+static func description(tool_kind: Kind) -> String:
+	if tool_kind == Kind.SELECT:
+		return "Click a shape to take hold of it."
+	if tool_kind == Kind.LINE:
+		return "A straight segment between two points."
+	if tool_kind == Kind.POLYLINE:
+		return "A chain of straight segments, as many as you want."
+	if tool_kind == Kind.RECTANGLE:
+		return "A rectangle between two opposite corners."
+	if tool_kind == Kind.CIRCLE:
+		return "A circle from its centre out to a radius."
+	if tool_kind == Kind.ARC:
+		return "An arc: a centre, a point on the radius, and where the sweep ends."
+	if tool_kind == Kind.MEASURE:
+		return "The distance and bearing between two points, drawn nowhere."
+	if tool_kind == Kind.DIMENSION:
+		return "The true distance between two points, on a line parallel to them."
+	if tool_kind == Kind.DIMENSION_LINEAR:
+		return "The run along x or y between two points, whichever they mostly lie along."
+	if tool_kind == Kind.DIMENSION_RADIUS:
+		return "A circle's radius, with a leader out to the edge."
+	if tool_kind == Kind.DIMENSION_ANGULAR:
+		return "The angle at a corner, between two sides you pick."
+	if tool_kind == Kind.GRADE_SPOT:
+		return "The ground's height at one place."
+	if tool_kind == Kind.GRADE_CONTOUR:
+		return "A line where the ground reaches a height."
+	if tool_kind == Kind.GRADE_SLOPE:
+		return "An arrow from the top of a fall to the bottom, carrying the fall's own slope."
+	return ""

@@ -14,7 +14,7 @@ const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
 const OsmFile := preload("res://scripts/draft/osm_file.gd")
 
-const CENTRE := {"latitude": 43.7, "longitude": -79.4}
+const CENTRE := { "latitude": 43.7, "longitude": -79.4 }
 
 
 func _controller():
@@ -27,28 +27,39 @@ func _controller():
 
 ## A map with a house, a street, a tree and a named cafe - one of each kind of thing this draws.
 func _map() -> Dictionary:
-	var source := JSON.stringify({"elements": [
+	var source := JSON.stringify(
 		{
-			"type": "way", "id": 1, "tags": {"building": "house"},
-			"geometry": [
-				{"lat": 43.70020, "lon": -79.39970}, {"lat": 43.70020, "lon": -79.39940},
-				{"lat": 43.70000, "lon": -79.39940}, {"lat": 43.70000, "lon": -79.39970},
-				{"lat": 43.70020, "lon": -79.39970},
-			],
-		},
-		{
-			"type": "way", "id": 2, "tags": {"highway": "residential"},
-			"geometry": [
-				{"lat": 43.69980, "lon": -79.40030}, {"lat": 43.70020, "lon": -79.39980},
-			],
-		},
-		{"type": "node", "id": 3, "lat": 43.70010, "lon": -79.39990, "tags": {"natural": "tree"}},
-		{
-			"type": "node", "id": 4, "lat": 43.70005, "lon": -79.39995,
-			"tags": {"amenity": "cafe", "name": "The Cafe"},
-		},
-	]})
-	return OsmFile.read_text(source, {"centre": CENTRE, "radius": 120.0})
+			"elements": [
+				{
+					"type": "way",
+					"id": 1,
+					"tags": { "building": "house" },
+					"geometry": [
+						{ "lat": 43.70020, "lon": -79.39970 },
+						{ "lat": 43.70020, "lon": -79.39940 },
+						{ "lat": 43.70000, "lon": -79.39940 },
+						{ "lat": 43.70000, "lon": -79.39970 },
+						{ "lat": 43.70020, "lon": -79.39970 },
+					],
+				},
+				{
+					"type": "way",
+					"id": 2,
+					"tags": { "highway": "residential" },
+					"geometry": [{ "lat": 43.69980, "lon": -79.40030 }, { "lat": 43.70020, "lon": -79.39980 }],
+				},
+				{ "type": "node", "id": 3, "lat": 43.70010, "lon": -79.39990, "tags": { "natural": "tree" } },
+				{
+					"type": "node",
+					"id": 4,
+					"lat": 43.70005,
+					"lon": -79.39995,
+					"tags": { "amenity": "cafe", "name": "The Cafe" },
+				},
+			]
+		}
+	)
+	return OsmFile.read_text(source, { "centre": CENTRE, "radius": 120.0 })
 
 
 func _on_layer(controller, layer_name: StringName) -> Array:
@@ -57,7 +68,6 @@ func _on_layer(controller, layer_name: StringName) -> Array:
 		if entity.layer == layer_name:
 			out.append(entity)
 	return out
-
 
 # --- what arrives ---------------------------------------------------------------------
 
@@ -139,22 +149,29 @@ func test_the_geometry_keeps_the_drawings_own_handedness() -> void:
 func test_keeping_the_map_puts_it_on_the_existing_conditions_layers() -> void:
 	var controller = _controller()
 	var kept := OsmFile.read_text(
-		JSON.stringify({"elements": [
+		JSON.stringify(
 			{
-				"type": "way", "id": 1, "tags": {"building": "house"},
-				"geometry": [
-					{"lat": 43.7002, "lon": -79.3997}, {"lat": 43.7002, "lon": -79.3994},
-					{"lat": 43.7, "lon": -79.3994}, {"lat": 43.7002, "lon": -79.3997},
-				],
-			},
-		]}),
-		{"centre": CENTRE, "radius": 120.0, "underlay": false}
+				"elements": [
+					{
+						"type": "way",
+						"id": 1,
+						"tags": { "building": "house" },
+						"geometry": [
+							{ "lat": 43.7002, "lon": -79.3997 },
+							{ "lat": 43.7002, "lon": -79.3994 },
+							{ "lat": 43.7, "lon": -79.3994 },
+							{ "lat": 43.7002, "lon": -79.3997 },
+						],
+					},
+				]
+			}
+		),
+		{ "centre": CENTRE, "radius": 120.0, "underlay": false },
 	)
 	assert(bool(controller.import_osm(kept)["ok"]))
 	assert(_on_layer(controller, LayerSet.EXISTING_STRUCTURE).size() == 1, "a house is existing structure")
 	assert(controller.last_message.contains("existing conditions layers"), controller.last_message)
 	controller.free()
-
 
 # --- the rules around it ---------------------------------------------------------------
 
@@ -172,8 +189,8 @@ func test_an_import_is_one_undo_step_however_many_features_it_holds() -> void:
 func test_a_map_with_nothing_it_can_draw_is_refused_in_words() -> void:
 	var controller = _controller()
 	var nothing := OsmFile.read_text(
-		JSON.stringify({"elements": [{"type": "node", "id": 1, "lat": 43.7, "lon": -79.4}]}),
-		{"centre": CENTRE}
+		JSON.stringify({ "elements": [{ "type": "node", "id": 1, "lat": 43.7, "lon": -79.4 }] }),
+		{ "centre": CENTRE },
 	)
 	var taken: Dictionary = controller.import_osm(nothing)
 	assert(not bool(taken["ok"]))

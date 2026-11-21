@@ -68,7 +68,6 @@ var note: String = ""
 func _init(order_id: String = "") -> void:
 	id = order_id
 
-
 # --- the lines ---------------------------------------------------------------------------------
 
 
@@ -84,12 +83,9 @@ func add_line(description: String, unit: StringName, quantity_milli: int, unit_c
 		return false
 	if unit_cost == null or not unit_cost.is_valid():
 		return false
-	lines.append({
-		"description": description,
-		"unit": String(unit),
-		"ordered_milli": quantity_milli,
-		"unit_cost": unit_cost,
-	})
+	lines.append(
+		{ "description": description, "unit": String(unit), "ordered_milli": quantity_milli, "unit_cost": unit_cost }
+	)
 	return true
 
 
@@ -133,7 +129,6 @@ func received_milli_total() -> int:
 func variance_milli(index: int) -> int:
 	return received_milli(index) - ordered_milli(index)
 
-
 # --- what the lines are worth ------------------------------------------------------------------
 
 
@@ -171,7 +166,6 @@ func received_total() -> Money:
 	for index in lines.size():
 		amounts.append(line_received_cost(index))
 	return MoneyScript.sum(amounts, currency)
-
 
 # --- the three numbers, and the state ----------------------------------------------------------
 
@@ -230,7 +224,6 @@ func actual() -> Money:
 func line_variance(index: int) -> Money:
 	return line_received_cost(index).sub(line_cost(index))
 
-
 # --- the workflow ---------------------------------------------------------------------------
 
 
@@ -239,43 +232,36 @@ func line_variance(index: int) -> Money:
 ## Returns `{ok, reason}`.
 func issue(at: String) -> Dictionary:
 	if not issued_at.is_empty():
-		return {"ok": false, "reason": "it has already been issued"}
+		return { "ok": false, "reason": "it has already been issued" }
 	if supplier.strip_edges().is_empty():
-		return {"ok": false, "reason": "a purchase order needs a supplier"}
+		return { "ok": false, "reason": "a purchase order needs a supplier" }
 	if lines.is_empty():
-		return {"ok": false, "reason": "there is nothing on it to order"}
+		return { "ok": false, "reason": "there is nothing on it to order" }
 	if not ordered_total().is_valid():
-		return {"ok": false, "reason": "a line on it cannot be priced"}
+		return { "ok": false, "reason": "a line on it cannot be priced" }
 	if at.strip_edges().is_empty():
-		return {"ok": false, "reason": "an issued order says when it was issued"}
+		return { "ok": false, "reason": "an issued order says when it was issued" }
 	issued_at = at
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Record a delivery against a line. Refused for a draft (nobody has ordered it), for a closed order,
 ## for a line that is not there, and for a quantity of nothing. **Not** refused for a quantity larger
 ## than was ordered: §8.3 says the receipt says what arrived.
 ## Returns `{ok, reason}`.
-func receive(at: String, index: int, quantity: int, receipt_note: String = "",
-		photo: String = "") -> Dictionary:
+func receive(at: String, index: int, quantity: int, receipt_note: String = "", photo: String = "") -> Dictionary:
 	if issued_at.is_empty():
-		return {"ok": false, "reason": "it has not been issued, so there is nothing to receive"}
+		return { "ok": false, "reason": "it has not been issued, so there is nothing to receive" }
 	if not closed_at.is_empty():
-		return {"ok": false, "reason": "it is closed"}
+		return { "ok": false, "reason": "it is closed" }
 	if index < 0 or index >= lines.size():
-		return {"ok": false, "reason": "there is no line %d on it" % index}
+		return { "ok": false, "reason": "there is no line %d on it" % index }
 	if quantity <= 0:
-		return {"ok": false, "reason": "a receipt is a quantity that arrived"}
+		return { "ok": false, "reason": "a receipt is a quantity that arrived" }
 	if at.strip_edges().is_empty():
-		return {"ok": false, "reason": "a receipt says when it arrived"}
-	receipts.append({
-		"at": at,
-		"line": index,
-		"quantity_milli": quantity,
-		"note": receipt_note,
-		"photo": photo,
-	})
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": "a receipt says when it arrived" }
+	receipts.append({ "at": at, "line": index, "quantity_milli": quantity, "note": receipt_note, "photo": photo })
+	return { "ok": true, "reason": "" }
 
 
 ## Close it and reconcile. Refused before it is issued, and refused for an order with nothing arrived:
@@ -293,7 +279,6 @@ func mark_closed(at: String, why: String = "") -> bool:
 	closed_note = why
 	return true
 
-
 # --- what it says --------------------------------------------------------------------------
 
 
@@ -301,17 +286,19 @@ func line_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for index in lines.size():
 		var held: Dictionary = lines[index]
-		out.append({
-			"index": index,
-			"description": String(held.get("description", "")),
-			"unit": String(held.get("unit", "EACH")),
-			"unit_cost": held["unit_cost"],
-			"ordered_milli": ordered_milli(index),
-			"received_milli": received_milli(index),
-			"variance_milli": variance_milli(index),
-			"ordered": line_cost(index),
-			"received": line_received_cost(index),
-		})
+		out.append(
+			{
+				"index": index,
+				"description": String(held.get("description", "")),
+				"unit": String(held.get("unit", "EACH")),
+				"unit_cost": held["unit_cost"],
+				"ordered_milli": ordered_milli(index),
+				"received_milli": received_milli(index),
+				"variance_milli": variance_milli(index),
+				"ordered": line_cost(index),
+				"received": line_received_cost(index),
+			}
+		)
 	return out
 
 
@@ -336,8 +323,9 @@ func problems() -> Array[String]:
 	if not first.is_empty() and not issued_at.is_empty() and first < issued_at:
 		out.append("%s was received on %s, before it was issued on %s" % [_label(), first, issued_at])
 	if not closed_at.is_empty() and received_milli_total() < ordered_milli_total():
-		out.append("%s is closed with %d of %d thousandths arrived"
-			% [_label(), received_milli_total(), ordered_milli_total()])
+		out.append(
+			"%s is closed with %d of %d thousandths arrived" % [_label(), received_milli_total(), ordered_milli_total()]
+		)
 	return out
 
 
@@ -367,7 +355,6 @@ func _label() -> String:
 		return id
 	return "this order"
 
-
 # --- the file ---------------------------------------------------------------------------------
 
 
@@ -375,21 +362,25 @@ func to_dict() -> Dictionary:
 	var line_list: Array = []
 	for index in lines.size():
 		var held: Dictionary = lines[index]
-		line_list.append({
-			"description": String(held.get("description", "")),
-			"unit": String(held.get("unit", "EACH")),
-			"ordered_milli": int(held.get("ordered_milli", 0)),
-			"unit_cost": (held["unit_cost"] as MoneyScript).to_dict(),
-		})
+		line_list.append(
+			{
+				"description": String(held.get("description", "")),
+				"unit": String(held.get("unit", "EACH")),
+				"ordered_milli": int(held.get("ordered_milli", 0)),
+				"unit_cost": (held["unit_cost"] as MoneyScript).to_dict(),
+			}
+		)
 	var receipt_list: Array = []
 	for entry in receipts:
-		receipt_list.append({
-			"at": String(entry.get("at", "")),
-			"line": int(entry.get("line", -1)),
-			"quantity_milli": int(entry.get("quantity_milli", 0)),
-			"note": String(entry.get("note", "")),
-			"photo": String(entry.get("photo", "")),
-		})
+		receipt_list.append(
+			{
+				"at": String(entry.get("at", "")),
+				"line": int(entry.get("line", -1)),
+				"quantity_milli": int(entry.get("quantity_milli", 0)),
+				"note": String(entry.get("note", "")),
+				"photo": String(entry.get("photo", "")),
+			}
+		)
 	return {
 		"id": id,
 		"number": number,
@@ -443,12 +434,14 @@ static func from_dict(data: Dictionary) -> PurchaseOrder:
 				var read: Money = MoneyScript.from_dict(rate_data)
 				if read.is_valid():
 					rate = read
-			order.lines.append({
-				"description": String(held.get("description", "")),
-				"unit": String(held.get("unit", "EACH")),
-				"ordered_milli": quantity,
-				"unit_cost": rate,
-			})
+			order.lines.append(
+				{
+					"description": String(held.get("description", "")),
+					"unit": String(held.get("unit", "EACH")),
+					"ordered_milli": quantity,
+					"unit_cost": rate,
+				}
+			)
 	var receipt_list = data.get("receipts", [])
 	if receipt_list is Array:
 		for entry in (receipt_list as Array):
@@ -458,13 +451,15 @@ static func from_dict(data: Dictionary) -> PurchaseOrder:
 				var quantity := int(entry.get("quantity_milli", 0))
 				if index < 0 or index >= order.lines.size() or quantity <= 0:
 					continue
-				order.receipts.append({
-					"at": at,
-					"line": index,
-					"quantity_milli": quantity,
-					"note": String(entry.get("note", "")),
-					"photo": String(entry.get("photo", "")),
-				})
+				order.receipts.append(
+					{
+						"at": at,
+						"line": index,
+						"quantity_milli": quantity,
+						"note": String(entry.get("note", "")),
+						"photo": String(entry.get("photo", "")),
+					}
+				)
 	return order
 
 

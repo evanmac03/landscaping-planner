@@ -57,7 +57,6 @@ func _words_for(window: EstimateWindow, layer_name: StringName) -> String:
 			return words[index]
 	return ""
 
-
 # --- what the row offers ---------------------------------------------------------------------
 
 
@@ -72,8 +71,10 @@ func test_the_depth_row_offers_only_the_layers_measured_by_the_square_metre() ->
 	assert(not offered.has(PLANTING), "the planting layer is not, because it is counted")
 	for layer_name: StringName in offered:
 		var measure: StringName = TakeoffScript.measure_for(layer_name)
-		assert(measure == WorkUnitScript.AREA or measure == WorkUnitScript.VOLUME,
-			"%s is bought by a surface: %s" % [String(layer_name), String(measure)])
+		assert(
+			measure == WorkUnitScript.AREA or measure == WorkUnitScript.VOLUME,
+			"%s is bought by a surface: %s" % [String(layer_name), String(measure)],
+		)
 	window.free()
 
 
@@ -85,15 +86,16 @@ func test_each_choice_shows_how_deep_that_layer_is_bought() -> void:
 	var words: Array[String] = window.depth_texts()
 	assert(words.size() == window.depth_choices().size(), "one line per choice")
 	assert(window.depth_choices()[0] != &"", "and each line is about a layer")
-	assert(_words_for(window, HARDSCAPE) == String(HARDSCAPE),
-		"a layer with no depth says nothing about one: %s" % _words_for(window, HARDSCAPE))
+	assert(
+		_words_for(window, HARDSCAPE) == String(HARDSCAPE),
+		"a layer with no depth says nothing about one: %s" % _words_for(window, HARDSCAPE),
+	)
 
 	# Stated through the row's own gesture: choosing the layer, setting the depth, pressing the button.
 	assert(window.choose_depth(HARDSCAPE), "the hardscape layer is chosen")
 	window.set_depth_mm(50)
 	window._on_depth_stated()
-	assert(_words_for(window, HARDSCAPE).contains("50 mm"),
-		"now it says how deep: %s" % _words_for(window, HARDSCAPE))
+	assert(_words_for(window, HARDSCAPE).contains("50 mm"), "now it says how deep: %s" % _words_for(window, HARDSCAPE))
 	assert(window.depth_mm() == 50, "and the box shows the layer's own depth: %d" % window.depth_mm())
 	assert(window.depth_choice() == HARDSCAPE, "and the row is still pointed where a person pointed it")
 	_forget_the_depth()
@@ -110,7 +112,6 @@ func test_a_drawing_with_nothing_measured_by_the_m2_has_a_dead_depth_row() -> vo
 	assert(window.depth_choices().is_empty(), "and nothing is offered")
 	assert(window.depth_texts() == ["no layer here is bought by the square metre"], str(window.depth_texts()))
 	window.free()
-
 
 # --- stating one -------------------------------------------------------------------------------
 
@@ -183,7 +184,6 @@ func test_the_way_back_is_the_same_decision_taken_again() -> void:
 	assert(not window.desk.clear_layer_depth(HARDSCAPE), "and there is nothing left to forget")
 	window.free()
 
-
 # --- announcing it -----------------------------------------------------------------------------
 
 var _announced: int = 0
@@ -208,7 +208,6 @@ func test_stating_a_depth_tells_the_rest_of_the_program_the_estimate_moved() -> 
 	_forget_the_depth()
 	window.free()
 
-
 # --- the guard on the shipped layer table ------------------------------------------------------
 
 
@@ -218,9 +217,13 @@ func test_forgetting_a_depth_leaves_the_shipped_layer_exactly_as_it_was() -> voi
 	# then it is a layer that says it is two things at once.
 	_forget_the_depth()
 	var plan: Dictionary = TakeoffScript.measure_plan(HARDSCAPE)
-	assert(StringName(plan["measure"]) == WorkUnitScript.AREA,
-		"the shipped hardscape layer measures as an area: %s" % String(plan["measure"]))
+	assert(
+		StringName(plan["measure"]) == WorkUnitScript.AREA,
+		"the shipped hardscape layer measures as an area: %s" % String(plan["measure"]),
+	)
 	assert(not plan.has("depth_mm"), "and records no depth: %s" % str(plan.keys()))
 	assert(TakeoffScript.depth_of(HARDSCAPE) == 0, "which is what depth_of reports")
-	assert(not TakeoffScript.is_volume_layer(HARDSCAPE),
-		"and the layer is not bought by the cubic metre: %s" % String(TakeoffScript.measure_for(HARDSCAPE)))
+	assert(
+		not TakeoffScript.is_volume_layer(HARDSCAPE),
+		"and the layer is not bought by the cubic metre: %s" % String(TakeoffScript.measure_for(HARDSCAPE)),
+	)

@@ -23,7 +23,6 @@ const MIN_DISTANCE := 1e-6
 ## corner.
 const MIN_RADIUS := 1e-6
 
-
 # --- offset ---------------------------------------------------------------------------
 
 
@@ -37,7 +36,7 @@ const MIN_RADIUS := 1e-6
 ## Returns `{ok, reason, entities}`. `entities` may hold more than one shape: an
 ## inward offset of a ring that pinches in two produces two rings, and a closed
 ## ring offset past its own half-width produces none.
-static func offset(entity, distance: float) -> Dictionary:
+static func offset(entity: DraftEntity, distance: float) -> Dictionary:
 	if entity == null:
 		return _failed("there is nothing to offset")
 	if absf(distance) <= MIN_DISTANCE:
@@ -60,10 +59,16 @@ static func offset(entity, distance: float) -> Dictionary:
 			var arc_radius: float = entity.params[2] + distance
 			if arc_radius <= MIN_DISTANCE:
 				return _ok([])
-			return _ok([EntityScript.make_arc(
-				Vector2(entity.params[0], entity.params[1]),
-				arc_radius, entity.params[3], entity.params[4]
-			)])
+			return _ok(
+				[
+					EntityScript.make_arc(
+						Vector2(entity.params[0], entity.params[1]),
+						arc_radius,
+						entity.params[3],
+						entity.params[4],
+					)
+				]
+			)
 		EntityScript.Kind.POLYLINE:
 			var pts := _ring(entity)
 			if pts.size() < 2:
@@ -85,7 +90,7 @@ static func offset(entity, distance: float) -> Dictionary:
 ## positive when the pick lies to the left of the direction of travel (open shapes)
 ## or outside the ring (closed shapes), so a tool can let the user choose a side by
 ## clicking the side they want.
-static func offset_sign(entity, pick: Vector2) -> float:
+static func offset_sign(entity: DraftEntity, pick: Vector2) -> float:
 	if entity == null:
 		return 1.0
 	match entity.kind:
@@ -120,7 +125,7 @@ static func offset_sign(entity, pick: Vector2) -> float:
 ## shape this is its copied corner list (a rectangle's four corners), which is what
 ## an offset consumes; sampling the outline instead would give the offset the noise
 ## of the tessellation.
-static func _ring(entity) -> PackedVector2Array:
+static func _ring(entity: DraftEntity) -> PackedVector2Array:
 	if entity.kind == EntityScript.Kind.POLYLINE or entity.kind == EntityScript.Kind.POLYGON:
 		return entity.points()
 	return entity.outline()
@@ -157,7 +162,6 @@ static func _offset_open(points: PackedVector2Array, distance: float) -> PackedV
 	out.append(offset_segments[offset_segments.size() - 1][1])
 	return out
 
-
 # --- rotate ---------------------------------------------------------------------------
 
 
@@ -170,17 +174,17 @@ static func _offset_open(points: PackedVector2Array, distance: float) -> PackedV
 ## `angle` is in radians, read the way `Vector2.angle()` reads one - from +X toward +Y - so a caller
 ## can hand over the bearing of the point the user clicked and mean it. A turn of nothing is refused
 ## rather than returned as an unchanged copy, so no gesture that did nothing is ever recorded.
-static func rotate(entity, centre: Vector2, angle: float) -> Dictionary:
+static func rotate(entity: DraftEntity, centre: Vector2, angle: float) -> Dictionary:
 	if entity == null:
 		return _failed("there is nothing to turn")
 	if is_zero_approx(angle):
 		return _failed("turning by nothing is nothing")
-	var turned = entity.copy()
+	var turned: DraftEntity = entity.copy()
 	turned.rotate_about(centre, angle)
 	return _ok([turned])
 
-
 # --- move and copy --------------------------------------------------------------------
+
 
 ## Move one entity by a displacement, returning the replacement.
 ##
@@ -197,12 +201,12 @@ static func rotate(entity, centre: Vector2, angle: float) -> Dictionary:
 ## A move of nothing is refused rather than returned as an unchanged copy: picking a base point
 ## and then clicking it again is not an act, and recording it would put a gesture in the history
 ## that undid nothing.
-static func move(entity, delta: Vector2) -> Dictionary:
+static func move(entity: DraftEntity, delta: Vector2) -> Dictionary:
 	if entity == null:
 		return _failed("there is nothing to move")
 	if delta.length() <= MIN_DISTANCE:
 		return _failed("moving by nothing is nothing")
-	var moved = entity.copy()
+	var moved: DraftEntity = entity.copy()
 	moved.translate(delta)
 	return _ok([moved])
 
@@ -218,15 +222,14 @@ static func move(entity, delta: Vector2) -> Dictionary:
 ## and it is the more likely mistake of the two - clicking the destination by accident lands
 ## exactly where the pick started. A second shape perfectly under the first is invisible,
 ## unselectable and a puzzle rather than a drawing, so it is named rather than drawn.
-static func copy(entity, delta: Vector2) -> Dictionary:
+static func copy(entity: DraftEntity, delta: Vector2) -> Dictionary:
 	if entity == null:
 		return _failed("there is nothing to copy")
 	if delta.length() <= MIN_DISTANCE:
 		return _failed("copying onto itself is nothing")
-	var duplicated = entity.copy()
+	var duplicated: DraftEntity = entity.copy()
 	duplicated.translate(delta)
 	return _ok([duplicated])
-
 
 # --- trim and extend ------------------------------------------------------------------
 
@@ -239,7 +242,7 @@ static func copy(entity, delta: Vector2) -> Dictionary:
 ##
 ## Only a line is trimmed here: a polyline would need its picked span rebuilt, and
 ## a line is what a plan's guide and boundary geometry overwhelmingly is.
-static func trim(target, pick: Vector2, cutters: Array) -> Dictionary:
+static func trim(target: DraftEntity, pick: Vector2, cutters: Array) -> Dictionary:
 	if target == null or target.kind != EntityScript.Kind.LINE:
 		return _failed("trim works on a line")
 	var a: Vector2 = target.point(0)
@@ -284,7 +287,7 @@ static func trim(target, pick: Vector2, cutters: Array) -> Dictionary:
 ## The pick says which end: the end nearest the pick is the one that grows, and the
 ## other end stays exactly where it was. Returns `{ok, reason, entities}` with a
 ## single line, or the unchanged line and a reason when nothing is in the way.
-static func extend(target, pick: Vector2, boundaries: Array) -> Dictionary:
+static func extend(target: DraftEntity, pick: Vector2, boundaries: Array) -> Dictionary:
 	if target == null or target.kind != EntityScript.Kind.LINE:
 		return _failed("extend works on a line")
 	var a: Vector2 = target.point(0)
@@ -313,7 +316,6 @@ static func extend(target, pick: Vector2, boundaries: Array) -> Dictionary:
 		return _failed("nothing lies beyond this end to extend to")
 	return _ok([EntityScript.make_line(anchor, hit_point)])
 
-
 # --- fillet ---------------------------------------------------------------------------
 
 
@@ -324,7 +326,7 @@ static func extend(target, pick: Vector2, boundaries: Array) -> Dictionary:
 ## meet. Returns `{ok, reason, arc, lines}`: the tangent arc, and the two lines
 ## trimmed back to its tangent points. A radius too large for the corner is refused
 ## rather than silently clamped.
-static func fillet(a, b, radius: float, pick_a: Vector2, pick_b: Vector2) -> Dictionary:
+static func fillet(a: DraftEntity, b: DraftEntity, radius: float, pick_a: Vector2, pick_b: Vector2) -> Dictionary:
 	if a == null or b == null or a.kind != EntityScript.Kind.LINE or b.kind != EntityScript.Kind.LINE:
 		return _failed("a fillet is between two lines")
 	if radius <= MIN_RADIUS:
@@ -347,8 +349,8 @@ static func fillet(a, b, radius: float, pick_a: Vector2, pick_b: Vector2) -> Dic
 	var tangent_b := p + dir_b * tangent_distance
 	# Keep each line's far end - the endpoint on the picked side - and trim it to
 	# its tangent point.
-	var far_a = _far_end(a, p, dir_a)
-	var far_b = _far_end(b, p, dir_b)
+	var far_a: Variant = _far_end(a, p, dir_a)
+	var far_b: Variant = _far_end(b, p, dir_b)
 	if far_a == null or far_b == null:
 		return _failed("a fillet needs the corner to lie on the line, not beyond its end")
 	var bisector := (dir_a + dir_b).normalized()
@@ -361,17 +363,14 @@ static func fillet(a, b, radius: float, pick_a: Vector2, pick_b: Vector2) -> Dic
 		"ok": true,
 		"reason": "",
 		"arc": EntityScript.make_arc(centre, radius, start, sweep),
-		"lines": [
-			EntityScript.make_line(Vector2(far_a), tangent_a),
-			EntityScript.make_line(Vector2(far_b), tangent_b),
-		],
+		"lines": [EntityScript.make_line(Vector2(far_a), tangent_a), EntityScript.make_line(Vector2(far_b), tangent_b)],
 	}
 
 
 ## The endpoint of a line that lies on the same side of the corner as the pick,
 ## or null when both ends are on the other side (the corner is past the end).
-static func _far_end(line, corner: Vector2, direction: Vector2):
-	var best = null
+static func _far_end(line: DraftEntity, corner: Vector2, direction: Vector2) -> Variant:
+	var best: Variant = null
 	var best_dot := 0.0
 	for index in 2:
 		var end: Vector2 = line.point(index)
@@ -383,7 +382,7 @@ static func _far_end(line, corner: Vector2, direction: Vector2):
 
 
 ## The unit direction from the corner into the half of the line the pick chose.
-static func _half_direction(line, corner: Vector2, pick: Vector2) -> Vector2:
+static func _half_direction(line: DraftEntity, corner: Vector2, pick: Vector2) -> Vector2:
 	var a0: Vector2 = line.point(0)
 	var a1: Vector2 = line.point(1)
 	var along: Vector2 = (a1 - a0).normalized()
@@ -395,18 +394,17 @@ static func _half_direction(line, corner: Vector2, pick: Vector2) -> Vector2:
 
 
 ## Where two infinite lines through the given pairs meet.
-static func _line_intersection(a, b) -> Dictionary:
+static func _line_intersection(a: DraftEntity, b: DraftEntity) -> Dictionary:
 	var p: Vector2 = a.point(0)
 	var r: Vector2 = a.point(1) - p
 	var q: Vector2 = b.point(0)
 	var s: Vector2 = b.point(1) - q
 	var denominator: float = r.x * s.y - r.y * s.x
 	if absf(denominator) <= Geom.EPS:
-		return {"ok": false}
+		return { "ok": false }
 	var t: float = (q.x - p.x) * s.y - (q.y - p.y) * s.x
 	t /= denominator
-	return {"ok": true, "point": p + r * t}
-
+	return { "ok": true, "point": p + r * t }
 
 # --- intersections --------------------------------------------------------------------
 
@@ -416,7 +414,7 @@ static func _line_intersection(a, b) -> Dictionary:
 ## The outline is sampled to straight segments first, so a curve is crossed by
 ## chords fine enough that the crossing is exact to two millimetres - far below any
 ## distance a plan is drawn at.
-static func _crossings(a: Vector2, b: Vector2, entity) -> PackedVector2Array:
+static func _crossings(a: Vector2, b: Vector2, entity: DraftEntity) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	var outline: PackedVector2Array = entity.outline()
 	if entity.kind == EntityScript.Kind.LINE or entity.kind == EntityScript.Kind.DIMENSION:
@@ -433,13 +431,12 @@ static func _crossings(a: Vector2, b: Vector2, entity) -> PackedVector2Array:
 			out.append(hit["point"])
 	return out
 
-
 # --- results --------------------------------------------------------------------------
 
 
 static func _ok(entities: Array) -> Dictionary:
-	return {"ok": true, "reason": "", "entities": entities}
+	return { "ok": true, "reason": "", "entities": entities }
 
 
 static func _failed(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "entities": []}
+	return { "ok": false, "reason": reason, "entities": [] }

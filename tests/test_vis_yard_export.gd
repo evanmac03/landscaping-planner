@@ -22,7 +22,6 @@ const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 ## halfway through cannot become the next one's evidence.
 const PREFIX := "test-yard-export-"
 
-
 # --- the little scenes these tests are about ---------------------------------------------
 
 
@@ -68,7 +67,6 @@ func _swatch() -> Image:
 	var image := Image.create_empty(4, 4, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0.2, 0.6, 0.3))
 	return image
-
 
 # --- paths, and reading back what was written --------------------------------------------
 
@@ -147,7 +145,6 @@ func _meshes_in(path: String) -> int:
 	# as a resource in use - so it is handed back here rather than left to the collector.
 	scene.free()
 	return count
-
 
 # --- which nodes are the design ----------------------------------------------------------
 
@@ -251,7 +248,6 @@ func test_a_yard_with_nothing_standing_in_it_is_refused() -> void:
 	assert(not FileAccess.file_exists(path), "no empty model was left behind")
 	main.free()
 
-
 # --- what goes out -----------------------------------------------------------------------
 
 
@@ -303,10 +299,7 @@ func test_a_binary_model_carries_its_pictures_and_a_text_one_only_names_them() -
 	assert((named["files"] as Array).size() == 2, "a text model is two files: %s" % str(named["files"]))
 	assert(_files_ending(".bin").size() == 1, "the buffer is a .bin beside it")
 	assert((named["left_out"] as Array).size() == 1, "and the picture is named as a loss: %s" % str(named["left_out"]))
-	assert(
-		ExporterScript.describe(named).contains("named rather than carried"),
-		ExporterScript.describe(named)
-	)
+	assert(ExporterScript.describe(named).contains("named rather than carried"), ExporterScript.describe(named))
 	assert(_text(text_path).contains("\"uri\""), "which is what the file itself says")
 	main.free()
 	_forget()
@@ -349,7 +342,7 @@ func test_writing_over_a_model_still_names_every_file_it_is_made_of() -> void:
 	assert(bool(again["ok"]), String(again.get("reason", "the export refused")))
 	assert(
 		(again["files"] as Array).size() == 2,
-		"and the second export is made of the same two: %s" % str(again["files"])
+		"and the second export is made of the same two: %s" % str(again["files"]),
 	)
 	assert(String((again["files"] as Array)[0]) == path.get_file(), "the one that was asked for comes first")
 	assert(int(again["bytes"]) == int(first["bytes"]), "and the size still counts both of them")
@@ -402,7 +395,6 @@ func test_an_export_leaves_the_yard_standing_as_it_found_it() -> void:
 	main.free()
 	_forget()
 
-
 # --- what the report says ----------------------------------------------------------------
 
 
@@ -415,10 +407,16 @@ func test_a_report_names_the_losses_it_had() -> void:
 	assert(ExporterScript.describe(ExporterScript._refused("no")) == "no", "a refusal is its reason")
 
 	var named := {
-		"ok": true, "reason": "", "format": "gltf",
+		"ok": true,
+		"reason": "",
+		"format": "gltf",
 		"roots": ["Yard", "Derived"] as Array[String],
-		"files": ["yard.gltf", "yard0.bin"], "bytes": 1024,
-		"meshes": 3, "materials": 2, "pictures": 4, "undrawn": 0,
+		"files": ["yard.gltf", "yard0.bin"],
+		"bytes": 1024,
+		"meshes": 3,
+		"materials": 2,
+		"pictures": 4,
+		"undrawn": 0,
 		"left_out": [] as Array[String],
 	}
 	named["left_out"] = ExporterScript._left_out(named)
@@ -449,7 +447,6 @@ func test_a_report_names_the_losses_it_had() -> void:
 	assert(lines[2].contains("3 meshes"), lines[2])
 	assert(lines[3].contains("no sun"), lines[3])
 	assert(lines[3].contains("lights it"), lines[3])
-
 
 # --- the HUD's door ----------------------------------------------------------------------
 
@@ -507,8 +504,10 @@ func test_the_file_menu_offers_writing_the_yard_out() -> void:
 	var entry: Dictionary = _entry(&"file.model_out")
 	assert(String(entry["label"]) == "Save the yard as a 3D model...", String(entry["label"]))
 	assert(StringName(entry["method"]) == &"_menu_save_model", String(entry["method"]))
-	assert(StringName(entry["needs"]) == HudScript.NEEDS_NOTHING,
-		"the yard stands whatever is on the plan, so this asks nothing of the drawing")
+	assert(
+		StringName(entry["needs"]) == HudScript.NEEDS_NOTHING,
+		"the yard stands whatever is on the plan, so this asks nothing of the drawing",
+	)
 	var listed := false
 	for item: Dictionary in HudScript.items_for("File"):
 		if StringName(item.get("id", &"")) == &"file.model_out":
@@ -522,8 +521,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
-
+	return { }
 
 # --- finding the design in a scene that is itself nested ----------------------------------
 

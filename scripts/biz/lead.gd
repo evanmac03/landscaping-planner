@@ -75,7 +75,6 @@ func _init(lead_id: String = "", lead_name: String = "") -> void:
 	name = lead_name
 	value_estimate = MoneyScript.zero()
 
-
 # --- what a stage is ------------------------------------------------------------------
 
 
@@ -94,7 +93,6 @@ static func is_closed(stage_value: int) -> bool:
 
 static func source_name(code: StringName) -> String:
 	return String(SOURCES.get(code, "Other"))
-
 
 # --- what a lead holds ------------------------------------------------------------------
 
@@ -117,8 +115,7 @@ func event_into(target: int) -> Dictionary:
 	for entry in events:
 		if int(entry.get("to", -1)) == target:
 			return entry
-	return {}
-
+	return { }
 
 # --- moving a lead ----------------------------------------------------------------------
 
@@ -131,10 +128,10 @@ func event_into(target: int) -> Dictionary:
 ## Refuses a lead that already has a history, so opening is not a way to fake an arrival.
 func open(at: String = "", by: String = "", note: String = "Opened") -> Dictionary:
 	if not events.is_empty():
-		return {"ok": false, "reason": "this lead already has a history", "event": {}}
-	var event := {"at": at, "from": -1, "to": stage, "by": by, "note": note}
+		return { "ok": false, "reason": "this lead already has a history", "event": { } }
+	var event := { "at": at, "from": -1, "to": stage, "by": by, "note": note }
 	events.append(event)
-	return {"ok": true, "reason": "", "event": event, "from": -1, "to": stage}
+	return { "ok": true, "reason": "", "event": event, "from": -1, "to": stage }
 
 
 ## Move a lead to another stage. This is the only way the stage changes, and it always appends an
@@ -147,13 +144,15 @@ func open(at: String = "", by: String = "", note: String = "Opened") -> Dictiona
 ## Returns `{ok, reason, event, from, to}`.
 func move_to(to_stage: int, at: String = "", by: String = "", note: String = "") -> Dictionary:
 	if not is_stage(to_stage):
-		return {"ok": false, "reason": "that is not a stage a lead can be in", "event": {}}
+		return { "ok": false, "reason": "that is not a stage a lead can be in", "event": { } }
 	if to_stage == stage:
-		return {"ok": false, "reason": "%s is already where this lead is" % stage_name(to_stage),
-			"event": {}}
+		return { "ok": false, "reason": "%s is already where this lead is" % stage_name(to_stage), "event": { } }
 	if to_stage == LOST and lost_reason == &"":
-		return {"ok": false, "reason": "a lead closed as lost says why, and this one has no lost reason",
-			"event": {}}
+		return {
+			"ok": false,
+			"reason": "a lead closed as lost says why, and this one has no lost reason",
+			"event": { },
+		}
 	var moved_from := stage
 	stage = to_stage
 	if is_closed(to_stage):
@@ -163,9 +162,9 @@ func move_to(to_stage: int, at: String = "", by: String = "", note: String = "")
 		# A reopened lead is open again, and a decision date on an open lead would put it in a past
 		# period's win/loss figure that it never belonged to.
 		closed_at = ""
-	var event := {"at": at, "from": moved_from, "to": to_stage, "by": by, "note": note}
+	var event := { "at": at, "from": moved_from, "to": to_stage, "by": by, "note": note }
 	events.append(event)
-	return {"ok": true, "reason": "", "event": event, "from": moved_from, "to": to_stage}
+	return { "ok": true, "reason": "", "event": event, "from": moved_from, "to": to_stage }
 
 
 ## Name the reason a lead might be lost, before it is. Kept separate from `move_to` because a reason
@@ -173,20 +172,21 @@ func move_to(to_stage: int, at: String = "", by: String = "", note: String = "")
 func set_lost_reason(reason: StringName) -> void:
 	lost_reason = reason
 
-
 # --- the file -------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var events_out: Array = []
 	for entry in events:
-		events_out.append({
-			"at": String(entry.get("at", "")),
-			"from": int(entry.get("from", -1)),
-			"to": int(entry.get("to", -1)),
-			"by": String(entry.get("by", "")),
-			"note": String(entry.get("note", "")),
-		})
+		events_out.append(
+			{
+				"at": String(entry.get("at", "")),
+				"from": int(entry.get("from", -1)),
+				"to": int(entry.get("to", -1)),
+				"by": String(entry.get("by", "")),
+				"note": String(entry.get("note", "")),
+			}
+		)
 	return {
 		"id": id,
 		"name": name,
@@ -213,7 +213,7 @@ static func from_dict(data: Dictionary) -> Lead:
 	lead.customer = String(data.get("customer", ""))
 	lead.address = String(data.get("address", ""))
 	lead.source = StringName(data.get("source", "other"))
-	lead.value_estimate = MoneyScript.from_dict(data.get("value_estimate", {}))
+	lead.value_estimate = MoneyScript.from_dict(data.get("value_estimate", { }))
 	var held := int(data.get("stage", LEAD))
 	lead.stage = held if is_stage(held) else LEAD
 	lead.opened_at = String(data.get("opened_at", ""))

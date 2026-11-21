@@ -12,7 +12,7 @@ extends Node2D
 ## sowing window through the **real HUD** the way the menu entry does, and reads the lines off the
 ## **real controls**, awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/sowing_demo.tscn`.
+## Run `res://tools/sowing_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -97,7 +97,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.plant_items():
 		if String(entry.get("id", "")) == "plant.sow":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no sowing entry in the Plant menu)"

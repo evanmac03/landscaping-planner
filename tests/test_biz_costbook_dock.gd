@@ -36,7 +36,7 @@ func _fixture() -> void:
 	var book: CostBook = _book()
 	book.save_to(BOOK_PATH)
 	var store: BizStore = StoreScript.new(STORE_ROOT)
-	store.put(StoreScript.JOB_KIND, "J-1", {"number": "J-1001"}, "", -1, "evan", MOMENT)
+	store.put(StoreScript.JOB_KIND, "J-1", { "number": "J-1001" }, "", -1, "evan", MOMENT)
 	store.put("estimate", "E-1", _estimate(book).to_dict(), "J-1", -1, "evan", MOMENT)
 	var text := "SKU,Description,UOM,Unit Cost,Waste\n"
 	text += "bed-mulch,Bark mulch,m3,64.50,8%\n"
@@ -100,7 +100,6 @@ func _wipe(folder: String) -> void:
 		_wipe(folder.path_join(String(subfolder)))
 	DirAccess.remove_absolute(folder)
 
-
 # --- building it ----------------------------------------------------------------------------------
 
 
@@ -128,7 +127,6 @@ func test_building_twice_is_the_same_dock_rather_than_a_second_set_of_rows() -> 
 	dock.build()
 	assert(dock.plan_rows().size() == rows)
 	dock.free()
-
 
 # --- opening a book -------------------------------------------------------------------------------
 
@@ -171,7 +169,6 @@ func test_loading_a_book_clears_the_plan_that_was_in_hand() -> void:
 	dock.load_book(BOOK_PATH)
 	assert(dock.plan_rows().is_empty(), "a plan belongs to the book it was planned against")
 	dock.free()
-
 
 # --- reading a supplier's price list --------------------------------------------------------------
 
@@ -222,7 +219,6 @@ func test_a_row_whose_cost_will_not_read_is_named_in_the_plan() -> void:
 	assert(String(rows[1]).contains("unreadable"), String(rows[1]))
 	assert(String(rows[1]).contains("sixty"), String(rows[1]))
 	dock.free()
-
 
 # --- a percentage, which is signed ----------------------------------------------------------------
 
@@ -285,7 +281,6 @@ func test_a_bulk_update_narrowed_to_a_supplier_the_book_has_plans_only_those() -
 	assert((plan["changes"] as Array).size() == 2)
 	dock.free()
 
-
 # --- what it would do to the work already quoted ---------------------------------------------------
 
 
@@ -320,7 +315,6 @@ func test_a_preview_with_no_plan_in_hand_is_refused_rather_than_showing_nothing(
 	assert(not result["ok"])
 	assert(String(result["reason"]).contains("no plan in hand"), String(result["reason"]))
 	dock.free()
-
 
 # --- writing the next version ---------------------------------------------------------------------
 
@@ -404,7 +398,6 @@ func test_a_bulk_update_writes_a_new_version_too() -> void:
 	assert(next.version == 4)
 	dock.free()
 
-
 # --- what is wrong with it ------------------------------------------------------------------------
 
 
@@ -469,7 +462,6 @@ func test_a_book_that_refuses_something_reports_it_rather_than_hiding_it() -> vo
 	assert(rows.size() == 1, str(rows))
 	assert(String(rows[0]).contains("needs an id"), String(rows[0]))
 	dock.free()
-
 
 # --- what a test (or a person) sets and reads back -------------------------------------------------
 

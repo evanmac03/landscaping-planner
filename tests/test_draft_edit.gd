@@ -10,7 +10,6 @@ const Geom := preload("res://scripts/draft/geom2d.gd")
 func _near(a: Vector2, b: Vector2, tolerance := 0.001) -> bool:
 	return a.distance_to(b) <= tolerance
 
-
 # --- offset -------------------------------------------------------------------------
 
 
@@ -51,7 +50,8 @@ func test_an_arc_offsets_about_the_same_centre() -> void:
 
 func test_a_closed_outline_offsets_outward_and_inward() -> void:
 	var square := Entity.make_polyline(
-		PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 4), Vector2(0, 4)]), true
+		PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 4), Vector2(0, 4)]),
+		true,
 	)
 	var bigger = Edit.offset(square, 0.5)["entities"][0]
 	assert(bigger.area() > 16.0, "outward is a bigger area")
@@ -60,9 +60,7 @@ func test_a_closed_outline_offsets_outward_and_inward() -> void:
 
 
 func test_an_open_polyline_offsets_with_mitered_joins() -> void:
-	var path := Entity.make_polyline(
-		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]), false
-	)
+	var path := Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]), false)
 	var offset_path = Edit.offset(path, 0.5)["entities"][0]
 	var points: PackedVector2Array = offset_path.points()
 	assert(points.size() == 3, "three points in, three out")
@@ -89,7 +87,6 @@ func test_the_pick_is_inside_or_outside_a_closed_shape() -> void:
 	assert(Edit.offset_sign(circle, Vector2(0, 1)) < 0.0, "inside offsets inward")
 	var square := Entity.make_rectangle(Vector2(0, 0), Vector2(4, 4))
 	assert(Edit.offset_sign(square, Vector2(3, 3)) > 0.0, "outside the square is positive")
-
 
 # --- trim ---------------------------------------------------------------------------
 
@@ -136,7 +133,6 @@ func test_trim_refuses_a_shape_that_is_not_a_line() -> void:
 	var circle := Entity.make_circle(Vector2(0, 0), 2.0)
 	assert(not Edit.trim(circle, Vector2(2, 0), [])["ok"], "trim works on a line")
 
-
 # --- extend -------------------------------------------------------------------------
 
 
@@ -165,7 +161,6 @@ func test_extending_with_nothing_in_the_way_says_so() -> void:
 	var result := Edit.extend(line, Vector2(4.9, 0), [wall])
 	assert(not result["ok"], "there is nothing beyond the far end")
 	assert(result["reason"].contains("beyond"), "and it says so")
-
 
 # --- fillet -------------------------------------------------------------------------
 
@@ -216,7 +211,6 @@ func test_a_fillet_refuses_a_pick_on_the_corner() -> void:
 	var result := Edit.fillet(a, b, 1.0, Vector2(0, 0), Vector2(0, 5))
 	assert(not result["ok"], "an ambiguous pick is refused rather than guessed")
 
-
 # --- rotate -------------------------------------------------------------------------
 
 
@@ -254,11 +248,10 @@ func test_turning_by_nothing_is_refused() -> void:
 	var still := Edit.rotate(line, Vector2(5, 5), 0.0)
 	assert(not still["ok"], "a turn of nothing is refused")
 	assert(still["reason"].contains("nothing"), "and the reason says as much")
-	assert(Edit.rotate(null, Vector2(5, 5), 1.0)["reason"].contains("nothing"),
-		"as is asking to turn nothing at all")
-
+	assert(Edit.rotate(null, Vector2(5, 5), 1.0)["reason"].contains("nothing"), "as is asking to turn nothing at all")
 
 # --- move and copy --------------------------------------------------------------------
+
 
 ## A move hands back a copy and the shape it was asked about does not move - the same contract a turn
 ## makes, and for the same reason: the caller decides how the replacement is recorded.

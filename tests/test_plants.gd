@@ -5,8 +5,8 @@ extends Node
 ## editor's class cache has picked the file up, and a test that cannot run until the editor has
 ## rescanned is a test that fails for a reason that has nothing to do with the code.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 const SCRATCH := "user://plants/test-catalogue.json"
 const SCRATCH_COLLECTIONS := "user://plants/test-collections.json"
@@ -16,7 +16,12 @@ const SCRATCH_IMPORT := "user://plants/test-import.json"
 ## A red maple: a tree, full sun, blooms in spring, tagged as a native shade tree.
 func _maple() -> SpeciesScript:
 	var plant: SpeciesScript = SpeciesScript.make(
-		&"ACER-RUBRUM", "Acer rubrum", "Red maple", 1500, 1200, SpeciesScript.TREE
+		&"ACER-RUBRUM",
+		"Acer rubrum",
+		"Red maple",
+		1500,
+		1200,
+		SpeciesScript.TREE,
 	)
 	plant.zone_min = 3
 	plant.zone_max = 9
@@ -34,7 +39,12 @@ func _maple() -> SpeciesScript:
 ## A hosta: a shade perennial, a different category, different tags.
 func _hosta() -> SpeciesScript:
 	var plant: SpeciesScript = SpeciesScript.make(
-		&"HOSTA-PATRIOT", "Hosta", "Plantain lily", 60, 90, SpeciesScript.PERENNIAL
+		&"HOSTA-PATRIOT",
+		"Hosta",
+		"Plantain lily",
+		60,
+		90,
+		SpeciesScript.PERENNIAL,
 	)
 	plant.cultivar = "Patriot"
 	plant.zone_min = 3
@@ -52,7 +62,12 @@ func _hosta() -> SpeciesScript:
 ## case a single month value or a naive range check gets wrong.
 func _witch_hazel() -> SpeciesScript:
 	var plant: SpeciesScript = SpeciesScript.make(
-		&"HAMAMELIS-VIRGINIANA", "Hamamelis virginiana", "Witch hazel", 300, 300, SpeciesScript.SHRUB
+		&"HAMAMELIS-VIRGINIANA",
+		"Hamamelis virginiana",
+		"Witch hazel",
+		300,
+		300,
+		SpeciesScript.SHRUB,
 	)
 	plant.zone_min = 5
 	plant.zone_max = 9
@@ -67,7 +82,12 @@ func _witch_hazel() -> SpeciesScript:
 ## A grass: no bloom at all, and a low water need.
 func _grass() -> SpeciesScript:
 	var plant: SpeciesScript = SpeciesScript.make(
-		&"PANICUM-VIRGATUM", "Panicum virgatum", "Switch grass", 120, 60, SpeciesScript.GRASS
+		&"PANICUM-VIRGATUM",
+		"Panicum virgatum",
+		"Switch grass",
+		120,
+		60,
+		SpeciesScript.GRASS,
 	)
 	plant.zone_min = 4
 	plant.zone_max = 9
@@ -88,7 +108,12 @@ func _catalogue() -> PlantCatalogue:
 ## A plant the catalogue does not have, for the import tests.
 func _boxwood() -> SpeciesScript:
 	var plant: SpeciesScript = SpeciesScript.make(
-		&"BUXUS-SEMPERVIRENS", "Buxus sempervirens", "Common box", 200, 150, SpeciesScript.SHRUB
+		&"BUXUS-SEMPERVIRENS",
+		"Buxus sempervirens",
+		"Common box",
+		200,
+		150,
+		SpeciesScript.SHRUB,
 	)
 	plant.form = "res://scenes/props/shrub.tscn"
 	plant.tags = ["evergreen"]
@@ -115,7 +140,6 @@ func _any_contains(lines: Array, text: String) -> bool:
 		if String(line).contains(text):
 			return true
 	return false
-
 
 # --- the species entry ------------------------------------------------------------------
 
@@ -259,9 +283,8 @@ func test_a_species_survives_the_file_format_as_whole_numbers() -> void:
 	# fault - what matters is that the plan draws the same colour the catalogue names.
 	assert(
 		back.bloom_colour.to_html(false) == plant.bloom_colour.to_html(false),
-		"the bloom colour survives: %s against %s" % [
-			back.bloom_colour.to_html(false), plant.bloom_colour.to_html(false)
-		]
+		"the bloom colour survives: %s against %s"
+		% [back.bloom_colour.to_html(false), plant.bloom_colour.to_html(false)],
 	)
 	assert(back.note == "the earliest thing to flower")
 	assert(back.is_valid(), back.problem())
@@ -269,7 +292,6 @@ func test_a_species_survives_the_file_format_as_whole_numbers() -> void:
 	var other: SpeciesScript = plant.copy()
 	other.height_cm = 999
 	assert(plant.height_cm == 300)
-
 
 # --- the catalogue ----------------------------------------------------------------------
 
@@ -308,61 +330,161 @@ func test_a_filter_that_is_not_understood_is_refused_rather_than_ignored() -> vo
 	# A browser that silently ignores a criterion shows plants that will not grow where they are
 	# going, so an unknown key is refused and named.
 	var catalogue := _catalogue()
-	assert(CatalogueScript.unknown_criterion({"sun": 1}) == "")
-	assert(CatalogueScript.unknown_criterion({"too_tall": 5}) == "too_tall")
-	assert(catalogue.filter({"sun": SpeciesScript.FULL_SHADE}).is_empty() == false, "hostas take shade")
-	assert(catalogue.filter({"too_tall": 5}).is_empty(), "an unknown criterion finds nothing")
+	assert(CatalogueScript.unknown_criterion({ "sun": 1 }) == "")
+	assert(CatalogueScript.unknown_criterion({ "too_tall": 5 }) == "too_tall")
+	assert(catalogue.filter({ "sun": SpeciesScript.FULL_SHADE }).is_empty() == false, "hostas take shade")
+	assert(catalogue.filter({ "too_tall": 5 }).is_empty(), "an unknown criterion finds nothing")
 
 
 func test_a_filter_finds_a_plant_by_light_water_zone_size_and_tags() -> void:
 	var catalogue := _catalogue()
 	# Light: only the hosta will take full shade, and only the grass *needs* full sun.
-	var shade: Array = catalogue.filter({"sun": SpeciesScript.FULL_SHADE})
+	var shade: Array = catalogue.filter({ "sun": SpeciesScript.FULL_SHADE })
 	assert(_ids(shade) == PackedStringArray(["HOSTA-PATRIOT"]), str(_ids(shade)))
 	# A plant must take **all** of the light conditions asked for.
-	for plant: SpeciesScript in catalogue.filter({"sun": SpeciesScript.FULL_SUN | SpeciesScript.PART_SHADE}):
+	for plant: SpeciesScript in catalogue.filter({ "sun": SpeciesScript.FULL_SUN | SpeciesScript.PART_SHADE }):
 		assert(plant.takes_sun(SpeciesScript.FULL_SUN) and plant.takes_sun(SpeciesScript.PART_SHADE))
 	# Water, as a ceiling.
-	assert(_ids(catalogue.filter({"water_max": SpeciesScript.WATER_LOW})) == PackedStringArray(["PANICUM-VIRGATUM"]))
+	assert(_ids(catalogue.filter({ "water_max": SpeciesScript.WATER_LOW })) == PackedStringArray(["PANICUM-VIRGATUM"]))
 	# A zone: hardy where it is going. The witch hazel is the tender one here.
-	var zone_three := _ids(catalogue.filter({"zone": 3}))
+	var zone_three := _ids(catalogue.filter({ "zone": 3 }))
 	assert(zone_three.has("ACER-RUBRUM") and zone_three.has("HOSTA-PATRIOT"), str(zone_three))
 	assert(not zone_three.has("HAMAMELIS-VIRGINIANA"), "zone 3 is colder than it is hardy in")
 	# Size, as a ceiling for a space 1 m tall.
-	assert(_ids(catalogue.filter({"height_max_cm": 100})) == PackedStringArray(["HOSTA-PATRIOT"]))
+	assert(_ids(catalogue.filter({ "height_max_cm": 100 })) == PackedStringArray(["HOSTA-PATRIOT"]))
 	# Every tag asked for is required, not any of them.
-	assert(_ids(catalogue.filter({"tags": ["native", "low water"]})) == PackedStringArray(["PANICUM-VIRGATUM"]))
-	assert(catalogue.filter({"tags": ["native", "not a tag"]}).is_empty())
+	assert(_ids(catalogue.filter({ "tags": ["native", "low water"] })) == PackedStringArray(["PANICUM-VIRGATUM"]))
+	assert(catalogue.filter({ "tags": ["native", "not a tag"] }).is_empty())
 	# What it is drawn as, for a placement tool asking what it may plant on a tree form.
-	assert(_ids(catalogue.filter({"form": "res://scenes/props/tree.tscn"})) == PackedStringArray(["ACER-RUBRUM"]))
+	assert(_ids(catalogue.filter({ "form": "res://scenes/props/tree.tscn" })) == PackedStringArray(["ACER-RUBRUM"]))
+
+
+func test_a_conifer_and_a_plant_nobody_eats_are_the_filters_own_answers() -> void:
+	# Two criteria the plant key needs and the browser's chips never name: whether a plant is a
+	# conifer - a fact about the botanical name, because a nursery calls a boxwood "evergreen" and a
+	# boxwood is a broadleaf - and the far side of the food question. Both are asked of the plant
+	# itself, so a key cannot come to disagree with what the catalogue says.
+	var catalogue := CatalogueScript.make()
+	var spruce: SpeciesScript = SpeciesScript.make(
+		&"PICEA-ABIES",
+		"Picea abies",
+		"Norway spruce",
+		1500,
+		1500,
+		SpeciesScript.TREE,
+	)
+	var boxwood: SpeciesScript = SpeciesScript.make(
+		&"BUXUS-SEMPERVIRENS",
+		"Buxus sempervirens",
+		"Common box",
+		120,
+		120,
+		SpeciesScript.SHRUB,
+	)
+	boxwood.tags = ["evergreen"]
+	var thyme: SpeciesScript = SpeciesScript.make(
+		&"THYMUS-SERPYLLUM",
+		"Thymus serpyllum",
+		"Creeping thyme",
+		30,
+		30,
+		SpeciesScript.HERB,
+	)
+	thyme.edible_parts = SpeciesScript.EAT_LEAF
+	assert(catalogue.add(spruce), "the spruce is a plant")
+	assert(catalogue.add(boxwood), "the boxwood is a plant")
+	assert(catalogue.add(thyme), "the thyme is a plant")
+	assert(_ids(catalogue.filter({ "conifer": true })) == PackedStringArray(["PICEA-ABIES"]))
+	assert(
+		_ids(catalogue.filter({ "conifer": false })) == PackedStringArray(["BUXUS-SEMPERVIRENS", "THYMUS-SERPYLLUM"]),
+		"an evergreen tag does not make a conifer",
+	)
+	assert(_ids(catalogue.filter({ "not_edible": true })) == PackedStringArray(["BUXUS-SEMPERVIRENS", "PICEA-ABIES"]))
+	assert(CatalogueScript.unknown_criterion({ "conifer": true }) == "", "the filter knows the new criteria")
+	assert(CatalogueScript.unknown_criterion({ "not_edible": true }) == "")
+
+
+func test_a_species_states_its_leaves_or_states_nothing_about_them() -> void:
+	# The leaves are bits like the sun and the drainage, and **zero means not stated** - the honest answer
+	# for a catalogue nobody has read leaf by leaf, and the reason a key can ask about a leaf safely.
+	var maple: SpeciesScript = _maple()
+	maple.leaf_arrangement = SpeciesScript.ARR_OPPOSITE
+	maple.leaf_complexity = SpeciesScript.CMP_SIMPLE
+	maple.leaf_shape = SpeciesScript.SHP_OVATE | SpeciesScript.SHP_ELLIPTICAL
+	maple.leaf_margin = SpeciesScript.MRG_LOBED
+	assert(maple.is_valid(), "a plant that states its leaves is a plant: %s" % maple.problem())
+	assert(maple.leaf_trait(SpeciesScript.LEAF_ARRANGEMENT) == SpeciesScript.ARR_OPPOSITE)
+	assert(
+		maple.leaf_trait(SpeciesScript.LEAF_SHAPE) == (SpeciesScript.SHP_OVATE | SpeciesScript.SHP_ELLIPTICAL),
+		"a plant states every value it can be",
+	)
+	var back: SpeciesScript = SpeciesScript.from_dict(maple.to_dict())
+	assert(back.leaf_shape == maple.leaf_shape, "the leaves survive the file as whole numbers")
+	assert(back.leaf_trait(SpeciesScript.LEAF_MARGIN) == SpeciesScript.MRG_LOBED, "and read back the same")
+	assert(
+		SpeciesScript.names_for(SpeciesScript.LEAF_MARGIN).has(SpeciesScript.MRG_LOBED),
+		"a trait reads its own words",
+	)
+	# A bit outside a trait's own table is a mistyped number rather than a leaf.
+	var wrong: SpeciesScript = _maple()
+	wrong.leaf_venation = 99
+	assert(wrong.problem().contains("leaf venation"), "and it is named: %s" % wrong.problem())
+	# A record written before the leaves existed states nothing about them, and is not refused for it.
+	var older: Dictionary = _maple().to_dict()
+	older.erase("leaf_margin")
+	assert(SpeciesScript.from_dict(older).leaf_margin == 0, "an older record simply states nothing")
+
+
+func test_a_leaf_criterion_finds_the_plants_described_and_leaves_the_rest_out() -> void:
+	# A chip for a leaf finds what is described. What keeps that from losing a plant nobody has described
+	# is `PlantKey`, which asks a leaf question only while every plant left states that leaf.
+	var catalogue := CatalogueScript.make()
+	var oak: SpeciesScript = _maple()
+	oak.id = &"QUERCUS-RUBRA"
+	oak.botanical_name = "Quercus rubra"
+	oak.common_name = "Red oak"
+	oak.leaf_margin = SpeciesScript.MRG_LOBED
+	assert(catalogue.add(oak), "the oak is a plant")
+	var fescue: SpeciesScript = _maple()
+	fescue.id = &"FESTUCA-GLAUCA"
+	fescue.botanical_name = "Festuca glauca"
+	fescue.common_name = "Blue fescue"
+	assert(catalogue.add(fescue), "the fescue is a plant")
+	assert(_ids(catalogue.filter({ "leaf_margin": SpeciesScript.MRG_LOBED })) == PackedStringArray(["QUERCUS-RUBRA"]))
+	assert(CatalogueScript.unknown_criterion({ "leaf_margin": 1 }) == "", "the filter knows the leaf traits")
+	assert(not CatalogueScript.can_be(0, SpeciesScript.MRG_LOBED), "a plant nobody described is not a lobed one")
+	assert(CatalogueScript.can_be(SpeciesScript.MRG_LOBED, SpeciesScript.MRG_LOBED))
 
 
 func test_a_filter_for_january_finds_the_plant_that_blooms_across_the_new_year() -> void:
 	# The case a single month value gets wrong: the witch hazel blooms November to March, so it
 	# blooms in January - and a browser asked "what is in flower in January?" has to offer it.
 	var catalogue := _catalogue()
-	assert(_ids(catalogue.filter({"bloom_month": 1})) == PackedStringArray(["HAMAMELIS-VIRGINIANA"]))
-	assert(_ids(catalogue.filter({"bloom_month": 12})) == PackedStringArray(["HAMAMELIS-VIRGINIANA"]))
-	assert(_ids(catalogue.filter({"bloom_month": 3})) == PackedStringArray(["ACER-RUBRUM", "HAMAMELIS-VIRGINIANA"]))
-	assert(_ids(catalogue.filter({"bloom_month": 7})) == PackedStringArray(["HOSTA-PATRIOT"]))
-	assert(catalogue.filter({"bloom_month": 5}).is_empty(), "nothing blooms in May in this catalogue")
+	assert(_ids(catalogue.filter({ "bloom_month": 1 })) == PackedStringArray(["HAMAMELIS-VIRGINIANA"]))
+	assert(_ids(catalogue.filter({ "bloom_month": 12 })) == PackedStringArray(["HAMAMELIS-VIRGINIANA"]))
+	assert(_ids(catalogue.filter({ "bloom_month": 3 })) == PackedStringArray(["ACER-RUBRUM", "HAMAMELIS-VIRGINIANA"]))
+	assert(_ids(catalogue.filter({ "bloom_month": 7 })) == PackedStringArray(["HOSTA-PATRIOT"]))
+	assert(catalogue.filter({ "bloom_month": 5 }).is_empty(), "nothing blooms in May in this catalogue")
 
 
 func test_the_catalogue_sorts_the_way_a_browser_needs_it_to() -> void:
 	var catalogue := _catalogue()
 	# By height, shortest first: a designer choosing for a low bed wants the small ones together.
-	assert(_ids(catalogue.filter({"sort": "height"})) == PackedStringArray([
-		"HOSTA-PATRIOT", "PANICUM-VIRGATUM", "HAMAMELIS-VIRGINIANA", "ACER-RUBRUM"
-	]))
-	assert(_ids(catalogue.filter({"sort": "height", "descending": true}))[0] == "ACER-RUBRUM")
+	assert(
+		_ids(catalogue.filter({ "sort": "height" }))
+		== PackedStringArray(["HOSTA-PATRIOT", "PANICUM-VIRGATUM", "HAMAMELIS-VIRGINIANA", "ACER-RUBRUM"])
+	)
+	assert(_ids(catalogue.filter({ "sort": "height", "descending": true }))[0] == "ACER-RUBRUM")
 	# By bloom, with the January flower first and the foliage plant last rather than second.
-	assert(_ids(catalogue.filter({"sort": "bloom"})) == PackedStringArray([
-		"HAMAMELIS-VIRGINIANA", "ACER-RUBRUM", "HOSTA-PATRIOT", "PANICUM-VIRGATUM"
-	]))
+	assert(
+		_ids(catalogue.filter({ "sort": "bloom" }))
+		== PackedStringArray(["HAMAMELIS-VIRGINIANA", "ACER-RUBRUM", "HOSTA-PATRIOT", "PANICUM-VIRGATUM"])
+	)
 	# By default: botanical name, which is how a plant list is written.
-	assert(_ids(catalogue.filter({})) == PackedStringArray([
-		"ACER-RUBRUM", "HAMAMELIS-VIRGINIANA", "HOSTA-PATRIOT", "PANICUM-VIRGATUM"
-	]))
+	assert(
+		_ids(catalogue.filter({ }))
+		== PackedStringArray(["ACER-RUBRUM", "HAMAMELIS-VIRGINIANA", "HOSTA-PATRIOT", "PANICUM-VIRGATUM"])
+	)
 
 
 func test_tags_come_with_their_counts_so_a_browser_can_build_its_chips() -> void:
@@ -371,8 +493,10 @@ func test_tags_come_with_their_counts_so_a_browser_can_build_its_chips() -> void
 	assert(int(counts["native"]) == 3, "three natives")
 	assert(int(counts["low water"]) == 1)
 	assert(int(counts["shade tree"]) == 1)
-	assert(catalogue.tag_names() == ["low water", "native", "shade", "shade tree", "winter interest"],
-		str(catalogue.tag_names()))
+	assert(
+		catalogue.tag_names() == ["low water", "native", "shade", "shade tree", "winter interest"],
+		str(catalogue.tag_names()),
+	)
 	assert(catalogue.tagged("shade").size() == 1)
 	assert(catalogue.tagged("not a tag").is_empty())
 
@@ -390,11 +514,11 @@ func test_a_collection_is_a_persons_own_and_survives_its_own_file() -> void:
 	assert(not catalogue.add_to_collection("no such list", &"HOSTA-PATRIOT"))
 	assert(
 		_ids(catalogue.collection("front bed")) == PackedStringArray(["ACER-RUBRUM", "HOSTA-PATRIOT"]),
-		"the group holds both plants, sorted: %s" % str(_ids(catalogue.collection("front bed")))
+		"the group holds both plants, sorted: %s" % str(_ids(catalogue.collection("front bed"))),
 	)
 	assert(
 		", ".join(catalogue.collections_of(&"HOSTA-PATRIOT")) == "front bed",
-		str(catalogue.collections_of(&"HOSTA-PATRIOT"))
+		str(catalogue.collections_of(&"HOSTA-PATRIOT")),
 	)
 	assert(catalogue.rename_collection("front bed", "shade border"))
 	assert(catalogue.collection_count("shade border") == 2, "renaming keeps the plants")
@@ -412,7 +536,7 @@ func test_a_collection_is_a_persons_own_and_survives_its_own_file() -> void:
 	assert(_ids(fresh.collection("shade border")) == PackedStringArray(["HOSTA-PATRIOT"]))
 	# A list naming a plant the catalogue does not have keeps its name, drops the id, and says so.
 	var file := FileAccess.open(SCRATCH_COLLECTIONS, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"shade border": ["HOSTA-PATRIOT", "GONE"], "old list": ["ALSO-GONE"]}))
+	file.store_string(JSON.stringify({ "shade border": ["HOSTA-PATRIOT", "GONE"], "old list": ["ALSO-GONE"] }))
 	file.close()
 	var other := _catalogue()
 	var read_again: Dictionary = other.load_collections(SCRATCH_COLLECTIONS)
@@ -482,9 +606,9 @@ func test_importing_a_list_adds_what_is_missing_and_reports_what_it_will_not_tak
 	nonsense["id"] = "BROKEN"
 	nonsense["zone_min"] = 0
 	var file := FileAccess.open(SCRATCH_IMPORT, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"species": {
-		"BUXUS-SEMPERVIRENS": incoming, "ACER-RUBRUM": duplicate, "BROKEN": nonsense,
-	}}))
+	file.store_string(
+		JSON.stringify({ "species": { "BUXUS-SEMPERVIRENS": incoming, "ACER-RUBRUM": duplicate, "BROKEN": nonsense } })
+	)
 	file.close()
 
 	var merged: Dictionary = catalogue.import_json(SCRATCH_IMPORT)
@@ -548,7 +672,7 @@ func test_a_model_is_loaded_once_however_many_plants_share_it() -> void:
 	assert(int(catalogue.cache_loads()["scenes"]) == 1, "and it was loaded once")
 	assert(
 		first.resource_path == "res://scenes/props/shrub.tscn",
-		"a species with no model of its own is planted as its form: %s" % first.resource_path
+		"a species with no model of its own is planted as its form: %s" % first.resource_path,
 	)
 	# A species with its own model is planted as that, not as its form.
 	var boxwood := _boxwood()
@@ -574,7 +698,88 @@ func test_a_model_is_loaded_once_however_many_plants_share_it() -> void:
 	assert(catalogue.scene_for(&"PANICUM-VIRGATUM") != null)
 	assert(
 		int(catalogue.cache_loads()["scenes"]) == loads_so_far + 1,
-		"a cleared cache loads again, so the thing it held was really dropped"
+		"a cleared cache loads again, so the thing it held was really dropped",
 	)
 	assert(catalogue.scene_for(&"PANICUM-VIRGATUM") != null)
 	assert(int(catalogue.cache_loads()["scenes"]) == loads_so_far + 1, "and only once")
+
+
+func test_a_bloom_colour_becomes_the_bucket_a_person_would_name() -> void:
+	# The flower question a key asks needs a word, and the catalogue stores a shade. This one rule turns a
+	# shade into that word, and it is the same rule that buckets the plant and names the answer - so "pink"
+	# cannot mean one flower to the key and another to the person looking at it.
+	assert(SpeciesScript.flower_colour_name(Color(1, 1, 1)) == &"white", "an uncoloured flower is white")
+	assert(SpeciesScript.flower_colour_name(Color(0.96, 0.94, 0.88)) == &"cream", "a warm off-white is cream")
+	# The pair a coarse rule gets wrong and this one is written to get right.
+	assert(SpeciesScript.flower_colour_name(Color(0.82, 0.15, 0.23)) == &"red", "a deep red flower is red")
+	assert(SpeciesScript.flower_colour_name(Color(0.78, 0.47, 0.60)) == &"pink", "a washed-out red is pink")
+	# Then the hues, straight off the wheel.
+	assert(SpeciesScript.flower_colour_name(Color(0.95, 0.82, 0.29)) == &"yellow", "yellow")
+	assert(SpeciesScript.flower_colour_name(Color(0.92, 0.38, 0.10)) == &"orange", "orange")
+	assert(SpeciesScript.flower_colour_name(Color(0.55, 0.42, 0.82)) == &"purple", "purple")
+	assert(SpeciesScript.flower_colour_name(Color(0.29, 0.36, 0.69)) == &"blue", "blue")
+	assert(SpeciesScript.flower_colour_name(Color(0.55, 0.65, 0.42)) == &"green", "green")
+	# Every shade there is lands in a bucket the vocabulary names, so the key can never come to offer an
+	# answer this rule could not come back with.
+	for red: int in range(0, 256, 51):
+		for green: int in range(0, 256, 51):
+			for blue: int in range(0, 256, 51):
+				var bucket: StringName = SpeciesScript.flower_colour_name(Color8(red, green, blue))
+				assert(
+					SpeciesScript.FLOWER_COLOURS.has(bucket),
+					"#%02x%02x%02x landed in %s" % [red, green, blue, bucket],
+				)
+
+
+func test_the_seasons_are_the_months_each_one_is() -> void:
+	# One table, read by the key and by any browser chip, because two copies of this would eventually
+	# disagree about when spring is.
+	assert(SpeciesScript.SEASONS[&"spring"] == [3, 4, 5], "spring is March to May")
+	assert(SpeciesScript.SEASONS[&"summer"] == [6, 7, 8], "summer is June to August")
+	assert(SpeciesScript.SEASONS[&"autumn"] == [9, 10, 11], "autumn is September to November")
+	assert(SpeciesScript.SEASONS[&"winter"] == [12, 1, 2], "and winter wraps the new year")
+	# The four between them are the twelve months, each exactly once, so a plant is in exactly one season.
+	var seen: Dictionary = { }
+	for season: Variant in SpeciesScript.SEASONS.keys():
+		for month: Variant in SpeciesScript.SEASONS[season]:
+			assert(not seen.has(int(month)), "month %d is in one season only" % int(month))
+			seen[int(month)] = true
+	assert(seen.size() == 12, "and every month is in one")
+
+
+func test_the_flower_criteria_find_the_flowering_and_refuse_a_plant_that_never_flowers() -> void:
+	# A season and a colour are answers only a plant that flowers has. A fern stores the class's default
+	# colour, which is a pink nobody chose, so the criterion has to ask whether the plant flowers at all -
+	# the same rule that keeps a leaf criterion from matching a plant whose leaf nobody has read.
+	var catalogue := CatalogueScript.make()
+	var serviceberry: SpeciesScript = _maple()
+	serviceberry.id = &"AMELANCHIER"
+	serviceberry.botanical_name = "Amelanchier canadensis"
+	serviceberry.common_name = "Serviceberry"
+	serviceberry.bloom_months = 0
+	serviceberry.bloom_colour = Color(0.96, 0.94, 0.88)
+	serviceberry.set_blooms_in(4, true)
+	assert(catalogue.add(serviceberry), "the serviceberry is a plant")
+	var crabapple: SpeciesScript = _maple()
+	crabapple.id = &"MALUS-ROYALTY"
+	crabapple.botanical_name = "Malus 'Royalty'"
+	crabapple.common_name = "Purple crabapple"
+	crabapple.bloom_months = 0
+	crabapple.bloom_colour = Color(0.78, 0.47, 0.60)
+	crabapple.set_blooms_in(7, true)
+	assert(catalogue.add(crabapple), "the crabapple is a plant")
+	var fern: SpeciesScript = _maple()
+	fern.id = &"DRYOPTERIS"
+	fern.botanical_name = "Dryopteris filix-mas"
+	fern.common_name = "Male fern"
+	fern.bloom_months = 0
+	assert(catalogue.add(fern), "the fern is a plant, and states no month")
+
+	assert(_ids(catalogue.filter({ "flower_colour": &"cream" })) == PackedStringArray(["AMELANCHIER"]))
+	assert(_ids(catalogue.filter({ "flower_colour": &"pink" })) == PackedStringArray(["MALUS-ROYALTY"]))
+	assert(_ids(catalogue.filter({ "bloom_season": &"spring" })) == PackedStringArray(["AMELANCHIER"]))
+	assert(_ids(catalogue.filter({ "bloom_season": &"summer" })) == PackedStringArray(["MALUS-ROYALTY"]))
+	assert(not fern.blooms(), "a fern flowers never")
+	assert(not CatalogueScript.matches(fern, { "flower_colour": &"pink" }), "so its default pink is not a flower")
+	assert(CatalogueScript.unknown_criterion({ "flower_colour": &"pink" }) == "", "the filter knows the colour")
+	assert(CatalogueScript.unknown_criterion({ "bloom_season": &"spring" }) == "", "and the season")

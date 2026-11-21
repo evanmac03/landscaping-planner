@@ -1,0 +1,98 @@
+class_name TouchInput
+extends RefCounted
+## Whether this device is answered with a finger.
+##
+## The operating system is not the question, and on its own it gets the answer wrong in both directions: a
+## Windows tablet and an Android tablet are the same device with the same density, and both deserve a
+## palette a thumb can hit; a desktop with a touchscreen in the monitor is a desk, and giving it a phone's
+## palette would cost it half its drawing area for nothing. What decides it is two things together - the
+## device has a touchscreen at all, and the controls this program already draws are, *on this screen*,
+## smaller than a finger. Asking the millimetres instead of `OS.has_feature("android")` is what makes a
+## tablet the same device whichever platform it is running.
+
+## Which answer to give, so a demonstration or a test can ask what a phone, a tablet or a desk would be
+## told without being one. `AUTO` reads the machine it is running on.
+enum Answer {
+	AUTO,
+	FINGER,
+	MOUSE,
+}
+
+## The height a row of answers has on a desk, in logical pixels, and the size a finger needs: the two
+## numbers the whole question is a comparison between. A row this tall is 1.6 mm on a phone's screen and
+## 5.1 mm on this desk's, which is the same row being a thumb's target and a mouse's.
+const DESK_ROW_PX := 29.0
+const THUMB_MM := 5.5
+
+## Where a screen stops being sat at and starts being held.
+##
+## Needed because a touchscreen alone does not tell the two apart: this desk answers
+## `DisplayServer.is_touchscreen_available()` with true, and its touchscreen is in the monitor. The density
+## does tell them apart, and only because the two platforms report it differently and honestly: Windows
+## reports the *logical* density its scaling produces - 96, 120, 144 and 192 at the common steps - while
+## Android reports the panel's physical 450. 200 is above those steps and below every phone and tablet, so it
+## separates the two without having to work out an inch, which Windows cannot do: its 144 is 1920 px across
+## 1.5x, not a 13-inch panel.
+##
+## **The floor is a convention with a stated edge, not a law.** Windows scaling goes further than those four
+## steps - 225% and 250% are offered too, and by the same arithmetic they are 216 and 240 dots to the inch -
+## so a machine scaled that far is *above* this floor. What keeps a desk a desk up there is the other half of
+## `answered_by_a_thumb`: no touchscreen, no finger, and a desktop without one is nearly every desktop. The
+## case that slips through is a high-scaling *touchscreen* laptop, drawn for a thumb; raising the floor to
+## catch it would start refusing a tablet that reports less, and this file declines that trade rather than
+## leave it unsaid.
+const HELD_DPI := 200.0
+
+static var _answer: Answer = Answer.AUTO
+
+
+## Answer for a device rather than for the one this program is running on.
+##
+## For demonstrations and tests only - nothing in the program calls it - and `Answer.AUTO` puts the
+## reading back. It is the same door `PhoneFiles.force` is, asked of a different question.
+static func force(answer: Answer) -> void:
+	_answer = answer
+
+
+## Whether this device has a touchscreen at all.
+static func has_a_touchscreen() -> bool:
+	match _answer:
+		Answer.FINGER:
+			return true
+		Answer.MOUSE:
+			return false
+		_:
+			return DisplayServer.is_touchscreen_available()
+
+
+## Whether a device is answered with a finger.
+##
+## Four ways to the answer, and three of them are "no" for different reasons. No touchscreen is a desk,
+## however dense its screen. A screen below `HELD_DPI` is a screen being sat at, however it is touched -
+## this desk's own monitor reports a touchscreen and 144 dots to the inch. And a density that could not be
+## read resizes nothing at all: a size worked out from a number that does not exist is worse than the size
+## the program already drew, so an unread density leaves the layout exactly as it was built.
+static func answered_by_a_thumb(
+	has_touchscreen: bool,
+	density: float,
+	desk_row_mm: float,
+	thumb_mm: float = THUMB_MM,
+) -> bool:
+	if not has_touchscreen:
+		return false
+	if density <= 0.0 or desk_row_mm <= 0.0 or thumb_mm <= 0.0:
+		return false
+	if density < HELD_DPI:
+		return false
+	return desk_row_mm < thumb_mm
+
+## How much screen, edge to edge, is a phone's and not a tablet's.
+##
+## Sizing for a finger and drawing the canvas up are two different answers, and a tablet needs only the first:
+## a ten-inch screen has the room for a finger-sized palette at its own scale, and drawing it up by a third
+## would put a tablet's drawing behind the same panels a phone has, for no gain.
+##
+## **The second answer is `WindowClass`'s now, not this file's.** It used to be a screen's diagonal compared
+## against seven inches, which was the right answer bought with the wrong unit: what has no room on a phone
+## held sideways is its height, not its width. `WindowClass.is_small` asks the window's own class instead, and
+## this file is left with the one question it is named for - whether a finger is what presses the controls.

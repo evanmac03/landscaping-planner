@@ -20,16 +20,19 @@ class NoCreditLedger extends LedgerAdapter:
 	func name() -> StringName:
 		return &"nocredit"
 
+
 	func describe() -> String:
 		return "a backend that posts invoices and nothing else"
+
 
 	func capabilities() -> Dictionary:
 		var out: Dictionary = super()
 		out["invoices"] = true
 		return out
 
+
 	func invoice_request(invoice: Invoice, idempotency_key: String) -> Dictionary:
-		var headers: Dictionary = {KEY_HEADER: idempotency_key}
+		var headers: Dictionary = { KEY_HEADER: idempotency_key }
 		var body: Dictionary = invoice_body(invoice, idempotency_key)
 		return asked(INVOICE_KIND, make_request(&"POST", "https://example.test/invoices", headers, body))
 
@@ -37,7 +40,7 @@ class NoCreditLedger extends LedgerAdapter:
 func _invoice() -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith"}
+	invoice.customer = { "name": "Smith" }
 	invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Deposit", MoneyScript.of(50000), &"HARDSCAPE", &"NONE")
 	assert(bool(invoice.issue("2026-06-01", 30, "INV-2026-0001")["ok"]))
 	return invoice
@@ -51,14 +54,17 @@ func _credit() -> CreditNote:
 	assert(bool(note.issue("2026-06-20", "CN-2026-0001")["ok"]))
 	return note
 
-
 # --- what a backend declares ---------------------------------------------------------------------
 
 
 func test_the_capability_table_is_the_six_things_a_backend_can_do() -> void:
 	var declared: Array = [
-		LedgerScript.INVOICES, LedgerScript.PAYMENTS, LedgerScript.CREDITS,
-		LedgerScript.CUSTOMERS, LedgerScript.IDEMPOTENCY, LedgerScript.ATTACHMENTS,
+		LedgerScript.INVOICES,
+		LedgerScript.PAYMENTS,
+		LedgerScript.CREDITS,
+		LedgerScript.CUSTOMERS,
+		LedgerScript.IDEMPOTENCY,
+		LedgerScript.ATTACHMENTS,
 	]
 	assert(LedgerScript.CAPABILITY_NAMES.size() == declared.size(), "the table and the names are one list")
 	for what: StringName in declared:
@@ -112,7 +118,6 @@ func test_a_backend_that_cannot_post_payments_refuses_them_too() -> void:
 	var refused: Dictionary = adapter.build_payment_push(payment, _invoice(), "key-2")
 	assert(not bool(refused["ok"]))
 	assert(String(refused["reason"]).contains("cannot post payments"), String(refused["reason"]))
-
 
 # --- building a push ----------------------------------------------------------------------------
 
@@ -179,7 +184,6 @@ func test_the_body_carries_the_invoices_own_figures_so_nothing_downstream_recomp
 	assert(String(tax_rows[0]["tax_code"]) == "NONE")
 	assert(MoneyScript.from_dict(tax_rows[0]["taxable"]).cents == 50000)
 
-
 # --- the idempotency key -------------------------------------------------------------------------
 
 
@@ -208,13 +212,12 @@ func test_a_credit_note_and_an_invoice_never_share_a_key() -> void:
 	assert(adapter.key_for_credit(note) != adapter.key_for_invoice(invoice))
 	assert(adapter.key_for_credit(note).contains(":credit:"), adapter.key_for_credit(note))
 
-
 # --- reading what came back ---------------------------------------------------------------------
 
 
 func test_a_request_that_never_reached_the_server_is_a_retry() -> void:
 	var adapter: LedgerScript = LedgerScript.new()
-	var read: Dictionary = adapter.parse_common({"status": 0, "error": "connection reset"})
+	var read: Dictionary = adapter.parse_common({ "status": 0, "error": "connection reset" })
 	assert(not bool(read["ok"]))
 	assert(bool(read["retry"]), "a transport failure is worth trying again")
 	assert(String(read["reason"]).contains("connection reset"), String(read["reason"]))
@@ -222,84 +225,82 @@ func test_a_request_that_never_reached_the_server_is_a_retry() -> void:
 
 func test_a_refusal_names_the_status_and_the_message_and_is_not_a_retry() -> void:
 	var adapter: LedgerScript = LedgerScript.new()
-	var bad_token: Dictionary = adapter.parse_common({"status": 401, "body": {}})
+	var bad_token: Dictionary = adapter.parse_common({ "status": 401, "body": { } })
 	assert(not bool(bad_token["ok"]))
 	assert(not bool(bad_token["retry"]))
 	assert(String(bad_token["reason"]).contains("401 unauthorized"), String(bad_token["reason"]))
 	assert(String(bad_token["reason"]).contains("check the API token"), String(bad_token["reason"]))
-	var validation: Dictionary = adapter.parse_common({"status": 422, "body": {"message": "amount is required"}})
+	var validation: Dictionary = adapter.parse_common({ "status": 422, "body": { "message": "amount is required" } })
 	assert(String(validation["reason"]).contains("422"), String(validation["reason"]))
 	assert(String(validation["reason"]).contains("amount is required"), String(validation["reason"]))
-	var missing: Dictionary = adapter.parse_common({"status": 404, "body": "no such endpoint"})
+	var missing: Dictionary = adapter.parse_common({ "status": 404, "body": "no such endpoint" })
 	assert(String(missing["reason"]).contains("check the ledger's address"), String(missing["reason"]))
 	assert(String(missing["reason"]).contains("no such endpoint"), String(missing["reason"]))
 
 
 func test_a_rate_limit_is_worth_trying_again_and_a_validation_error_is_not() -> void:
 	var adapter: LedgerScript = LedgerScript.new()
-	assert(bool(adapter.parse_common({"status": 429})["retry"]))
-	assert(bool(adapter.parse_common({"status": 503})["retry"]))
-	assert(not bool(adapter.parse_common({"status": 400})["retry"]))
-	assert(not bool(adapter.parse_common({"status": 409})["retry"]))
+	assert(bool(adapter.parse_common({ "status": 429 })["retry"]))
+	assert(bool(adapter.parse_common({ "status": 503 })["retry"]))
+	assert(not bool(adapter.parse_common({ "status": 400 })["retry"]))
+	assert(not bool(adapter.parse_common({ "status": 409 })["retry"]))
 	# The message survives whatever shape it arrived in.
-	var errors: Dictionary = adapter.parse_common({"status": 422, "body": {"errors": ["a", "b"]}})
+	var errors: Dictionary = adapter.parse_common({ "status": 422, "body": { "errors": ["a", "b"] } })
 	assert(String(errors["reason"]).contains("[\"a\",\"b\"]"), String(errors["reason"]))
 
 
 func test_a_successful_response_names_the_document_the_ledger_made() -> void:
 	var adapter: LedgerScript = LedgerScript.new()
-	var read: Dictionary = adapter.parse_invoice_response({
-		"status": 201,
-		"body": {"id": "42", "number": "INV-2026-0001"},
-	})
+	var read: Dictionary = adapter.parse_invoice_response(
+		{ "status": 201, "body": { "id": "42", "number": "INV-2026-0001" } }
+	)
 	assert(bool(read["ok"]))
 	assert(not bool(read["retry"]))
 	assert(String(read["external_id"]) == "42")
 	assert(String(read["external_number"]) == "INV-2026-0001")
 	# A 200 with nothing in the body is still a success: not every backend answers with the document.
-	var quiet: Dictionary = adapter.parse_invoice_response({"status": 204, "body": {}})
+	var quiet: Dictionary = adapter.parse_invoice_response({ "status": 204, "body": { } })
 	assert(bool(quiet["ok"]))
 	assert(String(quiet["external_id"]) == "")
 
 
 func test_a_base_adapter_has_no_transport_and_says_so_rather_than_pretending() -> void:
 	var adapter: LedgerScript = LedgerScript.new()
-	var sent: Dictionary = adapter.send({"method": "POST", "url": "https://example.test"})
+	var sent: Dictionary = adapter.send({ "method": "POST", "url": "https://example.test" })
 	assert(int(sent["status"]) == 0)
 	assert(String(sent["error"]).contains("no transport of its own"), String(sent["error"]))
 	var tested: Dictionary = adapter.self_test()
 	assert(not bool(tested["ok"]))
 	assert(String(tested["reason"]).contains("cannot test itself"), String(tested["reason"]))
 
-
 # --- reading the document every backend is built from -------------------------------------------
 
 
 func test_a_document_is_read_the_same_way_by_every_backend() -> void:
 	var document: Dictionary = {
-		"customer": {"name": "Smith", "external_id": "  42  "},
-		"lines": [{"amount": {"cents": 100, "currency": "CAD"}}, "not a line", 7],
+		"customer": { "name": "Smith", "external_id": "  42  " },
+		"lines": [{ "amount": { "cents": 100, "currency": "CAD" } }, "not a line", 7],
 	}
 	# A line that is not a line is left out rather than crashing a builder three call frames down.
 	assert(LedgerScript.lines_of(document).size() == 1)
-	assert(LedgerScript.lines_of({}).is_empty())
+	assert(LedgerScript.lines_of({ }).is_empty())
 	assert(LedgerScript.customer_name_of(document) == "Smith")
-	assert(LedgerScript.customer_name_of({"customer": {"company": "Smith Landscaping"}}) == "Smith Landscaping")
-	assert(LedgerScript.customer_name_of({}) == "")
+	assert(LedgerScript.customer_name_of({ "customer": { "company": "Smith Landscaping" } }) == "Smith Landscaping")
+	assert(LedgerScript.customer_name_of({ }) == "")
 	# The id in the backend being posted to is trimmed: an id with a space in it is an id nobody pasted
 	# on purpose.
 	assert(LedgerScript.party_id_of(document) == "42")
-	assert(LedgerScript.party_id_of({"customer": {}}) == "")
-	assert(LedgerScript.party_id_of({}) == "")
+	assert(LedgerScript.party_id_of({ "customer": { } }) == "")
+	assert(LedgerScript.party_id_of({ }) == "")
 
 
 func test_a_line_states_its_quantity_when_there_is_more_than_one_of_them() -> void:
-	var one: Dictionary = {"description": "Deposit", "quantity_milli": 1000, "unit": "EACH"}
-	var many: Dictionary = {"description": "Sod", "quantity_milli": 3500, "unit": "SQ_FT"}
+	var one: Dictionary = { "description": "Deposit", "quantity_milli": 1000, "unit": "EACH" }
+	var many: Dictionary = { "description": "Sod", "quantity_milli": 3500, "unit": "SQ_FT" }
 	assert(LedgerScript.line_notes(one) == "Deposit")
 	assert(LedgerScript.line_notes(many) == "Sod, 3.5 SQ_FT")
 	# A line with no quantity at all still reads as its description rather than as a stray comma.
-	assert(LedgerScript.line_notes({"description": "Deposit"}) == "Deposit")
+	assert(LedgerScript.line_notes({ "description": "Deposit" }) == "Deposit")
 
 
 func test_a_machines_amount_is_a_number_and_not_a_persons_amount() -> void:
@@ -327,19 +328,17 @@ func test_the_tax_rate_told_to_an_api_is_read_off_the_published_table() -> void:
 
 func test_a_document_that_says_what_is_wrong_with_it_is_refused_in_those_words() -> void:
 	var clean: Dictionary = {
-		"total": {"cents": 100, "currency": "CAD"},
-		"tax_lines": [{"tax_code": "NONE", "ok": true, "reason": ""}],
+		"total": { "cents": 100, "currency": "CAD" },
+		"tax_lines": [{ "tax_code": "NONE", "ok": true, "reason": "" }],
 	}
 	assert(LedgerScript.document_refusal(clean) == "")
 	var taxed: Dictionary = {
-		"total": {"cents": 100, "currency": "CAD"},
-		"tax_lines": [{"tax_code": "GONE", "ok": false, "reason": "unknown tax code 'GONE'"}],
+		"total": { "cents": 100, "currency": "CAD" },
+		"tax_lines": [{ "tax_code": "GONE", "ok": false, "reason": "unknown tax code 'GONE'" }],
 	}
-	assert(LedgerScript.document_refusal(taxed) == "unknown tax code 'GONE'",
-		LedgerScript.document_refusal(taxed))
-	var unreadable: Dictionary = {
-		"total": MoneyScript.invalid().to_dict(),
-		"tax_lines": [],
-	}
-	assert(LedgerScript.document_refusal(unreadable) == "the invoice's total cannot be read",
-		LedgerScript.document_refusal(unreadable))
+	assert(LedgerScript.document_refusal(taxed) == "unknown tax code 'GONE'", LedgerScript.document_refusal(taxed))
+	var unreadable: Dictionary = { "total": MoneyScript.invalid().to_dict(), "tax_lines": [] }
+	assert(
+		LedgerScript.document_refusal(unreadable) == "the invoice's total cannot be read",
+		LedgerScript.document_refusal(unreadable),
+	)

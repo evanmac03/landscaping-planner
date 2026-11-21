@@ -12,7 +12,6 @@ const UnitsScript := preload("res://scripts/draft/units.gd")
 func _label(layout: Dictionary) -> Dictionary:
 	return layout["labels"][0]
 
-
 # --- linear -------------------------------------------------------------------------
 
 
@@ -87,7 +86,6 @@ func test_a_degenerate_dimension_draws_nothing() -> void:
 	assert(layout["marks"].is_empty())
 	assert(layout["labels"].is_empty())
 
-
 # --- radius -------------------------------------------------------------------------
 
 
@@ -99,7 +97,6 @@ func test_a_radius_dimension_is_a_leader_with_the_value() -> void:
 	assert(layout["marks"][0]["tip"].is_equal_approx(Vector2(5, 0)))
 	assert(layout["marks"][0]["direction"].is_equal_approx(Vector2(1, 0)))
 	assert(_label(layout)["text"] == "R5.00 m")
-
 
 # --- angular ------------------------------------------------------------------------
 
@@ -119,8 +116,10 @@ func test_an_angular_dimension_draws_the_angle_between_its_two_sides() -> void:
 	# And it is really curved: its middle stands off the chord by a good margin.
 	var middle: Vector2 = arc[arc.size() / 2]
 	assert(absf(middle.distance_to(Vector2.ZERO) - 2.0) < 0.01, "every point of it is the radius out")
-	assert(middle.distance_to((arc[0] + arc[arc.size() - 1]) * 0.5) > 0.4,
-		"so it bows away from the straight line between its ends")
+	assert(
+		middle.distance_to((arc[0] + arc[arc.size() - 1]) * 0.5) > 0.4,
+		"so it bows away from the straight line between its ends",
+	)
 
 
 ## The **smaller** angle is the one measured, whichever way round the two sides were picked, so picking
@@ -128,14 +127,16 @@ func test_an_angular_dimension_draws_the_angle_between_its_two_sides() -> void:
 ## its complement.
 func test_an_angular_dimension_measures_the_smaller_angle() -> void:
 	var clockwise = Entity.make_angular_dimension(Vector2(0, 0), Vector2(4, 0), Vector2(0, -4), 2.0)
-	assert(_label(Dimension.layout(clockwise, 100.0))["text"] == "90.00°",
-		"a quarter turn the other way round is still a quarter turn")
+	assert(
+		_label(Dimension.layout(clockwise, 100.0))["text"] == "90.00°",
+		"a quarter turn the other way round is still a quarter turn",
+	)
 	# Two sides a tenth of a turn apart, with the sweep spanning the wrap: 30 degrees, not 330.
 	var wrapped = Entity.make_angular_dimension(
 		Vector2(0, 0),
 		Vector2.from_angle(deg_to_rad(350.0)) * 3.0,
 		Vector2.from_angle(deg_to_rad(20.0)) * 3.0,
-		1.0
+		1.0,
 	)
 	var text: String = _label(Dimension.layout(wrapped, 100.0))["text"]
 	assert(text == "30.00°", "not the three hundred and thirty the other way: %s" % text)
@@ -164,10 +165,8 @@ func test_an_angle_is_in_degrees_even_on_an_imperial_drawing() -> void:
 func test_an_angle_is_written_to_the_sheets_precision() -> void:
 	# The second side rises three for every four it runs, so the angle is atan(3/4) = 36.8699 degrees.
 	var entity = Entity.make_angular_dimension(Vector2(0, 0), Vector2(6, 0), Vector2(4, 3), 2.0)
-	assert(_label(Dimension.layout(entity, 100.0))["text"] == "36.87°",
-		_label(Dimension.layout(entity, 100.0))["text"])
-	assert(_label(Dimension.layout(entity, 500.0))["text"] == "36.9°",
-		_label(Dimension.layout(entity, 500.0))["text"])
+	assert(_label(Dimension.layout(entity, 100.0))["text"] == "36.87°", _label(Dimension.layout(entity, 100.0))["text"])
+	assert(_label(Dimension.layout(entity, 500.0))["text"] == "36.9°", _label(Dimension.layout(entity, 500.0))["text"])
 
 
 ## A corner with no radius, a side of no length, or two sides in the same direction is not an angle:
@@ -184,7 +183,6 @@ func test_a_degenerate_angular_dimension_draws_nothing() -> void:
 		assert(layout["marks"].is_empty(), "no marks")
 		assert(layout["labels"].is_empty(), "and no number to read")
 
-
 # --- paper sizing -------------------------------------------------------------------
 
 
@@ -196,9 +194,7 @@ func test_dimension_sizes_are_paper_properties() -> void:
 	var coarse: Dictionary = Dimension.layout(entity, 50.0)
 	assert(is_equal_approx(fine["marks"][0]["size"], 0.25))
 	assert(is_equal_approx(coarse["marks"][0]["size"], 0.125))
-	assert(is_equal_approx(
-		_label(fine)["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0
-	))
+	assert(is_equal_approx(_label(fine)["height"], LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0))
 
 
 func test_the_text_sits_on_the_side_it_was_measured_from() -> void:
@@ -228,7 +224,6 @@ func test_an_arrowhead_is_a_triangle_pointing_outward() -> void:
 	var half_width: float = DimensionStyle.DEFAULT_WIDTH_RATIO
 	assert(absf(triangle[1].length() - sqrt(1.0 + half_width * half_width)) < 0.001)
 	assert(absf(triangle[1].x - (-1.0)) < 0.001)
-
 
 # --- units --------------------------------------------------------------------------
 
@@ -265,7 +260,9 @@ func test_the_measurement_follows_the_document_units() -> void:
 	units.system = UnitsScript.System.IMPERIAL
 	assert(_label(Dimension.layout(entity, 100.0, units))["text"] == units.format_length(10.0))
 	# And an authored height is a constant unless a caller overrides it.
-	assert(is_equal_approx(
-		_label(Dimension.layout(entity, 100.0, units))["height"],
-		LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0
-	))
+	assert(
+		is_equal_approx(
+			_label(Dimension.layout(entity, 100.0, units))["height"],
+			LineStyle.DEFAULT_TEXT_HEIGHT * 100.0 / 1000.0,
+		)
+	)

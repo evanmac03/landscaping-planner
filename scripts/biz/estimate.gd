@@ -26,13 +26,7 @@ const WON := 2
 const LOST := 3
 const EXPIRED := 4
 
-const STATUS_NAMES := {
-	DRAFT: "Draft",
-	SENT: "Sent",
-	WON: "Won",
-	LOST: "Lost",
-	EXPIRED: "Expired",
-}
+const STATUS_NAMES := { DRAFT: "Draft", SENT: "Sent", WON: "Won", LOST: "Lost", EXPIRED: "Expired" }
 
 ## A proposal number is `EST-2026-0041`. It is assigned when the estimate is first sent and never
 ## reused, so the number is a fact about a document rather than a label the program can re-point.
@@ -40,9 +34,9 @@ const NUMBER_PREFIX := "EST"
 
 var id: String = ""
 var number: String = ""
-var customer: Dictionary = {}
+var customer: Dictionary = { }
 ## The drawing's own site, `{latitude, longitude}` (§4.9), so a proposal says where the work is.
-var site: Dictionary = {}
+var site: Dictionary = { }
 var currency: StringName = &"CAD"
 var lines: Array[EstimateLine] = []
 ## Markup applied to the direct cost, in parts per million.
@@ -59,7 +53,7 @@ var deposit_ppm: int = 0
 var revision: int = 0
 var status: int = DRAFT
 ## Empty while drafting; `{hash, at, to}` once sent, and then immutable (§5.5).
-var frozen: Dictionary = {}
+var frozen: Dictionary = { }
 ## The cost book these prices came from, for provenance alongside each line's own `book_version`.
 var book_version: int = 1
 var book_source: String = ""
@@ -78,7 +72,6 @@ static func make(estimate_id: String = "") -> Estimate:
 static func new_id() -> String:
 	return LineScript.new_id()
 
-
 # --- the lines ----------------------------------------------------------------------------
 
 
@@ -91,7 +84,8 @@ func _refusal() -> String:
 	if not is_frozen():
 		return ""
 	return "estimate %s was sent to %s and cannot be edited; revise it into a new draft" % [
-		id, String(frozen.get("to", "the customer"))
+		id,
+		String(frozen.get("to", "the customer")),
 	]
 
 
@@ -169,12 +163,12 @@ func _index_of(line_id: String) -> int:
 func add_kit(book: CostBook, kit_id: StringName, made_milli: int = KitScript.DEFAULT_YIELD_MILLI) -> Dictionary:
 	var refusal: String = _refusal()
 	if not refusal.is_empty():
-		return {"ok": false, "reason": refusal, "lines": []}
+		return { "ok": false, "reason": refusal, "lines": [] }
 	if book == null:
-		return {"ok": false, "reason": "a kit needs a cost book", "lines": []}
+		return { "ok": false, "reason": "a kit needs a cost book", "lines": [] }
 	var expanded: Dictionary = book.expand_kit(kit_id, made_milli)
 	if not bool(expanded["ok"]):
-		return {"ok": false, "reason": String(expanded["reason"]), "lines": []}
+		return { "ok": false, "reason": String(expanded["reason"]), "lines": [] }
 	var added: Array[EstimateLine] = []
 	for row: Dictionary in expanded["lines"]:
 		var item: CostItem = book.item(row["item_id"])
@@ -182,14 +176,13 @@ func add_kit(book: CostBook, kit_id: StringName, made_milli: int = KitScript.DEF
 			continue
 		var made_line: EstimateLine = LineScript.make(item, int(row["quantity_milli"]))
 		if not add_line(made_line, book):
-			return {"ok": false, "reason": "line %s was refused" % item.id, "lines": added}
+			return { "ok": false, "reason": "line %s was refused" % item.id, "lines": added }
 		added.append(made_line)
 	if added.is_empty():
-		return {"ok": false, "reason": "cost kit %s made nothing" % kit_id, "lines": []}
+		return { "ok": false, "reason": "cost kit %s made nothing" % kit_id, "lines": [] }
 	book_version = book.version
 	book_source = book.source
-	return {"ok": true, "reason": "", "lines": added}
-
+	return { "ok": true, "reason": "", "lines": added }
 
 # --- the roll-up --------------------------------------------------------------------------
 
@@ -249,9 +242,7 @@ func markup_shares() -> Array:
 		return shares
 	var assigned: int = 0
 	for index in lines.size():
-		var share: int = MoneyScript.rounded_div(
-			markup.cents * int(weights[index]), total_weight
-		)
+		var share: int = MoneyScript.rounded_div(markup.cents * int(weights[index]), total_weight)
 		assigned += share
 		shares.append(share)
 	shares[biggest] = int(shares[biggest]) + (markup.cents - assigned)
@@ -266,7 +257,7 @@ func markup_shares() -> Array:
 ## construction rather than by luck.
 func tax_shares(book: CostBook = null) -> Array:
 	var shares: Array = markup_shares()
-	var bases: Dictionary = {}
+	var bases: Dictionary = { }
 	var ordered: Array[StringName] = []
 	for index in lines.size():
 		var row: EstimateLine = lines[index]
@@ -280,12 +271,19 @@ func tax_shares(book: CostBook = null) -> Array:
 		bases[code] = (bases[code] as Money).add(base)
 	var out: Array = []
 	for code: StringName in ordered:
-		out.append({
-			"code": code,
-			"base": bases[code],
-			"gross": TaxScript.gross(bases[code], code) if _tax_code_known(code, book) \
-				else {"ok": false, "reason": "unknown tax code '%s'" % String(code), "components": [], "tax": MoneyScript.invalid(currency)},
-		})
+		out.append(
+			{
+				"code": code,
+				"base": bases[code],
+				"gross": TaxScript.gross(bases[code], code) if _tax_code_known(code, book) \
+						else {
+					"ok": false,
+					"reason": "unknown tax code '%s'" % String(code),
+					"components": [],
+					"tax": MoneyScript.invalid(currency),
+				},
+			}
+		)
 	return out
 
 
@@ -308,13 +306,15 @@ func tax_components(book: CostBook = null) -> Array:
 		var gross: Dictionary = share["gross"]
 		var components: Array = gross.get("components", [])
 		for component: Dictionary in components:
-			out.append({
-				"code": share["code"],
-				"name": component["name"],
-				"rate_ppm": component["rate_ppm"],
-				"base": component["base"],
-				"amount": component["amount"],
-			})
+			out.append(
+				{
+					"code": share["code"],
+					"name": component["name"],
+					"rate_ppm": component["rate_ppm"],
+					"base": component["base"],
+					"amount": component["amount"],
+				}
+			)
 	return out
 
 
@@ -332,9 +332,7 @@ func margin_ppm() -> int:
 	var price: Money = price_before_tax()
 	if not price.is_valid() or price.cents == 0:
 		return 0
-	return MoneyScript.rounded_div(
-		(price.cents - direct_cost().cents) * 1000000, price.cents
-	)
+	return MoneyScript.rounded_div((price.cents - direct_cost().cents) * 1000000, price.cents)
 
 
 func margin_text() -> String:
@@ -354,7 +352,6 @@ func summary(book: CostBook = null) -> Dictionary:
 		"deposit": deposit(book),
 		"margin_ppm": margin_ppm(),
 	}
-
 
 # --- refusing -----------------------------------------------------------------------------
 
@@ -379,14 +376,12 @@ func problems(book: CostBook = null) -> Array[String]:
 			out.append(reason)
 			continue
 		if not _tax_code_known(each.tax_code, book):
-			out.append("estimate line %s carries tax code \"%s\", which is not a code" % [
-				each.id, String(each.tax_code)
-			])
+			out.append(
+				"estimate line %s carries tax code \"%s\", which is not a code" % [each.id, String(each.tax_code)]
+			)
 			continue
 		if exempt() and TaxScript.rate_ppm(each.tax_code) != 0:
-			out.append("estimate line %s is taxable (%s) and the customer is exempt" % [
-				each.id, String(each.tax_code)
-			])
+			out.append("estimate line %s is taxable (%s) and the customer is exempt" % [each.id, String(each.tax_code)])
 	if overhead_ppm < -LineScript.MAX_MARKUP_PPM or overhead_ppm > LineScript.MAX_MARKUP_PPM:
 		out.append("overhead of %d ppm is outside +/-500%%" % overhead_ppm)
 	if profit_ppm < -LineScript.MAX_MARKUP_PPM or profit_ppm > LineScript.MAX_MARKUP_PPM:
@@ -413,7 +408,6 @@ func foots() -> bool:
 		summed += each.extension().cents
 	return summed == subtotal().cents
 
-
 # --- freezing -----------------------------------------------------------------------------
 
 
@@ -428,11 +422,21 @@ func content_signature() -> String:
 	parts.append("tax_code:%s" % String(tax_code))
 	parts.append("deposit_ppm:%d" % deposit_ppm)
 	for each: EstimateLine in lines:
-		parts.append("%s|%s|%s|%d|%s|%d|%s|%d|%d|%d" % [
-			each.id, each.cost_item, each.description, each.quantity_milli, String(each.unit),
-			each.kind, String(each.tax_code), each.unit_cost.cents, each.unit_price.cents,
-			each.waste_ppm,
-		])
+		parts.append(
+			"%s|%s|%s|%d|%s|%d|%s|%d|%d|%d"
+			% [
+				each.id,
+				each.cost_item,
+				each.description,
+				each.quantity_milli,
+				String(each.unit),
+				each.kind,
+				String(each.tax_code),
+				each.unit_cost.cents,
+				each.unit_price.cents,
+				each.waste_ppm,
+			]
+		)
 	return "\n".join(parts)
 
 
@@ -451,11 +455,7 @@ func freeze(sent_to: String) -> bool:
 		return false
 	if not is_sound():
 		return false
-	frozen = {
-		"hash": content_hash(),
-		"at": Time.get_datetime_string_from_system(true, true),
-		"to": sent_to,
-	}
+	frozen = { "hash": content_hash(), "at": Time.get_datetime_string_from_system(true, true), "to": sent_to }
 	status = SENT
 	return true
 
@@ -472,7 +472,7 @@ func freeze_holds() -> bool:
 func new_revision() -> Estimate:
 	var next: Estimate = from_dict(to_dict())
 	next.revision = revision + 1
-	next.frozen = {}
+	next.frozen = { }
 	next.status = DRAFT
 	return next
 
@@ -483,7 +483,6 @@ func assign_number(year: int, sequence: int) -> String:
 		return ""
 	number = "%s-%04d-%04d" % [NUMBER_PREFIX, year, sequence]
 	return number
-
 
 # --- persistence --------------------------------------------------------------------------
 
@@ -520,14 +519,12 @@ func to_dict() -> Dictionary:
 ## Read one back. Numbers come out of JSON as floats, so every integer field is coerced, and nothing
 ## comes back typed (§2.1a).
 static func from_dict(data: Dictionary) -> Estimate:
-	var estimate: Estimate = (load("res://scripts/biz/estimate.gd") as GDScript).new(
-		String(data.get("id", ""))
-	)
+	var estimate: Estimate = (load("res://scripts/biz/estimate.gd") as GDScript).new(String(data.get("id", "")))
 	estimate.number = String(data.get("number", ""))
-	var person: Variant = data.get("customer", {})
-	estimate.customer = (person as Dictionary).duplicate(true) if person is Dictionary else {}
-	var where: Variant = data.get("site", {})
-	estimate.site = (where as Dictionary).duplicate(true) if where is Dictionary else {}
+	var person: Variant = data.get("customer", { })
+	estimate.customer = (person as Dictionary).duplicate(true) if person is Dictionary else { }
+	var where: Variant = data.get("site", { })
+	estimate.site = (where as Dictionary).duplicate(true) if where is Dictionary else { }
 	estimate.currency = StringName(data.get("currency", "CAD"))
 	var rows: Variant = data.get("lines", [])
 	if rows is Array:
@@ -540,8 +537,8 @@ static func from_dict(data: Dictionary) -> Estimate:
 	estimate.deposit_ppm = int(data.get("deposit_ppm", 0))
 	estimate.revision = int(data.get("revision", 0))
 	estimate.status = int(data.get("status", DRAFT))
-	var seal: Variant = data.get("frozen", {})
-	estimate.frozen = (seal as Dictionary).duplicate(true) if seal is Dictionary else {}
+	var seal: Variant = data.get("frozen", { })
+	estimate.frozen = (seal as Dictionary).duplicate(true) if seal is Dictionary else { }
 	estimate.book_version = int(data.get("book_version", 1))
 	estimate.book_source = String(data.get("book_source", ""))
 	estimate.notes = String(data.get("notes", ""))
@@ -562,18 +559,19 @@ func describe(book: CostBook = null) -> String:
 		out.append("  %s" % each.line_text())
 	out.append("  %-40s %s" % ["subtotal", subtotal().format_with_currency()])
 	if overhead_ppm != 0:
-		out.append("  %-40s %s" % [
-			"overhead %.3f%%" % (float(overhead_ppm) / 10000.0), overhead().format_with_currency()
-		])
+		out.append(
+			"  %-40s %s" % ["overhead %.3f%%" % (float(overhead_ppm) / 10000.0), overhead().format_with_currency()]
+		)
 	if profit_ppm != 0:
-		out.append("  %-40s %s" % [
-			"profit %.3f%%" % (float(profit_ppm) / 10000.0), profit().format_with_currency()
-		])
+		out.append("  %-40s %s" % ["profit %.3f%%" % (float(profit_ppm) / 10000.0), profit().format_with_currency()])
 	for component: Dictionary in tax_components(book):
-		out.append("  %-40s %s" % [
-			"%s at %.3f%%" % [component["name"], float(component["rate_ppm"]) / 10000.0],
-			(component["amount"] as Money).format_with_currency(),
-		])
+		out.append(
+			"  %-40s %s"
+			% [
+				"%s at %.3f%%" % [component["name"], float(component["rate_ppm"]) / 10000.0],
+				(component["amount"] as Money).format_with_currency(),
+			]
+		)
 	out.append("  %-40s %s" % ["total", total(book).format_with_currency()])
 	if deposit_ppm != 0:
 		out.append("  %-40s %s" % ["deposit", deposit(book).format_with_currency()])

@@ -19,10 +19,8 @@ const GradingScript := preload("res://scripts/draft/grading.gd")
 ## put in hand.
 const GROUND_TOOLS: Array = [
 	["Spot level here", "grade_spot", "_menu_grade_spot", ToolScript.Kind.GRADE_SPOT, GradingScript.SPOT],
-	["Draw a contour", "grade_contour", "_menu_grade_contour", ToolScript.Kind.GRADE_CONTOUR,
-		GradingScript.CONTOUR],
-	["Draw a slope arrow", "grade_slope", "_menu_grade_slope", ToolScript.Kind.GRADE_SLOPE,
-		GradingScript.SLOPE],
+	["Draw a contour", "grade_contour", "_menu_grade_contour", ToolScript.Kind.GRADE_CONTOUR, GradingScript.CONTOUR],
+	["Draw a slope arrow", "grade_slope", "_menu_grade_slope", ToolScript.Kind.GRADE_SLOPE, GradingScript.SLOPE],
 ]
 
 ## Every command that gained a key, and where it is: the menu it lives in, its id in that menu, and the
@@ -58,7 +56,7 @@ func test_no_key_is_two_commands() -> void:
 	# A key two commands share is a key that does both, which nobody ever means. This is what the five
 	# new keys were chosen against, and it is worth keeping for the next one; Godot's own `ui_*` actions
 	# are left out, because they are there for any control to use.
-	var owners: Dictionary = {}
+	var owners: Dictionary = { }
 	var clashes: Array[String] = []
 	for action: StringName in InputMap.get_actions():
 		var name := String(action)
@@ -70,7 +68,10 @@ func test_no_key_is_two_commands() -> void:
 				continue
 			var code := key.physical_keycode if key.physical_keycode != 0 else key.keycode
 			var signature := "%s %s%s%s" % [
-				OS.get_keycode_string(code), key.ctrl_pressed, key.shift_pressed, key.alt_pressed
+				OS.get_keycode_string(code),
+				key.ctrl_pressed,
+				key.shift_pressed,
+				key.alt_pressed,
 			]
 			if owners.has(signature) and String(owners[signature]) != name:
 				clashes.append("%s and %s are both on %s" % [owners[signature], name, signature])
@@ -83,13 +84,15 @@ func test_every_command_that_had_no_key_is_on_one_and_the_bar_says_which() -> vo
 		var menu := String(pair[0])
 		var wanted := String(pair[1])
 		var action := String(pair[2])
-		var entry: Dictionary = {}
+		var entry: Dictionary = { }
 		for listed: Dictionary in HudScript.items_for(menu):
 			if String(listed.get("id", "")) == wanted:
 				entry = listed
 		assert(not entry.is_empty(), "%s is in the %s menu" % [wanted, menu])
-		assert(String(entry.get("action", "")) == action,
-			"%s is on %s, not %s" % [wanted, action, entry.get("action", "")])
+		assert(
+			String(entry.get("action", "")) == action,
+			"%s is on %s, not %s" % [wanted, action, entry.get("action", "")],
+		)
 		# And the bar prints the key it is on, which is the whole of what a key is for.
 		var label := HudScript.menu_label(entry)
 		assert(label != String(entry["label"]), "%s shows its key: %s" % [wanted, label])
@@ -121,7 +124,7 @@ func test_the_key_and_the_button_put_the_same_tool_in_hand() -> void:
 		var hud_by_menu := HudScript.new()
 		hud_by_menu._draft = by_menu
 		hud_by_menu._build_grading_window()
-		hud_by_menu.call(method, {})
+		hud_by_menu.call(method, { })
 		assert(by_menu.tool.kind == kind, "%s armed the same tool" % method)
 		by_menu.free()
 		hud_by_menu.free()

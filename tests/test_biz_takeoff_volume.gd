@@ -59,9 +59,7 @@ func _forget_mulch() -> void:
 
 ## A closed outline of the given size, on the mulch layer. 6 x 4 m is 24 m².
 func _bed(document: DraftDocument, width: float = 6.0, height: float = 4.0) -> int:
-	var corners := PackedVector2Array([
-		Vector2(0, 0), Vector2(width, 0), Vector2(width, height), Vector2(0, height)
-	])
+	var corners := PackedVector2Array([Vector2(0, 0), Vector2(width, 0), Vector2(width, height), Vector2(0, height)])
 	return document.add(DraftEntity.make_polyline(corners, true), MULCH)
 
 
@@ -70,7 +68,6 @@ func _row(takeoff: Takeoff, measure: StringName) -> Takeoff.TakeoffLine:
 		if line.layer == MULCH and line.measure == measure:
 			return line
 	return null
-
 
 # --- a depth on a layer turns an area into a volume -------------------------------------------
 
@@ -152,7 +149,6 @@ func test_a_volume_layer_with_no_depth_is_refused_and_named() -> void:
 	assert(problems.contains("set_depth"), "and how to state one")
 	_forget_mulch()
 
-
 # --- a volume in the drawing's own units ------------------------------------------------------
 
 
@@ -171,10 +167,10 @@ func test_a_volume_is_stated_in_the_drawing_own_units() -> void:
 	assert(line.unit == &"CU_YD", "stated in cubic yards")
 	var expected: Dictionary = WorkUnitScript.convert(1800, &"CU_M", &"CU_YD")
 	assert(bool(expected["ok"]), "the conversion is one the unit table knows")
-	assert(line.quantity_milli == int(expected["quantity_milli"]),
-		"1.8 m³ is %d thousandths of a cubic yard: %d" % [
-			int(expected["quantity_milli"]), line.quantity_milli
-		])
+	assert(
+		line.quantity_milli == int(expected["quantity_milli"]),
+		"1.8 m³ is %d thousandths of a cubic yard: %d" % [int(expected["quantity_milli"]), line.quantity_milli],
+	)
 	assert(absf(line.value - 1.8) < 1e-9, "while the measurement itself stays in metres: %f" % line.value)
 	_forget_mulch()
 
@@ -191,13 +187,12 @@ func test_an_area_in_an_imperial_drawing_is_a_square_foot_number() -> void:
 	assert(line != null, "the bed is measured as an area")
 	assert(line.unit == &"SQ_FT", "in square feet")
 	var expected: Dictionary = WorkUnitScript.convert(24000, &"SQ_M", &"SQ_FT")
-	assert(line.quantity_milli == int(expected["quantity_milli"]),
-		"24 m² is %d thousandths of a square foot: %d" % [
-			int(expected["quantity_milli"]), line.quantity_milli
-		])
+	assert(
+		line.quantity_milli == int(expected["quantity_milli"]),
+		"24 m² is %d thousandths of a square foot: %d" % [int(expected["quantity_milli"]), line.quantity_milli],
+	)
 	assert(absf(line.value - 24.0) < 1e-9, "and the measurement stays 24 m²: %f" % line.value)
 	_forget_mulch()
-
 
 # --- what a volume does with a shape that has no area ------------------------------------------
 
@@ -220,7 +215,6 @@ func test_a_run_of_edging_through_a_mulch_bed_is_still_a_length() -> void:
 	assert(run.quantity_milli == 6000, "the edging is 6 m: %d" % run.quantity_milli)
 	assert(volume.source != run.source, "and the two are keyed apart, so a re-takeoff can tell them apart")
 	_forget_mulch()
-
 
 # --- the rate the takeoff could not reach ------------------------------------------------------
 
@@ -246,8 +240,10 @@ func test_a_volume_reaches_the_per_cubic_metre_rate_it_could_not() -> void:
 	var row: EstimateLine = estimate.lines[0]
 	assert(row.unit == &"CU_M", "in cubic metres: %s" % String(row.unit))
 	assert(row.quantity_with_waste() == 1944, "1.944 m³: %d" % row.quantity_with_waste())
-	assert(row.extension().format_with_currency() == "$112.75",
-		"1.944 m³ at $58.00: %s" % row.extension().format_with_currency())
+	assert(
+		row.extension().format_with_currency() == "$112.75",
+		"1.944 m³ at $58.00: %s" % row.extension().format_with_currency(),
+	)
 	_forget_mulch()
 
 
@@ -266,7 +262,6 @@ func test_a_volume_line_says_what_it_is_in_words() -> void:
 	assert(words.contains(String(MULCH)), "on the layer that produced it: %s" % words)
 	_forget_mulch()
 
-
 # --- the shipped layers are untouched by any of this -------------------------------------------
 
 
@@ -276,8 +271,10 @@ func test_the_shipped_layers_still_measure_as_they_did() -> void:
 	for layer_name: StringName in [&"300-NEW-HARD", &"400-NEW-BED", &"402-NEW-TURF"]:
 		var plan: Dictionary = TakeoffScript.measure_plan(layer_name)
 		assert(not plan.is_empty(), "%s is measured" % String(layer_name))
-		assert(StringName(plan["measure"]) == WorkUnitScript.AREA,
-			"%s measures as an area: %s" % [String(layer_name), String(plan["measure"])])
+		assert(
+			StringName(plan["measure"]) == WorkUnitScript.AREA,
+			"%s measures as an area: %s" % [String(layer_name), String(plan["measure"])],
+		)
 		assert(not plan.has("depth_mm"), "%s states no depth" % String(layer_name))
 		assert(TakeoffScript.depth_of(layer_name) == 0, "%s has no depth to read" % String(layer_name))
 		assert(not TakeoffScript.is_volume_layer(layer_name), "%s is not a volume layer" % String(layer_name))

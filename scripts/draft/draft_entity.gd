@@ -63,8 +63,7 @@ var params := PackedFloat64Array()
 var bulges := PackedFloat64Array()
 ## Optional per-entity override of the layer's style.
 var style: LineStyleScript = null
-var meta: Dictionary = {}
-
+var meta: Dictionary = { }
 
 # --- construction -------------------------------------------------------------------
 
@@ -115,7 +114,12 @@ static func make_rectangle(centre: Vector2, size: Vector2, rotation: float = 0.0
 	return entity
 
 
-static func make_regular_polygon(centre: Vector2, circumradius: float, sides: int, rotation: float = 0.0) -> DraftEntity:
+static func make_regular_polygon(
+	centre: Vector2,
+	circumradius: float,
+	sides: int,
+	rotation: float = 0.0,
+) -> DraftEntity:
 	var entity := _new()
 	entity.kind = Kind.REGULAR_POLY
 	entity.params = PackedFloat64Array([centre.x, centre.y, circumradius, float(maxi(sides, 3)), rotation])
@@ -126,7 +130,7 @@ static func make_dimension(
 	from: Vector2,
 	to: Vector2,
 	offset: float = 1.0,
-	dimension_kind: DimensionKind = DimensionKind.LINEAR
+	dimension_kind: DimensionKind = DimensionKind.LINEAR,
 ) -> DraftEntity:
 	var entity := _new()
 	entity.kind = Kind.DIMENSION
@@ -138,7 +142,7 @@ static func make_text(at: Vector2, text: String, rotation: float = 0.0) -> Draft
 	var entity := _new()
 	entity.kind = Kind.TEXT
 	entity.params = PackedFloat64Array([at.x, at.y, rotation])
-	entity.meta = {"text": text}
+	entity.meta = { "text": text }
 	return entity
 
 
@@ -151,15 +155,12 @@ static func make_text(at: Vector2, text: String, rotation: float = 0.0) -> Draft
 ## side takes the two spare slots past it. So `point()`, the reader of `params[5]`, and every file
 ## written before this existed all keep working, and an angular dimension is simply the one kind that
 ## fills more of the array.
-static func make_angular_dimension(
-	corner: Vector2, along_a: Vector2, along_b: Vector2, radius: float
-) -> DraftEntity:
+static func make_angular_dimension(corner: Vector2, along_a: Vector2, along_b: Vector2, radius: float) -> DraftEntity:
 	var entity := _new()
 	entity.kind = Kind.DIMENSION
-	entity.params = PackedFloat64Array([
-		corner.x, corner.y, along_a.x, along_a.y, radius,
-		float(DimensionKind.ANGULAR), along_b.x, along_b.y,
-	])
+	entity.params = PackedFloat64Array(
+		[corner.x, corner.y, along_a.x, along_a.y, radius, float(DimensionKind.ANGULAR), along_b.x, along_b.y]
+	)
 	return entity
 
 
@@ -170,7 +171,6 @@ static func _flatten(vertices: PackedVector2Array) -> PackedFloat64Array:
 		out.append(vertex.x)
 		out.append(vertex.y)
 	return out
-
 
 # --- definition points --------------------------------------------------------------
 
@@ -183,7 +183,7 @@ func point_count() -> int:
 		Kind.CIRCLE, Kind.RECT, Kind.REGULAR_POLY:
 			return 1
 		Kind.ARC:
-			return 3   # centre, start end, finish end
+			return 3 # centre, start end, finish end
 		Kind.POLYLINE, Kind.POLYGON:
 			return int(params[0])
 		Kind.DIMENSION:
@@ -250,7 +250,6 @@ func points() -> PackedVector2Array:
 		out.append(point(index))
 	return out
 
-
 # --- outline ------------------------------------------------------------------------
 
 
@@ -277,20 +276,20 @@ func outline(tolerance: float = DEFAULT_TOLERANCE) -> PackedVector2Array:
 
 
 func is_closed() -> bool:
-	return kind == Kind.POLYGON or kind == Kind.CIRCLE \
-		or kind == Kind.RECT or kind == Kind.REGULAR_POLY
+	return (
+		kind == Kind.POLYGON or kind == Kind.CIRCLE \
+				or kind == Kind.RECT
+		or kind == Kind.REGULAR_POLY
+	)
 
 
 func _rectangle_corners() -> PackedVector2Array:
 	var centre := Vector2(params[0], params[1])
 	var half := Vector2(params[2] * 0.5, params[3] * 0.5)
 	var rotation := params[4]
-	var local := PackedVector2Array([
-		Vector2(-half.x, -half.y),
-		Vector2(half.x, -half.y),
-		Vector2(half.x, half.y),
-		Vector2(-half.x, half.y),
-	])
+	var local := PackedVector2Array(
+		[Vector2(-half.x, -half.y), Vector2(half.x, -half.y), Vector2(half.x, half.y), Vector2(-half.x, half.y)]
+	)
 	var out := PackedVector2Array()
 	for corner: Vector2 in local:
 		out.append(centre + corner.rotated(rotation))
@@ -329,9 +328,7 @@ func _polyline_outline(tolerance: float) -> PackedVector2Array:
 		if not arc.get("ok", false):
 			out.append(a)
 			continue
-		var sampled := Geom.arc_points(
-			arc["centre"], arc["radius"], arc["start"], arc["sweep"], tolerance
-		)
+		var sampled := Geom.arc_points(arc["centre"], arc["radius"], arc["start"], arc["sweep"], tolerance)
 		# Drop the last point of each arc: it is the next segment's first point.
 		for sample_index in maxi(sampled.size() - 1, 0):
 			out.append(sampled[sample_index])
@@ -344,7 +341,6 @@ func aabb(tolerance: float = DEFAULT_TOLERANCE) -> Rect2:
 	if kind == Kind.ARC:
 		return Geom.arc_aabb(Vector2(params[0], params[1]), params[2], params[3], params[4])
 	return Geom.points_aabb(outline(tolerance))
-
 
 # --- measurement --------------------------------------------------------------------
 
@@ -379,7 +375,6 @@ func area() -> float:
 			return Geom.polygon_area(outline())
 		_:
 			return 0.0
-
 
 # --- bulk edits ---------------------------------------------------------------------
 
@@ -454,13 +449,12 @@ func copy() -> DraftEntity:
 	other.meta = meta.duplicate(true)
 	return other
 
-
 # --- serialisation ------------------------------------------------------------------
 
 
 ## JSON-safe representation. Packed arrays become plain arrays.
 func to_dict() -> Dictionary:
-	var style_dict := {}
+	var style_dict := { }
 	if style != null:
 		style_dict = {
 			"plot_weight_mm": style.plot_weight_mm,
@@ -495,7 +489,7 @@ static func from_dict(data: Dictionary) -> DraftEntity:
 	for value in raw_bulges:
 		bulge_values.append(float(value))
 	entity.bulges = bulge_values
-	var style_dict: Dictionary = data.get("style", {})
+	var style_dict: Dictionary = data.get("style", { })
 	if not style_dict.is_empty():
 		var line := LineStyleScript.new()
 		line.plot_weight_mm = float(style_dict.get("plot_weight_mm", 0.25))
@@ -503,7 +497,7 @@ static func from_dict(data: Dictionary) -> DraftEntity:
 		line.plot_colour = Color.html(String(style_dict.get("plot_colour", "000000")))
 		line.screen_colour = Color.html(String(style_dict.get("screen_colour", "000000")))
 		entity.style = line
-	entity.meta = data.get("meta", {}).duplicate(true)
+	entity.meta = data.get("meta", { }).duplicate(true)
 	return entity
 
 

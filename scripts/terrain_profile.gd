@@ -15,19 +15,23 @@ extends RefCounted
 ## need does. Two vocabularies for one idea is how a check comes to compare "semi-shade" with
 ## "part shade" and decide they disagree.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## The light a place is in, one level at a time - a spot is not "full sun and part shade". The values
 ## are the species table's bits, so a plant's tolerated set can be tested against a place's single
 ## level with no translation in between.
 const SUN_LEVELS: Array[int] = [
-	PlantSpeciesScript.FULL_SUN, PlantSpeciesScript.PART_SHADE, PlantSpeciesScript.FULL_SHADE
+	PlantSpeciesScript.FULL_SUN,
+	PlantSpeciesScript.PART_SHADE,
+	PlantSpeciesScript.FULL_SHADE,
 ]
 const SUN_NAMES := PlantSpeciesScript.SUN_NAMES
 
 ## How wet a place stays, on the same scale as a species' water need.
 const MOISTURE_LEVELS: Array[int] = [
-	PlantSpeciesScript.WATER_LOW, PlantSpeciesScript.WATER_MEDIUM, PlantSpeciesScript.WATER_HIGH
+	PlantSpeciesScript.WATER_LOW,
+	PlantSpeciesScript.WATER_MEDIUM,
+	PlantSpeciesScript.WATER_HIGH,
 ]
 const MOISTURE_NAMES := PlantSpeciesScript.WATER_NAMES
 
@@ -66,19 +70,19 @@ const KEY_LABELS := {
 const NO_LEVEL := -1
 
 ## What the profile states: key -> value, and nothing else.
-var attrs: Dictionary = {}
+var attrs: Dictionary = { }
 
 
 ## `given` and not `stated`: "stated" is the name of the function that reads one attribute back, and a
 ## parameter that shadows it is an error rather than a convenience.
-func _init(given: Dictionary = {}) -> void:
+func _init(given: Dictionary = { }) -> void:
 	for key: Variant in given:
 		var attribute: String = String(key)
 		if is_known_key(attribute):
 			attrs[attribute] = given[key]
 
 
-static func make(given: Dictionary = {}) -> TerrainProfile:
+static func make(given: Dictionary = { }) -> TerrainProfile:
 	return (load("res://scripts/terrain_profile.gd") as GDScript).new(given)
 
 
@@ -176,7 +180,6 @@ func stated_keys() -> Array[String]:
 			out.append(key)
 	return out
 
-
 # --- the values, typed -------------------------------------------------------------------
 
 
@@ -202,7 +205,6 @@ func drainage_level() -> int:
 func zone() -> int:
 	return int(attrs.get("zone", 0))
 
-
 # --- combining -------------------------------------------------------------------------
 
 
@@ -210,7 +212,7 @@ func zone() -> int:
 ## taking precedence. This is how a zone is stored - **only what it says**, not a whole restated
 ## garden - so a designer who marks a bed "full shade" has not also claimed to know its soil.
 func merged_over(base: TerrainProfile) -> TerrainProfile:
-	var out: TerrainProfile = TerrainProfile.make(base.attrs if base != null else {})
+	var out: TerrainProfile = TerrainProfile.make(base.attrs if base != null else { })
 	for key: String in stated_keys():
 		out.attrs[key] = attrs[key]
 	return out
@@ -227,7 +229,6 @@ func equals(other: TerrainProfile) -> bool:
 
 func copy() -> TerrainProfile:
 	return TerrainProfile.make(attrs.duplicate(true))
-
 
 # --- reading and writing -----------------------------------------------------------------
 
@@ -297,7 +298,7 @@ func describe() -> String:
 
 
 func to_dict() -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for key: String in stated_keys():
 		var value: Variant = attrs[key]
 		# Not a ternary: it cannot hold a String on one side and an int on the other, which is the

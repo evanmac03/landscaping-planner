@@ -5,11 +5,11 @@ extends Node
 ## `PlantBrowser.new()` plus `bind()` is the whole browser, and every question these tests ask is a
 ## question a designer asks of the real one.
 
-const BrowserScript := preload("res://scripts/plant_browser.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const BrowserScript := preload("res://scripts/plants/plant_browser.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 
@@ -44,7 +44,6 @@ func _tick_box(container: Node, words: String) -> CheckBox:
 			return child
 	return null
 
-
 # --- the shipped list ---------------------------------------------------------------------
 
 
@@ -53,27 +52,28 @@ func test_the_shipped_list_is_a_catalogue_a_nursery_would_recognise() -> void:
 	# Sound, and drawn with scenes that exist: the one check that ties the data to the props, and
 	# the check that would catch a list written against a prop that was later renamed.
 	assert(catalogue.is_sound(), "the shipped list is sound: %s" % " | ".join(catalogue.problems()))
-	assert(catalogue.missing_files().is_empty(),
-		"every form in the list is on disk: %s" % " | ".join(catalogue.missing_files()))
+	assert(
+		catalogue.missing_files().is_empty(),
+		"every form in the list is on disk: %s" % " | ".join(catalogue.missing_files()),
+	)
 	assert(catalogue.source == "starter list", "the list says where it came from")
 	# Every category a plant can be in is represented, because a browser that offers a filter which
 	# can never find anything is worse than one that does not offer it.
 	for kind: int in PlantSpecies.CATEGORY_NAMES.keys():
-		assert(
-			not catalogue.filter({"category": kind}).is_empty(),
-			"the list has a %s" % String(PlantSpecies.CATEGORY_NAMES[kind])
-		)
+		assert(not catalogue.filter({ "category": kind }).is_empty(), "the list has a %s"
+			% String(PlantSpecies.CATEGORY_NAMES[kind]))
 
 
 func test_a_plant_that_blooms_across_the_new_year_is_in_the_list() -> void:
 	# The reason the bloom set is circular, made a fact about the shipped data rather than about the
 	# arithmetic: a filter for January finds a plant whose bloom runs December to February.
 	var catalogue: PlantCatalogue = _catalogue()
-	var january: Array[PlantSpecies] = catalogue.filter({"bloom_month": 1})
+	var january: Array[PlantSpecies] = catalogue.filter({ "bloom_month": 1 })
 	assert(january.has(catalogue.get_species(CHRISTMAS_ROSE)), "January finds the Christmas rose")
-	assert(catalogue.get_species(CHRISTMAS_ROSE).bloom_text() == "December-February",
-		"and it says so as one run of months, not two")
-
+	assert(
+		catalogue.get_species(CHRISTMAS_ROSE).bloom_text() == "December-February",
+		"and it says so as one run of months, not two",
+	)
 
 # --- what the grid shows ------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ func test_the_browser_shows_every_species_and_the_one_box_narrows_it() -> void:
 		assert(title.to_lower().contains("maple"), "every row it found is a maple: %s" % title)
 	assert(
 		browser.status_text() == "%d of %d species" % [found.size(), catalogue.count()],
-		"and says how many it found: %s" % browser.status_text()
+		"and says how many it found: %s" % browser.status_text(),
 	)
 
 	browser.set_query_text("")
@@ -111,7 +111,7 @@ func test_the_filters_narrow_the_grid_and_the_chips_say_how_much_they_leave() ->
 		var chip: CheckBox = browser._chips[tag_name]
 		assert(
 			chip.text == "%s (%d)" % [tag_name, int(catalogue.tag_counts()[tag_name])],
-			"the %s chip says how many plants carry it" % tag_name
+			"the %s chip says how many plants carry it" % tag_name,
 		)
 
 	# One chip, and the grid is the plants that carry it.
@@ -170,8 +170,10 @@ func test_the_sort_choices_are_the_orders_a_designer_asks_for() -> void:
 	assert(shortest[0].height_cm == 10, "which is the shortest plant there is: %d cm" % shortest[0].height_cm)
 	assert(shortest[0].spread_cm > shortest[0].height_cm, "which is a groundcover, not a tree")
 	for index in range(1, shortest.size()):
-		assert(shortest[index - 1].height_cm <= shortest[index].height_cm,
-			"%s is not shorter than %s" % [shortest[index - 1].id, shortest[index].id])
+		assert(
+			shortest[index - 1].height_cm <= shortest[index].height_cm,
+			"%s is not shorter than %s" % [shortest[index - 1].id, shortest[index].id],
+		)
 
 	assert(browser.set_sort("height", true), "and tallest first is the other end of it")
 	var tallest: Array[PlantSpecies] = browser.results()
@@ -179,8 +181,10 @@ func test_the_sort_choices_are_the_orders_a_designer_asks_for() -> void:
 	# Two plants can stand at the same height - a red oak and a sugar maple are both twenty metres -
 	# so the order is asserted across the whole list rather than on the first step of it.
 	for index in range(1, tallest.size()):
-		assert(tallest[index - 1].height_cm >= tallest[index].height_cm,
-			"%s is not taller than %s" % [tallest[index - 1].id, tallest[index].id])
+		assert(
+			tallest[index - 1].height_cm >= tallest[index].height_cm,
+			"%s is not taller than %s" % [tallest[index - 1].id, tallest[index].id],
+		)
 
 	assert(browser.set_sort("bloom"), "and by when it blooms")
 	var earliest: Array[PlantSpecies] = browser.results()
@@ -210,7 +214,6 @@ func test_a_plant_the_filter_excludes_is_not_described_in_the_detail_pane() -> v
 		assert(title.to_lower().contains("lilac"), "and nothing else: %s" % title)
 	browser.free()
 
-
 # --- the detail pane ----------------------------------------------------------------------
 
 
@@ -219,9 +222,15 @@ func test_the_detail_pane_says_what_a_nursery_label_says() -> void:
 	browser.select(MAPLE)
 	var text: String = browser.detail_text()
 	for wanted: String in [
-		"Acer rubrum 'Autumn Blaze' - Red maple", "Type:      Tree", "Hardy:     zones 3 to 9",
-		"Size:      15.0 m tall, 9.0 m across", "Light:     full sun, part shade",
-		"Water:     medium water", "Bloom:     March-April", "shade tree", "wants room for the crown",
+		"Acer rubrum 'Autumn Blaze' - Red maple",
+		"Type:      Tree",
+		"Hardy:     zones 3 to 9",
+		"Size:      15.0 m tall, 9.0 m across",
+		"Light:     full sun, part shade",
+		"Water:     medium water",
+		"Bloom:     March-April",
+		"shade tree",
+		"wants room for the crown",
 	]:
 		assert(text.contains(wanted), "the label says %s" % wanted)
 	# A plant grown for its foliage says so rather than showing an empty bloom line.
@@ -237,11 +246,15 @@ func test_the_drawn_as_line_names_the_symbol_the_plan_uses() -> void:
 	# read from the catalogue rather than typed here. What this line is about is the *shape*: the file
 	# and the plan's word for the symbol, so a plant cannot be planted as one shape and drawn as another.
 	var maple: PlantSpecies = browser.catalogue.get_species(MAPLE)
-	assert(browser.detail_text().contains("%s (a broadleaf canopy)" % maple.model_scene.get_file()),
-		"a maple says which model it is planted as, and in what shape: %s" % maple.model_scene)
+	assert(
+		browser.detail_text().contains("%s (a broadleaf canopy)" % maple.model_scene.get_file()),
+		"a maple says which model it is planted as, and in what shape: %s" % maple.model_scene,
+	)
 	browser.select(&"rudbeckia-fulgida-goldsturm")
-	assert(browser.detail_text().contains("perennial.gltf (a planted bed)"),
-		"a perennial drawn as a bed says so, and says which model it is planted as")
+	assert(
+		browser.detail_text().contains("perennial.gltf (a planted bed)"),
+		"a perennial drawn as a bed says so, and says which model it is planted as",
+	)
 	# And the shape named is the plan's own vocabulary, plant by plant: a symbol added to the
 	# drawing without a word for it would be a line that says nothing.
 	var words: Array = PlantSymbolsScript.WORDS.values()
@@ -253,7 +266,6 @@ func test_the_drawn_as_line_names_the_symbol_the_plan_uses() -> void:
 				named = true
 		assert(named, "%s says which symbol it is drawn as: %s" % [plant.id, line])
 	browser.free()
-
 
 # --- collections --------------------------------------------------------------------------
 
@@ -304,10 +316,8 @@ func test_a_collection_narrows_the_grid_without_replacing_the_other_filters() ->
 	assert(maples[0].id == MAPLE, "which is the maple")
 	assert(not browser.set_collection_filter("not-a-collection"), "a collection nobody made is refused")
 	assert(browser.set_collection_filter(""), "and the filter can be put back to every plant")
-	assert(browser.results().size() == catalogue.filter({"category": PlantSpecies.TREE}).size(),
-		"which is every tree again")
+	assert(browser.results().size() == catalogue.filter({ "category": PlantSpecies.TREE }).size(), "which is every tree again")
 	browser.free()
-
 
 # --- the pictures -------------------------------------------------------------------------
 
@@ -322,16 +332,14 @@ func test_every_species_in_the_grid_has_a_picture_and_they_share_what_they_shoul
 	assert(tree != null, "a tree with no thumbnail still has a picture")
 	assert(tree == PlantIcons.texture_for(catalogue.get_species(MAPLE)), "and it is the shared swatch")
 
-	var seen: Dictionary = {}
+	var seen: Dictionary = { }
 	for plant: PlantSpecies in catalogue.all():
 		var picture: Texture2D = browser.icon_for(plant.id)
 		assert(picture != null, "%s has a picture" % plant.id)
 		# Keyed by symbol as well as form and category: two trees in one category are no longer
 		# necessarily one picture, which is the whole point of a symbol - a spruce and a maple are the
 		# same prop, and must not be the same green disc.
-		var key: String = "%s|%s|%d" % [
-			String(PlantIcons.symbol_of(plant)), plant.form, plant.category
-		]
+		var key: String = "%s|%s|%d" % [String(PlantIcons.symbol_of(plant)), plant.form, plant.category]
 		if seen.has(key):
 			assert(seen[key] == picture, "%s shares the swatch of its symbol and form" % plant.id)
 		else:
@@ -340,16 +348,12 @@ func test_every_species_in_the_grid_has_a_picture_and_they_share_what_they_shoul
 	# A tree and a bed are not the same shape, which is the whole reason the picture is drawn from the
 	# plan's own table rather than being one generic marker for everything - and neither are the two
 	# trees a conifer and a canopy.
-	assert(browser.icon_for(MAPLE) != browser.icon_for(RUDBECKIA),
-		"a tree and a bed are different symbols")
-	assert(browser.icon_for(SPRUCE) != browser.icon_for(MAPLE),
-		"and a conifer is not a canopy")
+	assert(browser.icon_for(MAPLE) != browser.icon_for(RUDBECKIA), "a tree and a bed are different symbols")
+	assert(browser.icon_for(SPRUCE) != browser.icon_for(MAPLE), "and a conifer is not a canopy")
 	# The tint is the species' bloom colour, so two trees are still told apart in the grid.
 	assert(PlantIcons.tint(catalogue.get_species(MAPLE)) != Color.WHITE, "a flowering tree is tinted")
-	assert(PlantIcons.tint(catalogue.get_species(&"buxus-sempervirens")) == Color.WHITE,
-		"a foliage plant is not")
+	assert(PlantIcons.tint(catalogue.get_species(&"buxus-sempervirens")) == Color.WHITE, "a foliage plant is not")
 	browser.free()
-
 
 # --- placing ------------------------------------------------------------------------------
 
@@ -358,8 +362,14 @@ func test_choosing_a_plant_says_which_one_and_placing_asks_for_it() -> void:
 	var browser: PlantBrowser = _browser()
 	var chosen: Array[StringName] = []
 	var changed: Array[StringName] = []
-	browser.plant_chosen.connect(func(species_id: StringName) -> void: chosen.append(species_id))
-	browser.selection_changed.connect(func(species_id: StringName) -> void: changed.append(species_id))
+	browser.plant_chosen.connect(
+		func(species_id: StringName) -> void:
+			chosen.append(species_id),
+	)
+	browser.selection_changed.connect(
+		func(species_id: StringName) -> void:
+			changed.append(species_id),
+	)
 
 	assert(not browser.place_selected(), "nothing is chosen yet")
 	assert(chosen.is_empty(), "so nothing is asked for")

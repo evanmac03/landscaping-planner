@@ -18,7 +18,6 @@ const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 ## for a count, so one page's announcements cannot leak into the next test's.
 var _announced: Array[String] = []
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -27,11 +26,26 @@ var _announced: Array[String] = []
 func _page() -> UnderlayWindow:
 	var window := UnderlayWindowScript.new()
 	window.build()
-	window.choose_file_requested.connect(func() -> void: _announced.append("choose"))
-	window.place_requested.connect(func() -> void: _announced.append("place"))
-	window.apply_requested.connect(func() -> void: _announced.append("apply"))
-	window.remove_requested.connect(func() -> void: _announced.append("remove"))
-	window.closed.connect(func() -> void: _announced.append("close"))
+	window.choose_file_requested.connect(
+		func() -> void:
+			_announced.append("choose"),
+	)
+	window.place_requested.connect(
+		func() -> void:
+			_announced.append("place"),
+	)
+	window.apply_requested.connect(
+		func() -> void:
+			_announced.append("apply"),
+	)
+	window.remove_requested.connect(
+		func() -> void:
+			_announced.append("remove"),
+	)
+	window.closed.connect(
+		func() -> void:
+			_announced.append("close"),
+	)
 	return window
 
 
@@ -60,10 +74,15 @@ func _press(window: UnderlayWindow, caption: String) -> bool:
 ## A picture already under the drawing, as the HUD describes one.
 func _row(id: int, name: String, width_m: float) -> Dictionary:
 	return {
-		"id": id, "name": name, "text": "%s, %s m across" % [name, String.num(width_m, 0)],
-		"width_m": width_m, "rotation_deg": 0.0, "opacity": 0.65, "visible": true, "usable": true,
+		"id": id,
+		"name": name,
+		"text": "%s, %s m across" % [name, String.num(width_m, 0)],
+		"width_m": width_m,
+		"rotation_deg": 0.0,
+		"opacity": 0.65,
+		"visible": true,
+		"usable": true,
 	}
-
 
 # --- what the page says ----------------------------------------------------------------
 
@@ -84,7 +103,7 @@ func test_the_page_says_what_it_is_waiting_for() -> void:
 	assert(not window.place_enabled(), "a picture with no size on the ground cannot be laid at one")
 	assert(
 		window._place_button.tooltip_text.contains("how far it lies across the ground"),
-		window._place_button.tooltip_text
+		window._place_button.tooltip_text,
 	)
 	window.set_across_text("12")
 	assert(window.place_enabled(), "and with a width it can")
@@ -127,10 +146,7 @@ func test_the_forms_three_numbers_are_the_ones_the_page_reports() -> void:
 	assert(is_equal_approx(window.opacity(), 0.3), str(window.opacity()))
 	# A new page starts at the module's own default rather than at some number written here twice.
 	var fresh := _page()
-	assert(
-		is_equal_approx(fresh.opacity(), RasterUnderlayScript.DEFAULT_OPACITY),
-		str(fresh.opacity())
-	)
+	assert(is_equal_approx(fresh.opacity(), RasterUnderlayScript.DEFAULT_OPACITY), str(fresh.opacity()))
 	assert(is_equal_approx(fresh.rotation_deg(), 0.0), str(fresh.rotation_deg()))
 	window.free()
 	fresh.free()
@@ -144,7 +160,6 @@ func test_the_report_and_the_status_line_are_the_pages_own_words() -> void:
 	assert(window.said_text() == "the picture was not read", window.said_text())
 	assert(window._status.text == "the picture was not read", window._status.text)
 	window.free()
-
 
 # --- what is already underneath ---------------------------------------------------------
 
@@ -189,7 +204,6 @@ func test_a_choice_that_is_not_there_is_not_a_choice() -> void:
 	assert(window.chosen_id() == 0, "and a row that does not exist is nothing either")
 	window.free()
 
-
 # --- the buttons ------------------------------------------------------------------------
 
 
@@ -205,7 +219,7 @@ func test_every_button_announces_what_a_person_asked_for() -> void:
 	assert(_ask(window, "Take it off") == "remove", "and the one that takes it off")
 	assert(
 		_ask(window, "Close") == "close",
-		"and closing the page is announced too, so the HUD can forget what was in hand"
+		"and closing the page is announced too, so the HUD can forget what was in hand",
 	)
 	# The captions above are every button the page carries, so a caption that changes to something a
 	# person would not recognise fails a test rather than quietly going on working.

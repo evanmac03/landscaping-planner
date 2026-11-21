@@ -65,29 +65,25 @@ func _draw_scale_bar() -> void:
 	var bar_height: float = 10.0
 
 	# A dark backing plate so the bar stays legible over grass or pale paving.
-	draw_rect(
-		Rect2(left - 12.0, top - 30.0, bar_pixels + 24.0, bar_height + 42.0),
-		Color(0.06, 0.08, 0.09, 0.62)
-	)
+	draw_rect(Rect2(left - 12.0, top - 30.0, bar_pixels + 24.0, bar_height + 42.0), Color(0.06, 0.08, 0.09, 0.62))
 	# Alternating halves, the way a printed map scale bar is drawn.
 	draw_rect(Rect2(left, top, bar_pixels * 0.5, bar_height), Color(0.08, 0.08, 0.08, 0.95))
-	draw_rect(
-		Rect2(left + bar_pixels * 0.5, top, bar_pixels * 0.5, bar_height),
-		Color(0.96, 0.96, 0.94, 0.95)
-	)
+	draw_rect(Rect2(left + bar_pixels * 0.5, top, bar_pixels * 0.5, bar_height), Color(0.96, 0.96, 0.94, 0.95))
 	draw_rect(Rect2(left, top, bar_pixels, bar_height), Color(1, 1, 1, 0.5), false, 1.0)
 
 	var font: Font = get_theme_default_font()
 	if font == null:
 		return
 	var label_colour := Color(0.96, 0.97, 0.94, 0.92)
+	draw_string(font, Vector2(left, top - 8.0), "0", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, label_colour)
 	draw_string(
-		font, Vector2(left, top - 8.0), "0",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, label_colour
-	)
-	draw_string(
-		font, Vector2(left + bar_pixels - 44.0, top - 8.0), "%d m" % int(metres),
-		HORIZONTAL_ALIGNMENT_RIGHT, 44.0, 14, label_colour
+		font,
+		Vector2(left + bar_pixels - 44.0, top - 8.0),
+		"%d m" % int(metres),
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		44.0,
+		14,
+		label_colour,
 	)
 
 
@@ -103,28 +99,25 @@ func _draw_north_arrow() -> void:
 	# Two triangles rather than one concave polygon, given a light and a dark half
 	# so the arrow reads as folded.
 	draw_colored_polygon(
-		PackedVector2Array([
-			tip,
-			Vector2(tip.x - half_width, tip.y + height),
-			Vector2(tip.x, waist),
-		]),
-		Color(0.96, 0.96, 0.94, 0.95)
+		PackedVector2Array([tip, Vector2(tip.x - half_width, tip.y + height), Vector2(tip.x, waist)]),
+		Color(0.96, 0.96, 0.94, 0.95),
 	)
 	draw_colored_polygon(
-		PackedVector2Array([
-			tip,
-			Vector2(tip.x, waist),
-			Vector2(tip.x + half_width, tip.y + height),
-		]),
-		Color(0.62, 0.64, 0.62, 0.95)
+		PackedVector2Array([tip, Vector2(tip.x, waist), Vector2(tip.x + half_width, tip.y + height)]),
+		Color(0.62, 0.64, 0.62, 0.95),
 	)
 
 	var font: Font = get_theme_default_font()
 	if font == null:
 		return
 	draw_string(
-		font, Vector2(tip.x - 20.0, tip.y - 12.0), "N",
-		HORIZONTAL_ALIGNMENT_CENTER, 40.0, 18, Color(0.96, 0.97, 0.94, 0.92)
+		font,
+		Vector2(tip.x - 20.0, tip.y - 12.0),
+		"N",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		40.0,
+		18,
+		Color(0.96, 0.97, 0.94, 0.92),
 	)
 
 
@@ -132,19 +125,14 @@ func _draw_crosshair() -> void:
 	var centre: Vector2 = size * 0.5
 	var inner: float = 5.0
 	var outer: float = 13.0
-	var arms: Array[Vector2] = [
-		Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP
-	]
+	var arms: Array[Vector2] = [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]
 	# Dark pass first so the crosshair survives on pale ground.
 	for arm: Vector2 in arms:
 		draw_line(
 			centre + arm * inner + Vector2.ONE,
 			centre + arm * outer + Vector2.ONE,
-			Color(0.0, 0.0, 0.0, 0.35), 3.0
+			Color(0.0, 0.0, 0.0, 0.35),
+			3.0,
 		)
 	for arm: Vector2 in arms:
-		draw_line(
-			centre + arm * inner,
-			centre + arm * outer,
-			Color(1.0, 1.0, 1.0, 0.8), 1.5
-		)
+		draw_line(centre + arm * inner, centre + arm * outer, Color(1.0, 1.0, 1.0, 0.8), 1.5)

@@ -39,8 +39,7 @@ func test_the_money_has_to_have_come_by_a_way_a_business_has() -> void:
 func test_a_refund_is_a_credit_note_and_not_a_negative_payment() -> void:
 	var payment := _payment(-50000)
 	assert(not payment.is_sound())
-	assert(payment.problem() == "a negative payment, which is a credit note and not a payment",
-		payment.problem())
+	assert(payment.problem() == "a negative payment, which is a credit note and not a payment", payment.problem())
 
 
 func test_a_payment_of_nothing_is_not_a_payment() -> void:
@@ -66,8 +65,7 @@ func test_a_payment_that_cannot_be_named_or_dated_is_not_a_record() -> void:
 
 func test_a_damaged_describe_is_the_reason_rather_than_a_line_a_person_reads_as_fine() -> void:
 	var payment := _payment(-1)
-	assert(payment.describe() == "a negative payment, which is a credit note and not a payment",
-		payment.describe())
+	assert(payment.describe() == "a negative payment, which is a credit note and not a payment", payment.describe())
 
 
 func test_a_payment_survives_the_file() -> void:
@@ -85,4 +83,4 @@ func test_a_payment_survives_the_file() -> void:
 
 
 func test_a_record_with_no_id_is_dropped_rather_than_invented() -> void:
-	assert(PaymentScript.from_dict({"invoice": "INV1", "amount": {"cents": 100, "currency": "CAD"}}) == null)
+	assert(PaymentScript.from_dict({ "invoice": "INV1", "amount": { "cents": 100, "currency": "CAD" } }) == null)

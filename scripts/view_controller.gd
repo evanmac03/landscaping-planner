@@ -26,9 +26,9 @@ extends Node
 ## node so the player's own _ready() has run before the first pose is applied.
 
 enum ViewMode {
-	PLAN_2D,     ## Flat schematic plan, drawn in 2D.
+	PLAN_2D, ## Flat schematic plan, drawn in 2D.
 	OVERHEAD_3D, ## Orthographic 3D camera looking straight down.
-	GROUND,      ## First person, walking the design at eye height.
+	GROUND, ## First person, walking the design at eye height.
 }
 
 ## Guards the "run this next" slot; an enum value or NO_PENDING.
@@ -36,13 +36,17 @@ const NO_PENDING := -1
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
+const SiteSceneryScript := preload("res://scripts/site_scenery.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 signal view_mode_changed(mode: ViewMode)
 signal transition_started(to_ground: bool)
 signal transition_finished(to_ground: bool)
 ## Planting was armed or put away, so a menu can say which plant a click will put down.
 signal planting_changed(species_id: StringName)
+## The site was shown or put away, so a menu can tick "Show the site" without asking again.
+signal site_changed(shown: bool)
 
 @export var flight_camera: Camera3D
 @export var player: PlanPlayer
@@ -130,7 +134,7 @@ var _hand_cursor: bool = false
 ## The drafting controller, when the scene has one. Input is routed from here
 ## because this node already owns the overhead mouse handling and knows which
 ## view you are looking at.
-var _draft = null
+var _draft: DraftController = null
 
 ## The catalogue a planted species is looked up in, and the species a click on the plan will put
 ## down. Held here because this node is the one that already knows where a screen point is on the
@@ -144,21 +148,42 @@ var planting_species: StringName = &""
 ##
 ## Kept rather than only pushed at the canvas, because a verdict is a thing a person can ask about -
 ## the state line says which plant is in hand, and the ring says whether it belongs here.
-var planting_verdict: Dictionary = {}
+var planting_verdict: Dictionary = { }
 
 var _placeable_cache: Array[Node3D] = []
 var _placeable_cache_ready: bool = false
 
+## The yard's scenery and its own planted props, kept so the site can be put away and brought back without
+## re-reading the tree each time. Captured once, in `_ready`, because "which plants were the yard's" is only
+## knowable *before* a designer adds one of their own to the very same `Plants` subtree.
+var _captured_scenery: Array[Node3D] = []
+var _captured_planting: Array[Node3D] = []
+
+## Whether the site the plan stands on is shown. A new drawing is a blank page, so this begins **false**: the
+## yard's scenery is hidden and the plan is told, while the ground stays standing so the page has a floor to
+## stand on rather than being a void. `Show the site` and loading the example garden are the two things that
+## turn it back on - never New, Open or Recent, because none of those is a reason to furnish a blank sheet.
+var site_shown: bool = false
+
 
 func _ready() -> void:
+	# A phone draws this HUD at 1.35 times the size it was laid out at, which is what turns a
+	# twenty-nine-pixel palette row into one a thumb can hit. Asked once, here, because this node is the
+	# top of the game and the window's scale is nobody else's to set; on a computer nothing happens.
+	PhoneHud.apply(get_window())
 	if flight_camera == null or player == null:
 		push_error("ViewController: flight_camera and player must both be assigned.")
 		set_process(false)
 		set_process_unhandled_input(false)
 		return
 	if plan_canvas != null:
-		plan_canvas.rebind(yard)
 		plan_canvas.modulate.a = 0.0
+	# A new drawing is a blank page, so the site begins put away. `_capture_the_site` runs first, before
+	# anything is hidden, so what is put away is what the yard shipped with - the planting is snapshotted
+	# here because a designer's own plant lands in the same `Plants` subtree, and only *when* it appeared
+	# tells the two apart.
+	_capture_the_site()
+	_apply_site()
 	if plan_layer != null:
 		plan_layer.visible = false
 	_draft = get_node_or_null(^"../DraftController")
@@ -184,12 +209,61 @@ func is_overhead() -> bool:
 	return mode != ViewMode.GROUND
 
 
+## Whether the garden the program ships with is standing under the drawing.
+func is_site_shown() -> bool:
+	return site_shown
+
+
+## Show or put away the site the plan stands on. Called by `View > Show the site` and by loading the
+## example garden; nothing else does it, because nothing else is a reason to. Nothing happens when the
+## answer is already this one, so the signal is only ever emitted on a real change.
+func set_site_shown(shown: bool) -> void:
+	if site_shown == shown:
+		return
+	site_shown = shown
+	_apply_site()
+
+
+## Remember what the yard shipped with, so it can be put away and brought back. The scenery is asked for by
+## name (`SiteScenery`), and the yard's own planting is read off `PlantPlacement` **at this moment** - a
+## plant the designer puts down later is theirs and is never in this list.
+func _capture_the_site() -> void:
+	_captured_scenery = SiteSceneryScript.furniture(yard)
+	_captured_planting = PlantPlacementScript.planted(yard)
+
+
+## Put the site into the state `site_shown` says, and tell the plan to draw the same thing. The plan is
+## rebound rather than only toggled, because it reads what is *standing* on the page - so the scenery and
+## the yard's own plants leaving the page is a consequence of their nodes being hidden, and a plant the
+## designer places afterwards (visible) still appears.
+func _apply_site() -> void:
+	for node: Node3D in _captured_scenery:
+		if is_instance_valid(node):
+			node.visible = site_shown
+	for node: Node3D in _captured_planting:
+		if is_instance_valid(node):
+			node.visible = site_shown
+	# Hiding or showing the planting changes what is selectable, and the pick list caches that answer, so
+	# it is rebuilt for the same reason `refresh_after_planting` rebuilds it.
+	_placeable_cache_ready = false
+	if plan_canvas != null:
+		plan_canvas.rebind(yard)
+		plan_canvas.set_site_shown(site_shown)
+	site_changed.emit(site_shown)
+
+
 ## The design objects the planner lets you select and move.
+##
+## Only what the page is actually showing. A new drawing is a blank page, so the yard's own planting is
+## hidden while staying in `Yard.PLACEABLE_GROUP` - the group is about what the yard *put there*, not
+## about what is standing on the page now. A hidden node that answered a hover would put a selection
+## ring around a plant nobody can see, turn the cursor into a hand over it and let a click drag it, so
+## the question is asked of the node rather than of the group's membership.
 func placeables() -> Array[Node3D]:
 	if not _placeable_cache_ready:
 		_placeable_cache.clear()
 		for node in get_tree().get_nodes_in_group(Yard.PLACEABLE_GROUP):
-			if node is Node3D and is_instance_valid(node):
+			if node is Node3D and is_instance_valid(node) and node.is_visible_in_tree():
 				_placeable_cache.append(node)
 		_placeable_cache_ready = true
 	return _placeable_cache
@@ -202,11 +276,10 @@ func fit_plan_to_yard() -> void:
 	plan_size = clampf(
 		maxf(yard_extent.y, yard_extent.x / maxf(aspect, 0.001)) * fit_margin,
 		plan_size_min,
-		plan_size_max
+		plan_size_max,
 	)
 	plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 	_apply_overhead_view()
-
 
 # --- view control -----------------------------------------------------------------
 
@@ -221,6 +294,27 @@ func toggle_overhead() -> void:
 ## Toggle the ground-level view.
 func toggle_ground() -> void:
 	_go(ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND)
+
+
+## Swap to or from the ground view with no flight at all (Shift+G).
+##
+## The camera has to be handed over here just as explicitly as the flight does it, or
+## the mode changes while the other camera keeps rendering - the ground view would look
+## unchanged from either direction.
+func _instant_ground_toggle() -> void:
+	mode = ViewMode.OVERHEAD_3D if mode == ViewMode.GROUND else ViewMode.GROUND
+	_apply_overhead_view()
+	_set_viewport_3d(mode != ViewMode.GROUND)
+	if mode == ViewMode.GROUND:
+		player.set_active(true)
+		player.capture_mouse()
+		player.camera.current = true
+		_set_cursor_hand(false)
+	else:
+		player.set_active(false)
+		player.release_mouse()
+		flight_camera.current = true
+	view_mode_changed.emit(mode)
 
 
 ## Go to a named view.
@@ -248,11 +342,13 @@ func _go(target: ViewMode) -> void:
 		else:
 			fly_to_ground()
 	elif mode == ViewMode.GROUND:
-		if target == ViewMode.OVERHEAD_3D:
-			_switch_overhead(target)
-		else:
+		# Leaving the ground always flies up through the overhead framing, because
+		# that flight is what hands the camera back from the player: it restores the
+		# flight camera, puts the player away and releases the mouse. Straight to the
+		# 3D overhead view, or on to the flat plan once the climb has settled.
+		if target != ViewMode.OVERHEAD_3D:
 			_pending = target
-			fly_to_plan()
+		fly_to_plan()
 	else:
 		_switch_overhead(target)
 
@@ -323,9 +419,7 @@ func fly_to_ground() -> void:
 	# Land a little behind whatever you were examining and face it, so arriving
 	# at ground level frames the part of the design you were just looking at.
 	# World -Z is "up" the plan view, which is the direction we land facing.
-	var landing: Vector2 = ViewMath.clamp_to_rect(
-		plan_focus + Vector2(0.0, land_back_off), land_bounds
-	)
+	var landing: Vector2 = ViewMath.clamp_to_rect(plan_focus + Vector2(0.0, land_back_off), land_bounds)
 	var landing_yaw: float = 0.0
 	var matched_fov: float = ViewMath.match_fov(plan_size, plan_height)
 
@@ -344,16 +438,17 @@ func fly_to_ground() -> void:
 	_tween = create_tween().set_parallel(true).bind_node(self)
 	_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_property(
-		flight_camera, "global_position",
-		Vector3(landing.x, floor_y + land_eye_height, landing.y), flight_time
+		flight_camera,
+		"global_position",
+		Vector3(landing.x, floor_y + land_eye_height, landing.y),
+		flight_time,
 	)
 	# Hold the downward tilt for most of the descent and only level out on
 	# arrival (EASE_IN keeps the eased value low early), so the design stays
 	# framed the whole way instead of the camera staring off over the boundary.
-	_tween.tween_property(
-		flight_camera, "global_rotation",
-		Vector3(0.0, landing_yaw, 0.0), flight_time
-	).set_ease(Tween.EASE_IN)
+	_tween.tween_property(flight_camera, "global_rotation", Vector3(0.0, landing_yaw, 0.0), flight_time).set_ease(
+		Tween.EASE_IN
+	)
 	_tween.tween_property(flight_camera, "fov", ground_fov, flight_time)
 	_tween.chain().tween_callback(_on_landed)
 
@@ -367,17 +462,13 @@ func fly_to_plan() -> void:
 
 	# Re-centre the plan on where the player is standing so going back up keeps
 	# your place in the design.
-	plan_focus = ViewMath.clamp_to_rect(
-		Vector2(player.global_position.x, player.global_position.z), pan_bounds
-	)
+	plan_focus = ViewMath.clamp_to_rect(Vector2(player.global_position.x, player.global_position.z), pan_bounds)
 
 	# First frame of the flight: exactly what the player is looking at. The
 	# flight camera takes over the player's pose, so the handover is invisible.
 	# Wrap the yaw so the tween never unwinds accumulated full turns.
 	flight_camera.global_position = player.eye_position()
-	flight_camera.global_rotation = Vector3(
-		player.get_pitch(), ViewMath.wrap_angle(player.get_yaw()), 0.0
-	)
+	flight_camera.global_rotation = Vector3(player.get_pitch(), ViewMath.wrap_angle(player.get_yaw()), 0.0)
 	flight_camera.fov = ground_fov
 	flight_camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	flight_camera.current = true
@@ -388,18 +479,17 @@ func fly_to_plan() -> void:
 	_tween = create_tween().set_parallel(true).bind_node(self)
 	_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_property(
-		flight_camera, "global_position",
-		Vector3(plan_focus.x, plan_height, plan_focus.y), flight_time
+		flight_camera,
+		"global_position",
+		Vector3(plan_focus.x, plan_height, plan_focus.y),
+		flight_time,
 	)
 	# Mirror of the descent: tilt down early (EASE_OUT raises the eased value
 	# quickly), then spend the climb looking at the design.
-	_tween.tween_property(
-		flight_camera, "global_rotation",
-		Vector3(-PI * 0.5, 0.0, 0.0), flight_time
-	).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(
-		flight_camera, "fov", ViewMath.match_fov(plan_size, plan_height), flight_time
+	_tween.tween_property(flight_camera, "global_rotation", Vector3(-PI * 0.5, 0.0, 0.0), flight_time).set_ease(
+		Tween.EASE_OUT
 	)
+	_tween.tween_property(flight_camera, "fov", ViewMath.match_fov(plan_size, plan_height), flight_time)
 	_tween.chain().tween_callback(_on_arrived_at_plan)
 
 
@@ -441,17 +531,10 @@ func _apply_overhead_view() -> void:
 
 
 func _on_landed() -> void:
-	var spot: Vector2 = Vector2(
-		flight_camera.global_position.x, flight_camera.global_position.z
-	)
+	var spot: Vector2 = Vector2(flight_camera.global_position.x, flight_camera.global_position.z)
 	# Snap the player to exactly where the camera came to rest -- same spot, eye
 	# height, yaw and pitch -- so handing the camera over shows no jump at all.
-	player.place(
-		spot,
-		floor_y,
-		flight_camera.global_rotation.y,
-		flight_camera.global_rotation.x
-	)
+	player.place(spot, floor_y, flight_camera.global_rotation.y, flight_camera.global_rotation.x)
 	player.camera.current = true
 	player.set_active(true)
 	player.capture_mouse()
@@ -479,7 +562,6 @@ func _kill_tween() -> void:
 		_tween.kill()
 	_tween = null
 
-
 # --- picking and moving -----------------------------------------------------------
 
 
@@ -491,9 +573,7 @@ func begin_move(screen: Vector2) -> void:
 	if node == null:
 		return
 	_grabbed = node
-	var centre: Vector2 = _world_to_screen(Vector3(
-		node.global_position.x, floor_y, node.global_position.z
-	))
+	var centre: Vector2 = _world_to_screen(Vector3(node.global_position.x, floor_y, node.global_position.z))
 	_grab_offset = centre - screen
 	_drag_cursor = screen
 	if plan_canvas != null:
@@ -531,9 +611,7 @@ func nearest_placeable(screen: Vector2) -> Node3D:
 	var best_distance: float = INF
 	var pixels_per_metre: float = _pixels_per_metre()
 	for node: Node3D in placeables():
-		var centre: Vector2 = _world_to_screen(
-			Vector3(node.global_position.x, floor_y, node.global_position.z)
-		)
+		var centre: Vector2 = _world_to_screen(Vector3(node.global_position.x, floor_y, node.global_position.z))
 		var reach: float = PlanStyle.footprint_radius(node) * pixels_per_metre + pick_slack
 		var distance: float = centre.distance_to(screen)
 		if distance <= reach and distance < best_distance:
@@ -595,9 +673,7 @@ func _set_cursor_hand(wants_hand: bool) -> void:
 	if wants_hand == _hand_cursor:
 		return
 	_hand_cursor = wants_hand
-	Input.set_default_cursor_shape(
-		Input.CURSOR_POINTING_HAND if wants_hand else Input.CURSOR_ARROW
-	)
+	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if wants_hand else Input.CURSOR_ARROW)
 
 
 func _refresh_selection_ring() -> void:
@@ -608,9 +684,7 @@ func _refresh_selection_ring() -> void:
 	if not selection_ring.visible:
 		return
 	var radius: float = PlanStyle.footprint_radius(node) + 0.35
-	selection_ring.global_position = Vector3(
-		node.global_position.x, floor_y + 0.05, node.global_position.z
-	)
+	selection_ring.global_position = Vector3(node.global_position.x, floor_y + 0.05, node.global_position.z)
 	# The ring mesh is authored at radius 1, so the footprint sizes it directly.
 	selection_ring.scale = Vector3.ONE * radius
 
@@ -648,21 +722,38 @@ func _process(delta: float) -> void:
 		_update_plant_ghost()
 
 
+## The two view keys are read here, before anything else, and each is scoped to its
+## own pair of views so that neither can ever do the other's job:
+##
+##  - Q (toggle_view) swaps the two overhead views, the flat plan and the 3D render,
+##    and belongs to them alone. In the ground view it does nothing at all, because
+##    G is the one way out of the ground.
+##  - G (toggle_ground) takes you in and out of the ground-level view, and nothing
+##    else. From the flat plan it steps through the overhead render first, since there
+##    is no 3D behind the plan to dive from. Held Shift skips the flight.
+##
+## Reading them separately also means one key can never be swallowed by the other's
+## state, which is what made the ground view a place G could not leave.
 func _unhandled_input(event: InputEvent) -> void:
-	if mode == ViewMode.GROUND or _transitioning or _fading:
-		if event.is_action_pressed("toggle_view") or event.is_action_pressed("toggle_ground"):
-			pass
-		else:
-			return
-
 	if event.is_action_pressed("toggle_view"):
-		toggle_overhead()
+		if mode != ViewMode.GROUND and not _transitioning and not _fading:
+			toggle_overhead()
 		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("toggle_ground"):
-		toggle_ground()
+		if not _transitioning and not _fading:
+			# If Shift is held, toggle instantly without the cinematic flight.
+			if event is InputEventKey and event.shift_pressed:
+				_instant_ground_toggle()
+			else:
+				toggle_ground()
 		get_viewport().set_input_as_handled()
+		return
+
+	# Everything below belongs to the overhead views. Mid-flight, or standing on the
+	# ground, this node has no other business with the keyboard and mouse.
+	if mode == ViewMode.GROUND or _transitioning or _fading:
 		return
 
 	# Planting owns the left button while it is armed, and it comes before the drawing tools because
@@ -731,6 +822,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# A finger and a thumb on the glass: spread them to zoom in, and drag them both to move the plan.
+	#
+	# Android only delivers these when the project asks it to read gestures out of touches
+	# (input_devices/pointing/android/enable_pan_and_scale_gestures); a touchscreen otherwise sends
+	# touches, which arrive here as mouse clicks and drags. Two fingers are needed for both, because one
+	# finger is already spoken for: a single-finger drag *is* the mouse, and on this drawing the mouse
+	# moves whatever it is over.
+	var gesture: Dictionary = touch_command(event)
+	if gesture["kind"] == &"zoom":
+		zoom_by(gesture["factor"], gesture["at"])
+		get_viewport().set_input_as_handled()
+		return
+	if gesture["kind"] == &"pan":
+		pan_by_screen(gesture["delta"])
+		get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventMouseButton:
 		var button: InputEventMouseButton = event
 		match button.button_index:
@@ -760,12 +868,38 @@ func _unhandled_input(event: InputEvent) -> void:
 			update_move(cursor)
 		elif _panning:
 			# Drag the design with the cursor: the point under the mouse stays put.
-			plan_focus -= motion.relative * (plan_size / maxf(
-				get_viewport().get_visible_rect().size.y, 1.0
-			))
-			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
-			_apply_overhead_view()
+			pan_by_screen(motion.relative)
 
+
+## Move the design by a drag of the screen, so the ground under the finger - or the cursor - stays
+## where it is.
+##
+## The mouse's right button and two fingers on the glass are the same gesture to a person, so they are
+## the same arithmetic here: one calculation, one clamp, one redraw, and no chance of the two drifting
+## apart on the way the view moves.
+func pan_by_screen(delta: Vector2) -> void:
+	var viewport_height: float = get_viewport().get_visible_rect().size.y
+	plan_focus = ViewMath.focus_after_screen_drag(plan_focus, delta, plan_size, viewport_height)
+	plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
+	_apply_overhead_view()
+
+
+## What a touch gesture on the glass asks the view to do, as a plain answer that names no view: a pinch
+## asks to zoom by a factor about a pixel, two fingers dragged ask to pan by a delta, and any other event
+## asks for nothing at all.
+##
+## It is a function of the event and nothing else - no camera, no viewport, no node - because *which*
+## gesture reaches *which* movement is the half of this that can be wrong, and a static function can be
+## held down by a test that builds no scene. The handler in `_unhandled_input` is then only the part that
+## carries the answer out.
+static func touch_command(event: InputEvent) -> Dictionary:
+	if event is InputEventMagnifyGesture:
+		var magnify: InputEventMagnifyGesture = event
+		return { "kind": &"zoom", "factor": ViewMath.zoom_factor_for_spread(magnify.factor), "at": magnify.position }
+	if event is InputEventPanGesture:
+		var pan: InputEventPanGesture = event
+		return { "kind": &"pan", "delta": pan.delta }
+	return { "kind": &"none" }
 
 # --- planting -------------------------------------------------------------------------
 
@@ -788,7 +922,7 @@ func arm_planting(catalogue: PlantCatalogue, species_id: StringName) -> bool:
 	# A click cannot be two things, so arming a plant puts the drawing tools away.
 	if _draft != null and _draft.drawing:
 		_draft.set_drawing(false)
-	planting_verdict = {}
+	planting_verdict = { }
 	_say_planting()
 	planting_changed.emit(planting_species)
 	return true
@@ -798,10 +932,10 @@ func stop_planting() -> void:
 	if planting_species.is_empty():
 		return
 	planting_species = &""
-	planting_verdict = {}
+	planting_verdict = { }
 	if plan_canvas != null:
 		plan_canvas.status_text = ""
-		plan_canvas.plant_ghost = {}
+		plan_canvas.plant_ghost = { }
 	planting_changed.emit(planting_species)
 
 
@@ -815,11 +949,36 @@ func environment_map() -> ZoneMap:
 	return document.environment if document != null else null
 
 
+## What the plan says the ground is like where the drawing's cursor last was.
+##
+## The spot is the **drawing's own `cursor_point`** and not the live mouse position, and that is the whole
+## reason to ask for it here: a person reaches the plant key from the menus, so by the time anything asks,
+## the pointer is over the menu bar - and the bed they mean is the one it was over on its way there.
+##
+## Returns `{profile, zone, place, source}` as `ZoneMap.profile_at` does, or an empty dictionary in a scene
+## with no drawing.
+func ground_at_cursor() -> Dictionary:
+	var map: ZoneMap = environment_map()
+	var controller: DraftControllerScript = draft_controller()
+	if map == null or controller == null:
+		return { }
+	return map.profile_at(controller.cursor_point)
+
+
+## Say one line about something that happened to the drawing without the cursor moving - a survey that
+## has just arrived, for instance. The planting tools write this same line, so a second place that words
+## a planting verdict would be a second place free to disagree with the first.
+func say_survey(line: String) -> void:
+	if plan_canvas == null or line.strip_edges().is_empty():
+		return
+	plan_canvas.status_text = line
+
+
 ## Judge one species against the ground at one point, without planting anything. The question the
 ## ring answers, askable from a script or a test.
 func spot_verdict(species: PlantSpecies, world: Vector2) -> Dictionary:
 	if species == null:
-		return {}
+		return { }
 	return PlantSuitabilityScript.check_at(species, environment_map(), world)
 
 
@@ -834,11 +993,9 @@ func _update_plant_ghost() -> void:
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
 	if species == null:
-		plan_canvas.plant_ghost = {}
+		plan_canvas.plant_ghost = { }
 		return
-	var world: Vector2 = ViewMath.clamp_to_rect(
-		_screen_to_world(get_viewport().get_mouse_position()), edit_bounds
-	)
+	var world: Vector2 = ViewMath.clamp_to_rect(_screen_to_world(get_viewport().get_mouse_position()), edit_bounds)
 	var verdict: Dictionary = PlantSuitabilityScript.check_at(species, environment_map(), world)
 	planting_verdict = verdict
 	plan_canvas.plant_ghost = {
@@ -857,10 +1014,13 @@ func _update_plant_ghost() -> void:
 ## to the library.
 func plant_at(screen: Vector2) -> Dictionary:
 	if not is_planting():
-		return {"ok": false, "reason": "nothing is being planted", "node": null, "scale": 1.0}
+		return { "ok": false, "reason": "nothing is being planted", "node": null, "scale": 1.0 }
 	var world: Vector2 = ViewMath.clamp_to_rect(_screen_to_world(screen), edit_bounds)
 	var result: Dictionary = PlantPlacement.place(
-		plant_catalogue, planting_species, yard, Vector3(world.x, floor_y, world.y)
+		plant_catalogue,
+		planting_species,
+		yard,
+		Vector3(world.x, floor_y, world.y),
 	)
 	if not bool(result["ok"]):
 		if plan_canvas != null:
@@ -892,7 +1052,7 @@ func refresh_after_planting() -> void:
 ## Judge the plant in hand against the ground at one point, and remember the answer.
 func _judge_placement(world: Vector2) -> void:
 	if plant_catalogue == null:
-		planting_verdict = {}
+		planting_verdict = { }
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
 	planting_verdict = spot_verdict(species, world)
@@ -903,7 +1063,7 @@ func planted_count() -> int:
 	return PlantPlacement.planted(yard).size()
 
 
-func _say_planting(verdict: Dictionary = {}) -> void:
+func _say_planting(verdict: Dictionary = { }) -> void:
 	if plan_canvas == null or plant_catalogue == null:
 		return
 	var species: PlantSpecies = plant_catalogue.get_species(planting_species)
@@ -912,20 +1072,15 @@ func _say_planting(verdict: Dictionary = {}) -> void:
 		return
 	# `name` is not available as a local: it is a property of every Node, and shadowing it is an
 	# error here for the same reason it would be a bug anywhere else in this file.
-	var label: String = (
-		species.common_name if not species.common_name.is_empty() else species.display_name()
-	)
+	var label: String = (species.common_name if not species.common_name.is_empty() else species.display_name())
 	var summary: String = String(verdict.get("summary", ""))
 	# Armed but nothing placed yet: what the click will do. Only a *placement* writes the verdict
 	# here - the one under the cursor is drawn at the cursor, because a status line rewritten every
 	# frame is a status line that flickers while the mouse moves.
 	if summary.is_empty():
-		plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [
-			label, planted_count()
-		]
+		plan_canvas.status_text = "Click to plant %s  (%d planted)  -  Escape puts it away" % [label, planted_count()]
 		return
 	plan_canvas.status_text = "%s  %d planted.  Escape puts it away." % [summary, planted_count()]
-
 
 # --- drafting -------------------------------------------------------------------------
 
@@ -1019,9 +1174,7 @@ func _handle_drafting(event: InputEvent) -> bool:
 	elif event is InputEventMouseMotion:
 		var motion: InputEventMouseMotion = event
 		if _panning:
-			plan_focus -= motion.relative * (plan_size / maxf(
-				get_viewport().get_visible_rect().size.y, 1.0
-			))
+			plan_focus -= motion.relative * (plan_size / maxf(get_viewport().get_visible_rect().size.y, 1.0))
 			plan_focus = ViewMath.clamp_to_rect(plan_focus, pan_bounds)
 			_apply_overhead_view()
 		_draft.hover(motion.position)
@@ -1051,3 +1204,53 @@ func _select_draft_tool(event: InputEvent) -> bool:
 			get_viewport().set_input_as_handled()
 			return true
 	return false
+
+
+# --- field identification & survey subsystem ---
+
+## The collection a field capture is filed under.
+const FIELD_SURVEY_COLLECTION := "Field Survey Captures"
+
+## The last species a field identification resolved to, or an empty name.
+var _last_identified_species: StringName = &""
+
+
+## Identify a plant from a raw taxon string and file it under the survey collection.
+## Returns the species, or null. With no plant list in hand there is nothing to identify
+## against, and this returns null rather than guessing.
+func process_field_identification(raw_name: String) -> PlantSpecies:
+	if plant_catalogue == null:
+		return null
+	var resolver := PlantIDResolver.new(plant_catalogue)
+	var species: PlantSpecies = resolver.resolve(raw_name)
+	if species == null:
+		return null
+	_last_identified_species = species.id
+	if not plant_catalogue.has_collection(FIELD_SURVEY_COLLECTION):
+		plant_catalogue.create_collection(FIELD_SURVEY_COLLECTION)
+	plant_catalogue.add_to_collection(FIELD_SURVEY_COLLECTION, species.id)
+	return species
+
+
+## The species captured by field identification so far, in catalogue order.
+func field_survey_captures() -> Array[PlantSpecies]:
+	if plant_catalogue == null:
+		return []
+	return plant_catalogue.collection(FIELD_SURVEY_COLLECTION)
+
+
+## Arm the plant identified last (or the given one) for planting on the plan.
+##
+## The plant is armed and the plan view entered; the next click places it, exactly as
+## choosing one in the library does. `screen_position` is reserved for a later door that
+## places the plant under a tapped point directly.
+@warning_ignore("unused_parameter")
+func _spawn_plant_in_scene(screen_position: Vector2, species_id: StringName = &"") -> PlantSpecies:
+	var wanted: StringName = species_id if not species_id.is_empty() else _last_identified_species
+	if plant_catalogue == null or wanted.is_empty() or not plant_catalogue.has(wanted):
+		return null
+	if not arm_planting(plant_catalogue, wanted):
+		return null
+	if mode == ViewMode.GROUND:
+		show_mode(ViewMode.PLAN_2D)
+	return plant_catalogue.get_species(wanted)

@@ -20,11 +20,7 @@ const RateScript := preload("res://scripts/biz/rate.gd")
 const DATE := 0
 const PHASE_COMPLETE := 1
 const APPROVED := 2
-const TRIGGER_NAMES := {
-	"DATE": "on a date",
-	"PHASE_COMPLETE": "when a phase is complete",
-	"APPROVED": "on approval",
-}
+const TRIGGER_NAMES := { "DATE": "on a date", "PHASE_COMPLETE": "when a phase is complete", "APPROVED": "on approval" }
 
 const NAME := "pending"
 const BILLED := "billed"
@@ -54,7 +50,6 @@ static func is_trigger(candidate: int) -> bool:
 
 static func trigger_name(candidate: int) -> String:
 	return String(TRIGGER_NAMES.get(_trigger_key(candidate), "on a date"))
-
 
 # --- pricing -----------------------------------------------------------------------------------
 
@@ -109,7 +104,6 @@ func retainage_for(contract_sum: Money) -> Money:
 		return MoneyScript.zero(contract_sum.currency if contract_sum != null else &"CAD")
 	return amount_for(contract_sum).scale_ppm(retainage_ppm)
 
-
 # --- being billed ------------------------------------------------------------------------------
 
 
@@ -152,7 +146,6 @@ func describe(contract_sum: Money) -> String:
 	parts.append(state_name())
 	return "%s (%s)" % [name, ", ".join(parts)]
 
-
 # --- soundness ---------------------------------------------------------------------------------
 
 
@@ -183,7 +176,6 @@ func problem() -> String:
 func is_sound() -> bool:
 	return problem().is_empty()
 
-
 # --- persistence -------------------------------------------------------------------------------
 
 
@@ -194,7 +186,7 @@ func copy() -> Milestone:
 func to_dict() -> Dictionary:
 	# Built as a statement and not as `null if fixed_amount == null else fixed_amount.to_dict()`: a
 	# ternary whose arms are a null and a dictionary is not a ternary the analyser can type.
-	var fixed_in = null
+	var fixed_in: Variant = null
 	if fixed_amount != null:
 		fixed_in = fixed_amount.to_dict()
 	return {
@@ -231,15 +223,19 @@ static func from_dict(data: Dictionary) -> Milestone:
 ## member of this class the key describes.
 static func _trigger_key(candidate: int) -> String:
 	match candidate:
-		PHASE_COMPLETE: return "PHASE_COMPLETE"
-		APPROVED: return "APPROVED"
+		PHASE_COMPLETE:
+			return "PHASE_COMPLETE"
+		APPROVED:
+			return "APPROVED"
 	return "DATE"
 
 
 static func _trigger_from(key: String) -> int:
 	match key:
-		"PHASE_COMPLETE": return PHASE_COMPLETE
-		"APPROVED": return APPROVED
+		"PHASE_COMPLETE":
+			return PHASE_COMPLETE
+		"APPROVED":
+			return APPROVED
 	return DATE
 
 

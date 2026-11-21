@@ -56,7 +56,7 @@ func _run() -> void:
 ## The batch a proposal is usually asked for, planned but not rendered: the point of this
 ## half is that a batch is a list a person makes, and the report says what is in it.
 func _show_batch() -> void:
-	var batch = BatchScript.new()
+	var batch: BatchScript = BatchScript.new()
 	var added: int = batch.add_every_view(PresetScript.PROPOSAL_DEFAULT)
 	print("batch: %d views at %s" % [added, PresetScript.label(PresetScript.PROPOSAL_DEFAULT)])
 	print(batch.report_text())
@@ -69,8 +69,10 @@ func _one_still() -> Image:
 	_director.frame_yard()
 	var written: Array[String] = []
 	var refused: Array[String] = []
-	var on_written := func(path: String) -> void: written.append(path)
-	var on_refused := func(reason: String) -> void: refused.append(reason)
+	var on_written := func(path: String) -> void:
+		written.append(path)
+	var on_refused := func(reason: String) -> void:
+		refused.append(reason)
 	_director.still_written.connect(on_written)
 	_director.still_failed.connect(on_refused)
 	# Not awaited: `render_still` reports by signal, which is how a caller learns it
@@ -106,10 +108,31 @@ func _lay_the_page(still: Image) -> void:
 		"scale": "as rendered",
 		"date": Time.get_date_string_from_system(false),
 	}
-	var plan: Dictionary = PageScript.layout(paper, still.get_size())
+	# Stand-in site photographs, and the captions say so: this project ships no photographs of anybody's
+	# garden, and a demo that invented one would be telling a story about a survey nobody made. Two crops
+	# of the still it just rendered are enough to prove the strip, the frames and the captions, which is
+	# what the page's photograph support is.
+	var half: int = int(still.get_width() * 0.5)
+	var photos: Array = [
+		{
+			"image": still.get_region(Rect2i(0, 0, half, still.get_height())),
+			"caption": "Stand-in photograph: the still's left half",
+		},
+		{
+			"image": still.get_region(Rect2i(half, 0, still.get_width() - half, still.get_height())),
+			"caption": "Stand-in photograph: the still's right half",
+		},
+	]
+	var options := { "photos": photos }
+	var plan: Dictionary = PageScript.layout(paper, still.get_size(), options)
 	print("page: %s" % PageScript.describe(plan))
+	var laid: Dictionary = PageScript.photo_bands(photos.size(), plan["photos_mm"])
+	print(
+		"photographs: %d placed, %d left out, strip %.0f mm deep"
+		% [int(laid["shown"]), int(laid["dropped"]), (plan["photos_mm"] as Rect2).size.y]
+	)
 
-	var pdf: PackedByteArray = PageScript.build_pdf(still, paper, fields)
+	var pdf: PackedByteArray = PageScript.build_pdf(still, paper, fields, options)
 	if pdf.is_empty():
 		print("proposal_demo: the page was refused; nothing was written")
 		return
@@ -124,13 +147,13 @@ func _lay_the_page(still: Image) -> void:
 	# samples - and the image's own header comes before that, so the two facts below are
 	# readable. Everything after the samples (the cross-reference) is not, which is why the
 	# trailer is checked from the file's own tail bytes.
-	print("pdf: %s (%d bytes, image XObject: %s)" % [
-		ProjectSettings.globalize_path(pdf_path), pdf.size(),
-		pdf.get_string_from_utf8().contains("/Subtype /Image"),
-	])
+	print(
+		"pdf: %s (%d bytes, image XObject: %s)"
+		% [ProjectSettings.globalize_path(pdf_path), pdf.size(), pdf.get_string_from_utf8().contains("/Subtype /Image")]
+	)
 	print("pdf tail: %s" % pdf.slice(pdf.size() - 20, pdf.size()).get_string_from_utf8().strip_edges())
 
-	var preview: Image = PageScript.render_image(still, paper, fields, 96.0)
+	var preview: Image = PageScript.render_image(still, paper, fields, 96.0, options)
 	if preview == null:
 		print("proposal_demo: the preview could not be drawn")
 		return
@@ -139,6 +162,7 @@ func _lay_the_page(still: Image) -> void:
 	if error != OK:
 		print("proposal_demo: could not write the preview (%d)" % error)
 		return
-	print("preview: %s (%d x %d)" % [
-		ProjectSettings.globalize_path(preview_path), preview.get_width(), preview.get_height(),
-	])
+	print(
+		"preview: %s (%d x %d)"
+		% [ProjectSettings.globalize_path(preview_path), preview.get_width(), preview.get_height()]
+	)

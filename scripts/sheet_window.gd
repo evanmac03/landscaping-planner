@@ -42,7 +42,7 @@ const SIZE := Vector2i(780, 640)
 ## drawing it belongs to rather than to match this app.
 const TEXT_FIELDS: Array[String] = ["title", "number", "revision"]
 
-var _identity: Dictionary = {}
+var _identity: Dictionary = { }
 var _rows: Array[Dictionary] = []
 var _index: int = 0
 ## True while the form is being filled from a row, so typing does not echo back as an edit - which would
@@ -53,7 +53,7 @@ var _said: String = ""
 var _project: LineEdit = null
 var _date: LineEdit = null
 var _list: ItemList = null
-var _texts: Dictionary = {}
+var _texts: Dictionary = { }
 var _size_option: OptionButton = null
 var _scale_option: OptionButton = null
 var _legend: CheckBox = null
@@ -74,7 +74,6 @@ func _ready() -> void:
 	if _list == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------
 
 
@@ -83,13 +82,9 @@ func _ready() -> void:
 func build() -> void:
 	if _list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self)
 
-	column.add_child(_heading("The sheets this drawing goes out as"))
+	column.add_child(PageChrome.subheading("The sheets this drawing goes out as"))
 
 	# What every sheet of a set shares. A set is one job: the project is the same on all of them, and so
 	# is the date they were drawn.
@@ -98,9 +93,15 @@ func build() -> void:
 	shared.add_theme_constant_override("separation", 6)
 	column.add_child(shared)
 	_project = _text_row(shared, "Project", 240.0)
-	_project.text_changed.connect(func(text: String) -> void: identity_changed.emit("project", text))
+	_project.text_changed.connect(
+		func(text: String) -> void:
+			identity_changed.emit("project", text),
+	)
 	_date = _text_row(shared, "Date", 120.0)
-	_date.text_changed.connect(func(text: String) -> void: identity_changed.emit("date", text))
+	_date.text_changed.connect(
+		func(text: String) -> void:
+			identity_changed.emit("date", text),
+	)
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -112,7 +113,7 @@ func build() -> void:
 	left.name = "SheetList"
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
-	left.add_child(_caption("Sheet"))
+	left.add_child(PageChrome.text("Sheet"))
 	_list = ItemList.new()
 	_list.name = "Sheets"
 	_list.custom_minimum_size = Vector2(300.0, 0.0)
@@ -120,7 +121,10 @@ func build() -> void:
 	_list.item_selected.connect(_on_sheet_selected)
 	left.add_child(_list)
 	_remove_button = _button(left, "Remove the sheet")
-	_remove_button.pressed.connect(func() -> void: sheet_removed.emit(_index))
+	_remove_button.pressed.connect(
+		func() -> void:
+			sheet_removed.emit(_index),
+	)
 
 	# The selected sheet's own fields.
 	var right := VBoxContainer.new()
@@ -128,13 +132,16 @@ func build() -> void:
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 4)
 	body.add_child(right)
-	right.add_child(_caption("This sheet"))
+	right.add_child(PageChrome.text("This sheet"))
 	for field: String in TEXT_FIELDS:
 		var line := _text_row(right, _field_caption(field), 0.0)
 		_texts[field] = line
-		line.text_changed.connect(func(_text: String) -> void: _emit_text(field))
+		line.text_changed.connect(
+			func(_text: String) -> void:
+				_emit_text(field),
+		)
 
-	right.add_child(_caption("On"))
+	right.add_child(PageChrome.text("On"))
 	var paper := HBoxContainer.new()
 	paper.name = "Paper"
 	paper.add_theme_constant_override("separation", 6)
@@ -143,35 +150,55 @@ func build() -> void:
 	for sheet_name: String in PlotScaleScript.sheet_names():
 		_size_option.add_item(sheet_label(sheet_name))
 		_size_option.set_item_metadata(_size_option.item_count - 1, sheet_name)
-	_size_option.item_selected.connect(func(_index_picked: int) -> void: _emit_option("sheet"))
+	_size_option.item_selected.connect(
+		func(_index_picked: int) -> void:
+			_emit_option("sheet"),
+	)
 	_scale_option = _option(paper, "ScaleOption", "Plot scale")
 	for ratio: float in PlotScaleScript.METRIC_LADDER:
 		_scale_option.add_item(PlotScaleScript.metric_label(ratio))
 		_scale_option.set_item_metadata(_scale_option.item_count - 1, ratio)
-	_scale_option.item_selected.connect(func(_index_picked: int) -> void: _emit_option("scale"))
+	_scale_option.item_selected.connect(
+		func(_index_picked: int) -> void:
+			_emit_option("scale"),
+	)
 
 	_legend = _flag(right, "Legend", "Carry the layer key")
-	_legend.toggled.connect(func(on: bool) -> void: _emit_flag("legend", on))
+	_legend.toggled.connect(
+		func(on: bool) -> void:
+			_emit_flag("legend", on),
+	)
 	_portrait = _flag(right, "Portrait", "Turn the sheet a quarter turn")
-	_portrait.toggled.connect(func(on: bool) -> void: _emit_flag("portrait", on))
+	_portrait.toggled.connect(
+		func(on: bool) -> void:
+			_emit_flag("portrait", on),
+	)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.add_theme_font_size_override("font_size", 12)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
+	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	var add_button := _button(buttons, "Add a sheet")
-	add_button.pressed.connect(func() -> void: sheet_added.emit())
+	add_button.pressed.connect(
+		func() -> void:
+			sheet_added.emit(),
+	)
 	_plot_button = _button(buttons, "Plot this sheet")
-	_plot_button.pressed.connect(func() -> void: plot_requested.emit(_index))
+	_plot_button.pressed.connect(
+		func() -> void:
+			plot_requested.emit(_index),
+	)
 	var plot_all := _button(buttons, "Plot the set")
-	plot_all.pressed.connect(func() -> void: plot_set_requested.emit())
+	plot_all.pressed.connect(
+		func() -> void:
+			plot_set_requested.emit(),
+	)
 	var close_button := _button(buttons, "Close")
-	close_button.pressed.connect(func() -> void: closed.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			closed.emit(),
+	)
 
 
 static func _field_caption(field: String) -> String:
@@ -191,36 +218,19 @@ static func sheet_label(sheet_name: String) -> String:
 	return "%s  (%.0f x %.0f mm)" % [sheet_name, paper.x, paper.y]
 
 
-func _heading(text: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading"
-	label.text = text
-	label.add_theme_font_size_override("font_size", 16)
-	return label
-
-
-func _caption(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", 12)
-	return label
-
-
+## A caption and the box it names, in one row. The caption and the row's two parts come from the shared
+## chrome; the row's own name is the page's - it has always been `ProjectRow` here - so it is set after
+## the chrome has named it from the field it carries.
 func _text_row(parent: Node, caption: String, width: float) -> LineEdit:
-	var row := HBoxContainer.new()
-	row.name = caption.replace(" ", "") + "Row"
-	row.add_theme_constant_override("separation", 6)
-	parent.add_child(row)
-	var label := _caption(caption)
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(label)
 	var line := LineEdit.new()
 	line.name = caption.replace(" ", "") + "Text"
 	if width > 0.0:
 		line.custom_minimum_size = Vector2(width, 0.0)
 	else:
 		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(line)
+	var row := PageChrome.labelled(caption, line)
+	row.name = caption.replace(" ", "") + "Row"
+	parent.add_child(row)
 	return line
 
 
@@ -241,18 +251,18 @@ func _flag(parent: Node, node_name: String, text: String) -> CheckBox:
 	return box
 
 
+## A button filling the row it sits in, made by the shared chrome so that its name, its caption and what
+## it does with the keyboard are the project's rather than this page's. The one thing this adds is the
+## equal share of the button strip the sheets page has always given its buttons.
 func _button(parent: Node, text: String) -> Button:
-	var button := Button.new()
-	button.name = text.replace(" ", "") + "Button"
-	button.text = text
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(button)
-	return button
+	var made := PageChrome.button(text)
+	made.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(made)
+	return made
 
 
 func _on_close_requested() -> void:
 	closed.emit()
-
 
 # --- what it shows ------------------------------------------------------------------
 
@@ -261,7 +271,7 @@ func _on_close_requested() -> void:
 ## shares.
 func set_identity(project: String, date: String) -> void:
 	build()
-	_identity = {"project": project, "date": date}
+	_identity = { "project": project, "date": date }
 	_filling = true
 	_project.text = project
 	_date.text = date
@@ -318,7 +328,7 @@ func list_texts() -> Array[String]:
 
 func selected_row() -> Dictionary:
 	if _index < 0 or _index >= _rows.size():
-		return {}
+		return { }
 	return _rows[_index]
 
 
@@ -419,7 +429,6 @@ func say(text: String) -> void:
 func said() -> String:
 	return _said
 
-
 # --- what a person did --------------------------------------------------------------
 
 
@@ -445,7 +454,6 @@ func _emit_flag(field: String, on: bool) -> void:
 	if _filling:
 		return
 	field_changed.emit(_index, field, on)
-
 
 # --- the same acts, scriptable ---------------------------------------------------------
 #

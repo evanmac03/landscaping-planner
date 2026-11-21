@@ -30,11 +30,16 @@ signal closed()
 ## Big enough for a page of prose and a list of twenty subjects. The minimum rather than the size:
 ## the page is shown fitted to its contents, so this is what stops it being squeezed smaller than it
 ## can be read at. It is a floor that comes down to fit a screen smaller than the page - a floor taller
-## than the display would push the page's own buttons off the bottom - which `clamped_minimum` works out
-## and `open` applies.
+## To fit as well, and is never wider or taller than the page asked for in the first place, which
+## `PageChrome.show_centred` works out from this same number.
 const SIZE := Vector2i(960, 720)
 ## The contents column: wide enough for the longest subject in the manual on one line.
 const LIST_WIDTH := 300.0
+## How tall a picture is given to be. A definite height rather than one worked out from the picture's
+## own shape: a container cannot lay out a child that will not be sized until it has been laid out, and
+## the row came out with no height at all until this was pinned. The picture is fitted inside the box at
+## its own proportions, so a wide shot is not stretched to fill it.
+const PICTURE_HEIGHT := 240.0
 ## What the row of cross-reference buttons is introduced by. A person who has finished a subject needs
 ## to be told that the buttons under it are other subjects rather than something about this one.
 const SEE_CAPTION := "Read next:"
@@ -59,6 +64,16 @@ var _list: ItemList = null
 var _search: LineEdit = null
 var _title_label: Label = null
 var _body: RichTextLabel = null
+## The pictures the subject on the page is shown with, above the prose. Rebuilt on every page turn and
+## hidden when the subject carries none, so a manual whose subjects have no pictures is not a blank
+## strip standing over every page.
+var _picture_row: HBoxContainer = null
+## What is on that row, as the manual named it. Only the ones that could be read: a file that is not
+## there is not claimed to be shown.
+var _shown_pictures: Array[String] = []
+## Textures already read, by path. Turning a page must not read the disk again, and a path that could
+## not be read is remembered as `null` so the disk is not asked for it a second time either.
+var _picture_textures: Dictionary[String, Texture2D] = { }
 var _status: Label = null
 ## The cross-reference buttons under the body: one per subject the shown one points at, rebuilt
 ## whenever the page turns. Every one of them is `FOCUS_NONE` like the rest of the page.
@@ -76,7 +91,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _list == null:
 		build()
-
 
 # --- building --------------------------------------------------------------------------------
 
@@ -145,6 +159,17 @@ func build() -> void:
 	_title_label.name = "TopicTitle"
 	_title_label.add_theme_font_size_override("font_size", 18)
 	page.add_child(_title_label)
+
+	# The pictures, between the title and the prose: a reader who has just been told what a page is
+	# wants to see where it is. As wide as the page will show them and as tall as their own shape makes
+	# them, so one picture is the whole width and three sit in a row as the strip of views they are.
+	# Not clickable and not focusable: a picture is for looking at, and this page's one keyboard control
+	# is the search box.
+	_picture_row = HBoxContainer.new()
+	_picture_row.name = "Pictures"
+	_picture_row.add_theme_constant_override("separation", 6)
+	_picture_row.visible = false
+	page.add_child(_picture_row)
 	_body = RichTextLabel.new()
 	_body.name = "Body"
 	# Plain text rather than markup: the manual is written as sentences, and a stray bracket in a
@@ -186,42 +211,28 @@ func build() -> void:
 	# would look like a page that had failed.
 	_apply_filter()
 
-
 # --- putting it on the screen -------------------------------------------------------------------
 
-## The floor the window opens at, brought down to what a screen actually has room for. A window is
-## shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
-## that screen would fight the clamp and push the page's own controls off the edge - so the floor comes
-## down to fit as well, and is never wider or taller than the page asked for in the first place.
+
+## Put the page on the screen: built, its floor handed to the one door a page is shown by, and the
+## keyboard put in the search box, because looking a word up is what a manual this long is for. The
+## parts a test can drive without a window server are `build` and `move_selection`.
 ##
-## A screen nothing can be learned about - a headless run reports a nought by nought screen - leaves
-## the floor at its full size: the page is made smaller for want of room, never for want of knowing.
-static func clamped_minimum(available: Vector2i) -> Vector2i:
-	if available.x <= 0 or available.y <= 0:
-		return SIZE
-	return Vector2i(mini(SIZE.x, available.x), mini(SIZE.y, available.y))
-
-
-## Bring the window's floor down to what the screen it will land on can hold, and hand it back. Kept
-## apart from showing the window so a test can read it without a window server.
-func clamp_to_screen() -> Vector2i:
-	var screen := DisplayServer.window_get_current_screen()
-	var available := DisplayServer.screen_get_usable_rect(screen).size
-	min_size = clamped_minimum(available)
-	return min_size
-
-
-## Put the page on the screen: built, its floor fitted to the screen, sized to its contents and
-## centred - and the keyboard put in the search box, because looking a word up is what a manual this
-## long is for. The parts a test can drive without a window server are `build`, `clamp_to_screen` and
-## `move_selection`.
+## **`PageChrome.show_centred`, and not `popup_centered_clamped` with a floor worked out here**, which is
+## what this did until 2026-11-14 - with a `clamped_minimum` and a `clamp_to_screen` of its own, a third
+## copy of a sum `PageChrome` already owns. The copy is why the manual was the last page a phone drew in
+## the desk's type: the door fits the floor to the room the page lands in rather than to the monitor, and
+## then does three things the copy never did - sizes the buttons for a finger, grows the page's words for
+## the screen, and lands the page clear of its own title bar and a phone's cutout. Measured by
+## `tools/phone_touch_sweep.gd` at a phone's own 450 dpi: five lines - Find, Contents, the topic title,
+## the status and Close - drawn at 16 px where the screen needs 30. `SIZE` above is the floor this page
+## declares; the door is what applies it.
 func open() -> void:
 	build()
-	clamp_to_screen()
-	popup_centered_clamped()
+	min_size = SIZE
+	PageChrome.show_centred(self)
 	if _search != null:
 		_search.grab_focus()
-
 
 # --- what it is showing -----------------------------------------------------------------------
 
@@ -305,6 +316,13 @@ func list_rows() -> Array[String]:
 	for row in _list.item_count:
 		out.append(_list.get_item_text(row))
 	return out
+
+
+## The pictures the page is showing, as the manual named them, in the order the row lays them out.
+## Empty when the subject carries none - which is a subject that needs no picture rather than a page
+## that failed.
+func shown_pictures() -> Array[String]:
+	return _shown_pictures.duplicate()
 
 
 ## The subjects the page is offering to read next, in the order the buttons are laid out.
@@ -431,7 +449,6 @@ func said() -> String:
 func status_text() -> String:
 	return said()
 
-
 # --- the controls themselves, for a test that has to read them ---------------------------------
 
 
@@ -445,6 +462,13 @@ func body_view() -> RichTextLabel:
 	return _body
 
 
+## The row the pictures are laid out in. Exposed so a test can check that a page with no pictures does
+## not leave an empty strip standing, and that a picture is not a thing the mouse or the keyboard can
+## take the page with.
+func picture_view() -> HBoxContainer:
+	return _picture_row
+
+
 ## The row the "read next" buttons are laid out in. Exposed for the same reason as the list: a
 ## cross-reference is pressed with the mouse, like everything else on the page, and that is checked
 ## against the buttons themselves rather than against what the page meant to do.
@@ -455,7 +479,6 @@ func see_view() -> HBoxContainer:
 ## The search box: the one control in here that *is* allowed to hold the keyboard.
 func search_field() -> LineEdit:
 	return _search
-
 
 # --- the work ---------------------------------------------------------------------------------
 
@@ -503,8 +526,11 @@ func _apply_filter() -> void:
 		# unbracketed form is a format applied to the last fragment alone - and a fragment with no
 		# placeholder in it is a formatting error rather than a sentence.
 		_body.text = (
-			("Nothing in the manual matches %s.\n\n"
-			+ "Try a shorter word, or clear the box to read the contents again.") % _quoted(query)
+			(
+				"Nothing in the manual matches %s.\n\n"
+				+ "Try a shorter word, or clear the box to read the contents again."
+			)
+			% _quoted(query)
 		)
 		say("%s: no topic matches it. Clear the box for the whole manual." % _quoted(query))
 		return
@@ -579,9 +605,107 @@ func _go(index: int) -> void:
 func _show_topic(index: int) -> void:
 	_shown_topic = index
 	_title_label.text = _topic_title(index)
+	_show_pictures(index)
 	_body.text = _topic_body(index)
 	_body.scroll_to_line(0)
 	_show_see(index)
+
+
+## Rebuild the picture row for the subject on the page, hiding it when there is nothing to show.
+##
+## Rebuilt rather than reused, like the cross-references below the prose: a picture left over from the
+## last subject would be a picture of something the page is no longer about, which is worse than no
+## picture at all. A path that could not be read is skipped rather than shown as a gap, so the row holds
+## only pictures that are really there.
+func _show_pictures(index: int) -> void:
+	_shown_pictures = []
+	if _picture_row == null:
+		return
+	for child: Node in _picture_row.get_children():
+		# Freed rather than queued: what is shown is read back the moment it is written.
+		_picture_row.remove_child(child)
+		child.free()
+	for path: String in _topic_pictures(index):
+		var texture := _texture_for(path)
+		if texture == null:
+			continue
+		var view := TextureRect.new()
+		view.texture = texture
+		# Given a box of a definite height and the width the page allows, and fitted inside it at its own
+		# proportions: nothing is ever squashed to fit, and the row is never left with no height.
+		view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		view.custom_minimum_size = Vector2(0.0, PICTURE_HEIGHT)
+		view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_picture_row.add_child(view)
+		_shown_pictures.append(path)
+	_picture_row.visible = not _shown_pictures.is_empty()
+
+
+## The texture for a picture the manual names, or null when it cannot be read.
+##
+## The bytes are read through `FileAccess` and decoded here rather than handed to `Image.load_from_file`
+## with a path: a picture that ships *inside* the program lives in the pack file, and only the
+## `FileAccess` layer can see into one. Reading it by path would work in the editor and quietly stop
+## working in a built copy, which is the worst way for this to fail.
+##
+## The one thing a reader must never see is a page that failed, so a picture that cannot be read answers
+## null and the page carries on without it - and the path is asked for once, whatever the answer, so a
+## missing picture cannot make every page turn complain to the console.
+func _texture_for(path: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if _picture_textures.has(path):
+		return _picture_textures[path]
+	var texture: Texture2D = null
+	if FileAccess.file_exists(path):
+		var image := decode(path, FileAccess.get_file_as_bytes(path))
+		if image != null:
+			texture = ImageTexture.create_from_image(image)
+	_picture_textures[path] = texture
+	return texture
+
+
+## The pixels in a file, by its own kind, or null when the bytes are not a picture of that kind. One
+## format is what the manual uses; the others are here because a picture is a file beside the program,
+## and somebody putting another sort in the folder is a thing that should work rather than fail.
+static func decode(path: String, bytes: PackedByteArray) -> Image:
+	var kind := path.get_extension().to_lower()
+	if not _looks_like(kind, bytes):
+		return null
+	var image := Image.new()
+	var read := FAILED
+	match kind:
+		"webp":
+			read = image.load_webp_from_buffer(bytes)
+		"png":
+			read = image.load_png_from_buffer(bytes)
+		"jpg", "jpeg":
+			read = image.load_jpg_from_buffer(bytes)
+	if read != OK:
+		return null
+	return image
+
+
+## Whether bytes begin the way a file of that kind begins.
+##
+## Asked *before* the engine is handed them, because the image loaders complain loudly about bytes that
+## are not a picture: a stray file in the pictures folder would otherwise fill the console with reasons
+## it is not one, every time its page came round. Answering "is this a picture of that kind" is a
+## question about the first few bytes, and it costs a dozen.
+static func _looks_like(kind: String, bytes: PackedByteArray) -> bool:
+	match kind:
+		"webp":
+			return (
+				bytes.size() > 12 and bytes.slice(0, 4).get_string_from_ascii() == "RIFF"
+				and bytes.slice(8, 12).get_string_from_ascii() == "WEBP"
+			)
+		"png":
+			return bytes.size() > 8 and bytes.slice(0, 8) == PackedByteArray([137, 80, 78, 71, 13, 10, 26, 10])
+		"jpg", "jpeg":
+			return bytes.size() > 3 and bytes[0] == 0xFF and bytes[1] == 0xD8
+	return false
 
 
 ## Rebuild the cross-reference buttons for the subject on the page, hiding the row when it points at
@@ -618,6 +742,16 @@ func _show_see(index: int) -> void:
 
 func _on_see_pressed(target: String) -> void:
 	follow(target)
+
+
+## The pictures a subject carries, as paths, empty when it has an index that is not a topic.
+func _topic_pictures(index: int) -> Array[String]:
+	var out: Array[String] = []
+	if index < 0 or index >= _topics.size():
+		return out
+	for path: Variant in (_topics[index].get("pictures", []) as Array):
+		out.append(String(path))
+	return out
 
 
 ## The subjects the shown topic points at, empty when it has an index that is not a topic.
@@ -671,7 +805,6 @@ func _describe_shown(query: String) -> String:
 
 static func _quoted(words: String) -> String:
 	return "\"%s\"" % words.strip_edges()
-
 
 # --- what it does -----------------------------------------------------------------------------
 

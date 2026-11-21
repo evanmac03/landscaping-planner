@@ -24,6 +24,69 @@ func _page() -> HelpWindowScript:
 	return page
 
 
+## A picture is read from its *bytes* rather than by path, because a picture that ships inside the
+## program lives inside its pack file and only `FileAccess` can see into one - reading it by path would
+## work in the editor and quietly stop working in a built copy. So the reader is pinned here against a
+## real file of each kind the manual could carry, and against bytes that are not a picture at all.
+func test_a_picture_is_decoded_from_its_bytes_by_its_own_kind() -> void:
+	var webp := "res://assets/help/snapping.webp"
+	assert(FileAccess.file_exists(webp), "the manual's own pictures are there to be read")
+	var image: Image = HelpWindowScript.decode(webp, FileAccess.get_file_as_bytes(webp))
+	assert(image != null, "a webp reads")
+	assert(image.get_width() > 100 and image.get_height() > 100, "at the size it was taken at: %s" % image.get_size())
+	var png := "res://resources/textures/hardscape/mulch_bark_albedo.png"
+	assert(HelpWindowScript.decode(png, FileAccess.get_file_as_bytes(png)) != null, "and so does a png")
+	assert(
+		HelpWindowScript.decode("res://nothing_at_all.webp", "not a picture".to_utf8_buffer()) == null,
+		"and bytes that are not a picture answer nothing rather than failing",
+	)
+
+
+## A subject shows the pictures it was handed, and one handed none shows no strip at all.
+##
+## Driven with synthetic topics pointing at a texture that is already in the project: what is under test
+## is the page rather than the manual's own table, which `test_help_doc.gd` holds. The pictures arrive on
+## the topic for the same reason the section does - a page that knew where the manual keeps its pictures
+## would be a page that knows the manual's business.
+func test_a_subject_shows_the_pictures_it_is_handed_and_none_without_them() -> void:
+	var shown := "res://resources/textures/hardscape/mulch_bark_albedo.png"
+	var topics: Array[Dictionary] = [
+		{ "title": "Illustrated", "body": "a subject with a picture", "pictures": [shown] },
+		{ "title": "Plain", "body": "a subject with none", "pictures": [] },
+		{
+			"title": "Missing",
+			"body": "a subject whose picture is not there",
+			"pictures": ["res://resources/textures/hardscape/no_such_picture_at_all.png"],
+		},
+	]
+	var page: HelpWindowScript = HelpWindowScript.new()
+	page.build()
+	page.set_topics(topics)
+	var on_the_page := page.shown_pictures()
+	assert(on_the_page.size() == 1 and on_the_page[0] == shown, "%s" % [on_the_page])
+	assert(page.picture_view().visible, "the picture is on the page")
+	assert(page.picture_view().get_child_count() == 1, "one picture, one view")
+	# And the row can really be given a height. Asserted because it cannot be seen: a picture row with no
+	# minimum height is laid out as nothing and the picture is on the page without ever being visible -
+	# which is what happened when the height was left to follow from the picture's own shape.
+	assert(page.picture_view().get_combined_minimum_size().y > 0.0, "the row has a height to be laid out in")
+	# A picture is for looking at, so it is not a thing the mouse or the keyboard can take the page with.
+	var view := page.picture_view().get_child(0) as TextureRect
+	assert(view != null, "it is a picture rather than something else")
+	assert(view.mouse_filter == Control.MOUSE_FILTER_IGNORE, "a picture does not take a click")
+	assert(view.focus_mode == Control.FOCUS_NONE, "nor the keyboard")
+	# A subject with none leaves no strip standing over its prose.
+	assert(page.select_topic("Plain"), "the next subject can be chosen")
+	assert(page.shown_pictures().is_empty(), "%s" % [page.shown_pictures()])
+	assert(not page.picture_view().visible, "and the row is not left empty")
+	# And a picture that cannot be read is a page with no picture rather than a page that failed.
+	assert(page.select_topic("Missing"))
+	assert(page.shown_pictures().is_empty(), "%s" % [page.shown_pictures()])
+	assert(not page.picture_view().visible)
+	assert(page.picture_view().get_child_count() == 0, "nothing is left standing in its place")
+	page.free()
+
+
 func test_the_contents_lists_every_subject_the_manual_has() -> void:
 	var page: HelpWindowScript = _page()
 	assert(page.topic_count() == HelpDocScript.topic_count(), "every subject is on the page")
@@ -65,10 +128,7 @@ func test_the_search_narrows_the_contents_and_clearing_it_brings_them_back() -> 
 	assert(page.shown_count() < page.topic_count(), "and leaves the rest out")
 	assert(page.list_texts().size() == page.shown_count(), "the contents is exactly what was found")
 	assert(page.shown_body().to_lower().contains("transformer"), "the page shows one of them")
-	assert(
-		page.topic_count() == HelpDocScript.topic_count(),
-		"narrowing the contents does not throw the manual away"
-	)
+	assert(page.topic_count() == HelpDocScript.topic_count(), "narrowing the contents does not throw the manual away")
 	page.type_search("")
 	assert(page.shown_count() == HelpDocScript.topic_count(), "emptying the box is the way back")
 	assert(page.shown_topic_index() == 0, "and the page goes back to the beginning")
@@ -116,13 +176,13 @@ func test_the_contents_is_grouped_under_headings_nobody_can_choose() -> void:
 	assert(headings.size() > 1, "the manual is filed under more than one heading")
 	assert(
 		rows.size() == page.topic_count() + headings.size(),
-		"the list is every subject plus one heading per section"
+		"the list is every subject plus one heading per section",
 	)
 	for heading: String in headings:
 		assert(rows.has(heading), "the contents is grouped under \"%s\"" % heading)
 	assert(
 		page.list_texts() == HelpDocScript.titles(),
-		"and what it offers to read is still the manual's own list, headings left out of it"
+		"and what it offers to read is still the manual's own list, headings left out of it",
 	)
 	# A heading is furniture: it is drawn in the list and it is not a subject, so choosing it is refused
 	# rather than silently opening whatever happens to be filed under it.
@@ -137,7 +197,7 @@ func test_a_subject_can_point_at_another_and_pressing_that_goes_there() -> void:
 	assert(page.select_topic("Plants"), "a subject that points at others")
 	assert(
 		page.see_links() == HelpDocScript.see_for("Plants"),
-		"the page offers exactly the subjects the manual points at"
+		"the page offers exactly the subjects the manual points at",
 	)
 	var wanted: String = page.see_links()[0]
 	assert(page.follow(wanted), "one of which can be pressed")
@@ -154,10 +214,7 @@ func test_a_subject_that_points_at_nothing_offers_nothing_to_read_next() -> void
 	assert(HelpDocScript.see_for("What this program is").is_empty(), "the manual says it points at nothing")
 	assert(page.select_topic("What this program is"))
 	assert(page.see_links().is_empty(), "so no buttons are drawn")
-	assert(
-		not page.see_view().visible,
-		"and the row is hidden rather than left as an empty strip under the prose"
-	)
+	assert(not page.see_view().visible, "and the row is hidden rather than left as an empty strip under the prose")
 	assert(page.select_topic("Plants"), "while a subject that does point at others")
 	assert(page.see_view().visible, "brings the row back")
 	page.free()
@@ -196,10 +253,7 @@ func test_the_page_can_be_walked_back_and_forward_along_what_has_been_read() -> 
 	assert(not page.can_go_forward(), "and no further, because that is the end of the walk")
 	assert(page.back(), "walking back again")
 	assert(page.select_topic("Light: garden lighting"), "and then somewhere new")
-	assert(
-		not page.can_go_forward(),
-		"turning to a subject that was not read before drops the way forward"
-	)
+	assert(not page.can_go_forward(), "turning to a subject that was not read before drops the way forward")
 	page.free()
 
 
@@ -210,7 +264,7 @@ func test_a_search_starts_a_fresh_walk() -> void:
 	page.type_search("valve")
 	assert(
 		not page.can_go_back(),
-		"a search clears the walk: the subjects back would go to are not the ones on the contents any more"
+		"a search clears the walk: the subjects back would go to are not the ones on the contents any more",
 	)
 	assert(not page.can_go_forward())
 	page.free()
@@ -224,25 +278,22 @@ func test_the_subjects_read_next_cannot_take_the_keyboard() -> void:
 		if child is Button:
 			assert(
 				(child as Button).focus_mode == Control.FOCUS_NONE,
-				"a cross-reference is pressed with the mouse, like the rest of the page"
+				"a cross-reference is pressed with the mouse, like the rest of the page",
 			)
 	page.free()
 
 
 func test_the_page_does_not_take_the_keyboard_except_in_the_search_box() -> void:
 	var page: HelpWindowScript = _page()
-	assert(
-		page.topics_list().focus_mode == Control.FOCUS_NONE,
-		"a list is picked from rather than typed into"
-	)
+	assert(page.topics_list().focus_mode == Control.FOCUS_NONE, "a list is picked from rather than typed into")
 	assert(
 		page.body_view().focus_mode == Control.FOCUS_NONE,
-		"and prose is read rather than typed into, even when a sentence is selected"
+		"and prose is read rather than typed into, even when a sentence is selected",
 	)
 	assert(page.search_field() != null, "the search box is the one control that may hold the keyboard")
 	assert(
 		page.search_field().focus_mode != Control.FOCUS_NONE,
-		"which it does, because a manual this long is looked things up in"
+		"which it does, because a manual this long is looked things up in",
 	)
 	page.free()
 
@@ -253,8 +304,11 @@ func test_closing_the_page_takes_it_off_the_screen_and_announces_itself() -> voi
 	# What is under test here is that closing says so, takes the page off the screen, and leaves what
 	# it was showing where it was.
 	var page: HelpWindowScript = _page()
-	var told := {"closed": false}
-	page.closed.connect(func() -> void: told["closed"] = true)
+	var told := { "closed": false }
+	page.closed.connect(
+		func() -> void:
+			told["closed"] = true,
+	)
 	page.visible = true
 	page.close_requested.emit()
 	assert(told["closed"], "the page says so when it is closed")
@@ -262,30 +316,10 @@ func test_closing_the_page_takes_it_off_the_screen_and_announces_itself() -> voi
 	assert(page.shown_topic_index() == 0, "keeping what it was showing for next time")
 	page.free()
 
-
-func test_the_floor_comes_down_to_fit_a_smaller_screen_and_never_to_nothing() -> void:
-	# A screen with room to spare leaves the floor at the page's own size.
-	assert(HelpWindowScript.clamped_minimum(Vector2i(2000, 1200)) == HelpWindowScript.SIZE)
-	# A screen with less room brings it down to that screen, one side at a time.
-	assert(HelpWindowScript.clamped_minimum(Vector2i(800, 1200)) == Vector2i(800, 720))
-	assert(HelpWindowScript.clamped_minimum(Vector2i(2000, 600)) == Vector2i(960, 600))
-	assert(HelpWindowScript.clamped_minimum(Vector2i(640, 480)) == Vector2i(640, 480))
-	# A screen that says nothing about itself leaves the floor alone, rather than at nothing: the page
-	# is made smaller for want of room, never for want of knowing.
-	assert(HelpWindowScript.clamped_minimum(Vector2i.ZERO) == HelpWindowScript.SIZE)
-	assert(HelpWindowScript.clamped_minimum(Vector2i(-1, -1)) == HelpWindowScript.SIZE)
-
-
-func test_the_window_fits_its_floor_to_the_screen_without_ever_going_over_the_page() -> void:
-	var page: HelpWindowScript = _page()
-	var floor_size: Vector2i = page.clamp_to_screen()
-	assert(floor_size.x > 0 and floor_size.y > 0, "the floor is a size, never nothing")
-	assert(
-		floor_size.x <= HelpWindowScript.SIZE.x and floor_size.y <= HelpWindowScript.SIZE.y,
-		"and never larger than the page asks for"
-	)
-	assert(page.min_size == floor_size, "which is the floor the window opens at")
-	page.free()
+# The floor-and-clamp arithmetic this page used to keep to itself is `PageChrome.clamped_minimum`'s now,
+# and `tests/test_page_chrome.gd` holds it there - along with the rule that this page, like every other,
+# is shown by `PageChrome.show_centred` and by nothing else. A note rather than a test, because the same
+# rule tested in two files is the second engine this project spends its effort avoiding.
 
 
 func test_the_arrow_keys_walk_the_contents_end_to_end_without_landing_on_a_heading() -> void:

@@ -76,7 +76,6 @@ static func make(held_job: String, covered: Array, how_many_months: int, from: S
 		return null
 	return record
 
-
 # --- the terms -------------------------------------------------------------------------------
 
 
@@ -160,7 +159,6 @@ static func months_after(date: String, how_many_months: int) -> String:
 		day -= 1
 	return ""
 
-
 # --- claiming --------------------------------------------------------------------------------
 
 
@@ -228,7 +226,6 @@ func claims_needing_attention() -> Array[WarrantyClaim]:
 			out.append(held)
 	return out
 
-
 # --- describing it ---------------------------------------------------------------------------
 
 
@@ -237,7 +234,11 @@ func terms_text() -> String:
 	if parts.is_empty() or months < 1 or not RateScript.is_date(starts_on):
 		return NOTHING_STATED
 	return "%s for %d month%s from %s, so until %s" % [
-		and_join(parts), months, "" if months == 1 else "s", starts_on, ends_on(),
+		and_join(parts),
+		months,
+		"" if months == 1 else "s",
+		starts_on,
+		ends_on(),
 	]
 
 
@@ -271,7 +272,10 @@ func describe() -> String:
 	if want == 0:
 		return "%s, with %d claim%s settled" % [words, claims.size(), "" if claims.size() == 1 else "s"]
 	return "%s, with %d of %d claim%s still wanting somebody" % [
-		words, want, claims.size(), "" if claims.size() == 1 else "s",
+		words,
+		want,
+		claims.size(),
+		"" if claims.size() == 1 else "s",
 	]
 
 
@@ -286,7 +290,6 @@ static func and_join(items: Array) -> String:
 	if words.size() <= 1:
 		return words[0] if words.size() == 1 else ""
 	return "%s and %s" % [", ".join(PackedStringArray(words.slice(0, words.size() - 1))), words[-1]]
-
 
 # --- soundness -------------------------------------------------------------------------------
 
@@ -312,7 +315,6 @@ func problem() -> String:
 
 func is_sound() -> bool:
 	return problem().is_empty()
-
 
 # --- persistence -----------------------------------------------------------------------------
 

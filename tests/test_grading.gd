@@ -19,7 +19,6 @@ const SPOT := GradingScript.SPOT
 const CONTOUR := GradingScript.CONTOUR
 const SLOPE := GradingScript.SLOPE
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -60,15 +59,13 @@ func _some_note_has(notes: Array, part: String) -> bool:
 			return true
 	return false
 
-
 # --- the kinds ---------------------------------------------------------------------------
 
 
 func test_every_kind_has_its_own_layer_and_its_own_noun() -> void:
 	assert(GradingScript.KINDS == [SPOT, CONTOUR, SLOPE], str(GradingScript.KINDS))
 	assert(GradingScript.KIND_NAMES.size() == 3, "every kind is called something")
-	assert(GradingScript.kind_names() == ["spot level", "contour", "slope arrow"],
-		str(GradingScript.kind_names()))
+	assert(GradingScript.kind_names() == ["spot level", "contour", "slope arrow"], str(GradingScript.kind_names()))
 	for kind: String in GradingScript.KINDS:
 		assert(GradingScript.is_kind(kind), kind)
 		assert(GradingScript.kind_for_name(GradingScript.kind_name(kind)) == kind, kind)
@@ -83,13 +80,11 @@ func test_a_spot_a_contour_and_an_arrow_land_on_three_layers() -> void:
 	assert(GradingScript.layer_for(SPOT) == LayerSetScript.GRADING_SPOT, "a spot lands on its own layer")
 	assert(GradingScript.layer_for(CONTOUR) == LayerSetScript.GRADING_CONTOUR, "a contour on its own")
 	assert(GradingScript.layer_for(SLOPE) == LayerSetScript.GRADING_SLOPE, "and an arrow on its own")
-	var names := [GradingScript.layer_for(SPOT), GradingScript.layer_for(CONTOUR),
-		GradingScript.layer_for(SLOPE)]
-	var unique := {}
+	var names := [GradingScript.layer_for(SPOT), GradingScript.layer_for(CONTOUR), GradingScript.layer_for(SLOPE)]
+	var unique := { }
 	for name: StringName in names:
 		unique[name] = true
 	assert(unique.size() == 3, "and no two of them are the same layer")
-
 
 # --- the records -------------------------------------------------------------------------
 
@@ -103,8 +98,7 @@ func test_a_set_starts_empty_and_says_so() -> void:
 	var checked := GradingScript.check(set)
 	assert(bool(checked["ok"]), "a drawing with no grading has nothing wrong with it")
 	assert((checked["findings"] as Array).is_empty(), "and nothing to report")
-	assert(_some_note_has(checked["notes"], "no spot level on this drawing states a number"),
-		str(checked["notes"]))
+	assert(_some_note_has(checked["notes"], "no spot level on this drawing states a number"), str(checked["notes"]))
 
 
 func test_an_id_is_one_past_the_highest_and_not_the_count() -> void:
@@ -124,7 +118,6 @@ func test_an_id_is_one_past_the_highest_and_not_the_count() -> void:
 	assert(GradingScript.record_for(set, SPOT, 7).is_empty(), "and one that is not there is nothing")
 	assert(not GradingScript.remove_record(set, SPOT, 7), "so removing it does nothing")
 
-
 # --- levels and falls ---------------------------------------------------------------------
 
 
@@ -138,15 +131,18 @@ func test_a_level_is_written_in_the_drawings_own_units() -> void:
 
 func test_a_fall_is_a_percentage_and_a_ratio() -> void:
 	assert(GradingScript.percent_words(2.5) == "falling 2.5% (1 in 40)", GradingScript.percent_words(2.5))
-	assert(GradingScript.percent_words(6.6667) == "falling 6.7% (1 in 15)",
-		GradingScript.percent_words(6.6667))
-	assert(GradingScript.percent_words(-1.0) == "rising 1% (1 in 100)",
-		"a negative fall rises: " + GradingScript.percent_words(-1.0))
+	assert(GradingScript.percent_words(6.6667) == "falling 6.7% (1 in 15)", GradingScript.percent_words(6.6667))
+	assert(
+		GradingScript.percent_words(-1.0) == "rising 1% (1 in 100)",
+		"a negative fall rises: " + GradingScript.percent_words(-1.0),
+	)
 	assert(GradingScript.percent_words(0.0) == "flat", GradingScript.percent_words(0.0))
 	assert(GradingScript.percent_words(NAN) == "no fall", "a fall that is not a number is no fall")
 	assert(GradingScript.percent_words(INF) == "no fall", "and neither is one that is not finite")
-	assert(GradingScript.fall_words(2.5, 6.0) == "falling 2.5% (1 in 40) over 6.0 m",
-		GradingScript.fall_words(2.5, 6.0))
+	assert(
+		GradingScript.fall_words(2.5, 6.0) == "falling 2.5% (1 in 40) over 6.0 m",
+		GradingScript.fall_words(2.5, 6.0),
+	)
 
 
 func test_a_spot_level_is_found_at_a_point_when_it_stands_close_enough() -> void:
@@ -174,23 +170,28 @@ func test_a_fall_needs_a_level_at_each_end_and_names_the_one_that_is_missing() -
 	assert(not bool(too_close["ok"]), "and a run with no length has no fall")
 	assert(String(too_close["reason"]).contains("have no fall between them"), String(too_close["reason"]))
 
-
 # --- the check ----------------------------------------------------------------------------
 
 
 func test_an_arrow_that_contradicts_the_levels_at_its_ends_is_a_finding() -> void:
 	var set := _sloping_set()
-	GradingScript.add_record(set, SLOPE,
-		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.5))
+	GradingScript.add_record(set, SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.5))
 	var findings := _findings(set)
-	assert(_some_finding_has(findings, "the arrow at (0, 0) says falling 2.5% (1 in 40)"),
-		"the arrow's own statement is in the finding: " + str(findings))
-	assert(_some_finding_has(findings, "the levels at its ends say falling 6.7%"),
-		"beside what the levels work out to: " + str(findings))
+	assert(
+		_some_finding_has(findings, "the arrow at (0, 0) says falling 2.5% (1 in 40)"),
+		"the arrow's own statement is in the finding: " + str(findings),
+	)
+	assert(
+		_some_finding_has(findings, "the levels at its ends say falling 6.7%"),
+		"beside what the levels work out to: " + str(findings),
+	)
 	# The same arrow stating what the levels say is a drawing that agrees with itself.
 	var agreed := _sloping_set()
-	GradingScript.add_record(agreed, SLOPE,
-		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 0.4 / 6.0 * 100.0))
+	GradingScript.add_record(
+		agreed,
+		SLOPE,
+		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 0.4 / 6.0 * 100.0),
+	)
 	assert(_findings(agreed).is_empty(), str(_findings(agreed)))
 	assert(bool(GradingScript.check(agreed)["ok"]), "and the check is happy with it")
 
@@ -199,8 +200,7 @@ func test_an_arrow_with_no_levels_at_its_ends_is_unchecked_rather_than_wrong() -
 	# "This is wrong" and "this could not be checked" are two different sentences, and a designer acts
 	# on them differently - so they are two lists.
 	var set := GradingScript.empty_set()
-	GradingScript.add_record(set, SLOPE,
-		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.0))
+	GradingScript.add_record(set, SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.0))
 	var checked := GradingScript.check(set)
 	assert(bool(checked["ok"]), "nothing is wrong with it: " + str(checked["findings"]))
 	assert((checked["findings"] as Array).is_empty(), "so there is no finding")
@@ -220,15 +220,21 @@ func test_two_contours_at_one_level_are_a_finding() -> void:
 func test_two_contours_of_different_levels_that_cross_are_a_finding() -> void:
 	var set := GradingScript.empty_set()
 	GradingScript.add_record(set, CONTOUR, _flat_contour(1, 100.0, 0.0, 10.0))
-	GradingScript.add_record(set, CONTOUR, GradingScript.make_contour(
-		2, 101.0, PackedVector2Array([Vector2(5.0, -5.0), Vector2(5.0, 5.0)])))
+	GradingScript.add_record(
+		set,
+		CONTOUR,
+		GradingScript.make_contour(2, 101.0, PackedVector2Array([Vector2(5.0, -5.0), Vector2(5.0, 5.0)])),
+	)
 	var findings := _findings(set)
 	assert(_some_finding_has(findings, "contours cross each other at (5, 0)"), str(findings))
 	# A contour on the far side of the drawing is a drawing that is fine.
 	var apart := GradingScript.empty_set()
 	GradingScript.add_record(apart, CONTOUR, _flat_contour(1, 100.0, 0.0, 10.0))
-	GradingScript.add_record(apart, CONTOUR, GradingScript.make_contour(
-		2, 101.0, PackedVector2Array([Vector2(20.0, -5.0), Vector2(20.0, 5.0)])))
+	GradingScript.add_record(
+		apart,
+		CONTOUR,
+		GradingScript.make_contour(2, 101.0, PackedVector2Array([Vector2(20.0, -5.0), Vector2(20.0, 5.0)])),
+	)
 	assert(_findings(apart).is_empty(), str(_findings(apart)))
 
 
@@ -237,8 +243,7 @@ func test_a_spot_that_disagrees_with_the_contour_it_stands_on_is_a_finding() -> 
 	GradingScript.add_record(set, CONTOUR, _flat_contour(1, 100.0, 0.0))
 	GradingScript.add_record(set, SPOT, GradingScript.make_spot(1, Vector2(5.0, 0.02), 102.35))
 	var findings := _findings(set)
-	assert(_some_finding_has(findings, "the spot at 102.35 m stands on the 100.0 m contour"),
-		str(findings))
+	assert(_some_finding_has(findings, "the spot at 102.35 m stands on the 100.0 m contour"), str(findings))
 	# The same spot stating the contour's own level is agreeing with it.
 	var agreed := GradingScript.empty_set()
 	GradingScript.add_record(agreed, CONTOUR, _flat_contour(1, 100.0, 0.0))
@@ -261,16 +266,13 @@ func test_the_report_knows_how_far_the_ground_runs_and_how_steep_it_is() -> void
 	var set := _sloping_set()
 	GradingScript.add_record(set, CONTOUR, _flat_contour(1, 101.5, 3.0))
 	var notes := _notes(set)
-	assert(_some_note_has(notes, "the levels run from 101.95 m to 102.35 m, 0.4 m apart"),
-		str(notes))
-	assert(_some_note_has(notes, "the steepest fall between two spot levels is falling 6.7% (1 in 15)"),
-		str(notes))
+	assert(_some_note_has(notes, "the levels run from 101.95 m to 102.35 m, 0.4 m apart"), str(notes))
+	assert(_some_note_has(notes, "the steepest fall between two spot levels is falling 6.7% (1 in 15)"), str(notes))
 	var figures := GradingScript.measurement(set)
 	assert(int(figures["spots"]) == 2, "two spots")
 	assert(int(figures["contours"]) == 1, "a contour")
 	assert(int(figures["slopes"]) == 0, "and no arrows")
 	assert(int(figures["stated_levels"]) == 2, "both spot levels state a number")
-
 
 # --- the words --------------------------------------------------------------------------
 
@@ -278,19 +280,25 @@ func test_the_report_knows_how_far_the_ground_runs_and_how_steep_it_is() -> void
 func test_the_summary_counts_what_is_there_and_says_how_high_and_low() -> void:
 	var set := _sloping_set()
 	GradingScript.add_record(set, CONTOUR, _flat_contour(1, 101.5, 3.0))
-	GradingScript.add_record(set, SLOPE,
-		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 6.6667))
-	assert(GradingScript.summary(set) == (
-		"2 spot levels, a contour and a slope arrow on this drawing, running from 101.95 m to 102.35 m"
-	), GradingScript.summary(set))
-	assert(GradingScript.record_words(SPOT, GradingScript.spots_of(set)[0]) == "102.35 m at (0, 0)",
-		GradingScript.record_words(SPOT, GradingScript.spots_of(set)[0]))
-	assert(GradingScript.record_words(CONTOUR, GradingScript.contours_of(set)[0]) == (
-		"101.5 m contour, 2 points"
-	), GradingScript.record_words(CONTOUR, GradingScript.contours_of(set)[0]))
-	assert(GradingScript.record_words(SLOPE, GradingScript.slopes_of(set)[0]) == (
-		"slope arrow falling 6.7% (1 in 15) over 6.0 m"
-	), GradingScript.record_words(SLOPE, GradingScript.slopes_of(set)[0]))
+	GradingScript.add_record(set, SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 6.6667))
+	assert(
+		GradingScript.summary(set)
+		== ("2 spot levels, a contour and a slope arrow on this drawing, running from 101.95 m to 102.35 m"),
+		GradingScript.summary(set),
+	)
+	assert(
+		GradingScript.record_words(SPOT, GradingScript.spots_of(set)[0]) == "102.35 m at (0, 0)",
+		GradingScript.record_words(SPOT, GradingScript.spots_of(set)[0]),
+	)
+	assert(
+		GradingScript.record_words(CONTOUR, GradingScript.contours_of(set)[0]) == ("101.5 m contour, 2 points"),
+		GradingScript.record_words(CONTOUR, GradingScript.contours_of(set)[0]),
+	)
+	assert(
+		GradingScript.record_words(SLOPE, GradingScript.slopes_of(set)[0])
+		== ("slope arrow falling 6.7% (1 in 15) over 6.0 m"),
+		GradingScript.record_words(SLOPE, GradingScript.slopes_of(set)[0]),
+	)
 
 
 func test_the_schedule_reads_one_row_per_record_with_the_kind_and_the_id_on_it() -> void:
@@ -305,7 +313,6 @@ func test_the_schedule_reads_one_row_per_record_with_the_kind_and_the_id_on_it()
 	var lines := GradingScript.schedule_lines(set)
 	assert(lines.size() == 3, "and one line for each row")
 	assert(lines[0] == String(rows[0]["text"]), "saying the same words")
-
 
 # --- the marks on the plan ------------------------------------------------------------------
 
@@ -324,10 +331,14 @@ func test_a_spot_is_a_mark_and_a_label_and_both_say_what_they_stand_for() -> voi
 		assert(GradingScript.kind_of_entity(entity) == SPOT, "which kind they are")
 		assert(GradingScript.id_of_entity(entity) == 1, "and which record")
 		assert(entity.layer == LayerSetScript.GRADING_SPOT, "and land on the spot layer")
-	assert(String(label.meta.get("text", "")).contains("102.35"),
-		"the level is written on it: " + String(label.meta.get("text", "")))
-	assert(is_equal_approx(float(label.meta.get("height", 0.0)), GradingScript.LABEL_MM),
-		"at a paper size, the way every other note is")
+	assert(
+		String(label.meta.get("text", "")).contains("102.35"),
+		"the level is written on it: " + String(label.meta.get("text", "")),
+	)
+	assert(
+		is_equal_approx(float(label.meta.get("height", 0.0)), GradingScript.LABEL_MM),
+		"at a paper size, the way every other note is",
+	)
 
 
 func test_a_contour_is_a_line_and_a_label_and_an_arrow_is_a_line_a_head_and_a_label() -> void:
@@ -337,7 +348,10 @@ func test_a_contour_is_a_line_and_a_label_and_an_arrow_is_a_line_a_head_and_a_la
 	assert(line.size() == 2, "a contour is a line and its level: %d" % line.size())
 	assert((line[0] as DraftEntity).kind == EntityScript.Kind.POLYLINE, "the line is a polyline")
 	var arrow := GradingScript.entities_for(
-		SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.5), 100.0)
+		SLOPE,
+		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 2.5),
+		100.0,
+	)
 	assert(arrow.size() == 3, "an arrow is its shaft, its head and its fall: %d" % arrow.size())
 	assert((arrow[0] as DraftEntity).kind == EntityScript.Kind.LINE, "the shaft is a line")
 	assert((arrow[1] as DraftEntity).kind == EntityScript.Kind.POLYLINE, "the head is a bent line")
@@ -349,10 +363,8 @@ func test_a_contour_is_a_line_and_a_label_and_an_arrow_is_a_line_a_head_and_a_la
 func test_a_record_too_short_to_be_anything_draws_nothing() -> void:
 	# A contour of one point is not a line and an arrow of no length has no fall: neither may leave a
 	# mark on the plan, because a mark with no record behind it is a drawing that cannot be read.
-	assert(GradingScript.entities_for(CONTOUR, GradingScript.make_contour(
-		1, 100.0, PackedVector2Array([Vector2.ZERO])), 100.0).is_empty(), "a contour of one point")
-	assert(GradingScript.entities_for(SLOPE, GradingScript.make_slope(
-		1, Vector2.ZERO, Vector2.ZERO, 2.0), 100.0).is_empty(), "an arrow of no length")
+	assert(GradingScript.entities_for(CONTOUR, GradingScript.make_contour(1, 100.0, PackedVector2Array([Vector2.ZERO])), 100.0).is_empty(), "a contour of one point")
+	assert(GradingScript.entities_for(SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2.ZERO, 2.0), 100.0).is_empty(), "an arrow of no length")
 
 
 func test_a_label_is_a_paper_size_so_a_plan_and_its_plot_agree() -> void:
@@ -366,16 +378,22 @@ func test_a_label_is_a_paper_size_so_a_plan_and_its_plot_agree() -> void:
 	assert(large > small, "the mark is bigger on the ground at the smaller scale")
 	assert(is_equal_approx(large, small * 2.0), "and exactly twice, because the paper has not moved")
 
-
 # --- the file -------------------------------------------------------------------------------
 
 
 func test_a_set_survives_a_json_round_trip() -> void:
 	var set := _sloping_set()
-	GradingScript.add_record(set, CONTOUR, GradingScript.make_contour(
-		1, 101.5, PackedVector2Array([Vector2(0.0, 0.0), Vector2(3.0, 1.0), Vector2(6.0, 0.0)]), true))
-	GradingScript.add_record(set, SLOPE,
-		GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 6.6667))
+	GradingScript.add_record(
+		set,
+		CONTOUR,
+		GradingScript.make_contour(
+			1,
+			101.5,
+			PackedVector2Array([Vector2(0.0, 0.0), Vector2(3.0, 1.0), Vector2(6.0, 0.0)]),
+			true,
+		),
+	)
+	GradingScript.add_record(set, SLOPE, GradingScript.make_slope(1, Vector2.ZERO, Vector2(6.0, 0.0), 6.6667))
 	var written := JSON.stringify(GradingScript.to_dict(set))
 	var parser := JSON.new()
 	assert(parser.parse(written) == OK, "the set writes as JSON: " + written)
@@ -386,22 +404,26 @@ func test_a_set_survives_a_json_round_trip() -> void:
 	assert(bool(contour["closed"]), "a closed contour is still closed")
 	assert((contour["points"] as PackedVector2Array).size() == 3, "and every point is still there")
 	assert(is_equal_approx((contour["points"] as PackedVector2Array)[1].x, 3.0), "at its own place")
-	assert(GradingScript.schedule_lines(read) == GradingScript.schedule_lines(set),
-		"so the schedule reads the same both ways")
+	assert(
+		GradingScript.schedule_lines(read) == GradingScript.schedule_lines(set),
+		"so the schedule reads the same both ways",
+	)
 	assert(int(GradingScript.record_for(read, SPOT, 2).get("id", 0)) == 2, "and the ids come back")
 
 
 func test_a_record_that_is_not_one_is_dropped_and_a_level_that_is_not_a_number_is_kept() -> void:
-	var read := GradingScript.from_dict({
-		"spots": [
-			{"id": 1, "at": [1.0, 2.0], "level": 3.5},
-			"not a record",
-			{"at": [0.0, 0.0], "level": 1.0},
-			{"id": 2, "at": [4.0, 5.0], "level": "high"},
-		],
-		"contours": [{"id": 1, "level": 1.0, "points": [0.0, 0.0]}],
-		"slopes": [{"id": 1, "a": [0.0, 0.0], "b": [0.0, 0.0], "percent": 2.0}],
-	})
+	var read := GradingScript.from_dict(
+		{
+			"spots": [
+				{ "id": 1, "at": [1.0, 2.0], "level": 3.5 },
+				"not a record",
+				{ "at": [0.0, 0.0], "level": 1.0 },
+				{ "id": 2, "at": [4.0, 5.0], "level": "high" },
+			],
+			"contours": [{ "id": 1, "level": 1.0, "points": [0.0, 0.0] }],
+			"slopes": [{ "id": 1, "a": [0.0, 0.0], "b": [0.0, 0.0], "percent": 2.0 }],
+		}
+	)
 	assert(GradingScript.spots_of(read).size() == 2, "two of the four spots are records")
 	assert(GradingScript.contours_of(read).is_empty(), "a contour of one point is not a contour")
 	assert(GradingScript.slopes_of(read).is_empty(), "and an arrow of no length is not an arrow")
@@ -410,13 +432,14 @@ func test_a_record_that_is_not_one_is_dropped_and_a_level_that_is_not_a_number_i
 	# Because a spot with no level is a mark on the drawing a person has to be told about, rather than
 	# one this can quietly remove.
 	assert(_some_finding_has(_findings(read), "is not a number"), str(_findings(read)))
-	assert(GradingScript.from_dict({}).is_empty() == false, "a file with nothing in it reads as empty")
-	assert(GradingScript.count_of(GradingScript.from_dict({})) == 0, "with no records")
+	assert(GradingScript.from_dict({ }).is_empty() == false, "a file with nothing in it reads as empty")
+	assert(GradingScript.count_of(GradingScript.from_dict({ })) == 0, "with no records")
 
 
 func test_a_record_set_that_is_nothing_at_all_reads_as_empty_rather_than_throwing() -> void:
-	var nonsense: Dictionary = {"spots": "a list of things", "contours": 3, "slopes": null}
+	var nonsense: Dictionary = { "spots": "a list of things", "contours": 3, "slopes": null }
 	assert(GradingScript.count_of(GradingScript.from_dict(nonsense)) == 0, "nothing in it is a record")
-	assert(GradingScript.summary(GradingScript.from_dict(nonsense)) == (
-		"nothing on this drawing is graded yet"
-	), GradingScript.summary(GradingScript.from_dict(nonsense)))
+	assert(
+		GradingScript.summary(GradingScript.from_dict(nonsense)) == ("nothing on this drawing is graded yet"),
+		GradingScript.summary(GradingScript.from_dict(nonsense)),
+	)

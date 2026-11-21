@@ -26,14 +26,13 @@ func _controller():
 	return controller
 
 
-## What the polyline is telling the drawer to press.
+## What the polyline is saying about itself while it is in hand.
 func _polyline_status() -> String:
 	var tool = Tool.new()
 	tool.begin(Tool.Kind.POLYLINE)
 	tool.click(Vector2(0, 0))
 	tool.click(Vector2(3, 0))
 	return tool.status()
-
 
 # --- the legend names the right keys -------------------------------------------------
 
@@ -77,7 +76,6 @@ func test_a_modified_key_keeps_its_modifier() -> void:
 func test_an_unbound_action_has_no_key() -> void:
 	assert(Hud._key_label(&"a_binding_that_does_not_exist") == "")
 
-
 # --- every entry is backed by a binding ----------------------------------------------
 
 
@@ -88,10 +86,7 @@ func test_every_drafting_tool_is_named_with_its_own_key() -> void:
 		assert(InputMap.has_action(action), "%s is not an action" % action)
 		var key: String = Hud._key_label(action)
 		assert(key != "", "%s is bound to nothing" % action)
-		assert(
-			legend.contains("%s %s" % [key, pair[1]]),
-			"the legend does not say %s means %s" % [key, pair[1]]
-		)
+		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s means %s" % [key, pair[1]])
 
 
 func test_every_drafting_command_is_named_with_its_own_key() -> void:
@@ -101,10 +96,7 @@ func test_every_drafting_command_is_named_with_its_own_key() -> void:
 		assert(InputMap.has_action(action), "%s is not an action" % action)
 		var key: String = Hud._key_label(action)
 		assert(key != "", "%s is bound to nothing" % action)
-		assert(
-			legend.contains("%s %s" % [key, pair[1]]),
-			"the legend does not say %s means %s" % [key, pair[1]]
-		)
+		assert(legend.contains("%s %s" % [key, pair[1]]), "the legend does not say %s means %s" % [key, pair[1]])
 
 
 ## The editing commands get their own row of the legend, and each is bound to a key
@@ -137,7 +129,6 @@ func test_the_legend_row_is_the_controllers_own_edit_set() -> void:
 	expected.sort()
 	assert(offered == expected, "the legend offers %s, the commands are %s" % [offered, expected])
 
-
 # --- the layer lock ---------------------------------------------------------------
 
 
@@ -149,8 +140,7 @@ func test_locking_the_layer_in_hand_is_one_undoable_step() -> void:
 	controller.set_layer(LayerSet.NEW_BED)
 	var hud := Hud.new()
 	hud._draft = controller
-	assert(not controller.document.is_layer_locked(controller.current_layer()),
-		"a fresh drawing has nothing locked")
+	assert(not controller.document.is_layer_locked(controller.current_layer()), "a fresh drawing has nothing locked")
 	hud.set_layer_locked(true)
 	assert(controller.document.is_layer_locked(LayerSet.NEW_BED))
 	assert(controller.document.undo_last(), "a lock can be taken back")
@@ -185,24 +175,102 @@ func test_the_legend_covers_every_drafting_action_exactly() -> void:
 	bound.sort()
 	assert(covered == bound, "legend covers %s, the project binds %s" % [covered, bound])
 
-
 # --- the drawing's own prompts --------------------------------------------------------
 
 
-## The polyline's prompt tells the drawer to press C to close the shape. It did so
-## while nothing listened for C: the tool could close a shape, the command was
-## tested, and the key that was supposed to reach it was never wired up. A prompt
-## is a promise, and this is the binding that keeps it.
-func test_the_key_the_polyline_names_for_closing_is_bound() -> void:
-	assert(_polyline_status().contains("C to close"))
-	assert(Hud._key_label(&"draft_close") == "C")
+## The polyline's prompt must promise no key at all, and the line drawn beside it must name the ones that
+## really answer the tool.
+##
+## The prompt once read "Enter to finish, C to close" while nothing listened for C: the tool could close a
+## shape, the command was tested, and the key that was meant to reach it was never wired up. A key written
+## into a string is a promise that goes stale the moment a binding moves. So the prompt says nothing, the
+## bindings say it, and this pair of assertions is what holds the two halves apart.
+func test_the_polyline_prompt_promises_no_key_and_the_bindings_name_them() -> void:
+	var prompt := _polyline_status()
+	assert(prompt.contains("Specify the next point"), prompt)
+	assert(not prompt.contains(Hud._key_label(&"draft_close")), prompt)
+	assert(not prompt.to_lower().contains("enter"), prompt)
+	assert(Hud._key_label(&"draft_close") == "C", "the close key is still C")
+	assert(Hud._key_label(&"draft_finish") == "Enter", "and the finish key is still Enter")
 
 
-## And the key it names for finishing, likewise.
-func test_the_key_the_polyline_names_for_finishing_is_bound() -> void:
-	assert(_polyline_status().contains("Enter to finish"))
-	assert(Hud._key_label(&"draft_finish") == "Enter")
+## The line at the foot of the screen offers a ring of points - the polyline, and the contour that is a
+## polyline landing on a grading layer - the three keys that end it, and the key that cancels it.
+func test_a_tool_that_collects_points_until_told_to_stop_is_offered_its_keys() -> void:
+	var keys := Hud.hand_keys(Tool.Kind.POLYLINE, false)
+	assert(keys.contains("%s: finish" % Hud._key_label(&"draft_finish")), keys)
+	assert(keys.contains("%s: close" % Hud._key_label(&"draft_close")), keys)
+	assert(keys.contains("%s: drop a point" % Hud._key_label(&"draft_undo_point")), keys)
+	assert(keys.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), keys)
 
+
+## A line takes two picks and is finished by the second of them. It has no last point to drop and no shape
+## to close, so offering it those keys would be the legend-that-lies defect in miniature - and this is the
+## line a person reads with their hand already busy, which is the worst place to be told about a key that
+## does nothing.
+func test_a_tool_that_ends_by_its_own_picks_is_not_offered_the_keys_that_end_a_ring() -> void:
+	var keys := Hud.hand_keys(Tool.Kind.LINE, false)
+	assert(not keys.contains(Hud._key_label(&"draft_finish")), keys)
+	assert(not keys.contains(Hud._key_label(&"draft_close")), keys)
+	assert(not keys.contains(Hud._key_label(&"draft_undo_point")), keys)
+	assert(keys.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), keys)
+
+
+## A measurement is the other tool that ends by key rather than by a pick, because its answer is the pair
+## of picks it has already taken; a rectangle never does.
+func test_a_measurement_is_finished_by_key_where_a_rectangle_is_not() -> void:
+	assert(Hud.hand_keys(Tool.Kind.MEASURE, false).contains(Hud._key_label(&"draft_finish")))
+	assert(not Hud.hand_keys(Tool.Kind.RECTANGLE, false).contains(Hud._key_label(&"draft_finish")))
+
+
+## An editing command is cancelled and never finished: there is no half-drawn shape to end or to close.
+func test_an_editing_command_is_offered_only_the_key_that_cancels_it() -> void:
+	assert(
+		Hud.hand_keys(Tool.Kind.POLYLINE, true) == "%s: cancel" % Hud._key_label(&"draft_cancel"),
+		Hud.hand_keys(Tool.Kind.POLYLINE, true),
+	)
+
+
+## The line reads as the tool's own words and then the keys that answer them, in that order, so a person
+## reads what is being asked for before what to press.
+func test_the_line_at_the_foot_reads_as_the_prompt_and_then_its_keys() -> void:
+	var line := Hud.hand_hints("Line  ·  Specify the second point", Hud.hand_keys(Tool.Kind.LINE, false))
+	assert(line.begins_with("Line  ·  Specify the second point"), line)
+	assert(line.ends_with("%s: cancel" % Hud._key_label(&"draft_cancel")), line)
+
+
+## The line the layout check measures the bottom panel against: the longest prompt any tool can be in,
+## under its own name, with that tool's keys beside it.
+func test_the_longest_line_the_foot_can_be_asked_to_carry_names_its_tool_and_its_keys() -> void:
+	var worst := Hud.worst_hint_line()
+	assert(worst.contains("Polyline"), worst)
+	assert(worst.contains("%s: close" % Hud._key_label(&"draft_close")), worst)
+
+# --- the instruction and the report are two different lines ---------------------------
+
+
+## What the tool in hand is waiting for is the instruction, and the layer it is drawing on is not part of
+## it: the palette's own row is on screen at the same moment and says which layer that is.
+func test_the_instruction_does_not_repeat_the_layer_the_palette_already_shows() -> void:
+	var controller = _controller()
+	controller.arm(Tool.Kind.LINE)
+	controller.tool.layer = LayerSet.NEW_HARDSCAPE
+	var prompt: String = controller.prompt()
+	assert(prompt.contains("Specify the first point"), prompt)
+	assert(not prompt.contains(String(LayerSet.NEW_HARDSCAPE)), prompt)
+	controller.free()
+
+
+## The last thing the drawing said is a report rather than an instruction, so it is not on the prompt:
+## a refusal left on the foot line would go on hiding what the tool in hand is waiting for.
+func test_what_the_drawing_last_said_is_a_report_and_not_the_instruction() -> void:
+	var controller = _controller()
+	controller.arm(Tool.Kind.LINE)
+	controller.last_message = "placed a line 2.50 m long"
+	assert(controller.status_report() == "placed a line 2.50 m long", controller.status_report())
+	assert(not controller.prompt().contains("placed a line"), controller.prompt())
+	assert(controller.status().contains("placed a line"), "the status line still carries it")
+	controller.free()
 
 # --- shape of the block --------------------------------------------------------------
 
@@ -215,19 +283,18 @@ func test_the_idle_status_advertises_the_key_that_arms_the_tools() -> void:
 	# The line reads its keys from the bindings rather than printing a letter, so it cannot go on
 	# naming a key that has moved - it did once, when the tools' key moved from D to 0. It is held
 	# to the same labels the legend's own rows are written from, so the two cannot disagree.
-	assert(controller.status().contains(Hud._key_label(&"draft_mode") + ": drawing tools"),
-		controller.status())
-	assert(controller.status().contains(Hud._key_label(&"draft_plot") + " plots a sheet"),
-		controller.status())
+	assert(controller.status().contains(Hud._key_label(&"draft_mode") + ": drawing tools"), controller.status())
+	assert(controller.status().contains(Hud._key_label(&"draft_plot") + " plots a sheet"), controller.status())
 	controller.free()
-
 
 # --- shape of the block --------------------------------------------------------------
 
 
-## The legend is drawn in a panel with room for six lines, so it had better be
-## six lines. The sixth is the row of editing commands.
-func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
+## The key reference is six rows: what leaves the tools, the ten tools, the commands and the editing
+## commands. It is the *page* a person opens to look a key up - the Keys page, built from
+## `keys_reference()` - and not the box beside the drawing, so it is meant to be the whole list. That is
+## exactly why the box cannot be it as well.
+func test_the_key_reference_is_the_six_rows_the_keys_page_shows() -> void:
 	var rows := Hud.drafting_rows()
 	assert(rows.size() == 6)
 	assert(rows[0].contains("leaves the drawing tools"))
@@ -238,7 +305,6 @@ func test_the_legend_is_as_many_lines_as_the_panel_has_room_for() -> void:
 	# No blank lines: every row has something on it.
 	for row: String in rows:
 		assert(row.strip_edges() != "")
-
 
 # --- the palette ----------------------------------------------------------------------
 
@@ -329,7 +395,6 @@ func test_the_palette_lists_every_layer_with_a_purpose() -> void:
 	assert(choices[choices.size() - 1]["name"] == LayerSet.GUIDES)
 	controller.free()
 
-
 # --- the view switch ------------------------------------------------------------------
 
 
@@ -349,7 +414,13 @@ func test_the_control_hints_name_the_key_that_really_switches_views() -> void:
 	assert(not solid.contains(Hud.VIEW_KEY_TOKEN), solid)
 	# The ground view has its own way out, and names that instead.
 	assert(Hud._hints_for(ViewController.ViewMode.GROUND).contains("G: back to overhead"))
-
+	# And on a touchscreen it names the two gestures that really drive that view, because there is no
+	# keyboard and no captured mouse there to name: a phone told "Mouse: look" is told nothing at all.
+	var by_a_thumb := Hud._hints_for(ViewController.ViewMode.GROUND, true)
+	assert(by_a_thumb.contains("Left thumb: walk"), by_a_thumb)
+	assert(by_a_thumb.contains("Right thumb: drag"), by_a_thumb)
+	assert(not by_a_thumb.contains("Mouse"), by_a_thumb)
+	assert(not by_a_thumb.contains("W A S D"), by_a_thumb)
 
 # --- the keyboard belongs to the drawing ----------------------------------------------
 
@@ -417,3 +488,119 @@ func test_a_dialog_keeps_the_keyboard_while_it_is_up() -> void:
 	assert(Hud._inside_window(twice_nested))
 	assert(not Hud._inside_window(hud_button))
 	hud.free()
+
+# --- the box beside the plan ----------------------------------------------------------
+
+
+## The box beside the plan is about the tool in hand: its name, the key that armed it, what it is for, the
+## keys that answer it, and the two that take a drawing act back - and **nothing about the other tools**.
+##
+## That is the whole of what it was asked to become. It used to hold the key reference, and every entry of
+## it - ten tools, eight editing commands, the plot key, the standard key - was a button in the palette
+## standing beside it wearing the same key. A box that lists the nine tools a person is not holding is a
+## second copy of the palette, which is the defect this project spends the most effort avoiding; the thing
+## the palette cannot say is what the tool in hand is *for*.
+func test_the_box_says_nothing_about_the_other_tools() -> void:
+	var box := Hud.tool_box_text(
+		Tool.label_for(Tool.Kind.LINE),
+		Hud._key_label(&"draft_line"),
+		Tool.description(Tool.Kind.LINE),
+		Hud.hand_keys(Tool.Kind.LINE, false),
+	)
+	assert(box.contains("Line"), box)
+	assert(box.contains(Hud._key_label(&"draft_line")), box)
+	assert(box.contains(Tool.description(Tool.Kind.LINE)), box)
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		var other := String(pair[1])
+		if other == "line":
+			continue
+		assert(not box.contains(other), "the box for the line also names %s" % other)
+	for pair: Array in Hud.EDIT_TOOLS:
+		assert(not box.contains(String(pair[1])), "the box for the line also names %s" % pair[1])
+	assert(not box.contains("leaves the drawing tools"), "the box is not the reference")
+
+
+## The keys the box offers are the ones the foot of the screen names, read from the same bindings: offering
+## a line the keys that finish a polyline would be the legend-that-lies defect in the one place a person
+## reads with their hand already busy.
+func test_the_box_offers_only_the_keys_that_answer_the_tool_in_hand() -> void:
+	var line := Hud.tool_box_text("Line", "", "", Hud.hand_keys(Tool.Kind.LINE, false))
+	assert(line.contains("%s: cancel" % Hud._key_label(&"draft_cancel")), line)
+	assert(not line.contains(": finish"), "a line takes two picks and is finished by the second: %s" % line)
+	assert(not line.contains(": close"), line)
+	assert(not line.contains(": drop a point"), line)
+	var polyline := Hud.tool_box_text("Polyline", "", "", Hud.hand_keys(Tool.Kind.POLYLINE, false))
+	assert(polyline.contains(": finish"), polyline)
+	assert(polyline.contains(": close"), polyline)
+	assert(polyline.contains(": drop a point"), polyline)
+	assert(polyline != line, "two tools in hand do not wear the same keys")
+
+
+## Every tool and every editing command says what it is for, in a sentence. A tool that arrives without one
+## reads as nothing at all in the box that is about the tool in hand, and the box is the only place it is
+## said.
+func test_every_tool_and_edit_says_what_it_is_for() -> void:
+	for kind: Tool.Kind in Tool.Kind.values():
+		var said: String = Tool.description(kind)
+		assert(said != "", "%s has no sentence" % Tool.label_for(kind))
+		assert(said.ends_with("."), "%s is not a sentence: %s" % [Tool.label_for(kind), said])
+	for edit: Ctrl.EditKind in Ctrl.EditKind.values():
+		if edit == Ctrl.EditKind.NONE:
+			continue
+		var line: String = Ctrl.edit_description(edit)
+		assert(line != "", "%s has no sentence" % Ctrl.edit_label(edit))
+		assert(line.ends_with("."), "%s is not a sentence: %s" % [Ctrl.edit_label(edit), line])
+
+
+## The box is drawn in a panel with room for a few rows, and every one of them has to fit it - measured on
+## every tool rather than on whichever is in hand, because the panel is sized before any tool is armed.
+func test_every_box_fits_the_panel_and_has_no_empty_row() -> void:
+	for kind: Tool.Kind in Tool.Kind.values():
+		var box := Hud.tool_box_text(Tool.label_for(kind), "", Tool.description(kind), Hud.hand_keys(kind, false))
+		_check_box_fits(box, Tool.label_for(kind))
+	for edit: Ctrl.EditKind in Ctrl.EditKind.values():
+		if edit == Ctrl.EditKind.NONE:
+			continue
+		var box := Hud.tool_box_text(
+			Ctrl.edit_label(edit),
+			"",
+			Ctrl.edit_description(edit),
+			Hud.hand_keys(Tool.Kind.SELECT, true),
+		)
+		_check_box_fits(box, Ctrl.edit_label(edit))
+	assert(Hud.worst_tool_box() != "", "the check that measures the panel has nothing to measure")
+
+
+func _check_box_fits(box: String, what: String) -> void:
+	var rows: Array = box.split("\n")
+	assert(rows.size() <= Hud.DRAFT_BOX_ROWS, "%s is %d rows" % [what, rows.size()])
+	for row: String in rows:
+		assert(row.strip_edges() != "", "%s has an empty row" % what)
+
+
+## The box wears the same key the palette's own button shows, both read off the one binding - so a tool
+## whose key moves moves on both, and neither can describe a tool the other does not.
+func test_the_box_wears_the_key_the_palette_shows_for_that_tool() -> void:
+	for pair: Array in Hud.DRAFTING_TOOLS:
+		var kind: int = pair[2]
+		var box := Hud.tool_box_text(Tool.label_for(kind), Hud._key_label(pair[0]), Tool.description(kind), "")
+		var palette := Hud.palette_label(pair)
+		assert(palette.contains("\n"), palette)
+		assert(box.contains(palette.split("\n")[1]), "%s is not the key the palette shows" % palette)
+
+
+## The ground's three tools are not in the tool table, and their key is found by the *kind* they put in
+## hand rather than by matching a name against a name. A lookup that guessed would send somebody to a key
+## that does nothing, which is the defect this project calls a legend that lies.
+func test_the_grounds_three_tools_wear_their_own_keys() -> void:
+	for kind: Tool.Kind in [Tool.Kind.GRADE_SPOT, Tool.Kind.GRADE_CONTOUR, Tool.Kind.GRADE_SLOPE]:
+		var action: StringName = Tool.arming_action(kind)
+		assert(action != &"", "%s is armed by no action" % Tool.label_for(kind))
+		assert(InputMap.has_action(action), "%s is not an action" % action)
+		var key: String = Hud._key_label(action)
+		assert(key != "", "%s is bound to nothing" % action)
+		var box := Hud.tool_box_text(Tool.label_for(kind), key, Tool.description(kind), "")
+		assert(box.contains(key), box)
+	assert(Tool.arming_action(Tool.Kind.GRADE_SPOT) == &"grade_spot")
+	# And the select tool is armed by no key at all, because it is what is in hand when nothing is.
+	assert(Tool.arming_action(Tool.Kind.SELECT) == &"", "select is not a key")

@@ -3,7 +3,7 @@ param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$scriptPath = Join-Path $PSScriptRoot 'github.ps1'
+$scriptPath = Join-Path $PSScriptRoot '..\addons\github_tools\tools\github.ps1'
 $tokens = $null
 $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors)
@@ -15,6 +15,7 @@ $native = $ast.Find({
 if ($null -eq $native) { throw 'Native command boundary not found.' }
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ("landscaping-github-test-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path (Join-Path $fixture 'tools') | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\dev-workflow.json') -Destination $fixture
 $mock = @'
 function Invoke-Native {
     param([string]$Command, [string[]]$Arguments)
@@ -36,7 +37,7 @@ function Invoke-Native {
             'rev-parse --absolute-git-dir' { return (Join-Path $s.root '.git') }
             'status --porcelain*' { if ($s.dirty) { return ' M project.godot' }; return }
             'status --short' { return }
-            'remote get-url origin' { return 'https://github.com/evanmac03/landscaping-planner.git' }
+            'remote get-url origin' { return $s.origin }
             'fetch --prune origin' { return }
             'for-each-ref *' { return 'refs/remotes/origin/feature/test' }
             'rev-list --left-right --count *' { return "1`t$($s.behind)" }
@@ -93,7 +94,7 @@ function Invoke-Native {
             'api --paginate *' {
                 if ($Arguments -notcontains '--jq') {
                     if ($s.assets.Count) {
-                        $item = @{id=42;draft=$s.draft;tag_name=$s.lookupTag;html_url='https://example.invalid/release/42'}
+                        $item = @{id=42;draft=$s.draft;tag_name=$s.lookupTag;target_commitish=$s.releaseTarget;published_at='2026-10-23T00:00:00Z';html_url='https://example.invalid/release/42'}
                         $items = @($item)
                         if ($s.multiple) { $items += @{id=43;draft=$true;tag_name='v0.1.0-rc.2';html_url='https://example.invalid/release/43'} }
                         return ('[' + (ConvertTo-Json -InputObject $items -Compress) + ']')
@@ -155,6 +156,7 @@ $global:LandscapingGithubTest = @{
     multiple = $false; otherCiHead = $false; offline = $false; prBody = ''; calls = [Collections.Generic.List[string]]::new()
     merged = $false; featureHead = ('a' * 40); mergeSha = ('b' * 40); mergeBase = ('b' * 40); mainAhead = 0; cleaned = $false
     runs = @()
+    origin = 'https://github.com/evanmac03/landscaping-planner.git'; releaseTarget = ('a' * 40)
 }
 $s = $global:LandscapingGithubTest
 $passed = 0
@@ -353,6 +355,35 @@ try {
     if ($s.draft) { throw 'Publish did not change draft state.' }
     $passed++
     Expect-Failure { & $testScript -Action Publish -Version v0.1.0-rc.1 -Approve } '*already published*'
+    $discovery = ((& $testScript -Action Discover) -join "`n") -replace '^.*EDITOR_RESULT:', ''
+    if (($discovery | ConvertFrom-Json).next -ne 'published') { throw 'Published commit resumed another release automatically.' }
+    $s.tag = $false
+    Expect-Failure { & $testScript -Action Discover } 'Published release tag no longer matches*'
+    $s.tag = $true
+    $s.releaseTarget = 'other-commit'
+    $discovery = ((& $testScript -Action Discover) -join "`n") -replace '^.*EDITOR_RESULT:', ''
+    if (($discovery | ConvertFrom-Json).next -ne 'release') { throw 'Unrelated publication hid new release preparation.' }
+    $passed++
+    $fixtureConfig = Join-Path $fixture 'dev-workflow.json'
+    $settings = Get-Content -LiteralPath $fixtureConfig -Raw | ConvertFrom-Json
+    $settings.repository = 'another-owner/another-project'
+    $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixtureConfig
+    Expect-Failure { & $testScript -Action Discover } 'Unexpected origin*'
+    $s.origin = 'git@github.com:another-owner/another-project.git'
+    $s.releaseTarget = $s.head
+    & $testScript -Action Discover | Out-Null
+    if (-not @($s.calls | Where-Object { $_ -like '*repos/another-owner/another-project/releases*' }).Count) { throw 'Configured repository was ignored.' }
+    $settings.release.product = 'another-game'
+    $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixtureConfig
+    $s.assets = @(); $s.tag = $false; $s.lookupTag = 'v0.2.0-rc.1'
+    & $testScript -Action Release -Version v0.2.0-rc.1 -Godot $editor -Approve | Out-Null
+    $download = (((& $testScript -Action DownloadTest -Version v0.2.0-rc.1 -Approve) -join "`n") -replace '^.*EDITOR_RESULT:', '') | ConvertFrom-Json
+    if ($download.executable_name -ne 'another-game.exe' -or -not $download.manifest.PSObject.Properties['another-game.pck']) { throw 'Configured product was ignored in export/download.' }
+    $passed++
+    $settings.provider = 'Forgejo'
+    $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixtureConfig
+    Expect-Failure { & $testScript -Action Plan } '*Forgejo is not supported yet*'
+    $passed++
     $passed++
     Write-Output "PASS: $passed workflow checks (mocked GitHub/Godot; no network or publication)."
 }

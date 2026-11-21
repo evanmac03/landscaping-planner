@@ -15,6 +15,7 @@ const DirectorScript := preload("res://scripts/vis/presentation_director.gd")
 const ExporterScript := preload("res://scripts/vis/still_exporter.gd")
 const SidecarScript := preload("res://scripts/vis/still_sidecar.gd")
 
+
 ## A rig built the way the scene builds it, so the names this test relies on are the
 ## names the scene uses. A rig under any other names is a rig the camera cannot find.
 func _rig() -> Node3D:
@@ -36,7 +37,6 @@ func _rig() -> Node3D:
 	boom.add_child(camera)
 	add_child(rig)
 	return rig
-
 
 # --- the quality budgets --------------------------------------------------------------
 
@@ -70,7 +70,6 @@ func test_a_better_tier_costs_more_and_buys_sharper_shadows() -> void:
 	assert(float(still["shadow_max_distance"]) < float(working["shadow_max_distance"]))
 	assert(not bool(working["ssao"]))
 	assert(bool(still["ssao"]))
-
 
 # --- the sun --------------------------------------------------------------------------
 
@@ -131,7 +130,6 @@ func test_aiming_the_sun_puts_it_above_the_garden_on_the_sunny_side() -> void:
 	assert(light.position.length() > 1.0)
 	light.queue_free()
 
-
 # --- the camera rig -------------------------------------------------------------------
 
 
@@ -173,7 +171,7 @@ func test_the_pitch_clamp_holds_at_both_ends_with_the_camera_above() -> void:
 		assert(above <= rig.max_elevation_deg + 0.001, str(above))
 		assert(
 			rig.camera.global_position.y > rig.global_position.y,
-			"camera at %s, pivot at %s" % [rig.camera.global_position, rig.global_position]
+			"camera at %s, pivot at %s" % [rig.camera.global_position, rig.global_position],
 		)
 	rig.queue_free()
 
@@ -215,7 +213,6 @@ func test_yaw_wraps_and_truck_moves_the_pivot_over_the_ground() -> void:
 	# Working the ground plane: a pan never lifts the pivot or drops it.
 	assert(is_equal_approx(rig.global_position.y, before.y))
 	rig.queue_free()
-
 
 # --- the still's size and record ------------------------------------------------------
 
@@ -312,10 +309,14 @@ func test_a_still_name_carries_the_day_it_was_taken() -> void:
 
 func test_a_record_carries_everything_it_promises() -> void:
 	var record: Dictionary = SidecarScript.record(
-		"3D presentation", Vector2i(3840, 2160), 2, "Still (proposal)",
-		SunStudyScript.position_for(
-			SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)
-		), {"eye": Vector3.ZERO}, 100.0, 17
+		"3D presentation",
+		Vector2i(3840, 2160),
+		2,
+		"Still (proposal)",
+		SunStudyScript.position_for(SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)),
+		{ "eye": Vector3.ZERO },
+		100.0,
+		17,
 	)
 	for key in SidecarScript.KEYS:
 		assert(record.has(key), key)
@@ -329,10 +330,14 @@ func test_a_record_carries_everything_it_promises() -> void:
 
 func test_a_record_round_trips_through_a_file() -> void:
 	var record: Dictionary = SidecarScript.record(
-		"3D presentation", Vector2i(1920, 1080), 2, "Still (proposal)",
-		SunStudyScript.position_for(
-			SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)
-		), {"eye": Vector3(1, 2, 3)}, 100.0, 4
+		"3D presentation",
+		Vector2i(1920, 1080),
+		2,
+		"Still (proposal)",
+		SunStudyScript.position_for(SunStudyScript.site(44.6, -75.0, -5.0), SunStudyScript.moment(172, 16.0)),
+		{ "eye": Vector3(1, 2, 3) },
+		100.0,
+		4,
 	)
 	var png_path := "user://proposals/test-round-trip.png"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://proposals"))
@@ -344,7 +349,6 @@ func test_a_record_round_trips_through_a_file() -> void:
 	# A record that is not there is reported as absent rather than as empty-ish.
 	assert(SidecarScript.read("user://proposals/no-such-still.png").is_empty())
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(written))
-
 
 # --- the whole mode is reversible -----------------------------------------------------
 
@@ -454,14 +458,12 @@ func test_the_sun_settings_the_panel_reads_are_the_ones_that_get_applied() -> vo
 	# 09:00 on the clock, which the presenter turns into the sun's own time before it casts
 	# anything.
 	var settings: Dictionary = director.sun_settings()
-	assert(settings == SunStudyScript.position_for(
-		SunStudyScript.site(51.5, 0.0, 0.0), SunStudyScript.moment(100, 9.0)
-	))
+	assert(
+		settings == SunStudyScript.position_for(SunStudyScript.site(51.5, 0.0, 0.0), SunStudyScript.moment(100, 9.0))
+	)
 	var altitude: float = deg_to_rad(float(settings["altitude_deg"]))
 	var azimuth: float = deg_to_rad(float(settings["azimuth_deg"]))
-	var expected := Vector3(
-		sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude)
-	) * SunStudyScript.DISTANCE_M
+	var expected := Vector3(sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude)) * SunStudyScript.DISTANCE_M
 	assert(light.position.distance_to(expected) < 0.001)
 	director.queue_free()
 
@@ -486,21 +488,24 @@ func test_a_tier_never_takes_the_shadows_off_the_garden() -> void:
 	director.frame_yard()
 	director.set_tier(Tier.STILL)
 	var bounds: Rect2 = yard.get_bounds()
-	var centre := Vector3(
-		bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5
-	)
+	var centre := Vector3(bounds.position.x + bounds.size.x * 0.5, 0.0, bounds.position.y + bounds.size.y * 0.5)
 	var to_the_garden: float = rig.camera.global_position.distance_to(centre)
-	assert(to_the_garden > float(Tier.look(Tier.STILL)["shadow_max_distance"]), "premise: framed further out than the tier reaches")
+	assert(
+		to_the_garden > float(Tier.look(Tier.STILL)["shadow_max_distance"]),
+		"premise: framed further out than the tier reaches",
+	)
 	assert(
 		light.directional_shadow_max_distance > to_the_garden,
-		"the shadow range must reach the garden, not stop short of it"
+		"the shadow range must reach the garden, not stop short of it",
 	)
 	# And the table is still the table: the range is the larger of the budget and the
 	# requirement, so a tier can never be quietly cheaper than what it is drawing.
-	assert(is_equal_approx(
-		light.directional_shadow_max_distance,
-		maxf(float(Tier.look(Tier.STILL)["shadow_max_distance"]), director.required_shadow_distance())
-	))
+	assert(
+		is_equal_approx(
+			light.directional_shadow_max_distance,
+			maxf(float(Tier.look(Tier.STILL)["shadow_max_distance"]), director.required_shadow_distance()),
+		)
+	)
 	rig.queue_free()
 	yard.queue_free()
 	director.queue_free()

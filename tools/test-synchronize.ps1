@@ -16,7 +16,8 @@ function Expect-Failure($Run, $Pattern) {
 New-Item -ItemType Directory -Path (Join-Path $source 'tools') -Force | Out-Null
 try {
     $tokens = $null; $errors = $null
-    $path = Join-Path $PSScriptRoot 'github.ps1'
+    $path = Join-Path $PSScriptRoot '..\addons\github_tools\tools\github.ps1'
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\dev-workflow.json') -Destination $source
     $ast = [Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors -join "`n") }
     $native = $ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-Native'}, $false)
@@ -45,7 +46,7 @@ function Invoke-Native {
     Run-Git -C $source init -b main
     Run-Git -C $source config user.name 'Workflow fixture'
     Run-Git -C $source config user.email 'test@example.invalid'
-    Run-Git -C $source add tools
+    Run-Git -C $source add tools dev-workflow.json
     Run-Git -C $source commit -m Initial
     Run-Git -C $source remote add origin $remote
     Run-Git -C $source push -u origin main

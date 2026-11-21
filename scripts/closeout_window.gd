@@ -3,8 +3,10 @@ extends Window
 ## The end of a job: the punch list, the hand-over date and the warranty (phase 12).
 ##
 ## A `Window` like the other pages, for their two reasons: it has fields to type into, and a `Window`
-## owns its own input, so nothing here can take the drawing's keys. Every button is `FOCUS_NONE`; the
-## typed fields are the only things allowed the keyboard.
+## owns its own input, so nothing here can take the drawing's keys. Every button is built without a
+## keyboard of its own, like every control the shared chrome makes; the typed fields are the only things
+## that keep one, because a field is where somebody types. What the *open* page does with the keyboard is
+## decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what the desk says and works out nothing. Every count on the page is a count the report
 ## did, every line of an item is the item's own `describe()`, and the desk is read again on every
@@ -58,7 +60,7 @@ var _parts_row: HBoxContainer = null
 var _items: VBoxContainer = null
 var _claims: VBoxContainer = null
 ## The coverage boxes, keyed by the part they stand for, so what they say can be read back.
-var _part_boxes: Dictionary = {}
+var _part_boxes: Dictionary = { }
 ## The jobs the picker is showing, in order: a dropdown's index is a position.
 var _job_ids: Array[String] = []
 
@@ -74,7 +76,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building ----------------------------------------------------------------------------------
 
 
@@ -85,26 +86,21 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 22)
 	_column.add_child(_summary)
 	_column.add_child(_build_job_row())
 	_column.add_child(_build_completion_row())
 	_column.add_child(_build_check_row())
 	_column.add_child(_build_item_row())
 
-	var punch_heading := Label.new()
-	punch_heading.name = "PunchHeading"
-	_punch_heading = punch_heading
-	_column.add_child(punch_heading)
+	_punch_heading = PageChrome.subheading("")
+	_punch_heading.name = "PunchHeading"
+	_column.add_child(_punch_heading)
 
 	_items = VBoxContainer.new()
 	_items.name = "Items"
@@ -113,10 +109,9 @@ func build() -> void:
 
 	_column.add_child(_build_terms_row())
 
-	var warranty_heading := Label.new()
-	warranty_heading.name = "WarrantyHeading"
-	_warranty_heading = warranty_heading
-	_column.add_child(warranty_heading)
+	_warranty_heading = PageChrome.subheading("")
+	_warranty_heading.name = "WarrantyHeading"
+	_column.add_child(_warranty_heading)
 
 	_column.add_child(_build_claim_row())
 
@@ -125,16 +120,11 @@ func build() -> void:
 	_claims.add_theme_constant_override("separation", 2)
 	_column.add_child(_claims)
 
-	_hint = Label.new()
+	_hint = PageChrome.hint()
 	_hint.name = "Hint"
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.custom_minimum_size = Vector2(0, 22)
 	_column.add_child(_hint)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 40)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
 
@@ -241,11 +231,12 @@ func _field(field_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out. That name is what `row_for` and `button_in` look a row's act up by, so it is set
+## after the builder rather than left to the chrome's naming of a caption.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
 
@@ -264,7 +255,6 @@ func _build_check_row() -> HBoxContainer:
 	_by_field = _field("ByField", "who checks it, rejects it, or takes it off", 300)
 	row.add_child(_by_field)
 	return row
-
 
 # --- showing what is there ---------------------------------------------------------------------
 
@@ -297,6 +287,10 @@ func refresh() -> void:
 		_hint.text = hint_text()
 	if _status != null and _status.text.is_empty():
 		_set_status(opening_words())
+	# The item and claim rows just built carry buttons, and the shared show that gave this page its
+	# keyboard ran when the page was *opened*, before any of them existed. So a page that is up gives the
+	# new ones theirs here. Nothing is done while it is down: the show decides it then, and once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the page opens with: what to do, or why there is nothing to do yet.
@@ -306,7 +300,7 @@ func opening_words() -> String:
 	var report: Closeout = _report()
 	if report != null and report.count() == 0 and report.completed_on.strip_edges().is_empty():
 		return "Walk the job and put what is wrong on the list, then the desk hands each item to " \
-			+ "whoever is to put it right."
+				+ "whoever is to put it right."
 	return "Put a date and a name in to say when the garden was handed over - the warranty runs from it."
 
 
@@ -396,8 +390,7 @@ func _fill_items() -> void:
 		row.add_child(_row_button("Accept", _on_accept.bind(id), state == ItemScript.FIXED))
 		row.add_child(_row_button("Reject", _on_reject.bind(id), state == ItemScript.FIXED))
 		row.add_child(
-			_row_button("Takeoff", _on_withdraw.bind(id),
-				state == ItemScript.OPEN or state == ItemScript.FIXED)
+			_row_button("Takeoff", _on_withdraw.bind(id), state == ItemScript.OPEN or state == ItemScript.FIXED)
 		)
 		_items.add_child(row)
 
@@ -450,7 +443,6 @@ func _fill_part_boxes() -> void:
 		_months_field.text = str(held.months)
 		_starts_field.text = held.starts_on
 		_excludes_field.text = "; ".join(PackedStringArray(held.excludes))
-
 
 # --- the fields, for a page or a test to fill --------------------------------------------------
 
@@ -592,7 +584,6 @@ func _all_buttons(node: Node) -> Array[Button]:
 		out.append_array(_all_buttons(child))
 	return out
 
-
 # --- the acts ----------------------------------------------------------------------------------
 
 
@@ -600,8 +591,12 @@ func _on_raise() -> void:
 	if desk == null:
 		return
 	var raised: Dictionary = desk.raise_item(
-		selected_job(), _where_field.text, _what_field.text, _raised_by_field.text, today(),
-		_who_field.text
+		selected_job(),
+		_where_field.text,
+		_what_field.text,
+		_raised_by_field.text,
+		today(),
+		_who_field.text,
 	)
 	if not bool(raised["ok"]):
 		_set_status(String(raised["reason"]))
@@ -621,10 +616,7 @@ func _on_fix(item_id: String) -> void:
 func _on_accept(item_id: String) -> void:
 	if desk == null:
 		return
-	_report_act(
-		desk.accept_item(item_id, _by_field.text, today()),
-		"%s is closed: the check passed." % item_id
-	)
+	_report_act(desk.accept_item(item_id, _by_field.text, today()), "%s is closed: the check passed." % item_id)
 
 
 func _on_reject(item_id: String) -> void:
@@ -632,7 +624,7 @@ func _on_reject(item_id: String) -> void:
 		return
 	_report_act(
 		desk.reject_item(item_id, _by_field.text, today(), _why_field.text),
-		"%s is back on the list." % item_id
+		"%s is back on the list." % item_id,
 	)
 
 
@@ -641,7 +633,7 @@ func _on_withdraw(item_id: String) -> void:
 		return
 	_report_act(
 		desk.withdraw_item(item_id, _by_field.text, today(), _why_field.text),
-		"%s is off the list, and the list still says so." % item_id
+		"%s is off the list, and the list still says so." % item_id,
 	)
 
 
@@ -649,7 +641,10 @@ func _on_state_completion() -> void:
 	if desk == null:
 		return
 	var result: Dictionary = desk.state_completion(
-		selected_job(), _completed_field.text, _completed_by_field.text, _why_field.text
+		selected_job(),
+		_completed_field.text,
+		_completed_by_field.text,
+		_why_field.text,
 	)
 	_report_act(result, "The garden was handed over on %s." % _completed_field.text.strip_edges())
 
@@ -658,8 +653,11 @@ func _on_state_warranty() -> void:
 	if desk == null:
 		return
 	var result: Dictionary = desk.state_warranty(
-		selected_job(), covered_parts(), _months_field.text.to_int(), _starts_field.text,
-		excluded_lines()
+		selected_job(),
+		covered_parts(),
+		_months_field.text.to_int(),
+		_starts_field.text,
+		excluded_lines(),
 	)
 	_report_act(result, "The warranty says: %s." % warranty_text())
 
@@ -667,9 +665,7 @@ func _on_state_warranty() -> void:
 func _on_file_claim() -> void:
 	if desk == null:
 		return
-	var filed: Dictionary = desk.file_claim(
-		selected_job(), today(), _claim_field.text, _claim_by_field.text
-	)
+	var filed: Dictionary = desk.file_claim(selected_job(), today(), _claim_field.text, _claim_by_field.text)
 	if not bool(filed["ok"]):
 		_set_status(String(filed["reason"]))
 		refresh()
@@ -689,19 +685,13 @@ func _on_refuse(claim_id: String) -> void:
 func _answer(claim_id: String, is_covered: bool, said: String) -> void:
 	if desk == null:
 		return
-	_report_act(
-		desk.answer_claim(selected_job(), claim_id, _by_field.text, today(), is_covered, _why_field.text),
-		said
-	)
+	_report_act(desk.answer_claim(selected_job(), claim_id, _by_field.text, today(), is_covered, _why_field.text), said)
 
 
 func _on_done(claim_id: String) -> void:
 	if desk == null:
 		return
-	_report_act(
-		desk.finish_claim(selected_job(), claim_id, today(), ""),
-		"claim %s has been put right." % claim_id
-	)
+	_report_act(desk.finish_claim(selected_job(), claim_id, today(), ""), "claim %s has been put right." % claim_id)
 
 
 ## What the coverage boxes say, in the table's own order.

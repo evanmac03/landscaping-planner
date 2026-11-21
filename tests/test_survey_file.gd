@@ -15,26 +15,23 @@ const PERIMETER_M := 2.0 * (WIDTH_FT + DEPTH_FT) * FOOT
 
 
 func _lot_text() -> String:
-	return "\n".join(PackedStringArray([
-		"name: 12 Maple Street",
-		"units: ft",
-		"# frontage, side, rear, side back to the start",
-		"N 90 0 0 E, 50.00",
-		"N 0 0 0 E, 120.00",
-		"N 90 0 0 W, 50.00",
-		"S 0 0 0 W, 120.00",
-	]))
+	return "\n".join(
+		PackedStringArray(
+			[
+				"name: 12 Maple Street",
+				"units: ft",
+				"# frontage, side, rear, side back to the start",
+				"N 90 0 0 E, 50.00",
+				"N 0 0 0 E, 120.00",
+				"N 90 0 0 W, 50.00",
+				"S 0 0 0 W, 120.00",
+			]
+		)
+	)
 
 
 func _point_text() -> String:
-	return "\n".join(PackedStringArray([
-		"units: m",
-		"0, 0",
-		"15.24, 0",
-		"15.24, 36.576",
-		"0, 36.576",
-	]))
-
+	return "\n".join(PackedStringArray(["units: m", "0, 0", "15.24, 0", "15.24, 36.576", "0, 36.576"]))
 
 # --- metes and bounds ---------------------------------------------------------------
 
@@ -91,7 +88,6 @@ func test_two_units_in_one_file_are_each_read_in_their_own() -> void:
 	assert(is_equal_approx(float(parsed["legs"][0]["distance"]), 50.0 * FOOT))
 	assert(is_equal_approx(float(parsed["legs"][1]["distance"]), 10.0), "metres stay metres")
 
-
 # --- units --------------------------------------------------------------------------
 
 
@@ -100,21 +96,24 @@ func test_the_us_survey_foot_is_its_own_length() -> void:
 	assert(bool(parsed["ok"]), String(parsed["reason"]))
 	var expected := WIDTH_FT * Units.US_SURVEY_FOOT * DEPTH_FT * Units.US_SURVEY_FOOT
 	assert(is_equal_approx(float(parsed["area_m2"]), expected), "the survey foot is longer than the foot")
-	assert(float(parsed["area_m2"]) > AREA_M2 + 0.001,
-		"and the difference is real: %f vs %f" % [float(parsed["area_m2"]), AREA_M2])
+	assert(
+		float(parsed["area_m2"]) > AREA_M2 + 0.001,
+		"and the difference is real: %f vs %f" % [float(parsed["area_m2"]), AREA_M2],
+	)
 
 
 func test_a_file_that_does_not_say_its_units_is_refused() -> void:
 	var parsed := SurveyFile.read_text("N 90 0 0 E, 50.00\n")
 	assert(not bool(parsed["ok"]), "a distance with no unit is not read")
-	assert(String(parsed["reason"]) == "line 1: say what unit the distances are in",
-		"the refusal names the line and what is missing")
+	assert(
+		String(parsed["reason"]) == "line 1: say what unit the distances are in",
+		"the refusal names the line and what is missing",
+	)
 
 
 func test_a_unit_nobody_knows_is_refused() -> void:
 	var parsed := SurveyFile.read_text("E 90 0 0 E, 50.00, furlong\n")
 	assert(not bool(parsed["ok"]), "an unknown unit stops the read")
-
 
 # --- refusals -----------------------------------------------------------------------
 
@@ -122,8 +121,10 @@ func test_a_unit_nobody_knows_is_refused() -> void:
 func test_a_line_that_is_neither_a_bearing_nor_a_coordinate_is_refused_with_its_number() -> void:
 	var parsed := SurveyFile.read_text("units: m\n0, 0\nbanana, 12.00\n")
 	assert(not bool(parsed["ok"]), "a line nobody can read stops the read")
-	assert(String(parsed["reason"]) == "line 3: \"banana, 12.00\" is neither a bearing nor a coordinate",
-		"the refusal quotes the line and numbers it")
+	assert(
+		String(parsed["reason"]) == "line 3: \"banana, 12.00\" is neither a bearing nor a coordinate",
+		"the refusal quotes the line and numbers it",
+	)
 
 
 func test_bearings_and_coordinates_cannot_be_mixed() -> void:
@@ -140,14 +141,9 @@ func test_an_empty_file_is_refused() -> void:
 
 
 func test_an_azimuth_list_is_a_leg_list_when_the_file_says_so() -> void:
-	var text := "\n".join(PackedStringArray([
-		"units: m",
-		"kind: metes",
-		"90, 15.24",
-		"0, 36.576",
-		"270, 15.24",
-		"180, 36.576",
-	]))
+	var text := "\n".join(
+		PackedStringArray(["units: m", "kind: metes", "90, 15.24", "0, 36.576", "270, 15.24", "180, 36.576"])
+	)
 	var parsed := SurveyFile.read_text(text)
 	assert(bool(parsed["ok"]), String(parsed["reason"]))
 	assert(String(parsed["kind"]) == SurveyFile.METES, "a bare number is an azimuth once the file says so")
@@ -165,7 +161,6 @@ func test_a_missing_file_is_refused_rather_than_raising() -> void:
 	assert(not bool(parsed["ok"]), "a path a person typed may not exist")
 	assert(String(parsed["reason"]).contains("no survey file"), "and it says so")
 
-
 # --- coordinate point lists ---------------------------------------------------------
 
 
@@ -181,8 +176,7 @@ func test_a_coordinate_list_reads_as_points() -> void:
 func test_north_goes_negative_z_in_model_space() -> void:
 	var parsed := SurveyFile.read_text(_point_text())
 	var points: PackedVector2Array = parsed["points"]
-	assert(is_equal_approx(points[1].x, 15.24) and is_equal_approx(points[1].y, 0.0),
-		"east is +x along the frontage")
+	assert(is_equal_approx(points[1].x, 15.24) and is_equal_approx(points[1].y, 0.0), "east is +x along the frontage")
 	assert(is_equal_approx(points[2].y, -36.576), "north is -z, so a plan needs no flip")
 
 
@@ -198,18 +192,15 @@ func test_a_self_intersecting_parcel_is_not_sound() -> void:
 			failures += 1
 	assert(failures == 1, "exactly one check fails, and it is the one that matters")
 
-
 # --- closure and cross-checks -------------------------------------------------------
 
 
 func test_a_loose_traverse_is_a_warning_not_a_refusal() -> void:
-	var loose := "\n".join(PackedStringArray([
-		"units: ft",
-		"N 90 0 0 E, 50.00",
-		"N 0 0 0 E, 120.00",
-		"N 90 0 0 W, 50.00",
-		"S 0 0 0 W, 120.50",
-	]))
+	var loose := "\n".join(
+		PackedStringArray(
+			["units: ft", "N 90 0 0 E, 50.00", "N 0 0 0 E, 120.00", "N 90 0 0 W, 50.00", "S 0 0 0 W, 120.50"]
+		)
+	)
 	var parsed := SurveyFile.read_text(loose)
 	assert(bool(parsed["ok"]), String(parsed["reason"]))
 	assert(not bool(parsed["traverse"]["closed"]), "half a foot of misclosure is not closed")
@@ -242,7 +233,6 @@ func test_an_area_in_acres_is_read() -> void:
 	var parsed := SurveyFile.read_text(_lot_text() + "\narea: 1 acre\n")
 	assert(is_equal_approx(float(parsed["stated_area_m2"]), Units.ACRE), "an acre is an acre")
 
-
 # --- provenance and words -----------------------------------------------------------
 
 
@@ -260,8 +250,7 @@ func test_the_geometry_is_recomputed_rather_than_believed() -> void:
 	var data := SurveyFile.to_dict(SurveyFile.read_text(_lot_text()))
 	data["stated_area_m2"] = 0.0
 	var again := SurveyFile.from_dict(data)
-	assert(is_equal_approx(float(again["area_m2"]), AREA_M2),
-		"a file cannot carry a stale area")
+	assert(is_equal_approx(float(again["area_m2"]), AREA_M2), "a file cannot carry a stale area")
 
 
 func test_describe_names_the_legs_and_the_area() -> void:

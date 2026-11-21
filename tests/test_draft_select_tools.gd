@@ -33,7 +33,6 @@ func _add(controller, entity, layer: StringName = LayerSet.NEW_BED) -> int:
 func _line(x0: float, y0: float, x1: float, y1: float):
 	return Entity.make_line(Vector2(x0, y0), Vector2(x1, y1))
 
-
 # --- the band -------------------------------------------------------------------------
 
 
@@ -119,7 +118,6 @@ func test_the_drawing_says_what_was_selected() -> void:
 	assert(controller.last_message == "1 shape selected (window)", controller.last_message)
 	controller.free()
 
-
 # --- living with the selection --------------------------------------------------------
 
 
@@ -145,8 +143,7 @@ func test_choosing_another_tool_ends_the_selection() -> void:
 	controller.select_at(Vector2(10.0, 10.0))
 	assert(controller.selected_count() == 1)
 	controller.set_tool(Tool.Kind.LINE)
-	assert(controller.selected_count() == 0,
-		"a highlight no command can act on is a lie about what is in hand")
+	assert(controller.selected_count() == 0, "a highlight no command can act on is a lie about what is in hand")
 	controller.free()
 
 
@@ -183,7 +180,6 @@ func test_an_edit_command_outranks_the_band() -> void:
 	assert(controller.document.count() == 0, "the shape was erased, so the pick was the edit's")
 	assert(line > 0)
 	controller.free()
-
 
 # --- selecting everything -------------------------------------------------------------
 
@@ -245,8 +241,10 @@ func test_the_selected_shapes_can_be_read_back_and_measured() -> void:
 	var chosen := controller.selected_entities()
 	assert(chosen.size() == 1)
 	assert(int(chosen[0].id) == inside, "the shape that was caught, not the one that was not")
-	assert(controller.selection_bounds() == Rect2(1.0, 1.0, 3.0, 4.0),
-		"a band of the selection's own: %s" % str(controller.selection_bounds()))
+	assert(
+		controller.selection_bounds() == Rect2(1.0, 1.0, 3.0, 4.0),
+		"a band of the selection's own: %s" % str(controller.selection_bounds()),
+	)
 	controller.free()
 
 

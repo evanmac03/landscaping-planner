@@ -66,9 +66,7 @@ func test_areas_of_different_layers_add_up_by_dimension() -> void:
 func test_a_dimension_is_named_as_not_measured_rather_than_dropped() -> void:
 	var document := Document.new()
 	_paved(document)
-	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(4, 0), 1.0), LayerSet.DIMENSION
-	)
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(4, 0), 1.0), LayerSet.DIMENSION)
 	var report = SiteReportScript.of_plan(document)
 	assert(report.work_rows().size() == 1, "the dimension is not a line of work")
 	assert(report.notes().size() == 1, "but it is not silent either")
@@ -79,9 +77,7 @@ func test_a_dimension_is_named_as_not_measured_rather_than_dropped() -> void:
 func test_the_planting_list_becomes_planting_rows() -> void:
 	var document := Document.new()
 	_paved(document)
-	var rows: Array = [
-		{"id": "acer-rubrum", "count": 3, "common_name": "Red maple", "botanical_name": "Acer rubrum"},
-	]
+	var rows: Array = [{ "id": "acer-rubrum", "count": 3, "common_name": "Red maple", "botanical_name": "Acer rubrum" }]
 	var report = SiteReportScript.of_plan(document, rows)
 	assert(report.plant_rows().size() == 1, "one species")
 	assert(report.row_count() == 2, "the work and the planting")
@@ -112,7 +108,7 @@ func test_the_summary_names_the_line_count_and_the_totals() -> void:
 func test_a_report_survives_the_file_format() -> void:
 	var document := Document.new()
 	_paved(document)
-	var rows: Array = [{"id": "acer-rubrum", "count": 2, "common_name": "Red maple"}]
+	var rows: Array = [{ "id": "acer-rubrum", "count": 2, "common_name": "Red maple" }]
 	var report = SiteReportScript.of_plan(document, rows)
 	var back = SiteReportScript.from_dict(report.to_dict())
 	assert(back.text() == report.text(), "the report reads the same after a round trip")

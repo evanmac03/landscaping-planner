@@ -47,12 +47,15 @@ func _entries() -> Array:
 		return out
 	for file: String in root.get_files():
 		if file.ends_with(".glb"):
-			out.append({"id": file.get_basename(), "path": "%s/%s" % [DIR, file]})
+			out.append({ "id": file.get_basename(), "path": "%s/%s" % [DIR, file] })
 	for id: String in root.get_directories():
 		var path: String = "%s/%s/%s_1k.gltf" % [DIR, id, id]
 		if ResourceLoader.exists(path):
-			out.append({"id": id, "path": path})
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return (a["id"] as String) < (b["id"] as String))
+			out.append({ "id": id, "path": path })
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return (a["id"] as String) < (b["id"] as String),
+	)
 	return out
 
 
@@ -123,8 +126,7 @@ func _slot(entry: Dictionary, at: Vector3) -> void:
 func _describe(box: AABB, tris: int) -> String:
 	if box == null:
 		return "no meshes"
-	return "w %.2f d %.2f h %.2f base %.3f   %d tris" % [
-		box.size.x, box.size.z, box.size.y, box.position.y, tris]
+	return "w %.2f d %.2f h %.2f base %.3f   %d tris" % [box.size.x, box.size.z, box.size.y, box.position.y, tris]
 
 
 ## A 1 m tile under every slot, so a model's size can be read off the ground.
@@ -149,7 +151,8 @@ func _ground(rows: int) -> void:
 			tile.position = Vector3(
 				COL_SPACING * float(i) - COL_SPACING * float(COLUMNS - 1) * 0.5,
 				0.01,
-				ROW_SPACING * float(j) - ROW_SPACING * float(rows - 1) * 0.5)
+				ROW_SPACING * float(j) - ROW_SPACING * float(rows - 1) * 0.5,
+			)
 			var tile_mat := StandardMaterial3D.new()
 			tile_mat.albedo_color = Color(0.62, 0.66, 0.58)
 			tile.material_override = tile_mat

@@ -89,15 +89,12 @@ static func is_fillable(ring_points: PackedVector2Array) -> bool:
 ## reporting a count.
 static func refusal_for(ring_points: PackedVector2Array) -> String:
 	if ring_points.size() < MIN_RING_POINTS:
-		return "an outline needs at least %d points and has %d" % [
-			MIN_RING_POINTS, ring_points.size(),
-		]
+		return "an outline needs at least %d points and has %d" % [MIN_RING_POINTS, ring_points.size()]
 	if not Geom.polygon_is_simple(ring_points):
 		return "the outline crosses itself"
 	if absf(Geom.polygon_signed_area(ring_points)) <= Geom.EPS:
 		return "the outline encloses no area"
 	return ""
-
 
 # --- winding, and why it is written down ----------------------------------------------
 ##
@@ -122,13 +119,13 @@ static func refusal_for(ring_points: PackedVector2Array) -> String:
 ## Every face below is wound so that it agrees with that, and the test walks the mesh
 ## and checks each one.
 
+
 ## The front normal of a triangle, per Godot's clockwise convention.
 ##
 ## Not `(b - a).cross(c - a)` — that is the *counter*-clockwise answer, and using it is
 ## how a solid ends up inside out while looking perfectly correct in the code.
 static func front_normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
 	return -((b - a).cross(c - a)).normalized()
-
 
 # --- solids (§8.3, §8.4) --------------------------------------------------------------
 
@@ -158,7 +155,7 @@ static func slab(
 	base_m: float,
 	height_m: float,
 	inset_m: float = 0.0,
-	uv_scale_metres: float = 1.0
+	uv_scale_metres: float = 1.0,
 ) -> ArrayMesh:
 	if loop.size() < MIN_RING_POINTS:
 		push_error("CadSolid.slab: an outline needs three points, got %d" % loop.size())
@@ -170,9 +167,7 @@ static func slab(
 		# A negative delta insets. Round joins, because a sawn paving edge is round at
 		# this scale, and a mitre join overshoots on a sharp corner and can
 		# self-intersect the very outline it is meant to be shortening.
-		for piece: PackedVector2Array in Geometry2D.offset_polygon(
-			loop, -absf(inset_m), Geometry2D.JOIN_ROUND
-		):
+		for piece: PackedVector2Array in Geometry2D.offset_polygon(loop, -absf(inset_m), Geometry2D.JOIN_ROUND):
 			if piece.size() >= MIN_RING_POINTS:
 				pieces.append(piece)
 	if pieces.is_empty():
@@ -197,10 +192,7 @@ static func slab(
 			_add_vertex(surface, piece[index], height_m, Vector3.UP, uv_scale_metres)
 		# The sides, one quad per edge, wound so the quad's face points outward.
 		for edge in piece.size():
-			_add_side(
-				surface, piece[edge], piece[(edge + 1) % piece.size()],
-				base_m, height_m, uv_scale_metres
-			)
+			_add_side(surface, piece[edge], piece[(edge + 1) % piece.size()], base_m, height_m, uv_scale_metres)
 		# The underside: the same triangles with each one's cornices reversed, so they
 		# face down.
 		#
@@ -211,10 +203,7 @@ static func slab(
 		# same way and the underside comes out pointing up.
 		for tri in range(0, indices.size(), 3):
 			for slot in [0, 2, 1]:
-				_add_vertex(
-					surface, piece[indices[tri + slot]], base_m, Vector3.DOWN,
-					uv_scale_metres
-				)
+				_add_vertex(surface, piece[indices[tri + slot]], base_m, Vector3.DOWN, uv_scale_metres)
 
 	surface.generate_tangents()
 	return surface.commit()
@@ -240,7 +229,7 @@ static func ribbon(
 	width_m: float,
 	base_m: float,
 	height_m: float,
-	uv_scale_metres: float = 1.0
+	uv_scale_metres: float = 1.0,
 ) -> ArrayMesh:
 	if line.size() < 2:
 		push_error("CadSolid.ribbon: a ribbon needs two points, got %d" % line.size())
@@ -249,7 +238,10 @@ static func ribbon(
 		push_error("CadSolid.ribbon: a ribbon needs a width, got %.2f m" % width_m)
 		return null
 	var offset: Array[PackedVector2Array] = Geometry2D.offset_polyline(
-		line, width_m * 0.5, Geometry2D.JOIN_ROUND, Geometry2D.END_BUTT
+		line,
+		width_m * 0.5,
+		Geometry2D.JOIN_ROUND,
+		Geometry2D.END_BUTT,
 	)
 	if offset.is_empty():
 		push_error("CadSolid.ribbon: offsetting by %.2f m consumed the line" % (width_m * 0.5))
@@ -270,9 +262,7 @@ static func ribbon(
 ## A UV in **metres** rather than 0..1 because the material is world-triplanar and
 ## `uv1_scale` is a repeat per metre: an unnormalised UV is what lets paving keep its
 ## size whatever the patio is scaled to (REQ-V5.1).
-static func _add_vertex(
-	surface: SurfaceTool, point: Vector2, y: float, normal: Vector3, uv_scale: float
-) -> void:
+static func _add_vertex(surface: SurfaceTool, point: Vector2, y: float, normal: Vector3, uv_scale: float) -> void:
 	surface.set_normal(normal)
 	surface.set_uv(point / uv_scale)
 	surface.add_vertex(Vector3(point.x, y, point.y))
@@ -292,8 +282,12 @@ static func _add_vertex(
 ## culls on: the order (A, D, C, B) — the one the specification's loop happens to
 ## generate — makes every wall of a raised bed face inward, so the bed is a hole.
 static func _add_side(
-	surface: SurfaceTool, from: Vector2, to: Vector2,
-	base_m: float, height_m: float, uv_scale: float
+	surface: SurfaceTool,
+	from: Vector2,
+	to: Vector2,
+	base_m: float,
+	height_m: float,
+	uv_scale: float,
 ) -> void:
 	var edge := to - from
 	if edge.length() <= Geom.EPS:
@@ -309,7 +303,6 @@ static func _add_side(
 		surface.set_normal(normal)
 		surface.set_uv(Vector2(run if at_end else 0.0, y))
 		surface.add_vertex(Vector3(point.x, y, point.y))
-
 
 # --- reading a built mesh back, which is how the winding is tested --------------------
 

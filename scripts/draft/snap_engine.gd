@@ -85,7 +85,7 @@ const GLYPHS := {
 }
 
 var grid: DraftSpatialGrid
-var entities_by_id: Dictionary = {}
+var entities_by_id: Dictionary = { }
 
 ## Aperture in pixels, converted to metres at the current zoom (REQ 2.3.1).
 var aperture_pixels: float = 12.0
@@ -95,7 +95,7 @@ var exit_factor: float = 1.6
 
 ## Which snap modes are live. Everything exact is on by default; nearest is the
 ## catch-all and can be turned off by anyone who finds it noisy.
-var enabled: Dictionary = {}
+var enabled: Dictionary = { }
 
 var grid_snap: bool = false
 var grid_step: float = 0.5
@@ -103,7 +103,7 @@ var ortho: bool = false
 var polar: bool = false
 var polar_step_degrees: float = 45.0
 
-var _locked: Dictionary = {}
+var _locked: Dictionary = { }
 
 
 static func _new() -> DraftSnapEngine:
@@ -112,8 +112,16 @@ static func _new() -> DraftSnapEngine:
 
 func _init() -> void:
 	grid = Grid.new()
-	for mode: Mode in [Mode.ENDPOINT, Mode.INTERSECTION, Mode.MIDPOINT, Mode.CENTRE,
-			Mode.QUADRANT, Mode.PERPENDICULAR, Mode.TANGENT, Mode.NEAREST]:
+	for mode: Mode in [
+		Mode.ENDPOINT,
+		Mode.INTERSECTION,
+		Mode.MIDPOINT,
+		Mode.CENTRE,
+		Mode.QUADRANT,
+		Mode.PERPENDICULAR,
+		Mode.TANGENT,
+		Mode.NEAREST,
+	]:
 		enabled[mode] = true
 
 
@@ -127,7 +135,7 @@ func bind(entities: Array) -> void:
 
 
 func clear_lock() -> void:
-	_locked = {}
+	_locked = { }
 
 
 func locked_point() -> Vector2:
@@ -139,7 +147,6 @@ func set_enabled(mode: Mode, on: bool) -> void:
 	if not on and _locked.get("mode", Mode.NONE) == mode:
 		clear_lock()
 
-
 # --- resolution ---------------------------------------------------------------------
 
 
@@ -147,11 +154,16 @@ func set_enabled(mode: Mode, on: bool) -> void:
 ##
 ## `previous` is the previous point of the tool in progress, needed for
 ## perpendicular and tangent snaps, which are undefined without it.
+##
+## `force_ortho` holds the point to the axes from `previous` for this call alone, whether or not
+## ortho is switched on. That is what a held Shift means while a tool is in hand: a person wants
+## the constraint for one pick, not as a setting they then have to remember to turn off.
 func resolve(
 	cursor: Vector2,
 	pixels_per_metre: float,
 	previous: Vector2 = Vector2.ZERO,
-	has_previous: bool = false
+	has_previous: bool = false,
+	force_ortho: bool = false,
 ) -> Dictionary:
 	var scale := maxf(pixels_per_metre, 0.0001)
 	var aperture := aperture_pixels / scale
@@ -181,7 +193,7 @@ func resolve(
 			for second in range(first + 1, gathered.size()):
 				_collect_intersections(gathered[first], gathered[second], box, candidates)
 
-	var best: Dictionary = {}
+	var best: Dictionary = { }
 	var best_score := INF
 	for candidate in candidates:
 		var point: Vector2 = candidate["point"]
@@ -199,8 +211,8 @@ func resolve(
 		return _result(best["point"], best, true, candidates.size())
 
 	# No exact target. Constraints act on the cursor itself.
-	_locked = {}
-	var constrained := _apply_constraint(cursor, previous, has_previous)
+	_locked = { }
+	var constrained := _apply_constraint(cursor, previous, has_previous, force_ortho)
 	if constrained["constrained"]:
 		var constraint_mode: Mode = constrained["mode"]
 		return {
@@ -213,8 +225,13 @@ func resolve(
 			"candidates": 0,
 		}
 	return {
-		"point": cursor, "mode": Mode.NONE, "snapped": false,
-		"label": "", "glyph": "", "entity": 0, "candidates": 0,
+		"point": cursor,
+		"mode": Mode.NONE,
+		"snapped": false,
+		"label": "",
+		"glyph": "",
+		"entity": 0,
+		"candidates": 0,
 	}
 
 
@@ -234,12 +251,16 @@ func _result(point: Vector2, source: Dictionary, is_snapped: bool, candidate_cou
 ## Ortho and polar tracking. Applied only when nothing exact was found. Reports
 ## which constraint it actually applied, so a caller never sees "polar" when the
 ## grid is what moved the point.
-func _apply_constraint(point: Vector2, previous: Vector2, has_previous: bool) -> Dictionary:
-	if has_previous and ortho:
+##
+## `force_ortho` is the held-Shift case: ortho for this call whether the setting is on or not. An
+## exact object snap still wins even then, which is what keeps "start on a snapped endpoint, then
+## draw straight" behaving the way it always has.
+func _apply_constraint(point: Vector2, previous: Vector2, has_previous: bool, force_ortho: bool = false) -> Dictionary:
+	if has_previous and (ortho or force_ortho):
 		var offset := point - previous
 		if absf(offset.x) >= absf(offset.y):
-			return {"point": Vector2(point.x, previous.y), "constrained": true, "mode": Mode.POLAR}
-		return {"point": Vector2(previous.x, point.y), "constrained": true, "mode": Mode.POLAR}
+			return { "point": Vector2(point.x, previous.y), "constrained": true, "mode": Mode.POLAR }
+		return { "point": Vector2(previous.x, point.y), "constrained": true, "mode": Mode.POLAR }
 	if has_previous and polar:
 		var offset := point - previous
 		if offset.length_squared() > Geom.EPS:
@@ -253,14 +274,11 @@ func _apply_constraint(point: Vector2, previous: Vector2, has_previous: bool) ->
 			}
 	if grid_snap:
 		return {
-			"point": Vector2(
-				roundf(point.x / grid_step) * grid_step,
-				roundf(point.y / grid_step) * grid_step),
+			"point": Vector2(roundf(point.x / grid_step) * grid_step, roundf(point.y / grid_step) * grid_step),
 			"constrained": true,
 			"mode": Mode.GRID,
 		}
-	return {"point": point, "constrained": false, "mode": Mode.NONE}
-
+	return { "point": point, "constrained": false, "mode": Mode.NONE }
 
 # --- candidate generation -----------------------------------------------------------
 
@@ -269,7 +287,7 @@ func _push(out: Array, point: Vector2, mode: Mode, entity_id: int, box: Rect2, o
 	if not on or not enabled.get(mode, true):
 		return
 	if box.has_point(point):
-		out.append({"point": point, "mode": mode, "entity": entity_id})
+		out.append({ "point": point, "mode": mode, "entity": entity_id })
 
 
 func _collect(entity: EntityScript, box: Rect2, previous: Vector2, has_previous: bool, out: Array) -> void:
@@ -290,8 +308,13 @@ func _collect(entity: EntityScript, box: Rect2, previous: Vector2, has_previous:
 		_push(out, arc_centre, Mode.CENTRE, entity.id, box)
 		_push(out, entity.point(1), Mode.ENDPOINT, entity.id, box)
 		_push(out, entity.point(2), Mode.ENDPOINT, entity.id, box)
-		_push(out, Geom.arc_point(arc_centre, entity.params[2], entity.params[3], entity.params[4], 0.5),
-			Mode.MIDPOINT, entity.id, box)
+		_push(
+			out,
+			Geom.arc_point(arc_centre, entity.params[2], entity.params[3], entity.params[4], 0.5),
+			Mode.MIDPOINT,
+			entity.id,
+			box,
+		)
 	elif kind == EntityScript.Kind.RECT or kind == EntityScript.Kind.REGULAR_POLY:
 		_push(out, entity.point(0), Mode.CENTRE, entity.id, box)
 		var outline := entity.outline()

@@ -83,7 +83,6 @@ const KINDS := {
 	EntityScript.Kind.TEXT: "TEXT",
 }
 
-
 # --- from a drawing -------------------------------------------------------------------
 
 
@@ -101,18 +100,30 @@ const KINDS := {
 ## Returns `{ok, reason, shapes, counts, not_written}`. `not_written` is one line per *kind* of thing
 ## left out, with how many there were - the reader's own rule, so a person never has to wonder whether
 ## the export was complete.
-static func shapes_from_document(document, options: Dictionary = {}) -> Dictionary:
+static func shapes_from_document(document: DraftDocument, options: Dictionary = { }) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to write", "shapes": [] as Array, "counts": {}, "not_written": [] as Array}
+		return {
+			"ok": false,
+			"reason": "there is no drawing to write",
+			"shapes": [] as Array,
+			"counts": { },
+			"not_written": [] as Array,
+		}
 	var scale := float(options.get("scale", DEFAULT_SCALE))
 	if scale <= 0.0:
-		return {"ok": false, "reason": "a plot scale of nothing is not a scale", "shapes": [] as Array, "counts": {}, "not_written": [] as Array}
+		return {
+			"ok": false,
+			"reason": "a plot scale of nothing is not a scale",
+			"shapes": [] as Array,
+			"counts": { },
+			"not_written": [] as Array,
+		}
 	var tolerance := float(options.get("tolerance", EntityScript.DEFAULT_TOLERANCE))
 	var height := LineStyleScript.text_model_size(LineStyleScript.DEFAULT_TEXT_HEIGHT, scale)
 
 	var shapes: Array = []
-	var counts := {}
-	var left_out := {}
+	var counts := { }
+	var left_out := { }
 	var not_written: Array[String] = []
 	# Only what plots. A tracing aid, a sheet border and a viewport frame are things the program draws
 	# for the person at the desk; writing them into a file that goes to somebody else would send them
@@ -130,7 +141,7 @@ static func shapes_from_document(document, options: Dictionary = {}) -> Dictiona
 		var count := int(left_out[what])
 		not_written.append("%d %s" % [count, String(what)])
 	not_written.sort()
-	return {"ok": true, "reason": "", "shapes": shapes, "counts": counts, "not_written": not_written}
+	return { "ok": true, "reason": "", "shapes": shapes, "counts": counts, "not_written": not_written }
 
 
 ## One entity as a DXF-shaped record, or the reason it is not written.
@@ -142,9 +153,9 @@ static func shapes_from_document(document, options: Dictionary = {}) -> Dictiona
 static func _record_for(entity: EntityScript, height: float, tolerance: float) -> Dictionary:
 	var kind := entity.kind
 	if kind == EntityScript.Kind.DIMENSION:
-		return {"reason": "a dimension has no size until a plot scale is given it", "what": "dimension(s) left out"}
+		return { "reason": "a dimension has no size until a plot scale is given it", "what": "dimension(s) left out" }
 	if not KINDS.has(kind):
-		return {"reason": "there is no DXF record for this kind", "what": "%s left out" % entity.kind_name()}
+		return { "reason": "there is no DXF record for this kind", "what": "%s left out" % entity.kind_name() }
 	var dxf_kind := String(KINDS[kind])
 	var points := PackedVector2Array()
 	var bulges := PackedFloat64Array()
@@ -199,7 +210,6 @@ static func _record_for(entity: EntityScript, height: float, tolerance: float) -
 		},
 	}
 
-
 # --- writing --------------------------------------------------------------------------
 
 
@@ -213,7 +223,7 @@ static func _record_for(entity: EntityScript, height: float, tolerance: float) -
 ## * `"rotation"` - degrees the reader was told to turn by, undone here.
 ##
 ## Returns `{ok, reason, text, counts, layers, units, unit_code, unit_factor, scale, scale_assumed}`.
-static func write_text(shapes: Array, options: Dictionary = {}) -> Dictionary:
+static func write_text(shapes: Array, options: Dictionary = { }) -> Dictionary:
 	var unit := _unit_for(String(options.get("units", "metres")))
 	if not bool(unit["ok"]):
 		return _refused("there is no unit called \"%s\" to write in" % String(options.get("units", "metres")))
@@ -226,7 +236,7 @@ static func write_text(shapes: Array, options: Dictionary = {}) -> Dictionary:
 
 	var lines := PackedStringArray()
 	_header(lines, int(unit["code"]))
-	var counts := {}
+	var counts := { }
 	var layers: Array[String] = []
 	var bodies := PackedStringArray()
 	for shape: Dictionary in shapes:
@@ -242,16 +252,22 @@ static func write_text(shapes: Array, options: Dictionary = {}) -> Dictionary:
 	lines.append_array(bodies)
 	lines.append_array([_pair(0, "ENDSEC"), _pair(0, "EOF")])
 	return {
-		"ok": true, "reason": "", "text": "\n".join(lines) + "\n",
-		"counts": counts, "layers": layers,
-		"units": String(unit["name"]), "unit_code": int(unit["code"]), "unit_factor": factor,
-		"scale": scale, "scale_assumed": not options.has("scale"),
+		"ok": true,
+		"reason": "",
+		"text": "\n".join(lines) + "\n",
+		"counts": counts,
+		"layers": layers,
+		"units": String(unit["name"]),
+		"unit_code": int(unit["code"]),
+		"unit_factor": factor,
+		"scale": scale,
+		"scale_assumed": not options.has("scale"),
 	}
 
 
 ## Write shapes to a path. A path that cannot be written is refused with a reason rather than
 ## raising, because it is a path a person typed.
-static func write_file(path: String, shapes: Array, options: Dictionary = {}) -> Dictionary:
+static func write_file(path: String, shapes: Array, options: Dictionary = { }) -> Dictionary:
 	var made := write_text(shapes, options)
 	if not bool(made["ok"]):
 		return made
@@ -266,7 +282,7 @@ static func write_file(path: String, shapes: Array, options: Dictionary = {}) ->
 
 
 ## Write a whole drawing out in one step: its plotting geometry, then the DXF.
-static func export_document(document, options: Dictionary = {}) -> Dictionary:
+static func export_document(document: DraftDocument, options: Dictionary = { }) -> Dictionary:
 	var made := shapes_from_document(document, options)
 	if not bool(made["ok"]):
 		return _refused(String(made["reason"]))
@@ -277,7 +293,6 @@ static func export_document(document, options: Dictionary = {}) -> Dictionary:
 	written["shape_count"] = (made["shapes"] as Array).size()
 	return written
 
-
 # --- the file's own parts -------------------------------------------------------------
 
 
@@ -287,31 +302,40 @@ static func export_document(document, options: Dictionary = {}) -> Dictionary:
 ## reader refuses until a person says what it is - so writing a file that says is the difference
 ## between an export and a puzzle.
 static func _header(lines: PackedStringArray, unit_code: int) -> void:
-	lines.append_array([
-		_pair(0, "SECTION"), _pair(2, "HEADER"),
-		_pair(9, "$ACADVER"), _pair(1, ACADVER),
-		_pair(9, DxfFileScript.INSUNITS_VAR), _pair(70, unit_code),
-		_pair(0, "ENDSEC"),
-	])
+	lines.append_array(
+		[
+			_pair(0, "SECTION"),
+			_pair(2, "HEADER"),
+			_pair(9, "$ACADVER"),
+			_pair(1, ACADVER),
+			_pair(9, DxfFileScript.INSUNITS_VAR),
+			_pair(70, unit_code),
+			_pair(0, "ENDSEC"),
+		]
+	)
 
 
 ## The layer table: one record per layer the geometry is on, so the file opens in CAD with the layers
 ## the drawing actually has rather than with everything on layer 0.
 static func _tables(lines: PackedStringArray, layers: Array[String]) -> void:
-	lines.append_array([
-		_pair(0, "SECTION"), _pair(2, "TABLES"),
-		_pair(0, "TABLE"), _pair(2, "LAYER"), _pair(70, layers.size()),
-	])
+	lines.append_array(
+		[_pair(0, "SECTION"), _pair(2, "TABLES"), _pair(0, "TABLE"), _pair(2, "LAYER"), _pair(70, layers.size())]
+	)
 	for layer: String in layers:
-		lines.append_array([
-			_pair(0, "LAYER"), _pair(2, layer),
-			_pair(70, 0), _pair(62, 7), _pair(6, "CONTINUOUS"),
-		])
+		lines.append_array([_pair(0, "LAYER"), _pair(2, layer), _pair(70, 0), _pair(62, 7), _pair(6, "CONTINUOUS")])
 	lines.append_array([_pair(0, "ENDTAB"), _pair(0, "ENDSEC")])
 
 
 ## One entity's records.
-static func _entity(out: PackedStringArray, shape: Dictionary, kind: String, layer: String, factor: float, offset: Vector2, turn: float) -> void:
+static func _entity(
+	out: PackedStringArray,
+	shape: Dictionary,
+	kind: String,
+	layer: String,
+	factor: float,
+	offset: Vector2,
+	turn: float,
+) -> void:
 	var points: PackedVector2Array = shape["points"]
 	out.append_array([_pair(0, kind), _pair(8, layer)])
 	match kind:
@@ -320,10 +344,7 @@ static func _entity(out: PackedStringArray, shape: Dictionary, kind: String, lay
 				return
 			var a := _to_dxf(points[0], factor, offset, turn)
 			var b := _to_dxf(points[1], factor, offset, turn)
-			out.append_array([
-				_pair(10, a.x), _pair(20, a.y),
-				_pair(11, b.x), _pair(21, b.y),
-			])
+			out.append_array([_pair(10, a.x), _pair(20, a.y), _pair(11, b.x), _pair(21, b.y)])
 		"CIRCLE", "ARC":
 			if points.is_empty():
 				return
@@ -332,9 +353,7 @@ static func _entity(out: PackedStringArray, shape: Dictionary, kind: String, lay
 			# so it is the one thing here that does not turn or move with the points and must not be
 			# put through the registration.
 			var radius := float(shape.get("radius", 0.0)) / factor
-			out.append_array([
-				_pair(10, centre.x), _pair(20, centre.y), _pair(40, radius),
-			])
+			out.append_array([_pair(10, centre.x), _pair(20, centre.y), _pair(40, radius)])
 			if kind == "ARC":
 				var run := _arc_run(shape)
 				out.append_array([_pair(50, run.x), _pair(51, run.y)])
@@ -345,19 +364,20 @@ static func _entity(out: PackedStringArray, shape: Dictionary, kind: String, lay
 			# The reflection mirrors an angle as well as a point, so a text's turn is written negated
 			# the way an arc's running order is.
 			var words := String(shape["words"])
-			out.append_array([
-				_pair(10, at.x), _pair(20, at.y),
-				_pair(40, float(shape["height"]) / factor),
-				_pair(50, _wrap_degrees(-rad_to_deg(float(shape.get("rotation", 0.0))))),
-				_pair(1, words),
-			])
+			out.append_array(
+				[
+					_pair(10, at.x),
+					_pair(20, at.y),
+					_pair(40, float(shape["height"]) / factor),
+					_pair(50, _wrap_degrees(-rad_to_deg(float(shape.get("rotation", 0.0))))),
+					_pair(1, words),
+				]
+			)
 		"LWPOLYLINE":
 			if points.is_empty():
 				return
 			var bulges: PackedFloat64Array = shape["bulges"]
-			out.append_array([
-				_pair(90, points.size()), _pair(70, 1 if bool(shape["closed"]) else 0),
-			])
+			out.append_array([_pair(90, points.size()), _pair(70, 1 if bool(shape["closed"]) else 0)])
 			for at in points.size():
 				var vertex := _to_dxf(points[at], factor, offset, turn)
 				out.append_array([_pair(10, vertex.x), _pair(20, vertex.y)])
@@ -370,7 +390,6 @@ static func _entity(out: PackedStringArray, shape: Dictionary, kind: String, lay
 				out.append(_pair(42, -bulge))
 		_:
 			return
-
 
 # --- the coordinate system ------------------------------------------------------------
 
@@ -420,7 +439,6 @@ static func _layer_name(shape: Dictionary) -> String:
 	var layer := String(shape.get("layer", ""))
 	return layer if not layer.strip_edges().is_empty() else "0"
 
-
 # --- units ----------------------------------------------------------------------------
 
 
@@ -433,13 +451,13 @@ static func _layer_name(shape: Dictionary) -> String:
 static func _unit_for(name: String) -> Dictionary:
 	var wanted := name.strip_edges().to_lower()
 	if not DxfFileScript.UNIT_NAMES.has(wanted):
-		return {"ok": false, "name": "", "code": 0, "factor": 0.0}
+		return { "ok": false, "name": "", "code": 0, "factor": 0.0 }
 	var factor := float(DxfFileScript.UNIT_NAMES[wanted])
 	for code: int in DxfFileScript.UNITS:
 		var entry: Array = DxfFileScript.UNITS[code]
 		if is_equal_approx(float(entry[1]), factor):
-			return {"ok": true, "name": String(entry[0]), "code": code, "factor": factor}
-	return {"ok": false, "name": "", "code": 0, "factor": 0.0}
+			return { "ok": true, "name": String(entry[0]), "code": code, "factor": factor }
+	return { "ok": false, "name": "", "code": 0, "factor": 0.0 }
 
 
 ## The unit names this can write in, for a menu or a message.
@@ -448,7 +466,6 @@ static func unit_names() -> Array[String]:
 	for code: int in DxfFileScript.UNITS:
 		names.append(String(DxfFileScript.UNITS[code][0]))
 	return names
-
 
 # --- the pairs ------------------------------------------------------------------------
 
@@ -470,11 +487,19 @@ static func _pair(code: int, value: Variant) -> String:
 
 static func _refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "text": "", "counts": {}, "layers": [] as Array[String],
-		"units": "", "unit_code": 0, "unit_factor": 0.0, "scale": 0.0, "scale_assumed": false,
-		"not_written": [] as Array[String], "shape_count": 0,
+		"ok": false,
+		"reason": reason,
+		"text": "",
+		"counts": { },
+		"layers": [] as Array[String],
+		"units": "",
+		"unit_code": 0,
+		"unit_factor": 0.0,
+		"scale": 0.0,
+		"scale_assumed": false,
+		"not_written": [] as Array[String],
+		"shape_count": 0,
 	}
-
 
 # --- saying what was written ----------------------------------------------------------
 
@@ -483,14 +508,17 @@ static func _refused(reason: String) -> Dictionary:
 static func describe(report: Dictionary) -> String:
 	if not bool(report.get("ok", false)):
 		return String(report.get("reason", "the drawing could not be written"))
-	var counts: Dictionary = report.get("counts", {})
+	var counts: Dictionary = report.get("counts", { })
 	var total := 0
 	for kind: Variant in counts:
 		total += int(counts[kind])
 	var layers: Array = report.get("layers", [])
 	var words := "%d record%s in %s, on %d layer%s" % [
-		total, "" if total == 1 else "s", String(report["units"]),
-		layers.size(), "" if layers.size() == 1 else "s",
+		total,
+		"" if total == 1 else "s",
+		String(report["units"]),
+		layers.size(),
+		"" if layers.size() == 1 else "s",
 	]
 	var left: Array = report.get("not_written", [])
 	if not left.is_empty():
@@ -506,7 +534,7 @@ static func report_lines(report: Dictionary) -> Array[String]:
 		lines.append(String(report.get("reason", "the drawing could not be written")))
 		return lines
 	lines.append(describe(report))
-	var counts: Dictionary = report.get("counts", {})
+	var counts: Dictionary = report.get("counts", { })
 	if counts.is_empty():
 		lines.append("there is nothing on it that plots")
 	else:
@@ -519,8 +547,10 @@ static func report_lines(report: Dictionary) -> Array[String]:
 	if not layers.is_empty():
 		lines.append("layers: " + ", ".join(_as_strings(layers)))
 	if bool(report.get("scale_assumed", false)):
-		lines.append("text height is at a 1:%d plot scale, which was assumed because nobody said"
-			% int(round(float(report.get("scale", DEFAULT_SCALE)))))
+		lines.append(
+			"text height is at a 1:%d plot scale, which was assumed because nobody said"
+			% int(round(float(report.get("scale", DEFAULT_SCALE))))
+		)
 	return lines
 
 

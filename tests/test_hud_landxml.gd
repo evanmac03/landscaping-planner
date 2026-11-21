@@ -32,30 +32,33 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## A plat with a parcel of four corners and an alignment with a curve in it, in the units the
 ## `<Units>` element names - or in no units at all when `units` is empty.
 func _plat(units: String = "<Metric linearUnit=\"meter\"/>") -> String:
-	return "\n".join(PackedStringArray([
-		"<?xml version=\"1.0\"?>",
-		"<LandXML xmlns=\"http://www.landxml.org/schema/LandXML-1.2\" version=\"1.2\">",
-		"  <Units>" + units + "</Units>",
-		"  <Parcels>",
-		"    <Parcel name=\"LOT 12\">",
-		"      <CoordGeom>",
-		"        <Line><Start>1000.0 3000.0</Start><End>1000.0 3060.0</End></Line>",
-		"        <Line><Start>1000.0 3060.0</Start><End>1060.0 3060.0</End></Line>",
-		"        <Line><Start>1060.0 3060.0</Start><End>1060.0 3000.0</End></Line>",
-		"        <Line><Start>1060.0 3000.0</Start><End>1000.0 3000.0</End></Line>",
-		"      </CoordGeom>",
-		"    </Parcel>",
-		"  </Parcels>",
-		"</LandXML>",
-		"",
-	]))
-
+	return "\n".join(
+		PackedStringArray(
+			[
+				"<?xml version=\"1.0\"?>",
+				"<LandXML xmlns=\"http://www.landxml.org/schema/LandXML-1.2\" version=\"1.2\">",
+				"  <Units>" + units + "</Units>",
+				"  <Parcels>",
+				"    <Parcel name=\"LOT 12\">",
+				"      <CoordGeom>",
+				"        <Line><Start>1000.0 3000.0</Start><End>1000.0 3060.0</End></Line>",
+				"        <Line><Start>1000.0 3060.0</Start><End>1060.0 3060.0</End></Line>",
+				"        <Line><Start>1060.0 3060.0</Start><End>1060.0 3000.0</End></Line>",
+				"        <Line><Start>1060.0 3000.0</Start><End>1000.0 3000.0</End></Line>",
+				"      </CoordGeom>",
+				"    </Parcel>",
+				"  </Parcels>",
+				"</LandXML>",
+				"",
+			]
+		)
+	)
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -75,7 +78,6 @@ func test_the_file_menu_offers_importing_a_landxml_plat() -> void:
 	assert(hud.has_method("landxml_report_text"))
 	assert(not hud.is_landxml_panel_open(), "nothing is open until it is asked for")
 	hud.free()
-
 
 # --- what the page says ---------------------------------------------------------------
 
@@ -111,13 +113,12 @@ func test_a_file_that_is_not_a_plat_says_so_and_cannot_be_placed() -> void:
 
 func test_nothing_read_yet_says_so_rather_than_failing() -> void:
 	var hud = _hud()
-	hud._pending_landxml = {}
+	hud._pending_landxml = { }
 	assert(hud.landxml_report_text() == "no LandXML plat has been read", hud.landxml_report_text())
 	assert(not hud.landxml_import_enabled())
 	hud.confirm_landxml_import()
 	assert(hud._draft.document.count() == 0)
 	_done(hud)
-
 
 # --- the question a unitless plat asks --------------------------------------------------
 
@@ -130,10 +131,8 @@ func test_a_plat_that_does_not_say_its_units_is_asked_about_and_then_read() -> v
 	# Refused, with the sentence that asks - and not placeable until it is answered.
 	assert(not bool(hud._pending_landxml["ok"]))
 	assert(not hud.landxml_import_enabled())
-	assert(String(hud._pending_landxml["declared_unit"]).is_empty(),
-		"which the page uses to turn the units row on")
-	assert(String(hud._pending_landxml["reason"]).contains("does not say"),
-		String(hud._pending_landxml["reason"]))
+	assert(String(hud._pending_landxml["declared_unit"]).is_empty(), "which the page uses to turn the units row on")
+	assert(String(hud._pending_landxml["reason"]).contains("does not say"), String(hud._pending_landxml["reason"]))
 	# Answered as feet: the same text read again, and now it reads - sixty feet is 18.288 m.
 	hud.choose_landxml_units("feet")
 	assert(bool(hud._pending_landxml["ok"]), String(hud._pending_landxml["reason"]))
@@ -143,8 +142,10 @@ func test_a_plat_that_does_not_say_its_units_is_asked_about_and_then_read() -> v
 	var corners: PackedVector2Array = parcel["points"]
 	assert(corners.size() == 4, "four corners")
 	# Read as feet, the lot's own 60-foot side is 18.288 m of easting in the model.
-	assert(absf(corners[0].distance_to(corners[1]) - 18.288) < 1.0e-3,
-		"sixty feet of easting is 18.288 m: %.4f" % corners[0].distance_to(corners[1]))
+	assert(
+		absf(corners[0].distance_to(corners[1]) - 18.288) < 1.0e-3,
+		"sixty feet of easting is 18.288 m: %.4f" % corners[0].distance_to(corners[1]),
+	)
 	# And an answer the reader does not know is not an answer.
 	hud.choose_landxml_units("furlongs")
 	assert(not bool(hud._pending_landxml["ok"]))
@@ -160,10 +161,8 @@ func test_a_plat_that_states_its_units_ignores_what_a_person_says() -> void:
 	assert(String(hud._pending_landxml["units"]) == "US survey feet", String(hud._pending_landxml["units"]))
 	# The file's own answer stands: answering for it would let a person halve a drawing by accident.
 	hud.choose_landxml_units("metres")
-	assert(String(hud._pending_landxml["units"]) == "US survey feet",
-		String(hud._pending_landxml["units"]))
+	assert(String(hud._pending_landxml["units"]) == "US survey feet", String(hud._pending_landxml["units"]))
 	_done(hud)
-
 
 # --- what confirming does --------------------------------------------------------------
 

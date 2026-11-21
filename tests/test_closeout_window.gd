@@ -36,7 +36,6 @@ func _set_up() -> Array:
 func _free(page: CloseoutWindow) -> void:
 	page.free()
 
-
 # --- what the page is ---------------------------------------------------------------------------
 
 
@@ -47,7 +46,28 @@ func test_the_page_has_the_controls_a_page_about_finishing_a_job_has() -> void:
 	assert(page.min_size == PageScript.SIZE)
 	assert(page.row_count() == 0, "no items on a job nothing has been said about")
 	assert(page.claim_row_count() == 0)
-	assert(page.buttons_are_focus_free(), "no button takes the keyboard from the drawing")
+	assert(page.buttons_are_focus_free(), "no button is built with a keyboard of its own")
+	_free(page)
+
+
+## A row the page builds **while it is open** is reachable too. The shared show gave the page its
+## keyboard when it was opened, before any item row existed, so the rebuild is what gives the new
+## controls theirs - and the page does that only while it is up, because for a page that is down the
+## show is the one place that decides it.
+func test_a_row_built_while_the_page_is_open_is_reachable() -> void:
+	var pair: Array = _set_up()
+	var page: CloseoutWindow = pair[0]
+	add_child(page)
+	page.show()
+	page.set_item_fields("back patio", "loose paving", "", "Ann")
+	page._on_raise()
+	assert(page.row_count() == 1, "the item was raised and its row built")
+	var row: Node = page.get_node(^"Scroll/Column/Items").get_child(0)
+	var acts := 0
+	for found: Node in row.find_children("*", "Button", true, false):
+		assert((found as Control).focus_mode == Control.FOCUS_ALL, "and it can be reached with Tab")
+		acts += 1
+	assert(acts == 4, "the four acts beside an item: %d" % acts)
 	_free(page)
 
 
@@ -78,7 +98,6 @@ func test_a_page_with_no_desk_at_all_is_still_a_page() -> void:
 	assert(page.hint_text().contains("Pick a job"), page.hint_text())
 	assert(page.status_text().contains("No job has been started yet"), page.status_text())
 	_free(page)
-
 
 # --- the punch list -----------------------------------------------------------------------------
 
@@ -182,10 +201,9 @@ func test_taking_an_item_off_the_list_through_the_page() -> void:
 	assert(page.status_text().contains("off the list"), page.status_text())
 	assert(
 		page.summary_text().contains("the punch list is done: 1 item closed (1 withdrawn)"),
-		"and it stops counting: %s" % page.summary_text()
+		"and it stops counting: %s" % page.summary_text(),
 	)
 	_free(page)
-
 
 # --- the hand-over date and the warranty --------------------------------------------------------
 
@@ -240,7 +258,6 @@ func test_a_term_nobody_meant_is_refused_with_the_parts_it_could_cover() -> void
 	assert(page.status_text().contains("between 1 and 120"), page.status_text())
 	assert(not desk.has_warranty("J1"), "and nothing was stated")
 	_free(page)
-
 
 # --- the claims ---------------------------------------------------------------------------------
 
@@ -334,7 +351,6 @@ func test_a_claim_refused_on_the_page_is_finished_by_that_answer() -> void:
 	assert(page.claim_texts()[0].contains("not covered"), page.claim_texts()[0])
 	_free(page)
 
-
 # --- the page as a whole ------------------------------------------------------------------------
 
 
@@ -353,7 +369,10 @@ func test_closing_the_page_says_so_once() -> void:
 	var pair: Array = _set_up()
 	var page: CloseoutWindow = pair[0]
 	var said: Array[int] = [0]
-	page.closed.connect(func() -> void: said[0] += 1)
+	page.closed.connect(
+		func() -> void:
+			said[0] += 1,
+	)
 	page._on_close_requested()
 	assert(said[0] == 1, "the window was closed")
 	assert(not page.visible)
@@ -366,7 +385,10 @@ func test_every_act_announces_itself_so_the_menu_line_is_not_stale() -> void:
 	var pair: Array = _set_up()
 	var page: CloseoutWindow = pair[0]
 	var seen: Array[int] = [0]
-	page.closeout_changed.connect(func() -> void: seen[0] += 1)
+	page.closeout_changed.connect(
+		func() -> void:
+			seen[0] += 1,
+	)
 	page.set_item_fields("back patio", "paver out of level", "", "Dana")
 	page._on_raise()
 	assert(seen[0] == 1, "raising an item")

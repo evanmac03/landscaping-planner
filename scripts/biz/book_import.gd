@@ -45,24 +45,54 @@ const ALIASES := {
 ## the one place a unit is defined, so "sq ft" becomes `SQ_FT` and no second list of dimensions is
 ## born here.
 const UNIT_WORDS := {
-	"each": "EACH", "ea": "EACH", "unit": "EACH", "#": "EACH",
-	"m": "LIN_M", "linm": "LIN_M", "lm": "LIN_M", "linearm": "LIN_M",
-	"metre": "LIN_M", "meter": "LIN_M", "linearmetre": "LIN_M", "linearmeter": "LIN_M",
-	"ft": "LIN_FT", "linft": "LIN_FT", "lf": "LIN_FT", "linearft": "LIN_FT",
-	"foot": "LIN_FT", "feet": "LIN_FT",
-	"m2": "SQ_M", "sqm": "SQ_M", "squaremetre": "SQ_M", "squaremeter": "SQ_M",
-	"ft2": "SQ_FT", "sqft": "SQ_FT", "squarefoot": "SQ_FT", "squarefeet": "SQ_FT",
-	"m3": "CU_M", "cum": "CU_M", "cubicmetre": "CU_M", "cubicmeter": "CU_M",
-	"yd3": "CU_YD", "cuyd": "CU_YD", "cubicyard": "CU_YD", "cubicyards": "CU_YD",
-	"yard": "CU_YD", "yards": "CU_YD",
-	"hour": "HOUR", "hr": "HOUR", "hours": "HOUR", "h": "HOUR",
-	"day": "DAY", "days": "DAY",
-	"load": "LOAD", "loads": "LOAD",
+	"each": "EACH",
+	"ea": "EACH",
+	"unit": "EACH",
+	"#": "EACH",
+	"m": "LIN_M",
+	"linm": "LIN_M",
+	"lm": "LIN_M",
+	"linearm": "LIN_M",
+	"metre": "LIN_M",
+	"meter": "LIN_M",
+	"linearmetre": "LIN_M",
+	"linearmeter": "LIN_M",
+	"ft": "LIN_FT",
+	"linft": "LIN_FT",
+	"lf": "LIN_FT",
+	"linearft": "LIN_FT",
+	"foot": "LIN_FT",
+	"feet": "LIN_FT",
+	"m2": "SQ_M",
+	"sqm": "SQ_M",
+	"squaremetre": "SQ_M",
+	"squaremeter": "SQ_M",
+	"ft2": "SQ_FT",
+	"sqft": "SQ_FT",
+	"squarefoot": "SQ_FT",
+	"squarefeet": "SQ_FT",
+	"m3": "CU_M",
+	"cum": "CU_M",
+	"cubicmetre": "CU_M",
+	"cubicmeter": "CU_M",
+	"yd3": "CU_YD",
+	"cuyd": "CU_YD",
+	"cubicyard": "CU_YD",
+	"cubicyards": "CU_YD",
+	"yard": "CU_YD",
+	"yards": "CU_YD",
+	"hour": "HOUR",
+	"hr": "HOUR",
+	"hours": "HOUR",
+	"h": "HOUR",
+	"day": "DAY",
+	"days": "DAY",
+	"load": "LOAD",
+	"loads": "LOAD",
 }
 
 ## A supplier's list longer than this is a mistake being read as a catalogue.
 const MAX_ROWS := 5000
-
 
 # --- reading the file -------------------------------------------------------------------------
 
@@ -75,7 +105,7 @@ const MAX_ROWS := 5000
 static func read_csv(text: String, currency: StringName = &"CAD") -> Dictionary:
 	var lines: PackedStringArray = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 	var header: PackedStringArray = PackedStringArray()
-	var columns: Dictionary = {}
+	var columns: Dictionary = { }
 	var rows: Array[Dictionary] = []
 	var line_number: int = 0
 	for raw: String in lines:
@@ -98,7 +128,8 @@ static func read_csv(text: String, currency: StringName = &"CAD") -> Dictionary:
 		if rows.size() >= MAX_ROWS:
 			return {
 				"ok": false,
-				"reason": "this file has more than %d price rows, which is a wrong file rather than a long one" % MAX_ROWS,
+				"reason": "this file has more than %d price rows, which is a wrong file rather than a long one"
+				% MAX_ROWS,
 				"rows": [],
 				"problems": [],
 			}
@@ -114,13 +145,13 @@ static func read_csv(text: String, currency: StringName = &"CAD") -> Dictionary:
 	for row: Dictionary in rows:
 		for problem: String in row["problems"]:
 			problems.append(problem)
-	return {"ok": true, "reason": "", "rows": rows, "problems": problems}
+	return { "ok": true, "reason": "", "rows": rows, "problems": problems }
 
 
 ## Which cell holds which field, from the heading line. A heading nobody wrote is simply absent, and
 ## a heading written twice keeps the first: a spreadsheet that names "Cost" twice is one column.
 static func _columns_of(headings: PackedStringArray) -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for index in headings.size():
 		var key: String = _column_key(headings[index])
 		for field: String in ALIASES.keys():
@@ -149,7 +180,10 @@ static func _cell(cells: PackedStringArray, columns: Dictionary, field: String) 
 
 ## One line, as a row with everything it could not tell us named.
 static func _row_of(
-	cells: PackedStringArray, columns: Dictionary, line_number: int, currency: StringName
+	cells: PackedStringArray,
+	columns: Dictionary,
+	line_number: int,
+	currency: StringName,
 ) -> Dictionary:
 	var problems: Array[String] = []
 	var id: String = _cell(cells, columns, "id")
@@ -169,9 +203,7 @@ static func _row_of(
 	else:
 		unit = _unit_for(unit_text)
 		if unit.is_empty():
-			problems.append("line %d is priced in \"%s\", which is not a unit this knows" % [
-				line_number, unit_text
-			])
+			problems.append("line %d is priced in \"%s\", which is not a unit this knows" % [line_number, unit_text])
 
 	var kind_text: String = _cell(cells, columns, "kind")
 	var kind: int = ItemScript.MATERIAL
@@ -235,25 +267,19 @@ static func _kind_for(words: String) -> int:
 static func _waste_for(words: String) -> Dictionary:
 	var text: String = words.strip_edges().replace("%", "").strip_edges()
 	if not text.is_valid_float():
-		return {"ok": false, "reason": "\"%s\" is not a percentage" % words, "ppm": 0}
+		return { "ok": false, "reason": "\"%s\" is not a percentage" % words, "ppm": 0 }
 	var percent: float = text.to_float()
 	var exact: float = percent * 10000.0
 	var ppm: int = int(round(exact))
 	if absf(exact - float(ppm)) > 0.001:
-		return {
-			"ok": false,
-			"reason": "\"%s\" states a waste finer than a hundredth of a percent" % words,
-			"ppm": 0,
-		}
+		return { "ok": false, "reason": "\"%s\" states a waste finer than a hundredth of a percent" % words, "ppm": 0 }
 	if ppm < 0 or ppm > ItemScript.MAX_WASTE_PPM:
 		return {
 			"ok": false,
-			"reason": "\"%s\" is outside 0%%..%.2f%%" % [
-				words, float(ItemScript.MAX_WASTE_PPM) / 10000.0
-			],
+			"reason": "\"%s\" is outside 0%%..%.2f%%" % [words, float(ItemScript.MAX_WASTE_PPM) / 10000.0],
 			"ppm": 0,
 		}
-	return {"ok": true, "reason": "", "ppm": ppm}
+	return { "ok": true, "reason": "", "ppm": ppm }
 
 
 static func _flat(words: String) -> String:
@@ -289,7 +315,6 @@ static func _split(line: String) -> PackedStringArray:
 	cells.append(cell)
 	return cells
 
-
 # --- the plan ---------------------------------------------------------------------------------
 
 
@@ -303,8 +328,13 @@ static func _split(line: String) -> PackedStringArray:
 static func plan(book: CostBook, rows: Array, allow_new: bool = false) -> Dictionary:
 	if book == null:
 		return {
-			"ok": false, "reason": "there is no cost book to plan against",
-			"changes": [], "unchanged": [], "unmatched": [], "created": [], "problems": [],
+			"ok": false,
+			"reason": "there is no cost book to plan against",
+			"changes": [],
+			"unchanged": [],
+			"unmatched": [],
+			"created": [],
+			"problems": [],
 			"currency": &"",
 		}
 	var changes: Array[Dictionary] = []
@@ -312,7 +342,7 @@ static func plan(book: CostBook, rows: Array, allow_new: bool = false) -> Dictio
 	var unmatched: Array[Dictionary] = []
 	var created: Array[Dictionary] = []
 	var problems: Array[String] = []
-	var taken: Dictionary = {}
+	var taken: Dictionary = { }
 
 	for row: Dictionary in rows:
 		var row_problems: Array = row["problems"]
@@ -328,27 +358,34 @@ static func plan(book: CostBook, rows: Array, allow_new: bool = false) -> Dictio
 		if matched != null:
 			var key: String = String(matched.id)
 			if taken.has(key):
-				problems.append("line %d and line %d are both about \"%s\", so one of them would win" % [
-					int(taken[key]), int(row["line"]), named
-				])
+				problems.append(
+					"line %d and line %d are both about \"%s\", so one of them would win"
+					% [int(taken[key]), int(row["line"]), named]
+				)
 				continue
 			taken[key] = int(row["line"])
 			var entry: Dictionary = _change_entry(matched, row, false)
-			if int(entry["delta_cents"]) == 0 and not bool(entry["unit_changed"]) \
-					and not bool(entry["kind_changed"]) and not bool(entry["waste_changed"]):
+			if (
+				int(entry["delta_cents"]) == 0 and not bool(entry["unit_changed"]) \
+						and not bool(entry["kind_changed"])
+				and not bool(entry["waste_changed"])
+			):
 				unchanged.append(entry)
 			else:
 				changes.append(entry)
 			continue
 
 		if not allow_new:
-			unmatched.append({
-				"line": int(row["line"]),
-				"id": String(row_id),
-				"name": row_name,
-				"cost_cents": int((row["cost"] as Money).cents),
-				"reason": "the book has no item called \"%s\", and a supplier's list is not the authority on what the catalogue holds" % named,
-			})
+			unmatched.append(
+				{
+					"line": int(row["line"]),
+					"id": String(row_id),
+					"name": row_name,
+					"cost_cents": int((row["cost"] as Money).cents),
+					"reason": "the book has no item called \"%s\", and a supplier's list is not the authority on what the catalogue holds"
+					% named,
+				}
+			)
 			continue
 		var fresh: Dictionary = _fresh_entry(book, row)
 		if not String(fresh.get("reason", "")).is_empty():
@@ -356,9 +393,9 @@ static func plan(book: CostBook, rows: Array, allow_new: bool = false) -> Dictio
 			continue
 		var fresh_id: String = String(fresh["id"])
 		if taken.has(fresh_id):
-			problems.append("line %d and line %d are both about \"%s\"" % [
-				int(taken[fresh_id]), int(row["line"]), fresh_id
-			])
+			problems.append(
+				"line %d and line %d are both about \"%s\"" % [int(taken[fresh_id]), int(row["line"]), fresh_id]
+			)
 			continue
 		taken[fresh_id] = int(row["line"])
 		created.append(fresh)
@@ -444,9 +481,9 @@ static func _fresh_entry(book: CostBook, row: Dictionary) -> Dictionary:
 	if row_id.is_empty():
 		row_id = StringName(_slug(row["name"]))
 	if row_id.is_empty():
-		return {"reason": "a new item needs an id or a name to be filed under"}
+		return { "reason": "a new item needs an id or a name to be filed under" }
 	if book.has_item(row_id):
-		return {"reason": "the book already has \"%s\"" % row_id}
+		return { "reason": "the book already has \"%s\"" % row_id }
 	var row_name: String = row["name"]
 	if row_name.is_empty():
 		row_name = String(row_id)
@@ -480,7 +517,6 @@ static func _slug(words: String) -> String:
 		return ""
 	return key.replace(" ", "-")
 
-
 # --- putting a plan into a new book ------------------------------------------------------------
 
 
@@ -493,37 +529,57 @@ static func _slug(words: String) -> String:
 ## new `CostBook`; the one it was handed is not touched, which is what keeps a stored estimate's
 ## prices frozen (REQ-B6).
 static func apply(
-	book: CostBook, change_plan: Dictionary, effective: String, who: String = "", at: int = 0
+	book: CostBook,
+	change_plan: Dictionary,
+	effective: String,
+	who: String = "",
+	at: int = 0,
 ) -> Dictionary:
 	if book == null:
-		return {"ok": false, "reason": "there is no cost book to apply a plan to", "book": null, "version": 0, "changed": 0}
+		return {
+			"ok": false,
+			"reason": "there is no cost book to apply a plan to",
+			"book": null,
+			"version": 0,
+			"changed": 0,
+		}
 	if not bool(change_plan.get("ok", false)):
 		return {
-			"ok": false, "reason": "this plan did not read: %s" % String(change_plan.get("reason", "")),
-			"book": null, "version": 0, "changed": 0,
+			"ok": false,
+			"reason": "this plan did not read: %s" % String(change_plan.get("reason", "")),
+			"book": null,
+			"version": 0,
+			"changed": 0,
 		}
 	var changes: Array = change_plan.get("changes", [])
 	var created: Array = change_plan.get("created", [])
 	if changes.is_empty() and created.is_empty():
 		return {
-			"ok": false, "reason": "this plan changes no price, so there is no new version of the book",
-			"book": null, "version": 0, "changed": 0,
+			"ok": false,
+			"reason": "this plan changes no price, so there is no new version of the book",
+			"book": null,
+			"version": 0,
+			"changed": 0,
 		}
 	if not RateScript.is_date(effective):
 		return {
 			"ok": false,
-			"reason": "\"%s\" is not a date, and a price change without one could not say which prices an estimate used" % effective,
-			"book": null, "version": 0, "changed": 0,
+			"reason": "\"%s\" is not a date, and a price change without one could not say which prices an estimate used"
+			% effective,
+			"book": null,
+			"version": 0,
+			"changed": 0,
 		}
 	for entry: Dictionary in changes + created:
 		var entry_currency: StringName = StringName(entry.get("row_currency", book.currency))
 		if entry_currency != book.currency:
 			return {
 				"ok": false,
-				"reason": "this plan is priced in %s and the book is in %s, and the two do not convert" % [
-					String(entry_currency), String(book.currency)
-				],
-				"book": null, "version": 0, "changed": 0,
+				"reason": "this plan is priced in %s and the book is in %s, and the two do not convert"
+				% [String(entry_currency), String(book.currency)],
+				"book": null,
+				"version": 0,
+				"changed": 0,
 			}
 
 	var next: CostBook = book.bump_version(effective)
@@ -549,7 +605,7 @@ static func apply(
 			StringName(entry["unit"]),
 			int(entry["after_cents"]),
 			int(entry["kind"]),
-			next.currency
+			next.currency,
 		)
 		fresh.waste_ppm = int(entry["waste_ppm"])
 		fresh.supplier = StringName(entry["supplier"])
@@ -562,9 +618,11 @@ static func apply(
 		return {
 			"ok": false,
 			"reason": "the new book would have a problem with it: %s" % String(trouble[0]),
-			"book": null, "version": 0, "changed": 0,
+			"book": null,
+			"version": 0,
+			"changed": 0,
 		}
-	return {"ok": true, "reason": "", "book": next, "version": next.version, "changed": changed}
+	return { "ok": true, "reason": "", "book": next, "version": next.version, "changed": changed }
 
 
 ## Where the new book's prices came from, written into the book itself: the first reader of a cost
@@ -581,7 +639,6 @@ static func _source_text(who: String, at: int, changed: int, created: int) -> St
 		parts.append("%d added" % created)
 	return ", ".join(parts)
 
-
 # --- what a person reads -----------------------------------------------------------------------
 
 
@@ -595,5 +652,9 @@ static func describe(change_plan: Dictionary) -> String:
 	var created: Array = change_plan.get("created", [])
 	var problems: Array = change_plan.get("problems", [])
 	return "%d repriced, %d unchanged, %d new, %d unmatched, %d unreadable" % [
-		changes.size(), unchanged.size(), created.size(), unmatched.size(), problems.size()
+		changes.size(),
+		unchanged.size(),
+		created.size(),
+		unmatched.size(),
+		problems.size(),
 	]

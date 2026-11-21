@@ -35,7 +35,6 @@ func _prop(scene_path: String, at: Vector2) -> Node3D:
 	add_child(node)
 	return node
 
-
 # --- the wobble (AC-V1, AC-V2) --------------------------------------------------------
 
 
@@ -75,12 +74,8 @@ func test_the_wobble_is_a_paper_length_not_a_model_length() -> void:
 	# paper. In model metres that means the wander scales with the plot scale, so the
 	# deviation at 1:200 is twice the deviation at 1:100.
 	var shape := _line(20.0)
-	var at_100: float = SketchStrokeScript.max_deviation(
-		shape, SketchStrokeScript.wobble(shape, 3, 100.0)
-	)
-	var at_200: float = SketchStrokeScript.max_deviation(
-		shape, SketchStrokeScript.wobble(shape, 3, 200.0)
-	)
+	var at_100: float = SketchStrokeScript.max_deviation(shape, SketchStrokeScript.wobble(shape, 3, 100.0))
+	var at_200: float = SketchStrokeScript.max_deviation(shape, SketchStrokeScript.wobble(shape, 3, 200.0))
 	# Proportional to within the sampling: the step is also a paper length, so at 1:200
 	# the samples land further apart in model metres and the worst point found is a
 	# slightly different point on the same wave. A test demanding exact equality would
@@ -113,9 +108,7 @@ func test_a_stroke_of_no_length_is_left_alone() -> void:
 func test_two_sides_of_one_shape_do_not_wobble_in_step() -> void:
 	# One seed per stroke, stepped: a rectangle whose opposite sides wandered
 	# identically would not look drawn, it would look skewed.
-	var square := PackedVector2Array([
-		Vector2.ZERO, Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0),
-	])
+	var square := PackedVector2Array([Vector2.ZERO, Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)])
 	var strokes: Array[PackedVector2Array] = [square]
 	var wobbled: Array[PackedVector2Array] = SketchStrokeScript.wobble_strokes(strokes, 9, 100.0)
 	assert(wobbled.size() == 1)
@@ -123,11 +116,8 @@ func test_two_sides_of_one_shape_do_not_wobble_in_step() -> void:
 	# Two different seeds give two different strokes, which is what stepping the seed
 	# per stroke buys.
 	var a: PackedVector2Array = SketchStrokeScript.wobble(square, 9, 100.0)
-	var b: PackedVector2Array = SketchStrokeScript.wobble(
-		square, 9 + SketchStrokeScript.SEED_STRIDE, 100.0
-	)
+	var b: PackedVector2Array = SketchStrokeScript.wobble(square, 9 + SketchStrokeScript.SEED_STRIDE, 100.0)
 	assert(a != b)
-
 
 # --- the ink pass (AC-V3) -------------------------------------------------------------
 
@@ -140,15 +130,10 @@ func test_the_painted_path_draws_the_same_geometry_as_the_working_path() -> void
 	document.add(Entity.make_line(Vector2.ZERO, Vector2(5.0, 0.0)), LayerSet.NEW_HARDSCAPE)
 	document.add(Entity.make_circle(Vector2(8.0, 0.0), 2.0), LayerSet.NEW_BED)
 	document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 3.0), Vector2(4.0, 3.0), Vector2(4.0, 6.0),
-		]), true),
-		LayerSet.NEW_TURF
+		Entity.make_polyline(PackedVector2Array([Vector2(0.0, 3.0), Vector2(4.0, 3.0), Vector2(4.0, 6.0)]), true),
+		LayerSet.NEW_TURF,
 	)
-	document.add(
-		Entity.make_dimension(Vector2(0.0, -2.0), Vector2(5.0, -2.0), 1.0, 0),
-		LayerSet.DIMENSION
-	)
+	document.add(Entity.make_dimension(Vector2(0.0, -2.0), Vector2(5.0, -2.0), 1.0, 0), LayerSet.DIMENSION)
 	var painter := InkPainterScript.new(document, 100.0, SketchStyleScript.new())
 	var painted: Array[Dictionary] = painter.parts(false)
 	var expected: int = document.plotting_entities().size()
@@ -156,16 +141,12 @@ func test_the_painted_path_draws_the_same_geometry_as_the_working_path() -> void
 	for index in expected:
 		var entity = document.plotting_entities()[index]
 		var layer = document.layers.get_layer(entity.layer)
-		var working: Dictionary = RenderScript.layout(
-			entity, layer, 100.0, document.units, null
-		)
+		var working: Dictionary = RenderScript.layout(entity, layer, 100.0, document.units, null)
 		var painted_strokes: Array = painted[index]["strokes"]
 		var working_strokes: Array = working["lines"]
 		assert(
 			painted_strokes.size() == working_strokes.size(),
-			"%s: %d painted strokes against %d working" % [
-				entity.layer, painted_strokes.size(), working_strokes.size(),
-			]
+			"%s: %d painted strokes against %d working" % [entity.layer, painted_strokes.size(), working_strokes.size()],
 		)
 		for stroke_index in working_strokes.size():
 			assert(painted_strokes[stroke_index] == working_strokes[stroke_index])
@@ -205,8 +186,7 @@ func test_a_plant_symbol_is_inked_round_the_same_ring_it_is_washed_in() -> void:
 	# show a rim of colour outside the line - which is how the round-bed bug looked.
 	var tree := _prop(PROP_TREE, Vector2(2.0, 1.0))
 	var bed := _prop(PROP_BED, Vector2(7.0, 1.0))
-	var painter := InkPainterScript.new(null, 100.0, SketchStyleScript.new(), 6.0,
-		[tree, bed] as Array[Node3D])
+	var painter := InkPainterScript.new(null, 100.0, SketchStyleScript.new(), 6.0, [tree, bed] as Array[Node3D])
 	var symbols: Array[Dictionary] = painter.symbol_parts(false)
 	assert(symbols.size() == 2, "a symbol for every planted prop with a colour")
 	for symbol: Dictionary in symbols:
@@ -225,8 +205,7 @@ func test_a_plant_symbol_is_inked_round_the_same_ring_it_is_washed_in() -> void:
 func test_an_unknown_prop_is_inked_in_nothing_rather_than_guessed() -> void:
 	var unknown := Node3D.new()
 	add_child(unknown)
-	var painter := InkPainterScript.new(null, 100.0, SketchStyleScript.new(), 6.0,
-		[unknown] as Array[Node3D])
+	var painter := InkPainterScript.new(null, 100.0, SketchStyleScript.new(), 6.0, [unknown] as Array[Node3D])
 	assert(painter.symbol_parts().is_empty())
 	painter.free()
 	unknown.free()
@@ -243,12 +222,11 @@ func test_the_ink_width_is_the_layer_weight_on_paper() -> void:
 	# The weight is the layer's own, not a number invented by the painter: the painted
 	# plan keeps the drawing's hierarchy, because the hierarchy is the drawing.
 	assert(is_equal_approx(style.plot_weight_mm, layer.plot_weight_mm))
-	assert(is_equal_approx(
-		LineStyle.model_width_m(style.plot_weight_mm, 100.0),
-		layer.plot_weight_mm * 0.1
-	), "0.50 mm at 1:100 is 50 mm of ground")
+	assert(
+		is_equal_approx(LineStyle.model_width_m(style.plot_weight_mm, 100.0), layer.plot_weight_mm * 0.1),
+		"0.50 mm at 1:100 is 50 mm of ground",
+	)
 	painter.free()
-
 
 # --- the compositor (AC-V6) -----------------------------------------------------------
 
@@ -331,22 +309,24 @@ func test_the_grain_is_not_squashed_into_nothing() -> void:
 	var look := SketchStyleScript.new()
 	var bake_density: float = look.texels_per_mm * float(look.supersample)
 	var grain_squash: float = CompositorScript.minification_for(
-		CompositorScript.GRAIN_PIXELS, look.grain_mm, bake_density
+		CompositorScript.GRAIN_PIXELS,
+		look.grain_mm,
+		bake_density,
 	)
 	var hatch_squash: float = CompositorScript.minification_for(
-		CompositorScript.HATCH_PIXELS, look.hatch_mm, bake_density
+		CompositorScript.HATCH_PIXELS,
+		look.hatch_mm,
+		bake_density,
 	)
-	assert(grain_squash <= CompositorScript.MAX_MINIFICATION,
-		"grain minified %.1fx: it will be averaged into flat paper" % grain_squash)
-	assert(hatch_squash <= CompositorScript.MAX_MINIFICATION,
-		"hatch minified %.1fx" % hatch_squash)
+	assert(
+		grain_squash <= CompositorScript.MAX_MINIFICATION,
+		"grain minified %.1fx: it will be averaged into flat paper" % grain_squash,
+	)
+	assert(hatch_squash <= CompositorScript.MAX_MINIFICATION, "hatch minified %.1fx" % hatch_squash)
 	# And the relationship is stated rather than implied: a repeat of zero gives no
 	# answer rather than an infinite one to compare against.
-	assert(is_equal_approx(
-		CompositorScript.minification_for(64, 4.0, 4.0), 4.0
-	))
+	assert(is_equal_approx(CompositorScript.minification_for(64, 4.0, 4.0), 4.0))
 	assert(CompositorScript.minification_for(64, 0.0, 6.0) == INF)
-
 
 # --- the look -------------------------------------------------------------------------
 

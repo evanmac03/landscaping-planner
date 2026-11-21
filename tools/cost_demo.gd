@@ -7,7 +7,7 @@ extends Node2D
 ## line are all the shipped ones, and it prints every step. The screenshot at the end is the cost report
 ## over the drawing the job was priced from.
 ##
-## Run `res://scenes/cost_demo.tscn`.
+## Run `res://tools/cost_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -25,9 +25,7 @@ func _ready() -> void:
 		return
 
 	print("--- a plan worth pricing: a patio and a bed ---")
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE)
 	controller.document.add(Entity.make_circle(Vector2(20, 0), 1.5), LayerSet.NEW_PLANTING)
 	print("the drawing holds ", controller.document.count(), " shapes")
 
@@ -40,11 +38,16 @@ func _ready() -> void:
 	print("the hand-off was accepted: ", started["ok"])
 	print("the Jobs menu says: ", hud._jobs_text())
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
+	var job: Job = hud._job_desk.job(job_id)
 	var code: String = job.phase_codes()[0]
-	print("the job is ", hud._job_desk.job_label(job_id), " with phases ",
-		str(job.phase_codes()), " and a contract sum of ",
-		job.contract_sum.format_with_currency())
+	print(
+		"the job is ",
+		hud._job_desk.job_label(job_id),
+		" with phases ",
+		str(job.phase_codes()),
+		" and a contract sum of ",
+		job.contract_sum.format_with_currency(),
+	)
 
 	print("--- the cost report, on the job ---")
 	hud.open_cost_window()
@@ -60,9 +63,7 @@ func _ready() -> void:
 	var budget: MoneyScript = job.phase(code)["budget"]
 	var hundreds: float = float(budget.cents) / 10000.0
 	hud._cost_window.choose_code(code)
-	hud._cost_window.set_order_fields(
-		"Greenline Nursery", "Buxus, 2 gal", "%.0f" % ceilf(hundreds * 1.2), "100.00"
-	)
+	hud._cost_window.set_order_fields("Greenline Nursery", "Buxus, 2 gal", "%.0f" % ceilf(hundreds * 1.2), "100.00")
 	print("the page says: ", hud._cost_window.order_hint())
 	var placed: Dictionary = hud._cost_window.order_material()
 	print("ordered: ", placed["ok"], "  and the page says: ", hud._cost_window.status_text())
@@ -77,8 +78,12 @@ func _ready() -> void:
 	print("invoiced and reconciled: ", hud._cost_window.close_order("PO-001"))
 
 	print("--- the customer asks for something else ---")
-	var change = hud._job_desk.make_change_order(
-		job_id, &"SITE_CONDITION", "Remove a buried wall", MoneyScript.of(120000), StringName(code)
+	var change: ChangeOrder = hud._job_desk.make_change_order(
+		job_id,
+		&"SITE_CONDITION",
+		"Remove a buried wall",
+		MoneyScript.of(120000),
+		StringName(code),
 	)
 	hud._job_desk.propose_change(change.id, "2026-06-20")
 	hud._cost_window.refresh()

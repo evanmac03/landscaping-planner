@@ -23,7 +23,6 @@ const SPOT := GradingScript.SPOT
 const CONTOUR := GradingScript.CONTOUR
 const SLOPE := GradingScript.SLOPE
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -57,15 +56,14 @@ func _arrow(controller: DraftController, from: Vector2, to: Vector2, percent: fl
 	controller.tool.click(from)
 	controller._commit(controller.tool.click(to))
 
-
 # --- the menu --------------------------------------------------------------------------
 
 
 func test_the_site_menu_offers_the_ground_s_own_heights() -> void:
 	var entries: Array[Dictionary] = HudScript.site_items()
-	var page: Dictionary = {}
-	var check: Dictionary = {}
-	var line: Dictionary = {}
+	var page: Dictionary = { }
+	var check: Dictionary = { }
+	var line: Dictionary = { }
 	for entry: Dictionary in entries:
 		match String(entry.get("id", "")):
 			"site.grading":
@@ -85,8 +83,10 @@ func test_the_site_menu_offers_the_ground_s_own_heights() -> void:
 	var hud := HudScript.new()
 	assert(hud.has_method("_menu_grading_window"), "and the method it names is there")
 	assert(hud.has_method("_menu_check_grading"), "and so is the other")
-	assert(hud.has_method("open_grading_window") and hud.has_method("is_grading_window_open"),
-		"beside the pair that opens and reports on the page")
+	assert(
+		hud.has_method("open_grading_window") and hud.has_method("is_grading_window_open"),
+		"beside the pair that opens and reports on the page",
+	)
 	hud.free()
 
 
@@ -96,16 +96,21 @@ func test_the_menu_line_says_what_is_graded_without_the_page_being_opened() -> v
 	assert(hud._grading_text() == "nothing on this drawing is graded yet", hud._grading_text())
 	_spot(controller, Vector2.ZERO, 102.35)
 	_spot(controller, Vector2(6.0, 0.0), 101.95)
-	assert(hud._grading_text() == (
-		"2 spot levels on this drawing, running from 101.95 m to 102.35 m"
-	), hud._grading_text())
+	assert(
+		hud._grading_text() == ("2 spot levels on this drawing, running from 101.95 m to 102.35 m"),
+		hud._grading_text(),
+	)
 	# And a drawing that contradicts itself about its own heights says so on the menu rather than only
 	# inside the page: a line that only reported the count would be hiding the one thing worth knowing.
 	_arrow(controller, Vector2.ZERO, Vector2(6.0, 0.0), 2.5)
-	assert(hud._grading_text() == (
-		"2 spot levels and a slope arrow on this drawing, running from 101.95 m to 102.35 m"
-		+ " - 1 the check disagrees with"
-	), hud._grading_text())
+	assert(
+		hud._grading_text()
+		== (
+			"2 spot levels and a slope arrow on this drawing, running from 101.95 m to 102.35 m"
+			+ " - 1 the check disagrees with"
+		),
+		hud._grading_text(),
+	)
 	controller.free()
 	hud.free()
 
@@ -117,8 +122,10 @@ func test_the_line_is_in_the_snapshot_every_menu_refresh_is_drawn_from() -> void
 	assert(world.has("grading"), "the snapshot carries the grading")
 	assert(String(world["grading"]) == hud._grading_text(), "and it is the same line")
 	_spot(controller, Vector2.ZERO, 1.0)
-	assert(String(hud.menu_world()["grading"]) != String(world["grading"]),
-		"so a level stamped on the drawing moves the menu")
+	assert(
+		String(hud.menu_world()["grading"]) != String(world["grading"]),
+		"so a level stamped on the drawing moves the menu",
+	)
 	controller.free()
 	hud.free()
 
@@ -133,7 +140,6 @@ func test_a_scene_with_no_drawing_still_has_a_line_to_show() -> void:
 	assert(hud._grading_window.report_text() == "the grading agrees with itself", "with nothing wrong")
 	hud.free()
 
-
 # --- the page --------------------------------------------------------------------------
 
 
@@ -144,8 +150,10 @@ func test_the_page_is_built_and_filled_without_a_window_server() -> void:
 	assert(hud._grading_window != null, "the page is built")
 	assert(not hud.is_grading_window_open(), "and not shown: a form nobody opened is not over the drawing")
 	hud._fill_grading_window()
-	assert(hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
-		str(hud._grading_window.record_texts()))
+	assert(
+		hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
+		str(hud._grading_window.record_texts()),
+	)
 	# What the page shows for the level is the controller's level in hand, so a page opened twice shows
 	# the number the designer put in it the first time.
 	controller.set_grading_level(102.35)
@@ -156,8 +164,7 @@ func test_the_page_is_built_and_filled_without_a_window_server() -> void:
 	# And once there is something on the drawing, the page lists it.
 	_spot(controller, Vector2(3.0, 4.0), 102.35)
 	hud._fill_grading_window()
-	assert(hud._grading_window.record_texts() == ["102.35 m   (3, 4)"],
-		str(hud._grading_window.record_texts()))
+	assert(hud._grading_window.record_texts() == ["102.35 m   (3, 4)"], str(hud._grading_window.record_texts()))
 	hud._grading_window.choose_record(0)
 	assert(hud._grading_window.chosen_kind() == SPOT, hud._grading_window.chosen_kind())
 	assert(hud._grading_window.remove_enabled(), "and it can be taken off from here")
@@ -174,8 +181,7 @@ func test_pressing_set_and_a_tool_reaches_the_controller() -> void:
 	assert(String(hud._grading_window.said()).contains("a level of 102.35 m"), hud._grading_window.said())
 	hud.state_grading_fall(4.0)
 	assert(is_equal_approx(controller.grading_fall_percent, 4.0), str(controller.grading_fall_percent))
-	assert(String(hud._grading_window.said()).contains("slope arrows are drawn falling 4%"),
-		hud._grading_window.said())
+	assert(String(hud._grading_window.said()).contains("slope arrows are drawn falling 4%"), hud._grading_window.said())
 	hud.arm_grading_tool(SPOT)
 	assert(controller.tool.kind == ToolScript.Kind.GRADE_SPOT, "the tool is out")
 	assert(is_equal_approx(controller.grading_level, 102.35), "with the level in hand it was given")
@@ -193,8 +199,7 @@ func test_a_tool_with_nothing_to_draw_on_is_refused_and_the_page_says_so() -> vo
 	var controller := _drawn()
 	hud._draft = controller
 	hud.arm_grading_tool("something else")
-	assert(String(hud._grading_window.said()) == "that is not a kind of grading",
-		hud._grading_window.said())
+	assert(String(hud._grading_window.said()) == "that is not a kind of grading", hud._grading_window.said())
 	controller.free()
 	hud.free()
 
@@ -208,15 +213,18 @@ func test_changing_and_taking_off_from_the_page_is_one_gesture_each() -> void:
 	hud.change_grading_level(SPOT, 1, 103.0)
 	assert(controller.document.gesture_serial() == before + 1, "one gesture")
 	assert(String(hud._grading_window.said()) == "spot level is 103.0 m", hud._grading_window.said())
-	assert(hud._grading_window.record_texts() == ["103.0 m   (0, 0)"],
-		"and the page has caught up: " + str(hud._grading_window.record_texts()))
+	assert(
+		hud._grading_window.record_texts() == ["103.0 m   (0, 0)"],
+		"and the page has caught up: " + str(hud._grading_window.record_texts()),
+	)
 	hud.remove_grading_record(SPOT, 1)
 	assert(controller.grading_spots().is_empty(), "the record is off the drawing")
 	assert(controller.document.count() == 0, "and its marks with it")
-	assert(hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
-		"and the page has caught up with that too")
-	assert(String(hud._grading_window.said()) == "spot level off the drawing, with 2 marks",
-		hud._grading_window.said())
+	assert(
+		hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
+		"and the page has caught up with that too",
+	)
+	assert(String(hud._grading_window.said()) == "spot level off the drawing, with 2 marks", hud._grading_window.said())
 	controller.free()
 	hud.free()
 
@@ -226,11 +234,9 @@ func test_a_refusal_is_said_on_the_page_rather_than_thrown() -> void:
 	var hud := _hud_for(controller)
 	hud._build_grading_window()
 	hud.change_grading_level(CONTOUR, 7, 100.0)
-	assert(String(hud._grading_window.said()) == "there is no contour 7 on this drawing",
-		hud._grading_window.said())
+	assert(String(hud._grading_window.said()) == "there is no contour 7 on this drawing", hud._grading_window.said())
 	hud.remove_grading_record(CONTOUR, 7)
-	assert(String(hud._grading_window.said()) == "there is no contour 7 on this drawing",
-		hud._grading_window.said())
+	assert(String(hud._grading_window.said()) == "there is no contour 7 on this drawing", hud._grading_window.said())
 	assert(controller.document.count() == 0, "and nothing reached the drawing")
 	controller.free()
 	hud.free()
@@ -245,10 +251,14 @@ func test_the_check_is_on_the_page_and_is_what_the_menu_counts() -> void:
 	hud._fill_grading_window()
 	var report: Dictionary = controller.grading_report()
 	assert(int((report["findings"] as Array).size()) == 1, str(report["findings"]))
-	assert(hud._grading_window.report_text().begins_with("- the arrow at (0, 0) says falling 2.5%"),
-		hud._grading_window.report_text())
-	assert(hud._grading_window.report_text().contains("the levels run from 101.95 m to 102.35 m"),
-		"and what is worth knowing follows it: " + hud._grading_window.report_text())
+	assert(
+		hud._grading_window.report_text().begins_with("- the arrow at (0, 0) says falling 2.5%"),
+		hud._grading_window.report_text(),
+	)
+	assert(
+		hud._grading_window.report_text().contains("the levels run from 101.95 m to 102.35 m"),
+		"and what is worth knowing follows it: " + hud._grading_window.report_text(),
+	)
 	assert(hud._grading_text().ends_with("1 the check disagrees with"), hud._grading_text())
 	controller.free()
 	hud.free()
@@ -265,16 +275,22 @@ func test_a_page_left_open_keeps_up_with_a_drawing_that_changes_behind_it() -> v
 	assert(hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET], "empty")
 	_spot(controller, Vector2.ZERO, 102.35)
 	hud._tick_grading_window()
-	assert(hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
-		"a page that is not up is not read again")
+	assert(
+		hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
+		"a page that is not up is not read again",
+	)
 	hud._grading_window.visible = true
 	hud._tick_grading_window()
-	assert(hud._grading_window.record_texts() == ["102.35 m   (0, 0)"],
-		"but one that is up catches up: " + str(hud._grading_window.record_texts()))
+	assert(
+		hud._grading_window.record_texts() == ["102.35 m   (0, 0)"],
+		"but one that is up catches up: " + str(hud._grading_window.record_texts()),
+	)
 	assert(controller.document.undo_last(), "now undo the level from outside the HUD")
 	hud._tick_grading_window()
-	assert(hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
-		"and the page lets the level go: " + str(hud._grading_window.record_texts()))
+	assert(
+		hud._grading_window.record_texts() == [HudScript.GradingWindowScript.NOTHING_YET],
+		"and the page lets the level go: " + str(hud._grading_window.record_texts()),
+	)
 	hud._grading_window.visible = false
 	controller.free()
 	hud.free()

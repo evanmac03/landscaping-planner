@@ -27,9 +27,7 @@ func _controller():
 
 func _with_a_bed():
 	var controller = _controller()
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED)
 	return controller
 
 
@@ -40,7 +38,6 @@ func _clean() -> void:
 	for path: String in [SCRATCH, StoreScript.revisions_path(SCRATCH)]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
-
 
 # --- where a history lives -------------------------------------------------------------
 
@@ -69,7 +66,6 @@ func test_a_history_file_is_never_offered_as_a_drawing() -> void:
 	controller.free()
 	_clean()
 
-
 # --- keeping and finding a history ------------------------------------------------------
 
 
@@ -78,9 +74,7 @@ func test_a_history_survives_the_file() -> void:
 	var controller = _with_a_bed()
 	assert(bool(controller.save_drawing(SCRATCH)["ok"]))
 	controller.capture_revision("sent to the client")
-	controller.document.add(
-		Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING
-	)
+	controller.document.add(Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING)
 	controller.capture_revision("client asked for a tree")
 	assert(controller.revisions.count() == 2)
 	controller.free()
@@ -89,8 +83,10 @@ func test_a_history_survives_the_file() -> void:
 	var reopened = _controller()
 	assert(reopened.open_drawing(SCRATCH), reopened.last_message)
 	assert(reopened.revisions.count() == 2, "the history came with the drawing")
-	assert(reopened.revisions.messages() == ["sent to the client", "client asked for a tree"],
-		str(reopened.revisions.messages()))
+	assert(
+		reopened.revisions.messages() == ["sent to the client", "client asked for a tree"],
+		str(reopened.revisions.messages()),
+	)
 	assert(reopened.revisions.record_at(1)["shapes"] == 2, "and the drawing it held")
 	# What is on the drawing is what was *saved*, not what was last recorded - and here the two differ on
 	# purpose: the tree was added and recorded after the last save. A history is read, never applied: the
@@ -140,7 +136,6 @@ func test_a_new_drawing_begins_with_no_history() -> void:
 	controller.free()
 	_clean()
 
-
 # --- putting a revision back ------------------------------------------------------------
 
 
@@ -152,9 +147,7 @@ func test_restoring_a_revision_puts_the_drawing_back_and_the_undo_puts_it_forwar
 	controller.capture_revision("sent to the client")
 	var seen: int = controller.document.count()
 	# And what happened after they saw it.
-	controller.document.add(
-		Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING
-	)
+	controller.document.add(Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING)
 	controller.capture_revision("a tree added off the cuff")
 	assert(controller.document.count() == seen + 1)
 
@@ -185,9 +178,7 @@ func test_the_rows_a_list_shows_carry_what_changed() -> void:
 	var controller = _with_a_bed()
 	assert(bool(controller.save_drawing(SCRATCH)["ok"]))
 	controller.capture_revision("the first idea")
-	controller.document.add(
-		Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING
-	)
+	controller.document.add(Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING)
 	controller.capture_revision("a tree added")
 	var rows: Array[Dictionary] = controller.revision_rows()
 	assert(rows.size() == 2)
@@ -205,7 +196,7 @@ func test_a_drawing_that_was_never_recorded_opens_with_an_empty_history() -> voi
 	_clean()
 	var controller = _with_a_bed()
 	assert(bool(controller.save_drawing(SCRATCH)["ok"]))
-	controller.capture_revision("")  # a revision, so a history file exists
+	controller.capture_revision("") # a revision, so a history file exists
 	controller.free()
 
 	# A drawing with no history file at all reads as a history with nothing in it rather than refusing

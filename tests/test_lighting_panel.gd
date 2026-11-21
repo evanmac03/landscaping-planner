@@ -11,14 +11,20 @@ const Lighting := preload("res://scripts/draft/lighting.gd")
 
 
 func _area(id: int, name: String, area: float) -> Dictionary:
-	return {"entity_id": id, "key": "bed#%d" % id, "name": name, "area_m2": area, "layer": &"400-NEW-BED"}
+	return { "entity_id": id, "key": "bed#%d" % id, "name": name, "area_m2": area, "layer": &"400-NEW-BED" }
 
 
 func _circuit(number: int, label: String, tap: int) -> Dictionary:
 	return {
-		"number": number, "label": label, "tap": tap, "kind": Lighting.WELL,
-		"kind_name": Lighting.kind_name(Lighting.WELL), "fixtures": 16, "load": 80.0,
-		"area_m2": 81.0, "verdict": "will run",
+		"number": number,
+		"label": label,
+		"tap": tap,
+		"kind": Lighting.WELL,
+		"kind_name": Lighting.kind_name(Lighting.WELL),
+		"fixtures": 16,
+		"load": 80.0,
+		"area_m2": 81.0,
+		"verdict": "will run",
 	}
 
 
@@ -26,7 +32,6 @@ func _panel():
 	var panel = PanelScript.new()
 	panel.build()
 	return panel
-
 
 # --- the area list --------------------------------------------------------------------
 
@@ -54,7 +59,6 @@ func test_a_new_list_keeps_the_choice_when_it_is_still_there() -> void:
 	assert(panel.region_key() == "bed#1", "a bed drawn elsewhere does not move the choice")
 	panel.free()
 
-
 # --- what lighting asks for -----------------------------------------------------------
 
 
@@ -65,7 +69,8 @@ func test_lighting_asks_for_the_area_the_kind_the_spacing_and_the_stagger_by_sig
 	var asked: Array = []
 	panel.light_requested.connect(
 		func(key: String, kind: String, spacing: float, staggered: bool) -> void:
-			asked.append([key, kind, spacing, staggered]))
+			asked.append([key, kind, spacing, staggered]),
+	)
 	assert(panel.light_selected())
 	assert(asked.size() == 1)
 	assert(String(asked[0][0]) == "bed#7")
@@ -111,7 +116,6 @@ func test_the_light_button_is_dead_until_there_is_an_area_and_a_transformer() ->
 	assert(not panel._light_button.disabled, "an area and a transformer")
 	panel.free()
 
-
 # --- the transformer ------------------------------------------------------------------
 
 
@@ -119,7 +123,9 @@ func test_stating_the_transformer_asks_for_what_the_drop_downs_show() -> void:
 	var panel = _panel()
 	var asked: Array = []
 	panel.transformer_requested.connect(
-		func(va: float, volts: float) -> void: asked.append([va, volts]))
+		func(va: float, volts: float) -> void:
+			asked.append([va, volts]),
+	)
 	assert(panel.state_transformer())
 	assert(asked.size() == 1)
 	assert(absf(float(asked[0][0]) - PanelScript.VA_DEFAULT) < 1.0e-9)
@@ -143,8 +149,10 @@ func test_a_transformer_that_is_not_a_conventional_value_is_shown_as_itself() ->
 	panel.set_transformer(Lighting.make_transformer(275.0, 12.0))
 	var choice := panel.transformer_choice()
 	assert(absf(float(choice["va"]) - 275.0) < 1.0e-9, "the stated capacity, not the nearest choice")
-	assert(panel._va_option.item_count == PanelScript.VA_CHOICES.size() + 1,
-		"the conventional capacities plus the stated one")
+	assert(
+		panel._va_option.item_count == PanelScript.VA_CHOICES.size() + 1,
+		"the conventional capacities plus the stated one",
+	)
 	panel.free()
 
 
@@ -156,7 +164,6 @@ func test_the_budget_line_names_what_the_transformer_buys() -> void:
 	assert(panel.budget_text().contains("25"), "twenty-five path lights: %s" % panel.budget_text())
 	assert(panel.budget_text().contains("100 VA at 12 V"), "and the transformer it is stated as")
 	panel.free()
-
 
 # --- the circuit list -----------------------------------------------------------------
 
@@ -177,7 +184,9 @@ func test_taking_a_circuit_off_asks_for_the_number_that_was_chosen() -> void:
 	assert(panel._remove_button.disabled, "so the button is dead")
 	var asked: Array = []
 	panel.remove_requested.connect(
-		func(number: int) -> void: asked.append(number))
+		func(number: int) -> void:
+			asked.append(number),
+	)
 	panel._circuit_list.select(1)
 	panel._on_circuit_selected(1)
 	assert(panel.selected_circuit_number() == 2)
@@ -196,7 +205,6 @@ func test_a_said_line_reports_what_last_happened() -> void:
 	panel.reset()
 	assert(panel.said() == "", "a reset clears the line")
 	panel.free()
-
 
 # --- the one rule ---------------------------------------------------------------------
 

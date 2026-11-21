@@ -32,7 +32,8 @@ func _drawn(count: int = 1) -> DraftController:
 	controller.snap.bind(controller.document.entities())
 	for index in count:
 		controller.document.add(
-			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE
+			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)),
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 	return controller
 

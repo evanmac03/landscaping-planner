@@ -69,13 +69,13 @@ var sheets: DraftSheetSet = SheetSetScript.new()
 ##
 ## An empty body is not "a supply of nothing": it is *nothing stated*, which is what the flow check
 ## refuses on, and what a file written before any of this existed gets.
-var irrigation: Dictionary = {}
+var irrigation: Dictionary = { }
 
 ## What the drawing is lit by, as the lighting module writes it: `{"circuits": [...], "transformer":
 ## {...}}`, with each circuit's own record shape owned by `Lighting`. It is the sibling of `irrigation`
 ## and is held the same way and for the same reasons: the module is static and does the sums, the
 ## drawing only keeps the records, and the load check refuses a circuit with no transformer stated.
-var lighting: Dictionary = {}
+var lighting: Dictionary = { }
 
 ## The ground's own heights, as the grading module writes them: `{"spots": [...], "contours": [...],
 ## "slopes": [...]}`, with each record's own shape owned by `Grading`. The fourth sibling of
@@ -85,7 +85,7 @@ var lighting: Dictionary = {}
 ## The two grading layers have been in the preset set from the beginning and nothing authored them
 ## until this did; a file written before it existed gets no levels, which is a drawing nobody has
 ## graded rather than a drawing whose levels went missing.
-var grading: Dictionary = {}
+var grading: Dictionary = { }
 
 ## The pictures lying under the drawing, as `RasterUnderlay` writes them: a scan of a surveyor's
 ## plan to trace over, an aerial photograph, the consultant's rendered concept. It is the sibling of
@@ -149,7 +149,7 @@ var site_utc_offset_hours: float = DEFAULT_SITE_UTC_OFFSET_HOURS
 var season_last_frost: int = DEFAULT_SEASON_LAST_FROST
 var season_first_frost: int = DEFAULT_SEASON_FIRST_FROST
 
-var _entities: Dictionary[int, EntityScript] = {}
+var _entities: Dictionary[int, EntityScript] = { }
 ## Insertion order, which is the tie-break inside a layer's plotting band.
 var _order: PackedInt32Array = PackedInt32Array()
 var _next_id: int = 1
@@ -165,7 +165,6 @@ func _init() -> void:
 	gestures = GestureScript.new()
 	dimension_style = DimensionStyleScript.architectural()
 	environment = ZoneMapScript.make()
-
 
 # --- entities -----------------------------------------------------------------------
 
@@ -231,7 +230,7 @@ func entities() -> Array[EntityScript]:
 	var out: Array[EntityScript] = []
 	if _order.is_empty():
 		return out
-	var rank: Dictionary = {}
+	var rank: Dictionary = { }
 	var index := 0
 	for id in _order:
 		var entity: EntityScript = _entities[id]
@@ -239,7 +238,8 @@ func entities() -> Array[EntityScript]:
 		index += 1
 	for id in _order:
 		out.append(_entities[id])
-	var by_rank := func(a: EntityScript, b: EntityScript) -> bool: return rank[a.id] < rank[b.id]
+	var by_rank := func(a: EntityScript, b: EntityScript) -> bool:
+		return rank[a.id] < rank[b.id]
 	out.sort_custom(by_rank)
 	return out
 
@@ -300,7 +300,6 @@ func entities_of_kind(kind: int) -> Array[EntityScript]:
 			out.append(entity)
 	return out
 
-
 # --- the pictures under the drawing ---------------------------------------------------
 
 
@@ -319,7 +318,7 @@ func underlay(id: int) -> Dictionary:
 	for record: Dictionary in underlays:
 		if int(record.get("id", 0)) == id:
 			return record
-	return {}
+	return { }
 
 
 func remove_underlay(id: int) -> bool:
@@ -365,7 +364,6 @@ func clear() -> void:
 	_next_id = 1
 	changed.emit()
 
-
 # --- the ground ---------------------------------------------------------------------
 
 
@@ -407,17 +405,12 @@ func read_environment_from_drawing() -> int:
 	set_environment(derived)
 	return read
 
-
 # --- the site -----------------------------------------------------------------------
 
 
 ## Where the garden is, in the shape the sun study takes.
 func site() -> Dictionary:
-	return {
-		"latitude": site_latitude,
-		"longitude": site_longitude,
-		"utc_offset_hours": site_utc_offset_hours,
-	}
+	return { "latitude": site_latitude, "longitude": site_longitude, "utc_offset_hours": site_utc_offset_hours }
 
 
 ## Move the site. One act and one undo step, the same promise a gesture makes: a site moved
@@ -428,8 +421,7 @@ func site() -> Dictionary:
 ## to save" without comparing floats itself.
 func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: float) -> bool:
 	if (
-		is_equal_approx(new_latitude, site_latitude)
-		and is_equal_approx(new_longitude, site_longitude)
+		is_equal_approx(new_latitude, site_latitude) and is_equal_approx(new_longitude, site_longitude)
 		and is_equal_approx(new_utc_offset_hours, site_utc_offset_hours)
 	):
 		return false
@@ -443,10 +435,7 @@ func set_site(new_latitude: float, new_longitude: float, new_utc_offset_hours: f
 
 ## The growing season, as the pair of frost dates that bound it.
 func season() -> Dictionary:
-	return {
-		"last_frost": season_last_frost,
-		"first_frost": season_first_frost,
-	}
+	return { "last_frost": season_last_frost, "first_frost": season_first_frost }
 
 
 ## State the growing season. One act and one undo step, the same promise `set_site` makes: a
@@ -473,7 +462,6 @@ func set_season(new_last_frost: int, new_first_frost: int) -> bool:
 ## is not a day of it, so it becomes "not stated" rather than another month's date.
 static func _season_day(day: int) -> int:
 	return day if day >= 1 and day <= 366 else 0
-
 
 # --- undo ---------------------------------------------------------------------------
 
@@ -530,7 +518,7 @@ func redo_last() -> bool:
 
 ## A complete, independent copy of the document's state.
 func snapshot() -> Dictionary:
-	var saved: Dictionary = {}
+	var saved: Dictionary = { }
 	for id in _entities:
 		saved[id] = (_entities[id] as EntityScript).to_dict()
 	var order: Array = []
@@ -558,7 +546,7 @@ func snapshot() -> Dictionary:
 func restore(state: Dictionary) -> void:
 	_entities.clear()
 	_order = PackedInt32Array()
-	var saved: Dictionary = state.get("entities", {})
+	var saved: Dictionary = state.get("entities", { })
 	for id in saved:
 		_entities[int(id)] = EntityScript.from_dict(saved[id])
 	for value in state.get("order", []):
@@ -572,7 +560,7 @@ func restore(state: Dictionary) -> void:
 	if saved_layers is RefCounted:
 		# Copy on restore, so later edits cannot reach into the stored snapshot.
 		layers = saved_layers.copy()
-	var units_state: Dictionary = state.get("units", {})
+	var units_state: Dictionary = state.get("units", { })
 	@warning_ignore("int_as_enum_without_cast")
 	units.system = int(units_state.get("system", UnitsScript.System.METRIC))
 	@warning_ignore("int_as_enum_without_cast")
@@ -584,7 +572,7 @@ func restore(state: Dictionary) -> void:
 	# rather than zeroes: zero latitude is the equator and zero longitude is Greenwich,
 	# which are two sites, and both of them wrong. A version 3 file has the latitude but
 	# not the rest, which is why the flat key is still read.
-	var site_state: Dictionary = state.get("site", {})
+	var site_state: Dictionary = state.get("site", { })
 	site_latitude = float(site_state.get("latitude", state.get("site_latitude", DEFAULT_SITE_LATITUDE)))
 	site_longitude = float(site_state.get("longitude", DEFAULT_SITE_LONGITUDE))
 	site_utc_offset_hours = float(site_state.get("utc_offset_hours", DEFAULT_SITE_UTC_OFFSET_HOURS))
@@ -601,7 +589,7 @@ func restore(state: Dictionary) -> void:
 	# empty map - which is not "average ground" but "nothing stated", and a suitability check on it
 	# says so rather than handing out verdicts about a garden it knows nothing about.
 	var env_state: Variant = state.get("environment", null)
-	environment = ZoneMapScript.from_dict(env_state if env_state is Dictionary else {})
+	environment = ZoneMapScript.from_dict(env_state if env_state is Dictionary else { })
 	# The sheet set is the newest arrival: a file written before it existed gets one sheet at the
 	# drawing's own size and scale, which is the sheet this app plotted before sets existed.
 	sheets = SheetSetScript.from_dict(state.get("sheets", null))
@@ -609,12 +597,12 @@ func restore(state: Dictionary) -> void:
 	# no zones and no supply stated - which is a drawing nobody has worked the irrigation out for, and
 	# not a garden with mysterious forty-litres-a-minute water in it.
 	var irrigation_state: Variant = state.get("irrigation", null)
-	irrigation = irrigation_state.duplicate(true) if irrigation_state is Dictionary else {}
+	irrigation = irrigation_state.duplicate(true) if irrigation_state is Dictionary else { }
 	# What the drawing is lit by is newer still, and reads the same way: a file written before it
 	# existed gets no circuits and no transformer stated, which is a drawing nobody has worked the
 	# lighting out for.
 	var lighting_state: Variant = state.get("lighting", null)
-	lighting = lighting_state.duplicate(true) if lighting_state is Dictionary else {}
+	lighting = lighting_state.duplicate(true) if lighting_state is Dictionary else { }
 	# The pictures under the drawing are the newest arrival and read the way the irrigation and the
 	# lighting do: a file written before they existed gets none, which is a drawing nobody has traced
 	# over - not a drawing with a mysterious picture in it.
@@ -628,7 +616,7 @@ func restore(state: Dictionary) -> void:
 	# existed gets no levels, which is a drawing nobody has graded rather than one whose levels went
 	# missing.
 	var grading_state: Variant = state.get("grading", null)
-	grading = grading_state.duplicate(true) if grading_state is Dictionary else {}
+	grading = grading_state.duplicate(true) if grading_state is Dictionary else { }
 	var style_state = state.get("dimension_style", null)
 	# A file written before dimensions had styles carries none, and falls back to
 	# the shipped standard rather than to something empty.
@@ -646,27 +634,28 @@ func units_snapshot() -> Dictionary:
 		"use_us_survey_foot": units.use_us_survey_foot,
 	}
 
-
 # --- persistence --------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
-	var saved: Dictionary = {}
+	var saved: Dictionary = { }
 	for id in _entities:
 		saved[id] = (_entities[id] as EntityScript).to_dict()
 	var layer_list: Array = []
 	for layer in layers.layers():
-		layer_list.append({
-			"name": String(layer.name),
-			"purpose": layer.purpose,
-			"screen_colour": layer.screen_colour.to_html(),
-			"plot_colour": layer.plot_colour.to_html(),
-			"plot_weight_mm": layer.plot_weight_mm,
-			"linetype": String(layer.linetype),
-			"plots": layer.plots,
-			"visible": layer.visible,
-			"locked": layer.locked,
-		})
+		layer_list.append(
+			{
+				"name": String(layer.name),
+				"purpose": layer.purpose,
+				"screen_colour": layer.screen_colour.to_html(),
+				"plot_colour": layer.plot_colour.to_html(),
+				"plot_weight_mm": layer.plot_weight_mm,
+				"linetype": String(layer.linetype),
+				"plots": layer.plots,
+				"visible": layer.visible,
+				"locked": layer.locked,
+			}
+		)
 	var order: Array = []
 	for id in _order:
 		order.append(id)

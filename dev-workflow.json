@@ -1,0 +1,10 @@
+{
+  "provider": "GitHub",
+  "repository": "evanmac03/landscaping-planner",
+  "validation": { "script": "tools/validate-workflow.ps1" },
+  "release": {
+    "product": "landscaping-planner",
+    "preset": "Windows Desktop",
+    "godot_version": "4.7"
+  }
+}

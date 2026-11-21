@@ -28,13 +28,7 @@ const PAID := 3
 const VOID := 4
 
 ## String keys: a StringName literal as a const Dictionary key fails the constant-expression check.
-const STATE_NAMES := {
-	"DRAFT": "draft",
-	"ISSUED": "issued",
-	"PART_PAID": "part paid",
-	"PAID": "paid",
-	"VOID": "void",
-}
+const STATE_NAMES := { "DRAFT": "draft", "ISSUED": "issued", "PART_PAID": "part paid", "PAID": "paid", "VOID": "void" }
 
 ## What a line is. The kind is not decoration: it is what the desk and the page say a line came from,
 ## and a percentage-completion invoice's single line is a different document from a milestone one.
@@ -64,8 +58,8 @@ var job: String = ""
 ## The customer and the site, copied from the job: the invoice has to print them whether or not the
 ## job is open, and a document that reaches for its customer is a document that changes when a job is
 ## edited.
-var customer: Dictionary = {}
-var site: Dictionary = {}
+var customer: Dictionary = { }
+var site: Dictionary = { }
 var currency: StringName = &"CAD"
 var issued_at: String = ""
 var due_at: String = ""
@@ -102,7 +96,6 @@ static func is_kind(candidate: int) -> bool:
 func state_name() -> String:
 	return String(STATE_NAMES.get(_state_key(state()), "draft"))
 
-
 # --- building it, before it goes out ------------------------------------------------------------
 
 
@@ -122,8 +115,15 @@ func is_editable() -> bool:
 ## Add a line: a quantity of a unit at a rate, priced by the one rounding rule Money has.
 ## Refused for a kind nobody has, for nothing to say, and for an amount that cannot be read - a line
 ## the totals cannot include is a line that disappears from the invoice.
-func add_line(kind: int, description: String, quantity_milli: int, unit: StringName, rate: Money,
-		cost_code: StringName = &"", tax_code: StringName = &"NONE") -> bool:
+func add_line(
+	kind: int,
+	description: String,
+	quantity_milli: int,
+	unit: StringName,
+	rate: Money,
+	cost_code: StringName = &"",
+	tax_code: StringName = &"NONE",
+) -> bool:
 	if not is_editable():
 		return false
 	if not is_kind(kind):
@@ -139,23 +139,30 @@ func add_line(kind: int, description: String, quantity_milli: int, unit: StringN
 	var amount: Money = MoneyScript.round_div(rate.cents * quantity_milli, QUANTITY_MILLI, currency)
 	if not amount.is_valid() or amount.is_zero():
 		return false
-	lines.append({
-		"kind": kind,
-		"description": description,
-		"quantity_milli": quantity_milli,
-		"unit": String(unit),
-		"rate": rate.copy(),
-		"amount": amount,
-		"cost_code": String(cost_code),
-		"tax_code": String(tax_code),
-	})
+	lines.append(
+		{
+			"kind": kind,
+			"description": description,
+			"quantity_milli": quantity_milli,
+			"unit": String(unit),
+			"rate": rate.copy(),
+			"amount": amount,
+			"cost_code": String(cost_code),
+			"tax_code": String(tax_code),
+		}
+	)
 	return true
 
 
 ## Add a line that is simply an amount - a milestone, a progress claim, a change order. One each of
 ## one unit at that rate, which is how a document that bills a sum writes it.
-func add_amount(kind: int, description: String, amount: Money, cost_code: StringName = &"",
-		tax_code: StringName = &"NONE") -> bool:
+func add_amount(
+	kind: int,
+	description: String,
+	amount: Money,
+	cost_code: StringName = &"",
+	tax_code: StringName = &"NONE",
+) -> bool:
 	return add_line(kind, description, QUANTITY_MILLI, &"EACH", amount, cost_code, tax_code)
 
 
@@ -174,7 +181,7 @@ func line_count() -> int:
 
 func line(index: int) -> Dictionary:
 	if index < 0 or index >= lines.size():
-		return {}
+		return { }
 	return lines[index]
 
 
@@ -189,7 +196,6 @@ func set_retainage(amount: Money) -> bool:
 		return false
 	retainage = amount.copy()
 	return true
-
 
 # --- what it comes to ---------------------------------------------------------------------------
 
@@ -206,7 +212,7 @@ func subtotal() -> Money:
 ## code exactly what the published table says.
 func tax_lines() -> Array[Dictionary]:
 	var order: Array[StringName] = []
-	var buckets: Dictionary = {}
+	var buckets: Dictionary = { }
 	for entry in lines:
 		var code: StringName = StringName(entry.get("tax_code", "NONE"))
 		if not buckets.has(code):
@@ -218,14 +224,16 @@ func tax_lines() -> Array[Dictionary]:
 	for code in order:
 		var taxable: Money = MoneyScript.sum(buckets[code], currency)
 		var grossed: Dictionary = TaxScript.gross(taxable, code)
-		out.append({
-			"tax_code": code,
-			"taxable": taxable,
-			"tax": grossed["tax"],
-			"components": grossed["components"],
-			"ok": bool(grossed["ok"]),
-			"reason": String(grossed["reason"]),
-		})
+		out.append(
+			{
+				"tax_code": code,
+				"taxable": taxable,
+				"tax": grossed["tax"],
+				"components": grossed["components"],
+				"ok": bool(grossed["ok"]),
+				"reason": String(grossed["reason"]),
+			}
+		)
 	return out
 
 
@@ -302,7 +310,6 @@ func totals() -> Dictionary:
 		"balance": balance(),
 	}
 
-
 # --- issuing, paying, voiding -------------------------------------------------------------------
 
 
@@ -311,27 +318,30 @@ func totals() -> Dictionary:
 ## and for one whose totals do not read - an invoice that cannot add up must not go out.
 func issue(at: String, net_days: int, invoice_number: String) -> Dictionary:
 	if is_void():
-		return {"ok": false, "reason": "a voided invoice is never reissued - a fresh one is"}
+		return { "ok": false, "reason": "a voided invoice is never reissued - a fresh one is" }
 	if is_issued():
-		return {"ok": false, "reason": "an invoice is never edited after issue: %s went out on %s" % [number, issued_at]}
+		return {
+			"ok": false,
+			"reason": "an invoice is never edited after issue: %s went out on %s" % [number, issued_at],
+		}
 	if lines.is_empty():
-		return {"ok": false, "reason": "an invoice with nothing on it"}
+		return { "ok": false, "reason": "an invoice with nothing on it" }
 	if invoice_number.strip_edges().is_empty():
-		return {"ok": false, "reason": "an invoice with no number"}
+		return { "ok": false, "reason": "an invoice with no number" }
 	if not RateScript.is_date(at):
-		return {"ok": false, "reason": "an issue date that is not a date: '%s'" % at}
+		return { "ok": false, "reason": "an issue date that is not a date: '%s'" % at }
 	if net_days < 0 or net_days > MAX_TERMS_DAYS:
-		return {"ok": false, "reason": "terms of %d days, which nobody agreed to" % net_days}
+		return { "ok": false, "reason": "terms of %d days, which nobody agreed to" % net_days }
 	var due: String = add_days(at, net_days)
 	if due.is_empty():
-		return {"ok": false, "reason": "the terms could not be turned into a due date"}
+		return { "ok": false, "reason": "the terms could not be turned into a due date" }
 	if not total().is_valid():
-		return {"ok": false, "reason": "the totals do not read, so this cannot go out"}
+		return { "ok": false, "reason": "the totals do not read, so this cannot go out" }
 	issued_at = at
 	terms_days = net_days
 	number = invoice_number
 	due_at = due
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Apply a payment. Refused for a payment that is not sound, for one that names another invoice, for
@@ -341,32 +351,30 @@ func issue(at: String, net_days: int, invoice_number: String) -> Dictionary:
 ## wrong, and clamping it hides both until the customer's bookkeeper finds it (spec §9.4).
 func apply_payment(payment: Payment) -> Dictionary:
 	if payment == null:
-		return {"ok": false, "reason": "there is no payment to apply"}
+		return { "ok": false, "reason": "there is no payment to apply" }
 	if not payment.is_sound():
-		return {"ok": false, "reason": payment.problem()}
+		return { "ok": false, "reason": payment.problem() }
 	if payment.invoice != id:
-		return {"ok": false, "reason": "that payment names another invoice"}
+		return { "ok": false, "reason": "that payment names another invoice" }
 	if is_void():
-		return {"ok": false, "reason": "this invoice was voided and takes no payment"}
+		return { "ok": false, "reason": "this invoice was voided and takes no payment" }
 	if not is_issued():
-		return {"ok": false, "reason": "this invoice has not been issued yet"}
+		return { "ok": false, "reason": "this invoice has not been issued yet" }
 	if payment_by_id(payment.id) != null:
-		return {"ok": false, "reason": "that payment is already against this invoice"}
+		return { "ok": false, "reason": "that payment is already against this invoice" }
 	if payment.amount.currency != currency:
-		return {"ok": false, "reason": "that payment is in another currency"}
+		return { "ok": false, "reason": "that payment is in another currency" }
 	var owed: Money = balance()
 	if not owed.is_valid():
-		return {"ok": false, "reason": "the balance is not a readable number"}
+		return { "ok": false, "reason": "the balance is not a readable number" }
 	if payment.amount.cents > owed.cents:
 		return {
 			"ok": false,
-			"reason": "a payment of %s is more than the %s outstanding, which is a duplicate or a typo rather than an overpayment" % [
-				payment.amount.format_with_currency(),
-				owed.format_with_currency(),
-			],
+			"reason": "a payment of %s is more than the %s outstanding, which is a duplicate or a typo rather than an overpayment"
+			% [payment.amount.format_with_currency(), owed.format_with_currency()],
 		}
 	payments.append(payment)
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Void it: keep the number, say when and why, and name what replaces it.
@@ -391,7 +399,6 @@ func voided_text() -> String:
 	if not replaces.strip_edges().is_empty():
 		text += " (reissued as %s)" % replaces
 	return text
-
 
 # --- numbering ----------------------------------------------------------------------------------
 
@@ -459,7 +466,6 @@ static func add_days(date: String, days: int) -> String:
 	var start: int = Time.get_unix_time_from_datetime_string(date)
 	return Time.get_date_string_from_unix_time(start + days * SECONDS_PER_DAY)
 
-
 # --- soundness ----------------------------------------------------------------------------------
 
 
@@ -493,10 +499,9 @@ func problems() -> Array[String]:
 	var paid: Money = applied()
 	var owed: Money = total()
 	if paid.is_valid() and owed.is_valid() and paid.cents > owed.cents:
-		out.append("%s has been paid against a total of %s" % [
-			paid.format_with_currency(),
-			owed.format_with_currency(),
-		])
+		out.append(
+			"%s has been paid against a total of %s" % [paid.format_with_currency(), owed.format_with_currency()]
+		)
 	return out
 
 
@@ -523,23 +528,24 @@ func describe() -> String:
 		parts.append("%s to %s" % [issued_at, due_at])
 	return ", ".join(parts)
 
-
 # --- persistence --------------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var rows: Array = []
 	for entry in lines:
-		rows.append({
-			"kind": _kind_key(int(entry.get("kind", MILESTONE_LINE))),
-			"description": String(entry.get("description", "")),
-			"quantity_milli": int(entry.get("quantity_milli", QUANTITY_MILLI)),
-			"unit": String(entry.get("unit", "EACH")),
-			"rate": (entry.get("rate", MoneyScript.zero(currency)) as Money).to_dict(),
-			"amount": (entry.get("amount", MoneyScript.zero(currency)) as Money).to_dict(),
-			"cost_code": String(entry.get("cost_code", "")),
-			"tax_code": String(entry.get("tax_code", "NONE")),
-		})
+		rows.append(
+			{
+				"kind": _kind_key(int(entry.get("kind", MILESTONE_LINE))),
+				"description": String(entry.get("description", "")),
+				"quantity_milli": int(entry.get("quantity_milli", QUANTITY_MILLI)),
+				"unit": String(entry.get("unit", "EACH")),
+				"rate": (entry.get("rate", MoneyScript.zero(currency)) as Money).to_dict(),
+				"amount": (entry.get("amount", MoneyScript.zero(currency)) as Money).to_dict(),
+				"cost_code": String(entry.get("cost_code", "")),
+				"tax_code": String(entry.get("tax_code", "NONE")),
+			}
+		)
 	var paid: Array = []
 	for entry in payments:
 		paid.append(entry.to_dict())
@@ -577,10 +583,10 @@ static func from_dict(data: Dictionary) -> Invoice:
 		return null
 	invoice.number = String(data.get("number", ""))
 	invoice.job = String(data.get("job", ""))
-	var customer_in = data.get("customer", {})
-	invoice.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else {}
-	var site_in = data.get("site", {})
-	invoice.site = (site_in as Dictionary).duplicate(true) if site_in is Dictionary else {}
+	var customer_in = data.get("customer", { })
+	invoice.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else { }
+	var site_in = data.get("site", { })
+	invoice.site = (site_in as Dictionary).duplicate(true) if site_in is Dictionary else { }
 	invoice.currency = StringName(data.get("currency", "CAD"))
 	invoice.issued_at = String(data.get("issued_at", ""))
 	invoice.due_at = String(data.get("due_at", ""))
@@ -591,17 +597,19 @@ static func from_dict(data: Dictionary) -> Invoice:
 	if lines_in is Array:
 		for entry in (lines_in as Array):
 			if entry is Dictionary:
-				invoice.lines.append({
-					"kind": _kind_from(String(entry.get("kind", "MILESTONE"))),
-					"description": String(entry.get("description", "")),
-					"quantity_milli": int(entry.get("quantity_milli", QUANTITY_MILLI)),
-					"unit": String(entry.get("unit", "EACH")),
-					"rate": MoneyScript.from_dict(entry.get("rate", {})),
-					"amount": MoneyScript.from_dict(entry.get("amount", {})),
-					"cost_code": String(entry.get("cost_code", "")),
-					"tax_code": String(entry.get("tax_code", "NONE")),
-				})
-	invoice.retainage = MoneyScript.from_dict(data.get("retainage", {}))
+				invoice.lines.append(
+					{
+						"kind": _kind_from(String(entry.get("kind", "MILESTONE"))),
+						"description": String(entry.get("description", "")),
+						"quantity_milli": int(entry.get("quantity_milli", QUANTITY_MILLI)),
+						"unit": String(entry.get("unit", "EACH")),
+						"rate": MoneyScript.from_dict(entry.get("rate", { })),
+						"amount": MoneyScript.from_dict(entry.get("amount", { })),
+						"cost_code": String(entry.get("cost_code", "")),
+						"tax_code": String(entry.get("tax_code", "NONE")),
+					}
+				)
+	invoice.retainage = MoneyScript.from_dict(data.get("retainage", { }))
 	var paid_in = data.get("payments", [])
 	if paid_in is Array:
 		for entry in (paid_in as Array):
@@ -618,28 +626,40 @@ static func from_dict(data: Dictionary) -> Invoice:
 
 static func _state_key(state_key: int) -> String:
 	match state_key:
-		ISSUED: return "ISSUED"
-		PART_PAID: return "PART_PAID"
-		PAID: return "PAID"
-		VOID: return "VOID"
+		ISSUED:
+			return "ISSUED"
+		PART_PAID:
+			return "PART_PAID"
+		PAID:
+			return "PAID"
+		VOID:
+			return "VOID"
 	return "DRAFT"
 
 
 static func _kind_key(kind: int) -> String:
 	match kind:
-		PERCENTAGE_LINE: return "PERCENTAGE"
-		PERIOD_LINE: return "PERIOD"
-		CHANGE_LINE: return "CHANGE"
-		FIXED_LINE: return "FIXED"
+		PERCENTAGE_LINE:
+			return "PERCENTAGE"
+		PERIOD_LINE:
+			return "PERIOD"
+		CHANGE_LINE:
+			return "CHANGE"
+		FIXED_LINE:
+			return "FIXED"
 	return "MILESTONE"
 
 
 static func _kind_from(key: String) -> int:
 	match key:
-		"PERCENTAGE": return PERCENTAGE_LINE
-		"PERIOD": return PERIOD_LINE
-		"CHANGE": return CHANGE_LINE
-		"FIXED": return FIXED_LINE
+		"PERCENTAGE":
+			return PERCENTAGE_LINE
+		"PERIOD":
+			return PERIOD_LINE
+		"CHANGE":
+			return CHANGE_LINE
+		"FIXED":
+			return FIXED_LINE
 	return MILESTONE_LINE
 
 

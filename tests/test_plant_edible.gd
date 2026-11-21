@@ -8,9 +8,9 @@ extends Node
 ## hold the two halves of that - the field round-trips and refuses what is wrong, and silence is a
 ## real answer.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const BrowserScript := preload("res://scripts/plant_browser.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const BrowserScript := preload("res://scripts/plants/plant_browser.gd")
 
 
 ## A shrub with nothing said about food: the ordinary entry in the catalogue.
@@ -21,7 +21,12 @@ func _plain() -> PlantSpecies:
 ## A crop with every food field stated: tomatoes.
 func _tomato() -> PlantSpecies:
 	var plant: PlantSpecies = SpeciesScript.make(
-		&"tomato", "Solanum lycopersicum", "Tomato", 150, 60, SpeciesScript.ANNUAL
+		&"tomato",
+		"Solanum lycopersicum",
+		"Tomato",
+		150,
+		60,
+		SpeciesScript.ANNUAL,
 	)
 	plant.edible_parts = SpeciesScript.EAT_FRUIT
 	plant.family = SpeciesScript.NIGHTSHADE
@@ -30,7 +35,6 @@ func _tomato() -> PlantSpecies:
 	for month: int in range(7, 10):
 		plant.set_harvests_in(month, true)
 	return plant
-
 
 # --- silence is a real answer ---------------------------------------------------------------
 
@@ -46,7 +50,6 @@ func test_a_plant_that_says_nothing_about_food_is_still_a_valid_plant() -> void:
 	assert(plant.maturity_text() == "", "no time to maturity")
 	assert(plant.crop_text() == "", "and nothing to say about it as food")
 
-
 # --- what is eaten --------------------------------------------------------------------------
 
 
@@ -60,7 +63,6 @@ func test_the_parts_eaten_read_the_way_a_person_says_them() -> void:
 	var both: PlantSpecies = _plain()
 	both.edible_parts = SpeciesScript.EAT_FRUIT | SpeciesScript.EAT_LEAF
 	assert(both.edible_parts_text() == "leaf, fruit", both.edible_parts_text())
-
 
 # --- the harvest window, and the new year ---------------------------------------------------
 
@@ -89,7 +91,6 @@ func test_the_whole_year_is_all_year_and_a_month_out_of_range_is_ignored() -> vo
 	kale.set_harvests_in(0, true)
 	assert(kale.harvest_months == before, "a month nobody has is not a month")
 
-
 # --- the sun it needs, and how long it takes ------------------------------------------------
 
 
@@ -110,9 +111,8 @@ func test_the_crop_line_gathers_what_the_catalogue_says() -> void:
 	var tomato: PlantSpecies = _tomato()
 	assert(
 		tomato.crop_text() == "fruit; harvested July-September; nightshade; 6 hours of sun; 75 days to maturity",
-		tomato.crop_text()
+		tomato.crop_text(),
 	)
-
 
 # --- what is refused ------------------------------------------------------------------------
 
@@ -141,7 +141,6 @@ func test_a_fault_is_named_rather_than_stored() -> void:
 
 	assert(plant.is_valid(), "and it is sound once each fault is taken back: %s" % plant.problem())
 
-
 # --- surviving the file ---------------------------------------------------------------------
 
 
@@ -167,15 +166,19 @@ func test_a_crop_survives_the_file_as_the_crop_it_was() -> void:
 func test_an_older_file_with_no_food_fields_reads_as_an_ordinary_plant() -> void:
 	# The whole catalogue that shipped before this feature: a row with none of the new keys.
 	var row: Dictionary = {
-		"id": "buxus", "botanical_name": "Buxus sempervirens", "common_name": "Boxwood",
-		"category": SpeciesScript.SHRUB, "height_cm": 200, "spread_cm": 150,
-		"sun": SpeciesScript.FULL_SUN, "water": SpeciesScript.WATER_MEDIUM,
+		"id": "buxus",
+		"botanical_name": "Buxus sempervirens",
+		"common_name": "Boxwood",
+		"category": SpeciesScript.SHRUB,
+		"height_cm": 200,
+		"spread_cm": 150,
+		"sun": SpeciesScript.FULL_SUN,
+		"water": SpeciesScript.WATER_MEDIUM,
 	}
 	var plant: PlantSpecies = SpeciesScript.from_dict(row)
 	assert(plant.is_valid(), "an old row is still valid: %s" % plant.problem())
 	assert(not plant.is_edible())
 	assert(plant.sun_hours_tenths == 0)
-
 
 # --- finding food in the catalogue ----------------------------------------------------------
 
@@ -189,12 +192,12 @@ func _food_catalogue() -> PlantCatalogue:
 
 func test_the_catalogue_can_be_asked_for_food() -> void:
 	var catalogue: PlantCatalogue = _food_catalogue()
-	assert(catalogue.unknown_criterion({"edible": true}) == "", "edible is a criterion the filter knows")
-	var found: Array[PlantSpecies] = catalogue.filter({"edible": true})
+	assert(catalogue.unknown_criterion({ "edible": true }) == "", "edible is a criterion the filter knows")
+	var found: Array[PlantSpecies] = catalogue.filter({ "edible": true })
 	assert(found.size() == 1, "only the tomato is food: %d" % found.size())
 	assert(found[0].id == &"tomato")
 	# And off, the filter is not applied at all.
-	assert(catalogue.filter({}).size() == 2, "with no filter both are there")
+	assert(catalogue.filter({ }).size() == 2, "with no filter both are there")
 
 
 func test_the_browser_narrows_to_food_and_says_so() -> void:
@@ -240,7 +243,6 @@ func test_the_detail_pane_names_what_a_plant_gives_and_what_a_person_eats() -> v
 	assert(not browser.detail_text().contains("Eats:"), "and none for what one person eats")
 	browser.free()
 
-
 # --- the shipped list carries a kitchen garden ----------------------------------------------
 
 
@@ -250,7 +252,7 @@ func test_the_shipped_list_carries_its_kitchen_garden() -> void:
 	var read: Dictionary = CatalogueScript.load_from("res://data/plants/nursery_list.json")
 	assert(bool(read["ok"]), "the shipped list loads: %s" % String(read["reason"]))
 	var catalogue: PlantCatalogue = read["catalogue"]
-	var food: Array[PlantSpecies] = catalogue.filter({"edible": true})
+	var food: Array[PlantSpecies] = catalogue.filter({ "edible": true })
 	assert(food.size() >= 10, "there is food in the list: %d" % food.size())
 	var chives: PlantSpecies = catalogue.get_species(&"allium-schoenoprasum")
 	assert(chives != null and chives.is_edible(), "chives are food")

@@ -31,10 +31,11 @@ func _hud():
 	hud._draft = controller
 	hud._build_irrigation_panel()
 	controller.document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED),
-		]), true),
-		LayerSet.NEW_BED
+		Entity.make_polyline(
+			PackedVector2Array([Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED)]),
+			true,
+		),
+		LayerSet.NEW_BED,
 	)
 	return hud
 
@@ -54,8 +55,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
-
+	return { }
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -84,7 +84,6 @@ func test_a_page_with_no_drawing_opens_nothing() -> void:
 	assert(not hud.is_water_panel_open(), "there is no drawing for a page to be about")
 	_done(hud)
 
-
 # --- what the panel's signals do ------------------------------------------------------
 
 
@@ -94,8 +93,10 @@ func test_stating_the_supply_through_the_page_states_it_on_the_drawing() -> void
 	hud._on_water_supply(120.0, 350.0)
 	assert(absf(float(hud._draft.irrigation_supply()["flow"]) - 120.0) < 0.001, "it is stated")
 	assert(hud.water_status_text().contains("120 L/min"), hud.water_status_text())
-	assert(hud.water_status_text().contains("13"), "and the budget is thirteen spray heads: %s"
-		% hud.water_status_text())
+	assert(
+		hud.water_status_text().contains("13"),
+		"and the budget is thirteen spray heads: %s" % hud.water_status_text(),
+	)
 	_done(hud)
 
 
@@ -105,8 +106,10 @@ func test_watering_through_the_page_puts_the_heads_on_the_plan() -> void:
 	var before: int = hud._draft.document.count()
 	var row: Dictionary = hud._draft.waterable_areas()[0]
 	hud._on_water_area(String(row["key"]), Irrigation.SPRAY, Irrigation.throw_of_kind(Irrigation.SPRAY), false)
-	assert(hud._draft.document.count() == before + 9, "nine heads on the plan: %d"
-		% (hud._draft.document.count() - before))
+	assert(
+		hud._draft.document.count() == before + 9,
+		"nine heads on the plan: %d" % (hud._draft.document.count() - before),
+	)
 	assert(hud._draft.irrigation_zones().size() == 1, "and one zone kept with the drawing")
 	# The page reports what it just did: the verdict the controller handed back.
 	assert(hud.water_status_text().contains("Zone 1 will run"), hud.water_status_text())
@@ -143,16 +146,17 @@ func test_taking_the_zone_off_through_the_page_takes_its_heads_with_it() -> void
 	var before: int = hud._draft.document.count()
 	hud._on_water_remove(1)
 	assert(hud._draft.irrigation_zones().is_empty(), "the zone is gone")
-	assert(hud._draft.document.count() == before - 9, "and its nine heads with it: %d"
-		% (before - hud._draft.document.count()))
+	assert(
+		hud._draft.document.count() == before - 9,
+		"and its nine heads with it: %d" % (before - hud._draft.document.count()),
+	)
 	assert(hud.water_status_text().contains("off the drawing"), hud.water_status_text())
 	_done(hud)
 
 
 func test_the_menu_line_reports_the_supply_and_the_zones() -> void:
 	var hud = _hud()
-	assert(hud._water_text().contains("nothing on this drawing is watered yet"),
-		hud._water_text())
+	assert(hud._water_text().contains("nothing on this drawing is watered yet"), hud._water_text())
 	assert(hud._water_text().contains("no supply stated"), hud._water_text())
 	hud._on_water_supply(120.0, 350.0)
 	var row: Dictionary = hud._draft.waterable_areas()[0]

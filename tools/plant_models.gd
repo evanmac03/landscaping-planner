@@ -41,7 +41,7 @@ const IDS := ["conifer", "grass", "groundcover", "vine", "fern", "perennial"]
 
 ## One material per colour for the whole build, so a model with fourteen blades is not fourteen
 ## materials in the file.
-static var _materials: Dictionary = {}
+static var _materials: Dictionary = { }
 
 
 ## The path a model is written to.
@@ -91,7 +91,6 @@ static func build(id: String) -> Node3D:
 		"perennial":
 			return _build_perennial()
 	return null
-
 
 # --- the models --------------------------------------------------------------------------------
 
@@ -171,7 +170,7 @@ static func _build_vine() -> Node3D:
 		var pos := Vector3(
 			side * (0.16 + 0.10 * float(i % 3) / 2.0),
 			0.32 + 0.20 * float(i),
-			0.12 * float((i * 5) % 3) - 0.12
+			0.12 * float((i * 5) % 3) - 0.12,
 		)
 		_part(root, "Leaf%d" % (i + 1), _sphere(0.20, 0.40), LEAF, pos, _squash(0.55))
 	return root
@@ -215,8 +214,12 @@ static func _build_perennial() -> Node3D:
 	# The bed's own ground: 2.60 m across and 1.40 m deep, flat, because a bed is flat. An ellipsoid
 	# rather than a box so the bed has no corner a plant would never grow in.
 	_part(
-		root, "Soil", _sphere(1.30, 1.30), SOIL, Vector3(0.0, 0.12, 0.0),
-		Basis.from_scale(Vector3(1.0, 0.16, 1.4 / 2.6))
+		root,
+		"Soil",
+		_sphere(1.30, 1.30),
+		SOIL,
+		Vector3(0.0, 0.12, 0.0),
+		Basis.from_scale(Vector3(1.0, 0.16, 1.4 / 2.6)),
 	)
 	# Two rows of leaves over it, planted from the index so a rebuild is the same bed.
 	for i: int in range(12):
@@ -238,7 +241,6 @@ static func _build_perennial() -> Node3D:
 		_part(root, "Stem%d" % (i + 1), _cone(0.014, height, 5), FROND, Vector3(x, height * 0.5 + 0.12, z))
 		_part(root, "Bloom%d" % (i + 1), _sphere(0.075, 0.15), BLOOM, Vector3(x, height + 0.18, z))
 	return root
-
 
 # --- writing it out ----------------------------------------------------------------------------
 
@@ -267,17 +269,16 @@ static func _write(root: Node3D, path: String) -> Dictionary:
 	var state := GLTFState.new()
 	var appended: int = doc.append_from_scene(root, state)
 	if appended != OK:
-		return {"ok": false, "reason": "the model would not append (%d)" % appended, "bytes": 0, "path": path}
+		return { "ok": false, "reason": "the model would not append (%d)" % appended, "bytes": 0, "path": path }
 	var written: int = doc.write_to_filesystem(state, path)
 	if written != OK:
-		return {"ok": false, "reason": "the model would not be written (%d)" % written, "bytes": 0, "path": path}
+		return { "ok": false, "reason": "the model would not be written (%d)" % written, "bytes": 0, "path": path }
 	var bytes: int = 0
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f != null:
 		bytes = f.get_length()
 		f.close()
-	return {"ok": true, "reason": "", "bytes": bytes, "path": path}
-
+	return { "ok": true, "reason": "", "bytes": bytes, "path": path }
 
 # --- primitives --------------------------------------------------------------------------------
 
@@ -294,7 +295,7 @@ static func _part(
 	mesh: Mesh,
 	colour: Color,
 	pos: Vector3,
-	basis: Basis = Basis.IDENTITY
+	basis: Basis = Basis.IDENTITY,
 ) -> MeshInstance3D:
 	var part := MeshInstance3D.new()
 	part.name = part_name

@@ -12,10 +12,10 @@ extends Node
 
 const HudScript := preload("res://scripts/hud.gd")
 const ViewControllerScript := preload("res://scripts/view_controller.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
-const OrderWindowScript := preload("res://scripts/plant_order_window.gd")
+const OrderWindowScript := preload("res://scripts/plants/plant_order_window.gd")
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")
@@ -29,7 +29,6 @@ const SEED := "res://data/plants/nursery_list.json"
 const MAPLE := &"acer-rubrum-autumn-blaze"
 const RUDBECKIA := &"rudbeckia-fulgida-goldsturm"
 const NURSERY := "Greenwood Nursery"
-
 
 # --- helpers ---------------------------------------------------------------------------------
 
@@ -82,7 +81,7 @@ func _desk() -> DeskScript:
 
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	var line: LineScript = LineScript.new()
 	line.cost_code = OrderScript.PLANTING_CODE
 	line.kind = ItemScript.MATERIAL
@@ -93,13 +92,12 @@ func _estimate() -> EstimateScript:
 	estimate.lines.append(line)
 	return estimate
 
-
 # --- the menu --------------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_the_nursery_order() -> void:
 	var entries: Array[Dictionary] = HudScript.plant_items()
-	var order: Dictionary = {}
+	var order: Dictionary = { }
 	for entry: Dictionary in entries:
 		if String(entry.get("id", "")) == "plant.order":
 			order = entry
@@ -109,11 +107,12 @@ func test_the_plant_menu_offers_the_nursery_order() -> void:
 	assert(StringName(order["needs"]) == HudScript.NEEDS_DRAFT, "which needs a drawing to plant")
 	var hud := HudScript.new()
 	assert(hud.has_method("_menu_plant_order_window"), "and the method it names is there")
-	assert(hud.has_method("open_plant_order_window") and hud.has_method("is_plant_order_window_open"),
-		"beside the pair that opens and reports on the page")
+	assert(
+		hud.has_method("open_plant_order_window") and hud.has_method("is_plant_order_window_open"),
+		"beside the pair that opens and reports on the page",
+	)
 	assert(hud.has_method("write_plant_order"), "and the write, reachable without a page")
 	hud.free()
-
 
 # --- what the drawing plants -----------------------------------------------------------------
 
@@ -127,8 +126,10 @@ func test_a_scene_with_no_yard_has_nothing_to_order() -> void:
 	assert(not hud.is_plant_order_window_open(), "and not shown: a form nobody opened is not over the plan")
 	hud._fill_plant_order_window()
 	assert(hud._plant_order_window.line_count() == 0, "with nothing on it")
-	assert(hud._plant_order_window.order_hint() == OrderWindowScript.NOTHING_PLANTED,
-		hud._plant_order_window.order_hint())
+	assert(
+		hud._plant_order_window.order_hint() == OrderWindowScript.NOTHING_PLANTED,
+		hud._plant_order_window.order_hint(),
+	)
 	hud.free()
 
 
@@ -139,10 +140,14 @@ func test_the_plan_is_the_yard_s_planting_priced_from_the_price_list() -> void:
 	assert((planned["lines"] as Array).size() == 2, "two kinds standing: %d" % (planned["lines"] as Array).size())
 	assert(int(planned["plants"]) == 2, "two plants")
 	assert(int(planned["unpriced"]) == 0, "and the price list prices both: %s" % str(planned["problems"]))
-	assert(String((planned["lines"][0] as Dictionary)["words"]).begins_with("Acer rubrum"),
-		String((planned["lines"][0] as Dictionary)["words"]))
-	assert(String((planned["lines"][1] as Dictionary)["words"]).begins_with("Rudbeckia"),
-		String((planned["lines"][1] as Dictionary)["words"]))
+	assert(
+		String((planned["lines"][0] as Dictionary)["words"]).begins_with("Acer rubrum"),
+		String((planned["lines"][0] as Dictionary)["words"]),
+	)
+	assert(
+		String((planned["lines"][1] as Dictionary)["words"]).begins_with("Rudbeckia"),
+		String((planned["lines"][1] as Dictionary)["words"]),
+	)
 	hud.free()
 	yard.free()
 
@@ -152,10 +157,14 @@ func test_the_page_is_filled_from_the_yard_rather_than_from_itself() -> void:
 	var hud := _hud(yard)
 	hud._fill_plant_order_window()
 	var planned: Dictionary = hud.plant_order_plan()
-	assert(hud._plant_order_window.line_texts() == OrderScript.plan_rows(planned),
-		str(hud._plant_order_window.line_texts()))
-	assert(hud._plant_order_window.summary_text() == OrderScript.summary(planned),
-		hud._plant_order_window.summary_text())
+	assert(
+		hud._plant_order_window.line_texts() == OrderScript.plan_rows(planned),
+		str(hud._plant_order_window.line_texts()),
+	)
+	assert(
+		hud._plant_order_window.summary_text() == OrderScript.summary(planned),
+		hud._plant_order_window.summary_text(),
+	)
 	assert(hud._plant_order_window.line_count() == 2, "two rows")
 	hud.free()
 	yard.free()
@@ -168,7 +177,6 @@ func test_building_the_page_twice_builds_it_once() -> void:
 	hud._build_plant_order_window()
 	assert(hud._plant_order_window == first, "the same page, not a second one")
 	hud.free()
-
 
 # --- the write -------------------------------------------------------------------------------
 
@@ -200,8 +208,10 @@ func test_a_draft_moves_nothing_of_what_the_job_has_committed() -> void:
 	var job_id: String = desk.jobs[0].id
 	assert((desk.cost_report(job_id).totals()["committed"] as MoneyScript).cents == 0, "nothing yet")
 	hud.write_plant_order(job_id, NURSERY)
-	assert((desk.cost_report(job_id).totals()["committed"] as MoneyScript).cents == 0,
-		"and a draft still commits nothing")
+	assert(
+		(desk.cost_report(job_id).totals()["committed"] as MoneyScript).cents == 0,
+		"and a draft still commits nothing",
+	)
 	hud.free()
 	yard.free()
 
@@ -215,8 +225,10 @@ func test_the_page_asks_for_the_order_and_the_hud_writes_it() -> void:
 	assert(not hud._plant_order_window.order_enabled(), "no nursery named yet")
 	hud._on_plant_order_requested(desk.jobs[0].id, NURSERY)
 	assert(desk.purchase_orders.size() == 1, "the order is on the desk")
-	assert(String(hud._plant_order_window.said()).begins_with("written, and waiting to be issued: "),
-		hud._plant_order_window.said())
+	assert(
+		String(hud._plant_order_window.said()).begins_with("written, and waiting to be issued: "),
+		hud._plant_order_window.said(),
+	)
 	assert(String(hud._plant_order_window.said()).contains(NURSERY), hud._plant_order_window.said())
 	hud.free()
 	yard.free()
@@ -231,12 +243,10 @@ func test_a_refusal_is_said_on_the_page_rather_than_thrown() -> void:
 	var desk: DeskScript = _desk()
 	hud._job_desk = desk
 	hud._on_plant_order_requested(desk.jobs[0].id, "")
-	assert(String(hud._plant_order_window.said()).contains("which nursery"),
-		hud._plant_order_window.said())
+	assert(String(hud._plant_order_window.said()).contains("which nursery"), hud._plant_order_window.said())
 	assert(desk.purchase_orders.is_empty(), "and nothing reached the desk")
 	hud.free()
 	yard.free()
-
 
 # --- the page while it is up -------------------------------------------------------------------
 
@@ -252,10 +262,14 @@ func test_a_page_left_open_keeps_up_with_plants_put_down_behind_it() -> void:
 	assert(hud._plant_order_window.line_count() == 2, "a page that is not up is not read again")
 	hud._plant_order_window.visible = true
 	hud._tick_plant_order_window()
-	assert(String(hud._plant_order_window.line_texts()[0]).begins_with("2 x Acer rubrum"),
-		String(hud._plant_order_window.line_texts()[0]))
-	assert(hud._plant_order_window.line_count() == 2, "and still one row per kind: %d"
-		% hud._plant_order_window.line_count())
+	assert(
+		String(hud._plant_order_window.line_texts()[0]).begins_with("2 x Acer rubrum"),
+		String(hud._plant_order_window.line_texts()[0]),
+	)
+	assert(
+		hud._plant_order_window.line_count() == 2,
+		"and still one row per kind: %d" % hud._plant_order_window.line_count(),
+	)
 	hud._plant_order_window.visible = false
 	hud.free()
 	yard.free()

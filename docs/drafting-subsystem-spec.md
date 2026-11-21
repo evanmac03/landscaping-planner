@@ -141,7 +141,7 @@ the corner itself - MUST be refused rather than guessed.
 
 ### 2.1b The planting labels, as built
 
-**Built and tested**: `scripts/plant_labels.gd` (the words and the places) and
+**Built and tested**: `scripts/plants/plant_labels.gd` (the words and the places) and
 `DraftController.label_planting` (writing them), 16 tests in
 `tests/test_plant_labels.gd`. Reached from the Plant menu.
 

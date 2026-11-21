@@ -39,10 +39,14 @@ func test_plan_canvas_orientation_matches_the_overhead_camera() -> void:
 	canvas.apply_view(Vector2.ZERO, 23.0, Vector2(1600.0, 900.0))
 	# Screen +y is world +z (south) and screen +x is world +x (east), so world -Z
 	# reads as "up" the plan exactly as it does through the 3D camera.
-	assert(canvas.world_to_screen(Vector3(0.0, 0.0, -5.0)).y < \
-		canvas.world_to_screen(Vector3(0.0, 0.0, 5.0)).y)
-	assert(canvas.world_to_screen(Vector3(-5.0, 0.0, 0.0)).x < \
-		canvas.world_to_screen(Vector3(5.0, 0.0, 0.0)).x)
+	assert(
+		canvas.world_to_screen(Vector3(0.0, 0.0, -5.0)).y < \
+				canvas.world_to_screen(Vector3(0.0, 0.0, 5.0)).y
+	)
+	assert(
+		canvas.world_to_screen(Vector3(-5.0, 0.0, 0.0)).x < \
+				canvas.world_to_screen(Vector3(5.0, 0.0, 0.0)).x
+	)
 	canvas.free()
 
 
@@ -80,8 +84,10 @@ func test_unknown_prop_still_gets_a_usable_footprint() -> void:
 
 func test_plan_colours_are_keyed_by_the_3d_material() -> void:
 	var lawn: Material = load("res://resources/materials/lawn.tres")
-	assert(PlanStyle.colour_for_material(lawn) == \
-		PlanStyle.COLOURS["res://resources/materials/lawn.tres"])
+	assert(
+		PlanStyle.colour_for_material(lawn) == \
+				PlanStyle.COLOURS["res://resources/materials/lawn.tres"]
+	)
 	# The 3D materials are noise-textured, so their albedo is white; the plan
 	# palette has to come from the lookup rather than the material's own colour.
 	assert(PlanStyle.colour_for_material(lawn) != lawn.albedo_color)

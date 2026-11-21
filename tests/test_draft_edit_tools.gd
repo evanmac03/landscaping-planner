@@ -28,7 +28,6 @@ func _controller():
 func _line(x0: float, y0: float, x1: float, y1: float):
 	return Entity.make_line(Vector2(x0, y0), Vector2(x1, y1))
 
-
 # --- taking and leaving a command -----------------------------------------------------
 
 
@@ -76,7 +75,6 @@ func test_escape_backs_out_of_a_half_made_edit_without_losing_the_command() -> v
 	assert(controller.status().contains("pick the shape"), "but it is waiting for the first pick again")
 	controller.free()
 
-
 # --- what the status line says --------------------------------------------------------
 
 
@@ -98,7 +96,6 @@ func test_a_fillet_radius_that_is_not_a_length_is_refused() -> void:
 	assert(controller.set_fillet_radius(0.25))
 	assert(is_equal_approx(controller.fillet_radius, 0.25))
 	controller.free()
-
 
 # --- erase ------------------------------------------------------------------------
 
@@ -124,14 +121,11 @@ func test_erasing_nothing_says_so() -> void:
 
 func test_an_annotation_cannot_be_erased() -> void:
 	var controller = _controller()
-	controller.document.add(
-		Entity.make_text(Vector2(5, 0), "patio"), LayerSet.TEXT
-	)
+	controller.document.add(Entity.make_text(Vector2(5, 0), "patio"), LayerSet.TEXT)
 	controller.arm_edit(EditKind.ERASE)
 	controller.edit_at(Vector2(5, 0))
 	assert(controller.document.count() == 1, "a note is not a site feature to erase")
 	controller.free()
-
 
 # --- trim -------------------------------------------------------------------------
 
@@ -151,7 +145,6 @@ func test_trimming_cuts_a_line_where_something_crosses_it() -> void:
 	assert(found, "the piece on the far side of the pick was kept")
 	controller.free()
 
-
 # --- extend -----------------------------------------------------------------------
 
 
@@ -169,7 +162,6 @@ func test_extending_grows_a_line_to_the_shape_beyond_it() -> void:
 	assert(grown, "the line it was pointed at is still there, longer")
 	assert(controller.document.count() == 2)
 	controller.free()
-
 
 # --- offset -----------------------------------------------------------------------
 
@@ -203,7 +195,6 @@ func test_offsetting_to_the_other_side_goes_the_other_way() -> void:
 	assert(offset_found, "the pick side is the side it offsets to")
 	controller.free()
 
-
 # --- fillet -----------------------------------------------------------------------
 
 
@@ -233,7 +224,6 @@ func test_filleting_needs_two_different_lines() -> void:
 	assert(controller.document.count() == 1, "the same line twice rounds nothing")
 	assert(controller.last_message.contains("different"), "and it says why")
 	controller.free()
-
 
 # --- rotate -----------------------------------------------------------------------
 
@@ -309,7 +299,6 @@ func test_the_status_line_prompts_each_of_the_turns_three_picks() -> void:
 	assert(controller.last_message.contains("90.0"), "and it reports the angle it turned by")
 	controller.free()
 
-
 # --- the layer lock -----------------------------------------------------------------
 
 
@@ -352,8 +341,10 @@ func test_a_locked_layer_does_not_freeze_the_rest_of_the_drawing() -> void:
 	controller.arm_edit(EditKind.ERASE)
 	controller.edit_at(Vector2(5, 1.0))
 	assert(controller.document.count() == 1, "the unlocked shape was picked and erased")
-	assert(controller.document.entities()[0].layer == LayerSet.NEW_HARDSCAPE,
-		"and the locked one is the shape left alone")
+	assert(
+		controller.document.entities()[0].layer == LayerSet.NEW_HARDSCAPE,
+		"and the locked one is the shape left alone",
+	)
 	controller.free()
 
 
@@ -366,16 +357,15 @@ func test_nothing_is_drawn_onto_a_locked_layer() -> void:
 	var controller = _controller()
 	controller.set_layer(LayerSet.NEW_BED)
 	controller.document.layers.set_locked(LayerSet.NEW_BED, true)
-	controller._commit({"entity": _line(0, 0, 4, 0), "measure": null})
+	controller._commit({ "entity": _line(0, 0, 4, 0), "measure": null })
 	assert(controller.document.count() == 0, "no line was added")
 	assert(controller.last_message.contains("locked"), "and the line says why")
 	assert(controller.document.layers.is_locked(LayerSet.NEW_BED), "the lock still stands")
 	# And the very same commit lands once the lock is off, so the refusal was the lock and not the call.
 	controller.document.layers.set_locked(LayerSet.NEW_BED, false)
-	controller._commit({"entity": _line(0, 0, 4, 0), "measure": null})
+	controller._commit({ "entity": _line(0, 0, 4, 0), "measure": null })
 	assert(controller.document.count() == 1, "and it lands with the lock off")
 	controller.free()
-
 
 # --- staying out of the way -------------------------------------------------------
 
@@ -387,7 +377,6 @@ func test_an_editing_command_does_nothing_with_no_command_in_hand() -> void:
 	controller.edit_at(Vector2(5, 0))
 	assert(controller.document.count() == 1)
 	controller.free()
-
 
 # --- move and copy ------------------------------------------------------------------
 
@@ -415,8 +404,10 @@ func test_moving_replaces_the_shape_and_copying_leaves_both() -> void:
 		if entity.id != id:
 			added = entity.id
 	assert(added > 0, "the copy is its own shape on the sheet")
-	assert(controller.document.get_entity(added).point(1).is_equal_approx(Vector2(2, 5)),
-		"standing the whole offset away")
+	assert(
+		controller.document.get_entity(added).point(1).is_equal_approx(Vector2(2, 5)),
+		"standing the whole offset away",
+	)
 
 	# A move is the same three picks with the other ending: still two shapes afterwards, but the one
 	# that was picked is the one that went somewhere.
@@ -425,8 +416,10 @@ func test_moving_replaces_the_shape_and_copying_leaves_both() -> void:
 	controller.edit_at(Vector2(0, 0))
 	controller.edit_at(Vector2(0, -4))
 	assert(controller.document.count() == 2, "a move leaves the count alone")
-	assert(controller.document.get_entity(id).point(1).is_equal_approx(Vector2(2, -4)),
-		"and the shape it picked is the one that moved")
+	assert(
+		controller.document.get_entity(id).point(1).is_equal_approx(Vector2(2, -4)),
+		"and the shape it picked is the one that moved",
+	)
 	controller.free()
 
 
@@ -455,8 +448,7 @@ func test_a_click_on_the_base_point_is_a_move_of_nothing_and_is_refused() -> voi
 		controller.edit_at(Vector2(1, 0))
 		controller.edit_at(Vector2(0, 0))
 		controller.edit_at(Vector2(0, 0))
-		assert(controller.last_message.contains("nothing"),
-			"a move or copy of nothing is refused, kind %d" % kind)
+		assert(controller.last_message.contains("nothing"), "a move or copy of nothing is refused, kind %d" % kind)
 		assert(controller.document.count() == 1, "and nothing was added")
 	controller.free()
 
@@ -482,8 +474,7 @@ func test_the_status_line_prompts_each_of_a_moves_three_picks() -> void:
 	controller.edit_at(Vector2(0, 0))
 	assert(controller.status().contains("where it should go"))
 	controller.edit_at(Vector2(3, 0))
-	assert(controller.last_message.contains("moved by"),
-		"and it reports how far it went: %s" % controller.last_message)
+	assert(controller.last_message.contains("moved by"), "and it reports how far it went: %s" % controller.last_message)
 	controller.arm_edit(EditKind.COPY)
 	assert(controller.status().contains("shape to copy"))
 	controller.edit_at(Vector2(4, 0))

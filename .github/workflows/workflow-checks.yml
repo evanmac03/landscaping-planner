@@ -12,7 +12,7 @@ jobs:
   workflow:
     name: Windows workflow (${{ matrix.shell }})
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +32,59 @@ jobs:
           $destination = Join-Path $env:RUNNER_TEMP 'godot'
           Expand-Archive -LiteralPath $zip -DestinationPath $destination
           "WORKFLOW_GODOT=$(Join-Path $destination 'Godot_v4.7.2-stable_win64_console.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Import the project, so its global class names resolve
+        run: |
+          # A fresh clone has no .godot, so no class_name resolves until the project is imported
+          # once - and the first test file that preloads a `class_name extends <class_name>` script
+          # then fails to load, which exits the suite non-zero before it has run anything.
+          & $env:WORKFLOW_GODOT --headless --path . --import
+          if ($LASTEXITCODE -ne 0) { throw "The import step failed with exit code $LASTEXITCODE." }
+      - name: Run the Godot test suite
+        env:
+          # Documented in AGENTS.md: a headless run of the editor binary would otherwise bind
+          # the MCP toolkit's runtime port and claim this project's runtime entry.
+          GODOT_MCP_RUNTIME: "0"
+        run: |
+          & $env:WORKFLOW_GODOT --headless --path . res://tools/run_tests.tscn
+          if ($LASTEXITCODE -ne 0) { throw "The test suite failed with exit code $LASTEXITCODE." }
+      - name: Run the typed-declaration audit
+        env:
+          # The same reason as the suite above: a headless run of the editor binary would
+          # otherwise bind the MCP toolkit's runtime port and claim this project's runtime entry.
+          GODOT_MCP_RUNTIME: "0"
+        run: |
+          & $env:WORKFLOW_GODOT --headless --path . res://tools/tree_sitter_audit.tscn
+          if ($LASTEXITCODE -ne 0) { throw "The typed-declaration audit failed with exit code $LASTEXITCODE." }
       - name: Validate workflow, disposable Git and Godot guide
         run: |
           & .\tools\github.ps1 -Action Validate -Godot $env:WORKFLOW_GODOT
           if (-not $?) { throw 'Workflow validation failed.' }
+
+  formatting:
+    name: GDScript formatting at 120
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the verified GDScript formatter 0.28.0
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The formatter is not in this repository - the addon is gitignored and ships no binary - so the
+          # release is fetched here, pinned by version and checked against the hash measured from it.
+          $zip = Join-Path $env:RUNNER_TEMP 'gdscript-formatter.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/GDQuest/GDScript-formatter/releases/download/0.28.0/gdscript-formatter-0.28.0-windows-x86_64.exe.zip' -OutFile $zip
+          $expected = 'f4012ceb0ece52af7e0f617ceb267fee386512b51b0808f12743667b01ad7626'
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $expected) { throw 'Formatter download hash mismatch.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'gdfmt'
+          Expand-Archive -LiteralPath $zip -DestinationPath $destination
+          "WORKFLOW_FORMATTER=$(Join-Path $destination 'gdscript-formatter-0.28.0-windows-x86_64.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Check that every script is formatted
+        run: |
+          # --verify-structure is the formatter's own verdict on its transformation: without it a run writes
+          # the very output its checker refuses, which is how two files here stayed unformatted. See
+          # docs/gdscript-formatting.md.
+          & $env:WORKFLOW_FORMATTER --check --max-line-length 120 --verify-structure scripts tests tools
+          if ($LASTEXITCODE -ne 0) { throw "A file is not formatted. Run the sweep in docs/gdscript-formatting.md and commit the result." }

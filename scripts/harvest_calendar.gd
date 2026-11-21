@@ -18,14 +18,13 @@ extends RefCounted
 ## `PlantSpecies.months_run_text`, so the months a plant **blooms**, the months a crop is **harvested**
 ## and the months a calendar has something **ready** are all said the same way.
 
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 ## A year has twelve months, and the calendar is one list for each.
 const MONTHS := 12
 
 const NO_FOOD := "this plant list has no food in it yet"
 const NONE_RECORDED := "no crop in this list has a harvest time recorded"
-
 
 # --- the months ---------------------------------------------------------------------------
 
@@ -40,7 +39,6 @@ static func month_name(month: int) -> String:
 	if not is_month(month):
 		return ""
 	return PlantSpeciesScript.MONTH_NAMES[month - 1]
-
 
 # --- what is ready ------------------------------------------------------------------------
 
@@ -59,8 +57,10 @@ static func crops_in(catalogue: PlantCatalogue, month: int) -> Array[PlantSpecie
 	for plant: PlantSpecies in catalogue.all():
 		if ready(plant, month):
 			out.append(plant)
-	out.sort_custom(func(a: PlantSpecies, b: PlantSpecies) -> bool:
-		return a.display_name() < b.display_name())
+	out.sort_custom(
+		func(a: PlantSpecies, b: PlantSpecies) -> bool:
+			return a.display_name() < b.display_name(),
+	)
 	return out
 
 
@@ -70,12 +70,14 @@ static func crops_in(catalogue: PlantCatalogue, month: int) -> Array[PlantSpecie
 static func rows(catalogue: PlantCatalogue, month: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for plant: PlantSpecies in crops_in(catalogue, month):
-		out.append({
-			"id": plant.id,
-			"title": plant.display_name(),
-			"label": plant.edible_parts_text(),
-			"window": plant.harvest_text(),
-		})
+		out.append(
+			{
+				"id": plant.id,
+				"title": plant.display_name(),
+				"label": plant.edible_parts_text(),
+				"window": plant.harvest_text(),
+			}
+		)
 	return out
 
 
@@ -87,7 +89,6 @@ static func row_texts(catalogue: PlantCatalogue, month: int) -> Array[String]:
 	for row: Dictionary in rows(catalogue, month):
 		out.append("%s: %s" % [String(row["title"]), String(row["label"])])
 	return out
-
 
 # --- the year -----------------------------------------------------------------------------
 
@@ -128,7 +129,7 @@ static func busiest(catalogue: PlantCatalogue) -> Dictionary:
 		if here > best_count:
 			best_count = here
 			best_month = month
-	return {"month": best_month, "count": best_count}
+	return { "month": best_month, "count": best_count }
 
 
 ## The months that have anything ready at all, as `{first, last, months, bits}`: the first and last such
@@ -143,8 +144,8 @@ static func ready_span(catalogue: PlantCatalogue) -> Dictionary:
 			months.append(month)
 			bits |= 1 << (month - 1)
 	if months.is_empty():
-		return {"first": 0, "last": 0, "months": months, "bits": 0}
-	return {"first": months[0], "last": months[months.size() - 1], "months": months, "bits": bits}
+		return { "first": 0, "last": 0, "months": months, "bits": 0 }
+	return { "first": months[0], "last": months[months.size() - 1], "months": months, "bits": bits }
 
 
 ## The year in one sentence: "12 crops are recorded, ready May-November." A list with no food, or with
@@ -157,7 +158,9 @@ static func year_text(catalogue: PlantCatalogue) -> String:
 		return NONE_RECORDED
 	var total: int = _crop_count(catalogue)
 	return "%d crop%s are recorded, ready %s." % [
-		total, "" if total == 1 else "s", PlantSpeciesScript.months_run_text(int(span["bits"]))
+		total,
+		"" if total == 1 else "s",
+		PlantSpeciesScript.months_run_text(int(span["bits"])),
 	]
 
 
@@ -169,8 +172,10 @@ static func unstated(catalogue: PlantCatalogue) -> Array[PlantSpecies]:
 	for plant: PlantSpecies in catalogue.all():
 		if plant.is_edible() and plant.harvest_months == 0:
 			out.append(plant)
-	out.sort_custom(func(a: PlantSpecies, b: PlantSpecies) -> bool:
-		return a.display_name() < b.display_name())
+	out.sort_custom(
+		func(a: PlantSpecies, b: PlantSpecies) -> bool:
+			return a.display_name() < b.display_name(),
+	)
 	return out
 
 
@@ -185,10 +190,12 @@ static func unstated_line(catalogue: PlantCatalogue) -> String:
 		names.append(plant.display_name())
 	var one: bool = missing.size() == 1
 	return "%d crop%s %s nothing about when %s ready: %s" % [
-		missing.size(), "" if one else "s", "says" if one else "say",
-		"it is" if one else "they are", ", ".join(names)
+		missing.size(),
+		"" if one else "s",
+		"says" if one else "say",
+		"it is" if one else "they are",
+		", ".join(names),
 	]
-
 
 # --- saying it ----------------------------------------------------------------------------
 
@@ -202,7 +209,6 @@ static func describe_rows(rows_list: Array, month: int) -> String:
 	if rows_list.is_empty():
 		return "nothing is recorded as ready in %s." % name
 	return "%d crop%s ready in %s." % [rows_list.size(), "" if rows_list.size() == 1 else "s", name]
-
 
 # --- the internals ------------------------------------------------------------------------
 

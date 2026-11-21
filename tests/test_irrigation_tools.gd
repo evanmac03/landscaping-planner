@@ -24,9 +24,7 @@ func _controller():
 
 ## A nine metre square: two throws each way, so a spray zone comes out the textbook nine heads.
 func _bed(metres: float = 9.0) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres),
-	])
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(metres, 0.0), Vector2(metres, metres), Vector2(0.0, metres)])
 
 
 ## A bed on the drawing, so the areas a panel offers are the drawing's own.
@@ -34,25 +32,21 @@ func _drawn_bed(controller, metres: float = 9.0, layer: StringName = LayerSet.NE
 	controller.document.add(Entity.make_polyline(_bed(metres), true), layer)
 	return controller.document.count()
 
-
 # --- the supply -----------------------------------------------------------------------
 
 
 func test_a_supply_that_has_not_been_stated_is_not_a_supply() -> void:
 	var controller = _controller()
 	assert(controller.irrigation_supply().is_empty(), "nothing is stated on a new drawing")
-	assert(Irrigation.supply_words(controller.irrigation_supply()) == "no supply stated",
-		"and it says so in words")
-	assert(controller.irrigation_head_budget(Irrigation.SPRAY) == 0,
-		"so the budget is nothing rather than a guess")
+	assert(Irrigation.supply_words(controller.irrigation_supply()) == "no supply stated", "and it says so in words")
+	assert(controller.irrigation_head_budget(Irrigation.SPRAY) == 0, "so the budget is nothing rather than a guess")
 	controller.free()
 
 
 func test_stating_the_supply_is_one_undo_step() -> void:
 	var controller = _controller()
 	var stated: Dictionary = controller.set_irrigation_supply(40.0, 350.0)
-	assert(bool(stated["ok"]), "forty litres a minute at 350 kPa is a supply: %s"
-		% String(stated.get("reason", "")))
+	assert(bool(stated["ok"]), "forty litres a minute at 350 kPa is a supply: %s" % String(stated.get("reason", "")))
 	assert(absf(float(controller.irrigation_supply()["flow"]) - 40.0) < 0.001, "and it is remembered")
 	assert(controller.irrigation_head_budget(Irrigation.SPRAY) == 4, "four spray heads fit")
 	assert(controller.dirty, "stating a supply changes the drawing")
@@ -68,7 +62,6 @@ func test_a_supply_of_nothing_is_refused() -> void:
 	assert(controller.irrigation_supply().is_empty(), "nothing was stated")
 	controller.free()
 
-
 # --- watering an area -----------------------------------------------------------------
 
 
@@ -77,8 +70,7 @@ func test_watering_a_bed_lays_the_heads_out_and_is_one_undo_step() -> void:
 	controller.set_irrigation_supply(120.0, 350.0)
 	var before: int = _drawn_bed(controller)
 	var watered: Dictionary = controller.water_area(_bed(), Irrigation.SPRAY)
-	assert(bool(watered["ok"]), "a nine metre bed takes nine spray heads: %s"
-		% String(watered.get("reason", "")))
+	assert(bool(watered["ok"]), "a nine metre bed takes nine spray heads: %s" % String(watered.get("reason", "")))
 	assert(int(watered["placed"]) == 9, "nine heads on the plan: %d" % int(watered["placed"]))
 	assert(controller.document.count() == before + 9, "and they are on the drawing")
 	var zones := controller.irrigation_zones()
@@ -86,8 +78,10 @@ func test_watering_a_bed_lays_the_heads_out_and_is_one_undo_step() -> void:
 	assert(int(zones[0]["number"]) == 1, "numbered one")
 	assert(int(zones[0]["valve"]) == 1, "on valve one")
 	assert(Irrigation.head_count(zones[0]) == 9, "holding its nine heads")
-	assert(String(watered["verdict"]).contains("will run"), "and it says the zone runs: %s"
-		% String(watered["verdict"]))
+	assert(
+		String(watered["verdict"]).contains("will run"),
+		"and it says the zone runs: %s" % String(watered["verdict"]),
+	)
 	assert(controller.document.undo_last(), "the whole watering comes off in one step")
 	assert(controller.document.count() == before, "leaving the bed alone: %d" % controller.document.count())
 	assert(controller.irrigation_zones().is_empty(), "and no zone")
@@ -106,21 +100,24 @@ func test_the_heads_land_on_the_irrigation_layer_carrying_what_they_are() -> voi
 		assert(entity.layer == LayerSet.IRRIGATION, "on the irrigation layer: %s" % String(entity.layer))
 		assert(Irrigation.zone_of_entity(entity) == 1, "belonging to Zone 1")
 		assert(String(entity.meta[Irrigation.META_KIND]) == Irrigation.SPRAY, "and saying what it is")
-		assert(Irrigation.NOZZLES.has(float(entity.meta[Irrigation.META_ARC])),
-			"with a nozzle a person can buy: %s" % str(entity.meta[Irrigation.META_ARC]))
+		assert(
+			Irrigation.NOZZLES.has(float(entity.meta[Irrigation.META_ARC])),
+			"with a nozzle a person can buy: %s" % str(entity.meta[Irrigation.META_ARC]),
+		)
 		assert(entity.kind == Entity.Kind.CIRCLE, "drawn as a circle")
 		assert(entity.params[2] > 0.0, "with a radius on it: %f" % entity.params[2])
 	assert(heads == 9, "nine heads: %d" % heads)
 	# A head is a *symbol*: three millimetres across on the sheet, so at 1:100 it is 0.3 m of ground
 	# and at 1:200 it is 0.6 m.
-	assert(absf(_first_head_radius(controller) - 0.3) < 1e-6,
-		"three millimetres on paper at 1:100 is 0.3 m of ground: %f" % _first_head_radius(controller))
+	assert(
+		absf(_first_head_radius(controller) - 0.3) < 1e-6,
+		"three millimetres on paper at 1:100 is 0.3 m of ground: %f" % _first_head_radius(controller),
+	)
 	controller.plot_scale = 200.0
 	controller.water_area(_bed(18.0), Irrigation.SPRAY)
 	for entity in controller.document.entities():
 		if Irrigation.zone_of_entity(entity) == 2:
-			assert(absf(entity.params[2] - 0.6) < 1e-6,
-				"twice the paper size at half the scale: %f" % entity.params[2])
+			assert(absf(entity.params[2] - 0.6) < 1e-6, "twice the paper size at half the scale: %f" % entity.params[2])
 	controller.free()
 
 
@@ -140,8 +137,10 @@ func test_a_zone_that_would_not_run_is_not_put_on_the_drawing() -> void:
 	var before: int = _drawn_bed(controller)
 	var watered: Dictionary = controller.water_area(_bed(), Irrigation.SPRAY)
 	assert(not bool(watered["ok"]), "nine heads will not run off forty litres a minute")
-	assert(String(watered["reason"]).contains("4 of them fit"), "and the refusal says what fits: %s"
-		% String(watered["reason"]))
+	assert(
+		String(watered["reason"]).contains("4 of them fit"),
+		"and the refusal says what fits: %s" % String(watered["reason"]),
+	)
 	assert(controller.document.count() == before, "nothing was put on the drawing")
 	assert(controller.irrigation_zones().is_empty(), "and no zone was kept")
 	controller.free()
@@ -152,8 +151,10 @@ func test_watering_with_a_supply_nobody_stated_is_refused() -> void:
 	var before: int = _drawn_bed(controller)
 	var watered: Dictionary = controller.water_area(_bed(), Irrigation.SPRAY)
 	assert(not bool(watered["ok"]), "a zone cannot be blessed on a supply nobody stated")
-	assert(String(watered["reason"]).contains("supply has not been stated"),
-		"and the reason is the supply: %s" % String(watered["reason"]))
+	assert(
+		String(watered["reason"]).contains("supply has not been stated"),
+		"and the reason is the supply: %s" % String(watered["reason"]),
+	)
 	assert(controller.document.count() == before, "nothing was put on the drawing")
 	controller.free()
 
@@ -161,13 +162,10 @@ func test_watering_with_a_supply_nobody_stated_is_refused() -> void:
 func test_an_area_the_grid_cannot_be_laid_out_in_is_refused_in_words() -> void:
 	var controller = _controller()
 	controller.set_irrigation_supply(120.0, 350.0)
-	var tiny := PackedVector2Array([
-		Vector2(2.0, 1.6), Vector2(2.4, 2.0), Vector2(2.0, 2.4), Vector2(1.6, 2.0),
-	])
+	var tiny := PackedVector2Array([Vector2(2.0, 1.6), Vector2(2.4, 2.0), Vector2(2.0, 2.4), Vector2(1.6, 2.0)])
 	var watered: Dictionary = controller.water_area(tiny, Irrigation.SPRAY)
 	assert(not bool(watered["ok"]), "an 0.8 m diamond takes no spray head")
-	assert(String(watered["reason"]).contains("no grid line"), "and says why: %s"
-		% String(watered["reason"]))
+	assert(String(watered["reason"]).contains("no grid line"), "and says why: %s" % String(watered["reason"]))
 	controller.free()
 
 
@@ -208,7 +206,6 @@ func test_the_supply_is_stated_for_the_whole_drawing_not_for_a_zone() -> void:
 	assert(int(controller.irrigation_zones().size()) == 1, "and only the first zone is kept")
 	controller.free()
 
-
 # --- taking a zone back off -----------------------------------------------------------
 
 
@@ -237,8 +234,7 @@ func test_taking_off_a_zone_that_is_not_there_says_so() -> void:
 	var controller = _controller()
 	var removed: Dictionary = controller.remove_zone(7)
 	assert(not bool(removed["ok"]), "there is no Zone 7")
-	assert(String(removed["reason"]) == "there is no Zone 7", "and it says which: %s"
-		% String(removed["reason"]))
+	assert(String(removed["reason"]) == "there is no Zone 7", "and it says which: %s" % String(removed["reason"]))
 	controller.free()
 
 
@@ -257,12 +253,11 @@ func _heads_of_zone(controller, number: int) -> int:
 			found += 1
 	return found
 
-
 # --- a head and a run as the drawing holds them ---------------------------------------
 
 
 func test_a_head_reads_as_a_line_and_is_marked_on_its_own_layer() -> void:
-	var head := {"kind": Irrigation.SPRAY, "at": Vector2(2.0, 3.0), "heading": 0.0, "arc": 180.0}
+	var head := { "kind": Irrigation.SPRAY, "at": Vector2(2.0, 3.0), "heading": 0.0, "arc": 180.0 }
 	var entity := Irrigation.head_entity(head, 3, 100.0)
 	assert(entity.layer == LayerSet.IRRIGATION, "on the irrigation layer")
 	assert(Irrigation.is_head_entity(entity), "and marked as a head")
@@ -271,8 +266,7 @@ func test_a_head_reads_as_a_line_and_is_marked_on_its_own_layer() -> void:
 	var words := Irrigation.head_words(head)
 	assert(words.contains("spray head"), "the words name the kind: %s" % words)
 	assert(words.contains("a half circle"), "and the nozzle: %s" % words)
-	assert(Irrigation.head_words({"kind": Irrigation.ROTOR, "arc": 360.0}).contains("a full circle"),
-		"a rotor with no arc of its own is a full circle")
+	assert(Irrigation.head_words({ "kind": Irrigation.ROTOR, "arc": 360.0 }).contains("a full circle"), "a rotor with no arc of its own is a full circle")
 
 
 func test_a_run_is_a_polyline_and_a_run_of_one_point_is_nothing() -> void:
@@ -281,9 +275,7 @@ func test_a_run_is_a_polyline_and_a_run_of_one_point_is_nothing() -> void:
 	assert(entity.layer == LayerSet.IRRIGATION, "on the irrigation layer")
 	assert(entity.kind == Entity.Kind.POLYLINE, "drawn as a polyline")
 	assert(not Irrigation.is_head_entity(entity), "and it is not a head")
-	assert(Irrigation.run_entity(PackedVector2Array([Vector2.ZERO])) == null,
-		"a run of one point is not a run")
-
+	assert(Irrigation.run_entity(PackedVector2Array([Vector2.ZERO])) == null, "a run of one point is not a run")
 
 # --- the schedule, and what a panel reads ---------------------------------------------
 
@@ -305,8 +297,10 @@ func test_the_rows_a_panel_reads_are_one_per_zone() -> void:
 
 func test_the_summary_reads_as_one_line() -> void:
 	var controller = _controller()
-	assert(controller.irrigation_summary() == "nothing on this drawing is watered yet",
-		"an unwatered drawing says so: %s" % controller.irrigation_summary())
+	assert(
+		controller.irrigation_summary() == "nothing on this drawing is watered yet",
+		"an unwatered drawing says so: %s" % controller.irrigation_summary(),
+	)
 	controller.set_irrigation_supply(120.0, 350.0)
 	controller.water_area(_bed(9.0), Irrigation.SPRAY)
 	var line := controller.irrigation_summary()
@@ -315,8 +309,10 @@ func test_the_summary_reads_as_one_line() -> void:
 	assert(line.contains("81 L/min"), "drawing 81 litres a minute: %s" % line)
 	assert(line.contains("every zone runs off the supply"), "and all of them run: %s" % line)
 	controller.set_irrigation_supply(40.0, 350.0)
-	assert(controller.irrigation_summary().contains("4 of them fit"),
-		"a zone that no longer fits the supply is named: %s" % controller.irrigation_summary())
+	assert(
+		controller.irrigation_summary().contains("4 of them fit"),
+		"a zone that no longer fits the supply is named: %s" % controller.irrigation_summary(),
+	)
 	controller.free()
 
 
@@ -329,7 +325,6 @@ func test_the_area_a_summary_states_is_the_drawings_own() -> void:
 	assert(line.contains("ft2"), "an imperial drawing states its area in square feet: %s" % line)
 	assert(not line.contains("m2"), "and never in square metres: %s" % line)
 	controller.free()
-
 
 # --- the file -------------------------------------------------------------------------
 
@@ -360,8 +355,10 @@ func test_a_drawing_from_before_the_irrigation_existed_has_none() -> void:
 	var legacy: DraftDocument = Document.from_dict(old)
 	assert(legacy.irrigation.is_empty(), "nothing stated rather than an invented supply")
 	assert(Irrigation.from_dict(legacy.irrigation).is_empty(), "and no zones")
-	assert(Irrigation.supply_words(legacy.irrigation.get("supply", {})) == "no supply stated",
-		"which is what a check refuses on")
+	assert(
+		Irrigation.supply_words(legacy.irrigation.get("supply", { })) == "no supply stated",
+		"which is what a check refuses on",
+	)
 	controller.free()
 
 
@@ -372,7 +369,7 @@ func test_a_damaged_irrigation_record_is_dropped_rather_than_invented() -> void:
 	var planted: DraftDocument = controller.document
 	planted.irrigation["zones"] = [
 		"not a zone",
-		{"kind": Irrigation.SPRAY},
+		{ "kind": Irrigation.SPRAY },
 		(planted.irrigation["zones"] as Array)[0],
 	]
 	var zones := Irrigation.from_dict(planted.irrigation)

@@ -67,7 +67,7 @@ func test_a_rejection_puts_the_item_back_and_keeps_the_fix_it_rejected() -> void
 	assert(String(held["why"]) == "the same corner is still proud")
 	assert(
 		String(held["was_fixed_at"]) == FIXED_ON,
-		"and the fix it was rejecting is on the record: %s" % String(held["was_fixed_at"])
+		"and the fix it was rejecting is on the record: %s" % String(held["was_fixed_at"]),
 	)
 	assert(item.fixed_at.is_empty(), "the fix is cleared, so the state is derivable")
 
@@ -210,11 +210,11 @@ func test_a_record_that_cannot_read_says_which_way_it_is_wrong() -> void:
 	checked_with_nothing_fixed.accepted_at = CHECKED_ON
 	assert(
 		checked_with_nothing_fixed.problem().contains("accepted with nothing recorded as fixed"),
-		checked_with_nothing_fixed.problem()
+		checked_with_nothing_fixed.problem(),
 	)
 
 	var sourceless := _item()
-	sourceless.rejections.append({"at": CHECKED_ON, "by": "Marc", "why": ""})
+	sourceless.rejections.append({ "at": CHECKED_ON, "by": "Marc", "why": "" })
 	assert(sourceless.problem().contains("rejection nobody explained"), sourceless.problem())
 
 
@@ -230,7 +230,7 @@ func test_an_item_survives_the_file_with_where_it_has_got_to() -> void:
 	assert(back.rejection_count() == 1)
 	assert(
 		String((back.rejections[0] as Dictionary)["was_fixed_at"]) == FIXED_ON,
-		"and the rejection kept the fix it rejected"
+		"and the rejection kept the fix it rejected",
 	)
 	assert(back.describe() == item.describe(), "the line reads the same after a round trip")
 	assert(back.is_sound())

@@ -12,7 +12,7 @@ extends Node2D
 ## drawing - with an undo step, because recovering the wrong copy has to be one Ctrl+Z away.
 ##
 ## So it instances the **real main scene** and drives the **real HUD**. Run
-## `res://scenes/autosave_demo.tscn`.
+## `res://tools/autosave_demo.tscn`.
 ##
 ## It clears the recovery folder before it starts and again when it is done: the copies it makes are of
 ## test shapes, and leaving one behind would offer the next person who opens the app a "rescue" of work
@@ -53,7 +53,7 @@ func _ready() -> void:
 	for index in 3:
 		draft.document.add(
 			EntityScript.make_line(Vector2(index, 0), Vector2(index + 4, 2 + index)),
-			LayerSetScript.NEW_HARDSCAPE
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 	await _settle()
 	print("the drawing is unsaved: ", draft.dirty, " with ", draft.document.count(), " shapes on it")
@@ -142,11 +142,9 @@ func _ready() -> void:
 ## drawing the program can read.
 func _leave_work_behind(draft: DraftController, shapes: int) -> void:
 	var state: Dictionary = draft.document.to_dict()
-	var built: Dictionary = {}
+	var built: Dictionary = { }
 	for index in shapes:
-		var line: EntityScript = EntityScript.make_line(
-			Vector2(index, 0), Vector2(index + 2, 1.5 + index)
-		)
+		var line: EntityScript = EntityScript.make_line(Vector2(index, 0), Vector2(index + 2, 1.5 + index))
 		var row: Dictionary = line.to_dict()
 		row["id"] = 1000 + index
 		row["layer"] = String(LayerSetScript.NEW_HARDSCAPE)
@@ -162,7 +160,7 @@ static func _entry(hud: Node, id: StringName) -> Dictionary:
 	for entry: Dictionary in hud.file_items():
 		if StringName(entry.get("id", &"")) == id:
 			return entry
-	return {}
+	return { }
 
 
 static func _entry_wording(hud: Node) -> String:
@@ -170,7 +168,9 @@ static func _entry_wording(hud: Node) -> String:
 	if entry.is_empty():
 		return "(the File menu offers no recovery)"
 	return "\"%s\", running \"%s\", available when \"%s\"" % [
-		String(entry.get("label", "")), String(entry.get("method", "")), String(entry.get("enabled_when", "")),
+		String(entry.get("label", "")),
+		String(entry.get("method", "")),
+		String(entry.get("enabled_when", "")),
 	]
 
 

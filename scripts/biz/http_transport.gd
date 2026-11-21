@@ -19,15 +19,21 @@ extends BizSyncTransport
 ## and no token is configured but not ready, and every call refuses rather than sending an anonymous
 ## request the service would reject anyway.
 
-
 const BASE_URL := "base_url"
 const TOKEN := "token"
 ## How many records one pull asks for. A cursor advances by what was applied, so a page of 500 is 500
 ## small files rather than a request that never returns.
 const DEFAULT_LIMIT := 500
-## How many times a poll loop turns before it gives up. A bounded loop is the difference between "the
-## service is slow" and "this program is not coming back".
-const MAX_POLLS := 4000
+## How long the service is given to answer, and how long a socket is given to connect.
+##
+## **A service is not a vision model.** Half a minute is longer than a records service that is there takes
+## - a page of small files answers in milliseconds - and short enough that somebody waiting on a push is
+## told the service is not answering rather than held there indefinitely. Connecting gets its own, much
+## shorter budget, for the reason measured in `HttpExchange`: a port nobody is listening on sits at
+## `STATUS_CONNECTING` for ever rather than reporting that nothing is there, so only a short budget can
+## tell a mis-typed address from a slow service.
+const ANSWER_SECONDS := 30.0
+const CONNECT_SECONDS := 1.5
 
 var base_url: String = ""
 var token: String = ""
@@ -59,8 +65,8 @@ func capabilities() -> Array[String]:
 ## out (the same rule the ledger adapters follow).
 func settings() -> Array[Dictionary]:
 	return [
-		{"key": BASE_URL, "label": "the address of the sync service", "secret": false},
-		{"key": TOKEN, "label": "the token this device signs in with", "secret": true},
+		{ "key": BASE_URL, "label": "the address of the sync service", "secret": false },
+		{ "key": TOKEN, "label": "the token this device signs in with", "secret": true },
 	]
 
 
@@ -76,7 +82,7 @@ func configure(values: Dictionary) -> Dictionary:
 		base_url = String(values[BASE_URL]).strip_edges()
 	if values.has(TOKEN):
 		token = String(values[TOKEN])
-	return {"ok": true, "status": 0, "retry": false, "reason": ""}
+	return { "ok": true, "status": 0, "retry": false, "reason": "" }
 
 
 func describe() -> String:
@@ -85,7 +91,6 @@ func describe() -> String:
 	if is_configured():
 		return "the sync service at %s, which this device has no token for" % base_url
 	return "a sync service with no address yet"
-
 
 # --- what would be sent -------------------------------------------------------------------------
 
@@ -117,14 +122,13 @@ func request_for(which: String, args: Dictionary) -> Dictionary:
 				"kind": String(args.get("kind", "")),
 				"id": String(args.get("id", "")),
 				"job": String(args.get("job", "")),
-				"body": args.get("body", {}),
+				"body": args.get("body", { }),
 				"who": String(args.get("who", "")),
 			}
 			return {
 				"method": HTTPClient.METHOD_PUT,
-				"path": "%s/records/%s/%s" % [
-					prefix, String(args.get("kind", "")).uri_encode(), String(args.get("id", "")).uri_encode()
-				],
+				"path": "%s/records/%s/%s"
+				% [prefix, String(args.get("kind", "")).uri_encode(), String(args.get("id", "")).uri_encode()],
 				"headers": headers,
 				"body": JSON.stringify(payload),
 			}
@@ -138,15 +142,9 @@ func request_for(which: String, args: Dictionary) -> Dictionary:
 				"body": "",
 			}
 		HEALTH:
-			return {"method": HTTPClient.METHOD_GET, "path": "%s/health" % prefix, "headers": headers, "body": ""}
+			return { "method": HTTPClient.METHOD_GET, "path": "%s/health" % prefix, "headers": headers, "body": "" }
 		_:
-			return {
-				"method": HTTPClient.METHOD_GET,
-				"path": "%s/whoami" % prefix,
-				"headers": headers,
-				"body": "",
-			}
-
+			return { "method": HTTPClient.METHOD_GET, "path": "%s/whoami" % prefix, "headers": headers, "body": "" }
 
 # --- the four calls -----------------------------------------------------------------------------
 
@@ -155,7 +153,7 @@ func changes(since: int = 0, limit: int = 0) -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for(CHANGES, {"since": since, "limit": limit}))
+	var answer: Dictionary = _exchange(request_for(CHANGES, { "since": since, "limit": limit }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -184,7 +182,7 @@ func push(kind: String, id: String, job: String, body: Dictionary, rev: int, who
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var args: Dictionary = {"kind": kind, "id": id, "job": job, "body": body, "rev": rev, "who": who}
+	var args: Dictionary = { "kind": kind, "id": id, "job": job, "body": body, "rev": rev, "who": who }
 	var answer: Dictionary = _exchange(request_for(PUSH, args))
 	if not bool(answer["ok"]):
 		var status: int = int(answer["status"])
@@ -212,7 +210,7 @@ func attachment(attachment_name: String, bytes: PackedByteArray) -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var args: Dictionary = {"name": attachment_name}
+	var args: Dictionary = { "name": attachment_name }
 	var request: Dictionary = request_for(ATTACHMENTS, args)
 	request["body"] = bytes.get_string_from_utf8()
 	var answer: Dictionary = _exchange(request)
@@ -237,7 +235,7 @@ func health() -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for(HEALTH, {}))
+	var answer: Dictionary = _exchange(request_for(HEALTH, { }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -262,7 +260,7 @@ func whoami() -> Dictionary:
 	var guard: Dictionary = _readiness()
 	if not bool(guard["ok"]):
 		return guard
-	var answer: Dictionary = _exchange(request_for("whoami", {}))
+	var answer: Dictionary = _exchange(request_for("whoami", { }))
 	if not bool(answer["ok"]):
 		return {
 			"ok": false,
@@ -284,7 +282,6 @@ func whoami() -> Dictionary:
 		"user": String(body.get("user", "")),
 		"role": role,
 	}
-
 
 # --- the wire -----------------------------------------------------------------------------------
 
@@ -308,55 +305,49 @@ func _split_base() -> Dictionary:
 	if colon > 0:
 		host = authority.substr(0, colon)
 		port = int(authority.substr(colon + 1))
-	return {"tls": tls, "host": host, "port": port, "prefix": prefix}
+	return { "tls": tls, "host": host, "port": port, "prefix": prefix }
 
 
 ## Send one request and read the answer. **Failing to reach the service is a refusal that says so** -
 ## `status` 0 and retryable - because the alternative is a sync that reports nothing the matter when
 ## nothing was ever sent.
+##
+## It is **nothing but `HttpExchange` driven to completion**: the same machine the plant reader steps a
+## frame at a time, and the same one `PlantIdentifier.send_http` drives on the reader's behalf. What stood
+## here was three counted loops - `while turns < MAX_POLLS: client.poll()` - and **counting polls is not
+## waiting**: `poll()` does not block, so four thousand turns go by in a few milliseconds and a service
+## that took longer than that was reported as not there. That fault cost the plant reader a whole reading
+## before it was found, and it is why there is one machine for this rather than a loop per caller.
+##
+## The paths `request_for` builds already carry the address's own prefix, so nothing here adds one.
 func _exchange(request: Dictionary) -> Dictionary:
 	var parts: Dictionary = _split_base()
 	var host: String = String(parts["host"])
 	if host.is_empty():
 		return _unreachable("the sync address does not name a host")
-	var client := HTTPClient.new()
-	var error: int = OK
-	if bool(parts["tls"]):
-		error = client.connect_to_host(host, int(parts["port"]), TLSOptions.client())
-	else:
-		error = client.connect_to_host(host, int(parts["port"]))
-	if error != OK:
-		return _unreachable("cannot reach %s: %s" % [host, error_string(error)])
-	var turns: int = 0
-	while turns < MAX_POLLS and (
-		client.get_status() == HTTPClient.STATUS_RESOLVING
-		or client.get_status() == HTTPClient.STATUS_CONNECTING
-	):
-		client.poll()
-		turns += 1
-	if client.get_status() != HTTPClient.STATUS_CONNECTED:
-		return _unreachable("%s did not answer (%s)" % [host, _status_word(client.get_status())])
-	var headers: PackedStringArray = []
-	for header in (request["headers"] as Array):
-		headers.append(String(header))
-	error = client.request(int(request["method"]), String(request["path"]), headers, String(request["body"]))
-	if error != OK:
-		return _unreachable("cannot send the request to %s: %s" % [host, error_string(error)])
-	turns = 0
-	while turns < MAX_POLLS and client.get_status() == HTTPClient.STATUS_REQUESTING:
-		client.poll()
-		turns += 1
-	if not client.has_response():
-		return _unreachable("%s did not answer the request" % host)
-	var status: int = client.get_response_code()
-	var bytes := PackedByteArray()
-	turns = 0
-	while turns < MAX_POLLS and client.get_status() == HTTPClient.STATUS_BODY:
-		client.poll()
-		bytes.append_array(client.read_response_body_chunk())
-		turns += 1
-	client.close()
-	var text: String = bytes.get_string_from_utf8()
+	var built: Dictionary = {
+		"ok": true,
+		"reason": "",
+		"tls": bool(parts["tls"]),
+		"host": host,
+		"port": int(parts["port"]),
+		"path": String(request["path"]),
+		"method": int(request["method"]),
+		"headers": request["headers"],
+		"body": String(request["body"]),
+	}
+	var exchange := HttpExchange.new()
+	if exchange.begin(built, ANSWER_SECONDS, CONNECT_SECONDS) == HttpExchange.WORKING:
+		while exchange.step(HttpExchange.PAUSE_MS) == HttpExchange.WORKING:
+			pass
+	var sent: Dictionary = exchange.result()
+	var status: int = int(sent["status"])
+	var text: String = String(sent["body"])
+	if status == 0:
+		# Never arrived, and the machine says which of the ways it was rather than one word for all of
+		# them: a name that does not resolve, nothing listening, a request that could not be sent, a
+		# service that never began answering, or a body that stopped arriving.
+		return _unreachable(String(sent["why"]))
 	if status < FIRST_SUCCESS or status > LAST_SUCCESS:
 		return {
 			"ok": false,
@@ -366,8 +357,7 @@ func _exchange(request: Dictionary) -> Dictionary:
 			"body": _read_json(text),
 			"text": text,
 		}
-	return {"ok": true, "status": status, "retry": false, "reason": "", "body": _read_json(text), "text": text}
-
+	return { "ok": true, "status": status, "retry": false, "reason": "", "body": _read_json(text), "text": text }
 
 # --- help ---------------------------------------------------------------------------------------
 
@@ -377,12 +367,12 @@ func _exchange(request: Dictionary) -> Dictionary:
 ## would reject anyway.
 func _readiness() -> Dictionary:
 	if is_ready():
-		return {"ok": true, "status": 0, "retry": false, "reason": ""}
+		return { "ok": true, "status": 0, "retry": false, "reason": "" }
 	return refused("the sync address and a token have to both be set before this service can be used")
 
 
 static func _unreachable(why: String) -> Dictionary:
-	return {"ok": false, "status": 0, "retry": true, "reason": why, "body": {}}
+	return { "ok": false, "status": 0, "retry": true, "reason": why, "body": { } }
 
 
 ## Parse an answer body, tolerating one that is not JSON (a service that answers a sentence). A reader
@@ -390,30 +380,11 @@ static func _unreachable(why: String) -> Dictionary:
 static func _read_json(text: String) -> Dictionary:
 	var trimmed: String = text.strip_edges()
 	if trimmed.is_empty():
-		return {}
+		return { }
 	var reader := JSON.new()
 	if reader.parse(trimmed) != OK:
-		return {}
+		return { }
 	var data: Variant = reader.data
 	if data is Dictionary:
 		return data
-	return {}
-
-
-static func _status_word(status: int) -> String:
-	match status:
-		HTTPClient.STATUS_RESOLVING:
-			return "the address did not resolve"
-		HTTPClient.STATUS_CANT_RESOLVE:
-			return "the address did not resolve"
-		HTTPClient.STATUS_CONNECTING:
-			return "the connection did not finish"
-		HTTPClient.STATUS_CANT_CONNECT:
-			return "the connection was refused"
-		HTTPClient.STATUS_CONNECTION_ERROR:
-			return "the connection failed"
-		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
-			return "the secure handshake failed"
-		HTTPClient.STATUS_DISCONNECTED:
-			return "the connection was lost"
-	return "the reason was not stated"
+	return { }

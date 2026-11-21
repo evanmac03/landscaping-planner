@@ -15,7 +15,6 @@ const WindowScript := preload("res://scripts/status_window.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
-
 # --- helpers --------------------------------------------------------------------------
 
 
@@ -32,12 +31,11 @@ func _hud_with_drawing(controller: DraftController) -> Node:
 	hud._draft = controller
 	return hud
 
-
 # --- the menu -------------------------------------------------------------------------
 
 
 func test_the_edit_menu_offers_it_at_the_foot_with_no_key() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.edit_items():
 		if StringName(candidate.get("id", &"")) == &"edit.said":
 			entry = candidate
@@ -46,7 +44,6 @@ func test_the_edit_menu_offers_it_at_the_foot_with_no_key() -> void:
 	assert(StringName(entry["method"]) == &"_menu_said", String(entry["method"]))
 	assert(StringName(entry.get("action", &"")) == &"", "it takes no key")
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
-
 
 # --- the page -------------------------------------------------------------------------
 
@@ -74,7 +71,6 @@ func test_it_is_a_page_the_escape_pass_has_to_reach() -> void:
 	assert(hud._status_window.get_node_or_null(^"PageEscape") != null, "and it can be escaped from")
 	hud.free()
 
-
 # --- the join -------------------------------------------------------------------------
 
 
@@ -87,8 +83,7 @@ func test_filling_it_hands_over_the_drawings_own_answers() -> void:
 	assert(hud._status_window.line_count() == 2, str(hud._status_window.line_count()))
 	var wanted: Array[String] = ["1 entity erased", "line added"]
 	assert(hud._status_window.line_texts() == wanted, str(hud._status_window.line_texts()))
-	assert(hud._status_window.said() == "the drawing last said: 1 entity erased",
-		hud._status_window.said())
+	assert(hud._status_window.said() == "the drawing last said: 1 entity erased", hud._status_window.said())
 	hud.free()
 	controller.free()
 

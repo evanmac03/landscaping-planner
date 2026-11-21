@@ -1,0 +1,10 @@
+{
+  "provider": "GitHub",
+  "repository": "YOUR-OWNER/YOUR-REPOSITORY",
+  "validation": { "script": "tools/validate-project.ps1" },
+  "release": {
+    "product": "my-game",
+    "preset": "Windows Desktop",
+    "godot_version": "4.7"
+  }
+}

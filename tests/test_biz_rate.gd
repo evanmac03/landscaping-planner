@@ -60,8 +60,10 @@ func test_what_is_not_a_percent_is_refused() -> void:
 
 func test_reading_back_what_it_printed_gives_the_same_rate() -> void:
 	for ppm in [0, 1, 10, 5000, 99750, 130000, 250000, RateScript.WHOLE]:
-		assert(RateScript.parse_percent(RateScript.percent_text(ppm)) == ppm,
-			"%d printed as %s" % [ppm, RateScript.percent_text(ppm)])
+		assert(
+			RateScript.parse_percent(RateScript.percent_text(ppm)) == ppm,
+			"%d printed as %s" % [ppm, RateScript.percent_text(ppm)],
+		)
 
 
 func test_a_date_is_a_date_all_digits_and_a_real_day_of_a_real_month() -> void:

@@ -46,13 +46,21 @@ const WASHES := {
 	# are the spec's, and they are the reason paving reads as paving rather than as
 	# wet pigment.
 	LayerSetScript.NEW_HARDSCAPE: {
-		"colour": Color(0.804, 0.792, 0.753), "material": STONE,
-		"opacity": 0.34, "bleed_mm": 0.6, "mottle": 0.10, "wet_edge": 0.10,
+		"colour": Color(0.804, 0.792, 0.753),
+		"material": STONE,
+		"opacity": 0.34,
+		"bleed_mm": 0.6,
+		"mottle": 0.10,
+		"wet_edge": 0.10,
 		"what": "paving, walls, steps",
 	},
 	LayerSetScript.NEW_STRUCTURE: {
-		"colour": Color(0.616, 0.502, 0.361), "material": FENCE_WOOD,
-		"opacity": 0.40, "bleed_mm": 0.8, "mottle": 0.14, "wet_edge": 0.16,
+		"colour": Color(0.616, 0.502, 0.361),
+		"material": FENCE_WOOD,
+		"opacity": 0.40,
+		"bleed_mm": 0.8,
+		"mottle": 0.14,
+		"wet_edge": 0.16,
 		"what": "deck, pergola, structure",
 	},
 	# A bed is soil or mulch, so it mottles hard and bleeds little. There is no
@@ -60,44 +68,72 @@ const WASHES := {
 	# and a pattern layer must not wash (REQ-V4.2) - so the bed layer carries the
 	# medium's behaviour.
 	LayerSetScript.NEW_BED: {
-		"colour": Color(0.706, 0.596, 0.451), "material": SOIL,
-		"opacity": 0.50, "bleed_mm": 1.2, "mottle": 0.45, "wet_edge": 0.22,
+		"colour": Color(0.706, 0.596, 0.451),
+		"material": SOIL,
+		"opacity": 0.50,
+		"bleed_mm": 1.2,
+		"mottle": 0.45,
+		"wet_edge": 0.22,
 		"what": "bed soil and mulch",
 	},
 	LayerSetScript.NEW_PLANTING: {
-		"colour": Color(0.42, 0.62, 0.329), "material": FOLIAGE,
-		"opacity": 0.50, "bleed_mm": 2.0, "mottle": 0.38, "wet_edge": 0.30,
+		"colour": Color(0.42, 0.62, 0.329),
+		"material": FOLIAGE,
+		"opacity": 0.50,
+		"bleed_mm": 2.0,
+		"mottle": 0.38,
+		"wet_edge": 0.30,
 		"what": "planting masses",
 	},
 	LayerSetScript.NEW_TURF: {
-		"colour": Color(0.655, 0.784, 0.451), "material": LAWN,
-		"opacity": 0.42, "bleed_mm": 1.0, "mottle": 0.30, "wet_edge": 0.16,
+		"colour": Color(0.655, 0.784, 0.451),
+		"material": LAWN,
+		"opacity": 0.42,
+		"bleed_mm": 1.0,
+		"mottle": 0.30,
+		"wet_edge": 0.16,
 		"what": "lawn and seeding",
 	},
 	# What is already there washes faintly. Not a taste call: the drawing's subject
 	# is the *proposal*, and existing work that washes as strongly as new work makes
 	# the proposal unreadable.
 	LayerSetScript.EXISTING_HARDSCAPE: {
-		"colour": Color(0.804, 0.792, 0.753), "material": STONE,
-		"opacity": 0.20, "bleed_mm": 0.5, "mottle": 0.08, "wet_edge": 0.06,
+		"colour": Color(0.804, 0.792, 0.753),
+		"material": STONE,
+		"opacity": 0.20,
+		"bleed_mm": 0.5,
+		"mottle": 0.08,
+		"wet_edge": 0.06,
 		"what": "existing paving and walls",
 	},
 	LayerSetScript.EXISTING_STRUCTURE: {
-		"colour": Color(0.929, 0.918, 0.878), "material": STUCCO,
-		"opacity": 0.22, "bleed_mm": 0.4, "mottle": 0.05, "wet_edge": 0.05,
+		"colour": Color(0.929, 0.918, 0.878),
+		"material": STUCCO,
+		"opacity": 0.22,
+		"bleed_mm": 0.4,
+		"mottle": 0.05,
+		"wet_edge": 0.05,
 		"what": "existing buildings",
 	},
 	LayerSetScript.EXISTING_PLANTING: {
-		"colour": Color(0.871, 0.863, 0.792), "material": ROUGH_GRASS,
-		"opacity": 0.35, "bleed_mm": 1.6, "mottle": 0.35, "wet_edge": 0.24,
+		"colour": Color(0.871, 0.863, 0.792),
+		"material": ROUGH_GRASS,
+		"opacity": 0.35,
+		"bleed_mm": 1.6,
+		"mottle": 0.35,
+		"wet_edge": 0.24,
 		"what": "existing plant material",
 	},
 	# A canopy bleeds further and mottles more than a bed: a mass of foliage is
 	# uneven by nature, which is exactly what makes a planting plan read as foliage
 	# over soil rather than as soil over foliage (REQ-V4.3).
 	PLANTING_PROPS: {
-		"colour": Color(0.42, 0.62, 0.329), "material": FOLIAGE,
-		"opacity": 0.58, "bleed_mm": 2.2, "mottle": 0.42, "wet_edge": 0.38,
+		"colour": Color(0.42, 0.62, 0.329),
+		"material": FOLIAGE,
+		"opacity": 0.58,
+		"bleed_mm": 2.2,
+		"mottle": 0.42,
+		"wet_edge": 0.38,
 		"what": "plant canopies",
 	},
 }
@@ -131,7 +167,7 @@ const NO_WASH := {
 ## document and as a `String` from a literal, and a lookup that answered only one of
 ## them would be a table that works from one call site and not another.
 static func wash_for(layer_name) -> Dictionary:
-	return WASHES.get(StringName(layer_name), {})
+	return WASHES.get(StringName(layer_name), { })
 
 
 ## Whether a name washes at all, in either form.

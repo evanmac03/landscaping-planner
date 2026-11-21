@@ -25,17 +25,23 @@ func _configured() -> AkauntingScript:
 func _invoice(tax_code: StringName = &"HST-ON", contact: String = CONTACT) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "external_id": contact}
+	invoice.customer = { "name": "Smith", "external_id": contact }
 	invoice.note = "Back garden, phase one"
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(53550), &"HARDSCAPE", tax_code)
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(53550),
+		&"HARDSCAPE",
+		tax_code,
+	)
 	assert(bool(invoice.issue("2026-06-10", 30, "INV-2026-0001")["ok"]))
 	return invoice
 
 
 func _built(ledger: AkauntingScript, invoice: InvoiceScript) -> Dictionary:
 	return ledger.build_invoice_push(invoice, ledger.key_for_invoice(invoice))
-
 
 # --- what it is and what it will not claim -------------------------------------------------------
 
@@ -74,7 +80,6 @@ func test_it_is_not_configured_until_the_user_and_the_password_are_stated() -> v
 	assert(fresh.setting(&"company") == "3")
 	assert(not fresh.set_setting(&"token", "x"))
 
-
 # --- the request -------------------------------------------------------------------------------
 
 
@@ -100,18 +105,17 @@ func test_the_push_carries_http_basic_and_the_headers_the_service_wants() -> voi
 	assert(String(built["request"]["method"]) == "POST")
 	assert(String(built["request"]["url"]) == "https://books.example.test/api/invoices")
 	var headers: Dictionary = built["request"]["headers"]
-	assert(String(headers[AkauntingScript.AUTH_HEADER]).begins_with("Basic "),
-		String(headers[AkauntingScript.AUTH_HEADER]))
+	assert(
+		String(headers[AkauntingScript.AUTH_HEADER]).begins_with("Basic "),
+		String(headers[AkauntingScript.AUTH_HEADER]),
+	)
 	var encoded: String = String(headers[AkauntingScript.AUTH_HEADER]).substr(6)
-	assert(Marshalls.base64_to_utf8(encoded) == "office@example.test:hunter2",
-		Marshalls.base64_to_utf8(encoded))
+	assert(Marshalls.base64_to_utf8(encoded) == "office@example.test:hunter2", Marshalls.base64_to_utf8(encoded))
 	assert(String(headers["Accept"]) == "application/json")
 	assert(String(headers[LedgerScript.KEY_HEADER]) == ledger.key_for_invoice(invoice))
 	# No company stated, so no company header: a header nobody asked for is a header a service may act on.
 	assert(not headers.has(AkauntingScript.COMPANY_HEADER))
-	var many: AkauntingScript = AkauntingScript.new(
-		"https://books.example.test", "office@example.test", "hunter2", "3"
-	)
+	var many: AkauntingScript = AkauntingScript.new("https://books.example.test", "office@example.test", "hunter2", "3")
 	assert(String(many.headers("k")[AkauntingScript.COMPANY_HEADER]) == "3")
 
 
@@ -141,7 +145,6 @@ func test_the_invoice_figures_travel_because_a_tax_id_here_cannot_be_known() -> 
 	assert(not item.has("tax_ids"))
 	assert(not item.has("taxes"))
 
-
 # --- what it refuses ----------------------------------------------------------------------------
 
 
@@ -163,17 +166,11 @@ func test_a_payment_needs_the_invoices_id_here_and_is_dated_the_way_a_date_is() 
 	payment.received_at = "2026-06-20"
 	payment.amount = MoneyScript.of(53550)
 	payment.bank_reference = "chq 1041"
-	var refused: Dictionary = ledger.build_payment_push(
-		payment, invoice, ledger.key_for_payment(payment, invoice)
-	)
+	var refused: Dictionary = ledger.build_payment_push(payment, invoice, ledger.key_for_payment(payment, invoice))
 	assert(not bool(refused["ok"]))
-	assert(String(refused["reason"]).contains("the invoice's id in Akaunting"),
-		String(refused["reason"]))
-	assert(String(refused["reason"]).contains("when the invoice is first posted"),
-		String(refused["reason"]))
-	var built: Dictionary = ledger.build_payment_push(
-		payment, invoice, ledger.key_for_payment(payment, invoice), "9"
-	)
+	assert(String(refused["reason"]).contains("the invoice's id in Akaunting"), String(refused["reason"]))
+	assert(String(refused["reason"]).contains("when the invoice is first posted"), String(refused["reason"]))
+	var built: Dictionary = ledger.build_payment_push(payment, invoice, ledger.key_for_payment(payment, invoice), "9")
 	assert(bool(built["ok"]), String(built["reason"]))
 	var body: Dictionary = built["request"]["body"]
 	assert(String(body["invoice_id"]) == "9")
@@ -182,28 +179,22 @@ func test_a_payment_needs_the_invoices_id_here_and_is_dated_the_way_a_date_is() 
 	assert(String(body["reference"]) == "chq 1041")
 	assert(String(built["request"]["url"]) == "https://books.example.test/api/payments")
 
-
 # --- reading the answer -------------------------------------------------------------------------
 
 
 func test_it_reads_the_invoice_number_the_service_answers_with() -> void:
 	var ledger := _configured()
-	var read: Dictionary = ledger.parse_invoice_response({
-		"status": 201,
-		"body": {"data": {"id": "12", "invoice_number": "INV-2026-0001"}},
-	})
+	var read: Dictionary = ledger.parse_invoice_response(
+		{ "status": 201, "body": { "data": { "id": "12", "invoice_number": "INV-2026-0001" } } }
+	)
 	assert(bool(read["ok"]))
 	assert(String(read["external_id"]) == "12")
 	assert(String(read["external_number"]) == "INV-2026-0001")
 	# A 403 is a permission to fix in Akaunting, not a request to try again.
-	var forbidden: Dictionary = ledger.parse_invoice_response({
-		"status": 403,
-		"body": {"message": "Forbidden"},
-	})
+	var forbidden: Dictionary = ledger.parse_invoice_response({ "status": 403, "body": { "message": "Forbidden" } })
 	assert(not bool(forbidden["ok"]))
 	assert(not bool(forbidden["retry"]))
-	assert(String(forbidden["reason"]).contains("this credential may not post"),
-		String(forbidden["reason"]))
+	assert(String(forbidden["reason"]).contains("this credential may not post"), String(forbidden["reason"]))
 	assert(String(forbidden["reason"]).contains("Forbidden"), String(forbidden["reason"]))
 
 
@@ -212,9 +203,11 @@ func test_it_cannot_be_tested_or_sent_until_the_transport_exists() -> void:
 	var tested: Dictionary = ledger.self_test()
 	assert(not bool(tested["ok"]))
 	assert(String(tested["reason"]).contains("no transport yet"), String(tested["reason"]))
-	var sent: Dictionary = ledger.send({"method": "POST", "url": "https://books.example.test"})
+	var sent: Dictionary = ledger.send({ "method": "POST", "url": "https://books.example.test" })
 	assert(int(sent["status"]) == 0)
 	assert(String(sent["error"]).contains("HTTP transport"), String(sent["error"]))
 	var unconfigured: AkauntingScript = AkauntingScript.new()
-	assert(String(unconfigured.self_test()["reason"]).contains("Akaunting address"),
-		String(unconfigured.self_test()["reason"]))
+	assert(
+		String(unconfigured.self_test()["reason"]).contains("Akaunting address"),
+		String(unconfigured.self_test()["reason"]),
+	)

@@ -9,10 +9,10 @@ extends Node
 
 const ModelsScript := preload("res://tools/plant_models.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 
 const LIST := "res://data/plants/nursery_list.json"
 
@@ -25,7 +25,6 @@ const SHAPES := {
 	"fern": SymbolsScript.FERN,
 	"perennial": SymbolsScript.BED,
 }
-
 
 # --- helpers ------------------------------------------------------------------------------------
 
@@ -75,7 +74,6 @@ func _pointed_at(catalogue: PlantCatalogue, path: String) -> Array[String]:
 			out.append(String(id))
 	return out
 
-
 # --- the assets ---------------------------------------------------------------------------------
 
 
@@ -92,10 +90,7 @@ func test_every_model_stands_on_the_ground() -> void:
 	for id: String in ModelsScript.IDS:
 		var node: Node3D = _instance(id)
 		var box: AABB = _bounds(node)
-		assert(
-			absf(box.position.y) < 0.02,
-			"%s stands on y = 0, not %.3f m below it" % [id, box.position.y]
-		)
+		assert(absf(box.position.y) < 0.02, "%s stands on y = 0, not %.3f m below it" % [id, box.position.y])
 		assert(box.end.y > 0.1, "%s has a height to it: %.3f m" % [id, box.end.y])
 		node.free()
 
@@ -115,7 +110,7 @@ func test_every_model_is_the_size_its_plan_style_entry_declares() -> void:
 		var slack: float = declared.x * 0.05 + 0.01
 		assert(
 			absf(declared.x - measured) <= slack,
-			"%s is %.2f m across and its entry says %.2f m" % [id, measured, declared.x]
+			"%s is %.2f m across and its entry says %.2f m" % [id, measured, declared.x],
 		)
 		node.free()
 
@@ -154,7 +149,6 @@ func test_the_builder_and_the_assets_agree_about_what_is_built() -> void:
 			var id: String = file.get_basename()
 			assert(ModelsScript.IDS.has(id), "%s is a model this builder makes" % file)
 
-
 # --- the catalogue points at them ---------------------------------------------------------------
 
 
@@ -173,8 +167,10 @@ func test_a_species_is_planted_as_the_shape_it_is_drawn_as() -> void:
 	for id: String in expected:
 		var species: PlantSpecies = catalogue.get_species(StringName(id))
 		assert(species != null, "%s is in the list" % id)
-		assert(species.model_scene == ModelsScript.path_for(expected[id]),
-			"%s is planted as its %s: %s" % [id, expected[id], species.model_scene])
+		assert(
+			species.model_scene == ModelsScript.path_for(expected[id]),
+			"%s is planted as its %s: %s" % [id, expected[id], species.model_scene],
+		)
 
 
 func test_every_species_is_planted_as_the_shape_its_drawing_uses() -> void:
@@ -189,10 +185,7 @@ func test_every_species_is_planted_as_the_shape_its_drawing_uses() -> void:
 		assert(not plant.model_scene.is_empty(), "%s is planted as a model, not a generic prop" % id)
 		var drawn: StringName = packs.symbol_of_species(plant)
 		var modelled: StringName = PlanStyleScript.spec_for(plant.model_scene)["symbol"]
-		assert(
-			drawn == modelled,
-			"%s is drawn as %s and planted as a %s" % [id, drawn, modelled]
-		)
+		assert(drawn == modelled, "%s is drawn as %s and planted as a %s" % [id, drawn, modelled])
 
 
 func test_a_tree_and_a_shrub_are_models_of_their_own_shape() -> void:
@@ -203,12 +196,16 @@ func test_a_tree_and_a_shrub_are_models_of_their_own_shape() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var packs := preload("res://tools/plant_packs.gd")
 	var maple: PlantSpecies = catalogue.get_species(&"acer-rubrum-autumn-blaze")
-	assert(packs.shape_of(maple.model_scene.get_file().get_basename()) == SymbolsScript.CANOPY,
-		"a broadleaf tree is a canopy model: %s" % maple.model_scene)
+	assert(
+		packs.shape_of(maple.model_scene.get_file().get_basename()) == SymbolsScript.CANOPY,
+		"a broadleaf tree is a canopy model: %s" % maple.model_scene,
+	)
 	assert(maple.form == "res://scenes/props/tree.tscn", "and its form is still the tree")
 	var box: PlantSpecies = catalogue.get_species(&"buxus-sempervirens")
-	assert(packs.shape_of(box.model_scene.get_file().get_basename()) == SymbolsScript.SHRUB,
-		"so a shrub is a shrub model: %s" % box.model_scene)
+	assert(
+		packs.shape_of(box.model_scene.get_file().get_basename()) == SymbolsScript.SHRUB,
+		"so a shrub is a shrub model: %s" % box.model_scene,
+	)
 	assert(catalogue.missing_files().is_empty(), "and every path in the list is on disk")
 
 
@@ -219,7 +216,6 @@ func test_every_species_in_the_list_carries_a_model() -> void:
 		if not catalogue.get_species(id).model_scene.is_empty():
 			with_model += 1
 	assert(with_model == catalogue.count(), "every one of the %d is planted as a model" % catalogue.count())
-
 
 # --- planting through the real pipeline ---------------------------------------------------------
 
@@ -233,20 +229,21 @@ func test_planting_a_spruce_puts_the_conifer_in_the_yard_at_the_catalogue_size()
 	assert(bool(placed["ok"]), "the spruce was planted: %s" % String(placed["reason"]))
 	var node: Node3D = placed["node"] as Node3D
 	assert(node != null, "and there is a node")
-	assert(node.scene_file_path == "res://assets/plants/conifer.gltf", "it is the conifer model: %s" % node.scene_file_path)
+	assert(
+		node.scene_file_path == "res://assets/plants/conifer.gltf",
+		"it is the conifer model: %s" % node.scene_file_path,
+	)
 	# The catalogue's own spread rather than a number typed here: Hoopsii spreads 5 m, and what stands
 	# in the yard is that 5 m across however wide the model itself was built.
 	var spruce: PlantSpecies = catalogue.get_species(&"picea-pungens-hoopsii")
 	assert(
 		is_equal_approx(node.scale.x, spruce.spread_m() / 2.6),
-		"scaled by the catalogue's spread over the model's own footprint: %.3f" % node.scale.x
+		"scaled by the catalogue's spread over the model's own footprint: %.3f" % node.scale.x,
 	)
 	assert(node.position.is_equal_approx(Vector3(2.0, 0.0, -3.0)), "standing where it was asked to stand")
 	assert(PlanStyleScript.symbol_of(node) == SymbolsScript.CONIFER, "and the plan draws it as a conifer")
 	assert(
 		is_equal_approx(PlanStyleScript.footprint_size(node).x, spruce.spread_m()),
-		"at its own %.2f m across, not the model's: %.2f" % [
-			spruce.spread_m(), PlanStyleScript.footprint_size(node).x
-		]
+		"at its own %.2f m across, not the model's: %.2f" % [spruce.spread_m(), PlanStyleScript.footprint_size(node).x],
 	)
 	yard.free()

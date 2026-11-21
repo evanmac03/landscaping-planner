@@ -28,8 +28,8 @@ const ROW_STEP_MM := 6.0
 func _invoice() -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "city": "Ottawa"}
-	invoice.site = {"name": "Smith, back garden"}
+	invoice.customer = { "name": "Smith", "city": "Ottawa" }
+	invoice.site = { "name": "Smith, back garden" }
 	assert(invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Deposit", MoneyScript.of(100000), &"HARDSCAPE", &"HST-ON"))
 	assert(invoice.add_amount(InvoiceScript.PERIOD_LINE, "Bark mulch", MoneyScript.of(50000), &"PLANTING", &"NONE"))
 	assert(invoice.set_retainage(MoneyScript.of(10000)))
@@ -71,7 +71,7 @@ func _rules(text: String) -> Array[Dictionary]:
 			if legs.size() == 3:
 				var to := Vector2(float(legs[0]), float(legs[1]))
 				if is_equal_approx(from.y, to.y):
-					out.append({"x0": minf(from.x, to.x), "x1": maxf(from.x, to.x), "y": from.y})
+					out.append({ "x0": minf(from.x, to.x), "x1": maxf(from.x, to.x), "y": from.y })
 	return out
 
 
@@ -90,11 +90,13 @@ func _drawn_text(text: String) -> Array[Dictionary]:
 		var head := drawn.substr(0, open_paren).strip_edges().split(" ", false)
 		if head.size() != 7:
 			continue
-		out.append({
-			"text": drawn.substr(open_paren + 1, drawn.length() - 7 - open_paren - 1),
-			"at": Vector2(float(head[4]), float(head[5])),
-			"size": float(head[2]),
-		})
+		out.append(
+			{
+				"text": drawn.substr(open_paren + 1, drawn.length() - 7 - open_paren - 1),
+				"at": Vector2(float(head[4]), float(head[5])),
+				"size": float(head[2]),
+			}
+		)
 	return out
 
 
@@ -105,7 +107,7 @@ func _y_of(rows: Array[Dictionary], wanted: String) -> float:
 	return NAN
 
 
-func _drawn_rows(invoice: InvoiceScript, options: Dictionary = {}) -> Array[Dictionary]:
+func _drawn_rows(invoice: InvoiceScript, options: Dictionary = { }) -> Array[Dictionary]:
 	return _drawn_text(PageScript.export_pdf(invoice, options).get_string_from_utf8())
 
 
@@ -139,12 +141,10 @@ func _placed_images(text: String) -> Array[Dictionary]:
 		var head := drawn.split(" ", false)
 		if head.size() != 11:
 			continue
-		out.append({
-			"name": String(head[8]),
-			"rect": Rect2(float(head[5]), float(head[6]), float(head[1]), float(head[4])),
-		})
+		out.append(
+			{ "name": String(head[8]), "rect": Rect2(float(head[5]), float(head[6]), float(head[1]), float(head[4])) }
+		)
 	return out
-
 
 # --- the paper ---------------------------------------------------------------------------------
 
@@ -169,7 +169,6 @@ func test_the_file_is_a_pdf_a_customer_can_open() -> void:
 	assert(text.contains("/MediaBox [0 0 "))
 	assert(text.strip_edges().ends_with("%%EOF"))
 	assert(text.contains("INV-2026-0001"))
-
 
 # --- what the page says ------------------------------------------------------------------------
 
@@ -205,7 +204,7 @@ func test_the_site_address_is_the_place_the_drawing_already_knows() -> void:
 
 
 func test_the_company_address_reaches_the_top_of_the_page() -> void:
-	var options := {"company": ["Green Thumb Landscaping", "12 Elm St", "Ottawa ON"]}
+	var options := { "company": ["Green Thumb Landscaping", "12 Elm St", "Ottawa ON"] }
 	var plan: Dictionary = PageScript.plan_page(_invoice(), options)
 	assert(String(plan["header"]["name"]) == "Green Thumb Landscaping")
 	var address: Array = plan["header"]["address"]
@@ -229,7 +228,6 @@ func test_a_void_invoice_says_so_on_the_page() -> void:
 	assert(note.contains("reissued as INV-2026-0002"), note)
 	assert(PageScript.export_pdf(invoice).get_string_from_utf8().contains("voided on 2026-06-05"))
 
-
 # --- the lines ---------------------------------------------------------------------------------
 
 
@@ -251,18 +249,18 @@ func test_the_lines_are_the_invoices_own_and_the_column_foots_to_the_subtotal() 
 func test_a_row_reads_as_a_row_a_bookkeeper_can_check() -> void:
 	var invoice := _invoice()
 	var rows: Array[Dictionary] = PageScript.line_rows(invoice)
-	assert(PageScript.row_text(rows[0]) == "Deposit, 1 EACH at 1,000.00, 1,000.00",
-		PageScript.row_text(rows[0]))
+	assert(PageScript.row_text(rows[0]) == "Deposit, 1 EACH at 1,000.00, 1,000.00", PageScript.row_text(rows[0]))
 	assert(String(rows[0]["quantity_text"]) == "1 EACH")
 
 
 func test_a_quantity_that_is_not_whole_is_written_as_a_decimal() -> void:
 	var invoice: InvoiceScript = InvoiceScript.new("INV3")
 	invoice.job = "J1"
-	assert(invoice.add_line(InvoiceScript.PERIOD_LINE, "Sod", 3500, &"SQ_FT", MoneyScript.of(250), &"PLANTING", &"NONE"))
+	assert(
+		invoice.add_line(InvoiceScript.PERIOD_LINE, "Sod", 3500, &"SQ_FT", MoneyScript.of(250), &"PLANTING", &"NONE")
+	)
 	var rows: Array[Dictionary] = PageScript.line_rows(invoice)
 	assert(String(rows[0]["quantity_text"]) == "3.5 SQ_FT", String(rows[0]["quantity_text"]))
-
 
 # --- nothing drawn through anything else --------------------------------------------------------
 
@@ -285,8 +283,11 @@ func test_no_rule_is_drawn_through_a_line_of_text() -> void:
 			if text_right < float(rule["x0"]) or text_left > float(rule["x1"]):
 				continue
 			var crossed: bool = float(rule["y"]) > at.y - 1.0 and float(rule["y"]) < at.y + size + 1.0
-			assert(not crossed, "a rule at y %.1f crosses '%s' (baseline %.1f, size %.1f)" % [
-				rule["y"], String(row["text"]), at.y, size])
+			assert(
+				not crossed,
+				"a rule at y %.1f crosses '%s' (baseline %.1f, size %.1f)"
+				% [rule["y"], String(row["text"]), at.y, size],
+			)
 
 
 func test_each_row_has_its_own_band_and_the_next_row_sits_below_it() -> void:
@@ -294,8 +295,10 @@ func test_each_row_has_its_own_band_and_the_next_row_sits_below_it() -> void:
 	var first_y := _y_of(rows, "1,000.00")
 	var second_y := _y_of(rows, "500.00")
 	assert(not is_nan(first_y) and not is_nan(second_y))
-	assert(is_equal_approx(first_y - second_y, ROW_STEP_MM * POINTS_PER_MM),
-		"rows are one row step apart: %f against %f" % [first_y - second_y, ROW_STEP_MM * POINTS_PER_MM])
+	assert(
+		is_equal_approx(first_y - second_y, ROW_STEP_MM * POINTS_PER_MM),
+		"rows are one row step apart: %f against %f" % [first_y - second_y, ROW_STEP_MM * POINTS_PER_MM],
+	)
 
 
 func test_a_line_too_long_for_its_column_is_shortened_rather_than_run_on() -> void:
@@ -318,8 +321,15 @@ func test_more_lines_than_fit_are_counted_rather_than_run_off_the_page() -> void
 	var invoice: InvoiceScript = InvoiceScript.new("INV5")
 	invoice.job = "J1"
 	for index in 60:
-		assert(invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Line %d" % index,
-			MoneyScript.of(100 + index), &"PLANTING", &"NONE"))
+		assert(
+			invoice.add_amount(
+				InvoiceScript.MILESTONE_LINE,
+				"Line %d" % index,
+				MoneyScript.of(100 + index),
+				&"PLANTING",
+				&"NONE",
+			)
+		)
 	var plan: Dictionary = PageScript.plan_page(invoice)
 	var rows: Array = plan["rows"]
 	assert(rows.size() < 60)
@@ -328,7 +338,6 @@ func test_more_lines_than_fit_are_counted_rather_than_run_off_the_page() -> void
 	var note: String = String(plan["footer"]["note"])
 	assert(note.contains("further line(s) do not fit on this page"), note)
 	assert(PageScript.export_pdf(invoice).get_string_from_utf8().contains("do not fit on this page"))
-
 
 # --- the totals --------------------------------------------------------------------------------
 
@@ -430,17 +439,17 @@ func test_what_has_been_paid_is_on_the_page_with_what_arrived_how_and_when() -> 
 			assert(String(row["value_text"]) == "1,030.00", String(row["value_text"]))
 	assert(paid_found, str(totals))
 
-
 # --- text that has to survive the file ----------------------------------------------------------
 
 
 func test_a_name_with_brackets_survives_the_page() -> void:
 	var invoice: InvoiceScript = InvoiceScript.new("INV8")
 	invoice.job = "J1"
-	assert(invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Mulch (2 yd)", MoneyScript.of(10000), &"PLANTING", &"NONE"))
+	assert(
+		invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Mulch (2 yd)", MoneyScript.of(10000), &"PLANTING", &"NONE")
+	)
 	var text := PageScript.export_pdf(invoice).get_string_from_utf8()
 	assert(text.contains("Mulch \\(2 yd\\)"), "brackets are escaped in a PDF string")
-
 
 # --- the company logo ---------------------------------------------------------------------------
 
@@ -449,15 +458,16 @@ func test_a_page_with_no_logo_is_the_page_it_has_always_been() -> void:
 	var plan: Dictionary = PageScript.plan_page(_invoice())
 	var header: Dictionary = plan["header"]
 	assert((header["logo"] as Dictionary).is_empty(), "no logo, no placement")
-	assert(is_equal_approx(float(header["name_x_mm"]), PageScript.MARGIN_MM),
-		"the letterhead stays on the margin")
-	assert(_placed_images(PageScript.export_pdf(_invoice()).get_string_from_utf8()).is_empty(),
-		"and nothing is placed on the page")
+	assert(is_equal_approx(float(header["name_x_mm"]), PageScript.MARGIN_MM), "the letterhead stays on the margin")
+	assert(
+		_placed_images(PageScript.export_pdf(_invoice()).get_string_from_utf8()).is_empty(),
+		"and nothing is placed on the page",
+	)
 
 
 func test_the_logo_keeps_its_proportion_and_the_name_moves_over_to_clear_it() -> void:
 	_forget_logos()
-	var plan: Dictionary = PageScript.plan_page(_invoice(), {"logo": _logo("proportioned", 64, 32)})
+	var plan: Dictionary = PageScript.plan_page(_invoice(), { "logo": _logo("proportioned", 64, 32) })
 	var logo: Dictionary = plan["header"]["logo"]
 	assert(not logo.is_empty(), "the picture is placed")
 	var rect: Rect2 = logo["rect_mm"]
@@ -465,9 +475,10 @@ func test_the_logo_keeps_its_proportion_and_the_name_moves_over_to_clear_it() ->
 	assert(is_equal_approx(rect.size.y, PageScript.LOGO_HEIGHT_MM), str(rect.size.y))
 	assert(is_equal_approx(rect.position.x, PageScript.MARGIN_MM), str(rect.position.x))
 	assert(is_equal_approx(rect.position.y, PageScript.LOGO_TOP_MM), str(rect.position.y))
-	assert(is_equal_approx(float(plan["header"]["name_x_mm"]),
-		PageScript.MARGIN_MM + 32.0 + PageScript.LOGO_GAP_MM),
-		"the name clears the picture by the gap")
+	assert(
+		is_equal_approx(float(plan["header"]["name_x_mm"]), PageScript.MARGIN_MM + 32.0 + PageScript.LOGO_GAP_MM),
+		"the name clears the picture by the gap",
+	)
 	_forget_logos()
 
 
@@ -475,20 +486,26 @@ func test_a_very_wide_logo_is_capped_and_comes_down_in_height() -> void:
 	_forget_logos()
 	var path := _logo("banner", 1000, 40)
 	var printable: float = PageScript.page_size_mm("LETTER", true).x - 2.0 * PageScript.MARGIN_MM
-	var rect: Rect2 = PageScript.plan_page(_invoice(), {"logo": path})["header"]["logo"]["rect_mm"]
-	assert(is_equal_approx(rect.size.x, printable * PageScript.LOGO_MAX_WIDTH_FRACTION),
-		"the width is capped: %s" % str(rect.size.x))
+	var rect: Rect2 = PageScript.plan_page(_invoice(), { "logo": path })["header"]["logo"]["rect_mm"]
+	assert(
+		is_equal_approx(rect.size.x, printable * PageScript.LOGO_MAX_WIDTH_FRACTION),
+		"the width is capped: %s" % str(rect.size.x),
+	)
 	assert(rect.size.y < PageScript.LOGO_HEIGHT_MM, "so the height comes down with it: %s" % str(rect.size.y))
-	assert(is_equal_approx(rect.size.x / rect.size.y, 1000.0 / 40.0),
-		"and the picture keeps its own shape: %s" % str(rect.size.x / rect.size.y))
+	assert(
+		is_equal_approx(rect.size.x / rect.size.y, 1000.0 / 40.0),
+		"and the picture keeps its own shape: %s" % str(rect.size.x / rect.size.y),
+	)
 	_forget_logos()
 
 
 func test_a_file_that_is_not_a_picture_is_a_page_with_no_logo() -> void:
-	var plan: Dictionary = PageScript.plan_page(_invoice(), {"logo": "user://there-is-no-such-logo.png"})
+	var plan: Dictionary = PageScript.plan_page(_invoice(), { "logo": "user://there-is-no-such-logo.png" })
 	assert((plan["header"]["logo"] as Dictionary).is_empty(), "a file that is not there is no logo")
-	assert(is_equal_approx(float(plan["header"]["name_x_mm"]), PageScript.MARGIN_MM),
-		"and the letterhead does not move for it")
+	assert(
+		is_equal_approx(float(plan["header"]["name_x_mm"]), PageScript.MARGIN_MM),
+		"and the letterhead does not move for it",
+	)
 
 
 func test_a_file_that_is_not_a_picture_is_not_an_image() -> void:
@@ -504,7 +521,7 @@ func test_a_file_that_is_not_a_picture_is_not_an_image() -> void:
 
 func test_the_logo_lands_on_the_page_above_the_letterhead_rule() -> void:
 	_forget_logos()
-	var text := PageScript.export_pdf(_invoice(), {"logo": _logo("landing", 64, 32)}).get_string_from_utf8()
+	var text := PageScript.export_pdf(_invoice(), { "logo": _logo("landing", 64, 32) }).get_string_from_utf8()
 	assert(text.contains("/Subtype /Image"), "the picture is a real image object")
 	assert(text.contains("/XObject << /Im1 "), "and the page's resources name it")
 	var placed: Array[Dictionary] = _placed_images(text)

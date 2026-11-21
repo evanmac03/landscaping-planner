@@ -117,4 +117,4 @@ func test_an_entry_round_trips_through_the_file() -> void:
 
 
 func test_a_record_with_no_id_is_dropped() -> void:
-	assert(EntryScript.from_dict({"job": "J1"}) == null)
+	assert(EntryScript.from_dict({ "job": "J1" }) == null)

@@ -42,12 +42,10 @@ func _item(book: CostBook, id: StringName) -> CostItem:
 func _priced(quantity_milli: int = 48000, code: StringName = &"HST-ON") -> Estimate:
 	var book: CostBook = _book()
 	var estimate: Estimate = EstimateScript.make("EST-TEST")
-	estimate.customer = {"name": "A Customer"}
+	estimate.customer = { "name": "A Customer" }
 	estimate.tax_code = code
-	assert(estimate.add_line(LineScript.make(_item(book, PAVING), quantity_milli), book),
-		"the line is added")
+	assert(estimate.add_line(LineScript.make(_item(book, PAVING), quantity_milli), book), "the line is added")
 	return estimate
-
 
 # --- one line -----------------------------------------------------------------------------
 
@@ -55,13 +53,16 @@ func _priced(quantity_milli: int = 48000, code: StringName = &"HST-ON") -> Estim
 func test_a_line_is_quantity_times_frozen_price_rounded_once() -> void:
 	var book: CostBook = _book()
 	var paving: CostItem = _item(book, PAVING)
-	var line: EstimateLine = LineScript.make(paving, 48000)     # 48.000 m²
+	var line: EstimateLine = LineScript.make(paving, 48000) # 48.000 m²
 	assert(line.unit == &"SQ_M", "the line is in the item's own unit")
 	assert(line.unit_cost.equals(paving.rate), "the cost is frozen from the item")
 	assert(line.unit_price.equals(paving.rate), "and prices at cost until somebody marks it up")
 	# 48 m² at $85.00 = $4,080.00, and 5% of waste on the quantity means 50.400 m², $4,284.00.
 	assert(line.quantity_with_waste() == 50400, "waste inflates the quantity: %d" % line.quantity_with_waste())
-	assert(line.extension().format_with_currency() == "$4,284.00", "and the price follows: %s" % line.extension().format_with_currency())
+	assert(
+		line.extension().format_with_currency() == "$4,284.00",
+		"and the price follows: %s" % line.extension().format_with_currency(),
+	)
 
 
 func test_waste_never_touches_a_labour_line() -> void:
@@ -69,13 +70,15 @@ func test_waste_never_touches_a_labour_line() -> void:
 	# paving is a *selling* rate and already contains the installer's own waste (§5.1).
 	var book: CostBook = _book()
 	var labour: CostItem = _item(book, LABOUR)
-	var line: EstimateLine = LineScript.make(labour, 1500)      # 1.5 hours
+	var line: EstimateLine = LineScript.make(labour, 1500) # 1.5 hours
 	assert(not line.is_material(), "labour is not material")
 	assert(line.quantity_with_waste() == 1500, "so the quantity is untouched")
 	# And an item that *does* carry waste is respected, which is the other half of the rule.
 	var mulch: EstimateLine = LineScript.make(_item(book, MULCH), 2000)
-	assert(mulch.is_material() and mulch.quantity_with_waste() == 2160,
-		"material carries its item's 8%%: %d" % mulch.quantity_with_waste())
+	assert(
+		mulch.is_material() and mulch.quantity_with_waste() == 2160,
+		"material carries its item's 8%%: %d" % mulch.quantity_with_waste(),
+	)
 
 
 func test_a_quantity_in_square_feet_is_an_exact_conversion() -> void:
@@ -112,7 +115,7 @@ func test_a_line_that_cannot_be_priced_says_what_is_wrong_with_it() -> void:
 
 	# REQ-B9: the dimension of the measurement is checked against the dimension of the unit.
 	var mismatched: EstimateLine = LineScript.make(paving, 1000)
-	mismatched.takeoff = {"entities": [1, 2], "measure": "linear", "value": 12.0}
+	mismatched.takeoff = { "entities": [1, 2], "measure": "linear", "value": 12.0 }
 	assert(not mismatched.is_valid(), "a length priced per square metre is refused")
 	assert(String(mismatched.problem()).contains("measured in"), mismatched.problem())
 
@@ -133,7 +136,7 @@ func test_a_missing_tax_code_is_refused_and_a_zero_rated_one_is_not() -> void:
 
 func test_a_line_survives_the_file_with_its_prices_and_its_lineage() -> void:
 	var line: EstimateLine = LineScript.make(_item(_book(), PAVING), 48000)
-	line.takeoff = {"entities": [3, 4], "measure": "area", "value": 48.0}
+	line.takeoff = { "entities": [3, 4], "measure": "area", "value": 48.0 }
 	line.note = "the patio"
 	var back: EstimateLine = LineScript.from_dict(line.to_dict())
 	assert(back.id == line.id, "the id survives, so a line survives a re-order")
@@ -141,7 +144,6 @@ func test_a_line_survives_the_file_with_its_prices_and_its_lineage() -> void:
 	assert(back.book_version == line.book_version, "and the book version it was priced from")
 	assert(int(back.takeoff["entities"][0]) == 3, "the lineage survives: %s" % str(back.takeoff))
 	assert(not back.by_hand(), "a measured line knows it was measured")
-
 
 # --- the roll-up ---------------------------------------------------------------------------
 
@@ -166,22 +168,29 @@ func test_the_printed_lines_foot_to_the_printed_subtotal() -> void:
 func test_the_markup_and_the_tax_follow_the_stated_order() -> void:
 	# §5.2: overhead on the subtotal, profit on the subtotal plus overhead, deposit on the total.
 	var estimate: Estimate = _priced(48000)
-	estimate.overhead_ppm = 100000       # 10%
-	estimate.profit_ppm = 150000         # 15%
-	estimate.deposit_ppm = 250000        # 25%
+	estimate.overhead_ppm = 100000 # 10%
+	estimate.profit_ppm = 150000 # 15%
+	estimate.deposit_ppm = 250000 # 25%
 	var subtotal: Money = estimate.subtotal()
 	assert(subtotal.format_with_currency() == "$4,284.00", "subtotal: %s" % subtotal.format_with_currency())
-	assert(estimate.overhead().format_with_currency() == "$428.40",
-		"10%% of the subtotal: %s" % estimate.overhead().format_with_currency())
+	assert(
+		estimate.overhead().format_with_currency() == "$428.40",
+		"10%% of the subtotal: %s" % estimate.overhead().format_with_currency(),
+	)
 	# 15% of 4,712.40 = 706.86, and it is charged on the overhead as well as the subtotal.
-	assert(estimate.profit().format_with_currency() == "$706.86",
-		"profit: %s" % estimate.profit().format_with_currency())
-	assert(estimate.price_before_tax().format_with_currency() == "$5,419.26",
-		"price: %s" % estimate.price_before_tax().format_with_currency())
-	assert(estimate.tax().format_with_currency() == "$704.50",
-		"13%% HST: %s" % estimate.tax().format_with_currency())
-	assert(estimate.total().format_with_currency() == "$6,123.76",
-		"and the total: %s" % estimate.total().format_with_currency())
+	assert(
+		estimate.profit().format_with_currency() == "$706.86",
+		"profit: %s" % estimate.profit().format_with_currency(),
+	)
+	assert(
+		estimate.price_before_tax().format_with_currency() == "$5,419.26",
+		"price: %s" % estimate.price_before_tax().format_with_currency(),
+	)
+	assert(estimate.tax().format_with_currency() == "$704.50", "13%% HST: %s" % estimate.tax().format_with_currency())
+	assert(
+		estimate.total().format_with_currency() == "$6,123.76",
+		"and the total: %s" % estimate.total().format_with_currency(),
+	)
 	assert(estimate.deposit().format_with_currency() == "$1,530.94", "a quarter of it up front")
 
 
@@ -195,10 +204,11 @@ func test_with_one_tax_code_every_line_the_tax_is_the_stated_formula() -> void:
 		estimate.overhead_ppm = 123456
 		estimate.profit_ppm = 78901
 		var stated: Dictionary = TaxScript.gross(estimate.price_before_tax(), tax_code)
-		assert(estimate.tax().equals(stated["tax"]),
-			"%s: per-line tax %s against the formula's %s" % [
-				tax_code, estimate.tax().format(), (stated["tax"] as Money).format()
-			])
+		assert(
+			estimate.tax().equals(stated["tax"]),
+			"%s: per-line tax %s against the formula's %s"
+			% [tax_code, estimate.tax().format(), (stated["tax"] as Money).format()],
+		)
 
 
 func test_a_tax_mixed_estimate_charges_each_code_on_its_own_share() -> void:
@@ -213,7 +223,7 @@ func test_a_tax_mixed_estimate_charges_each_code_on_its_own_share() -> void:
 	permit.tax_code = &"NONE"
 	assert(estimate.add_line(work, book) and estimate.add_line(permit, book), "both lines are added")
 	assert(estimate.tax_shares().size() == 2, "two codes, two shares")
-	var by_code: Dictionary = {}
+	var by_code: Dictionary = { }
 	for share: Dictionary in estimate.tax_shares():
 		by_code[share["code"]] = share
 	assert(by_code.has(&"HST-ON") and by_code.has(&"NONE"), "both codes are present")
@@ -227,18 +237,18 @@ func test_a_tax_mixed_estimate_charges_each_code_on_its_own_share() -> void:
 	var permit_share: Dictionary = by_code[&"NONE"]
 	# With no markup, each code's base is exactly its own lines' extensions - and the permit is
 	# legitimately zero-rated, which is why it is on an invoice at all.
-	assert((permit_share["base"] as Money).cents == permit.extension().cents,
-		"the permit's base is its own extension: %s" % (permit_share["base"] as Money).format_with_currency())
+	assert(
+		(permit_share["base"] as Money).cents == permit.extension().cents,
+		"the permit's base is its own extension: %s" % (permit_share["base"] as Money).format_with_currency(),
+	)
 	assert((permit_share["gross"]["tax"] as Money).is_zero(), "and it is charged nothing")
-	assert((by_code[&"HST-ON"]["base"] as Money).equals(work.extension()),
-		"the taxable base is the taxable line")
+	assert((by_code[&"HST-ON"]["base"] as Money).equals(work.extension()), "the taxable base is the taxable line")
 	# And the markup was not lost apportioning it: every line got its share of a whole markup.
 	var shares: Array = estimate.markup_shares()
 	var share_total: int = 0
 	for share: int in shares:
 		share_total += share
-	assert(share_total == estimate.overhead().add(estimate.profit()).cents,
-		"the shares add up to the whole markup")
+	assert(share_total == estimate.overhead().add(estimate.profit()).cents, "the shares add up to the whole markup")
 
 
 func test_a_markup_of_nothing_leaves_the_shares_to_the_lines() -> void:
@@ -269,18 +279,21 @@ func test_the_gross_margin_is_computed_from_the_cost_and_the_price() -> void:
 	var estimate: Estimate = EstimateScript.make("EST-MARGIN")
 	estimate.tax_code = &"HST-ON"
 	var line: EstimateLine = LineScript.make(_item(book, PAVING), 10000)
-	line.unit_price = MoneyScript.from_major(100)          # cost $85.00, price $100.00
+	line.unit_price = MoneyScript.from_major(100) # cost $85.00, price $100.00
 	assert(estimate.add_line(line, book), "the line is added")
 	# 10 m² of paving carries 5% of waste, so the customer is billed 10.5 m²: $1,050.00 at $100, and the
 	# work cost 10.5 m² x $85 = $892.50. Waste inflates the quantity on both sides of the line, which is
 	# the arithmetic §5.1 states and why a selling rate is meant to be a rate for finished work.
-	assert(estimate.direct_cost().format_with_currency() == "$892.50",
-		"direct cost: %s" % estimate.direct_cost().format_with_currency())
-	assert(estimate.price_before_tax().format_with_currency() == "$1,050.00",
-		"price: %s" % estimate.price_before_tax().format_with_currency())
+	assert(
+		estimate.direct_cost().format_with_currency() == "$892.50",
+		"direct cost: %s" % estimate.direct_cost().format_with_currency(),
+	)
+	assert(
+		estimate.price_before_tax().format_with_currency() == "$1,050.00",
+		"price: %s" % estimate.price_before_tax().format_with_currency(),
+	)
 	assert(estimate.margin_ppm() == 150000, "15.00%% margin: %s" % estimate.margin_text())
 	assert(estimate.margin_text() == "15.00%", "and it prints as a percentage")
-
 
 # --- kits ----------------------------------------------------------------------------------
 
@@ -291,11 +304,11 @@ func test_a_kit_expands_into_lines_that_cost_to_their_own_phases() -> void:
 	var book: CostBook = _book()
 	var estimate: Estimate = EstimateScript.make("EST-KIT")
 	estimate.tax_code = &"HST-ON"
-	var result: Dictionary = estimate.add_kit(book, &"kit-bed-install", 50000)   # 50 m² of bed
+	var result: Dictionary = estimate.add_kit(book, &"kit-bed-install", 50000) # 50 m² of bed
 	assert(bool(result["ok"]), "the kit expands: %s" % String(result["reason"]))
 	var expanded: Array = result["lines"]
 	assert(expanded.size() >= 3, "into three lines: %d" % expanded.size())
-	var codes: Dictionary = {}
+	var codes: Dictionary = { }
 	for line: EstimateLine in expanded:
 		codes[line.cost_code] = true
 	assert(codes.has(&"BEDS") and codes.has(&"LABOUR"), "costing to two phases: %s" % str(codes.keys()))
@@ -318,8 +331,10 @@ func test_a_kit_cycle_is_refused_and_the_chain_is_named() -> void:
 	var estimate: Estimate = EstimateScript.make("EST-LOOP")
 	var result: Dictionary = estimate.add_kit(book, &"kit-loop-a", 1000)
 	assert(not bool(result["ok"]), "a cycle is refused")
-	assert(String(result["reason"]).contains("kit-loop-a") and String(result["reason"]).contains("kit-loop-b"),
-		"and the chain is named: %s" % String(result["reason"]))
+	assert(
+		String(result["reason"]).contains("kit-loop-a") and String(result["reason"]).contains("kit-loop-b"),
+		"and the chain is named: %s" % String(result["reason"]),
+	)
 	assert(estimate.line_count() == 0, "and nothing was added to the estimate")
 
 
@@ -328,7 +343,6 @@ func test_a_kit_that_is_not_there_says_so_rather_than_pricing_nothing() -> void:
 	var result: Dictionary = estimate.add_kit(_book(), &"kit-nonexistent", 1000)
 	assert(not bool(result["ok"]), "an unknown kit is refused")
 	assert(String(result["reason"]).contains("kit-nonexistent"), "naming it: %s" % String(result["reason"]))
-
 
 # --- what it refuses -----------------------------------------------------------------------
 
@@ -355,18 +369,20 @@ func test_an_estimate_that_does_not_foot_will_not_say_it_is_sound() -> void:
 
 func test_a_markup_outside_sane_bounds_is_refused() -> void:
 	var estimate: Estimate = _priced(10000)
-	estimate.overhead_ppm = 6000000            # 600%
+	estimate.overhead_ppm = 6000000 # 600%
 	assert(not estimate.is_sound(), "600%% of overhead is a data error, not a decision")
-	assert(String(" | ".join(estimate.problems())).contains("500%"),
-		"and the refusal states the bound: %s" % " | ".join(estimate.problems()))
-	estimate.overhead_ppm = 5000000            # exactly +500%, which is the edge and is allowed
+	assert(
+		String(" | ".join(estimate.problems())).contains("500%"),
+		"and the refusal states the bound: %s" % " | ".join(estimate.problems()),
+	)
+	estimate.overhead_ppm = 5000000 # exactly +500%, which is the edge and is allowed
 	assert(estimate.is_sound(), "the bound itself is inside the bound: %s" % " | ".join(estimate.problems()))
 
 
 func test_a_taxable_line_on_an_exempt_customer_is_refused() -> void:
 	var book: CostBook = _book()
 	var estimate: Estimate = EstimateScript.make("EST-EXEMPT")
-	estimate.customer = {"name": "A Band", "exempt": true}
+	estimate.customer = { "name": "A Band", "exempt": true }
 	estimate.tax_code = &"HST-ON"
 	var line: EstimateLine = LineScript.make(_item(book, PAVING), 10000)
 	assert(estimate.add_line(line, book), "the line is added")
@@ -383,9 +399,10 @@ func test_an_unknown_tax_code_is_refused_rather_than_treated_as_none() -> void:
 	var line: EstimateLine = LineScript.make(_item(book, PAVING), 10000)
 	line.tax_code = &"NO-SUCH-TAX"
 	assert(not estimate.add_line(line, book), "a code that is not a code cannot be added")
-	assert(estimate.tax(book).is_valid() == false or estimate.tax_shares(book).is_empty(),
-		"and an estimate with no lines has no tax to charge")
-
+	assert(
+		estimate.tax(book).is_valid() == false or estimate.tax_shares(book).is_empty(),
+		"and an estimate with no lines has no tax to charge",
+	)
 
 # --- AC-B7: a book moves and a quote does not -------------------------------------------------
 
@@ -404,11 +421,16 @@ func test_an_estimate_priced_from_an_older_book_still_costs_the_same() -> void:
 	item.rate = MoneyScript.from_major(99)
 	dearer.put_item(item)
 	assert(dearer.version == book.version + 1, "a new version is a new book")
-	assert(item.rate.format_with_currency() == "$99.00", "the new book is dearer: %s" % item.rate.format_with_currency())
+	assert(
+		item.rate.format_with_currency() == "$99.00",
+		"the new book is dearer: %s" % item.rate.format_with_currency(),
+	)
 
 	assert(estimate.subtotal().format() == before, "the old estimate is unchanged: %s" % before)
-	assert(estimate.line(estimate.lines[0].id).unit_price.format_with_currency() == "$85.00",
-		"because the line still holds the price it was priced with")
+	assert(
+		estimate.line(estimate.lines[0].id).unit_price.format_with_currency() == "$85.00",
+		"because the line still holds the price it was priced with",
+	)
 	assert(estimate.book_version == 1, "and says which book that was")
 	# The new work is priced in the new book, which is how the two coexist.
 	var fresh: Estimate = EstimateScript.make("EST-NEW")
@@ -416,18 +438,19 @@ func test_an_estimate_priced_from_an_older_book_still_costs_the_same() -> void:
 	assert(fresh.lines[0].unit_price.format_with_currency() == "$99.00", "at the new price")
 	# REQ-B6: the line records which book it was priced from, and the estimate records the book its
 	# prices came from, so an estimate can say which prices it used.
-	assert(fresh.book_version == dearer.version,
-		"the estimate records the book: %d against %d" % [fresh.book_version, dearer.version])
+	assert(
+		fresh.book_version == dearer.version,
+		"the estimate records the book: %d against %d" % [fresh.book_version, dearer.version],
+	)
 	assert(fresh.lines[0].book_version == dearer.version, "and so does the line")
 	assert(estimate.lines[0].book_version == book.version, "as the older one did with its own")
-
 
 # --- freezing ------------------------------------------------------------------------------
 
 
 func test_a_sent_estimate_is_frozen_and_its_content_hash_holds() -> void:
 	var estimate: Estimate = _priced(48000)
-	estimate.customer = {"name": "A Customer", "email": "a@example.com"}
+	estimate.customer = { "name": "A Customer", "email": "a@example.com" }
 	estimate.notes = "we will need the gate left open"
 	assert(not estimate.is_frozen(), "a draft is not frozen")
 	assert(estimate.freeze("a@example.com"), "a sound estimate freezes")
@@ -489,7 +512,6 @@ func test_an_estimate_that_does_not_foot_cannot_be_sent() -> void:
 	assert(not estimate.freeze("a@example.com"), "so it will not freeze")
 	assert(not estimate.is_frozen(), "and it is still a draft")
 
-
 # --- the number, and reading it back ----------------------------------------------------------
 
 
@@ -506,8 +528,8 @@ func test_an_estimate_survives_the_file_with_its_roll_up_intact() -> void:
 	estimate.overhead_ppm = 100000
 	estimate.profit_ppm = 150000
 	estimate.deposit_ppm = 250000
-	estimate.customer = {"name": "A Customer", "address": "1 Road"}
-	estimate.site = {"latitude": 45.0, "longitude": -75.0}
+	estimate.customer = { "name": "A Customer", "address": "1 Road" }
+	estimate.site = { "latitude": 45.0, "longitude": -75.0 }
 	estimate.notes = "notes"
 	estimate.terms = "terms"
 	estimate.assign_number(2026, 7)
@@ -526,7 +548,7 @@ func test_an_estimate_survives_the_file_with_its_roll_up_intact() -> void:
 
 func test_the_proposal_reads_as_a_proposal() -> void:
 	var estimate: Estimate = _priced(48000)
-	estimate.customer = {"name": "A Customer"}
+	estimate.customer = { "name": "A Customer" }
 	estimate.overhead_ppm = 100000
 	estimate.profit_ppm = 150000
 	estimate.deposit_ppm = 250000
@@ -538,7 +560,9 @@ func test_the_proposal_reads_as_a_proposal() -> void:
 	assert(text.contains("48.000 m"), "the quantity and its unit are on it")
 	assert(text.contains("$4,284.00"), "the line's own extension")
 	assert(text.contains("HST"), "the tax is broken out by component")
-	assert(text.contains("overhead 10.000%") and text.contains("profit 15.000%"),
-		"so is the markup, stated as the two rates it is: %s" % text)
+	assert(
+		text.contains("overhead 10.000%") and text.contains("profit 15.000%"),
+		"so is the markup, stated as the two rates it is: %s" % text,
+	)
 	assert(text.contains("$6,123.76"), "and the total")
 	assert(text.contains("gross margin"), "with the margin stated")

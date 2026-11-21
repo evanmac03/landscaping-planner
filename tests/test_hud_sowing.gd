@@ -34,12 +34,11 @@ func _done(parts: Array) -> void:
 	if controller != null:
 		controller.free()
 
-
 # --- the menu ---------------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_it_needing_a_drawing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.plant_items():
 		if StringName(candidate.get("id", &"")) == &"plant.sow":
 			entry = candidate
@@ -50,7 +49,7 @@ func test_the_plant_menu_offers_it_needing_a_drawing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_DRAFT,
-		"the season it sows into is a fact about the site, which lives on the drawing"
+		"the season it sows into is a fact about the site, which lives on the drawing",
 	)
 
 
@@ -59,7 +58,6 @@ func test_every_menu_entry_still_names_a_method_this_hud_has() -> void:
 	assert(hud.has_method(&"_menu_sowing_window"), "the menu's door is a real one")
 	assert(hud.has_method(&"_tick_sowing_window"), "and so is the door the tick calls")
 	hud.free()
-
 
 # --- the page ---------------------------------------------------------------------------------
 
@@ -102,7 +100,6 @@ func test_opening_it_with_no_drawing_builds_the_page_without_showing_it() -> voi
 	assert(not hud.is_sowing_window_open(), "but it is not shown - there is no season to sow into")
 	hud.free()
 
-
 # --- the join ---------------------------------------------------------------------------------
 
 
@@ -129,7 +126,7 @@ func test_the_page_keeps_up_with_the_drawing_while_it_is_up() -> void:
 	hud._tick_sowing_window()
 	assert(
 		hud._sowing_window.season_line().contains("84 days"),
-		"the season stated behind the page reaches it: %s" % hud._sowing_window.season_line()
+		"the season stated behind the page reaches it: %s" % hud._sowing_window.season_line(),
 	)
 	hud._sowing_window.visible = false
 	_done(parts)

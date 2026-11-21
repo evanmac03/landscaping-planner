@@ -25,21 +25,15 @@ const MoneyScript := preload("res://scripts/biz/money.gd")
 ## `compounds` is charged on what the earlier components added - "QST compounds on GST" marks QST -
 ## and an unmarked one is charged on the price itself.
 const SHIPPED := {
-	&"NONE": {"name": "No tax", "components": []},
-	&"EXEMPT": {"name": "Exempt", "components": []},
-	&"HST-ON": {
-		"name": "HST 13%",
-		"components": [{"name": "HST", "rate_ppm": 130000, "compounds": false}],
-	},
-	&"GST-5": {
-		"name": "GST 5%",
-		"components": [{"name": "GST", "rate_ppm": 50000, "compounds": false}],
-	},
+	&"NONE": { "name": "No tax", "components": [] },
+	&"EXEMPT": { "name": "Exempt", "components": [] },
+	&"HST-ON": { "name": "HST 13%", "components": [{ "name": "HST", "rate_ppm": 130000, "compounds": false }] },
+	&"GST-5": { "name": "GST 5%", "components": [{ "name": "GST", "rate_ppm": 50000, "compounds": false }] },
 	&"GST-PST-BC": {
 		"name": "GST 5% + PST 7%",
 		"components": [
-			{"name": "GST", "rate_ppm": 50000, "compounds": false},
-			{"name": "PST", "rate_ppm": 70000, "compounds": false},
+			{ "name": "GST", "rate_ppm": 50000, "compounds": false },
+			{ "name": "PST", "rate_ppm": 70000, "compounds": false },
 		],
 	},
 	&"GST-QST": {
@@ -48,8 +42,8 @@ const SHIPPED := {
 		# per million - a rate no basis-point table can hold.
 		"name": "GST 5% + QST 9.975%",
 		"components": [
-			{"name": "GST", "rate_ppm": 50000, "compounds": false},
-			{"name": "QST", "rate_ppm": 99750, "compounds": false},
+			{ "name": "GST", "rate_ppm": 50000, "compounds": false },
+			{ "name": "QST", "rate_ppm": 99750, "compounds": false },
 		],
 	},
 }
@@ -84,7 +78,7 @@ static func has(id: StringName) -> bool:
 
 
 static func code(id: StringName) -> Dictionary:
-	return CODES.get(id, {})
+	return CODES.get(id, { })
 
 
 static func components(id: StringName) -> Array:
@@ -139,15 +133,10 @@ static func gross(amount: MoneyScript, id: StringName) -> Dictionary:
 		var rate: int = int(component.get("rate_ppm", 0))
 		var base: MoneyScript = compounded if bool(component.get("compounds", false)) else amount
 		var part: MoneyScript = base.scale_ppm(rate)
-		charged.append({
-			"name": String(component.get("name", "Tax")),
-			"rate_ppm": rate,
-			"base": base,
-			"amount": part,
-		})
+		charged.append({ "name": String(component.get("name", "Tax")), "rate_ppm": rate, "base": base, "amount": part })
 		running = running.add(part)
 		compounded = compounded.add(part)
-	return {"ok": true, "reason": "", "components": charged, "tax": running}
+	return { "ok": true, "reason": "", "components": charged, "tax": running }
 
 
 ## The amount including tax, or the invalid amount when the code is refused.

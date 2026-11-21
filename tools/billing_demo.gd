@@ -7,7 +7,7 @@ extends Node2D
 ## documents and the HUD's menu line are all the shipped ones, and it prints every step. The screenshot
 ## at the end is the billing page over the drawing the job was priced from.
 ##
-## Run `res://scenes/billing_demo.tscn`.
+## Run `res://tools/billing_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -27,9 +27,7 @@ func _ready() -> void:
 		return
 
 	print("--- a plan worth pricing: a patio and a bed ---")
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE)
 	controller.document.add(Entity.make_circle(Vector2(20, 0), 1.5), LayerSet.NEW_PLANTING)
 	print("the drawing holds ", controller.document.count(), " shapes")
 
@@ -41,10 +39,15 @@ func _ready() -> void:
 	var started: Dictionary = hud._estimate_window.start_job()
 	print("the hand-off was accepted: ", started["ok"])
 	var job_id: String = hud._job_desk.job_ids()[0]
-	var job = hud._job_desk.job(job_id)
-	print("the job is ", hud._job_desk.job_label(job_id), ", a contract of ",
-		job.contract_sum.format_with_currency(), ", billed by ",
-		JobScript.billing_name(job.billing_method))
+	var job: Job = hud._job_desk.job(job_id)
+	print(
+		"the job is ",
+		hud._job_desk.job_label(job_id),
+		", a contract of ",
+		job.contract_sum.format_with_currency(),
+		", billed by ",
+		JobScript.billing_name(job.billing_method),
+	)
 
 	print("--- the page the contract is billed from ---")
 	job.set_billing_method(JobScript.MILESTONE)
@@ -69,12 +72,18 @@ func _ready() -> void:
 	print("written: ", raised["ok"], "  and the page says: ", hud._billing_window.status_text())
 	var invoice = raised["invoice"]
 	print("the document: ", invoice.describe())
-	print("it went out as ", invoice.number, ", due ", invoice.due_at, ", with ",
-		invoice.retainage.format_with_currency(), " withheld")
+	print(
+		"it went out as ",
+		invoice.number,
+		", due ",
+		invoice.due_at,
+		", with ",
+		invoice.retainage.format_with_currency(),
+		" withheld",
+	)
 	print("the line on it says: ", String(invoice.line(0)["description"]))
 	print("the page now offers: ", hud._billing_window.amount_text())
-	print("and billing the deposit a second time is refused: ",
-		hud._billing_window.bill_step("Deposit"))
+	print("and billing the deposit a second time is refused: ", hud._billing_window.bill_step("Deposit"))
 
 	print("--- what the invoice comes to arrives ---")
 	hud._billing_window.set_payment(invoice.total().format(), "chq 1041", "cheque")
@@ -91,26 +100,41 @@ func _ready() -> void:
 	print("the step is back on the schedule: ", hud._billing_window.amount_text())
 	print("the document is kept, with its number: ", hud._billing_window.invoice_texts()[0])
 	print("and money cannot be recorded against it: ", hud._billing_window.record_payment())
-	var again: Dictionary = hud._billing_ledger.raise_invoice(
-		job_id, Time.get_date_string_from_system()
+	var again: Dictionary = hud._billing_ledger.raise_invoice(job_id, Time.get_date_string_from_system())
+	print(
+		"issued again as: ",
+		((again["invoice"] as InvoiceScript).number
+			if bool(again["ok"])
+			else String(again["reason"])),
 	)
-	print("issued again as: ", (again["invoice"] as InvoiceScript).number if bool(again["ok"])
-		else String(again["reason"]))
 	hud._billing_window.refresh()
 	if bool(again["ok"]):
 		hud._billing_window.choose_invoice((again["invoice"] as InvoiceScript).id)
 
 	print("--- what the page reads after all of it ---")
 	print(hud._billing_window.summary_text())
-	print("billed ", hud._billing_ledger.invoiced_total(job_id).format_with_currency(),
-		", received ", hud._billing_ledger.collected_total(job_id).format_with_currency(),
-		", owed ", hud._billing_ledger.outstanding_total(job_id).format_with_currency(),
-		", retained ", hud._billing_ledger.retained_total(job_id).format_with_currency())
+	print(
+		"billed ",
+		hud._billing_ledger.invoiced_total(job_id).format_with_currency(),
+		", received ",
+		hud._billing_ledger.collected_total(job_id).format_with_currency(),
+		", owed ",
+		hud._billing_ledger.outstanding_total(job_id).format_with_currency(),
+		", retained ",
+		hud._billing_ledger.retained_total(job_id).format_with_currency(),
+	)
 	print("what wants looking at: ", str(hud._billing_window.problem_texts()))
-	print("the claim the module exists for: ", RateScript.percent_text(250000), " of ",
-		job.contract_sum.format_with_currency(), " is ",
+	print(
+		"the claim the module exists for: ",
+		RateScript.percent_text(250000),
+		" of ",
+		job.contract_sum.format_with_currency(),
+		" is ",
 		job.contract_sum.scale_ppm(250000).format_with_currency(),
-		", and of that ", invoice.retainage.format_with_currency(), " is withheld")
+		", and of that ",
+		invoice.retainage.format_with_currency(),
+		" is withheld",
+	)
 
 	print("--- the page as a customer gets it ---")
 	hud._billing_ledger.company.append("Greenline Landscapes")
@@ -121,8 +145,7 @@ func _ready() -> void:
 	print("the page says: ", hud._billing_window.status_text())
 
 	print("--- closeout ---")
-	print("released: ",
-		hud._billing_ledger.release_retainage(job_id, "2026-09-01").format_with_currency())
+	print("released: ", hud._billing_ledger.release_retainage(job_id, "2026-09-01").format_with_currency())
 	print("retained now: ", hud._billing_ledger.retained_total(job_id).format_with_currency())
 
 	print("--- what is left on screen ---")

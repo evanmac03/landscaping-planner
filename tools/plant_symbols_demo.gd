@@ -6,15 +6,15 @@ extends Node2D
 ## same figures, the same footprint, the same `PlanStyle` inks. Reading the script tells you the
 ## symbols differ; only looking at it tells you whether they *read* as a spruce, a grass and a bed.
 ##
-## Run `res://scenes/plant_symbols_demo.tscn`. It prints the symbol each plant was given, which is the
+## Run `res://tools/plant_symbols_demo.tscn`. It prints the symbol each plant was given, which is the
 ## half a picture cannot state.
 
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlaceScript := preload("res://scripts/plant_placement.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlaceScript := preload("res://scripts/plants/plant_placement.gd")
 const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 
 const SEED := "res://data/plants/nursery_list.json"
 const VIEWPORT := Vector2(1600.0, 900.0)
@@ -35,18 +35,17 @@ func _ready() -> void:
 	for index in picked.size():
 		var species: PlantSpecies = picked[index]
 		var row: float = float(index) - float(picked.size() - 1) * 0.5
-		var planted: Dictionary = PlaceScript.place(
-			catalogue, species.id, yard, Vector3(row * SPACING, 0.0, 0.0)
-		)
+		var planted: Dictionary = PlaceScript.place(catalogue, species.id, yard, Vector3(row * SPACING, 0.0, 0.0))
 		if not bool(planted["ok"]):
 			print("%s was refused: %s" % [species.id, String(planted["reason"])])
 			continue
 		var node: Node3D = planted["node"]
 		var symbol: StringName = PlanStyleScript.symbol_of(node)
 		var size: Vector2 = PlanStyleScript.footprint_size(node)
-		print("%-12s %-14s %-5.2f x %-5.2f  %s" % [
-			String(symbol), species.category_name(), size.x, size.y, species.display_name()
-		])
+		print(
+			"%-12s %-14s %-5.2f x %-5.2f  %s"
+			% [String(symbol), species.category_name(), size.x, size.y, species.display_name()]
+		)
 	var canvas: PlanCanvas = PlanCanvasScript.new()
 	canvas.name = "Plan"
 	add_child(canvas)
@@ -71,9 +70,7 @@ func _picked(catalogue: PlantCatalogue) -> Array[PlantSpecies]:
 	return out
 
 
-func _take(
-	into: Array[PlantSpecies], catalogue: PlantCatalogue, category: int, conifer: bool
-) -> void:
+func _take(into: Array[PlantSpecies], catalogue: PlantCatalogue, category: int, conifer: bool) -> void:
 	for species: PlantSpecies in catalogue.all():
 		if species.category != category:
 			continue
@@ -82,6 +79,7 @@ func _take(
 				continue
 		into.append(species)
 		return
-	print("the list has no %s plant for %s" % [
-		String(SpeciesScript.CATEGORY_NAMES.get(category, "?")), "a conifer" if conifer else "not a conifer"
-	])
+	print(
+		"the list has no %s plant for %s"
+		% [String(SpeciesScript.CATEGORY_NAMES.get(category, "?")), "a conifer" if conifer else "not a conifer"]
+	)

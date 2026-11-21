@@ -21,20 +21,30 @@ func _configured() -> NinjaScript:
 	return NinjaScript.new("https://ninja.example.test", "token-abc")
 
 
-func _invoice(tax_code: StringName = &"HST-ON", client: String = CLIENT,
-		quantity_milli: int = 1000, rate_cents: int = 53550) -> InvoiceScript:
+func _invoice(
+	tax_code: StringName = &"HST-ON",
+	client: String = CLIENT,
+	quantity_milli: int = 1000,
+	rate_cents: int = 53550,
+) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "external_id": client}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", quantity_milli, &"SQ_FT",
-		MoneyScript.of(rate_cents), &"HARDSCAPE", tax_code)
+	invoice.customer = { "name": "Smith", "external_id": client }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		quantity_milli,
+		&"SQ_FT",
+		MoneyScript.of(rate_cents),
+		&"HARDSCAPE",
+		tax_code,
+	)
 	assert(bool(invoice.issue("2026-06-10", 30, "INV-2026-0001")["ok"]))
 	return invoice
 
 
 func _built(ledger: NinjaScript, invoice: InvoiceScript) -> Dictionary:
 	return ledger.build_invoice_push(invoice, ledger.key_for_invoice(invoice))
-
 
 # --- what it is and what it will not claim -------------------------------------------------------
 
@@ -49,8 +59,10 @@ func test_it_reports_only_the_capabilities_it_actually_has() -> void:
 	for what: String in ["credits", "customers", "idempotency", "attachments"]:
 		assert(not bool(caps[what]), "%s should not be claimed" % what)
 	assert(not ledger.can(LedgerScript.CREDITS))
-	assert(ledger.cannot_text(LedgerScript.CREDITS).contains("cannot post credit notes"),
-		ledger.cannot_text(LedgerScript.CREDITS))
+	assert(
+		ledger.cannot_text(LedgerScript.CREDITS).contains("cannot post credit notes"),
+		ledger.cannot_text(LedgerScript.CREDITS),
+	)
 	assert(ledger.name() == &"invoice_ninja")
 	assert(ledger.describe() == "Invoice Ninja at https://ninja.example.test")
 
@@ -82,7 +94,6 @@ func test_a_stated_address_with_no_token_is_still_not_configured() -> void:
 	var nowhere: NinjaScript = NinjaScript.new("")
 	assert(nowhere.describe() == "Invoice Ninja (no address)")
 	assert(nowhere.problems().size() == 2, str(nowhere.problems()))
-
 
 # --- the request -------------------------------------------------------------------------------
 
@@ -149,7 +160,6 @@ func test_a_zero_rated_code_and_a_missing_one_are_neither_of_them_a_tax_rate() -
 		var item: Dictionary = built["request"]["body"]["line_items"][0]
 		assert(not item.has("tax_rate1"), "a %s line carries no rate" % String(code))
 
-
 # --- what it refuses ----------------------------------------------------------------------------
 
 
@@ -167,23 +177,27 @@ func test_a_damaged_invoice_is_refused_in_its_own_words() -> void:
 	# A file can carry an issued invoice whose line amount cannot be read, because `from_dict` keeps a
 	# damaged line rather than dropping it. The invoice is the authority on whether it can be posted, so
 	# its own reason is the one that comes back.
-	var damaged: InvoiceScript = InvoiceScript.from_dict({
-		"id": "INV9",
-		"job": "J1",
-		"customer": {"name": "Smith", "external_id": CLIENT},
-		"issued_at": "2026-06-10",
-		"due_at": "2026-07-10",
-		"number": "INV-2026-0009",
-		"lines": [{
-			"kind": "MILESTONE",
-			"description": "Deposit",
-			"quantity_milli": 1000,
-			"unit": "EACH",
-			"rate": MoneyScript.invalid().to_dict(),
-			"amount": MoneyScript.invalid().to_dict(),
-			"tax_code": "NONE",
-		}],
-	})
+	var damaged: InvoiceScript = InvoiceScript.from_dict(
+		{
+			"id": "INV9",
+			"job": "J1",
+			"customer": { "name": "Smith", "external_id": CLIENT },
+			"issued_at": "2026-06-10",
+			"due_at": "2026-07-10",
+			"number": "INV-2026-0009",
+			"lines": [
+				{
+					"kind": "MILESTONE",
+					"description": "Deposit",
+					"quantity_milli": 1000,
+					"unit": "EACH",
+					"rate": MoneyScript.invalid().to_dict(),
+					"amount": MoneyScript.invalid().to_dict(),
+					"tax_code": "NONE",
+				}
+			],
+		}
+	)
 	assert(damaged != null)
 	assert(damaged.is_issued())
 	var refused: Dictionary = ledger.build_invoice_push(damaged, "key")
@@ -199,16 +213,15 @@ func test_a_payment_needs_the_invoices_id_in_the_service() -> void:
 	payment.received_at = "2026-06-20"
 	payment.amount = MoneyScript.of(53550)
 	payment.bank_reference = "chq 1041"
-	var refused: Dictionary = ledger.build_payment_push(
-		payment, invoice, ledger.key_for_payment(payment, invoice)
-	)
+	var refused: Dictionary = ledger.build_payment_push(payment, invoice, ledger.key_for_payment(payment, invoice))
 	assert(not bool(refused["ok"]))
-	assert(String(refused["reason"]).contains("the invoice's id in Invoice Ninja"),
-		String(refused["reason"]))
-	assert(String(refused["reason"]).contains("when the invoice is first posted"),
-		String(refused["reason"]))
+	assert(String(refused["reason"]).contains("the invoice's id in Invoice Ninja"), String(refused["reason"]))
+	assert(String(refused["reason"]).contains("when the invoice is first posted"), String(refused["reason"]))
 	var built: Dictionary = ledger.build_payment_push(
-		payment, invoice, ledger.key_for_payment(payment, invoice), "abc123"
+		payment,
+		invoice,
+		ledger.key_for_payment(payment, invoice),
+		"abc123",
 	)
 	assert(bool(built["ok"]), String(built["reason"]))
 	var body: Dictionary = built["request"]["body"]
@@ -221,28 +234,25 @@ func test_a_payment_needs_the_invoices_id_in_the_service() -> void:
 	assert(float(applied[0]["amount"]) == 535.5)
 	assert(String(built["request"]["url"]) == "https://ninja.example.test/api/v1/payments")
 
-
 # --- reading the answer -------------------------------------------------------------------------
 
 
 func test_it_reads_the_document_out_of_the_data_the_service_wraps_it_in() -> void:
 	var ledger := _configured()
-	var read: Dictionary = ledger.parse_invoice_response({
-		"status": 200,
-		"body": {"data": {"id": "xYRdG7dDzO", "number": "0019"}},
-	})
+	var read: Dictionary = ledger.parse_invoice_response(
+		{ "status": 200, "body": { "data": { "id": "xYRdG7dDzO", "number": "0019" } } }
+	)
 	assert(bool(read["ok"]))
 	assert(String(read["external_id"]) == "xYRdG7dDzO")
 	assert(String(read["external_number"]) == "0019")
 	# An answer with nothing in it is still a success: the request was taken.
-	var quiet: Dictionary = ledger.parse_invoice_response({"status": 200, "body": {}})
+	var quiet: Dictionary = ledger.parse_invoice_response({ "status": 200, "body": { } })
 	assert(bool(quiet["ok"]))
 	assert(String(quiet["external_id"]) == "")
 	# A refusal is read the way every backend's is, with the message the service sent.
-	var refused: Dictionary = ledger.parse_invoice_response({
-		"status": 422,
-		"body": {"message": "The number has already been taken"},
-	})
+	var refused: Dictionary = ledger.parse_invoice_response(
+		{ "status": 422, "body": { "message": "The number has already been taken" } }
+	)
 	assert(not bool(refused["ok"]))
 	assert(not bool(refused["retry"]))
 	assert(String(refused["reason"]).contains("already been taken"), String(refused["reason"]))
@@ -254,9 +264,8 @@ func test_it_cannot_be_tested_or_sent_until_the_transport_exists() -> void:
 	# A green light that verified nothing would be worse than no button: this says what it cannot do.
 	assert(not bool(tested["ok"]))
 	assert(String(tested["reason"]).contains("no transport yet"), String(tested["reason"]))
-	var sent: Dictionary = ledger.send({"method": "POST", "url": "https://ninja.example.test"})
+	var sent: Dictionary = ledger.send({ "method": "POST", "url": "https://ninja.example.test" })
 	assert(int(sent["status"]) == 0)
 	assert(String(sent["error"]).contains("HTTP transport"), String(sent["error"]))
 	var unconfigured: NinjaScript = NinjaScript.new()
-	assert(String(unconfigured.self_test()["reason"]).contains("API token"),
-		String(unconfigured.self_test()["reason"]))
+	assert(String(unconfigured.self_test()["reason"]).contains("API token"), String(unconfigured.self_test()["reason"]))

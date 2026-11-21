@@ -12,7 +12,7 @@ extends Node2D
 ##
 ## Nothing of its own is added to disk: the pages it drives write their proposals and their invoices
 ## where they always do, and the book in the second pass is built in memory. Run
-## `res://scenes/analytics_demo.tscn`.
+## `res://tools/analytics_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const HudScript := preload("res://scripts/hud.gd")
@@ -41,9 +41,7 @@ func _ready() -> void:
 	var today: String = Time.get_date_string_from_system()
 
 	print("--- an afternoon's work, on the real pages ---")
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0, 0), Vector2(6, 4)), LayerSet.NEW_HARDSCAPE)
 	controller.document.add(Entity.make_circle(Vector2(20, 0), 1.5), LayerSet.NEW_PLANTING)
 	hud.open_estimate_window()
 	hud._estimate_window.take_off()
@@ -89,21 +87,24 @@ func _ready() -> void:
 		_entry("E-1", crew[0], job_id, code, today, 480, true),
 		_entry("E-2", crew[0], job_id, code, today, 90, false),
 	]:
-		print("the desk took a timesheet line of ", entry.minutes(), " minute(s), approved ",
-			entry.is_approved(), ": ", hud._job_desk.log_time(entry))
+		print(
+			"the desk took a timesheet line of ",
+			entry.minutes(),
+			" minute(s), approved ",
+			entry.is_approved(),
+			": ",
+			hud._job_desk.log_time(entry),
+		)
 
 	print("--- some leads, worked as far as they got ---")
 	hud.open_pipeline_board()
 	var board: PipelineBoard = hud._pipeline_board
-	var won: Dictionary = board.add_lead("Halstead, front yard", 2450000, &"referral",
-		_days_from_today(10))
+	var won: Dictionary = board.add_lead("Halstead, front yard", 2450000, &"referral", _days_from_today(10))
 	board.move_lead(String(won["id"]), LeadScript.PROPOSED)
 	board.move_lead(String(won["id"]), LeadScript.WON)
 	var lost: Dictionary = board.add_lead("Nguyen, side path", 780000, &"web", _days_from_today(5))
 	board.move_lead(String(lost["id"]), LeadScript.PROPOSED)
-	print("a drop into lost with no reason is held: ", board.move_lead(
-		String(lost["id"]), LeadScript.LOST
-	))
+	print("a drop into lost with no reason is held: ", board.move_lead(String(lost["id"]), LeadScript.LOST))
 	print("and a reason finishes it: ", board.confirm_move("price"))
 	var late: Dictionary = board.add_lead("Okafor, back garden", 1900000, &"web", _days_ago(20))
 	board.move_lead(String(late["id"]), LeadScript.PROPOSED)
@@ -111,11 +112,13 @@ func _ready() -> void:
 	hud._pipeline_board.hide()
 
 	print("--- the report over everything the office has, as at ", today, " ---")
-	var report: AnalyticsScript = AnalyticsScript.new(
-		board.pipeline, hud._job_desk, hud._billing_ledger
+	var report: AnalyticsScript = AnalyticsScript.new(board.pipeline, hud._job_desk, hud._billing_ledger)
+	print(
+		"there is no working day stated yet: ",
+		not report.working_day_stated(),
+		", so utilisation says: ",
+		report.figure("crew_utilisation", _days_ago(7), today).missing,
 	)
-	print("there is no working day stated yet: ", not report.working_day_stated(),
-		", so utilisation says: ", report.figure("crew_utilisation", _days_ago(7), today).missing)
 	print("stating one is taken: ", report.set_working_day(480), " - ", report.working_day_text())
 	print(report.describe())
 	print(report.summary_text("", "", today))
@@ -132,11 +135,23 @@ func _ready() -> void:
 	for row: Dictionary in page.figure_rows():
 		if bool(row["ok"]):
 			print("  ", row["text"])
-	print("with ", page.row_count(), " row(s), ", page.available_count(), " of them readable, ",
-		page.unavailable_texts().size(), " waiting on something")
+	print(
+		"with ",
+		page.row_count(),
+		" row(s), ",
+		page.available_count(),
+		" of them readable, ",
+		page.unavailable_texts().size(),
+		" waiting on something",
+	)
 	print("nothing on the page takes the keyboard: ", page.buttons_are_focus_free())
-	print("and it offers no working day until one is stated: ", page.working_day_text(), " (",
-		page.state_button_disabled(), " with the field left empty)")
+	print(
+		"and it offers no working day until one is stated: ",
+		page.working_day_text(),
+		" (",
+		page.state_button_disabled(),
+		" with the field left empty)",
+	)
 	page.set_working_day_field(480)
 	print("stating eight hours: ", page.state_working_day())
 	print("so the hours figure is readable: ", _figure_line(page, "crew_utilisation"))
@@ -170,32 +185,42 @@ func _ready() -> void:
 
 	print("--- two things the report says out loud rather than hiding ---")
 	desk.invoiced["J1"] = MoneyScript.of(0)
-	print("the desk's own memory of what has been billed says ", desk.invoiced["J1"].format(),
+	print(
+		"the desk's own memory of what has been billed says ",
+		desk.invoiced["J1"].format(),
 		" and the invoices still win: ",
-		book_report.figure("backlog", "", today, today).words)
+		book_report.figure("backlog", "", today, today).words,
+	)
 	var without: AnalyticsScript = AnalyticsScript.new(pipe, desk)
-	print("with no ledger loaded it falls back, and says so: ",
-		without.figure("backlog", "", today, today).words)
+	print("with no ledger loaded it falls back, and says so: ", without.figure("backlog", "", today, today).words)
 	var bare: JobDeskScript = JobDeskScript.new()
 	var alone: JobScript = JobScript.new("J9")
 	alone.name = "Nobody ever billed this one"
 	alone.contract_sum = MoneyScript.of(100000)
 	bare.add_job(alone)
-	print("and a job no invoice ever went out against has no backlog to report: ",
-		AnalyticsScript.new(null, bare).figure("backlog", "", today, today).text())
+	print(
+		"and a job no invoice ever went out against has no backlog to report: ",
+		AnalyticsScript.new(null, bare).figure("backlog", "", today, today).text(),
+	)
 
 	print("--- reading the figures changes nothing ---")
 	var leads_before: int = pipe.leads.size()
 	var entries_before: int = desk.time_entries.size()
 	var invoices_before: int = ledger.invoices.size()
 	book_report.figures("", "", today)
-	print("leads ", pipe.leads.size() == leads_before, ", timesheet lines ",
-		desk.time_entries.size() == entries_before, ", invoices ",
-		ledger.invoices.size() == invoices_before, " - nothing was accumulated")
-	print("and asking for the same window twice gives the same answer: ",
-		book_report.figures("", today, today)[0].text()
-			== book_report.figures("", today, today)[0].text())
-
+	print(
+		"leads ",
+		pipe.leads.size() == leads_before,
+		", timesheet lines ",
+		desk.time_entries.size() == entries_before,
+		", invoices ",
+		ledger.invoices.size() == invoices_before,
+		" - nothing was accumulated",
+	)
+	print(
+		"and asking for the same window twice gives the same answer: ",
+		book_report.figures("", today, today)[0].text() == book_report.figures("", today, today)[0].text(),
+	)
 
 # --- a book with a history ----------------------------------------------------------------------
 
@@ -205,15 +230,11 @@ func _ready() -> void:
 ## at three different ages - one of them called back.
 func _book(today: String) -> Dictionary:
 	var pipe: PipelineScript = PipelineScript.new()
-	pipe.add(_lead("A", &"web", 1850000, _days_ago(70), LeadScript.WON, _days_ago(12),
-		_days_ago(45)))
-	pipe.add(_lead("B", &"referral", 3200000, _days_ago(95), LeadScript.WON, _days_ago(5),
-		_days_ago(50)))
-	pipe.add(_lead("C", &"web", 900000, _days_ago(60), LeadScript.LOST, _days_ago(8),
-		_days_ago(40), &"price"))
+	pipe.add(_lead("A", &"web", 1850000, _days_ago(70), LeadScript.WON, _days_ago(12), _days_ago(45)))
+	pipe.add(_lead("B", &"referral", 3200000, _days_ago(95), LeadScript.WON, _days_ago(5), _days_ago(50)))
+	pipe.add(_lead("C", &"web", 900000, _days_ago(60), LeadScript.LOST, _days_ago(8), _days_ago(40), &"price"))
 	pipe.add(_lead("D", &"sign", 1250000, _days_ago(40), LeadScript.WITHDRAWN, _days_ago(20)))
-	pipe.add(_lead("E", &"repeat", 2700000, _days_ago(25), LeadScript.PROPOSED, "",
-		_days_ago(10), &"", _days_ago(3)))
+	pipe.add(_lead("E", &"repeat", 2700000, _days_ago(25), LeadScript.PROPOSED, "", _days_ago(10), &"", _days_ago(3)))
 	pipe.add(_lead("F", &"web", 640000, _days_ago(6), LeadScript.VISIT))
 
 	var desk: JobDeskScript = JobDeskScript.new()
@@ -222,12 +243,12 @@ func _book(today: String) -> Dictionary:
 	job.number = "J-1042"
 	job.contract_sum = MoneyScript.of(4800000)
 	job.phases = [
-		{"cost_code": "HARDSCAPE", "budget": MoneyScript.of(1800000), "basis": JobScript.PRICE},
-		{"cost_code": "PLANTING", "budget": MoneyScript.of(900000), "basis": JobScript.PRICE},
+		{ "cost_code": "HARDSCAPE", "budget": MoneyScript.of(1800000), "basis": JobScript.PRICE },
+		{ "cost_code": "PLANTING", "budget": MoneyScript.of(900000), "basis": JobScript.PRICE },
 	]
 	desk.add_job(job)
 	var peter: CrewScript = CrewScript.new(&"P1", "Peter")
-	peter.add_availability({"kind": CrewScript.DAY_OFF, "weekday": 0})
+	peter.add_availability({ "kind": CrewScript.DAY_OFF, "weekday": 0 })
 	desk.add_crew(peter)
 	var paul: CrewScript = CrewScript.new(&"P2", "Paul")
 	desk.add_crew(paul)
@@ -246,15 +267,32 @@ func _book(today: String) -> Dictionary:
 	ledger.invoices.append(called_back)
 	# The one date that is not on a document anywhere: what the office says a holiday cottage week
 	# costs. A crew member's own availability is the record; this is what the report reads for a day.
-	print("the book reads as at ", today, ": ", pipe.leads.size(), " leads, ", desk.time_entries.size(),
-		" timesheet line(s), ", ledger.invoices.size(), " invoice(s)")
-	return {"pipeline": pipe, "jobs": desk, "billing": ledger}
+	print(
+		"the book reads as at ",
+		today,
+		": ",
+		pipe.leads.size(),
+		" leads, ",
+		desk.time_entries.size(),
+		" timesheet line(s), ",
+		ledger.invoices.size(),
+		" invoice(s)",
+	)
+	return { "pipeline": pipe, "jobs": desk, "billing": ledger }
 
 
 ## A lead with a history: it arrived, it was proposed if a date is given, and it ended where it ended.
-func _lead(lead_id: String, source: StringName, cents: int, arrived: String, stage: int,
-		decided: String = "", proposed: String = "", reason: StringName = &"",
-		expected: String = "") -> LeadScript:
+func _lead(
+	lead_id: String,
+	source: StringName,
+	cents: int,
+	arrived: String,
+	stage: int,
+	decided: String = "",
+	proposed: String = "",
+	reason: StringName = &"",
+	expected: String = "",
+) -> LeadScript:
 	var lead: LeadScript = LeadScript.new(lead_id, "Lead %s" % lead_id)
 	lead.source = source
 	lead.value_estimate = MoneyScript.of(cents)
@@ -274,8 +312,15 @@ func _lead(lead_id: String, source: StringName, cents: int, arrived: String, sta
 
 ## An entry that really lasts `minutes`, starting at eight in the morning on a given day, approved or
 ## not.
-func _entry(entry_id: String, member: StringName, job_id: String, code: StringName, day: String,
-		minutes: int, approved: bool) -> EntryScript:
+func _entry(
+	entry_id: String,
+	member: StringName,
+	job_id: String,
+	code: StringName,
+	day: String,
+	minutes: int,
+	approved: bool,
+) -> EntryScript:
 	var entry: EntryScript = EntryScript.new(entry_id)
 	entry.job = job_id
 	entry.cost_code = code
@@ -294,9 +339,16 @@ func _entry(entry_id: String, member: StringName, job_id: String, code: StringNa
 func _invoice(number: String, job_label: String, cents: int, issued_at: String) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("I-%s" % number)
 	invoice.job = job_label
-	invoice.customer = {"name": "Halstead"}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(cents), &"HARDSCAPE", &"EXEMPT")
+	invoice.customer = { "name": "Halstead" }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(cents),
+		&"HARDSCAPE",
+		&"EXEMPT",
+	)
 	var issued: Dictionary = invoice.issue(issued_at, 30, number)
 	if not bool(issued["ok"]):
 		print("the fixture invoice would not issue: ", issued["reason"])

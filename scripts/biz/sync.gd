@@ -48,10 +48,28 @@ const MONEY := "money"
 ## The field names this module treats as money whatever they hold, because a rate, a quantity and an
 ## approval are money by another name and a silently merged one of those is the failure §11.3 is about.
 const MONEY_NAMES := [
-	"quantity", "quantity_milli", "rate", "loaded_rate", "markup_ppm", "tax_code", "tax",
-	"contract_sum", "approval", "approved", "approved_by", "approved_at",
-	"amount", "price", "unit_cost", "unit_price", "cost", "fee", "retainage",
-	"total", "subtotal", "balance",
+	"quantity",
+	"quantity_milli",
+	"rate",
+	"loaded_rate",
+	"markup_ppm",
+	"tax_code",
+	"tax",
+	"contract_sum",
+	"approval",
+	"approved",
+	"approved_by",
+	"approved_at",
+	"amount",
+	"price",
+	"unit_cost",
+	"unit_price",
+	"cost",
+	"fee",
+	"retainage",
+	"total",
+	"subtotal",
+	"balance",
 ]
 ## What a person may choose when settling a conflict.
 const OUR_COPY := "ours"
@@ -92,7 +110,6 @@ func use_transport(candidate: BizSyncTransport) -> void:
 func has_transport() -> bool:
 	return transport != null and transport.is_ready()
 
-
 # --- queueing a local change --------------------------------------------------------------------
 
 
@@ -109,7 +126,7 @@ func enqueue(
 	why: String = "",
 	who: String = "",
 	at: int = 0,
-	base_rev: int = -1
+	base_rev: int = -1,
 ) -> Dictionary:
 	if store == null:
 		return _refused("there is no store here to queue a change from")
@@ -221,7 +238,6 @@ func stranded_texts() -> Array[String]:
 		out.append("%s '%s': %s" % [String(entry["kind"]), String(entry["id"]), String(entry.get("last", ""))])
 	return out
 
-
 # --- the run ------------------------------------------------------------------------------------
 
 
@@ -274,9 +290,22 @@ func run(limit: int = 0, at: int = 0) -> Dictionary:
 			if at_index >= 0:
 				# A record this device has changed and the service has taken away is a conflict, not a
 				# deletion: two people disagree, and one of them gets to say so.
-				conflicts.append(_disagreement(record_kind, record_id, record_job, "(the whole record)", MONEY,
-					pending[at_index].get("body", {}), {}, String(pending[at_index].get("who", "")),
-					int(pending[at_index].get("at", 0)), "the service", at, int(record.get("rev", 0))))
+				conflicts.append(
+					_disagreement(
+						record_kind,
+						record_id,
+						record_job,
+						"(the whole record)",
+						MONEY,
+						pending[at_index].get("body", { }),
+						{ },
+						String(pending[at_index].get("who", "")),
+						int(pending[at_index].get("at", 0)),
+						"the service",
+						at,
+						int(record.get("rev", 0)),
+					)
+				)
 				made += 1
 			elif bool(store.discard(record_kind, record_id, record_job, "the service", at)["ok"]):
 				applied += 1
@@ -309,19 +338,28 @@ func run(limit: int = 0, at: int = 0) -> Dictionary:
 			held_back += 1
 			continue
 		var sent: Dictionary = transport.push(
-			entry_kind, entry_id, entry_job, entry["body"], int(entry["base_rev"]), String(entry.get("who", ""))
+			entry_kind,
+			entry_id,
+			entry_job,
+			entry["body"],
+			int(entry["base_rev"]),
+			String(entry.get("who", "")),
 		)
 		if bool(sent["ok"]):
 			# The service's revision becomes the local one, so the next change is based on it.
-			store.apply({
-				"kind": String(entry["kind"]),
-				"id": String(entry["id"]),
-				"job": String(entry.get("job", "")),
-				"rev": int(sent["rev"]),
-				"schema_version": StoreScript.SCHEMA_VERSION,
-				"body": entry["body"],
-				"deleted": false,
-			}, "this device", int(entry.get("at", 0)))
+			store.apply(
+				{
+					"kind": String(entry["kind"]),
+					"id": String(entry["id"]),
+					"job": String(entry.get("job", "")),
+					"rev": int(sent["rev"]),
+					"schema_version": StoreScript.SCHEMA_VERSION,
+					"body": entry["body"],
+					"deleted": false,
+				},
+				"this device",
+				int(entry.get("at", 0)),
+			)
 			pushed += 1
 			continue
 		var failing: Dictionary = entry.duplicate(true)
@@ -330,18 +368,31 @@ func run(limit: int = 0, at: int = 0) -> Dictionary:
 		if bool(sent.get("conflict", false)):
 			# The service moved under this change. It cannot be merged from here - the copy it holds is
 			# not in the answer - so it is a disagreement for a person, and the change stays queued.
-			conflicts.append(_disagreement(
-				String(failing["kind"]), String(failing["id"]), String(failing.get("job", "")),
-				"(the whole record)", MONEY, failing.get("body", {}), {},
-				String(failing.get("who", "")), int(failing.get("at", 0)), "the service", at,
-				int(sent.get("rev", failing["base_rev"]))
-			))
+			conflicts.append(
+				_disagreement(
+					String(failing["kind"]),
+					String(failing["id"]),
+					String(failing.get("job", "")),
+					"(the whole record)",
+					MONEY,
+					failing.get("body", { }),
+					{ },
+					String(failing.get("who", "")),
+					int(failing.get("at", 0)),
+					"the service",
+					at,
+					int(sent.get("rev", failing["base_rev"])),
+				)
+			)
 			made += 1
 		kept.append(failing)
 	pending = kept
 	last_ok = true
 	last_words = "%d applied, %d merged, %d pushed%s" % [
-		applied, merged, pushed, "" if made == 0 else ", %d to settle" % made
+		applied,
+		merged,
+		pushed,
+		"" if made == 0 else ", %d to settle" % made,
 	]
 	last_run_at = at
 	_persist()
@@ -358,7 +409,6 @@ func run(limit: int = 0, at: int = 0) -> Dictionary:
 		"stranded": stranded().size(),
 		"notes": notes,
 	}
-
 
 # --- the conflicts ------------------------------------------------------------------------------
 
@@ -403,7 +453,8 @@ func refusal_words(kind: String, id: String, job: String = "") -> String:
 	if money.is_empty():
 		return ""
 	return "this %s cannot go out until somebody settles %s, which two people changed" % [
-		kind, ", ".join(PackedStringArray(money))
+		kind,
+		", ".join(PackedStringArray(money)),
 	]
 
 
@@ -433,13 +484,7 @@ func resolve(index: int, choice: String, who: String = "", at: int = 0) -> Dicti
 		return _refused(String(written["reason"]))
 	conflicts.remove_at(index)
 	var queued: Dictionary = enqueue(kind, id, job, "settled a conflict", who, at, int(row.get("theirs_rev", -1)))
-	return {
-		"ok": true,
-		"reason": "",
-		"rev": int(written["rev"]),
-		"queued": bool(queued["ok"]),
-	}
-
+	return { "ok": true, "reason": "", "rev": int(written["rev"]), "queued": bool(queued["ok"]) }
 
 # --- the state file -----------------------------------------------------------------------------
 
@@ -481,14 +526,14 @@ static func from_dict(data: Dictionary, record_store: BizStore = null, service: 
 ## that loses its entries on a half-written save is a change nobody will ever send.
 func write(path: String = STATE_PATH) -> Dictionary:
 	if path.strip_edges().is_empty():
-		return {"ok": false, "reason": "this sync has no file name", "path": path}
+		return { "ok": false, "reason": "this sync has no file name", "path": path }
 	var folder: String = path.get_base_dir()
 	if DirAccess.open(folder) == null and DirAccess.make_dir_recursive_absolute(folder) != OK:
-		return {"ok": false, "reason": "cannot open %s" % folder, "path": path}
+		return { "ok": false, "reason": "cannot open %s" % folder, "path": path }
 	var temp: String = path + TEMP_SUFFIX
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "reason": "cannot write %s" % temp.get_file(), "path": path}
+		return { "ok": false, "reason": "cannot write %s" % temp.get_file(), "path": path }
 	file.store_string(JSON.stringify(to_dict(), "  "))
 	file.close()
 	var error: int = DirAccess.rename_absolute(temp, path)
@@ -499,36 +544,35 @@ func write(path: String = STATE_PATH) -> Dictionary:
 			"reason": "cannot put %s in place: %s" % [path.get_file(), error_string(error)],
 			"path": path,
 		}
-	return {"ok": true, "reason": "", "path": path}
+	return { "ok": true, "reason": "", "path": path }
 
 
 ## Read the state back. A missing file is a fresh sync rather than a fault - the first run has none -
 ## and a file that will not read is refused with the reason and **leaves the sync alone**, because
 ## half-loading a queue is worse than not loading one.
 func read(path: String = STATE_PATH) -> Dictionary:
-	var empty := {"ok": true, "reason": "", "loaded": 0, "dropped": 0}
+	var empty := { "ok": true, "reason": "", "loaded": 0, "dropped": 0 }
 	if path.strip_edges().is_empty():
-		return {"ok": false, "reason": "no sync state was named", "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "no sync state was named", "loaded": 0, "dropped": 0 }
 	if not FileAccess.file_exists(path):
 		return empty
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "reason": "cannot read %s" % path.get_file(), "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "cannot read %s" % path.get_file(), "loaded": 0, "dropped": 0 }
 	var text: String = file.get_as_text()
 	file.close()
 	var reader := JSON.new()
 	if reader.parse(text) != OK:
 		return {
 			"ok": false,
-			"reason": "%s is not readable as a sync state: %s (line %d)" % [
-				path.get_file(), reader.get_error_message(), reader.get_error_line()
-			],
+			"reason": "%s is not readable as a sync state: %s (line %d)"
+			% [path.get_file(), reader.get_error_message(), reader.get_error_line()],
 			"loaded": 0,
 			"dropped": 0,
 		}
 	var data: Variant = reader.data
 	if not data is Dictionary:
-		return {"ok": false, "reason": "%s is not a sync state" % path.get_file(), "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "%s is not a sync state" % path.get_file(), "loaded": 0, "dropped": 0 }
 	var loaded: BizSync = BizSync.from_dict(data, store, transport)
 	cursor = loaded.cursor
 	pending = loaded.pending
@@ -536,7 +580,7 @@ func read(path: String = STATE_PATH) -> Dictionary:
 	last_words = loaded.last_words
 	last_ok = loaded.last_ok
 	last_run_at = loaded.last_run_at
-	return {"ok": true, "reason": "", "loaded": pending.size(), "dropped": 0}
+	return { "ok": true, "reason": "", "loaded": pending.size(), "dropped": 0 }
 
 
 func describe() -> String:
@@ -544,7 +588,6 @@ func describe() -> String:
 	if transport != null:
 		where = transport.describe()
 	return "the sync of %s with %s, read to %d" % [store.describe() if store != null else "nothing", where, cursor]
-
 
 # --- what a field holds -------------------------------------------------------------------------
 
@@ -603,7 +646,6 @@ static func class_of(field: String, before: Variant, after: Variant) -> String:
 		return STRUCTURE
 	return TEXT
 
-
 # --- the merge ----------------------------------------------------------------------------------
 
 
@@ -613,9 +655,9 @@ static func class_of(field: String, before: Variant, after: Variant) -> String:
 ## service's revision so the next push is against what the service actually holds.
 func _merge_pulled(index: int, record: Dictionary, at: int) -> Dictionary:
 	var entry: Dictionary = pending[index]
-	var ours: Dictionary = entry.get("body", {})
-	var theirs: Dictionary = {}
-	var held: Variant = record.get("body", {})
+	var ours: Dictionary = entry.get("body", { })
+	var theirs: Dictionary = { }
+	var held: Variant = record.get("body", { })
 	if held is Dictionary:
 		theirs = held
 	var theirs_rev: int = int(record.get("rev", 0))
@@ -639,17 +681,28 @@ func _merge_pulled(index: int, record: Dictionary, at: int) -> Dictionary:
 		if policy == TEXT:
 			notes.append("the newer wording of '%s' was kept" % field_name)
 			continue
-		conflicts.append(_disagreement(
-			String(entry["kind"]), String(entry["id"]), String(entry.get("job", "")), field_name, policy,
-			mine, other, String(entry.get("who", "")), int(entry.get("at", 0)),
-			theirs_who, theirs_at, theirs_rev
-		))
+		conflicts.append(
+			_disagreement(
+				String(entry["kind"]),
+				String(entry["id"]),
+				String(entry.get("job", "")),
+				field_name,
+				policy,
+				mine,
+				other,
+				String(entry.get("who", "")),
+				int(entry.get("at", 0)),
+				theirs_who,
+				theirs_at,
+				theirs_rev,
+			)
+		)
 		made += 1
 	entry["body"] = merged
 	entry["base_rev"] = theirs_rev
 	if not notes.is_empty():
-		return {"note": notes[0], "conflicts": made}
-	return {"note": "", "conflicts": made}
+		return { "note": notes[0], "conflicts": made }
+	return { "note": "", "conflicts": made }
 
 
 ## One record of two people changing one thing. It names **both values, both authors and both
@@ -667,7 +720,7 @@ static func _disagreement(
 	ours_at: int,
 	theirs_who: String,
 	theirs_at: int,
-	theirs_rev: int
+	theirs_rev: int,
 ) -> Dictionary:
 	return {
 		"kind": kind,
@@ -691,11 +744,13 @@ static func _conflict_words(row: Dictionary) -> String:
 	var field: String = String(row.get("field", ""))
 	if String(row.get("class", "")) == MONEY:
 		return "this %s ('%s') has %s changed by two people - yours %s, theirs %s - and will not go out until somebody settles it" % [
-			kind, id, field, _value_words(row.get("ours")), _value_words(row.get("theirs"))
+			kind,
+			id,
+			field,
+			_value_words(row.get("ours")),
+			_value_words(row.get("theirs")),
 		]
-	return "this %s ('%s') has %s changed by two people; your copy was kept and theirs is beside it" % [
-		kind, id, field
-	]
+	return "this %s ('%s') has %s changed by two people; your copy was kept and theirs is beside it" % [kind, id, field]
 
 
 static func _value_words(value: Variant) -> String:
@@ -704,14 +759,16 @@ static func _value_words(value: Variant) -> String:
 		return "%d %s" % [int(held["cents"]), String(held["currency"])]
 	return str(value)
 
-
 # --- help ---------------------------------------------------------------------------------------
 
 
 func _pending_index(kind: String, id: String, job: String) -> int:
 	for index in pending.size():
 		var entry: Dictionary = pending[index]
-		if String(entry.get("kind", "")) == kind and String(entry.get("id", "")) == id and String(entry.get("job", "")) == job:
+		if (
+			String(entry.get("kind", "")) == kind and String(entry.get("id", "")) == id
+			and String(entry.get("job", "")) == job
+		):
 			return index
 	return -1
 
@@ -775,4 +832,4 @@ func _stopped(reason: String) -> Dictionary:
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return { "ok": false, "reason": reason }

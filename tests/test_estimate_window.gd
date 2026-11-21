@@ -41,7 +41,6 @@ func _clean_proposals() -> void:
 	for name: String in dir.get_files():
 		dir.remove(name)
 
-
 # --- what it shows -------------------------------------------------------------------------
 
 
@@ -91,8 +90,10 @@ func test_taking_off_the_plan_fills_all_three_tables() -> void:
 	# The cost book tab shows the price list the lines were priced from, and reading it is all it
 	# does: editing a price list is a dock, not a proposal.
 	assert(window.book_texts().size() > 10, "the book is listed: %d" % window.book_texts().size())
-	assert(window.book_texts()[0].contains("[HARDSCAPE]") or window.book_texts()[0].contains("["),
-		"each item names the code it costs to: %s" % window.book_texts()[0])
+	assert(
+		window.book_texts()[0].contains("[HARDSCAPE]") or window.book_texts()[0].contains("["),
+		"each item names the code it costs to: %s" % window.book_texts()[0],
+	)
 	assert(window.note_texts()[1].contains("read from"), window.note_texts()[1])
 	assert(not window.send_button_disabled(), "and now there is something to send")
 	window.free()
@@ -111,7 +112,6 @@ func test_a_line_nothing_can_price_is_shown_where_it_would_have_been() -> void:
 	assert(unpriceable.size() == 1, "the refusal is shown in the proposal's own list: %s" % str(window.line_texts()))
 	assert(String(unpriceable[0]).contains("IRRIGATION"), "naming the layer: %s" % String(unpriceable[0]))
 	window.free()
-
 
 # --- the tax, the totals, and sending -------------------------------------------------------
 
@@ -184,9 +184,7 @@ func test_checking_the_numbers_says_whether_they_foot() -> void:
 	assert(window.status_text().contains("no price"), window.status_text())
 	window.free()
 
-
 # --- starting a job from it ---------------------------------------------------------------------
-
 
 ## The estimate window keeps no jobs: a job is where crews, days and time live, and that is the job
 ## desk's. So this is a hand-off, and what is under test is that it happens once an estimate exists,

@@ -63,7 +63,6 @@ static func role_list() -> Array[StringName]:
 		out.append(StringName(key))
 	return out
 
-
 # --- what a person costs, on a date ---------------------------------------------------------
 
 
@@ -76,9 +75,11 @@ func add_rate(from_date: String, loaded_rate: Money) -> bool:
 		if String(held["from"]) == from_date:
 			held["loaded_rate"] = loaded_rate
 			return true
-	rates.append({"from": from_date, "loaded_rate": loaded_rate})
-	rates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return String(a["from"]) < String(b["from"]))
+	rates.append({ "from": from_date, "loaded_rate": loaded_rate })
+	rates.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return String(a["from"]) < String(b["from"]),
+	)
 	return true
 
 
@@ -99,9 +100,8 @@ func rate_on(date: String) -> Money:
 func rate_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in rates:
-		out.append({"from": String(held["from"]), "loaded_rate": held["loaded_rate"]})
+		out.append({ "from": String(held["from"]), "loaded_rate": held["loaded_rate"] })
 	return out
-
 
 # --- tickets and availability ----------------------------------------------------------------
 
@@ -109,7 +109,7 @@ func rate_rows() -> Array[Dictionary]:
 func add_certification(cert_name: String, expires_at: String) -> bool:
 	if cert_name.strip_edges().is_empty():
 		return false
-	certifications.append({"name": cert_name, "expires_at": expires_at})
+	certifications.append({ "name": cert_name, "expires_at": expires_at })
 	return true
 
 
@@ -129,13 +129,15 @@ func add_availability(entry: Dictionary) -> bool:
 	var kind := StringName(entry.get("kind", ""))
 	if kind != WEEKLY_HOURS and kind != DAY_OFF and kind != VACATION:
 		return false
-	availability.append({
-		"kind": String(kind),
-		"weekday": int(entry.get("weekday", -1)),
-		"from": String(entry.get("from", "")),
-		"to": String(entry.get("to", "")),
-		"note": String(entry.get("note", "")),
-	})
+	availability.append(
+		{
+			"kind": String(kind),
+			"weekday": int(entry.get("weekday", -1)),
+			"from": String(entry.get("from", "")),
+			"to": String(entry.get("to", "")),
+			"note": String(entry.get("note", "")),
+		}
+	)
 	return true
 
 
@@ -183,29 +185,27 @@ static func _weekday_of(date: String) -> int:
 	var seconds := int(Time.get_unix_time_from_datetime_string(text + "T00:00:00"))
 	return (floori(float(seconds) / 86400.0) + 4) % 7
 
-
 # --- the file --------------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var rate_list: Array = []
 	for held in rates:
-		rate_list.append({"from": String(held["from"]), "loaded_rate": held["loaded_rate"].to_dict()})
+		rate_list.append({ "from": String(held["from"]), "loaded_rate": held["loaded_rate"].to_dict() })
 	var cert_list: Array = []
 	for held in certifications:
-		cert_list.append({
-			"name": String(held.get("name", "")),
-			"expires_at": String(held.get("expires_at", "")),
-		})
+		cert_list.append({ "name": String(held.get("name", "")), "expires_at": String(held.get("expires_at", "")) })
 	var avail_list: Array = []
 	for held in availability:
-		avail_list.append({
-			"kind": String(held.get("kind", "")),
-			"weekday": int(held.get("weekday", -1)),
-			"from": String(held.get("from", "")),
-			"to": String(held.get("to", "")),
-			"note": String(held.get("note", "")),
-		})
+		avail_list.append(
+			{
+				"kind": String(held.get("kind", "")),
+				"weekday": int(held.get("weekday", -1)),
+				"from": String(held.get("from", "")),
+				"to": String(held.get("to", "")),
+				"note": String(held.get("note", "")),
+			}
+		)
 	return {
 		"id": String(id),
 		"name": name,
@@ -232,18 +232,19 @@ static func from_dict(data: Dictionary) -> CrewMember:
 	if rates_in is Array:
 		for entry in (rates_in as Array):
 			if entry is Dictionary:
-				member.rates.append({
-					"from": String(entry.get("from", "")),
-					"loaded_rate": MoneyScript.from_dict(entry.get("loaded_rate", {})),
-				})
+				member.rates.append(
+					{
+						"from": String(entry.get("from", "")),
+						"loaded_rate": MoneyScript.from_dict(entry.get("loaded_rate", { })),
+					}
+				)
 	var certs_in = data.get("certifications", [])
 	if certs_in is Array:
 		for entry in (certs_in as Array):
 			if entry is Dictionary:
-				member.certifications.append({
-					"name": String(entry.get("name", "")),
-					"expires_at": String(entry.get("expires_at", "")),
-				})
+				member.certifications.append(
+					{ "name": String(entry.get("name", "")), "expires_at": String(entry.get("expires_at", "")) }
+				)
 	var avail_in = data.get("availability", [])
 	if avail_in is Array:
 		for entry in (avail_in as Array):

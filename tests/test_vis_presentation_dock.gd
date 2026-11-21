@@ -19,6 +19,8 @@ const Doc := preload("res://scripts/draft/draft_document.gd")
 const Ent := preload("res://scripts/draft/draft_entity.gd")
 const Layer := preload("res://scripts/draft/draft_layer.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
+const ProposalScript := preload("res://scripts/vis/proposal_page.gd")
+const PlotScript := preload("res://scripts/draft/plot_scale.gd")
 
 const POND := &"450-NEW-POND"
 
@@ -40,9 +42,10 @@ func _drawing() -> DraftDocument:
 	extra.name = POND
 	extra.purpose = "A pond"
 	doc.layers.add(extra)
-	doc.add(Ent.make_polyline(PackedVector2Array([
-		Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8),
-	]), true), POND)
+	doc.add(
+		Ent.make_polyline(PackedVector2Array([Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8)]), true),
+		POND,
+	)
 	return doc
 
 
@@ -51,15 +54,27 @@ func _with_four_jobs() -> VisRenderBatch:
 	batch.add_every_view(PresetScript.PROPOSAL_DEFAULT, BatchScript.DEFAULT_VIEWS)
 	return batch
 
-
 # --- the controls a person works with ---------------------------------------------------------
 
 
 func test_the_dock_builds_the_controls_and_says_where_to_start() -> void:
 	var dock := _dock()
 	assert(dock.name == "Presentation", "the dock has a name: %s" % dock.name)
-	for control_name: String in ["SourceLine", "Findings", "Summary", "ShowNotes", "Check", "JobName",
-			"Preset", "View", "AddJob", "Jobs", "RenderAll", "Progress", "Status"]:
+	for control_name: String in [
+		"SourceLine",
+		"Findings",
+		"Summary",
+		"ShowNotes",
+		"Check",
+		"JobName",
+		"Preset",
+		"View",
+		"AddJob",
+		"Jobs",
+		"RenderAll",
+		"Progress",
+		"Status",
+	]:
 		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
 	assert(dock.last_words != "", "it has said something: %s" % dock.last_words)
 	dock.free()
@@ -85,13 +100,14 @@ func test_the_pickers_offer_the_sizes_and_the_views_the_modules_have() -> void:
 	var presets: OptionButton = dock.find_child("Preset", true, false)
 	assert(presets.item_count == PresetScript.ORDER.size(), "one entry per preset")
 	for index in PresetScript.ORDER.size():
-		assert(presets.get_item_text(index) == PresetScript.label(PresetScript.ORDER[index]),
-			"entry %d is labelled as the preset table labels it" % index)
+		assert(
+			presets.get_item_text(index) == PresetScript.label(PresetScript.ORDER[index]),
+			"entry %d is labelled as the preset table labels it" % index,
+		)
 	var views: OptionButton = dock.find_child("View", true, false)
 	assert(views.item_count == BatchScript.DEFAULT_VIEWS.size())
 	assert(views.get_item_text(0) == BatchScript.DEFAULT_VIEWS[0])
 	dock.free()
-
 
 # --- the diagnostics, on the page -------------------------------------------------------------
 
@@ -110,7 +126,10 @@ func test_checking_a_drawing_lists_the_findings_and_announces_them() -> void:
 	var dock := _dock()
 	var doc := _drawing()
 	var heard: Array[Dictionary] = []
-	dock.checked.connect(func(findings: Array) -> void: heard.append({"n": findings.size()}))
+	dock.checked.connect(
+		func(findings: Array) -> void:
+			heard.append({ "n": findings.size() }),
+	)
 	dock.bind_visuals(doc, doc.layers)
 	dock.check()
 	assert(dock.findings().size() == 3, "two warnings and a note, got %d" % dock.findings().size())
@@ -170,7 +189,6 @@ func test_the_source_line_says_what_is_being_checked() -> void:
 	assert(line.text.contains("its own layers"), "a bare drawing is checked against its own: %s" % line.text)
 	dock.free()
 
-
 # --- the batch, driven as a ledger -------------------------------------------------------------
 
 
@@ -204,7 +222,10 @@ func test_a_still_is_added_by_name_size_and_view_and_a_bad_one_is_refused() -> v
 	var batch: VisRenderBatch = BatchScript.new()
 	dock.bind_batch(batch)
 	assert(dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "the first is taken")
-	assert(not dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "a duplicate name is refused")
+	assert(
+		not dock.add_job("Front garden", PresetScript.PROPOSAL_DEFAULT, "Painted plan"),
+		"a duplicate name is refused",
+	)
 	assert(dock.last_words.contains("Front garden"), "and the refusal names it: %s" % dock.last_words)
 	assert(not dock.add_job("", PresetScript.PROPOSAL_DEFAULT, "Painted plan"), "a blank name is refused")
 	assert(batch.count() == 1, "only the good one went in")
@@ -235,7 +256,10 @@ func test_one_job_is_in_flight_at_a_time() -> void:
 	var dock := _dock()
 	dock.bind_batch(_with_four_jobs())
 	var asked: Array[Dictionary] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(job))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(job),
+	)
 	var job: Dictionary = dock.render_next()
 	assert(not job.is_empty(), "the first job was handed out")
 	assert(asked.size() == 1, "and asked for once, got %d" % asked.size())
@@ -249,7 +273,10 @@ func test_a_result_asks_for_the_next_job_and_the_batch_runs_to_the_end() -> void
 	var dock := _dock()
 	dock.bind_batch(_with_four_jobs())
 	var asked: Array[String] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(String(job["name"])))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(String(job["name"])),
+	)
 	assert(dock.render_all(), "the batch started")
 	# Each answer is a still written, and pulls the next job; the last one stops.
 	var guard := 0
@@ -283,7 +310,10 @@ func test_running_a_batch_twice_is_refused_while_one_is_in_flight() -> void:
 	assert(dock.render_all(), "the batch started")
 	assert(not dock.render_all(), "and is not started again while a job is in flight")
 	var asked: Array[Dictionary] = []
-	dock.render_requested.connect(func(job: Dictionary) -> void: asked.append(job))
+	dock.render_requested.connect(
+		func(job: Dictionary) -> void:
+			asked.append(job),
+	)
 	assert(not dock.render_all(), "nor after a second press")
 	assert(asked.is_empty(), "nothing was asked for by the second press")
 	dock.free()
@@ -314,7 +344,136 @@ func test_the_last_thing_said_is_readable_without_looking_at_a_label() -> void:
 	dock.add_job("Another", PresetScript.PROPOSAL_DEFAULT, "Working plan")
 	assert(dock.last_words.contains("Another"), "adding one says which: %s" % dock.last_words)
 	var heard: Array[String] = []
-	dock.said.connect(func(line: String) -> void: heard.append(line))
+	dock.said.connect(
+		func(line: String) -> void:
+			heard.append(line),
+	)
 	dock.render_next()
 	assert(heard.size() >= 1, "and it is announced as well as kept")
+	dock.free()
+
+# --- the proposal page, on the dock -------------------------------------------------------------
+
+
+func test_the_proposal_controls_are_built_and_open_on_a_plan_sheet() -> void:
+	var dock := _dock()
+	for control_name: String in [
+		"StillPath",
+		"Paper",
+		"Portrait",
+		"Project",
+		"View",
+		"Sheet",
+		"Scale",
+		"Date",
+		"OutPath",
+		"PreviewProposal",
+		"WriteProposal",
+		"Preview",
+		"ProposalStatus",
+	]:
+		assert(dock.find_child(control_name, true, false) != null, "%s was built" % control_name)
+	# A3 is what a plan is drawn on, so it is what the page opens on.
+	assert(dock.proposal_paper_mm() == Vector2(420.0, 297.0), "it opens on A3: %s" % dock.proposal_paper_mm())
+	var picker: OptionButton = dock.find_child("Paper", true, false)
+	assert(picker.selected == PlotScript.sheet_names().find("A3"), "and the picker shows it")
+	dock.free()
+
+
+func test_the_fields_feed_the_title_block() -> void:
+	var dock := _dock()
+	dock.set_proposal_field("project", "Riverbend")
+	dock.set_proposal_field("view", "Front garden")
+	dock.set_proposal_field("sheet", "S1")
+	dock.set_proposal_field("scale", "1:100")
+	dock.set_proposal_field("date", "2026-01-01")
+	var fields: Dictionary = dock.proposal_fields()
+	assert(String(fields["project"]) == "Riverbend", "the project is read back")
+	assert(String(fields["date"]) == "2026-01-01", "and the date")
+	var rows: Array[Dictionary] = ProposalScript.title_rows(fields)
+	assert(rows.size() == 4, "the block has four rows, got %d" % rows.size())
+	assert(String(rows[0]["value"]) == "Riverbend", "the project row carries it: %s" % rows[0]["value"])
+	assert(String(rows[3]["value"]).contains("1:100"), "the scale is on the scale row: %s" % rows[3]["value"])
+	# The block keeps its shape: a row with nothing is an em dash, not a missing row.
+	dock.set_proposal_field("project", "")
+	assert(
+		String(ProposalScript.title_rows(dock.proposal_fields())[0]["value"]) != "Riverbend",
+		"clearing a field empties the row rather than removing it",
+	)
+	dock.free()
+
+
+func test_a_preview_lays_a_still_out_on_the_page() -> void:
+	var dock := _dock()
+	var still := Image.create(800, 600, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.2, 0.4, 0.2))
+	var page: Image = dock.preview_proposal(still)
+	assert(page != null, "a page was laid out")
+	assert(page == dock.last_page, "and it is kept where a test can look at it")
+	assert(page.get_width() > 0 and page.get_height() > 0, "at a real size: %s" % page.get_size())
+	assert(dock.last_words.contains("sheet"), "and the dock describes it: %s" % dock.last_words)
+	assert(dock.last_words.contains("picture"), "with the picture placed: %s" % dock.last_words)
+	dock.free()
+
+
+func test_a_preview_with_no_still_is_an_empty_sheet_and_not_a_refusal() -> void:
+	var dock := _dock()
+	var page: Image = dock.preview_proposal()
+	assert(page != null, "the sheet is still drawn")
+	assert(dock.last_words.contains("no picture placed"), "and it says the picture is missing: %s" % dock.last_words)
+	dock.free()
+
+
+func test_the_still_is_read_from_the_path_field() -> void:
+	var dock := _dock()
+	assert(dock.load_still() == null, "an empty field is no still")
+	dock.set_proposal_still("user://no_such_still_here.png")
+	assert(dock.load_still() == null, "a path with no file is no still")
+	assert(dock.last_words.contains("no file"), "and it says which: %s" % dock.last_words)
+	var still := Image.create(64, 48, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.1, 0.1, 0.1))
+	assert(still.save_png("user://dock_proposal_still.png") == OK, "the fixture was written")
+	dock.set_proposal_still("user://dock_proposal_still.png")
+	var read: Image = dock.load_still()
+	assert(read != null, "the file was read")
+	assert(read.get_size() == Vector2i(64, 48), "at its own size: %s" % read.get_size())
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal_still.png"))
+	dock.free()
+
+
+func test_writing_the_pdf_needs_a_path_and_a_still() -> void:
+	var dock := _dock()
+	assert(not bool(dock.write_proposal("")["ok"]), "no path, no file")
+	assert(dock.last_words.contains("file to be written"), "and it says so: %s" % dock.last_words)
+	assert(not bool(dock.write_proposal("user://dock_proposal.pdf")["ok"]), "a page with no still is refused")
+	assert(dock.last_words.contains("no still was placed"), "in words: %s" % dock.last_words)
+	var still := Image.create(400, 300, false, Image.FORMAT_RGB8)
+	still.fill(Color(0.3, 0.3, 0.5))
+	assert(still.save_png("user://dock_proposal_still.png") == OK)
+	dock.set_proposal_still("user://dock_proposal_still.png")
+	var written: Dictionary = dock.write_proposal("user://dock_proposal.pdf")
+	assert(bool(written["ok"]), "the page was written: %s" % written)
+	assert(int(written["bytes"]) > 0, "and it has bytes")
+	var file := FileAccess.open("user://dock_proposal.pdf", FileAccess.READ)
+	assert(file != null, "the file is there")
+	assert(file.get_buffer(4).get_string_from_ascii() == "%PDF", "and it is a PDF")
+	file.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal_still.png"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://dock_proposal.pdf"))
+	dock.free()
+
+
+func test_the_paper_and_the_turn_change_the_page() -> void:
+	var dock := _dock()
+	var picker: OptionButton = dock.find_child("Paper", true, false)
+	var portrait: CheckBox = dock.find_child("Portrait", true, false)
+	assert(dock.proposal_paper_mm() == Vector2(420.0, 297.0), "A3 landscape to start")
+	portrait.button_pressed = true
+	assert(dock.proposal_paper_mm() == Vector2(297.0, 420.0), "the turn swaps it: %s" % dock.proposal_paper_mm())
+	var a3: int = PlotScript.sheet_names().find("A3")
+	picker.selected = (a3 - 1) if a3 > 0 else a3
+	assert(
+		dock.proposal_paper_mm() != Vector2(297.0, 420.0),
+		"another sheet is another page: %s" % dock.proposal_paper_mm(),
+	)
 	dock.free()

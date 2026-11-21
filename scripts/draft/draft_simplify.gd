@@ -74,25 +74,26 @@ static func plan(entities: Array, tolerance: float) -> ReportScript:
 		var points: PackedVector2Array = entity.points()
 		var simplified: PackedVector2Array = Geom.simplify(points, tolerance, entity.is_closed())
 		if _moves_a_shared_corner(points, simplified, entity.is_closed(), entities, entity):
-			report.refusals.append({
-				"id": int(entity.id),
-				"reason": "a corner it shares with another shape would move",
-			})
+			report.refusals.append(
+				{ "id": int(entity.id), "reason": "a corner it shares with another shape would move" }
+			)
 			continue
-		report.entries.append({
-			"id": int(entity.id),
-			"layer": entity.layer,
-			"before": points.size(),
-			"after": simplified.size(),
-			"removed": points.size() - simplified.size(),
-			"points": simplified,
-		})
+		report.entries.append(
+			{
+				"id": int(entity.id),
+				"layer": entity.layer,
+				"before": points.size(),
+				"after": simplified.size(),
+				"removed": points.size() - simplified.size(),
+				"points": simplified,
+			}
+		)
 	return report
 
 
 ## Carry out a plan as one undo step. Returns how many shapes were replaced. A plan that
 ## changes nothing touches neither the drawing nor the undo stack.
-static func apply(document, report: ReportScript) -> int:
+static func apply(document: DraftDocument, report: ReportScript) -> int:
 	var replacing: Array[Dictionary] = []
 	for entry in report.entries:
 		if int(entry["removed"]) > 0:
@@ -125,7 +126,7 @@ static func _moves_a_shared_corner(
 	simplified: PackedVector2Array,
 	closed: bool,
 	entities: Array,
-	subject: EntityScript
+	subject: EntityScript,
 ) -> bool:
 	for corner: Vector2 in original:
 		if not _shared_with_another(corner, entities, subject):

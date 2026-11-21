@@ -79,7 +79,6 @@ func _ready() -> void:
 	if _list == null:
 		build()
 
-
 # --- building -------------------------------------------------------------------------
 
 
@@ -88,36 +87,45 @@ func _ready() -> void:
 func build() -> void:
 	if _list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	var heading := Label.new()
-	heading.name = "Heading"
-	heading.text = "Grading"
-	column.add_child(heading)
+	column.add_child(PageChrome.heading("Grading"))
 
-	var explanation := Label.new()
+	# The page's own name for this sentence, kept: an explanation of what a page is for is what the
+	# shared note is worded as, and `tests/test_grading_window.gd` and the HUD both leave it alone.
+	var explanation := PageChrome.note(EXPLANATION)
 	explanation.name = "Explanation"
-	explanation.text = EXPLANATION
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(explanation)
 
 	# The two numbers in hand. A step of five centimetres on the level and half a percent on the fall,
 	# because those are the intervals a plan is set out to - and both can be typed past, which is what
 	# the field is for.
-	_level_spin = _spin(column, "Level (m)", "LevelSpin", -1000.0, 1000.0, 0.05, " m",
+	_level_spin = _spin(
+		column,
+		"Level (m)",
+		"LevelSpin",
+		-1000.0,
+		1000.0,
+		0.05,
+		" m",
 		"Metres above whatever benchmark the drawing is levelled to. The level the next spot level, "
-		+ "contour or fall is stated at.")
+		+ "contour or fall is stated at.",
+	)
 	_level_button = _button(column, "LevelButton", "Set the level")
 	_level_button.tooltip_text = "The level in hand. A spot level and a contour are stamped with it."
 	_level_button.pressed.connect(state_level)
 
-	_fall_spin = _spin(column, "Fall (%)", "FallSpin", -100.0, 100.0, 0.5, " %",
+	_fall_spin = _spin(
+		column,
+		"Fall (%)",
+		"FallSpin",
+		-100.0,
+		100.0,
+		0.5,
+		" %",
 		"A slope arrow states the fall of what is built along it, downhill from its first pick. "
-		+ "The levels at its ends are checked against it.")
+		+ "The levels at its ends are checked against it.",
+	)
 	_fall_button = _button(column, "FallButton", "Set the fall")
 	_fall_button.tooltip_text = "The fall in hand, downhill along the arrow."
 	_fall_button.pressed.connect(state_fall)
@@ -127,30 +135,33 @@ func build() -> void:
 	tools.add_theme_constant_override("separation", 6)
 	column.add_child(tools)
 	_spot_button = _button(tools, "SpotButton", "Spot level here")
-	_spot_button.tooltip_text = ("Click one place on the plan. The level in hand is written there "
-		+ "beside a mark.")
+	_spot_button.tooltip_text = ("Click one place on the plan. The level in hand is written there " + "beside a mark.")
 	_spot_button.pressed.connect(arm_spot)
 	_contour_button = _button(tools, "ContourButton", "Draw a contour")
-	_contour_button.tooltip_text = ("Click the line of one level. Enter finishes it, C closes it into "
-		+ "a ring.")
+	_contour_button.tooltip_text = ("Click the line of one level. Enter finishes it, C closes it into " + "a ring.")
 	_contour_button.pressed.connect(arm_contour)
 	_slope_button = _button(tools, "SlopeButton", "Draw a slope arrow")
-	_slope_button.tooltip_text = ("Click the top of the fall and then the bottom of it: the arrow runs "
-		+ "downhill and the fall in hand is written beside it.")
+	_slope_button.tooltip_text = (
+		"Click the top of the fall and then the bottom of it: the arrow runs "
+		+ "downhill and the fall in hand is written beside it."
+	)
 	_slope_button.pressed.connect(arm_slope)
 
 	# The check. Findings first because they are the things that are wrong, then what is worth knowing.
-	_report = Label.new()
+	# No height reserved: the report always has something to say - that the grading agrees with itself,
+	# if nothing else - so its own line is the room it needs.
+	_report = PageChrome.text()
 	_report.name = "Report"
-	_report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_report.custom_minimum_size = Vector2(0.0, 64.0)
 	column.add_child(_report)
 
 	_list = ItemList.new()
 	_list.name = "RecordList"
 	_list.custom_minimum_size = Vector2(0.0, 150.0)
 	_list.focus_mode = Control.FOCUS_NONE
-	_list.item_selected.connect(func(_index: int) -> void: _refresh())
+	_list.item_selected.connect(
+		func(_index: int) -> void:
+			_refresh(),
+	)
 	column.add_child(_list)
 
 	var buttons := HBoxContainer.new()
@@ -158,22 +169,21 @@ func build() -> void:
 	buttons.add_theme_constant_override("separation", 6)
 	column.add_child(buttons)
 	_change_button = _button(buttons, "ChangeButton", "Change the level")
-	_change_button.tooltip_text = ("Change the level the chosen record states. Its marks and its "
-		+ "label are written again, as one undoable step.")
+	_change_button.tooltip_text = (
+		"Change the level the chosen record states. Its marks and its "
+		+ "label are written again, as one undoable step."
+	)
 	_change_button.pressed.connect(change_chosen)
 	_remove_button = _button(buttons, "RemoveButton", "Take it off the drawing")
 	_remove_button.pressed.connect(remove_chosen)
 	_button(buttons, "CloseButton", "Close").pressed.connect(_on_close_requested)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
 	show_records([])
-	set_report({})
+	set_report({ })
 	hide()
-
 
 # --- state in -------------------------------------------------------------------------
 
@@ -233,9 +243,7 @@ func show_records(rows: Array[Dictionary]) -> bool:
 		for index in _records.size():
 			var row: Dictionary = _records[index]
 			_list.add_item(String(row.get("text", "")))
-			_list.set_item_metadata(index, {
-				"kind": String(row.get("kind", "")), "id": int(row.get("id", 0)),
-			})
+			_list.set_item_metadata(index, { "kind": String(row.get("kind", "")), "id": int(row.get("id", 0)) })
 	# The choice survives the list being written again, and only while the record it names is still on
 	# the drawing: a level that has gone cannot stay chosen.
 	for index in _records.size():
@@ -286,7 +294,6 @@ func status_text() -> String:
 	if _records.is_empty():
 		return NOTHING_YET
 	return "%d record%s on this drawing" % [_records.size(), "" if _records.size() == 1 else "s"]
-
 
 # --- what a person did -----------------------------------------------------------------
 
@@ -367,7 +374,6 @@ func arm(kind: String) -> bool:
 		return arm_slope()
 	return arm_spot()
 
-
 # --- what the buttons say -----------------------------------------------------------------
 
 
@@ -394,20 +400,21 @@ func button_texts() -> Array[String]:
 	return out
 
 
-## Every control that is *not* a field stays out of the keyboard's way. The two number fields are the
-## exception, and they are the reason this page is a `Window` at all: a level has to be typed, and a
-## control that holds the keyboard inside the HUD takes the drawing's keys with it.
+## Every control that is *not* a field is built without a keyboard of its own. The two number fields are
+## the exception at build time, and they are the reason this page is a `Window` at all: a level has to be
+## typed. A control that holds the keyboard *inside the HUD* takes the drawing's keys with it - which is
+## exactly why a page is a `Window`: it holds the keyboard while it is up, so its own switches and buttons
+## may take it too (`PageChrome.takes_the_keyboard`, called by the shared show).
 func list_is_keyboard_free() -> bool:
 	build()
 	return _list.focus_mode == Control.FOCUS_NONE \
-		and _level_button.focus_mode == Control.FOCUS_NONE \
-		and _fall_button.focus_mode == Control.FOCUS_NONE \
-		and _spot_button.focus_mode == Control.FOCUS_NONE \
-		and _contour_button.focus_mode == Control.FOCUS_NONE \
-		and _slope_button.focus_mode == Control.FOCUS_NONE \
-		and _change_button.focus_mode == Control.FOCUS_NONE \
-		and _remove_button.focus_mode == Control.FOCUS_NONE
-
+			and _level_button.focus_mode == Control.FOCUS_NONE \
+			and _fall_button.focus_mode == Control.FOCUS_NONE \
+			and _spot_button.focus_mode == Control.FOCUS_NONE \
+			and _contour_button.focus_mode == Control.FOCUS_NONE \
+			and _slope_button.focus_mode == Control.FOCUS_NONE \
+			and _change_button.focus_mode == Control.FOCUS_NONE \
+			and _remove_button.focus_mode == Control.FOCUS_NONE
 
 # --- private --------------------------------------------------------------------------
 
@@ -443,8 +450,7 @@ func _chosen_key() -> String:
 func _signature_of(rows: Array[Dictionary]) -> String:
 	var parts := PackedStringArray()
 	for row: Dictionary in rows:
-		parts.append("%s#%d %s" % [String(row.get("kind", "")), int(row.get("id", 0)),
-			String(row.get("text", ""))])
+		parts.append("%s#%d %s" % [String(row.get("kind", "")), int(row.get("id", 0)), String(row.get("text", ""))])
 	return "|".join(parts)
 
 
@@ -472,27 +478,30 @@ func _refresh() -> void:
 	_remove_button.text = "Take it off the drawing" if remove_enabled() else "Nothing chosen to take off"
 
 
+## A button on this page, from the shared chrome and named by the page: the names are what the HUD's
+## wiring and this page's tests hold it by, so they are set after the builder rather than left to the
+## chrome's naming of a caption.
 func _button(parent: Node, node_name: String, text: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(text)
 	button.name = node_name
-	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
 	parent.add_child(button)
 	return button
 
 
-func _spin(parent: Node, caption_text: String, node_name: String, low: float, high: float,
-		step: float, suffix: String, tip: String) -> SpinBox:
-	var row := HBoxContainer.new()
-	row.name = node_name + "Row"
-	row.add_theme_constant_override("separation", 6)
-	parent.add_child(row)
-	var caption := Label.new()
-	caption.name = node_name + "Caption"
-	caption.text = caption_text
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	caption.custom_minimum_size = Vector2(90.0, 0.0)
-	row.add_child(caption)
+## A caption and the number it names, in the shared kind of row, plus the range, the step, the suffix
+## and the tooltip a `SpinBox` has to be told. The row goes back to this page's own name for itself, and
+## the two captions are given the same width so the numbers line up under each other rather than the
+## second row beginning where the first caption ends.
+func _spin(
+	parent: Node,
+	caption_text: String,
+	node_name: String,
+	low: float,
+	high: float,
+	step: float,
+	suffix: String,
+	tip: String,
+) -> SpinBox:
 	var spin := SpinBox.new()
 	spin.name = node_name
 	spin.min_value = low
@@ -501,5 +510,10 @@ func _spin(parent: Node, caption_text: String, node_name: String, low: float, hi
 	spin.suffix = suffix
 	spin.tooltip_text = tip
 	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spin)
+	var row := PageChrome.labelled(caption_text, spin)
+	row.name = node_name + "Row"
+	var caption: Label = row.get_node(^"Caption")
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	caption.custom_minimum_size = Vector2(90.0, 0.0)
+	parent.add_child(row)
 	return spin

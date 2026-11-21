@@ -137,8 +137,9 @@ Every menu in the bar has something written about it: a test checks it.
 
 ## 6. The shape of a subject
 
-Two things about the manual are *structure* rather than prose, and each is a table with a test
-holding it to the written topics:
+Two things about the *shape of a subject* are *structure* rather than prose, and each is a table with
+a test holding it to the written topics. The third structural table - which pictures a subject is shown
+with - has a section of its own below.
 
 - **`SECTIONS`** groups the flat list of subjects under headings — eight of them — so the contents
   is scannable. The order of the subjects is still `SUBJECTS`: the sections are that list split up
@@ -160,10 +161,52 @@ a subject outgrows the cap.
 
 | File | What it is |
 |---|---|
-| `scripts/help_doc.gd` | the content — one topic per subject, the `SUBJECTS`/`SECTIONS`/`SEE_ALSO` tables, plus search and index helpers |
+| `scripts/help_doc.gd` | the content — one topic per subject, the `SUBJECTS`/`SECTIONS`/`SEE_ALSO`/`PICTURES` tables, plus search and index helpers |
 | `scripts/help_window.gd` | the page — contents with headings, read-next links, walking back and forward, search, body, status |
 | `scripts/hud.gd` (`_build_help_window`, `help_topics`, `open_help_window`, …) | the join and the Help-menu entry |
-| `tests/test_help_doc.gd` | the content is clean and complete, and held to every table it claims — tools, menu names, stated counts, sections, cross-references, keys, the search order, size |
-| `tests/test_help_window.gd` | the page behaves — search, selection, headings, read-next links, back and forward, keyboard, close |
+| `tests/test_help_doc.gd` | the content is clean and complete, and held to every table it claims — tools, menu names, stated counts, sections, cross-references, keys, the search order, size, the pictures |
+| `tests/test_help_window.gd` | the page behaves — search, selection, headings, read-next links, back and forward, keyboard, pictures, close |
 | `tests/test_hud_help.gd` | the HUD offers it, hands it the right topics, and it takes nothing from the scene |
 | `tools/help_demo.gd` + `scenes/help_demo.tscn` | a live look at the page on the real program |
+| `tools/help_shot.gd` + `scenes/help_shot.tscn` | takes the manual's pictures off the running program, one webp per subject, into `assets/help/` |
+
+## 8. The pictures
+
+Twenty-nine of the thirty-one subjects are shown a picture, and the picture is of the **program**: a
+shot of the real page, panel or view the prose is describing, taken off the running window rather than
+drawn. A reader who has just been told that `Draft > Snapping...` exists wants to see where it is.
+
+Three things make this work rather than clutter a page:
+
+- **The picture is a file, read as bytes.** `HelpWindow.decode` is handed the bytes `FileAccess` read
+and decodes them by the file's own kind, rather than handing `Image.load_from_file` a path. A picture
+that ships *inside* the program lives in its pack file, and only `FileAccess` can see into one:
+reading it by path works in the editor and stops working in a built copy, which is the worst way for
+this to fail. The first few bytes are checked against the mark that kind of file begins with *before*
+the engine is asked to read them, because the image loaders complain loudly about bytes that are not
+a picture - and a stray file in the pictures folder must not fill the console with reasons it is not
+one. A picture that cannot be read answers `null` and the page carries on without it; the path is
+asked for once, whatever the answer.
+- **Which pictures a subject is shown with is a fourth table** (`HelpDoc.PICTURES`), resolved by
+`_annotate` into paths on the topic, exactly as the section and the cross-references are. The page is
+handed what it is to show and never learns where the manual keeps its pictures. A test holds every
+name against the file system *and* against `SUBJECTS`, because a picture filed under a name nobody
+has is a picture nobody will ever be shown.
+- **The row is given a definite height** (`PICTURE_HEIGHT`), and each picture is fitted inside it at its
+own proportions. This is not a style choice. A container cannot lay out a child that will not be
+sized until it has been laid out, so `EXPAND_FIT_WIDTH_PROPORTIONAL` left the row with **no height at
+all**: the picture was on the page, `shown_pictures()` was non-empty, and every assertion passed
+while nothing was drawn. `tests/test_help_window.gd` now asserts the row's own minimum height, which
+is the one thing about a picture a test can see.
+
+The pictures are **taken, not drawn** (`tools/help_shot.gd`). It instances the real `main.tscn`, opens
+each page through the HUD's own door, and saves the viewport - so the picture is the program, and
+re-taking one is running a scene rather than commissioning an artist. They are saved lossy at WebP
+quality 0.9, a sixth of the PNG size for a photograph of a garden, without hurting the small text that
+is the point of a picture of a page. Regenerate the whole set by running `res://scenes/help_shot.tscn`;
+`PROBE_SUBJECT` shoots the manual itself open on one subject, which is how the three-picture strip was
+looked at.
+
+Not every subject is shown one. A picture earns its place by showing a reader where something *is*, and
+a subject that describes a way of working rather than a page - **Editing shapes**, **Sending the drawing
+out** - has nothing to point at.

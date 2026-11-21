@@ -7,8 +7,8 @@ extends Node
 ## blank January, and that an empty month says so rather than reading as a fault.
 
 const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const CalendarScript := preload("res://scripts/harvest_calendar.gd")
 
 
@@ -23,10 +23,10 @@ func _crop(id: StringName, title: String, months: Array, parts: int) -> PlantSpe
 
 func _catalogue() -> PlantCatalogue:
 	var catalogue: PlantCatalogue = CatalogueScript.make()
-	catalogue.add(_crop(&"basil", "Basil", [6, 7], SpeciesScript.EAT_LEAF))    # June-July
-	catalogue.add(_crop(&"beet", "Beetroot", [6], SpeciesScript.EAT_ROOT))     # June only
-	catalogue.add(_crop(&"kale", "Kale", [11, 12, 1, 2, 3], SpeciesScript.EAT_LEAF))  # Nov-March
-	catalogue.add(_crop(&"mint", "Mint", [], SpeciesScript.EAT_LEAF))          # edible, no window
+	catalogue.add(_crop(&"basil", "Basil", [6, 7], SpeciesScript.EAT_LEAF)) # June-July
+	catalogue.add(_crop(&"beet", "Beetroot", [6], SpeciesScript.EAT_ROOT)) # June only
+	catalogue.add(_crop(&"kale", "Kale", [11, 12, 1, 2, 3], SpeciesScript.EAT_LEAF)) # Nov-March
+	catalogue.add(_crop(&"mint", "Mint", [], SpeciesScript.EAT_LEAF)) # edible, no window
 	var boxwood: PlantSpecies = SpeciesScript.make(&"buxus", "Buxus sempervirens", "Boxwood", 200, 150)
 	catalogue.add(boxwood)
 	return catalogue
@@ -39,11 +39,10 @@ func _page() -> HarvestWindow:
 	page.bind(_catalogue())
 	return page
 
-
 # --- building -------------------------------------------------------------------------------
 
 
-func test_the_page_builds_its_controls_and_takes_no_keyboard() -> void:
+func test_the_page_builds_its_controls_without_a_keyboard_of_their_own() -> void:
 	var page: HarvestWindow = HarvestWindowScript.new()
 	page.build()
 	assert(page.get_node_or_null("Column/MonthRow/Month") is OptionButton, "a month to choose")
@@ -81,7 +80,6 @@ func test_the_page_opens_on_the_fullest_month() -> void:
 	assert(page.month_name() == "June", page.month_name())
 	page.free()
 
-
 # --- the month, as the page shows it ---------------------------------------------------------
 
 
@@ -100,10 +98,7 @@ func test_an_empty_month_says_so_rather_than_failing() -> void:
 	var page: HarvestWindow = _page()
 	assert(page.choose_month(4))
 	assert(page.row_count() == 0, "nothing is ready in April")
-	assert(
-		page.month_line() == "nothing is recorded as ready in April.",
-		page.month_line()
-	)
+	assert(page.month_line() == "nothing is recorded as ready in April.", page.month_line())
 	assert(page.get_node("Column/MonthLine").text == page.month_line(), "and the page shows it")
 	page.free()
 
@@ -140,14 +135,16 @@ func test_choosing_what_is_not_a_month_is_refused_rather_than_guessed() -> void:
 	assert(page.month() == before, "so the month in hand did not move")
 	page.free()
 
-
 # --- what it does ------------------------------------------------------------------------------
 
 
 func test_choosing_a_month_says_so_and_closing_emits() -> void:
 	var page: HarvestWindow = _page()
 	var closed: Array = []
-	page.closed.connect(func() -> void: closed.append(true))
+	page.closed.connect(
+		func() -> void:
+			closed.append(true),
+	)
 	var option: OptionButton = page.get_node("Column/MonthRow/Month")
 	page._on_month_selected(0)
 	assert(page.month() == 1, "the choice was taken")

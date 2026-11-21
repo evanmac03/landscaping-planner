@@ -51,7 +51,6 @@ const DEFAULT_MARGIN_MM := 15.0
 ## Exact: one point is 1/72 inch.
 const POINTS_PER_MM := 72.0 / 25.4
 
-
 # --- sheets -------------------------------------------------------------------------
 
 
@@ -73,11 +72,12 @@ static func sheet_size_mm(sheet_name: String, portrait: bool = false) -> Vector2
 
 ## The area inside the border, where a viewport may sit.
 static func printable_size_mm(
-	sheet_name: String, margin_mm: float = DEFAULT_MARGIN_MM, portrait: bool = false
+	sheet_name: String,
+	margin_mm: float = DEFAULT_MARGIN_MM,
+	portrait: bool = false,
 ) -> Vector2:
 	var size := sheet_size_mm(sheet_name, portrait)
 	return Vector2(maxf(size.x - margin_mm * 2.0, 1.0), maxf(size.y - margin_mm * 2.0, 1.0))
-
 
 # --- scale --------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ static func suggest(
 	sheet_name: String,
 	margin_mm: float = DEFAULT_MARGIN_MM,
 	imperial: bool = false,
-	reserved_mm: Vector2 = Vector2.ZERO
+	reserved_mm: Vector2 = Vector2.ZERO,
 ) -> Dictionary:
 	# A reservation is taken off the printable area rather than added to the
 	# margin, because a title block claims a strip across the bottom and leaves the
@@ -176,7 +176,6 @@ static func is_standard(scale: float) -> bool:
 			return true
 	return false
 
-
 # --- points, for vector output -------------------------------------------------------
 
 
@@ -202,7 +201,6 @@ static func model_length_points(metres: float, scale: float) -> float:
 
 # --- scale bars ---------------------------------------------------------------------
 
-
 ## Round lengths a scale bar may be labelled with, in the active unit system.
 const NICE_METRES: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
 const NICE_FEET: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
@@ -211,11 +209,7 @@ const FEET_TO_METRES := 0.3048
 
 ## The largest round length whose bar fits the pixel budget, in metres. The bar is
 ## drawn at its true length; only the label is chosen here.
-static func scale_bar_length(
-	pixels_per_metre: float,
-	max_pixels: float,
-	imperial: bool = false
-) -> Dictionary:
+static func scale_bar_length(pixels_per_metre: float, max_pixels: float, imperial: bool = false) -> Dictionary:
 	var candidates := NICE_FEET if imperial else NICE_METRES
 	var factor := FEET_TO_METRES if imperial else 1.0
 	var best_metres := candidates[0] * factor
@@ -225,8 +219,4 @@ static func scale_bar_length(
 		if metres * pixels_per_metre <= max_pixels:
 			best_metres = metres
 			best_label = value
-	return {
-		"metres": best_metres,
-		"label_value": best_label,
-		"pixels": best_metres * pixels_per_metre,
-	}
+	return { "metres": best_metres, "label_value": best_label, "pixels": best_metres * pixels_per_metre }

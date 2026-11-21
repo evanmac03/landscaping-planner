@@ -12,7 +12,7 @@ extends Node2D
 ## controls - the same calls a click makes - awaiting real frames so what it prints is what the running
 ## program would be showing. The window is left open on the takeoff tab, with the volume line in it.
 ##
-## Run `res://scenes/volume_demo.tscn`.
+## Run `res://tools/volume_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
@@ -39,7 +39,7 @@ func _ready() -> void:
 	print("the drawing holds ", draft.document.count(), " entities")
 
 	print("--- taking it off as an area, the way the menu does ---")
-	hud._menu_take_off({})
+	hud._menu_take_off({ })
 	await _settle()
 	var window: EstimateWindow = hud.get(&"_estimate_window")
 	print("the window is up: ", hud.is_estimate_window_open())

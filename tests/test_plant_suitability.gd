@@ -16,12 +16,17 @@ extends Node
 ## get wrong in a way nobody notices: a plan that says nothing about the ground must produce "I
 ## cannot tell you", never a confident green.
 
-const Suitability := preload("res://scripts/plant_suitability.gd")
+const Suitability := preload("res://scripts/plants/plant_suitability.gd")
 const Profile := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
+## The four checks that ask `Suitability.worst_of` for their verdict rather than carrying a copy of it.
+const CropSunScript := preload("res://scripts/crop_sun.gd")
+const RotationScript := preload("res://scripts/crop_rotation.gd")
+const SeasonScript := preload("res://scripts/growing_season.gd")
+const SowingScript := preload("res://scripts/sowing_planner.gd")
 
 const SHADE := SpeciesScript.FULL_SHADE
 const SUN := SpeciesScript.FULL_SUN
@@ -33,12 +38,8 @@ const WET := SpeciesScript.WATER_HIGH
 
 ## A species with the fields a suitability check reads. Everything else is whatever the table
 ## defaults to, because none of it is what is under test.
-func _species(
-	id: String, common: String, sun: int, water: int, zone_min: int = 3, zone_max: int = 9
-) -> PlantSpecies:
-	var species: PlantSpecies = SpeciesScript.make(
-		StringName(id), "Species %s" % id, common, 60, 45
-	)
+func _species(id: String, common: String, sun: int, water: int, zone_min: int = 3, zone_max: int = 9) -> PlantSpecies:
+	var species: PlantSpecies = SpeciesScript.make(StringName(id), "Species %s" % id, common, 60, 45)
 	species.sun = sun
 	species.water = water
 	species.zone_min = zone_min
@@ -68,12 +69,43 @@ func _outcome(verdict: Dictionary, key: String) -> int:
 			return int(finding["outcome"])
 	return -1
 
-
 # --- the three plants a designer argues about ---------------------------------------------
 
 
+## The one ordering rule every check in the food garden asks for. It is public for exactly that reason:
+## four copies of an ordering rule are four places for a red ring and a red row to disagree about the
+## same facts, and the copies had already drifted (one read the outcome straight off the dictionary,
+## the others wrapped it in `int()` for a findings list built from a parsed file).
+func test_the_worst_of_several_findings_is_one_rule_for_the_whole_family() -> void:
+	var wrong: Dictionary = { "outcome": Suitability.UNSUITABLE }
+	var gap: Dictionary = { "outcome": Suitability.UNKNOWN }
+	var thin: Dictionary = { "outcome": Suitability.TOLERATED }
+	var fine: Dictionary = { "outcome": Suitability.GOOD }
+	assert(
+		Suitability.worst_of([fine, thin, gap, wrong]) == Suitability.UNSUITABLE,
+		"something against the plant outranks everything",
+	)
+	assert(
+		Suitability.worst_of([fine, thin, gap]) == Suitability.UNKNOWN,
+		"a gap outranks a thin margin, because the gap is the designer's to fix",
+	)
+	assert(Suitability.worst_of([fine, thin]) == Suitability.TOLERATED, "a thin margin is reported")
+	assert(Suitability.worst_of([fine]) == Suitability.GOOD, "and a match is a match")
+	assert(Suitability.worst_of([]) == Suitability.GOOD, "no findings is no objection")
+	# A findings list read back out of a parsed file carries every number as a float, which is why the
+	# rule casts rather than trusting the type it is handed.
+	assert(Suitability.worst_of([{ "outcome": 2.0 }]) == Suitability.UNSUITABLE, "a float outcome is still the outcome")
+	# Each check in the family answers through this rule rather than a copy of it.
+	for module: GDScript in [CropSunScript, RotationScript, SeasonScript, SowingScript]:
+		var findings: Array[Dictionary] = [{ "outcome": 2.0 }]
+		assert(
+			module._worst(findings) == Suitability.UNSUITABLE,
+			"%s asks PlantSuitability for the verdict" % module.resource_path.get_file(),
+		)
+
+
 func test_a_hosta_in_shade_is_green() -> void:
-	var ground: TerrainProfile = Profile.make({"sun": SHADE, "moisture": DAMP})
+	var ground: TerrainProfile = Profile.make({ "sun": SHADE, "moisture": DAMP })
 	var verdict: Dictionary = Suitability.check(_hosta(), ground)
 	assert(int(verdict["verdict"]) == Suitability.GOOD, "a shade plant in shade: %s" % verdict["summary"])
 	assert(bool(verdict["ok"]) and bool(verdict["certain"]), "and it is a confident answer")
@@ -85,21 +117,24 @@ func test_a_hosta_in_shade_is_green() -> void:
 
 
 func test_a_tomato_in_shade_is_red() -> void:
-	var ground: TerrainProfile = Profile.make({"sun": SHADE, "moisture": DAMP})
+	var ground: TerrainProfile = Profile.make({ "sun": SHADE, "moisture": DAMP })
 	var verdict: Dictionary = Suitability.check(_tomato(), ground)
 	assert(int(verdict["verdict"]) == Suitability.UNSUITABLE)
 	assert(not bool(verdict["ok"]), "red means not suited")
 	assert(verdict["colour"] == Suitability.UNSUITABLE_COLOUR)
 	assert(_outcome(verdict, "sun") == Suitability.UNSUITABLE, "it is the light that is wrong")
 	assert(String(verdict["summary"]).contains("wrong plant for this spot"), verdict["summary"])
-	assert(String(verdict["summary"]).contains("full shade"), "and the reason names the ground: %s" % verdict["summary"])
+	assert(
+		String(verdict["summary"]).contains("full shade"),
+		"and the reason names the ground: %s" % verdict["summary"],
+	)
 	assert(String(verdict["label"]).contains("full sun"), "the short label says what it wants: %s" % verdict["label"])
 
 
 func test_a_willow_wants_a_damp_bed_and_not_a_dry_one() -> void:
-	var damp: Dictionary = Suitability.check(_willow(), Profile.make({"sun": SUN, "moisture": WET}))
+	var damp: Dictionary = Suitability.check(_willow(), Profile.make({ "sun": SUN, "moisture": WET }))
 	assert(int(damp["verdict"]) == Suitability.GOOD, "a willow in a bog is at home")
-	var dry: Dictionary = Suitability.check(_willow(), Profile.make({"sun": SUN, "moisture": DRY}))
+	var dry: Dictionary = Suitability.check(_willow(), Profile.make({ "sun": SUN, "moisture": DRY }))
 	assert(int(dry["verdict"]) == Suitability.UNSUITABLE, "and in a dry bed it is not")
 	assert(_outcome(dry, "moisture") == Suitability.UNSUITABLE)
 	assert(String(dry["summary"]).contains("wants more water than this spot holds"), dry["summary"])
@@ -107,7 +142,7 @@ func test_a_willow_wants_a_damp_bed_and_not_a_dry_one() -> void:
 
 
 func test_a_drought_lover_in_wet_ground_is_red_the_other_way() -> void:
-	var verdict: Dictionary = Suitability.check(_lavender(), Profile.make({"sun": SUN, "moisture": WET}))
+	var verdict: Dictionary = Suitability.check(_lavender(), Profile.make({ "sun": SUN, "moisture": WET }))
 	assert(int(verdict["verdict"]) == Suitability.UNSUITABLE, "a lavender in a bog rots")
 	assert(String(verdict["summary"]).contains("sharper drainage"), verdict["summary"])
 
@@ -116,16 +151,16 @@ func test_the_milder_mismatch_in_each_direction_is_tolerated_not_failed() -> voi
 	# A thirsty plant on ground one step short of what it wants is carried by irrigation, and a
 	# drought-tolerant plant on ground one step wetter holds on. Calling both of those failures would
 	# teach a designer to ignore red rings, which is the expensive way to be wrong.
-	var thirsty: Dictionary = Suitability.check(_willow(), Profile.make({"sun": SUN, "moisture": DAMP}))
+	var thirsty: Dictionary = Suitability.check(_willow(), Profile.make({ "sun": SUN, "moisture": DAMP }))
 	assert(int(thirsty["verdict"]) == Suitability.TOLERATED, thirsty["summary"])
 	assert(bool(thirsty["ok"]), "it will live")
 	assert(thirsty["colour"] == Suitability.TOLERATED_COLOUR, "which is worth saying in amber")
 	var damp_lover: Dictionary = Suitability.check(
-		_species("mint", "Mint", PART, DAMP), Profile.make({"sun": PART, "moisture": WET})
+		_species("mint", "Mint", PART, DAMP),
+		Profile.make({ "sun": PART, "moisture": WET }),
 	)
 	assert(int(damp_lover["verdict"]) == Suitability.TOLERATED, damp_lover["summary"])
 	assert(String(damp_lover["label"]).contains("medium water"), String(damp_lover["label"]))
-
 
 # --- the answer when nobody has described the ground --------------------------------------
 
@@ -144,9 +179,7 @@ func test_a_ground_nobody_has_described_is_unknown_and_never_green() -> void:
 func test_a_gap_in_the_plan_outranks_a_mere_mismatch() -> void:
 	# The moisture is stated and is one step off (tolerated); the light is not stated at all. The gap
 	# is what a designer can go and fix, so that is what the verdict reports.
-	var verdict: Dictionary = Suitability.check(
-		_willow(), Profile.make({"moisture": DAMP})
-	)
+	var verdict: Dictionary = Suitability.check(_willow(), Profile.make({ "moisture": DAMP }))
 	assert(_outcome(verdict, "moisture") == Suitability.TOLERATED, "the water is only worked around")
 	assert(_outcome(verdict, "sun") == Suitability.UNKNOWN, "the light is unknown")
 	assert(int(verdict["verdict"]) == Suitability.UNKNOWN, "and unknown is what comes back")
@@ -154,10 +187,25 @@ func test_a_gap_in_the_plan_outranks_a_mere_mismatch() -> void:
 
 
 func test_something_wrong_outranks_a_gap() -> void:
-	var verdict: Dictionary = Suitability.check(_tomato(), Profile.make({"sun": SHADE}))
+	var verdict: Dictionary = Suitability.check(_tomato(), Profile.make({ "sun": SHADE }))
 	assert(int(verdict["verdict"]) == Suitability.UNSUITABLE, "a stated fault beats an unstated fact")
 	assert(_outcome(verdict, "moisture") == Suitability.UNKNOWN, "the moisture was never stated")
 
+
+func test_the_two_things_a_spot_must_state_are_the_two_every_check_asks() -> void:
+	# `gaps_at` names the properties a *place* has to state before any plant can be judged, and the only
+	# thing that makes that list true is `check` asking exactly those properties of every plant. So this is
+	# what holds the two together: a plant with no opinion beyond those two comes back fully judged on a spot
+	# that states them - add a third always-asked property and this fails rather than gaps_at going stale.
+	var spot: Profile = Profile.make({ "sun": SUN, "moisture": DAMP })
+	assert(Suitability.gaps_at(spot).is_empty(), "a spot stating the light and the water has said enough")
+	var verdict: Dictionary = Suitability.check(_tomato(), spot)
+	assert(int(verdict["verdict"]) != Suitability.UNKNOWN, "and a plant can be judged on it: %s" % verdict["summary"])
+	assert(_outcome(verdict, "sun") != Suitability.UNKNOWN, "the light is judged")
+	assert(_outcome(verdict, "moisture") != Suitability.UNKNOWN, "the water is judged")
+	var silent: Profile = Profile.make({ "zone": 5 })
+	assert(Suitability.gaps_at(silent).size() == 2, "and a spot silent about both names both of them")
+	assert(Suitability.gaps_at(null).size() == 1, "and a spot there is no plan for says one thing")
 
 # --- what the catalogue is asked, and what it is not --------------------------------------
 
@@ -166,10 +214,9 @@ func test_the_catalogue_is_not_asked_what_it_does_not_say() -> void:
 	# The plant says nothing about soil or drainage, so those questions are not asked - not asked and
 	# answered "fine", and not asked and reported as a gap. A plant is not wrong on every soil
 	# nobody has an opinion about.
-	var ground: TerrainProfile = Profile.make({
-		"sun": SUN, "moisture": DAMP, "soil": Profile.CLAY,
-		"drainage": Profile.DRAINAGE_SLOW,
-	})
+	var ground: TerrainProfile = Profile.make(
+		{ "sun": SUN, "moisture": DAMP, "soil": Profile.CLAY, "drainage": Profile.DRAINAGE_SLOW }
+	)
 	var verdict: Dictionary = Suitability.check(_tomato(), ground)
 	assert(_outcome(verdict, "soil") == -1, "no soil was asked about")
 	assert(_outcome(verdict, "drainage") == -1, "and no drainage either")
@@ -180,16 +227,18 @@ func test_a_plant_that_names_its_soil_is_checked_on_it() -> void:
 	var fussy: PlantSpecies = _species("fussy", "Fussy", SUN, DAMP)
 	fussy.soils.assign([Profile.LOAM])
 	var clay: Dictionary = Suitability.check(
-		fussy, Profile.make({"sun": SUN, "moisture": DAMP, "soil": Profile.CLAY})
+		fussy,
+		Profile.make({ "sun": SUN, "moisture": DAMP, "soil": Profile.CLAY }),
 	)
 	assert(_outcome(clay, "soil") == Suitability.UNSUITABLE, "it wants loam and this is clay")
 	assert(String(clay["summary"]).contains("grows on loam"), clay["summary"])
 	var right: Dictionary = Suitability.check(
-		fussy, Profile.make({"sun": SUN, "moisture": DAMP, "soil": Profile.LOAM})
+		fussy,
+		Profile.make({ "sun": SUN, "moisture": DAMP, "soil": Profile.LOAM }),
 	)
 	assert(int(right["verdict"]) == Suitability.GOOD)
 	# And a plant that names its soil against a plan that does not name one is a gap, not a pass.
-	var unstated: Dictionary = Suitability.check(fussy, Profile.make({"sun": SUN, "moisture": DAMP}))
+	var unstated: Dictionary = Suitability.check(fussy, Profile.make({ "sun": SUN, "moisture": DAMP }))
 	assert(_outcome(unstated, "soil") == Suitability.UNKNOWN, "the plan does not say what the soil is")
 	assert(String(unstated["summary"]).contains("nothing says what the soil is"), unstated["summary"])
 
@@ -198,13 +247,15 @@ func test_a_plant_that_takes_one_drainage_is_checked_on_it() -> void:
 	var dry_lover: PlantSpecies = _species("dry", "Dry lover", SUN, DRY)
 	dry_lover.drainage = SpeciesScript.DRAINS_FAST
 	var bog: Dictionary = Suitability.check(
-		dry_lover, Profile.make({"sun": SUN, "moisture": DRY, "drainage": Profile.DRAINAGE_SLOW})
+		dry_lover,
+		Profile.make({ "sun": SUN, "moisture": DRY, "drainage": Profile.DRAINAGE_SLOW }),
 	)
 	assert(_outcome(bog, "drainage") == Suitability.UNSUITABLE, "it wants sharp drainage")
 	assert(String(bog["summary"]).contains("slow-draining"), bog["summary"])
 	assert(String(bog["summary"]).contains("takes fast-draining"), "and says what it wants: %s" % bog["summary"])
 	var sharp: Dictionary = Suitability.check(
-		dry_lover, Profile.make({"sun": SUN, "moisture": DRY, "drainage": Profile.DRAINAGE_FAST})
+		dry_lover,
+		Profile.make({ "sun": SUN, "moisture": DRY, "drainage": Profile.DRAINAGE_FAST }),
 	)
 	assert(int(sharp["verdict"]) == Suitability.GOOD)
 	assert(dry_lover.drainage_text() == "fast-draining", dry_lover.drainage_text())
@@ -236,7 +287,6 @@ func test_the_species_table_still_accepts_the_catalogue_that_ships() -> void:
 	assert(soily > 0, "the shipped list says something about soil")
 	assert(drained > 0, "and something about drainage")
 
-
 # --- hardiness ----------------------------------------------------------------------------
 
 
@@ -244,21 +294,16 @@ func test_hardiness_is_asked_about_only_where_the_place_claims_a_zone() -> void:
 	var tender: PlantSpecies = _species("tender", "Tender", SUN, DAMP, 7, 11)
 	# A place with no zone of its own is not a gap: a site's zone is stated once for the site, and a
 	# plan that has not stated it must not turn every ring grey.
-	var nowhere: Dictionary = Suitability.check(tender, Profile.make({"sun": SUN, "moisture": DAMP}))
+	var nowhere: Dictionary = Suitability.check(tender, Profile.make({ "sun": SUN, "moisture": DAMP }))
 	assert(_outcome(nowhere, "zone") == -1, "no zone was claimed, so none was asked about")
 	assert(int(nowhere["verdict"]) == Suitability.GOOD, "and the answer is about the light and water")
 	# A place that *does* claim a zone is a frost pocket, and then hardiness is exactly the question.
-	var pocket: Dictionary = Suitability.check(
-		tender, Profile.make({"sun": SUN, "moisture": DAMP, "zone": 5})
-	)
+	var pocket: Dictionary = Suitability.check(tender, Profile.make({ "sun": SUN, "moisture": DAMP, "zone": 5 }))
 	assert(_outcome(pocket, "zone") == Suitability.UNSUITABLE, "zone 7-11 in a zone 5 pocket")
 	assert(String(pocket["summary"]).contains("hardy to zone 7"), pocket["summary"])
 	assert(String(pocket["label"]) == "not hardy here", String(pocket["label"]))
-	var sheltered: Dictionary = Suitability.check(
-		tender, Profile.make({"sun": SUN, "moisture": DAMP, "zone": 8})
-	)
+	var sheltered: Dictionary = Suitability.check(tender, Profile.make({ "sun": SUN, "moisture": DAMP, "zone": 8 }))
 	assert(int(sheltered["verdict"]) == Suitability.GOOD)
-
 
 # --- the ground under the cursor ----------------------------------------------------------
 
@@ -266,13 +311,11 @@ func test_hardiness_is_asked_about_only_where_the_place_claims_a_zone() -> void:
 func test_two_metres_away_can_be_a_different_answer() -> void:
 	# The whole reason the ground is a map rather than a form: the same plant dropped in the sunny bed
 	# instead of the shady garden is a different verdict, and the map is what knows that.
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SHADE, "moisture": DAMP})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SHADE, "moisture": DAMP })
 	map.add_zone(
 		"the sunny bed",
-		PackedVector2Array([
-			Vector2(10.0, 10.0), Vector2(14.0, 10.0), Vector2(14.0, 14.0), Vector2(10.0, 14.0),
-		]),
-		Profile.of("sun", SUN)
+		PackedVector2Array([Vector2(10.0, 10.0), Vector2(14.0, 10.0), Vector2(14.0, 14.0), Vector2(10.0, 14.0)]),
+		Profile.of("sun", SUN),
 	)
 	var shade: Dictionary = Suitability.check_at(_tomato(), map, Vector2(0.0, 0.0))
 	assert(int(shade["verdict"]) == Suitability.UNSUITABLE, shade["summary"])
@@ -283,7 +326,6 @@ func test_two_metres_away_can_be_a_different_answer() -> void:
 	# And a plant checked with no map at all is an unknown, not a crash.
 	var nowhere: Dictionary = Suitability.check_at(_tomato(), null, Vector2.ZERO)
 	assert(int(nowhere["verdict"]) == Suitability.UNKNOWN)
-
 
 # --- the planting already in the ground ----------------------------------------------------
 
@@ -329,13 +371,11 @@ func _catalogue() -> PlantCatalogue:
 
 ## The same map as the check above: a shady, damp garden with one sunny bed in it.
 func _map() -> ZoneMapScript:
-	var map: ZoneMapScript = ZoneMapScript.make({"sun": SHADE, "moisture": DAMP})
+	var map: ZoneMapScript = ZoneMapScript.make({ "sun": SHADE, "moisture": DAMP })
 	map.add_zone(
 		"the sunny bed",
-		PackedVector2Array([
-			Vector2(10.0, 10.0), Vector2(14.0, 10.0), Vector2(14.0, 14.0), Vector2(10.0, 14.0),
-		]),
-		Profile.of("sun", SUN)
+		PackedVector2Array([Vector2(10.0, 10.0), Vector2(14.0, 10.0), Vector2(14.0, 14.0), Vector2(10.0, 14.0)]),
+		Profile.of("sun", SUN),
 	)
 	return map
 
@@ -344,7 +384,10 @@ func test_the_audit_checks_the_planting_that_is_already_in_the_ground() -> void:
 	var yard: Node3D = _yard()
 	var report: Dictionary = Suitability.audit(_catalogue(), yard, _map())
 	var counts: Dictionary = report["counts"]
-	assert(int(counts[Suitability.GOOD]) == 3, "the shade is right for two hostas, and the bed for a tomato: %s" % str(counts))
+	assert(
+		int(counts[Suitability.GOOD]) == 3,
+		"the shade is right for two hostas, and the bed for a tomato: %s" % str(counts),
+	)
 	assert(int(counts[Suitability.UNSUITABLE]) == 0, "nothing is in the wrong place")
 	# The prop with no species is counted and named, not skipped: an audit that passed it would be
 	# reporting on a planting list it cannot name.

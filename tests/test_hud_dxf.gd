@@ -33,18 +33,48 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## A DXF in the shape the reader reads, with a unitless header when `insunits` is 0.
 func _dxf(insunits: int = 6) -> String:
-	return "\n".join(PackedStringArray([
-		"0", "SECTION", "2", "HEADER", "9", "$INSUNITS", "70", str(insunits),
-		"0", "ENDSEC", "0", "SECTION", "2", "ENTITIES",
-		"0", "LINE", "8", "PROPERTY", "10", "0.0", "20", "0.0", "11", "10.0", "21", "10.0",
-		"0", "ENDSEC", "0", "EOF", "",
-	]))
-
+	return "\n".join(
+		PackedStringArray(
+			[
+				"0",
+				"SECTION",
+				"2",
+				"HEADER",
+				"9",
+				"$INSUNITS",
+				"70",
+				str(insunits),
+				"0",
+				"ENDSEC",
+				"0",
+				"SECTION",
+				"2",
+				"ENTITIES",
+				"0",
+				"LINE",
+				"8",
+				"PROPERTY",
+				"10",
+				"0.0",
+				"20",
+				"0.0",
+				"11",
+				"10.0",
+				"21",
+				"10.0",
+				"0",
+				"ENDSEC",
+				"0",
+				"EOF",
+				"",
+			]
+		)
+	)
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -64,7 +94,6 @@ func test_the_file_menu_offers_importing_a_dxf() -> void:
 	assert(hud.has_method("dxf_report_text"))
 	assert(not hud.is_dxf_panel_open(), "nothing is open until it is asked for")
 	hud.free()
-
 
 # --- what the page says ---------------------------------------------------------------
 
@@ -100,13 +129,12 @@ func test_a_file_that_is_not_a_dxf_says_so_and_cannot_be_placed() -> void:
 
 func test_nothing_read_yet_says_so_rather_than_failing() -> void:
 	var hud = _hud()
-	hud._pending_dxf = {}
+	hud._pending_dxf = { }
 	assert(hud.dxf_report_text() == "no DXF has been read", hud.dxf_report_text())
 	assert(not hud.dxf_import_enabled())
 	hud.confirm_dxf_import()
 	assert(hud._draft.document.count() == 0)
 	_done(hud)
-
 
 # --- the question a unitless file asks -------------------------------------------------
 
@@ -143,7 +171,6 @@ func test_a_file_that_states_its_units_ignores_what_a_person_says() -> void:
 	hud.choose_dxf_units("feet")
 	assert(String(hud._pending_dxf["units"]) == "metres", String(hud._pending_dxf["units"]))
 	_done(hud)
-
 
 # --- what confirming does --------------------------------------------------------------
 

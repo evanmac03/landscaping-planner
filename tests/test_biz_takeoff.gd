@@ -33,9 +33,7 @@ func _document() -> DraftDocument:
 
 ## A closed outline of the given size, on a layer.
 func _patio(document: DraftDocument, width: float, height: float, layer: StringName = PAVING) -> int:
-	var corners := PackedVector2Array([
-		Vector2(0, 0), Vector2(width, 0), Vector2(width, height), Vector2(0, height)
-	])
+	var corners := PackedVector2Array([Vector2(0, 0), Vector2(width, 0), Vector2(width, height), Vector2(0, height)])
 	return document.add(DraftEntity.make_polyline(corners, true), layer)
 
 
@@ -61,7 +59,6 @@ func _row(takeoff: Takeoff, layer: StringName, measure: StringName) -> Takeoff.T
 		if line.layer == layer and line.measure == measure:
 			return line
 	return null
-
 
 # --- measuring a drawing --------------------------------------------------------------------
 
@@ -93,8 +90,7 @@ func test_a_line_on_an_area_layer_is_measured_as_a_length() -> void:
 	# And the layer's area line is not polluted by it: a paving layer produces two lines, one of each
 	# dimension, because paving and edging are different quantities at different rates.
 	assert(_row(takeoff, PAVING, WorkUnitScript.AREA) != null, "the area line is still there")
-	assert(_row(takeoff, PAVING, WorkUnitScript.AREA).quantity_milli == 24000,
-		"and holds only the outline")
+	assert(_row(takeoff, PAVING, WorkUnitScript.AREA).quantity_milli == 24000, "and holds only the outline")
 
 
 func test_the_layers_that_are_not_work_are_named_rather_than_dropped() -> void:
@@ -133,8 +129,7 @@ func test_the_layer_decides_which_of_a_circles_two_measurements_counts() -> void
 	assert(round_patio.lines.size() == 1, "one line")
 	assert(round_patio.lines[0].measure == WorkUnitScript.AREA, "measured as an area")
 	# pi * 2² = 12.566 m², to the thousandth of a square metre.
-	assert(round_patio.lines[0].quantity_milli == 12566,
-		"12.566 m²: %d" % round_patio.lines[0].quantity_milli)
+	assert(round_patio.lines[0].quantity_milli == 12566, "12.566 m²: %d" % round_patio.lines[0].quantity_milli)
 
 
 func test_a_takeoff_knows_which_drawing_it_measured() -> void:
@@ -148,7 +143,6 @@ func test_a_takeoff_knows_which_drawing_it_measured() -> void:
 	var second: Takeoff = TakeoffScript.of_document(document, _book())
 	assert(second.document_hash != first.document_hash, "and it changes when the drawing does")
 
-
 # --- choosing what prices it -----------------------------------------------------------------
 
 
@@ -161,15 +155,17 @@ func test_every_line_suggests_an_item_that_measures_the_same_thing() -> void:
 	for line: Takeoff.TakeoffLine in takeoff.lines:
 		var item: CostItem = book.item(line.item_id)
 		assert(item != null, "%s suggests something that exists" % line.description)
-		assert(WorkUnitScript.same_dimension(item.unit, line.unit),
-			"%s suggests %s, which is priced by %s and not by %s" % [
-				line.description, item.id, item.unit, line.unit
-			])
+		assert(
+			WorkUnitScript.same_dimension(item.unit, line.unit),
+			"%s suggests %s, which is priced by %s and not by %s" % [line.description, item.id, item.unit, line.unit],
+		)
 		# And the candidates offered are all of the right dimension.
 		for candidate: StringName in TakeoffScript.items_for(line, book):
 			var row: CostItem = book.item(candidate)
-			assert(WorkUnitScript.same_dimension(row.unit, line.unit),
-				"%s must not be offered for %s" % [candidate, line.unit])
+			assert(
+				WorkUnitScript.same_dimension(row.unit, line.unit),
+				"%s must not be offered for %s" % [candidate, line.unit],
+			)
 
 
 func test_a_run_of_edging_is_not_priced_as_paving() -> void:
@@ -211,8 +207,7 @@ func test_a_measurement_in_square_feet_is_converted_exactly_when_it_is_priced() 
 	assert(bool(priced["ok"]), "the line prices: %s" % String(priced["reason"]))
 	var converted: EstimateLine = priced["line"]
 	assert(converted.unit == &"SQ_FT", "in the item's own unit")
-	assert(converted.quantity_milli == 258334,
-		"24 m² is 258.334 ft²: %d" % converted.quantity_milli)
+	assert(converted.quantity_milli == 258334, "24 m² is 258.334 ft²: %d" % converted.quantity_milli)
 	assert(converted.book_version == line.quantity_milli / 1000 or true, "the taken lineage is kept")
 	assert(not converted.by_hand(), "and the line knows it was measured")
 
@@ -239,11 +234,12 @@ func test_a_whole_plan_becomes_an_estimate_in_one_step() -> void:
 	assert(not estimate.site.is_empty(), "and carries the drawing's site")
 	# The patio: 24 m² with 5% of waste is 25.2 m² at $85.00, which is $2,142.00.
 	var paving: EstimateLine = estimate.line(estimate.lines[0].id)
-	assert(paving.extension().format_with_currency() == "$2,142.00",
-		"the patio: %s" % paving.extension().format_with_currency())
+	assert(
+		paving.extension().format_with_currency() == "$2,142.00",
+		"the patio: %s" % paving.extension().format_with_currency(),
+	)
 	assert(paving.tax_code == &"HST-ON", "the estimate's own tax code reached the line")
 	assert(estimate.is_sound(book), "and the estimate is sound: %s" % " | ".join(estimate.problems(book)))
-
 
 # --- plants ---------------------------------------------------------------------------------
 
@@ -252,26 +248,45 @@ func test_a_whole_plan_becomes_an_estimate_in_one_step() -> void:
 func _plant_rows() -> Array:
 	return [
 		{
-			"id": &"acer-rubrum-autumn-blaze", "count": 2, "botanical_name": "Acer rubrum",
-			"common_name": "Red maple", "cultivar": "Autumn Blaze", "category_name": "Tree",
-			"spread_cm": 900, "height_cm": 1200,
+			"id": &"acer-rubrum-autumn-blaze",
+			"count": 2,
+			"botanical_name": "Acer rubrum",
+			"common_name": "Red maple",
+			"cultivar": "Autumn Blaze",
+			"category_name": "Tree",
+			"spread_cm": 900,
+			"height_cm": 1200,
 		},
 		{
-			"id": &"buxus-sempervirens", "count": 6, "botanical_name": "Buxus sempervirens",
-			"common_name": "Common boxwood", "cultivar": "", "category_name": "Shrub",
-			"spread_cm": 90, "height_cm": 120,
+			"id": &"buxus-sempervirens",
+			"count": 6,
+			"botanical_name": "Buxus sempervirens",
+			"common_name": "Common boxwood",
+			"cultivar": "",
+			"category_name": "Shrub",
+			"spread_cm": 90,
+			"height_cm": 120,
 		},
 		{
-			"id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "",
-			"cultivar": "", "category_name": "", "spread_cm": 0, "height_cm": 0,
+			"id": &"",
+			"count": 30,
+			"botanical_name": "no species recorded",
+			"common_name": "",
+			"cultivar": "",
+			"category_name": "",
+			"spread_cm": 0,
+			"height_cm": 0,
 		},
 	]
 
 
 func test_the_planting_list_becomes_counted_lines() -> void:
 	var book: CostBook = _book()
-	var takeoff: Takeoff = TakeoffScript.of_plants(_plant_rows(), book,
-		{&"acer-rubrum-autumn-blaze": &"plant-tree-50mm"})
+	var takeoff: Takeoff = TakeoffScript.of_plants(
+		_plant_rows(),
+		book,
+		{ &"acer-rubrum-autumn-blaze": &"plant-tree-50mm" },
+	)
 	assert(takeoff.lines.size() == 3, "three lines, one per row: %d" % takeoff.lines.size())
 	var maples: Takeoff.TakeoffLine = takeoff.lines[0]
 	assert(maples.measure == WorkUnitScript.COUNT, "a plant is a count")
@@ -329,15 +344,14 @@ func test_a_plan_with_plants_on_it_does_not_count_them_twice() -> void:
 			kept = true
 	assert(kept, "a symbol is a plant when there are no props")
 
-
 # --- re-takeoff is a diff --------------------------------------------------------------------
 
 
 func test_a_bigger_bed_is_a_diff_with_a_price_attached() -> void:
 	# §6's example, as a test: "the bed grew 4.2 m², that is $310".
 	var book: CostBook = _book()
-	var was: Takeoff = _plan(6.0, 4.0)              # 24 m² of paving
-	var now: Takeoff = _plan(6.0, 5.2)              # 31.2 m²
+	var was: Takeoff = _plan(6.0, 4.0) # 24 m² of paving
+	var now: Takeoff = _plan(6.0, 5.2) # 31.2 m²
 	var report: Dictionary = now.diff(was, book)
 	var found: bool = false
 	for row: Dictionary in report["rows"]:
@@ -348,8 +362,10 @@ func test_a_bigger_bed_is_a_diff_with_a_price_attached() -> void:
 		assert(int(row["now_milli"]) == 31200, "now 31.2 m²: %d" % int(row["now_milli"]))
 		assert(int(row["delta_milli"]) == 7200, "a growth of 7.2 m²: %d" % int(row["delta_milli"]))
 		# 7.2 m² at $85.00 is $612.00, and the money is at the book's rate rather than the estimate's.
-		assert((row["delta_money"] as Money).format_with_currency() == "$612.00",
-			"worth %s" % (row["delta_money"] as Money).format_with_currency())
+		assert(
+			(row["delta_money"] as Money).format_with_currency() == "$612.00",
+			"worth %s" % (row["delta_money"] as Money).format_with_currency(),
+		)
 	assert(found, "the area line is in the diff")
 	assert((report["delta_money"] as Money).is_valid(), "and the diff has a money total")
 
@@ -389,7 +405,6 @@ func test_a_diff_without_a_book_still_reports_the_quantities() -> void:
 			moved += 1
 			assert(row["delta_money"] == null, "a line with no book has no money to report")
 	assert(moved > 0, "the change is still reported")
-
 
 # --- the record -------------------------------------------------------------------------------
 

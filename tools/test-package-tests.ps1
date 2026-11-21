@@ -27,7 +27,7 @@ try {
     $data = @{folder=$fixture;executable=$exe;version='v0.0.0-test';commit='fixture';identity='draft';
         manifest=@{'landscaping-planner.exe'=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash}}
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($data | ConvertTo-Json -Depth 5 -Compress)))
-    $tool = Join-Path $PSScriptRoot 'test-package.ps1'
+    $tool = Join-Path $PSScriptRoot '..\addons\github_tools\tools\test-package.ps1'
     $passed = (& $tool -Package $encoded) -join "`n"
     if ($passed -notmatch '"state":"passed"') { throw 'Clean smoke test result missing.' }
     foreach ($mode in @('bad-exit','missing-log','error-log','timeout','changed')) {
@@ -41,7 +41,21 @@ try {
     $failed = $false
     try { & $tool -Package $encoded | Out-Null } catch { $failed = $true }
     if (-not $failed -or $global:LandscapingPackageTest.launched -ne $before) { throw 'Altered package was launched.' }
-    Write-Output 'PASS: 7 package smoke checks (mocked process; manifest, arguments, exit, log, timeout and post-run integrity).'
+    $generic = Join-Path $fixture 'another-game.exe'
+    Move-Item -LiteralPath $exe -Destination $generic
+    $global:LandscapingPackageTest.exe = $generic
+    $global:LandscapingPackageTest.mode = 'passed'
+    $data.executable = $generic
+    $data.executable_name = 'another-game.exe'
+    $data.manifest = @{'another-game.exe'=(Get-FileHash -LiteralPath $generic -Algorithm SHA256).Hash}
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($data | ConvertTo-Json -Depth 5 -Compress)))
+    if (((& $tool -Package $encoded) -join "`n") -notmatch '"state":"passed"') { throw 'Configured executable smoke test failed.' }
+    $data.executable_name = '..\outside.exe'
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($data | ConvertTo-Json -Depth 5 -Compress)))
+    $failed = $false
+    try { & $tool -Package $encoded | Out-Null } catch { $failed = $true }
+    if (-not $failed) { throw 'Unsafe executable name was accepted.' }
+    Write-Output 'PASS: 9 package smoke checks (mocked process; manifest, configured executable, arguments, exit, log, timeout and post-run integrity).'
 }
 finally {
     Remove-Item -LiteralPath $fixture -Recurse -Force

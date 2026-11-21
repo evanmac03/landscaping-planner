@@ -5,8 +5,8 @@ extends Node
 ## no screen. A species is made through `PlantSpecies.make`, the way the catalogue makes one.
 
 const PlannerScript := preload("res://scripts/sowing_planner.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 
 ## A temperate garden: last frost 20 May, first frost 7 October, so 140 days.
 const LAST := 140
@@ -22,13 +22,12 @@ func _crop(species_id: StringName, name: String, days: int) -> PlantSpecies:
 
 func _catalogue() -> PlantCatalogue:
 	var catalogue: PlantCatalogue = CatalogueScript.make()
-	catalogue.add(_crop(&"quick", "Quick", 60))        # 80 days to spare
-	catalogue.add(_crop(&"thin", "Thin", 130))         # 10 days to spare -> tolerated
-	catalogue.add(_crop(&"slow", "Slow", 200))         # too slow to sow anywhere in the season
-	catalogue.add(_crop(&"unstated", "Unstated", 0))   # no time to maturity recorded
+	catalogue.add(_crop(&"quick", "Quick", 60)) # 80 days to spare
+	catalogue.add(_crop(&"thin", "Thin", 130)) # 10 days to spare -> tolerated
+	catalogue.add(_crop(&"slow", "Slow", 200)) # too slow to sow anywhere in the season
+	catalogue.add(_crop(&"unstated", "Unstated", 0)) # no time to maturity recorded
 	catalogue.add(SpeciesScript.make(&"boxwood", "Buxus sempervirens", "Box", 60, 60, SpeciesScript.SHRUB))
 	return catalogue
-
 
 # --- days and dates -------------------------------------------------------------------------
 
@@ -45,7 +44,6 @@ func test_a_day_reads_as_a_date() -> void:
 	assert(PlannerScript.day_words(FIRST) == "7 October", PlannerScript.day_words(FIRST))
 	assert(PlannerScript.day_words(0) == "", "not stated is not a date")
 	assert(PlannerScript.day_words(400) == "", "and neither is a day the year does not have")
-
 
 # --- the sowing window ----------------------------------------------------------------------
 
@@ -73,11 +71,11 @@ func test_a_crop_too_slow_to_sow_has_no_window_and_says_so() -> void:
 func test_no_season_or_no_maturity_is_no_window() -> void:
 	assert(
 		String(PlannerScript.sow_window(0, 0, 60)["reason"]) == PlannerScript.NO_SEASON,
-		"a drawing with no season has no window"
+		"a drawing with no season has no window",
 	)
 	assert(
 		String(PlannerScript.sow_window(LAST, FIRST, 0)["reason"]) == PlannerScript.NO_MATURITY,
-		"and a crop with no time to maturity has none either"
+		"and a crop with no time to maturity has none either",
 	)
 
 
@@ -86,7 +84,7 @@ func test_the_window_reads_as_a_phrase() -> void:
 	assert(words.contains("20 May") and words.contains("August"), words)
 	assert(
 		PlannerScript.window_text(LAST, FIRST, 200) == PlannerScript.NO_WINDOW,
-		"a crop with no window says why rather than showing a date"
+		"a crop with no window says why rather than showing a date",
 	)
 
 
@@ -101,7 +99,6 @@ func test_a_sowing_plus_its_days_is_the_harvest() -> void:
 	assert(PlannerScript.ready_day(LAST, 60) == 200, "20 May plus 60 days is 19 July")
 	assert(PlannerScript.ready_day(0, 60) == 0, "no sowing day is no harvest day")
 	assert(PlannerScript.ready_day(LAST, 0) == 0, "and no time to maturity is no harvest day")
-
 
 # --- one crop against one sowing day --------------------------------------------------------
 
@@ -145,7 +142,6 @@ func test_questions_nobody_answered_are_skipped_rather_than_green() -> void:
 	var no_day: Dictionary = PlannerScript.check(_crop(&"quick", "Quick", 60), LAST, FIRST, 0)
 	assert(int(no_day["verdict"]) == PlannerScript.UNKNOWN, "a sowing date that is not a day asks nothing")
 
-
 # --- succession -----------------------------------------------------------------------------
 
 
@@ -168,7 +164,7 @@ func test_a_succession_is_a_fact_a_page_can_read() -> void:
 	assert(int(plan["first_sow"]) == LAST and int(plan["last_ready"]) == 203 + 60, "the span is the whole run")
 	assert(
 		int(PlannerScript.succession(_crop(&"slow", "Slow", 200), LAST, FIRST, LAST, 21)["count"]) == 0,
-		"a crop with no window has no sowings"
+		"a crop with no window has no sowings",
 	)
 
 
@@ -183,7 +179,6 @@ func test_a_single_sowing_is_said_as_one() -> void:
 	var words: String = PlannerScript.succession_text(_crop(&"quick", "Quick", 60), LAST, FIRST, LAST, 120)
 	assert(words.contains("one sowing"), words)
 	assert(not words.contains("every"), "one sowing is not a rhythm: %s" % words)
-
 
 # --- the crops of a sowing day --------------------------------------------------------------
 
@@ -209,5 +204,5 @@ func test_the_rows_read_as_lines_and_summarise() -> void:
 func test_a_list_with_no_food_says_so() -> void:
 	assert(
 		PlannerScript.describe_rows([] as Array[Dictionary]) == "no crops are recorded in this plant list",
-		"an empty list is said plainly"
+		"an empty list is said plainly",
 	)

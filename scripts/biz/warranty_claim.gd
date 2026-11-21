@@ -22,11 +22,7 @@ const OPEN := &"OPEN"
 const ANSWERED := &"ANSWERED"
 const DONE := &"DONE"
 
-const STATE_NAMES := {
-	"OPEN": "open, not yet answered",
-	"ANSWERED": "answered",
-	"DONE": "done",
-}
+const STATE_NAMES := { "OPEN": "open, not yet answered", "ANSWERED": "answered", "DONE": "done" }
 
 var id: String = ""
 var job_id: String = ""
@@ -61,7 +57,6 @@ static func make(claim_id: String, job: String, at: String, about: String, by: S
 	claim.what = about.strip_edges()
 	return claim
 
-
 # --- the state, worked out ------------------------------------------------------------------
 
 
@@ -95,7 +90,6 @@ func state() -> StringName:
 func state_name() -> String:
 	return String(STATE_NAMES.get(String(state()), String(state())))
 
-
 # --- the acts --------------------------------------------------------------------------------
 
 
@@ -125,7 +119,6 @@ func mark_done(at: String, what_was_done: String = "") -> bool:
 	done_note = what_was_done.strip_edges()
 	return true
 
-
 # --- describing it ---------------------------------------------------------------------------
 
 
@@ -141,9 +134,7 @@ func describe() -> String:
 	else:
 		parts.append(state_name())
 	if covered and not done_at.strip_edges().is_empty():
-		parts.append("done %s%s" % [
-			done_at, "" if done_note.strip_edges().is_empty() else " (%s)" % done_note,
-		])
+		parts.append("done %s%s" % [done_at, "" if done_note.strip_edges().is_empty() else " (%s)" % done_note])
 	return "%s (%s)" % [parts[0], ", ".join(parts.slice(1))]
 
 
@@ -163,7 +154,6 @@ func row() -> Dictionary:
 		"state_name": state_name(),
 		"text": describe(),
 	}
-
 
 # --- soundness -------------------------------------------------------------------------------
 
@@ -194,7 +184,6 @@ func problem() -> String:
 
 func is_sound() -> bool:
 	return problem().is_empty()
-
 
 # --- persistence -----------------------------------------------------------------------------
 

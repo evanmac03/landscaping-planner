@@ -10,7 +10,7 @@ extends Node
 
 const HelpDocScript := preload("res://scripts/help_doc.gd")
 const HudScript := preload("res://scripts/hud.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const StatusHistoryScript := preload("res://scripts/draft/status_history.gd")
 
 ## The word each menu's subject is documented under, one per menu in the bar. A menu with nothing
@@ -53,7 +53,7 @@ func test_the_manual_documents_exactly_the_subjects_it_names() -> void:
 	# so this is the test that stops one of them being changed without the other.
 	assert(
 		HelpDocScript.titles() == HelpDocScript.SUBJECTS,
-		"the manual holds one topic per subject it names, in that order"
+		"the manual holds one topic per subject it names, in that order",
 	)
 
 
@@ -77,7 +77,7 @@ func test_the_sections_are_the_subjects_split_up_and_in_the_same_order() -> void
 			filed.append(String(subject))
 	assert(
 		filed == HelpDocScript.SUBJECTS,
-		"the sections are every subject the manual names, each once, in the order it is read"
+		"the sections are every subject the manual names, each once, in the order it is read",
 	)
 	assert(headings.size() > 1, "and there is more than one of them, or the contents is not grouped")
 
@@ -92,7 +92,7 @@ func test_every_cross_reference_names_subjects_the_manual_has() -> void:
 		var from := String(key)
 		assert(
 			HelpDocScript.index_of(from) >= 0,
-			"\"%s\" pointers are a subject of the manual, so there is somewhere to point from" % from
+			"\"%s\" pointers are a subject of the manual, so there is somewhere to point from" % from,
 		)
 		var targets: Array = HelpDocScript.SEE_ALSO[from]
 		assert(not targets.is_empty(), "%s points at something" % from)
@@ -100,7 +100,7 @@ func test_every_cross_reference_names_subjects_the_manual_has() -> void:
 			var to := String(target)
 			assert(
 				HelpDocScript.index_of(to) >= 0,
-				"%s points at a subject the manual has: there is no \"%s\"" % [from, to]
+				"%s points at a subject the manual has: there is no \"%s\"" % [from, to],
 			)
 			assert(to != from, "%s does not point at itself" % from)
 
@@ -144,7 +144,8 @@ func test_no_subject_is_a_wall_of_prose() -> void:
 			(
 				"%s is %d characters, so it is more than one subject: split it into the subjects it covers "
 				+ "and add them to SUBJECTS and SECTIONS"
-			) % [subject, body.length()]
+			)
+			% [subject, body.length()],
 		)
 		# A paragraph is a line. The manual writes one paragraph per line, separated by blank lines, and
 		# a row of a table is a line too - both are read at a glance or not at all.
@@ -154,15 +155,14 @@ func test_no_subject_is_a_wall_of_prose() -> void:
 			longest = maxi(longest, line.length())
 			assert(
 				line.length() <= LONGEST_PARAGRAPH,
-				(
-					"%s has a %d-character line, which is two paragraphs run together: break it"
-				) % [subject, line.length()]
+				("%s has a %d-character line, which is two paragraphs run together: break it")
+				% [subject, line.length()],
 			)
 	# Teeth: a guard that measured nothing would pass in silence, which is exactly how the food garden
 	# got to 4,798 characters in the first place.
 	assert(
 		longest > 400,
-		"the guard measured the manual's real paragraphs rather than an empty one: longest %d" % longest
+		"the guard measured the manual's real paragraphs rather than an empty one: longest %d" % longest,
 	)
 
 
@@ -185,7 +185,7 @@ func test_a_search_finds_a_topic_by_a_word_in_it() -> void:
 	assert(hits.size() >= 1, "the word a body carries is found")
 	assert(
 		hits.has(HelpDocScript.index_of("Water: irrigation")),
-		"and the subject whose body carries it is one of them"
+		"and the subject whose body carries it is one of them",
 	)
 
 
@@ -193,14 +193,11 @@ func test_a_search_is_not_case_sensitive_and_finds_a_subject_by_its_title() -> v
 	var all: Array[Dictionary] = HelpDocScript.topics()
 	var shouted: Array[int] = HelpDocScript.find_in(all, "TRANSFORMER")
 	assert(shouted.size() >= 1, "a word is found however it is typed")
-	assert(
-		HelpDocScript.find_in(all, "transformer") == shouted,
-		"and shouting at it finds the same topics"
-	)
+	assert(HelpDocScript.find_in(all, "transformer") == shouted, "and shouting at it finds the same topics")
 	var by_title: Array[int] = HelpDocScript.find_in(all, "lighting")
 	assert(
 		by_title.has(HelpDocScript.index_of("Light: garden lighting")),
-		"a subject is found by its own title as well as by a word in its body"
+		"a subject is found by its own title as well as by a word in its body",
 	)
 
 
@@ -215,20 +212,20 @@ func test_the_search_rule_reads_a_subject_by_its_name_first_and_by_where_it_is_f
 	# One topic for each way of matching, written in an order that is *not* the answer, so a rule that
 	# kept the reading order - or that stopped at the first two tiers - fails this.
 	var topics: Array[Dictionary] = [
-		{"title": "Something else", "body": "prose about neither", "section": "A section on water"},
-		{"title": "Something else again", "body": "this one is about water", "section": "Dry ground"},
-		{"title": "On water", "body": "not a word about it", "section": "Dry ground"},
-		{"title": "Watering", "body": "not a word about it", "section": "Dry ground"},
+		{ "title": "Something else", "body": "prose about neither", "section": "A section on water" },
+		{ "title": "Something else again", "body": "this one is about water", "section": "Dry ground" },
+		{ "title": "On water", "body": "not a word about it", "section": "Dry ground" },
+		{ "title": "Watering", "body": "not a word about it", "section": "Dry ground" },
 	]
 	var found: Array[int] = HelpDocScript.find_in(topics, "water")
 	assert(
 		found == [3, 2, 1, 0],
-		"named for the word, then named with it, then about it, then only filed under it: got %s" % [found]
+		"named for the word, then named with it, then about it, then only filed under it: got %s" % [found],
 	)
 	assert(found.size() == topics.size(), "and every topic is in exactly one tier")
 	assert(
 		HelpDocScript.find_in(topics, "  WATer ") == found,
-		"the word is trimmed and the match is not case-sensitive"
+		"the word is trimmed and the match is not case-sensitive",
 	)
 
 
@@ -237,7 +234,7 @@ func test_a_subject_is_found_by_the_word_it_is_named_for_before_one_that_only_di
 	assert(water.size() >= 2, "more than one subject answers to water")
 	assert(
 		HelpDocScript.title_at(water[0]) == "Water: irrigation",
-		"the subject named for water comes first, where the reading order had it last: %s" % [water]
+		"the subject named for water comes first, where the reading order had it last: %s" % [water],
 	)
 	var food: Array[int] = HelpDocScript.find("food")
 	var named: Array[int] = []
@@ -247,7 +244,7 @@ func test_a_subject_is_found_by_the_word_it_is_named_for_before_one_that_only_di
 	assert(named.size() == 5, "the five food subjects are all named for the word")
 	assert(
 		food.slice(0, named.size()) == named,
-		"and they come before the subjects that only discuss food: %s" % [food]
+		"and they come before the subjects that only discuss food: %s" % [food],
 	)
 
 
@@ -266,7 +263,7 @@ func test_a_body_is_the_body_that_was_written() -> void:
 	assert(HelpDocScript.title_at(at) == "Plants", "and its own title")
 	assert(
 		HelpDocScript.body_for("plants") == HelpDocScript.body_for("Plants"),
-		"a title is looked up by its words rather than by its capital letters"
+		"a title is looked up by its words rather than by its capital letters",
 	)
 
 
@@ -293,6 +290,53 @@ func test_every_drawing_tool_and_edit_the_program_has_is_named_in_the_manual() -
 	assert(editing != "", "the topic that lists the editing commands is found")
 	for pair: Array in HudScript.EDIT_TOOLS:
 		assert(_has_word(editing, String(pair[1])), "the manual names the %s edit" % pair[1])
+
+
+## Every picture a subject is shown with is a file that is there.
+##
+## The quietest defect the manual can have: a picture that fails to load leaves a page that still reads,
+## with prose that is still true, and the only symptom is a page less helpful than it was meant to be. So
+## the fact worth holding is that the file exists - and that the subject it is filed under is really a
+## subject, because a picture under a name nobody has is a picture nobody will ever be shown.
+func test_every_picture_the_manual_shows_is_a_file_that_is_there() -> void:
+	var shots := 0
+	for subject: Variant in HelpDocScript.PICTURES:
+		var title := String(subject)
+		assert(
+			HelpDocScript.SUBJECTS.has(title),
+			"\"%s\" is not a subject, so its picture is never shown to anybody" % title,
+		)
+		var names: Array = HelpDocScript.PICTURES[subject]
+		assert(not names.is_empty(), "\"%s\" is listed with no picture at all" % title)
+		for name: Variant in names:
+			var path := HelpDocScript.picture_path(String(name))
+			assert(
+				FileAccess.file_exists(path),
+				"\"%s\" is shown %s, which is not there: take it with tools/help_shot.gd" % [title, path],
+			)
+			shots += 1
+	# A floor, so a table someone emptied fails rather than passing without looking at anything.
+	assert(shots >= 6, "the manual is shown %d pictures" % shots)
+
+
+## And they travel on the topic, resolved to paths, so the page shows what it was handed and never needs
+## to know where the manual keeps its pictures.
+func test_the_pictures_reach_the_topic_the_page_is_handed() -> void:
+	var seen := 0
+	for topic: Dictionary in HelpDocScript.topics():
+		var carried: Array = topic.get("pictures", [])
+		var filed: Array = HelpDocScript.PICTURES.get(String(topic["title"]), [])
+		assert(
+			carried.size() == filed.size(),
+			"\"%s\" carries %d pictures and is filed with %d" % [topic["title"], carried.size(), filed.size()],
+		)
+		seen += carried.size()
+		for path: Variant in carried:
+			assert(
+				String(path).begins_with(HelpDocScript.PICTURE_DIR),
+				"a picture arrives as a path in the manual's own folder: %s" % path,
+			)
+	assert(seen > 0, "some subject is shown a picture")
 
 
 ## The body of the one topic whose title contains `part`, or "" when there is none. Looked up by a
@@ -411,13 +455,11 @@ func test_the_key_the_manual_prints_beside_a_tool_is_the_key_it_is_really_on() -
 				(
 					"the manual names the %s \"%s\" with the key it is on: no line of that topic says both "
 					+ "\"%s\" and \"%s\""
-				) % [group[2], pair[1], pair[1], key]
+				)
+				% [group[2], pair[1], pair[1], key],
 			)
 			checked += 1
-	assert(
-		checked == expected and expected >= 18,
-		"every tool and edit was checked: %d of %d" % [checked, expected]
-	)
+	assert(checked == expected and expected >= 18, "every tool and edit was checked: %d of %d" % [checked, expected])
 
 
 ## Every key the program advertises for itself is named in the manual.
@@ -448,14 +490,10 @@ func test_every_key_the_program_advertises_is_named_in_the_manual() -> void:
 			checked += 1
 			assert(
 				_has_word(words, key),
-				"the manual names the key for %s (on \"%s\", from %s): nothing in the manual says it" % [
-					pair[1], key, table_name,
-				]
+				"the manual names the key for %s (on \"%s\", from %s): nothing in the manual says it"
+				% [pair[1], key, table_name],
 			)
-	assert(
-		checked == expected and expected >= 30,
-		"every advertised key was checked: %d of %d" % [checked, expected]
-	)
+	assert(checked == expected and expected >= 30, "every advertised key was checked: %d of %d" % [checked, expected])
 
 
 ## And the keys the manual names for controls **no** table carries are the keys those controls are on.
@@ -479,9 +517,8 @@ func test_the_keys_the_manual_names_outside_the_tables_are_the_keys_those_contro
 			checked += 1
 			assert(
 				_has_word(body, key),
-				"the manual names the key for %s in \"%s\": the control is on \"%s\" and that topic does not say so" % [
-					action, topic_title, key,
-				]
+				"the manual names the key for %s in \"%s\": the control is on \"%s\" and that topic does not say so"
+				% [action, topic_title, key],
 			)
 	assert(checked >= 12, "the keys outside the tables were checked: %d" % checked)
 
@@ -504,10 +541,7 @@ func test_every_menu_entry_the_manual_names_is_one_the_bar_has() -> void:
 	for menu: Dictionary in HudScript.menu_plan():
 		titles.append(String(menu["title"]))
 	var re := RegEx.new()
-	assert(
-		re.compile("\\b(%s) > " % "|".join(titles)) == OK,
-		"the menu names make a pattern to look for"
-	)
+	assert(re.compile("\\b(%s) > " % "|".join(titles)) == OK, "the menu names make a pattern to look for")
 	var checked := 0
 	for topic: Dictionary in HelpDocScript.topics():
 		var body := String(topic["body"])
@@ -518,9 +552,8 @@ func test_every_menu_entry_the_manual_names_is_one_the_bar_has() -> void:
 			checked += 1
 			assert(
 				_starts_with_an_entry(window, by_menu[menu_text]),
-				"%s is a menu with such an entry: %s writes \"%s...\"" % [
-					menu_text, String(topic["title"]), window.strip_edges(),
-				]
+				"%s is a menu with such an entry: %s writes \"%s...\""
+				% [menu_text, String(topic["title"]), window.strip_edges()],
 			)
 	# Teeth: a pattern that stopped matching would otherwise pass in silence. The manual makes far
 	# more than a handful of menu references, so a floor well under the real count is safe.
@@ -543,7 +576,7 @@ func test_the_counts_the_manual_states_match_the_tables_they_describe() -> void:
 	assert(
 		_has_word(drawing, _count_word(dimensions)),
 		"the manual says how many dimension commands there are: with %d of them it should read \"%s\""
-		% [dimensions, _count_word(dimensions)]
+		% [dimensions, _count_word(dimensions)],
 	)
 
 	var editing := _body_under("editing shapes")
@@ -551,7 +584,7 @@ func test_the_counts_the_manual_states_match_the_tables_they_describe() -> void:
 	assert(
 		_has_word(editing, _count_word(edits)),
 		"the manual says how many editing commands there are: with %d of them it should read \"%s\""
-		% [edits, _count_word(edits)]
+		% [edits, _count_word(edits)],
 	)
 
 	var plants := _body_under("plants")
@@ -560,7 +593,7 @@ func test_the_counts_the_manual_states_match_the_tables_they_describe() -> void:
 	assert(
 		_has_word(plants, _count_word(shapes)),
 		"the manual says how many plant symbol shapes there are: with %d of them it should read \"%s\""
-		% [shapes, _count_word(shapes)]
+		% [shapes, _count_word(shapes)],
 	)
 
 	var said := _body_under("what the drawing has said")
@@ -568,7 +601,7 @@ func test_the_counts_the_manual_states_match_the_tables_they_describe() -> void:
 	assert(
 		_has_word(said, _count_word(kept)),
 		"the manual says how many answers the status history keeps: with %d it should read \"%s\""
-		% [kept, _count_word(kept)]
+		% [kept, _count_word(kept)],
 	)
 
 
@@ -586,7 +619,7 @@ func _count_word(count: int) -> String:
 ## allowed to use: an entry's label with the explanation a colon introduces and the ellipsis of a
 ## command that opens something taken off the end.
 func _menu_names_by_menu() -> Dictionary:
-	var out := {}
+	var out := { }
 	for entry: Dictionary in HudScript.menu_entries():
 		var menu_text := String(entry.get("menu", ""))
 		if not out.has(menu_text):
@@ -633,10 +666,26 @@ func _dimension_tool_count() -> int:
 
 ## The numbers a sentence is written with, up to the range this manual uses.
 const NUMBER_WORDS: Array[String] = [
-	"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-	"eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
-	"nineteen", "twenty",
+	"zero",
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+	"eleven",
+	"twelve",
+	"thirteen",
+	"fourteen",
+	"fifteen",
+	"sixteen",
+	"seventeen",
+	"eighteen",
+	"nineteen",
+	"twenty",
 ]
-const TENS_WORDS: Array[String] = [
-	"", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
-]
+const TENS_WORDS: Array[String] = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]

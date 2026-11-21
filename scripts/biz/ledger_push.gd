@@ -24,11 +24,7 @@ const PUSHED := 1
 const FAILED := 2
 
 ## String keys: a StringName literal as a const Dictionary key fails the constant-expression check.
-const STATE_NAMES := {
-	"QUEUED": "queued",
-	"PUSHED": "pushed",
-	"FAILED": "failed",
-}
+const STATE_NAMES := { "QUEUED": "queued", "PUSHED": "pushed", "FAILED": "failed" }
 
 ## How many times a push may be tried before it stops being an automatic retry and becomes something
 ## the office has to look at. A backend that has refused the same document five times will refuse it
@@ -44,7 +40,7 @@ var document_number: String = ""
 ## The idempotency key. It is also this record's identity: one push per document per backend, so the
 ## same invoice cannot be queued twice and a retry is a retry rather than a second posting.
 var key: String = ""
-var request: Dictionary = {}
+var request: Dictionary = { }
 var attempts: int = 0
 var queued_at: String = ""
 var pushed_at: String = ""
@@ -53,16 +49,22 @@ var last_status: int = 0
 ## Whether the last failure was worth retrying. Not derivable from the status alone by a reader, and
 ## the difference between a push that waits and one that asks for a person.
 var last_retryable: bool = false
-var last_response: Dictionary = {}
+var last_response: Dictionary = { }
 var external_id: String = ""
 var external_number: String = ""
 
 
 ## A push for a document that was just built. Refuses nothing: `problems()` is how a caller asks
 ## whether it is worth queueing, so a build that leaves something out is visible rather than thrown.
-static func for_document(adapter_name: String, document_kind: StringName, doc_id: String,
-		doc_number: String, idempotency_key: String, built_request: Dictionary,
-		at: String) -> LedgerPush:
+static func for_document(
+	adapter_name: String,
+	document_kind: StringName,
+	doc_id: String,
+	doc_number: String,
+	idempotency_key: String,
+	built_request: Dictionary,
+	at: String,
+) -> LedgerPush:
 	var push: LedgerPush = PushScript.new()
 	push.adapter = adapter_name
 	push.kind = document_kind
@@ -130,7 +132,6 @@ func record_response(response: Dictionary, parsed: Dictionary, at: String) -> bo
 	failure = String(parsed.get("reason", "the ledger did not say why"))
 	return false
 
-
 # --- soundness ----------------------------------------------------------------------------------
 
 
@@ -169,7 +170,6 @@ func describe() -> String:
 		parts.append(failure)
 	return ", ".join(parts)
 
-
 # --- persistence --------------------------------------------------------------------------------
 
 
@@ -207,16 +207,16 @@ static func from_dict(data: Dictionary) -> LedgerPush:
 	push.kind = StringName(data.get("kind", ""))
 	push.document_id = String(data.get("document_id", ""))
 	push.document_number = String(data.get("document_number", ""))
-	var request_in: Variant = data.get("request", {})
-	push.request = (request_in as Dictionary).duplicate(true) if request_in is Dictionary else {}
+	var request_in: Variant = data.get("request", { })
+	push.request = (request_in as Dictionary).duplicate(true) if request_in is Dictionary else { }
 	push.attempts = int(data.get("attempts", 0))
 	push.queued_at = String(data.get("queued_at", ""))
 	push.pushed_at = String(data.get("pushed_at", ""))
 	push.failure = String(data.get("failure", ""))
 	push.last_status = int(data.get("last_status", 0))
 	push.last_retryable = bool(data.get("last_retryable", false))
-	var response_in: Variant = data.get("last_response", {})
-	push.last_response = (response_in as Dictionary).duplicate(true) if response_in is Dictionary else {}
+	var response_in: Variant = data.get("last_response", { })
+	push.last_response = (response_in as Dictionary).duplicate(true) if response_in is Dictionary else { }
 	push.external_id = String(data.get("external_id", ""))
 	push.external_number = String(data.get("external_number", ""))
 	return push

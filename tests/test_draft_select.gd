@@ -17,7 +17,6 @@ func _line(x0: float, y0: float, x1: float, y1: float):
 func _caught(entity, mode: StringName) -> bool:
 	return Select.catches(entity, Select.band(BAND_A, BAND_B), mode)
 
-
 # --- window: only what is wholly inside ----------------------------------------------
 
 
@@ -26,8 +25,7 @@ func test_a_window_catches_a_shape_wholly_inside_it() -> void:
 
 
 func test_a_window_misses_a_shape_that_pokes_out() -> void:
-	assert(not _caught(_line(2.0, 2.0, 12.0, 8.0), Select.MODE_WINDOW),
-		"one end outside the band is outside the band")
+	assert(not _caught(_line(2.0, 2.0, 12.0, 8.0), Select.MODE_WINDOW), "one end outside the band is outside the band")
 
 
 func test_a_window_misses_a_shape_wholly_outside_it() -> void:
@@ -35,21 +33,20 @@ func test_a_window_misses_a_shape_wholly_outside_it() -> void:
 
 
 func test_a_shape_on_the_bands_own_edge_is_inside_it() -> void:
-	assert(_caught(_line(0.0, 0.0, 10.0, 10.0), Select.MODE_WINDOW),
-		"a shape that stops exactly on the edge has not left the band")
-
+	assert(
+		_caught(_line(0.0, 0.0, 10.0, 10.0), Select.MODE_WINDOW),
+		"a shape that stops exactly on the edge has not left the band",
+	)
 
 # --- crossing: anything the band touches ---------------------------------------------
 
 
 func test_a_crossing_catches_a_shape_that_pokes_out() -> void:
-	assert(_caught(_line(2.0, 2.0, 12.0, 8.0), Select.MODE_CROSSING),
-		"the band has met this line, so it is caught")
+	assert(_caught(_line(2.0, 2.0, 12.0, 8.0), Select.MODE_CROSSING), "the band has met this line, so it is caught")
 
 
 func test_a_crossing_catches_a_shape_wholly_inside_it() -> void:
-	assert(_caught(_line(2.0, 2.0, 8.0, 8.0), Select.MODE_CROSSING),
-		"anything inside the band has certainly met it")
+	assert(_caught(_line(2.0, 2.0, 8.0, 8.0), Select.MODE_CROSSING), "anything inside the band has certainly met it")
 
 
 func test_a_crossing_misses_a_shape_wholly_outside_it() -> void:
@@ -58,19 +55,21 @@ func test_a_crossing_misses_a_shape_wholly_outside_it() -> void:
 
 func test_a_crossing_catches_a_shape_that_only_crosses_an_edge() -> void:
 	# A long line straight through the band: neither end is inside it.
-	assert(not _caught(_line(-40.0, 5.0, 40.0, 5.0), Select.MODE_WINDOW),
-		"a window does not catch it")
-	assert(_caught(_line(-40.0, 5.0, 40.0, 5.0), Select.MODE_CROSSING),
-		"but the band is across it, which is exactly what a crossing sweep is for")
+	assert(not _caught(_line(-40.0, 5.0, 40.0, 5.0), Select.MODE_WINDOW), "a window does not catch it")
+	assert(
+		_caught(_line(-40.0, 5.0, 40.0, 5.0), Select.MODE_CROSSING),
+		"but the band is across it, which is exactly what a crossing sweep is for",
+	)
 
 
 func test_a_shape_that_encloses_the_band_is_caught_by_neither() -> void:
 	# A ring of radius 50 around the band's middle: the band never meets the ring.
 	var big = Entity.make_circle(Vector2(5.0, 5.0), 50.0)
 	assert(not _caught(big, Select.MODE_WINDOW), "it is not inside the band")
-	assert(not _caught(big, Select.MODE_CROSSING),
-		"and the band has not met it: a sweep over the middle of a circle must not take the circle")
-
+	assert(
+		not _caught(big, Select.MODE_CROSSING),
+		"and the band has not met it: a sweep over the middle of a circle must not take the circle",
+	)
 
 # --- curves are sampled, not guessed -------------------------------------------------
 
@@ -88,7 +87,6 @@ func test_an_arc_is_caught_where_its_sweep_is() -> void:
 	# nowhere near the band, so neither mode takes it.
 	var far = Entity.make_arc(Vector2(0.0, 0.0), 20.0, 0.0, PI * 0.5)
 	assert(not _caught(far, Select.MODE_CROSSING), "the sweep never comes near the band")
-
 
 # --- what a band hands back -----------------------------------------------------------
 
@@ -132,7 +130,6 @@ func test_a_band_with_no_area_is_refused_rather_than_swept() -> void:
 	assert(String(caught["reason"]) == "a selection band with no area")
 	var flat := Select.pick_between([], Vector2(0.0, 4.0), Vector2(10.0, 4.0), Select.MODE_CROSSING)
 	assert(not bool(flat["ok"]), "and a band of no height is no band either")
-
 
 # --- the words ------------------------------------------------------------------------
 

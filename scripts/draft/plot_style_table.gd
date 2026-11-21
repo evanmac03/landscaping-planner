@@ -52,9 +52,9 @@ var name: String = "Default pen table"
 ## ignored entirely.
 var enabled: bool = true
 
-var _entries: Dictionary = {}
-var _palette: Dictionary = {}
-var _nearest: Dictionary = {}
+var _entries: Dictionary = { }
+var _palette: Dictionary = { }
+var _nearest: Dictionary = { }
 
 
 static func _new() -> DraftPlotStyleTable:
@@ -96,7 +96,6 @@ func _pen(colour: Color, weight_mm: float, linetype: StringName) -> LineStyleScr
 	style.plot_weight_mm = weight_mm
 	style.linetype = linetype
 	return style
-
 
 # --- the palette --------------------------------------------------------------------
 
@@ -171,14 +170,13 @@ func slot_for_colour(colour: Color) -> int:
 	for slot in range(1, SLOT_COUNT + 1):
 		var candidate: Color = _palette[slot]
 		var distance := (candidate.r - colour.r) * (candidate.r - colour.r) \
-			+ (candidate.g - colour.g) * (candidate.g - colour.g) \
-			+ (candidate.b - colour.b) * (candidate.b - colour.b)
+				+ (candidate.g - colour.g) * (candidate.g - colour.g) \
+				+ (candidate.b - colour.b) * (candidate.b - colour.b)
 		if distance < best_distance:
 			best_distance = distance
 			best = slot
 	_nearest[key] = best
 	return best
-
 
 # --- entries ------------------------------------------------------------------------
 
@@ -236,13 +234,12 @@ func copy() -> DraftPlotStyleTable:
 func describe() -> String:
 	return "%s, %d pens, %s" % [name, _entries.size(), "enabled" if enabled else "disabled"]
 
-
 # --- persistence --------------------------------------------------------------------
 
 
 ## A practice's standard table, small enough to keep in the project as JSON.
 func to_dict() -> Dictionary:
-	var pens: Dictionary = {}
+	var pens: Dictionary = { }
 	for slot: int in _entries:
 		var style: LineStyleScript = _entries[slot]
 		pens[str(slot)] = {
@@ -250,22 +247,25 @@ func to_dict() -> Dictionary:
 			"plot_weight_mm": style.plot_weight_mm,
 			"linetype": String(style.linetype),
 		}
-	return {"name": name, "enabled": enabled, "pens": pens}
+	return { "name": name, "enabled": enabled, "pens": pens }
 
 
 static func from_dict(data: Dictionary) -> DraftPlotStyleTable:
 	var table := _new()
 	table.name = String(data.get("name", "Pen table"))
 	table.enabled = bool(data.get("enabled", true))
-	var pens: Dictionary = data.get("pens", {})
+	var pens: Dictionary = data.get("pens", { })
 	for key in pens:
 		var slot := int(key)
 		if not table.is_slot(slot):
 			continue
 		var entry_data: Dictionary = pens[key]
-		table.set_entry(slot, table._pen(
-			Color.html(String(entry_data.get("plot_colour", "000000"))),
-			float(entry_data.get("plot_weight_mm", 0.25)),
-			StringName(entry_data.get("linetype", "continuous"))
-		))
+		table.set_entry(
+			slot,
+			table._pen(
+				Color.html(String(entry_data.get("plot_colour", "000000"))),
+				float(entry_data.get("plot_weight_mm", 0.25)),
+				StringName(entry_data.get("linetype", "continuous")),
+			),
+		)
 	return table

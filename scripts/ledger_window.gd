@@ -5,8 +5,10 @@ extends Window
 ##
 ## A `Window` like the six other pages, for the two reasons they are: it has fields to type into, and a
 ## `Window` owns its own input, so nothing here can take the drawing's keys (spec §9's rule). Every
-## button is `FOCUS_NONE`; the typed fields - and a backend's settings are typed fields - are the only
-## things allowed the keyboard.
+## button is built without a keyboard of its own, like every control the shared chrome makes; the typed
+## fields - and a backend's settings are typed fields - are the only things that keep one, because a
+## field is where somebody types. What the *open* page does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `LedgerDesk` says and decides nothing itself. Every line on the page is a field of a row
 ## the desk produced, and the desk builds those from the records every time it is asked, so a document
@@ -70,7 +72,6 @@ func _ready() -> void:
 	if _column == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------------------
 
 
@@ -81,33 +82,27 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	_column = VBoxContainer.new()
-	_column.name = "Column"
-	_column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_column.add_theme_constant_override("separation", 6)
-	add_child(_column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	_column = PageChrome.scrolling_column(self, 6)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_summary)
 
 	_column.add_child(_build_backend_row())
-	_backend_line = Label.new()
+	_backend_line = PageChrome.text()
 	_backend_line.name = "BackendLine"
-	_backend_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_backend_line.custom_minimum_size = Vector2(0, 20)
 	_column.add_child(_backend_line)
 
-	_column.add_child(_heading("what this ledger needs told"))
+	_column.add_child(PageChrome.subheading("what this ledger needs told"))
 	_settings_row = VBoxContainer.new()
 	_settings_row.name = "Settings"
 	_settings_row.add_theme_constant_override("separation", 2)
 	_column.add_child(_settings_row)
 
 	_column.add_child(_build_run_row())
-	_column.add_child(_heading("what is in the outbox"))
+	_column.add_child(PageChrome.subheading("what is in the outbox"))
 	# The rows are built from the desk's own rows and rebuilt on every refresh, so a document posted a
 	# moment ago is in the next line the page draws.
 	_rows = VBoxContainer.new()
@@ -115,33 +110,21 @@ func build() -> void:
 	_rows.add_theme_constant_override("separation", 2)
 	_column.add_child(_rows)
 
-	_column.add_child(_heading("where it does not agree"))
-	_disagreements = Label.new()
+	_column.add_child(PageChrome.subheading("where it does not agree"))
+	_disagreements = PageChrome.text()
 	_disagreements.name = "Disagreements"
-	_disagreements.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_disagreements.custom_minimum_size = Vector2(0, 40)
 	_column.add_child(_disagreements)
 
-	_column.add_child(_heading("what wants looking at"))
+	_column.add_child(PageChrome.subheading("what wants looking at"))
 	_problems = ItemList.new()
 	_problems.name = "Problems"
 	_problems.custom_minimum_size = Vector2(0, 46)
 	_problems.select_mode = ItemList.SELECT_SINGLE
 	_column.add_child(_problems)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 36)
+	_status = PageChrome.status()
 	_column.add_child(_status)
 	refresh()
-
-
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading%s" % str(words.hash())
-	label.text = words
-	return label
 
 
 ## Which ledger the page is about, whether it is configured, and the two acts that belong to the
@@ -150,9 +133,8 @@ func _build_backend_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "BackendRow"
 	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
+	var label := PageChrome.text("the ledger")
 	label.name = "BackendLabel"
-	label.text = "the ledger"
 	row.add_child(label)
 	_backend_option = OptionButton.new()
 	_backend_option.name = "BackendOption"
@@ -176,14 +158,14 @@ func _build_run_row() -> HBoxContainer:
 	return row
 
 
+## A button on this page, from the shared chrome and named by the page's own rule: a caption with its
+## spaces taken out, which is the name `tests/test_ledger_window.gd` holds these rows by. The chrome does
+## name a button from its caption too, but it ends the name in `Button`, and these rows came first.
 func _act_button(words: String, handler: Callable) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(handler)
 	return button
-
 
 # --- showing what is there ----------------------------------------------------------------------
 
@@ -219,6 +201,10 @@ func refresh() -> void:
 			_problems.set_item_disabled(index, true)
 	if _status != null and _status.text.is_empty():
 		_set_status(opening_words())
+	# The rows just built carry a Post button each, and the shared show that gave this page its keyboard
+	# ran when the page was *opened*, before any of them existed. So a page that is up gives the new ones
+	# theirs here. Nothing is done while it is down: the show decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the page opens with: what to do, or why there is nothing to do yet.
@@ -330,10 +316,9 @@ func _fill_buttons() -> void:
 		_run_button.disabled = desk == null or desk.pending().is_empty()
 	if _save_button != null:
 		_save_button.disabled = desk == null or desk.chosen_adapter() == null \
-			or desk.chosen_adapter().settings().is_empty()
+				or desk.chosen_adapter().settings().is_empty()
 	if _test_button != null:
 		_test_button.disabled = desk == null or desk.chosen_adapter() == null
-
 
 # --- reading back what the page is showing ------------------------------------------------------
 
@@ -379,12 +364,14 @@ func backend_text() -> String:
 	parts.append(backend.describe())
 	parts.append("configured" if backend.is_configured() else "needs " + ", ".join(backend.problems()))
 	var caps := PackedStringArray()
-	for what in [AdapterScript.INVOICES, AdapterScript.PAYMENTS, AdapterScript.CREDITS,
-			AdapterScript.IDEMPOTENCY]:
+	for what in [AdapterScript.INVOICES, AdapterScript.PAYMENTS, AdapterScript.CREDITS, AdapterScript.IDEMPOTENCY]:
 		if backend.can(what):
 			caps.append(String(AdapterScript.CAPABILITY_NAMES[String(what)]))
 	parts.append("can " + (", ".join(caps) if not caps.is_empty() else "nothing"))
-	return "%s - %s" % ["; ".join(parts), "%d document(s) for it in the outbox" % desk.count_for(String(backend.name()))]
+	return "%s - %s" % [
+		"; ".join(parts),
+		"%d document(s) for it in the outbox" % desk.count_for(String(backend.name())),
+	]
 
 
 func row_texts() -> Array[String]:
@@ -412,8 +399,11 @@ func status_text() -> String:
 	return "" if _status == null else _status.text
 
 
-## Whether every button on the page is focus-free. The typed fields are the only things allowed the
-## keyboard (spec §9's rule), and this is what proves it.
+## Whether every button on the page is built without a keyboard of its own - which is what "the typed
+## fields are the only things allowed the keyboard" meant when the HUD was the only surface here, and
+## what it still means about the *building* of a page. What a page that is **shown** does with the
+## keyboard is decided once, in `PageChrome.takes_the_keyboard`, so a button here is reachable with Tab
+## all the same.
 func buttons_are_focus_free() -> bool:
 	for button in _all_buttons(self):
 		if button.focus_mode != Control.FOCUS_NONE:
@@ -466,14 +456,13 @@ func set_setting_field(key: StringName, value: String) -> void:
 		if _setting_keys[at] == key:
 			_setting_fields[at].text = value
 
-
 # --- the acts -----------------------------------------------------------------------------------
 
 
 ## Post one document from its row. `{ok, reason, status, push}` as the desk's own.
 func post_one(key: String) -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no outbox on this page", "status": 0, "push": null}
+		return { "ok": false, "reason": "there is no outbox on this page", "status": 0, "push": null }
 	var posted: Dictionary = desk.post(key)
 	_said_a_post(posted, 1)
 	_after_change()
@@ -484,7 +473,7 @@ func post_one(key: String) -> Dictionary:
 ## says how many it tried and what stood in the way, because "the button did nothing" is not a report.
 func post_all() -> Dictionary:
 	if desk == null:
-		return {"ok": false, "reason": "there is no outbox on this page", "tried": 0, "taken": 0}
+		return { "ok": false, "reason": "there is no outbox on this page", "tried": 0, "taken": 0 }
 	var run: Dictionary = desk.post_due()
 	var words: String = ""
 	if int(run["tried"]) == 0:
@@ -493,7 +482,9 @@ func post_all() -> Dictionary:
 		words = "handed over %s." % _document_count(int(run["taken"]))
 	else:
 		words = "handed over %s, and %s did not go: %s" % [
-			_document_count(int(run["taken"])), _document_count(int(run["failed"])), String(run["reason"]),
+			_document_count(int(run["taken"])),
+			_document_count(int(run["failed"])),
+			String(run["reason"]),
 		]
 	var waiting: int = int(run["waiting"])
 	if waiting > 0:
@@ -506,7 +497,7 @@ func post_all() -> Dictionary:
 ## The backend's own test button, on the page.
 func test_backend() -> Dictionary:
 	if desk == null or desk.chosen_adapter() == null:
-		return {"ok": false, "reason": "no ledger is chosen"}
+		return { "ok": false, "reason": "no ledger is chosen" }
 	var tested: Dictionary = desk.chosen_adapter().self_test()
 	# The backend's own words, whatever they are: a success that names what it did ("wrote and read back
 	# ...") says more than "all well", and a refusal already says what is wrong.
@@ -522,7 +513,7 @@ func test_backend() -> Dictionary:
 func save_settings() -> Dictionary:
 	var backend: AdapterScript = desk.chosen_adapter() if desk != null else null
 	if backend == null:
-		return {"ok": false, "reason": "no ledger is chosen", "saved": 0}
+		return { "ok": false, "reason": "no ledger is chosen", "saved": 0 }
 	var saved: int = 0
 	var refused: Array[String] = []
 	for at in _setting_keys.size():
@@ -539,11 +530,12 @@ func save_settings() -> Dictionary:
 		_after_change()
 	if not refused.is_empty():
 		_set_status("%s would not take %s." % [backend.describe(), ", ".join(refused)])
-		return {"ok": false, "reason": "refused: " + ", ".join(refused), "saved": saved}
-	_set_status("%s is saved: %s" % [
-		backend.describe(), "configured" if backend.is_configured() else "needs " + ", ".join(backend.problems()),
-	])
-	return {"ok": true, "reason": "", "saved": saved}
+		return { "ok": false, "reason": "refused: " + ", ".join(refused), "saved": saved }
+	_set_status(
+		"%s is saved: %s"
+		% [backend.describe(), "configured" if backend.is_configured() else "needs " + ", ".join(backend.problems())]
+	)
+	return { "ok": true, "reason": "", "saved": saved }
 
 
 func _said_a_post(posted: Dictionary, how_many: int) -> void:
@@ -565,7 +557,6 @@ func _after_change() -> void:
 func _set_status(words: String) -> void:
 	if _status != null:
 		_status.text = words
-
 
 # --- the controls' own entry points -------------------------------------------------------------
 

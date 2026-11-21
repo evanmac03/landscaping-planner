@@ -4,9 +4,9 @@ extends Node
 ## The arithmetic is the module's alone, so this drives the module directly - no window, no drawing and
 ## no screen. A species is made through `PlantSpecies.make`, the way the catalogue makes one.
 
-const YieldScript := preload("res://scripts/plant_yield.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const YieldScript := preload("res://scripts/plants/plant_yield.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
 const BookScript := preload("res://scripts/biz/cost_book.gd")
 
@@ -25,8 +25,8 @@ func _catalogue() -> PlantCatalogue:
 	var catalogue: PlantCatalogue = CatalogueScript.make()
 	catalogue.add(_crop(&"tomato", "Tomato", 2000, 5000))
 	catalogue.add(_crop(&"herb", "Herb", 100, 100))
-	catalogue.add(_crop(&"thyme", "Thyme", 0, 300))       # no yield stated
-	catalogue.add(_crop(&"sorrel", "Sorrel", 3000, 0))    # no amount per person stated
+	catalogue.add(_crop(&"thyme", "Thyme", 0, 300)) # no yield stated
+	catalogue.add(_crop(&"sorrel", "Sorrel", 3000, 0)) # no amount per person stated
 	catalogue.add(SpeciesScript.make(&"boxwood", "Buxus sempervirens", "Box", 60, 60, SpeciesScript.SHRUB))
 	return catalogue
 
@@ -35,7 +35,6 @@ func _book() -> CostBook:
 	var read: Dictionary = BookScript.load_from(SEED)
 	assert(bool(read["ok"]), "the starter book loads: %s" % String(read["reason"]))
 	return read["book"]
-
 
 # --- weights -------------------------------------------------------------------------------
 
@@ -62,7 +61,6 @@ func test_a_fact_missing_is_named_rather_than_guessed() -> void:
 	var no_need: PlantSpecies = _crop(&"sorrel", "Sorrel", 3000, 0)
 	assert(YieldScript.reason(no_need) == YieldScript.NO_NEED, YieldScript.reason(no_need))
 	assert(YieldScript.reason(_crop(&"tomato", "Tomato", 2000, 5000)) == "", "a crop with both is fine")
-
 
 # --- how many plants -----------------------------------------------------------------------
 
@@ -95,7 +93,6 @@ func test_the_need_is_the_share_of_one_person_times_the_household() -> void:
 	assert(YieldScript.need_grams(tomato, 4) == 20000, "%d" % YieldScript.need_grams(tomato, 4))
 	assert(YieldScript.need_grams(_crop(&"sorrel", "Sorrel", 3000, 0), 4) == 0, "an unstated share is nothing")
 
-
 # --- the plan ------------------------------------------------------------------------------
 
 
@@ -109,7 +106,7 @@ func test_the_plan_is_food_only_and_sorted() -> void:
 
 func test_a_crop_that_cannot_be_worked_out_is_a_row_naming_what_is_missing() -> void:
 	var rows: Array[Dictionary] = YieldScript.plan(_catalogue(), 4, 0)
-	var thyme: Dictionary = {}
+	var thyme: Dictionary = { }
 	for row: Dictionary in rows:
 		if String(row["id"]) == "thyme":
 			thyme = row
@@ -156,9 +153,8 @@ func test_a_plan_that_works_nothing_out_says_so() -> void:
 	var rows: Array[Dictionary] = YieldScript.plan(only_thyme, 4, 0)
 	assert(
 		YieldScript.feed_text(rows, 4, 0) == "nothing on this list can be worked out into a number of plants",
-		YieldScript.feed_text(rows, 4, 0)
+		YieldScript.feed_text(rows, 4, 0),
 	)
-
 
 # --- the hand-off to a nursery order ---------------------------------------------------------
 
@@ -169,8 +165,15 @@ func test_the_hand_off_is_the_shape_a_planting_schedule_writes() -> void:
 	assert(orders.size() == 2, "only what worked out is ordered: %d" % orders.size())
 	for row: Dictionary in orders:
 		for key: String in [
-			"id", "count", "botanical_name", "common_name", "cultivar", "category", "category_name",
-			"spread_cm", "height_cm",
+			"id",
+			"count",
+			"botanical_name",
+			"common_name",
+			"cultivar",
+			"category",
+			"category_name",
+			"spread_cm",
+			"height_cm",
 		]:
 			assert(row.has(key), "the row is missing %s" % key)
 

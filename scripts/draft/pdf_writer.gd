@@ -51,7 +51,6 @@ func content() -> String:
 func is_empty() -> bool:
 	return _content.is_empty()
 
-
 # --- graphics state -----------------------------------------------------------------
 
 
@@ -91,7 +90,6 @@ func set_dash(pattern_points: Array) -> void:
 		parts.append(_n(maxf(float(length), 0.0)))
 	_add("[%s] 0 d" % " ".join(parts))
 
-
 # --- geometry -----------------------------------------------------------------------
 
 
@@ -104,11 +102,10 @@ func line_to(point: Vector2) -> void:
 
 
 func curve_to(control_one: Vector2, control_two: Vector2, end: Vector2) -> void:
-	_add("%s %s %s %s %s %s c" % [
-		_n(control_one.x), _n(control_one.y),
-		_n(control_two.x), _n(control_two.y),
-		_n(end.x), _n(end.y),
-	])
+	_add(
+		"%s %s %s %s %s %s c"
+		% [_n(control_one.x), _n(control_one.y), _n(control_two.x), _n(control_two.y), _n(end.x), _n(end.y)]
+	)
 
 
 func close_path() -> void:
@@ -116,10 +113,7 @@ func close_path() -> void:
 
 
 func rectangle(rect: Rect2) -> void:
-	_add("%s %s %s %s re" % [
-		_n(rect.position.x), _n(rect.position.y),
-		_n(rect.size.x), _n(rect.size.y),
-	])
+	_add("%s %s %s %s re" % [_n(rect.position.x), _n(rect.position.y), _n(rect.size.x), _n(rect.size.y)])
 
 
 func stroke() -> void:
@@ -128,7 +122,6 @@ func stroke() -> void:
 
 func fill() -> void:
 	_add("f")
-
 
 # --- images -------------------------------------------------------------------------
 
@@ -150,18 +143,17 @@ func place_image(image: Image, rect: Rect2) -> String:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return ""
 	var name := "/Im%d" % (_images.size() + 1)
-	_images.append({"name": name, "image": image})
-	_add("q %s 0 0 %s %s %s cm %s Do Q" % [
-		_n(rect.size.x), _n(rect.size.y),
-		_n(rect.position.x), _n(rect.position.y), name,
-	])
+	_images.append({ "name": name, "image": image })
+	_add(
+		"q %s 0 0 %s %s %s cm %s Do Q"
+		% [_n(rect.size.x), _n(rect.size.y), _n(rect.position.x), _n(rect.position.y), name]
+	)
 	return name
 
 
 ## The images placed on this page, in order, for a caller or a test to read back.
 func images() -> Array[Dictionary]:
 	return _images
-
 
 # --- text ---------------------------------------------------------------------------
 
@@ -172,9 +164,7 @@ func images() -> Array[Dictionary]:
 func draw_text(at: Vector2, text: String, size_points: float) -> void:
 	if text.is_empty():
 		return
-	_add("BT /F1 %s Tf %s %s Td (%s) Tj ET" % [
-		_n(maxf(size_points, 0.1)), _n(at.x), _n(at.y), _escape(text),
-	])
+	_add("BT /F1 %s Tf %s %s Td (%s) Tj ET" % [_n(maxf(size_points, 0.1)), _n(at.x), _n(at.y), _escape(text)])
 
 
 ## Text run along a baseline at an angle, in radians, which is what a dimension
@@ -186,11 +176,19 @@ func draw_text_rotated(at: Vector2, text: String, size_points: float, angle: flo
 	if absf(sin(angle)) < 1e-9 and cos(angle) > 0.0:
 		draw_text(at, text, size_points)
 		return
-	_add("BT /F1 %s Tf %s %s %s %s %s %s Tm (%s) Tj ET" % [
-		_n(maxf(size_points, 0.1)),
-		_n(cos(angle)), _n(sin(angle)), _n(-sin(angle)), _n(cos(angle)),
-		_n(at.x), _n(at.y), _escape(text),
-	])
+	_add(
+		"BT /F1 %s Tf %s %s %s %s %s %s Tm (%s) Tj ET"
+		% [
+			_n(maxf(size_points, 0.1)),
+			_n(cos(angle)),
+			_n(sin(angle)),
+			_n(-sin(angle)),
+			_n(cos(angle)),
+			_n(at.x),
+			_n(at.y),
+			_escape(text),
+		]
+	)
 
 
 ## The text every glyph is required to fit, in points, so a caller can centre or
@@ -198,7 +196,6 @@ func draw_text_rotated(at: Vector2, text: String, size_points: float, angle: flo
 ## and the exact metrics need the font program, which is not embedded.
 func text_width(text: String, size_points: float) -> float:
 	return float(text.length()) * size_points * 0.5
-
 
 # --- assembly -----------------------------------------------------------------------
 
@@ -215,7 +212,9 @@ func build() -> PackedByteArray:
 		resources += " /XObject << %s >>" % " ".join(refs)
 	resources += " >>"
 	var page := "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s] %s /Contents 4 0 R >>" % [
-		_n(_page_width), _n(_page_height), resources,
+		_n(_page_width),
+		_n(_page_height),
+		resources,
 	]
 
 	var stream := content()
@@ -246,11 +245,8 @@ func build() -> PackedByteArray:
 		# Twenty bytes per entry, and the trailing space before the newline is
 		# part of the specification rather than tidiness.
 		_append(out, "%010d 00000 n \n" % offset)
-	_append(out, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % [
-		bodies.size() + 1, xref_offset,
-	])
+	_append(out, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % [bodies.size() + 1, xref_offset])
 	return out
-
 
 # --- helpers ------------------------------------------------------------------------
 
@@ -311,9 +307,8 @@ static func image_object(image: Image) -> PackedByteArray:
 		source.convert(Image.FORMAT_RGB8)
 	var deflated: PackedByteArray = source.get_data().compress(FileAccess.COMPRESSION_DEFLATE)
 	var out := _bytes(
-		"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n" % [
-			source.get_width(), source.get_height(), deflated.size(),
-		]
+		"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n"
+		% [source.get_width(), source.get_height(), deflated.size()]
 	)
 	out.append_array(deflated)
 	out.append_array(_bytes("\nendstream"))

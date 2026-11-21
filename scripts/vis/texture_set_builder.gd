@@ -53,9 +53,9 @@ static func normal_from(albedo: Image, strength: float = NORMAL_STRENGTH) -> Ima
 			# Central difference: the step across the pixel, not from it, so a single
 			# bright texel does not tilt its whole neighbourhood.
 			var dx: float = _height(source, channels, width, height, x + 1, y) \
-				- _height(source, channels, width, height, x - 1, y)
+					- _height(source, channels, width, height, x - 1, y)
 			var dy: float = _height(source, channels, width, height, x, y + 1) \
-				- _height(source, channels, width, height, x, y - 1)
+					- _height(source, channels, width, height, x, y - 1)
 			# The green channel is negated because the image's y axis runs *down* and
 			# Godot reads a normal map's green as up.
 			var normal := Vector3(-dx * strength, dy * strength, 1.0).normalized()
@@ -107,10 +107,7 @@ static func write_set(set_name: String, directory: String = DEFAULT_DIR) -> Arra
 		push_error("TextureSetBuilder.write_set: %s is not an image" % albedo_path)
 		return out
 	albedo.convert(Image.FORMAT_RGB8)
-	for pair: Array in [
-		["normal", normal_from(albedo)],
-		["orm", orm_from(albedo)],
-	]:
+	for pair: Array in [["normal", normal_from(albedo)], ["orm", orm_from(albedo)]]:
 		var image: Image = pair[1]
 		if image == null:
 			continue
@@ -124,9 +121,9 @@ static func write_set(set_name: String, directory: String = DEFAULT_DIR) -> Arra
 
 
 ## Writes every set in the hardscape catalog. Returns what it wrote, for a report.
-static func write_sets(catalog, directory: String = DEFAULT_DIR) -> Array[String]:
+static func write_sets(directory: String = DEFAULT_DIR) -> Array[String]:
 	var out: Array[String] = []
-	for set_name: String in catalog.set_names():
+	for set_name: String in HardscapeMaterial.set_names():
 		out.append_array(write_set(set_name, directory))
 	return out
 
@@ -169,9 +166,7 @@ static func _channels(image: Image) -> int:
 
 
 ## The luminance at a texel, wrapping at the edges so the derivation tiles.
-static func _height(
-	source: PackedByteArray, channels: int, width: int, height: int, x: int, y: int
-) -> float:
+static func _height(source: PackedByteArray, channels: int, width: int, height: int, x: int, y: int) -> float:
 	var at := (wrapi(y, 0, height) * width + wrapi(x, 0, width)) * channels
 	return (0.2126 * source[at] + 0.7152 * source[at + 1] + 0.0722 * source[at + 2]) / LEVELS
 

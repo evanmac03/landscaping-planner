@@ -21,9 +21,10 @@ const POND := &"450-NEW-POND"
 func _drawing() -> DraftDocument:
 	var doc := Doc.new()
 	doc.add(Ent.make_line(Vector2(0, 0), Vector2(6, 0)), LayerSet.NEW_HARDSCAPE)
-	doc.add(Ent.make_polyline(PackedVector2Array([
-		Vector2(0, 2), Vector2(6, 2), Vector2(6, 5), Vector2(0, 5),
-	]), true), LayerSet.NEW_BED)
+	doc.add(
+		Ent.make_polyline(PackedVector2Array([Vector2(0, 2), Vector2(6, 2), Vector2(6, 5), Vector2(0, 5)]), true),
+		LayerSet.NEW_BED,
+	)
 	doc.add(Ent.make_text(Vector2(1, 1), "valley gutter"), LayerSet.CALLOUT)
 	return doc
 
@@ -34,9 +35,10 @@ func _with_a_pond(doc: DraftDocument) -> DraftDocument:
 	extra.name = POND
 	extra.purpose = "A pond"
 	doc.layers.add(extra)
-	doc.add(Ent.make_polyline(PackedVector2Array([
-		Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8),
-	]), true), POND)
+	doc.add(
+		Ent.make_polyline(PackedVector2Array([Vector2(0, 6), Vector2(3, 6), Vector2(3, 8), Vector2(0, 8)]), true),
+		POND,
+	)
 	return doc
 
 
@@ -45,7 +47,6 @@ func _severities(findings: Array[Dictionary]) -> Array[String]:
 	for finding: Dictionary in findings:
 		out.append(String(finding["severity"]))
 	return out
-
 
 # --- what a healthy drawing reports -----------------------------------------------------------
 
@@ -69,7 +70,6 @@ func test_a_layer_that_is_deliberately_flat_is_a_note_and_not_a_problem() -> voi
 	assert(String(about[0]["what"]).contains("builds no solid"), "naming what it is flat about: %s" % about[0]["what"])
 	# Its reason is the table's own sentence, not one this module made up.
 	assert(String(about[0]["what"]).contains("An annotation"), "quoted from the table: %s" % about[0]["what"])
-
 
 # --- the gap the report exists to find --------------------------------------------------------
 
@@ -120,7 +120,6 @@ func test_a_layer_that_does_not_plot_is_not_a_picture() -> void:
 	var findings: Array[Dictionary] = Diag.report(doc, doc.layers)
 	assert(Diag.mentions(findings, LayerSet.GUIDES).is_empty(), "a tracing layer is skipped")
 
-
 # --- the order a person reads them in ---------------------------------------------------------
 
 
@@ -150,7 +149,6 @@ func test_the_same_drawing_gives_the_same_report_twice() -> void:
 		assert(String(once[index]["what"]) == String(twice[index]["what"]), "row %d is the same" % index)
 	assert(Diag.report_text(once) == Diag.report_text(twice), "and the whole page reads the same")
 
-
 # --- the texture maps -------------------------------------------------------------------------
 
 
@@ -162,13 +160,17 @@ func test_the_texture_findings_are_exactly_the_maps_that_are_not_on_disk() -> vo
 		if String(finding["where"]).begins_with("res://resources/textures/hardscape/"):
 			about_textures.append(finding)
 	var missing: Array[String] = Diag.HardscapeScript.missing_paths()
-	assert(about_textures.size() == missing.size(), "one finding per missing map, got %d for %d" % [
-		about_textures.size(), missing.size(),
-	])
+	assert(
+		about_textures.size() == missing.size(),
+		"one finding per missing map, got %d for %d" % [about_textures.size(), missing.size()],
+	)
 	for finding: Dictionary in about_textures:
 		# A missing texture is the one thing that stops a render being right, so it is an error.
 		assert(String(finding["severity"]) == Diag.ERROR, "an error: %s" % finding["severity"])
-		assert(missing.has(String(finding["where"])), "and it names a path the table says is missing: %s" % finding["where"])
+		assert(
+			missing.has(String(finding["where"])),
+			"and it names a path the table says is missing: %s" % finding["where"],
+		)
 
 
 func test_a_solid_asking_for_a_set_nobody_has_is_an_error() -> void:
@@ -180,7 +182,6 @@ func test_a_solid_asking_for_a_set_nobody_has_is_an_error() -> void:
 		assert(Diag.HardscapeScript.has_set(set_name), "%s is a set the texture table has" % set_name)
 	for finding: Dictionary in findings:
 		assert(not String(finding["what"]).contains("texture set"), "nothing said: %s" % finding["what"])
-
 
 # --- the shape of the report ------------------------------------------------------------------
 

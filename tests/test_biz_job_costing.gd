@@ -34,7 +34,7 @@ func _line(code: StringName, units_milli: int, cost_cents: int, price_cents: int
 ## PLANTING 150.00 sold for 100.00 of cost, HARDSCAPE 400.00 for 240.00.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith, back garden"}
+	estimate.customer = { "name": "Smith, back garden" }
 	estimate.lines.append(_line(&"PLANTING", 10000, 1000, 1500))
 	estimate.lines.append(_line(&"HARDSCAPE", 20000, 1200, 2000))
 	return estimate
@@ -47,8 +47,12 @@ func _desk() -> DeskScript:
 	return desk
 
 
-func _entry(entry_id: String = "T1", code: StringName = &"PLANTING", minutes: int = 60,
-		rate_cents: int = 3000) -> EntryScript:
+func _entry(
+	entry_id: String = "T1",
+	code: StringName = &"PLANTING",
+	minutes: int = 60,
+	rate_cents: int = 3000,
+) -> EntryScript:
 	var entry: EntryScript = EntryScript.new(entry_id)
 	entry.job = "E1"
 	entry.cost_code = code
@@ -60,66 +64,91 @@ func _entry(entry_id: String = "T1", code: StringName = &"PLANTING", minutes: in
 	entry.approve("Dana")
 	return entry
 
-
 # --- ordering ----------------------------------------------------------------------------------
 
 
 func test_an_order_is_numbered_by_the_desk_and_is_not_issued_by_being_made() -> void:
 	var desk := _desk()
-	var order = desk.make_purchase_order("E1", &"PLANTING", "Buxus, 2 gal", 10000,
-		MoneyScript.of(1000), "Greenline Nursery")
+	var order = desk.make_purchase_order(
+		"E1",
+		&"PLANTING",
+		"Buxus, 2 gal",
+		10000,
+		MoneyScript.of(1000),
+		"Greenline Nursery",
+	)
 	assert(order != null, "the order was made")
 	assert(order.number == "PO-001", order.number)
 	assert(order.id == order.number, "a number is what everybody calls the paper")
 	assert(order.state() == OrderScript.DRAFT)
 	assert(desk.purchase_order("PO-001") == order)
-	assert((desk.cost_report("E1").totals()["committed"] as MoneyScript).format() == "0.00",
-		"a draft commits nothing")
+	assert((desk.cost_report("E1").totals()["committed"] as MoneyScript).format() == "0.00", "a draft commits nothing")
 
 
 func test_the_next_number_is_the_highest_taken_and_not_the_count() -> void:
 	assert(DeskScript.next_number("PO-", []) == "PO-001")
 	assert(DeskScript.next_number("PO-", ["PO-001"]) == "PO-002")
-	assert(DeskScript.next_number("PO-", ["PO-001", "PO-007", "CO-009"]) == "PO-008",
-		"a number that has been used is used")
+	assert(
+		DeskScript.next_number("PO-", ["PO-001", "PO-007", "CO-009"]) == "PO-008",
+		"a number that has been used is used",
+	)
 
 
 func test_an_order_is_refused_for_a_job_the_desk_does_not_have() -> void:
 	var desk := _desk()
-	assert(desk.make_purchase_order("NOPE", &"PLANTING", "Buxus", 1000, MoneyScript.of(100),
-		"Greenline") == null)
+	assert(desk.make_purchase_order("NOPE", &"PLANTING", "Buxus", 1000, MoneyScript.of(100), "Greenline") == null)
 	assert(desk.purchase_orders_for("E1").is_empty())
 
 
 func test_an_order_with_nothing_on_it_or_no_rate_is_not_made() -> void:
 	var desk := _desk()
-	assert(desk.make_purchase_order("E1", &"PLANTING", "", 1000, MoneyScript.of(100),
-		"Greenline") == null, "a line with no description is not a line")
-	assert(desk.make_purchase_order("E1", &"PLANTING", "Buxus", 0, MoneyScript.of(100),
-		"Greenline") == null, "nor a quantity of nothing")
-	assert(desk.make_purchase_order("E1", &"PLANTING", "Buxus", 1000, MoneyScript.invalid(),
-		"Greenline") == null, "nor an unreadable rate")
+	assert(
+		desk.make_purchase_order("E1", &"PLANTING", "", 1000, MoneyScript.of(100), "Greenline") == null,
+		"a line with no description is not a line",
+	)
+	assert(
+		desk.make_purchase_order("E1", &"PLANTING", "Buxus", 0, MoneyScript.of(100), "Greenline") == null,
+		"nor a quantity of nothing",
+	)
+	assert(
+		desk.make_purchase_order("E1", &"PLANTING", "Buxus", 1000, MoneyScript.invalid(), "Greenline") == null,
+		"nor an unreadable rate",
+	)
 	assert(desk.purchase_orders.is_empty())
 
 
 func test_issuing_says_what_it_would_commit_the_job_to() -> void:
 	var desk := _desk()
 	# 20 units at 10.00 is 200.00 against a PLANTING budget of 150.00.
-	var order = desk.make_purchase_order("E1", &"PLANTING", "Buxus, 2 gal", 20000,
-		MoneyScript.of(1000), "Greenline Nursery")
+	var order = desk.make_purchase_order(
+		"E1",
+		&"PLANTING",
+		"Buxus, 2 gal",
+		20000,
+		MoneyScript.of(1000),
+		"Greenline Nursery",
+	)
 	assert(order != null)
 	var issued: Dictionary = desk.issue_purchase_order("PO-001", "2026-06-01")
 	assert(bool(issued["ok"]), String(issued["reason"]))
-	assert(String(issued["warning"]) == "PLANTING would be committed $200.00 against a budget of "
-		+ "$150.00", String(issued["warning"]))
+	assert(
+		String(issued["warning"]) == "PLANTING would be committed $200.00 against a budget of " + "$150.00",
+		String(issued["warning"]),
+	)
 	assert(order.state() == OrderScript.ISSUED)
 	assert((desk.cost_report("E1").row_for("PLANTING")["committed"] as MoneyScript).format() == "200.00")
 
 
 func test_issuing_into_a_code_the_job_was_never_sold_is_refused_by_name() -> void:
 	var desk := _desk()
-	var order = desk.make_purchase_order("E1", &"EXTRAS", "A thing nobody sold", 1000,
-		MoneyScript.of(500), "Greenline Nursery")
+	var order = desk.make_purchase_order(
+		"E1",
+		&"EXTRAS",
+		"A thing nobody sold",
+		1000,
+		MoneyScript.of(500),
+		"Greenline Nursery",
+	)
 	assert(order != null, "the order can be written")
 	var issued: Dictionary = desk.issue_purchase_order("PO-001", "2026-06-01")
 	assert(not bool(issued["ok"]), "but it cannot be charged to nothing")
@@ -136,17 +165,17 @@ func test_issuing_an_order_that_is_not_there_says_so() -> void:
 
 func test_the_budget_question_asked_before_the_order_is_placed() -> void:
 	var desk := _desk()
-	assert(desk.make_purchase_order("E1", &"PLANTING", "Buxus", 10000, MoneyScript.of(1000),
-		"Greenline") != null)
+	assert(desk.make_purchase_order("E1", &"PLANTING", "Buxus", 10000, MoneyScript.of(1000), "Greenline") != null)
 	desk.issue_purchase_order("PO-001", "2026-06-01")
 	var fits: Dictionary = desk.order_would_commit("E1", &"PLANTING", 4000, MoneyScript.of(1000))
 	assert(not bool(fits["over"]), "40.00 more fits")
 	assert((fits["remaining"] as MoneyScript).format() == "50.00")
 	var too_much: Dictionary = desk.order_would_commit("E1", &"PLANTING", 6000, MoneyScript.of(1000))
 	assert(bool(too_much["over"]))
-	assert(String(too_much["reason"]).contains("committed $160.00 against a budget of $150.00"),
-		String(too_much["reason"]))
-
+	assert(
+		String(too_much["reason"]).contains("committed $160.00 against a budget of $150.00"),
+		String(too_much["reason"]),
+	)
 
 # --- what arrived ------------------------------------------------------------------------------
 
@@ -165,8 +194,7 @@ func test_what_arrived_moves_the_money_from_committed_to_actual() -> void:
 
 func test_a_short_delivery_is_recorded_line_by_line() -> void:
 	var desk := _desk()
-	desk.make_purchase_order("E1", &"HARDSCAPE", "Paving stones", 20000, MoneyScript.of(1000),
-		"Stone Yard")
+	desk.make_purchase_order("E1", &"HARDSCAPE", "Paving stones", 20000, MoneyScript.of(1000), "Stone Yard")
 	desk.issue_purchase_order("PO-001", "2026-06-01")
 	assert(desk.receive_order_line("PO-001", 0, 6000, "2026-06-05", "half the pallets")["ok"])
 	var row: Dictionary = desk.cost_report("E1").row_for("HARDSCAPE")
@@ -176,8 +204,10 @@ func test_a_short_delivery_is_recorded_line_by_line() -> void:
 	var again: Dictionary = desk.receive_what_was_ordered("PO-001", "2026-06-12")
 	assert(bool(again["ok"]), "and the rest arrives when it arrives")
 	assert((desk.cost_report("E1").row_for("HARDSCAPE")["actual"] as MoneyScript).format() == "200.00")
-	assert(not bool(desk.receive_what_was_ordered("PO-001", "2026-06-19")["ok"]),
-		"with nothing outstanding there is nothing to receive")
+	assert(
+		not bool(desk.receive_what_was_ordered("PO-001", "2026-06-19")["ok"]),
+		"with nothing outstanding there is nothing to receive",
+	)
 
 
 func test_receiving_against_an_order_that_is_not_there_says_so() -> void:
@@ -218,14 +248,18 @@ func test_order_rows_read_the_way_the_office_reads_them() -> void:
 	assert((row["problems"] as Array).is_empty(), str(row["problems"]))
 	assert(desk.order_rows("NOPE").is_empty())
 
-
 # --- change orders -----------------------------------------------------------------------------
 
 
 func test_a_change_order_made_at_the_desk_is_priced_numbered_and_proposed() -> void:
 	var desk := _desk()
-	var change = desk.make_change_order("E1", &"SITE_CONDITION", "Remove a buried wall",
-		MoneyScript.of(50000), &"HARDSCAPE")
+	var change = desk.make_change_order(
+		"E1",
+		&"SITE_CONDITION",
+		"Remove a buried wall",
+		MoneyScript.of(50000),
+		&"HARDSCAPE",
+	)
 	assert(change != null)
 	assert(change.number == "CO-001", change.number)
 	assert(change.state() == ChangeScript.PROPOSED)
@@ -237,12 +271,15 @@ func test_a_change_order_made_at_the_desk_is_priced_numbered_and_proposed() -> v
 
 func test_a_change_order_needs_a_reason_that_exists_an_amount_and_a_job() -> void:
 	var desk := _desk()
-	assert(desk.make_change_order("E1", &"BECAUSE", "A thing", MoneyScript.of(100), &"PLANTING")
-		== null, "a reason nobody has is not a reason")
-	assert(desk.make_change_order("E1", &"OTHER", "A thing", MoneyScript.of(0), &"PLANTING")
-		== null, "and nothing is not a change")
-	assert(desk.make_change_order("NOPE", &"OTHER", "A thing", MoneyScript.of(100), &"PLANTING")
-		== null)
+	assert(
+		desk.make_change_order("E1", &"BECAUSE", "A thing", MoneyScript.of(100), &"PLANTING") == null,
+		"a reason nobody has is not a reason",
+	)
+	assert(
+		desk.make_change_order("E1", &"OTHER", "A thing", MoneyScript.of(0), &"PLANTING") == null,
+		"and nothing is not a change",
+	)
+	assert(desk.make_change_order("NOPE", &"OTHER", "A thing", MoneyScript.of(100), &"PLANTING") == null)
 	assert(desk.change_orders.is_empty())
 
 
@@ -271,13 +308,14 @@ func test_a_change_order_with_nothing_on_it_or_a_job_that_is_not_there_is_not_ra
 
 func test_a_change_order_only_joins_the_contract_sum_once_it_is_approved() -> void:
 	var desk := _desk()
-	desk.make_change_order("E1", &"SITE_CONDITION", "Remove a buried wall", MoneyScript.of(50000),
-		&"HARDSCAPE")
+	desk.make_change_order("E1", &"SITE_CONDITION", "Remove a buried wall", MoneyScript.of(50000), &"HARDSCAPE")
 	assert((desk.cost_report("E1").totals()["agreed_sum"] as MoneyScript).format() == "550.00")
 	assert(desk.propose_change("CO-001", "2026-06-20"))
 	assert(desk.send_change("CO-001", "2026-06-21"))
-	assert((desk.cost_report("E1").totals()["changes_pending"] as MoneyScript).format() == "500.00",
-		"pending is shown beside the sum and not in it")
+	assert(
+		(desk.cost_report("E1").totals()["changes_pending"] as MoneyScript).format() == "500.00",
+		"pending is shown beside the sum and not in it",
+	)
 	var agreed: Dictionary = desk.approve_change("CO-001", "Dana", "2026-07-01", "in-app")
 	assert(bool(agreed["ok"]), String(agreed["reason"]))
 	var figures: Dictionary = desk.cost_report("E1").totals()
@@ -289,19 +327,15 @@ func test_a_change_order_only_joins_the_contract_sum_once_it_is_approved() -> vo
 func test_an_approval_without_who_when_or_how_is_refused_by_the_desk_too() -> void:
 	var desk := _desk()
 	desk.make_change_order("E1", &"OTHER", "A thing", MoneyScript.of(10000), &"PLANTING")
-	assert(String(desk.approve_change("CO-001", "", "2026-07-01", "in-app")["reason"])
-		.contains("who agreed"))
-	assert(String(desk.approve_change("CO-001", "Dana", "2026-07-01", "a handshake")["reason"])
-		.contains("says how"))
+	assert(String(desk.approve_change("CO-001", "", "2026-07-01", "in-app")["reason"]).contains("who agreed"))
+	assert(String(desk.approve_change("CO-001", "Dana", "2026-07-01", "a handshake")["reason"]).contains("says how"))
 	assert((desk.cost_report("E1").totals()["agreed_sum"] as MoneyScript).format() == "550.00")
 
 
 func test_declining_and_voiding_through_the_desk() -> void:
 	var desk := _desk()
-	desk.make_change_order("E1", &"CUSTOMER_REQUEST", "Add a path", MoneyScript.of(20000),
-		&"HARDSCAPE")
-	assert(not bool(desk.decline_change("CO-001", "Dana", "2026-07-02", "")["ok"]),
-		"a decline says why")
+	desk.make_change_order("E1", &"CUSTOMER_REQUEST", "Add a path", MoneyScript.of(20000), &"HARDSCAPE")
+	assert(not bool(desk.decline_change("CO-001", "Dana", "2026-07-02", "")["ok"]), "a decline says why")
 	assert(bool(desk.decline_change("CO-001", "Dana", "2026-07-02", "too expensive")["ok"]))
 	assert(desk.change_order("CO-001").state() == ChangeScript.DECLINED)
 	desk.make_change_order("E1", &"OTHER", "And another", MoneyScript.of(5000), &"PLANTING")
@@ -314,14 +348,16 @@ func test_a_change_order_that_is_not_there_is_refused_by_the_desk() -> void:
 	var desk := _desk()
 	assert(not desk.propose_change("CO-009", "2026-06-20"))
 	assert(not desk.send_change("CO-009", "2026-06-21"))
-	assert(String(desk.approve_change("CO-009", "Dana", "2026-07-01", "in-app")["reason"])
-		.contains("no change order CO-009"))
+	assert(
+		String(desk.approve_change("CO-009", "Dana", "2026-07-01", "in-app")["reason"]).contains(
+			"no change order CO-009"
+		)
+	)
 
 
 func test_change_rows_carry_the_state_the_amount_and_the_approval() -> void:
 	var desk := _desk()
-	desk.make_change_order("E1", &"CODE_OR_PERMIT", "A permit nobody expected", MoneyScript.of(8500),
-		&"HARDSCAPE")
+	desk.make_change_order("E1", &"CODE_OR_PERMIT", "A permit nobody expected", MoneyScript.of(8500), &"HARDSCAPE")
 	desk.propose_change("CO-001", "2026-06-20")
 	desk.approve_change("CO-001", "Dana", "2026-07-01", "signed paper photo")
 	var row: Dictionary = desk.change_rows("E1")[0]
@@ -332,10 +368,11 @@ func test_change_rows_carry_the_state_the_amount_and_the_approval() -> void:
 	assert(String(row["amount_text"]) == "+$85.00")
 	assert(not bool(row["pending"]))
 	assert(bool(row["enters_contract_sum"]))
-	assert(String(row["approval_text"]) == "approved by Dana on 2026-07-01 (signed paper photo)",
-		String(row["approval_text"]))
+	assert(
+		String(row["approval_text"]) == "approved by Dana on 2026-07-01 (signed paper photo)",
+		String(row["approval_text"]),
+	)
 	assert(desk.change_rows("NOPE").is_empty())
-
 
 # --- the report --------------------------------------------------------------------------------
 
@@ -351,13 +388,17 @@ func test_the_report_is_the_jobs_own_records_and_reads_the_way_a_report_does() -
 	var report = desk.cost_report("E1")
 	assert(report != null)
 	assert(report.codes() == ["HARDSCAPE", "PLANTING"], str(report.codes()))
-	assert((report.row_for("PLANTING")["actual"] as MoneyScript).format() == "90.00",
-		"60.00 arrived and 30.00 of approved time")
+	assert(
+		(report.row_for("PLANTING")["actual"] as MoneyScript).format() == "90.00",
+		"60.00 arrived and 30.00 of approved time",
+	)
 	var text: String = desk.cost_totals_text("E1")
 	assert(text.contains("cost incurred"), text)
 	assert(text.contains("change orders agreed"), text)
-	assert(desk.cost_problems("E1").has("1 change order pending, $500.00 not yet agreed"),
-		str(desk.cost_problems("E1")))
+	assert(
+		desk.cost_problems("E1").has("1 change order pending, $500.00 not yet agreed"),
+		str(desk.cost_problems("E1")),
+	)
 
 
 func test_a_receipt_entered_a_moment_ago_is_in_the_report() -> void:
@@ -388,8 +429,7 @@ func test_what_has_been_billed_is_unknown_until_somebody_says() -> void:
 	var figures: Dictionary = desk.cost_report("E1").totals()
 	assert(bool(figures["billed_known"]))
 	assert((figures["uncollected"] as MoneyScript).format() == "250.00")
-	assert(not desk.set_invoiced("NOPE", MoneyScript.of(100)),
-		"a billed figure for a job nobody has is not a record")
+	assert(not desk.set_invoiced("NOPE", MoneyScript.of(100)), "a billed figure for a job nobody has is not a record")
 
 
 func test_the_menu_line_counts_the_orders_the_commitment_and_the_changes() -> void:
@@ -401,12 +441,15 @@ func test_the_menu_line_counts_the_orders_the_commitment_and_the_changes() -> vo
 	desk.make_change_order("E1", &"SITE_CONDITION", "A wall", MoneyScript.of(50000), &"HARDSCAPE")
 	desk.propose_change("CO-001", "2026-06-20")
 	var line: String = desk.describe()
-	assert(line == "0 crews, 1 job, 0 blocks on the board, 1 purchase order ($100.00 committed), "
-		+ "1 change order ($0.00 agreed, 1 pending)", line)
+	assert(
+		line
+		== "0 crews, 1 job, 0 blocks on the board, 1 purchase order ($100.00 committed), "
+		+ "1 change order ($0.00 agreed, 1 pending)",
+		line,
+	)
 	desk.approve_change("CO-001", "Dana", "2026-07-01", "in-app")
 	assert(desk.describe().contains("1 change order ($500.00 agreed)"), desk.describe())
 	assert(not desk.describe().contains("pending"), "nothing is waiting for an answer any more")
-
 
 # --- the file -----------------------------------------------------------------------------------
 
@@ -467,5 +510,4 @@ func test_the_billed_figures_of_a_job_nobody_has_are_dropped_too() -> void:
 	var read: DeskScript = DeskScript.from_dict(data)
 	assert(not read.invoiced.has("GONE"))
 	assert((read.cost_report("E1").totals()["billed"] as MoneyScript).format() == "400.00")
-	assert(not bool(read.cost_report("E1").totals()["uncollected_known"]),
-		"nothing was collected, and nobody said so")
+	assert(not bool(read.cost_report("E1").totals()["uncollected_known"]), "nothing was collected, and nobody said so")

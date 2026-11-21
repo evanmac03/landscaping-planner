@@ -22,21 +22,21 @@ const LineStyleScript := preload("res://scripts/draft/line_style.gd")
 ## where it collected. Three is the number that reads as pigment; a fourth adds
 ## nothing a client can see.
 const PASSES: Array = [
-	{"alpha": 1.00, "offset": Vector2(0.25, -0.18)},
-	{"alpha": 0.55, "offset": Vector2(-0.40, 0.30)},
-	{"alpha": 0.30, "offset": Vector2(0.60, 0.60)},
+	{ "alpha": 1.00, "offset": Vector2(0.25, -0.18) },
+	{ "alpha": 0.55, "offset": Vector2(-0.40, 0.30) },
+	{ "alpha": 0.30, "offset": Vector2(0.60, 0.60) },
 ]
 
 ## Points around a plant's canopy. Enough that the edge has something to wander
 ## along once it is wobbled, without the canopy reading as a polygon.
 const CANOPY_POINTS := 28
 
-var _document = null
+var _document: DraftDocument = null
 var _plot_scale: float = 100.0
 var _props: Array[Node3D] = []
 
 
-func _init(document, plot_scale: float, props: Array[Node3D] = []) -> void:
+func _init(document: DraftDocument, plot_scale: float, props: Array[Node3D] = []) -> void:
 	_document = document
 	_plot_scale = plot_scale
 	_props = props
@@ -58,7 +58,7 @@ func regions() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if _document != null:
 		for entity in _document.plotting_entities():
-			var layer = _document.layers.get_layer(entity.layer)
+			var layer := _document.layers.get_layer(entity.layer)
 			if layer == null:
 				continue
 			var wash: Dictionary = WashTableScript.wash_for(layer.name)
@@ -67,12 +67,7 @@ func regions() -> Array[Dictionary]:
 			var region: PackedVector2Array = CadSolidScript.outline_of(entity)
 			if region.size() < CadSolidScript.MIN_RING_POINTS:
 				continue
-			out.append({
-				"region": region,
-				"wash": wash,
-				"seed": int(entity.id),
-				"what": String(layer.name),
-			})
+			out.append({ "region": region, "wash": wash, "seed": int(entity.id), "what": String(layer.name) })
 	# Canopies last and largest first, which is the order the working plan draws its
 	# symbols in: a shrub sits in front of the tree behind it.
 	for entry: Dictionary in canopies():
@@ -102,12 +97,9 @@ func canopies() -> Array[Dictionary]:
 		# behaves, the prop's style entry says what colour it is (REQ-V4.4).
 		var canopy := wash.duplicate()
 		canopy["colour"] = colour
-		out.append({
-			"region": _canopy_region(node),
-			"wash": canopy,
-			"seed": hash(node.name),
-			"what": String(node.name),
-		})
+		out.append(
+			{ "region": _canopy_region(node), "wash": canopy, "seed": hash(node.name), "what": String(node.name) }
+		)
 	return out
 
 
@@ -151,9 +143,7 @@ func _paint_region(region: PackedVector2Array, wash: Dictionary) -> void:
 			shifted.append(point + offset)
 		# Each pass carries its own share of the pigment, so the overlap darkens the
 		# way a second wash over a damp one does.
-		draw_colored_polygon(
-			shifted, Color(colour, opacity * float(pass_data["alpha"]))
-		)
+		draw_colored_polygon(shifted, Color(colour, opacity * float(pass_data["alpha"])))
 
 
 ## The seed a region's edge wanders from. Derived from the entity's id or the

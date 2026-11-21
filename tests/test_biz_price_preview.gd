@@ -66,7 +66,6 @@ func _wipe(folder: String) -> void:
 		_wipe(folder.path_join(String(subfolder)))
 	DirAccess.remove_absolute(folder)
 
-
 # --- pointing it at a book and some estimates ----------------------------------------------------
 
 
@@ -85,7 +84,6 @@ func test_binding_twice_does_not_keep_the_first_list_as_well() -> void:
 	preview.bind(book, [_estimate(book, "E-1", "EST-0001", 20000, 1500000)])
 	preview.bind(book, [])
 	assert(preview.estimates.is_empty())
-
 
 # --- a bulk update, as a plan --------------------------------------------------------------------
 
@@ -139,7 +137,6 @@ func test_a_bulk_plan_with_no_book_is_refused_rather_than_read_as_no_changes() -
 	var plan: Dictionary = PreviewScript.bulk_plan(null, 100000)
 	assert(not plan["ok"])
 	assert(String(plan["reason"]).contains("no cost book"), String(plan["reason"]))
-
 
 # --- the preview: the cost moves, the price does not ---------------------------------------------
 
@@ -200,10 +197,10 @@ func test_a_preview_reads_the_estimates_it_was_pointed_at_not_the_ones_it_had_be
 func test_the_preview_counts_the_estimates_whose_cost_would_move() -> void:
 	var book: CostBook = _book()
 	var preview: BizPricePreview = PreviewScript.new()
-	preview.bind(book, [
-		_estimate(book, "E-1", "EST-0001", 20000, 1500000),
-		_estimate(book, "E-2", "EST-0002", 8000, 1500000),
-	])
+	preview.bind(
+		book,
+		[_estimate(book, "E-1", "EST-0001", 20000, 1500000), _estimate(book, "E-2", "EST-0002", 8000, 1500000)],
+	)
 	var result: Dictionary = preview.preview(_ten_percent(book))
 	assert(int(result["moved"]) == 2)
 	assert(int(result["cost_before_cents"]) == 116000 + 46400)
@@ -272,7 +269,7 @@ func test_a_preview_of_a_plan_that_did_not_read_says_so() -> void:
 	var book: CostBook = _book()
 	var preview: BizPricePreview = PreviewScript.new()
 	preview.bind(book, [_estimate(book, "E-1", "EST-0001", 20000, 1500000)])
-	var result: Dictionary = preview.preview({"ok": false, "reason": "nothing read"})
+	var result: Dictionary = preview.preview({ "ok": false, "reason": "nothing read" })
 	assert(not result["ok"])
 	assert(String(result["reason"]).contains("nothing read"), String(result["reason"]))
 	assert((result["rows"] as Array).is_empty())
@@ -280,7 +277,7 @@ func test_a_preview_of_a_plan_that_did_not_read_says_so() -> void:
 
 func test_a_preview_with_no_book_is_refused_rather_than_reported_as_no_change() -> void:
 	var preview: BizPricePreview = PreviewScript.new()
-	var result: Dictionary = preview.preview({"ok": true, "changes": []})
+	var result: Dictionary = preview.preview({ "ok": true, "changes": [] })
 	assert(not result["ok"])
 	assert(String(result["reason"]).contains("no cost book"), String(result["reason"]))
 
@@ -293,7 +290,6 @@ func test_a_preview_with_no_estimates_is_an_empty_preview_not_a_failure() -> voi
 	assert(result["ok"], String(result["reason"]))
 	assert((result["rows"] as Array).is_empty())
 	assert(int(result["moved"]) == 0)
-
 
 # --- the margin, by the estimate's own rule ------------------------------------------------------
 
@@ -314,15 +310,14 @@ func test_a_price_of_nothing_has_no_margin_rather_than_a_divide_by_zero() -> voi
 func test_a_job_that_costs_more_than_it_sells_for_has_a_negative_margin() -> void:
 	assert(BizPricePreview.margin_ppm(100000, 120000) == -200000)
 
-
 # --- where the estimates come from ---------------------------------------------------------------
 
 
 func test_the_estimates_are_read_out_of_the_store_a_job_at_a_time() -> void:
 	_wipe(ROOT)
 	var store: BizStore = StoreScript.new(ROOT)
-	store.put(StoreScript.JOB_KIND, "J-1", {"number": "J-1001"}, "", -1, "evan", MAY)
-	store.put(StoreScript.JOB_KIND, "J-2", {"number": "J-1002"}, "", -1, "evan", MAY)
+	store.put(StoreScript.JOB_KIND, "J-1", { "number": "J-1001" }, "", -1, "evan", MAY)
+	store.put(StoreScript.JOB_KIND, "J-2", { "number": "J-1002" }, "", -1, "evan", MAY)
 	var book: CostBook = _book()
 	store.put("estimate", "E-1", _estimate(book, "E-1", "EST-0001", 20000, 1500000).to_dict(), "J-1", -1, "evan", MAY)
 	store.put("estimate", "E-2", _estimate(book, "E-2", "EST-0002", 8000, 1500000).to_dict(), "J-2", -1, "evan", MAY)
@@ -343,7 +338,7 @@ func test_reading_estimates_out_of_a_store_with_none_is_an_empty_list() -> void:
 func test_an_estimate_read_out_of_the_store_previews_like_one_in_hand() -> void:
 	_wipe(ROOT)
 	var store: BizStore = StoreScript.new(ROOT)
-	store.put(StoreScript.JOB_KIND, "J-1", {"number": "J-1001"}, "", -1, "evan", MAY)
+	store.put(StoreScript.JOB_KIND, "J-1", { "number": "J-1001" }, "", -1, "evan", MAY)
 	var book: CostBook = _book()
 	store.put("estimate", "E-1", _estimate(book, "E-1", "EST-0001", 20000, 1500000).to_dict(), "J-1", -1, "evan", MAY)
 	var preview: BizPricePreview = PreviewScript.new()
@@ -351,7 +346,6 @@ func test_an_estimate_read_out_of_the_store_previews_like_one_in_hand() -> void:
 	var row: Dictionary = (preview.preview(_ten_percent(book))["rows"] as Array)[0]
 	assert(int(row["cost_before_cents"]) == 116000)
 	assert(int(row["cost_after_cents"]) == 127600)
-
 
 # --- what a person reads -------------------------------------------------------------------------
 
@@ -374,7 +368,7 @@ func test_a_preview_that_could_not_be_read_describes_the_reason() -> void:
 	var book: CostBook = _book()
 	var preview: BizPricePreview = PreviewScript.new()
 	preview.bind(book, [_estimate(book, "E-1", "EST-0001", 20000, 1500000)])
-	var words: String = preview.describe({"ok": false, "reason": "nothing read"})
+	var words: String = preview.describe({ "ok": false, "reason": "nothing read" })
 	assert(words.contains("nothing read"), words)
 	var empty: BizPricePreview = PreviewScript.new()
-	assert(empty.describe({"ok": true, "changes": []}).contains("no cost book"))
+	assert(empty.describe({ "ok": true, "changes": [] }).contains("no cost book"))
