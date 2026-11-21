@@ -16,15 +16,15 @@ const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd"
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const PresenceScript := preload("res://scripts/presence.gd")
 const StartChoicesScript := preload("res://scripts/start_choices.gd")
-const StartWindowScript := preload("res://scripts/start_window.gd")
+const StartWindowScript := preload("res://scripts/pages/start_window.gd")
 const StartDrawingScript := preload("res://scripts/start_drawing.gd")
-const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd")
+const StartDrawingWindowScript := preload("res://scripts/pages/start_drawing_window.gd")
 ## What is on the screen, said out loud, on a build that may be driven from another computer: the figures a
 ## driver would otherwise have to read off a screenshot.
 const HudProbeScript := preload("res://scripts/hud_probe.gd")
 const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
 const BoardPanelScript := preload("res://scripts/board_panel.gd")
-const CameraWindowScript := preload("res://scripts/camera_window.gd")
+const CameraWindowScript := preload("res://scripts/pages/camera_window.gd")
 const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
 ## The reader's own choice of how big the words are drawn, where the platform states none.
 const ReadingSizeScript := preload("res://scripts/reading_size.gd")
@@ -144,14 +144,14 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## The study of the sun rather than the sun itself: `SunStudy` says where the sun is at one moment,
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
-const SunWindowScript := preload("res://scripts/sun_window.gd")
-const WalkWindowScript := preload("res://scripts/walk_window.gd")
-const SnapWindowScript := preload("res://scripts/snap_window.gd")
-const StatusWindowScript := preload("res://scripts/status_window.gd")
-const PageChromeScript := preload("res://scripts/page_chrome.gd")
-const PageLayoutScript := preload("res://scripts/page_layout.gd")
+const SunWindowScript := preload("res://scripts/pages/sun_window.gd")
+const WalkWindowScript := preload("res://scripts/pages/walk_window.gd")
+const SnapWindowScript := preload("res://scripts/pages/snap_window.gd")
+const StatusWindowScript := preload("res://scripts/pages/status_window.gd")
+const PageChromeScript := preload("res://scripts/pages/page_chrome.gd")
+const PageLayoutScript := preload("res://scripts/pages/page_layout.gd")
 const DrawnSurfacesScript := preload("res://scripts/drawn_surfaces.gd")
-const PageHelpScript := preload("res://scripts/page_help.gd")
+const PageHelpScript := preload("res://scripts/pages/page_help.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
@@ -369,22 +369,22 @@ const PalettePanelScript = preload("res://scripts/palette_panel.gd")
 const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
-const GroundWindowScript := preload("res://scripts/ground_window.gd")
-const SheetWindowScript := preload("res://scripts/sheet_window.gd")
-const RevisionWindowScript := preload("res://scripts/revision_window.gd")
+const GroundWindowScript := preload("res://scripts/pages/ground_window.gd")
+const SheetWindowScript := preload("res://scripts/pages/sheet_window.gd")
+const RevisionWindowScript := preload("res://scripts/pages/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
-const HelpWindowScript := preload("res://scripts/help_window.gd")
+const HelpWindowScript := preload("res://scripts/pages/help_window.gd")
 const CommandPaletteScript := preload("res://scripts/command_palette.gd")
-const PageEscapeScript := preload("res://scripts/page_escape.gd")
+const PageEscapeScript := preload("res://scripts/pages/page_escape.gd")
 const AutosaveScript := preload("res://scripts/draft/autosave.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const OsmFetchScript := preload("res://scripts/draft/osm_fetch.gd")
-const OsmWindowScript := preload("res://scripts/osm_window.gd")
+const OsmWindowScript := preload("res://scripts/pages/osm_window.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
-const UnderlayWindowScript := preload("res://scripts/underlay_window.gd")
-const GradingWindowScript := preload("res://scripts/grading_window.gd")
+const UnderlayWindowScript := preload("res://scripts/pages/underlay_window.gd")
+const GradingWindowScript := preload("res://scripts/pages/grading_window.gd")
 const GradingScript := preload("res://scripts/draft/grading.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
@@ -404,26 +404,26 @@ const IMPORT_UNIT_CHOICES: Array[String] = [
 	"yards",
 	"US survey feet",
 ]
-const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
+const EstimateWindowScript := preload("res://scripts/pages/estimate_window.gd")
 const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
 const ScheduleBoardScript := preload("res://scripts/schedule_board.gd")
-const JobCostWindowScript := preload("res://scripts/job_cost_window.gd")
+const JobCostWindowScript := preload("res://scripts/pages/job_cost_window.gd")
 const JobDeskScript := preload("res://scripts/biz/job_desk.gd")
 const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
-const BillingWindowScript := preload("res://scripts/billing_window.gd")
+const BillingWindowScript := preload("res://scripts/pages/billing_window.gd")
 const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
-const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
+const LedgerWindowScript := preload("res://scripts/pages/ledger_window.gd")
 const AkauntingLedgerScript := preload("res://scripts/biz/akaunting.gd")
 const InvoiceNinjaLedgerScript := preload("res://scripts/biz/invoice_ninja.gd")
 const CloseoutDeskScript := preload("res://scripts/biz/closeout_desk.gd")
-const LayerWindowScript := preload("res://scripts/layer_window.gd")
-const SyncWindowScript := preload("res://scripts/sync_window.gd")
+const LayerWindowScript := preload("res://scripts/pages/layer_window.gd")
+const SyncWindowScript := preload("res://scripts/pages/sync_window.gd")
 const BizStoreScript := preload("res://scripts/biz/store.gd")
 const BizSyncScript := preload("res://scripts/biz/sync.gd")
 const BizHttpTransportScript := preload("res://scripts/biz/http_transport.gd")
-const CloseoutWindowScript := preload("res://scripts/closeout_window.gd")
+const CloseoutWindowScript := preload("res://scripts/pages/closeout_window.gd")
 const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
-const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
+const AnalyticsWindowScript := preload("res://scripts/pages/analytics_window.gd")
 const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const PlantSpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 ## The nursery order: the drawing's planting list and the price list turned into what to buy, and from
@@ -431,15 +431,15 @@ const PlantSpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 ## is a screen, so it does not.
 const PlantOrderScript := preload("res://scripts/biz/plant_order.gd")
 const PlantOrderWindowScript := preload("res://scripts/plants/plant_order_window.gd")
-const FoodWindowScript := preload("res://scripts/food_window.gd")
-const RotationWindowScript := preload("res://scripts/rotation_window.gd")
-const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
+const FoodWindowScript := preload("res://scripts/pages/food_window.gd")
+const RotationWindowScript := preload("res://scripts/pages/rotation_window.gd")
+const HarvestWindowScript := preload("res://scripts/pages/harvest_window.gd")
 const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
-const SeasonWindowScript := preload("res://scripts/season_window.gd")
-const FieldCaptureWindowScript := preload("res://scripts/field_window.gd")
+const SeasonWindowScript := preload("res://scripts/pages/season_window.gd")
+const FieldCaptureWindowScript := preload("res://scripts/pages/field_window.gd")
 const PlantKeyWindowScript := preload("res://scripts/plants/plant_key_window.gd")
-const SowingWindowScript := preload("res://scripts/sowing_window.gd")
-const YieldWindowScript := preload("res://scripts/yield_window.gd")
+const SowingWindowScript := preload("res://scripts/pages/sowing_window.gd")
+const YieldWindowScript := preload("res://scripts/pages/yield_window.gd")
 const PhoneFilesScript := preload("res://scripts/phone_files.gd")
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 ## Which way up this window's own shape is, which is the one part of a fold's posture that can be read: see
@@ -1973,22 +1973,14 @@ func place_the_left_column_for_a_device() -> void:
 ## `DraftController.EDIT_TOOLS`, `Plants` opens the library that already stands beside the palette, and `More`
 ## opens the drawer. `More` is not a menu of its own: a bar too narrow for fourteen menus already gathers the
 ## tail of them under a `More`, and this is that same gathering reached from the thumb's end of the screen.
-const TOUCH_TABS: Array[String] = ["Draw", "Dim", "Edit", "Plants", "More"]
-
-## The four dimension kinds, read off the tool module's own enum rather than written down as numbers: they are
-## what tells the `Dim` tab's tools from the `Draw` tab's, and a number copied here would be a second statement
-## of which tool draws a dimension, free to drift from the one the palette builds its own buttons from.
-const DIMENSION_KINDS: Array = [
-	DraftToolScript.Kind.DIMENSION,
-	DraftToolScript.Kind.DIMENSION_LINEAR,
-	DraftToolScript.Kind.DIMENSION_RADIUS,
-	DraftToolScript.Kind.DIMENSION_ANGULAR,
-]
-
-## How much of the room a sheet takes. A share of the room's own height rather than a number of pixels, so the
-## same plate is right on any screen - and the board keeps the rest, which is the whole reason a sheet stands
-## over the drawing instead of replacing it.
-const SHEET_OF_THE_ROOM := 0.45
+## The phone's furniture's own three tables. Each is an **alias to the one value** `TouchFurniture` holds and not
+## a copy of it, and they are named here because callers read them off *this* script by name: `test_touch_hud.gd`
+## through `HudScript.TOUCH_TABS`, and `tools/console.gd` through this file's own constant map. No type is stated
+## on them, because a constant given one cannot take its value from another script's constant.
+const TouchFurnitureScript := preload("res://scripts/touch_furniture.gd")
+const TOUCH_TABS = TouchFurnitureScript.TOUCH_TABS
+const DIMENSION_KINDS = TouchFurnitureScript.DIMENSION_KINDS
+const SHEET_OF_THE_ROOM = TouchFurnitureScript.SHEET_OF_THE_ROOM
 
 ## The tab in hand, by its name in `TOUCH_TABS`. Empty until one is pressed.
 var _touch_tab: String = ""
