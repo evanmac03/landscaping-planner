@@ -27,6 +27,13 @@ var mode: ViewController.ViewMode = ViewController.ViewMode.OVERHEAD_3D
 var pixels_per_metre: float = 20.0
 var transitioning: bool = false
 
+## **How much of the foot of the screen something else is standing in**, in this pane's own pixels. The two aids
+## are anchored to the bottom-right, so this one figure is the whole of what they need to know: `0.0` is a desk,
+## where nothing stands there, and the dock on a phone occupies the ~285 px that had both aids drawn *over* its own
+## `More` tab. **The HUD is what changes it**, for the reason this file is `@tool`: it reaches outside itself for
+## nothing, and a pane that read the dock's rectangle could not be edited against.
+var clear_of_the_foot: float = 0.0
+
 
 func set_mode(new_mode: ViewController.ViewMode) -> void:
 	if mode == new_mode:
@@ -52,6 +59,15 @@ func set_pixels_per_metre(value: float) -> void:
 		queue_redraw()
 
 
+## Stand both aids clear of whatever the HUD has at the foot of the screen - the dock on a phone, a page, or
+## nothing at all on a desk.
+func set_clear_of_the_foot(value: float) -> void:
+	if is_equal_approx(clear_of_the_foot, value):
+		return
+	clear_of_the_foot = value
+	queue_redraw()
+
+
 func _draw() -> void:
 	if transitioning:
 		return
@@ -71,7 +87,7 @@ func _draw_scale_bar() -> void:
 	var bar_pixels: float = metres * pixels_per_metre
 	var screen: Vector2 = size
 	var left: float = screen.x - 44.0 - bar_pixels
-	var top: float = screen.y - 52.0
+	var top: float = screen.y - 52.0 - clear_of_the_foot
 	var bar_height: float = 10.0
 
 	# A dark backing plate so the bar stays legible over grass or pale paving.
@@ -100,7 +116,7 @@ func _draw_scale_bar() -> void:
 func _draw_north_arrow() -> void:
 	# World -Z is "up" the plan view, so north is straight up on screen.
 	var screen: Vector2 = size
-	var tip := Vector2(screen.x - 62.0, screen.y - 168.0)
+	var tip := Vector2(screen.x - 62.0, screen.y - 168.0 - clear_of_the_foot)
 	var half_width: float = 13.0
 	var height: float = 40.0
 	var waist := tip.y + height * 0.68

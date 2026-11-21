@@ -62,10 +62,21 @@ func place_the_page() -> void:
 	# desk's own behaviour is visible here instead of inherited from a node that is no longer used.
 	custom_minimum_size = Vector2.ZERO if along_the_foot else wanted
 	var room: Vector2 = size
-	var across: float = (room.x - wanted.x) * 0.5
-	var down: float = room.y - wanted.y if along_the_foot else (room.y - wanted.y) * 0.5
+	# **A finger's page never stands taller than the room it was given, and this is the clamp that was missing.**
+	# The rectangle below was the page's minimum and never a share of the room, so a page wanting more than the room
+	# stood at a negative offset and hung past the foot: measured with `phone_touch_sweep` at the A16W's numbers,
+	# `SiteReportPanel`'s column came out **129 px past the foot of a 1185x666 room with its own `CloseReport` button
+	# off the screen altogether** - the only way out of the panel, and a finger could not reach it. The desk is
+	# untouched by this: `along_the_foot` is false there, so `standing` is `wanted` to the pixel.
+	#
+	# **This clamp is half of one change and is worse than nothing on its own.** Capped without something to reach
+	# the rest, the column is *clipped* rather than overflowing - the button still unreachable and now invisible too.
+	# Each long panel's column therefore sits inside a `ScrollContainer`, which is the palette's own wrapper.
+	var standing: Vector2 = Vector2(wanted.x, minf(wanted.y, room.y)) if along_the_foot else wanted
+	var across: float = (room.x - standing.x) * 0.5
+	var down: float = room.y - standing.y if along_the_foot else (room.y - standing.y) * 0.5
 	page.position = Vector2(across, down)
-	page.size = wanted
+	page.size = standing
 
 
 ## The page this wrapper holds, by the name every panel builder in `hud.gd` gives it.

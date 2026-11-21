@@ -71,6 +71,10 @@ const PHONE_SAFE_AREA := Rect2i(0, 100, 1080, 2240)
 ## instance, so nothing here calls into one - it asks the statics.
 const PalettePanelScript := preload("res://scripts/palette_panel.gd")
 
+## The reading the two sides share, and where an editor leaves its own for a run to compare with.
+const WorkspaceReportScript := preload("res://tools/workspace_report.gd")
+const EDITOR_READING := "user://touch_workspace_editor_reading.txt"
+
 ## The tab whose tools are a different list rather than a selection of the drawing tools. Named so the one
 ## comparison below reads as the fact it is.
 const EDIT_TAB := "Edit"
@@ -101,6 +105,7 @@ const NODES := {
 	"hints": "Root/Hints",
 	"menu_bar": "Root/TopBar/Row/MenuBar",
 	"top_bar": "Root/TopBar",
+	"overlay": "Root/Overlay",
 }
 
 
@@ -323,6 +328,7 @@ func _say_what_was_stood_up(furniture: TouchFurnitureScript) -> void:
 		(
 			"TOUCH WORKSHOP: %d words in the bar and %d tabs, each %.0f px tall with %.0f px of type"
 			+ ", at %.0f dpi; the dock's foot is %.0f px up a %.0f px room; %d tools in the strip"
+			+ "; on_a_finger=%s, built_at=%.0f dpi, row/dock shown=%s/%s"
 		)
 		% [
 			furniture.row.get_child_count(),
@@ -335,15 +341,84 @@ func _say_what_was_stood_up(furniture: TouchFurnitureScript) -> void:
 			absf(furniture.dock.offset_bottom),
 			room.y,
 			furniture.strip_row.get_child_count(),
+			# **The two readings that tell a view apart from a run**, said beside the sizes because they are the
+			# same question: `on_a_finger` is what `show_the_furniture` reads to decide whether the phone's
+			# furniture belongs on the glass at all, and `built_at` is the density it was made at - 450 on the
+			# device, this desk's 144 otherwise.
+			str(furniture.on_a_finger),
+			furniture.built_at,
+			str(furniture.row.visible),
+			str(furniture.dock.visible),
 		]
 	)
-	# **The three readings that tell a view-apart from a run, in one line, because a difference between the editor
-	# and F6 is exactly what this file is for and exactly what it kept failing to explain.** `on_a_finger` is what
-	# `show_the_furniture` reads to decide whether the phone's furniture belongs on the glass at all, `built_at` is
-	# the density every control was made at (450 is the phone, 144 is this desk), and the two `visible` flags are
-	# what the arrangement actually did - so a view that builds everything and shows none of it says so here rather
-	# than being read off a screenshot.
-	print(
-		("TOUCH WORKSHOP: on_a_finger=%s, built_at=%.0f dpi, and the row/dock are shown=%s/%s")
-		% [str(furniture.on_a_finger), furniture.built_at, str(furniture.row.visible), str(furniture.dock.visible)]
-	)
+	print("TOUCH WORKSHOP: the aids' clearance - %s" % furniture.foot_clearance_words())
+	_say_the_report()
+
+
+## The same reading on both sides, and the comparison when both are to hand.
+##
+## **An editor and a run are two different processes, so this is the only way the two can be held against each
+## other.** Each states the same block for the same nodes; an editor leaves its own in `user://`, and a run reads
+## that back and names what does not match - which is precisely the question a person asking "why does this not
+## look like F6" is asking, answered by a reading rather than by two pictures.
+##
+## `looks_built_for_a_finger` is said beside it because it is the fault that caused all of this: an editor states
+## no device, so its furniture is built at a desk's size and every control comes out under the floor a thumb needs.
+func _say_the_report() -> void:
+	# **The density the furniture was *built* at, not the one this machine reports now.** A view that stated a phone
+	# has already handed the desk's own density back by the time this is said, so `PhoneHud.dpi()` answers 144 beside
+	# furniture made at 450 - and 144 would measure every one of those buttons against a desk's floor and report a
+	# phone's screen clean. `built_at` is the density the sizes below were made at, so it is the only one a floor can
+	# honestly be measured against.
+	var density: float = PhoneHudScript.dpi() if _furniture == null else _furniture.built_at
+	var mine: Dictionary = WorkspaceReportScript.read(self, density)
+	var which: String = "an editor" if Engine.is_editor_hint() else "a run"
+	print("TOUCH WORKSHOP: the reading from %s" % which)
+	for line: String in WorkspaceReportScript.lines(mine):
+		print("  ", line)
+	for told: String in WorkspaceReportScript.looks_built_for_a_finger(mine):
+		print("  ! ", told)
+	if Engine.is_editor_hint():
+		_leave_the_reading_for_a_run(mine)
+		return
+	var theirs: Dictionary = WorkspaceReportScript.from_lines(_read_what_the_editor_left())
+	if theirs.is_empty():
+		print("TOUCH WORKSHOP: no editor reading to compare with - open this scene in the editor once first")
+		return
+	var named: Array[String] = WorkspaceReportScript.differences(theirs, mine)
+	if named.is_empty():
+		print("TOUCH WORKSHOP: the editor's own copy and this run agree on every node read")
+		return
+	print("TOUCH WORKSHOP: %d difference(s) from the editor's own copy:" % named.size())
+	for one: String in named:
+		print("  - ", one)
+
+
+## Leave this side's reading where a run can find it, through a temporary file and a rename - the house rule for
+## every write, so a write that fails never leaves a shorter file where the real one was.
+func _leave_the_reading_for_a_run(mine: Dictionary) -> void:
+	var temporary := EDITOR_READING + ".writing"
+	var file := FileAccess.open(temporary, FileAccess.WRITE)
+	if file == null:
+		print("TOUCH WORKSHOP: the reading could not be left for a run: ", FileAccess.get_open_error())
+		return
+	for line: String in WorkspaceReportScript.lines(mine):
+		file.store_line(line)
+	file.close()
+	DirAccess.rename_absolute(temporary, EDITOR_READING)
+
+
+## What an editor left, or nothing at all when it has never been opened there.
+func _read_what_the_editor_left() -> PackedStringArray:
+	if not FileAccess.file_exists(EDITOR_READING):
+		return PackedStringArray()
+	var file := FileAccess.open(EDITOR_READING, FileAccess.READ)
+	if file == null:
+		return PackedStringArray()
+	var out: PackedStringArray = PackedStringArray()
+	while not file.eof_reached():
+		var line := file.get_line()
+		if not line.is_empty():
+			out.append(line)
+	file.close()
+	return out

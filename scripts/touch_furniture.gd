@@ -111,12 +111,24 @@ var top_bar: PanelContainer = null
 ## The window the device's scale and dots-per-inch are read from, as `get_window()` would give it.
 var app_window: Window = null
 
+## The pane the drafting aids are drawn on, so they can be stood clear of the dock. **The aids are drawn behind
+## everything else and anchored to the bottom-right corner at fixed offsets**, knowing nothing about what stands
+## there - which is right, because a pane that read the dock's own rectangle could not be `@tool` and edited
+## against. Measured on the A16W's own specs the dock's 285 px put the north arrow over its own `More` tab.
+var overlay: HudOverlay = null
+
 ## The dots-per-inch the furniture was built at, captured by `build` while the device's own arrangement is
 ## certainly the one standing, and read back by `fit_the_strip` on the frame after. It exists because a caller
 ## may state a density for the length of the build - a development view does, so that a desk's 96 does not make
 ## every control a fifth of the height a thumb needs - and a fitting that asked the machine again would then
 ## measure the buttons it had just laid out against the wrong screen.
 var built_at: float = 0.0
+
+## The clearance the aids last stood at, or `-1.0` before any answer. It exists because **a panel placed
+## zero-height grows upward from its contents**, so the first read is taken while the dock is still growing and
+## answers a height it no longer has: measured, the clearance came out 187 px where the dock needed 295, and the
+## scale bar stayed drawn across the strip. The frame that answers the same figure twice is the one that stops.
+var _aids_clearance: float = -1.0
 
 ## What each control does, and **an empty `Callable` is allowed: it is the honest door for a view with nothing
 ## to run.** The button is built, sized and dressed; it simply presses nothing. A running program passes all six.
@@ -140,8 +152,19 @@ func build() -> void:
 	build_the_row()
 	build_the_tabs()
 	apply_the_plates()
-	if sheet_close != null and close_door.is_valid() and not sheet_close.pressed.is_connected(close_door):
-		sheet_close.pressed.connect(close_door)
+	# **The sheet's Close is a scene node, so nothing that builds a button ever touched it.** Measured on the
+	# A16W's own specs it came out 50x31 - a desk's row - on the only way out of the plant sheet by thumb, while
+	# the four words beside it in the bar came out 98 px. One file dressed what it *built* and left what it was
+	# *given* alone.
+	if sheet_close != null:
+		dress_for_a_finger(sheet_close)
+		if close_door.is_valid() and not sheet_close.pressed.is_connected(close_door):
+			sheet_close.pressed.connect(close_door)
+	# **Every button the bar carries, not only the four this file built.** The scene's own `3D view`, `Fit` and
+	# `Ground view` stand *beside* the row this file fills rather than inside it, so a walk from the row alone
+	# dresses the four words and reports the bar done. Measured on the A16W's own specs those three came out 31 px
+	# tall with `Fit` 28 px across, against a bar row of 98 - and the report named all three.
+	dress_the_bar_for_a_finger()
 
 
 ## The four controls the top bar carries on a phone, where a desk carries fourteen menus: the drawer, the layer
@@ -160,6 +183,34 @@ func build_the_row() -> void:
 	row.add_child(a_button("Find", "Find a command by its name", find_door))
 
 
+## Dress every button the bar carries for a finger - **the ones the scene supplied as well as the ones built here**.
+##
+## The walk starts at the row's *parent* rather than at `row` itself, and that is the whole point of it: the bar's
+## own `3D view`, `Fit` and `Ground view` stand **beside** the row this file fills rather than inside it, so a walk
+## from `row` alone would dress the four words and report the bar finished. Which control stands where is the
+## scene's business; what a finger meets on it is this file's.
+func dress_the_bar_for_a_finger() -> void:
+	if row == null:
+		return
+	var bar: Node = row.get_parent()
+	if bar == null:
+		return
+	for node: Node in _every_control_under(bar):
+		var button: Button = node as Button
+		if button != null:
+			dress_for_a_finger(button)
+
+
+## Every control under a node, the node itself excluded. **The walk goes down**, which is the point: what a finger
+## meets is rarely the node a file believes it owns.
+func _every_control_under(root: Node) -> Array[Node]:
+	var out: Array[Node] = []
+	for child: Node in root.get_children():
+		out.append(child)
+		out.append_array(_every_control_under(child))
+	return out
+
+
 ## One button of the touch furniture, sized by the same two floors every other control on a device is sized by.
 ##
 ## **The height is `PhoneHud.row_height`, read rather than restated**, so a control built here and a palette
@@ -174,13 +225,30 @@ func a_button(words: String, tooltip: String, door: Callable) -> Button:
 	button.tooltip_text = tooltip
 	if door.is_valid():
 		button.pressed.connect(door)
-	# The focus is off every button the HUD draws, and for the reason the palette's own note keeps: Godot hands
-	# Tab to focus navigation the moment a Control holds it, and a focused button swallows the keys a drawing
-	# tool is driven by.
-	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(0.0, row_height())
-	button.add_theme_font_size_override("font_size", type_size())
+	dress_for_a_finger(button)
 	return button
+
+
+## A button dressed as a finger's target - **the one place any button on a device is dressed**, the scene's own
+## included, which is the fault this exists to close: a file that only dressed what it *built* left every control
+## it was handed at whatever size the scene gave it.
+##
+## The floor is a square of `PhoneHud.row_height`, read rather than restated: the words may want more width and a
+## `Control` grows for them, but no target a finger meets is narrower than the row it stands in - the sheet's Close
+## came out 50 px wide on a 1080 px glass. The height is asked of `PhoneHud` so a control built here and a palette
+## fitted elsewhere cannot come out at two heights on one screen.
+##
+## The focus is off every button the HUD draws, and for the reason the palette's own note keeps: Godot hands Tab to
+## focus navigation the moment a Control holds it, and a focused button swallows the keys a drawing tool is driven
+## by.
+func dress_for_a_finger(button: Button) -> void:
+	var square: float = row_height()
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(
+		maxf(button.custom_minimum_size.x, square),
+		maxf(button.custom_minimum_size.y, square),
+	)
+	button.add_theme_font_size_override("font_size", type_size())
 
 
 ## A row's height on this device, in the room's own pixels.
@@ -312,6 +380,12 @@ func place_the_dock() -> void:
 	dock.offset_right = -margin
 	dock.offset_bottom = -from_the_foot
 	dock.offset_top = dock.offset_bottom
+	# **The aids are stood clear on the next real frame, and `call_deferred` is not one of those.** A deferred call
+	# made from inside `_process` runs at the end of the *same* frame, before the dock has laid out at the offsets
+	# just set - so the first figure read was 161 px against the 285 the dock really occupies. `process_frame`
+	# waits for the frame the layout actually happens on.
+	if dock.is_inside_tree():
+		dock.get_tree().process_frame.connect(stand_the_aids_clear_of_the_dock, CONNECT_ONE_SHOT)
 	# A `RefCounted` has no `call_deferred` of its own, so the callable is the thing deferred - and the reason it
 	# is deferred at all is the one every fitting here shares: a control asked for its size before it has laid out
 	# answers the size it had before.
@@ -333,6 +407,73 @@ func top_of_the_foot_line() -> float:
 		return 0.0
 	var where: Rect2 = hints.get_global_rect()
 	return maxf(where.position.y, 0.0)
+
+
+## Tell the aids pane how much of the foot of the screen the HUD is standing in, so the aids are not drawn over it.
+##
+## **The dock's height is its own contents'**, so the top of the furniture is read from the dock's own rectangle
+## rather than from the offsets the scene gave it - the same floor `top_of_the_foot_line` keeps. The **highest**
+## thing standing there decides it, because the aids may not be drawn over any of it.
+##
+## **Asked again while the answer is still moving, and that is the whole of it.** A panel placed zero-height grows
+## upward from its contents, so a read taken on the first frame after the placement answers a height the dock has
+## already outgrown - measured, 187 px against the 295 the dock really occupied, which lifted the north arrow off
+## its `More` tab and left the scale bar drawn across the strip. This re-asks while the figure it computes changes
+## and stops the moment two frames agree, so it settles without polling for the life of the program.
+##
+## A desk answers zero and the aids stay exactly where a desk has always had them.
+func stand_the_aids_clear_of_the_dock() -> void:
+	if overlay == null or dock == null or not on_a_finger:
+		return
+	var room: Vector2i = Vector2i(dock.get_parent_area_size())
+	var highest: float = float(room.y)
+	if dock.visible and dock.size.y > 0.0:
+		highest = minf(highest, dock.get_global_rect().position.y)
+	var hints_top: float = top_of_the_foot_line()
+	if hints_top > 0.0:
+		highest = minf(highest, hints_top)
+	var clear: float = maxf(0.0, float(room.y) - highest)
+	overlay.set_clear_of_the_foot(clear)
+	# Asked again while the answer is still moving - **on the next frame, for the reason the placement gives.** A
+	# re-ask built on `call_deferred` reads the dock twice inside one frame and stops on the first answer: measured,
+	# the aids were told 161 px while the dock occupied 285.
+	if not is_equal_approx(clear, _aids_clearance) and dock.is_inside_tree():
+		_aids_clearance = clear
+		dock.get_tree().process_frame.connect(stand_the_aids_clear_of_the_dock, CONNECT_ONE_SHOT)
+
+
+## The figures behind the clearance the aids stand at, in words a person reads.
+##
+## **Because this fault was theorised about twice and both theories were wrong.** The clearance came out 187 px
+## where the dock's occupation looked like 295, and the read was made self-correcting on the guess that it had
+## been taken before the dock grew - which produced the *identical* figure and refuted the guess. What is left is
+## a question about *which* rectangle is read, and that is a question a printed number answers and a theory
+## cannot: this names the room, the dock's own rect beside the offsets that placed it, the hints line's top, the
+## clearance arrived at, and the figure the aids were actually told.
+func foot_clearance_words() -> String:
+	if dock == null:
+		return "no dock to measure"
+	var room: Vector2i = Vector2i(dock.get_parent_area_size())
+	var where: Rect2 = dock.get_global_rect()
+	var said: float = overlay.clear_of_the_foot if overlay != null else -1.0
+	return (
+		(
+			"room=%dx%d  dock=%s  (top=%.0f height=%.0f offsets t=%.0f b=%.0f)  hints=%.0f  clearance=%.0f"
+			+ "  aids told=%.0f"
+		)
+		% [
+			room.x,
+			room.y,
+			str(where),
+			where.position.y,
+			dock.size.y,
+			dock.offset_top,
+			dock.offset_bottom,
+			top_of_the_foot_line(),
+			maxf(0.0, float(room.y) - where.position.y),
+			said,
+		]
+	)
 
 
 ## Stand the sheet above the dock's own row rather than over it, so the tabs stay reachable while it is open -

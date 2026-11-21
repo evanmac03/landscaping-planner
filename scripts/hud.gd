@@ -2011,6 +2011,10 @@ func _furniture() -> TouchFurnitureScript:
 	furniture.top_bar = top_bar
 	furniture.hints = hints
 	furniture.menu_bar = menu_bar
+	# **The aids pane, so the aids can be stood clear of the dock.** Both are anchored to the bottom-right corner
+	# at fixed offsets and know nothing about what stands there; on the A16W's own specs that put the north arrow
+	# over the dock's own `More` tab. Where the dock ended up is the furniture's business, not the pane's.
+	furniture.overlay = overlay
 	furniture.palette_column = palette_column
 	furniture.sheet_title = touch_sheet_title
 	furniture.tab_in_hand = _touch_tab
@@ -5060,9 +5064,16 @@ func _build_keys_panel() -> void:
 		# The same furniture as every other box on the screen, borrowed rather than copied: one
 		# panel style, so a change to it changes all of them.
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: a finger's page is clamped to the room and this panel is longer than one. The reasoning, the
+	# measurements and the choice of the palette's own wrapper are written out at `_build_site_report_panel`.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5418,9 +5429,19 @@ func _build_site_report_panel() -> void:
 	panel.custom_minimum_size = Vector2(620.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# **The column scrolls, because a finger's page is capped at the room and a site report is longer than one.**
+	# This is the palette's own wrapper rather than a second kind of scroller: the length scrolls and the width does
+	# not, because a row too wide is a fault a person can see and leaving it scrollable would only hide it, and
+	# `follow_focus` brings a button below the fold into view when Tab reaches it. Measured before this: with the
+	# page clamped, `CloseReport` stood 129 px past the foot of a 1185x666 room - the panel's only way out.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5458,7 +5479,7 @@ func site_report_text() -> String:
 func open_site_report() -> void:
 	if _site_report_panel == null:
 		return
-	var body := _site_report_panel.get_node_or_null(^"Page/Column/ReportText")
+	var body := _site_report_panel.get_node_or_null(^"Page/Scroll/Column/ReportText")
 	if body is Label:
 		(body as Label).text = site_report_text()
 	_site_report_panel.visible = true
@@ -5490,9 +5511,15 @@ func _build_survey_panel() -> void:
 	panel.custom_minimum_size = Vector2(640.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5553,10 +5580,10 @@ func open_survey_panel(parsed: Dictionary) -> void:
 	if _survey_panel == null:
 		return
 	_pending_survey = parsed
-	var body := _survey_panel.get_node_or_null(^"Page/Column/SurveyText")
+	var body := _survey_panel.get_node_or_null(^"Page/Scroll/Column/SurveyText")
 	if body is Label:
 		(body as Label).text = survey_report_text()
-	var answer := _survey_panel.get_node_or_null(^"Page/Column/Buttons/ImportSurvey")
+	var answer := _survey_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportSurvey")
 	if answer is Button:
 		(answer as Button).disabled = not survey_import_enabled()
 	_survey_panel.visible = true
@@ -5600,9 +5627,15 @@ func _build_dxf_panel() -> void:
 	panel.custom_minimum_size = Vector2(680.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5694,12 +5727,12 @@ func open_dxf_panel() -> void:
 	_pending_dxf = _read_pending_dxf()
 	if _dxf_panel == null:
 		return
-	var body := _dxf_panel.get_node_or_null(^"Page/Column/DxfText")
+	var body := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/DxfText")
 	if body is Label:
 		(body as Label).text = dxf_report_text()
 	# The units row is live only while the file's own answer is missing, which is the only time an
 	# answer from a person is what the file needs.
-	var choice := _dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits")
+	var choice := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits")
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		var needed := int(_pending_dxf.get("insunits", 0)) == 0
@@ -5707,7 +5740,7 @@ func open_dxf_panel() -> void:
 		option.tooltip_text = ("this file does not say what its units are"
 			if needed
 			else "the file states its own units")
-	var answer := _dxf_panel.get_node_or_null(^"Page/Column/Buttons/ImportDxf")
+	var answer := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportDxf")
 	if answer is Button:
 		(answer as Button).disabled = not dxf_import_enabled()
 	_dxf_panel.visible = true
@@ -5729,7 +5762,7 @@ func close_dxf_panel() -> void:
 ## `item_selected`, so this cannot come back round.
 func choose_dxf_units(units: String) -> void:
 	_dxf_units = units
-	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		for index in option.item_count:
@@ -5742,7 +5775,7 @@ func choose_dxf_units(units: String) -> void:
 ## What the units drop-down is currently showing, for a run that wants to see that it agrees with what
 ## the file was read as.
 func dxf_units_text() -> String:
-	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		if option.item_count > 0:
@@ -5861,9 +5894,15 @@ func _build_landxml_panel() -> void:
 	panel.custom_minimum_size = Vector2(680.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5953,13 +5992,13 @@ func open_landxml_panel() -> void:
 	_pending_landxml = _read_pending_landxml()
 	if _landxml_panel == null:
 		return
-	var body := _landxml_panel.get_node_or_null(^"Page/Column/LandXmlText")
+	var body := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/LandXmlText")
 	if body is Label:
 		(body as Label).text = landxml_report_text()
 	# The units row is live only while the file's own answer is missing. A plat that names its linear
 	# unit is not asked about, for the reason the DXF page gives: answering for a file that already
 	# answered is how a drawing gets halved by accident.
-	var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+	var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		var needed := String(_pending_landxml.get("declared_unit", "")).is_empty()
@@ -5967,7 +6006,7 @@ func open_landxml_panel() -> void:
 		option.tooltip_text = ("this plat does not say what its units are"
 			if needed
 			else "the file states its own units")
-	var answer := _landxml_panel.get_node_or_null(^"Page/Column/Buttons/ImportLandXml")
+	var answer := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportLandXml")
 	if answer is Button:
 		(answer as Button).disabled = not landxml_import_enabled()
 	_landxml_panel.visible = true
@@ -5988,7 +6027,7 @@ func close_landxml_panel() -> void:
 func choose_landxml_units(units: String) -> void:
 	_landxml_units = units
 	if _landxml_panel != null:
-		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 		if choice is OptionButton:
 			var option := choice as OptionButton
 			for index in option.item_count:
@@ -6002,7 +6041,7 @@ func choose_landxml_units(units: String) -> void:
 ## the file was read as.
 func landxml_units_text() -> String:
 	if _landxml_panel != null:
-		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 		if choice is OptionButton:
 			var option := choice as OptionButton
 			if option.item_count > 0:
@@ -7117,9 +7156,15 @@ func _build_hatch_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -7206,9 +7251,15 @@ func _build_irrigation_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -7328,9 +7379,15 @@ func _build_lighting_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
