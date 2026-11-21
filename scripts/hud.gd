@@ -2009,6 +2009,12 @@ func _furniture() -> TouchFurnitureScript:
 	furniture.sheet = touch_sheet
 	furniture.sheet_close = touch_sheet_close
 	furniture.top_bar = top_bar
+	furniture.hints = hints
+	furniture.menu_bar = menu_bar
+	# The finger question and the palette's own gap, both handed over as values: the module asks no device and
+	# states no number, and a view with no HUD can say `true` and still stand the furniture up.
+	furniture.on_a_finger = shows_touch_controls()
+	furniture.palette_gap = PALETTE_GAP
 	furniture.app_window = get_window()
 	furniture.drawer_door = _show_the_touch_drawer
 	furniture.layer_door = _show_the_layer_choices
@@ -2056,71 +2062,15 @@ func _touch_tab_tooltip(tab: String) -> String:
 ## `working` is the question the frame has already asked - whether the drawing's own furniture belongs on the
 ## screen at all - so a presentation and a painted sheet put this away with everything else.
 func _show_the_touch_furniture(working: bool) -> void:
-	var on_a_finger: bool = shows_touch_controls()
-	if touch_row != null:
-		touch_row.visible = on_a_finger and working
-	# The menus stand exactly where they always did on a desk; on a finger the drawer is the same plan reached
-	# from a button a thumb can hit, so the bar itself is not drawn twice.
-	if menu_bar != null:
-		menu_bar.visible = not on_a_finger
-	if touch_dock != null:
-		touch_dock.visible = on_a_finger and working
-	# A sheet is part of the drawing's furniture rather than a page of its own, so a presentation or a painted
-	# sheet puts it away with the rest - and whatever it borrowed is handed straight back when that happens.
-	if touch_sheet != null and touch_sheet.visible and not (on_a_finger and working):
-		_close_the_touch_sheet()
+	_furniture().show_the_furniture(working)
 
 
-## Put the dock along the foot of the screen, above whatever the device keeps there for itself.
-##
-## The band is the one the devices this project has measured keep along their foot - the swipe that goes back,
-## which the engine does not report as a safe area - and it is read off `PhoneHud` rather than stated here. On a
-## desk every number is zero and the scene's own offsets come back unchanged, which is the same floor
-## `offsets_for_the_left_column` keeps for the palette.
-##
-## The rect is stated **zero-height** and grows upward, because `grow_vertical` is the beginning: a panel's
-## height is its own contents' and not a number written into a file for one screen.
 func _place_the_touch_dock() -> void:
-	if touch_dock == null or not shows_touch_controls():
-		return
-	var room: Vector2i = Vector2i(touch_dock.get_parent_area_size())
-	var margin: float = float(
-		PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
-	)
-	var foot: float = float(PhoneHudScript.kept_foot(room))
-	# **Two things the dock may not be drawn over, and the second is the one that was missed.** The first is the
-	# band the device keeps along its foot - the swipe that goes back, which the engine does not report as a safe
-	# area and which `PhoneHud` states instead. The second is the **line of hints**, which at a finger's type
-	# wraps onto three lines and stands far higher up the screen than a desk's one-line plate does: a dock placed
-	# above the device's band alone was drawn straight over the words a person is reading.
-	#
-	# This is the same fault `place_the_left_column_for_a_device` was written for, found on the other piece of
-	# furniture and by the same instrument - a check that asks whether the panel stands *between* the bar's foot
-	# and the foot line's top. Both ends are floors for the reason that placement keeps: a desk's own numbers are
-	# already inside them and come back to the pixel.
-	var from_the_foot: float = maxf(foot + margin, float(room.y) - _the_top_of_the_foot_line() + PALETTE_GAP)
-	touch_dock.offset_left = margin
-	touch_dock.offset_right = -margin
-	touch_dock.offset_bottom = -from_the_foot
-	touch_dock.offset_top = touch_dock.offset_bottom
-	_place_the_touch_sheet.call_deferred()
+	_furniture().place_the_dock()
 
 
-## The top of the line of hints, in the room's own pixels: what is standing at the foot of the screen that the
-## dock and the sheet may not be drawn over.
-##
-## Read off the plate's own rectangle rather than from the offsets the scene gave it, because that plate is
-## exactly what moves when the type grows - the scene's 846 is right for a desk's one line of words and wrong by
-## most of a screen for a phone's three.
-##
-## Zero when there is no plate to read, which is the honest answer for a hidden one: a plate that is not drawn
-## cannot be drawn over, and a stale rectangle from a plate that was put away would hold this furniture up the
-## screen for no reason at all.
 func _the_top_of_the_foot_line() -> float:
-	if hints == null or not hints.visible:
-		return 0.0
-	var where: Rect2 = hints.get_global_rect()
-	return maxf(where.position.y, 0.0)
+	return _furniture().top_of_the_foot_line()
 
 
 ## Stand the sheet above the dock's own row rather than over it, so the tabs stay reachable while it is open -
@@ -2135,21 +2085,7 @@ func _the_top_of_the_foot_line() -> float:
 ## part of it, so it is *sized* to the room - a sheet that grew to its contents would cover the drawing it
 ## exists to leave visible.
 func _place_the_touch_sheet() -> void:
-	if touch_sheet == null or touch_dock == null or not shows_touch_controls():
-		return
-	var room: Vector2i = Vector2i(touch_sheet.get_parent_area_size())
-	var margin: float = float(
-		PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
-	)
-	# Above the dock as the dock really stands - its own offsets, read rather than worked out a second time -
-	# so the two cannot come to overlap: the dock has already been held clear of the foot line, and the sheet
-	# inherits that clearance by standing on the dock's own top.
-	var above_the_dock: float = absf(touch_dock.offset_bottom) + maxf(touch_dock.size.y, _touch_row_height())
-	var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * _touch_row_height())
-	touch_sheet.offset_left = margin
-	touch_sheet.offset_right = -margin
-	touch_sheet.offset_bottom = -above_the_dock
-	touch_sheet.offset_top = -(above_the_dock + tall)
+	_furniture().place_the_sheet()
 
 
 ## The plate a panel wears on a finger: the dock's own look, drawn by the one place that states it.

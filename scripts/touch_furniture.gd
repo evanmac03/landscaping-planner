@@ -233,3 +233,115 @@ func a_dock_plate() -> StyleBox:
 	if top_bar == null:
 		return null
 	return ChromeStyleScript.dock_plate(top_bar.get_theme_stylebox(&"panel"), 0.0)
+
+
+## The line of hints standing at the foot of the screen, and what else the placement has to know about the room.
+var hints: PanelContainer = null
+var menu_bar: MenuBar = null
+
+## **Whether a finger is here, stated rather than asked.** The module cannot call the HUD's own
+## `shows_touch_controls`, and a development view has no device to ask anyway - so whoever holds the furniture
+## says what the arrangement is for. A view standing the phone's arrangement up says `true`.
+var on_a_finger: bool = false
+
+## The gap the palette's own placement keeps between two pieces of furniture, handed in rather than restated.
+var palette_gap: float = 0.0
+
+
+## Say which of the two arrangements is up: the dock and the row of controls, or the palette and the menus.
+##
+## `working` is the question the frame has already asked - whether the drawing's own furniture belongs on the
+## screen at all - so a presentation and a painted sheet put this away with everything else.
+func show_the_furniture(working: bool) -> void:
+	if row != null:
+		row.visible = on_a_finger and working
+	# The menus stand exactly where they always did on a desk; on a finger the drawer is the same plan reached
+	# from a button a thumb can hit, so the bar itself is not drawn twice.
+	if menu_bar != null:
+		menu_bar.visible = not on_a_finger
+	if dock != null:
+		dock.visible = on_a_finger and working
+	# A sheet is part of the drawing's furniture rather than a page of its own, so a presentation or a painted
+	# sheet puts it away with the rest - and whatever it borrowed is handed straight back when that happens.
+	if sheet != null and sheet.visible and not (on_a_finger and working) and close_door.is_valid():
+		close_door.call()
+
+
+## Put the dock along the foot of the screen, above whatever the device keeps there for itself.
+##
+## The band is the one the devices this project has measured keep along their foot - the swipe that goes back,
+## which the engine does not report as a safe area - and it is read off `PhoneHud` rather than stated here. On a
+## desk every number is zero and the scene's own offsets come back unchanged, which is the same floor
+## `offsets_for_the_left_column` keeps for the palette.
+##
+## The rect is stated **zero-height** and grows upward, because `grow_vertical` is the beginning: a panel's
+## height is its own contents' and not a number written into a file for one screen.
+func place_the_dock() -> void:
+	if dock == null or not on_a_finger:
+		return
+	var room: Vector2i = Vector2i(dock.get_parent_area_size())
+	var margin: float = float(PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi()))
+	var foot: float = float(PhoneHudScript.kept_foot(room))
+	# **Two things the dock may not be drawn over, and the second is the one that was missed.** The first is the
+	# band the device keeps along its foot - the swipe that goes back, which the engine does not report as a safe
+	# area and which `PhoneHud` states instead. The second is the **line of hints**, which at a finger's type
+	# wraps onto three lines and stands far higher up the screen than a desk's one-line plate does: a dock placed
+	# above the device's band alone was drawn straight over the words a person is reading.
+	#
+	# This is the same fault `place_the_left_column_for_a_device` was written for, found on the other piece of
+	# furniture and by the same instrument - a check that asks whether the panel stands *between* the bar's foot
+	# and the foot line's top. Both ends are floors for the reason that placement keeps: a desk's own numbers are
+	# already inside them and come back to the pixel.
+	var from_the_foot: float = maxf(foot + margin, float(room.y) - top_of_the_foot_line() + palette_gap)
+	dock.offset_left = margin
+	dock.offset_right = -margin
+	dock.offset_bottom = -from_the_foot
+	dock.offset_top = dock.offset_bottom
+	# A `RefCounted` has no `call_deferred` of its own, so the callable is the thing deferred - and the reason it
+	# is deferred at all is the one every fitting here shares: a control asked for its size before it has laid out
+	# answers the size it had before.
+	Callable(self, &"place_the_sheet").call_deferred()
+
+
+## The top of the line of hints, in the room's own pixels: what is standing at the foot of the screen that the
+## dock and the sheet may not be drawn over.
+##
+## Read off the plate's own rectangle rather than from the offsets the scene gave it, because that plate is
+## exactly what moves when the type grows - the scene's 846 is right for a desk's one line of words and wrong by
+## most of a screen for a phone's three.
+##
+## Zero when there is no plate to read, which is the honest answer for a hidden one: a plate that is not drawn
+## cannot be drawn over, and a stale rectangle from a plate that was put away would hold this furniture up the
+## screen for no reason at all.
+func top_of_the_foot_line() -> float:
+	if hints == null or not hints.visible:
+		return 0.0
+	var where: Rect2 = hints.get_global_rect()
+	return maxf(where.position.y, 0.0)
+
+
+## Stand the sheet above the dock's own row rather than over it, so the tabs stay reachable while it is open -
+## a sheet that covered its own door would be a panel with no way back to the board.
+##
+## **The dock's height is its own contents', so it is read rather than assumed**, and this is asked on the frame
+## after the dock was placed for the reason every fitting here is deferred: a control asked for its size before
+## it has laid out answers the size it had before. A sheet placed from a guess would either cover the tabs or
+## leave a gap the width of a row.
+##
+## Its own height is a share of the room and not its contents' minimum: a sheet is the board with a panel over
+## part of it, so it is *sized* to the room - a sheet that grew to its contents would cover the drawing it
+## exists to leave visible.
+func place_the_sheet() -> void:
+	if sheet == null or dock == null or not on_a_finger:
+		return
+	var room: Vector2i = Vector2i(sheet.get_parent_area_size())
+	var margin: float = float(PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi()))
+	# Above the dock as the dock really stands - its own offsets, read rather than worked out a second time -
+	# so the two cannot come to overlap: the dock has already been held clear of the foot line, and the sheet
+	# inherits that clearance by standing on the dock's own top.
+	var above_the_dock: float = absf(dock.offset_bottom) + maxf(dock.size.y, row_height())
+	var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * row_height())
+	sheet.offset_left = margin
+	sheet.offset_right = -margin
+	sheet.offset_bottom = -above_the_dock
+	sheet.offset_top = -(above_the_dock + tall)
