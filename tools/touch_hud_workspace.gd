@@ -79,6 +79,11 @@ const EDITOR_READING := "user://touch_workspace_editor_reading.txt"
 ## comparison below reads as the fact it is.
 const EDIT_TAB := "Edit"
 
+## What a verdict line begins with in the reading an editor leaves. **The marker is the whole mechanism**: a run
+## reads that file to compare, and `from_lines` skips anything that is not `path | facts` - so an editor's own
+## judgement can travel beside its numbers without disturbing the comparison it travels with.
+const VERDICT_LINE := "! "
+
 ## The phone this program is aimed at: the A16W's own glass, which reports 450 dots to the inch. Stated in the
 ## words the other device tools state it in, because it is the device and not this file's choice.
 const PHONE_DPI := 450.0
@@ -109,8 +114,24 @@ const NODES := {
 }
 
 
-## Whether the arrangement has been stood up already, so the two doors below cannot do it twice.
+## Whether the arrangement is **standing**, so the two doors below cannot do it twice.
+##
+## **It records what was achieved and not what was attempted**, and that is a fault paid for twice. It was set
+## *before* the work, so a failure anywhere inside `_stand_the_phone_arrangement` left it set: the guard then
+## answered "already done" for the rest of the session while nothing had been done at all. That is how the 2D
+## workspace came to be blank with no way back short of reloading the project - the editor's own console held two
+## `TOUCH WORKSHOP: standing...` lines and the scene showed none of the furniture. A guard that records "I tried"
+## is a silence laid over the very fault it exists to survive.
 var _stood_up: bool = false
+
+## How many times the arrangement has been asked to stand itself up, said in the line that opens each attempt.
+##
+## **It exists because "it only ever builds once" was argued from a console holding two lines, which measures
+## nothing.** An editor's console is a buffer with a cap, so two lines can as easily be the last two of two
+## thousand - and the name Godot gives a node (`@Button@21445`) counts every node the *process* has ever made, so it
+## says nothing at all about how often *this* built. A count printed on every attempt is the difference between the
+## two: one line means one build and a ream of them means a loop, and neither can be mistaken for the other.
+var _times_stood_up: int = 0
 
 ## How many frames have gone by since the arrangement was built, or -1 when there is nothing left to wait for.
 ## **The frames are counted here rather than awaited**, and the reason is a fault that was measured: see
@@ -163,16 +184,23 @@ func _keep_counting_the_frames() -> void:
 func _stand_it_up_once() -> void:
 	if _stood_up:
 		return
-	_stood_up = true
 	_stand_the_phone_arrangement()
+	# **Set after, never before.** A refusal inside the arrangement leaves this false, so the next frame asks again -
+	# which is what makes the view heal itself once the cause is gone instead of staying blank until a reload. The
+	# arrangement prints its own progress as it goes, so a retry that keeps failing is loud rather than invisible.
+	_stood_up = true
 
 
 ## Build the phone's furniture out of this scene's own nodes, say a finger is here, and stand it where a finger
 ## would find it.
 func _stand_the_phone_arrangement() -> void:
 	# Said first, and before anything can refuse: a view that stops part-way names itself, so the line below is
-	# the difference between "nothing happened" and "this much happened, and then it stopped".
-	print("TOUCH WORKSHOP: standing the phone's arrangement up from this scene's own nodes")
+	# the difference between "nothing happened" and "this much happened, and then it stopped". **And it counts**,
+	# so that a retry that never succeeds is a number going up rather than a silence - see `_times_stood_up`.
+	_times_stood_up += 1
+	print(
+		"TOUCH WORKSHOP: standing the phone's arrangement up from this scene's own nodes (attempt %d)" % _times_stood_up
+	)
 	var furniture: TouchFurnitureScript = TouchFurnitureScript.new()
 	var missing: PackedStringArray = PackedStringArray()
 	for key: String in NODES:
@@ -201,7 +229,37 @@ func _stand_the_phone_arrangement() -> void:
 	PhoneHudScript.force_density(PHONE_DPI)
 	PhoneHudScript.force_display(PHONE_SCREEN, PHONE_SAFE_AREA)
 	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+	# **Handed to the furniture as well as stated to `PhoneHud`, and the second is not decoration.** In an editor a
+	# plain script is a separate copy of itself with its own statics, so the density the view states above is not
+	# always the density the furniture reads back - measured, the 2D workspace laid the bar out at the desk's 31 px
+	# with the theme's 16 px type while F6 came out at 97 and 41. Every number the furniture needs travels by hand.
+	furniture.stated_density = PHONE_DPI
+	# 1.0, because that is what this machine's own window gives the run: `canvas_scale` is the window's size over its
+	# visible rect, and a desk's is one. A view that stated nothing here would be the only thing in the arrangement
+	# still asking the editor's window - which is the question the phone's furniture must not be asked.
+	furniture.stated_scale = 1.0
 	furniture.build()
+	# **The three numbers a wrong size can come from, printed at the one moment all three can be read.** A row's
+	# height is `PhoneHud`'s millimetre floor times the stated density, divided by the canvas scale - so a 31 px
+	# button beside a stated 450 dpi can only mean the *scale* is not 1, and after the stated device has been handed
+	# back neither figure can be told from the other. This window's scale is the suspect and not the density: the
+	# node stands in the editor's own `SubViewport`, and `canvas_scale` divides the window's size by its *visible*
+	# rect, which the editor is free to make different. Said here rather than reasoned about afterwards.
+	var made: Button = null
+	if furniture.row.get_child_count() > 0:
+		made = furniture.row.get_child(0) as Button
+	var tall: float = 0.0
+	var type_px: float = 0.0
+	if made != null:
+		tall = made.custom_minimum_size.y
+		type_px = float(made.get_theme_font_size(&"font_size"))
+	print(
+		(
+			"TOUCH WORKSHOP: at the moment of building - stated %.0f dpi, canvas scale %.3f, built_at=%.0f"
+			+ "; a button came out %.0f px tall and %.0f px of type"
+		)
+		% [PhoneHudScript.dpi(), PhoneHudScript.canvas_scale(furniture.app_window), furniture.built_at, tall, type_px]
+	)
 	# **The palette's own controls, built here for the same reason the strip's stand-ins are.** `PalettePanel` is a
 	# plain node script, so in an editor nothing calls its `build` and the column stands empty: no arm toggle, no
 	# grid of tools, no layer row, no commands. A null controller is the case its own doc allows - the rows are drawn
@@ -214,13 +272,21 @@ func _stand_the_phone_arrangement() -> void:
 	# the running arrangement avoids by putting the palette away on a finger, and this view is the phone's
 	# arrangement. The column is built because the scene holds it and because the strip's stand-ins are handed back
 	# to it; it is left hidden for the reason a phone leaves it hidden.
-	# **Only where the column's own script has an instance, which is never in an editor.** That guard is not
-	# decoration: `PalettePanel` is a plain node script, so in a 2D view the node is there but none of its methods
-	# are, and calling one is a runtime error - and a runtime error stops this whole function. That is exactly how
-	# the furniture came to *exist* in the editor and stay *invisible*: the four words and the five tabs were
-	# built, and then this call stopped the arrangement before `show_the_furniture` could show any of it. In the
+	# **Only where the column's own script has an instance, and `has_method` is NOT the test for that.** That guard
+	# is not decoration: `PalettePanel` is a plain node script, so in a 2D view the node is there but none of its
+	# methods are, and calling one is a runtime error - and a runtime error stops this whole function. That is
+	# exactly how the furniture came to *exist* in the editor and stay *invisible*: the four words and the five tabs
+	# were built, and then this call stopped the arrangement before `show_the_furniture` could show any of it. In the
 	# running program the script has an instance and the whole palette is built.
-	if furniture.palette_column != null and furniture.palette_column.has_method(&"build"):
+	#
+	# **The first version of this guard asked `has_method`, and it answered `true`.** A placeholder node's script
+	# resource is loaded, so its method list is real and the question is answered from it, while the *call* refuses:
+	# measured, the editor's own console carried two `Invalid call function 'build' ... Attempt to call a method on a
+	# placeholder instance. Check if the script is in tool mode.` at this line, and the furniture stayed invisible
+	# for as long as they did. The honest question is the one the error message names: **is this script in tool
+	# mode?** Outside an editor every script has an instance, and inside one only a `@tool` script does.
+	var column_script: Script = furniture.palette_column.get_script() as Script
+	if column_script != null and (not Engine.is_editor_hint() or column_script.is_tool()):
 		furniture.palette_column.build(null, { })
 	PhoneHudScript.force_density(0.0)
 	PhoneHudScript.force_display(Vector2i.ZERO, Rect2i())
@@ -355,6 +421,62 @@ func _say_what_was_stood_up(furniture: TouchFurnitureScript) -> void:
 	_say_the_report()
 
 
+## The verdict, drawn over the furniture it is about.
+##
+## **Drawn because the alternative is a console nobody can read.** An editor's own `print` does not reach this
+## project's tools at all - measured, the console buffer comes back empty and the log file holds the *game's* output
+## - so a person editing in the 2D workspace and a person reading the tools were looking at two halves of one fault.
+## This puts the judgement where the work is, so a change can be judged without running anything.
+##
+## **The two numbers ride with it on purpose.** They are what every size here is worked out from, and the fault this
+## view exists to find was neither of them looking wrong on its own: a density of 450 beside a canvas scale of
+## 0.000, which makes a row's height zero and leaves every control at the size the *scene file* was saved with.
+##
+## The label takes no mouse, because it is drawn *over* controls a person is trying to push about.
+var _verdict: Label = null
+
+
+func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) -> void:
+	if _verdict == null:
+		_verdict = Label.new()
+		_verdict.name = "Verdict"
+		_verdict.position = Vector2(10.0, 10.0)
+		_verdict.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_verdict.add_theme_font_size_override("font_size", 20)
+		_verdict.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45))
+		add_child(_verdict)
+	var told: Array[String] = WorkspaceReportScript.looks_built_for_a_finger(reading)
+	var said: String = "built for a finger" if told.is_empty() else "%d under a finger's floor" % told.size()
+	# **Put in the board's own middle, and that is a correction rather than a taste.** The first version stood at
+	# (10, 10), which is precisely where the top bar's own controls are - on a view whose entire purpose is looking at
+	# them. Measured, the caption lay across `Menu` and the four words it was there to help judge, so the instrument
+	# was covering the thing it was measuring. The board is the one large empty place on this screen in both places
+	# the view is run, so the verdict goes there, and it is placed on every report rather than once in case the room
+	# has changed shape since.
+	_verdict.position = Vector2(16.0, maxf(get_rect().size.y * 0.45, 8.0))
+	# **And the number that was actually achieved, which is not the one that was asked for.** The first version of
+	# this caption printed the density and scale the view *stated* - 450 and 1.000 - and a stated device reads the
+	# same whether or not one button was ever dressed with it. Measured, the editor showed furniture 31 px tall
+	# under a caption that said 450 dpi and a scale of one, which is a diagnostic that cannot fail and is therefore
+	# worse than none. What is printed is what the furniture's own row came to and what its first button actually
+	# carries, because those two are the same number only when the dressing ran.
+	var was: String = ""
+	if _furniture != null:
+		was = "; its own row is %.1f px" % _furniture.row_height()
+		if _furniture.row != null and _furniture.row.get_child_count() > 0:
+			var made: Button = _furniture.row.get_child(0) as Button
+			var asked: float = 0.0
+			if made != null:
+				asked = made.custom_minimum_size.y
+			was += " and its first button carries %.1f" % asked
+		# **And how many buttons were dressed**, which is what tells "the arrangement never reached `build`" apart
+		# from "it reached it and the size came out nothing" - two faults that need opposite repairs.
+		was += "; %d dressed" % _furniture.dressings
+	_verdict.text = (
+		"%s - %d nodes read at %.0f dpi, canvas scale %.3f%s" % [said, reading.size() - 1, density, built_scale, was]
+	)
+
+
 ## The same reading on both sides, and the comparison when both are to hand.
 ##
 ## **An editor and a run are two different processes, so this is the only way the two can be held against each
@@ -371,20 +493,51 @@ func _say_the_report() -> void:
 	# phone's screen clean. `built_at` is the density the sizes below were made at, so it is the only one a floor can
 	# honestly be measured against.
 	var density: float = PhoneHudScript.dpi() if _furniture == null else _furniture.built_at
-	var mine: Dictionary = WorkspaceReportScript.read(self, density)
+	# **Named `built_scale` and not `scale`, because `Control` already has one of those** and a local shadowing an
+	# inherited property is the kind of slip this project's analyser names. The two are different questions: that one
+	# is how the node is drawn, this is how many physical pixels a logical one is - which is what a row's height is
+	# worked out from, and the number an editor answers with nothing at all inside its own `SubViewport`.
+	var built_scale: float = 0.0
+	var built_at: float = 0.0
+	if _furniture != null:
+		built_scale = _furniture.stated_scale
+		built_at = _furniture.built_at
+	# **The scale and the density the furniture was actually built with travel into the reading**, because those two
+	# numbers are the whole of a row's height. They are also the only way this side's numbers get *out* of an editor,
+	# where nothing can be asked to print and where the console belongs to the running game: the reading below is
+	# written to `EDITOR_READING`, so a run can read them back and say so - which is how the cause of this whole
+	# fault was finally named: **the density matched on both sides at 450 and the canvas scale did not**, 0.000 in
+	# the editor against 1.000 in the run, and a scale of nothing makes a row's height nothing. See
+	# `WorkspaceReport.device_difference`.
+	var mine: Dictionary = WorkspaceReportScript.read(self, density, built_scale, built_at)
 	var which: String = "an editor" if Engine.is_editor_hint() else "a run"
 	print("TOUCH WORKSHOP: the reading from %s" % which)
 	for line: String in WorkspaceReportScript.lines(mine):
 		print("  ", line)
 	for told: String in WorkspaceReportScript.looks_built_for_a_finger(mine):
 		print("  ! ", told)
+	# **And the same verdict drawn where the person editing is standing.** A number that only reaches a console this
+	# project's tools cannot read is not a diagnosis, and the whole point of this view is that a change can be judged
+	# without running anything - so the judgement is put on the screen, over the furniture it is about.
+	_show_the_verdict(mine, density, built_scale)
 	if Engine.is_editor_hint():
 		_leave_the_reading_for_a_run(mine)
 		return
-	var theirs: Dictionary = WorkspaceReportScript.from_lines(_read_what_the_editor_left())
+	var left: PackedStringArray = _read_what_the_editor_left()
+	var theirs: Dictionary = WorkspaceReportScript.from_lines(left)
 	if theirs.is_empty():
 		print("TOUCH WORKSHOP: no editor reading to compare with - open this scene in the editor once first")
 		return
+	# **What the editor's own copy said about itself, echoed.** This is the half of a diagnosis an editor cannot
+	# publish, and it costs one filter: the verdict lines are the ones carrying the marker.
+	var their_verdict: PackedStringArray = PackedStringArray()
+	for one: String in left:
+		if one.begins_with(VERDICT_LINE):
+			their_verdict.append(one.trim_prefix(VERDICT_LINE))
+	if not their_verdict.is_empty():
+		print("TOUCH WORKSHOP: the editor's own copy says, about its own furniture:")
+		for one: String in their_verdict:
+			print("  > ", one)
 	var named: Array[String] = WorkspaceReportScript.differences(theirs, mine)
 	if named.is_empty():
 		print("TOUCH WORKSHOP: the editor's own copy and this run agree on every node read")
@@ -404,6 +557,29 @@ func _leave_the_reading_for_a_run(mine: Dictionary) -> void:
 		return
 	for line: String in WorkspaceReportScript.lines(mine):
 		file.store_line(line)
+	# **And the verdict with them, because a reading says what was built and not whether it is right.** A run reads
+	# this file and can only compare; it cannot *ask* an editor anything - and an editor's `print` does not reach this
+	# project's tools at all, so unless the editor writes its own judgement down, the one question a person actually
+	# has, "is this furniture fit for a finger", stays inside a console nobody can read. Measured, this is how the
+	# cause of a whole afternoon's fault was finally named: a scale of 0.000 on one side and 1.000 on the other,
+	# read off a file because nothing could be asked to speak.
+	for told: String in WorkspaceReportScript.looks_built_for_a_finger(mine):
+		file.store_line(VERDICT_LINE + told)
+	# **And the count, which is the one fact that tells the two possible causes apart.** An editor that reached
+	# `build` dressed its buttons; one that never got there dressed none. Written down because nothing can ask an
+	# editor anything, so "0 dressed" against "12 dressed with a row of 0.0" is the whole of the answer.
+	if _furniture != null:
+		file.store_line(
+			(
+				VERDICT_LINE
+				+ "%d button(s) dressed, and the furniture's own row is %.1f px"
+				% [_furniture.dressings, _furniture.row_height()]
+			)
+		)
+		# **And the pair the last dressing actually used.** See `TouchFurniture.last_dressing`: the count and the
+		# device line can both be right while the size is still wrong, and only this says which number was the odd
+		# one out.
+		file.store_line(VERDICT_LINE + "the last dressing was " + _furniture.last_dressing)
 	file.close()
 	DirAccess.rename_absolute(temporary, EDITOR_READING)
 

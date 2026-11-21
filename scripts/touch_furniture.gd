@@ -124,6 +124,38 @@ var overlay: HudOverlay = null
 ## measure the buttons it had just laid out against the wrong screen.
 var built_at: float = 0.0
 
+## A device the caller states for this furniture, so a view can stand a phone's arrangement up on a desk.
+##
+## **Handed over rather than read from a global, and that is what makes the development view match F6.** A script
+## loaded in an editor without `@tool` is a **separate copy of itself, statics included**, so a density written by
+## `PhoneHud.force_density` from a tool script is not necessarily the density a plain script reads back afterwards.
+## Measured: the 2D workspace laid its bar out at this desk's 31 px with the theme's own 16 px type while the very
+## same scene run with F6 came out at the phone's 97 px and 41 px, and every door between them was working. **A
+## number handed over cannot be read from the wrong copy of anything.**
+##
+## 0 means "ask the machine", which is what a running program does: the HUD states nothing, so the device's own
+## density and its window's own scale are what a real phone's furniture is made from.
+var stated_density: float = 0.0
+var stated_scale: float = 0.0
+
+## How many buttons have been dressed, counted rather than assumed.
+##
+## **This is the number that tells "it never built" apart from "it built and produced nothing"**, and those two need
+## opposite repairs. Measured, an editor left its bar at the desk's 31 px while the run came out at the phone's 97 -
+## and `dress_the_bar_for_a_finger` has no guard on rows at all, so a `build` that reached it *must* have dressed
+## those buttons. Either it was never reached or the dressing came out zero; a count answers which, where reading the
+## code could not. It is deliberately not reset by `build`, so the second build in a session is as countable as the
+## first.
+var dressings: int = 0
+
+## What the most recent dressing came out as, and the two numbers it came out of - in words, recorded at the moment
+## of use.
+##
+## **The instrument that ends an argument three theories lost.** The count proved `build` reached the dressing; the
+## reading beside it stated a density of 450 and a scale of 1.000; and the row still measured 0.0 px. Reading a value
+## *afterwards* answers a different question from what was *used*, so the pair is written down where it is used.
+var last_dressing: String = ""
+
 ## The clearance the aids last stood at, or `-1.0` before any answer. It exists because **a panel placed
 ## zero-height grows upward from its contents**, so the first read is taken while the dock is still growing and
 ## answers a height it no longer has: measured, the clearance came out 187 px where the dock needed 295, and the
@@ -148,7 +180,7 @@ func build() -> void:
 	# asks `PhoneHud` for its size, and `build` is called inside whatever density the device's own arrangement
 	# states - so the number is captured rather than asked for again later, when a caller that stated a density
 	# for the length of the build has put its machine's own back.
-	built_at = PhoneHudScript.dpi()
+	built_at = density_for_a_size()
 	build_the_row()
 	build_the_tabs()
 	apply_the_plates()
@@ -242,7 +274,16 @@ func a_button(words: String, tooltip: String, door: Callable) -> Button:
 ## focus navigation the moment a Control holds it, and a focused button swallows the keys a drawing tool is driven
 ## by.
 func dress_for_a_finger(button: Button) -> void:
-	var square: float = row_height()
+	dressings += 1
+	# **The pair this dressing actually used, kept as words.** The count said 23 buttons were dressed; the reading
+	# beside it said the device was 450 dpi at a canvas scale of 1.000; and the row still came out 0.0 px - three
+	# facts that cannot all be true of one object. What a *later* reader saw and what the dressing *used* are not the
+	# same number until this is written down at the moment of use, which is the whole lesson of this fault: a value
+	# read afterwards is a different reading, not the same one.
+	var device_scale: float = scale_for_a_size()
+	var device_density: float = density_for_a_size()
+	var square: float = PhoneHudScript.row_height(device_scale, device_density)
+	last_dressing = "%.2f px from scale %.3f, density %.1f" % [square, device_scale, device_density]
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(
 		maxf(button.custom_minimum_size.x, square),
@@ -253,12 +294,41 @@ func dress_for_a_finger(button: Button) -> void:
 
 ## A row's height on this device, in the room's own pixels.
 func row_height() -> float:
-	return PhoneHudScript.row_height(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi())
+	return PhoneHudScript.row_height(PhoneHudScript.canvas_scale(app_window), density_for_a_size())
 
 
 ## The size words are drawn at on this device: the millimetre floor `PhoneHud` states, never a number chosen here.
 func type_size() -> int:
-	return PhoneHudScript.font_size(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi())
+	return PhoneHudScript.font_size(PhoneHudScript.canvas_scale(app_window), density_for_a_size())
+
+
+## The density a size is worked out at: **the one the furniture was built at, whenever it has one.**
+##
+## `built_at` is not a convenience, it is the answer to a measured fault, and this is the second place that answer
+## belongs. A caller may state a device for the length of the build and hand its own back the moment the build is
+## made - the development view does exactly that - so anything dressed *later* asked the machine instead and got the
+## desk's 144. Measured on the strip: the six tool stand-ins came out with their words drawn at the desk's size
+## inside a 98 px row, because they are built when a tab is pressed, which is a frame or two after the density was
+## put back. **Every size in the reading beside them was right**, and that is why it went unnoticed: the reading
+## holds a control's size and not the size of its type, and a button can be exactly as tall as it should be with its
+## words a third the size they belong. Asking the machine again is the fault in both places - the density the
+## furniture was made at is one fact, and it is kept.
+##
+## A running program states nothing and this changes nothing there: `built_at` is the device's own density, so the
+## two are the same number and the same answer.
+func density_for_a_size() -> float:
+	if stated_density > 0.0:
+		return stated_density
+	return built_at if built_at > 0.0 else PhoneHudScript.dpi()
+
+
+## The canvas scale a size is worked out at, kept for the same reason the density is: a caller may state a device
+## for the length of the build, and asking the window again afterwards - or asking a different copy of this project's
+## arithmetic - answers something else.
+func scale_for_a_size() -> float:
+	if stated_scale > 0.0:
+		return stated_scale
+	return PhoneHudScript.canvas_scale(app_window)
 
 
 ## The dock's tabs, one per name in `TOUCH_TABS`, each as wide a share of the row as the rest.
@@ -363,7 +433,7 @@ func place_the_dock() -> void:
 	if dock == null or not on_a_finger:
 		return
 	var room: Vector2i = Vector2i(dock.get_parent_area_size())
-	var margin: float = float(PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi()))
+	var margin: float = float(PhoneHudScript.edge_margin(scale_for_a_size(), density_for_a_size()))
 	var foot: float = float(PhoneHudScript.kept_foot(room))
 	# **Two things the dock may not be drawn over, and the second is the one that was missed.** The first is the
 	# band the device keeps along its foot - the swipe that goes back, which the engine does not report as a safe
@@ -491,7 +561,7 @@ func place_the_sheet() -> void:
 	if sheet == null or dock == null or not on_a_finger:
 		return
 	var room: Vector2i = Vector2i(sheet.get_parent_area_size())
-	var margin: float = float(PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi()))
+	var margin: float = float(PhoneHudScript.edge_margin(scale_for_a_size(), density_for_a_size()))
 	# Above the dock as the dock really stands - its own offsets, read rather than worked out a second time -
 	# so the two cannot come to overlap: the dock has already been held clear of the foot line, and the sheet
 	# inherits that clearance by standing on the dock's own top.

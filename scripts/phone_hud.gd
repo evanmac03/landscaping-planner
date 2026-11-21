@@ -10,6 +10,7 @@
 ## which "big enough for a thumb" means anything. The scale and the density are arguments, never
 ## assumptions, so a computer can ask what a phone would be told - and the device question itself is
 ## `TouchInput`'s, asked once in one place rather than twice in two.
+@tool
 class_name PhoneHud
 extends RefCounted
 
@@ -302,6 +303,19 @@ static func logical_for_mm(mm: float, scale: float, density: float) -> float:
 	return mm / 25.4 * density / scale
 
 
+## The reader's own scale, **and never zero**.
+##
+## **This file is `@tool` because of one measured fault, and this door is the second half of it.** A `static var`
+## initialiser does not run for a script loaded in an editor without `@tool`, so `_reading_scale` read the engine's
+## own default - 0 - and every length this file computes from a millimetre came out nothing. Measured, a
+## development view on a desk showed furniture 31 px tall with the theme's 16 px type beside the phone's 97 and 41,
+## and the same scene run with F6 was right: two sides differing by exactly this factor. **`use_reading_scale`
+## refuses a factor under one and the type's own default is 0, so the honest answer is the stated sizes rather than
+## a zero nobody asked for.**
+static func reading_scale() -> float:
+	return _reading_scale if _reading_scale > 0.0 else 1.0
+
+
 ## The height a row of answers has to be on a screen of this density, in logical pixels - and 0 when the
 ## density or the scale could not be read, which means "no minimum of mine": a size worked out from a
 ## number that does not exist is worse than the size the layout already has.
@@ -310,13 +324,13 @@ static func logical_for_mm(mm: float, scale: float, density: float) -> float:
 ## `on_a_finger_here`'s question, asked once in the one place a page is shown - so this answers for any
 ## screen a caller states, and a desk's own density is converted rather than refused.
 static func row_height(scale: float, density: float) -> float:
-	return maxf(logical_for_mm(TOUCH_MM * _reading_scale, scale, density), 0.0)
+	return maxf(logical_for_mm(TOUCH_MM * reading_scale(), scale, density), 0.0)
 
 
 ## The font size that draws a capital TEXT_MM tall, in logical pixels - and 0 where there is no
 ## minimum to apply.
 static func font_size(scale: float, density: float) -> int:
-	var em: float = logical_for_mm(TEXT_MM * _reading_scale, scale, density) / CAP_RATIO
+	var em: float = logical_for_mm(TEXT_MM * reading_scale(), scale, density) / CAP_RATIO
 	if em <= 0.0:
 		return 0
 	# Rounded up, not down: the constant is a floor - "at least this tall" - and a font size rounded
@@ -360,7 +374,7 @@ static func grown_for_a_finger(was: int, was_text: int, now_text: int) -> int:
 ## width. Zero where the scale or the density could not be read, which every caller reads as "no margin of
 ## mine" rather than as no margin at all.
 static func edge_margin(scale: float, density: float) -> int:
-	return roundi(logical_for_mm(TOUCH_MM * 0.5 * _reading_scale, scale, density))
+	return roundi(logical_for_mm(TOUCH_MM * 0.5 * reading_scale(), scale, density))
 
 
 ## Where a control remembers the size its words were laid out with. A control that has been made readable on
