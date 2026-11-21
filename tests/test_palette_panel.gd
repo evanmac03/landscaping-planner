@@ -164,6 +164,27 @@ func test_the_words_for_the_keys_are_handed_in_rather_than_read_here() -> void:
 	_free_made()
 
 
+## A drawing tool's tooltip is worded in one place, and the button that stands for it wears exactly that.
+##
+## **A tooltip is a word of this program like any other, so it has one owner.** `tooltip_for` is that owner, and
+## its first caller is the palette's own build - but a development view that stands the same tools up in an editor
+## has no palette to borrow buttons from (this panel's script gets no instance there, which is the whole reason
+## the view builds its own), and the sentence it puts on them has to be this one. That is the drift this holds
+## down: two buttons standing for one tool, explaining it two different ways.
+func test_a_tools_tooltip_is_worded_once_and_the_button_wears_it() -> void:
+	var pair: Array = DraftToolScript.DRAFTING_TOOLS[0]
+	assert(
+		PalettePanelScript.tooltip_for(pair) == "Draw a %s" % String(pair[1]),
+		"the palette's own sentence for a drawing tool",
+	)
+	var panel: PalettePanelScript = _built()
+	assert(
+		panel.tool_buttons()[0].tooltip_text == PalettePanelScript.tooltip_for(pair),
+		"and the button that stands for that tool wears exactly it: %s" % panel.tool_buttons()[0].tooltip_text,
+	)
+	_free_made()
+
+
 ## A palette built with no controller and no keys unless a test hands one over: the guard case rather than a
 ## working palette, because the HUD builds one only where it has a drawing.
 func _built(draft: DraftControllerScript = null, keys: Dictionary = { }) -> PalettePanelScript:

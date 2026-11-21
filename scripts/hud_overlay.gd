@@ -1,3 +1,4 @@
+@tool
 class_name HudOverlay
 extends Control
 ## Drawing layer for the planner's on-screen drafting aids.
@@ -6,6 +7,15 @@ extends Control
 ## as a landscape plan: a metre scale bar and a north arrow. In the ground view it
 ## draws a crosshair instead. Both are suppressed during a camera flight, when
 ## neither view is really active.
+##
+## **`@tool`, so that a workspace and the same scene run with F6 show the same thing.** Every other pane of the
+## HUD is made by a script that only runs in a game - that is the whole reason `tools/touch_hud_workspace.gd`
+## exists, and why it builds the phone's furniture itself. This pane is different in two ways: it is drawn rather
+## than built, in `_draw`, and **it reaches outside itself for nothing** - `mode`, `pixels_per_metre` and
+## `transitioning` all have stated defaults, and the HUD is what changes them. So the editor draws the aids at
+## those defaults and the running program draws them at the view's own zoom, and the two look alike. A pane that
+## read the drawing, or the camera, or the HUD's state, could not be `@tool` and would have to be built by a view
+## instead - which is the rule: **a script that only runs in a game cannot be edited against.**
 
 ## Lengths a scale bar is allowed to show, in metres.
 const NICE_METRES: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]

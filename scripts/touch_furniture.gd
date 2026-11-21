@@ -111,6 +111,13 @@ var top_bar: PanelContainer = null
 ## The window the device's scale and dots-per-inch are read from, as `get_window()` would give it.
 var app_window: Window = null
 
+## The dots-per-inch the furniture was built at, captured by `build` while the device's own arrangement is
+## certainly the one standing, and read back by `fit_the_strip` on the frame after. It exists because a caller
+## may state a density for the length of the build - a development view does, so that a desk's 96 does not make
+## every control a fifth of the height a thumb needs - and a fitting that asked the machine again would then
+## measure the buttons it had just laid out against the wrong screen.
+var built_at: float = 0.0
+
 ## What each control does, and **an empty `Callable` is allowed: it is the honest door for a view with nothing
 ## to run.** The button is built, sized and dressed; it simply presses nothing. A running program passes all six.
 var drawer_door: Callable = Callable()
@@ -125,6 +132,11 @@ var close_door: Callable = Callable()
 func build() -> void:
 	if row == null or dock == null or tabs == null or strip == null:
 		return
+	# **The density is read here, at the one moment it is certainly the device's.** Everything this file builds
+	# asks `PhoneHud` for its size, and `build` is called inside whatever density the device's own arrangement
+	# states - so the number is captured rather than asked for again later, when a caller that stated a density
+	# for the length of the build has put its machine's own back.
+	built_at = PhoneHudScript.dpi()
 	build_the_row()
 	build_the_tabs()
 	apply_the_plates()
@@ -392,7 +404,20 @@ func press_a_tab(tab: String) -> void:
 	put_the_tools_back()
 	if not tools_for_door.is_valid():
 		return
-	var wanted: Array[Button] = Array(tools_for_door.call(tab), TYPE_OBJECT, &"Array", [Button]) as Array[Button]
+	# **Taken one button at a time rather than re-typed in one cast, and this is a fault that was measured.** The
+	# first version asked the door and handed what came back through `Array(asked, TYPE_OBJECT, &"Array",
+	# [Button])`, intending to say "these are buttons" - but the `&"Array"` there is the *element's* class, so the
+	# cast asked for an array of arrays and threw on the first tab ever pressed: `Trying to assign an array of
+	# type "Array[Array]" to a variable of type "Array[Button]"`. Nothing had pressed a tab before the
+	# development view did, so nothing had said so. Building the list here also means a door that hands back
+	# something which is not a button fails at that button instead of silently emptying the strip.
+	var asked: Variant = tools_for_door.call(tab)
+	if not (asked is Array):
+		return
+	var wanted: Array[Button] = []
+	for handed_back: Variant in asked as Array:
+		if handed_back is Button:
+			wanted.append(handed_back as Button)
 	if strip == null or strip_row == null:
 		return
 	strip.visible = not wanted.is_empty()
@@ -459,10 +484,17 @@ func put_the_tools_back() -> void:
 
 ## Lay the strip's buttons out for a finger, on the frame after they were moved: a control asked for a size
 ## before it has laid out answers the size it had before, which is the reason every fitting here is deferred.
+##
+## **Measured at the density the furniture was built at rather than at whatever the machine reports now**, and
+## that is a fault that was measured: a development view states a phone's density for the length of the build
+## and puts its own back the moment it is made, so by the time this deferred call runs the machine answers 144
+## and the cells were laid out 32 px tall - a third of the floor a thumb needs - while the buttons themselves
+## had been built 97 px tall. In the running program the two numbers are the same one and this changes nothing.
 func fit_the_strip() -> void:
 	if strip_row == null:
 		return
-	ToolPaletteScript.fit_a_strip(strip_row, PhoneHudScript.canvas_scale(app_window), PhoneHudScript.dpi())
+	var density: float = built_at if built_at > 0.0 else PhoneHudScript.dpi()
+	ToolPaletteScript.fit_a_strip(strip_row, PhoneHudScript.canvas_scale(app_window), density)
 
 
 ## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the

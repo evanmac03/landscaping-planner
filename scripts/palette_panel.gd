@@ -113,7 +113,7 @@ func build(draft: DraftControllerScript, keys: Dictionary) -> void:
 		# "Button17".
 		button.name = String(pair[0])
 		button.text = label(pair, key_words(pair[0]))
-		button.tooltip_text = "Draw a %s" % String(pair[1])
+		button.tooltip_text = tooltip_for(pair)
 		button.toggle_mode = true
 		button.custom_minimum_size = Vector2(ToolPaletteScript.PALETTE_CELL_WIDTH, 0.0)
 		button.pressed.connect(_on_tool_pressed.bind(kind))
@@ -274,6 +274,17 @@ func refresh(locked: bool, undo_tooltip: String, redo_tooltip: String) -> void:
 ##
 ## A pure function of the row and the key rather than of the input map: the key is handed in, so this can be
 ## held by a test without a project, an action or a device.
+## What one tool button says when the pointer rests on it: worded here rather than in two places.
+##
+## **A tooltip is a word of this program, so it has one owner.** The palette draws this on its own buttons, and a
+## development view that stands the same tools up in an editor - where there are no palette buttons to borrow,
+## because this panel's script gets no instance there - asks for the same sentence instead of writing a second
+## one. An editing command needs nothing here: its tooltip is already its table row's own fourth column, which is
+## a whole sentence the table states for itself.
+static func tooltip_for(pair: Array) -> String:
+	return "Draw a %s" % String(pair[1])
+
+
 static func label(pair: Array, key: String) -> String:
 	var words := String(pair[1])
 	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
