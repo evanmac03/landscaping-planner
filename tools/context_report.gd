@@ -678,11 +678,7 @@ const SUBJECTS := {
 			"with the owner it came from, so the tool cannot come to describe a page the program does not",
 			"have.",
 		],
-		"scripts": [
-			"res://scripts/page_index.gd",
-			"res://scripts/draft/draft_tool.gd",
-			"res://tools/vocabulary.gd",
-		],
+		"scripts": ["res://scripts/page_index.gd", "res://scripts/draft/draft_tool.gd", "res://tools/vocabulary.gd"],
 		"also": ["Hud", "DraftController", "HudProbe", "PageChrome", "MenuBar", "Topmost", "ScreenshotReader"],
 		"sections": [],
 		"data": [],
