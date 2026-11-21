@@ -21,3 +21,21 @@ func test_every_dimension_kind_is_a_tool_the_program_has() -> void:
 			"the dimension kind %d stands for a tool the palette builds: in use %s" % [kind, str(kinds_in_use)],
 		)
 	assert(TouchFurnitureScript.DIMENSION_KINDS.size() > 0, "and there is at least one dimension to put in that tab")
+
+
+## The two tabs between them offer every drawing tool exactly once.
+##
+## A tool in neither tab could not be reached by a finger at all, and a tool in both is two doors to one thing -
+## and neither shows up in the table, because every row looks perfectly reasonable read on its own.
+func test_the_two_tabs_partition_the_drawing_tools() -> void:
+	var in_draw: Array[int] = TouchFurnitureScript.tool_indices_for_a_tab("Draw")
+	var in_dim: Array[int] = TouchFurnitureScript.tool_indices_for_a_tab("Dim")
+	var every_tool: int = PalettePanelScript.DRAFTING_TOOLS.size()
+	assert(
+		in_draw.size() + in_dim.size() == every_tool,
+		"every tool is offered exactly once: %d + %d against %d" % [in_draw.size(), in_dim.size(), every_tool],
+	)
+	for index: int in in_draw:
+		assert(not in_dim.has(index), "and no tool is offered in both tabs: %d" % index)
+	assert(in_draw.size() > 0, "the Draw tab has something in it")
+	assert(in_dim.size() > 0, "and so does the Dim tab")

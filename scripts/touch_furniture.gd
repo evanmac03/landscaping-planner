@@ -36,3 +36,44 @@ const DIMENSION_KINDS: Array = [
 ## same plate is right on any screen - and the board keeps the rest, which is the whole reason a sheet stands
 ## over the drawing instead of replacing it.
 const SHEET_OF_THE_ROOM := 0.45
+
+## The palette's own table of drawing tools, because which tab a tool belongs in is a fact about the tools.
+const PalettePanelScript := preload("res://scripts/palette_panel.gd")
+
+
+## Which of the palette's drawing tools a tab wants, as **indices** into the palette's own list.
+##
+## The split is the whole of the `Draw` and `Dim` tabs: a tool that draws a dimension is offered in `Dim` and a
+## tool that does not is offered in `Draw`, and nothing is offered in both. The indices rather than the buttons,
+## so that the caller says where a button comes from - this module never reaches for a node.
+##
+## `Edit` is deliberately not answered here: its buttons are a **different list** on the palette rather than a
+## selection of this one, so the HUD asks the palette for them directly.
+static func tool_indices_for_a_tab(tab: String) -> Array[int]:
+	var wanted: Array[int] = []
+	for index in PalettePanelScript.DRAFTING_TOOLS.size():
+		var kind: int = int(PalettePanelScript.DRAFTING_TOOLS[index][2])
+		var is_a_dimension: bool = DIMENSION_KINDS.has(kind)
+		if (tab == "Dim" and is_a_dimension) or (tab == "Draw" and not is_a_dimension):
+			wanted.append(index)
+	return wanted
+
+
+## The menu plan gathered as the drawer's own submenus: one per menu, named by that menu's own title, holding
+## that menu's own items, with ids of its own so two of them cannot collide.
+##
+## **It gathers; it does not word anything again.** Every word and every action is still the plan's, which is
+## what makes an entry added to the plan appear in the drawer and in the bar in one edit.
+static func drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
+	var gathered: Array[Dictionary] = []
+	for index in plan.size():
+		var menu: Dictionary = plan[index]
+		gathered.append(
+			{
+				"kind": &"submenu",
+				"id": "drawer.%d" % index,
+				"label": String(menu["title"]),
+				"items": Array(menu.get("items", [])),
+			}
+		)
+	return gathered

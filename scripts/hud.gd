@@ -2400,17 +2400,12 @@ func _touch_tools_for(tab: String) -> Array[Button]:
 	if palette_column == null:
 		return out
 	var tools: Array[Button] = palette_column.tool_buttons()
-	match tab:
-		"Draw":
-			for index in tools.size():
-				if not DIMENSION_KINDS.has(int(PalettePanelScript.DRAFTING_TOOLS[index][2])):
-					out.append(tools[index])
-		"Dim":
-			for index in tools.size():
-				if DIMENSION_KINDS.has(int(PalettePanelScript.DRAFTING_TOOLS[index][2])):
-					out.append(tools[index])
-		"Edit":
-			out.append_array(palette_column.edit_buttons())
+	if tab == "Edit":
+		return palette_column.edit_buttons()
+	# Which of them a tab wants is the dimension split, and it is stated once in the furniture's own module:
+	# asked for the indices, so the buttons stay this file's to name.
+	for index: int in TouchFurnitureScript.tool_indices_for_a_tab(tab):
+		out.append(tools[index])
 	return out
 
 
@@ -2517,19 +2512,10 @@ func _a_drawer() -> PopupMenu:
 ## or a device - which is the question that matters about it. Nothing here words a command, names a method or
 ## decides a need: it is a *gathering*, and every one of those things is still read off the plan by the bar's
 ## own renderer when the popup is filled.
+## The menu plan gathered as the drawer's own submenus - a **door** onto the furniture module, kept under this
+## name because `tests/test_touch_hud.gd` reaches for it here and reads it off this script.
 static func touch_drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
-	var gathered: Array[Dictionary] = []
-	for index in plan.size():
-		var menu: Dictionary = plan[index]
-		gathered.append(
-			{
-				"kind": &"submenu",
-				"id": "drawer.%d" % index,
-				"label": String(menu["title"]),
-				"items": Array(menu.get("items", [])),
-			}
-		)
-	return gathered
+	return TouchFurnitureScript.drawer_plan(plan)
 
 
 ## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the
