@@ -64,6 +64,13 @@ const NODES: Array[String] = [
 ## back, so the one format has to be one this file both writes and parses.
 const FIELD := " | "
 
+## The format a reading is written in, and **the reason a reading says which one it is**: the second format added
+## where each control stands, and a row written before that fact existed parses as a control standing at `0,0`. An old
+## file compared against a new one would then report every node as **moved** - a screenful of false differences with
+## the real ones buried in it - so `from_lines` refuses a reading that does not state this number rather than reading
+## it at a guess. A line with no format at all is the first one, which is the case the refusal exists for.
+const FORMAT := 2
+
 ## **The device a reading was taken from, carried in the reading itself.** A floor is a *length* only once a
 ## density turns it into pixels: this file first asked `HELD_DPI` - the density `TouchInput` uses to *decide*
 ## whether a hand is a thumb - and got 43 px for a question whose real answers are 97 px on the A16W and 31 px
@@ -94,13 +101,38 @@ const TouchInputScript := preload("res://scripts/touch_input.gd")
 ## **The key is built from names that travel**, because two *instances* of one scene are the only things this file
 ## is ever asked to compare - that is the whole instrument. A key taken from `get_path_to` is the scene's own
 ## placeholder names written down, and a placeholder is a receipt for a node, not a name for it.
-static func read(root: Node, density: float, scale: float = 0.0, built_at: float = 0.0) -> Dictionary:
+static func read(
+	root: Node,
+	density: float,
+	scale: float = 0.0,
+	built_at: float = 0.0,
+	watch: Array[String] = NODES,
+) -> Dictionary:
 	var found: Dictionary = { }
 	# The density is *handed in* rather than read here, and that is the point: by the time this runs, a view that
 	# stated a phone has handed the machine's own density back, so `PhoneHud.dpi()` would answer 144 beside
 	# furniture that was built at 450. The caller knows which device it photographed; this only records it.
-	found[DEVICE] = { "dpi": density, "scale": scale, "built_at": built_at }
-	for path: String in NODES:
+	found[DEVICE] = { "dpi": density, "scale": scale, "built_at": built_at, "format": FORMAT }
+	# **The paths a caller cares about are handed in, and this file's own list is only the default.** The nine names
+	# below are what a HUD workspace wants read, and they are no part of a *reading*: a general caller passes its own
+	# list, or none, and is then measured on the scene's own tree rather than against nine paths it never had - which
+	# is how a bare `Control` with one button came back describing nine `Hud/Root/...` nodes as missing. A walk that
+	# reports names nobody asked about is a second place stating what the scene contains, free to be wrong about it.
+	# **And a caller who names nothing gets the scene's own tree, never nothing at all.** The first version of this
+	# branch read only the names it was given, so a general workspace - which has no names of its own yet - came back
+	# with no nodes and a caption that said `built for a finger - 0 nodes read`: a clean bill of health from a reading
+	# that never happened, which is the one verdict this file refuses elsewhere and must not hand out here. Empty
+	# therefore means *the whole of it* - the root, and every control a finger could press under it, which is what a
+	# person pointing a workspace at a scene with no idea yet what is in it is asking for.
+	if watch.is_empty():
+		# **The root is named by its own name, because a path to itself is the empty string.** A row with no name, in
+		# an instrument built on names that travel, is a row nobody can read and nothing can be diffed against.
+		var stand: String = _a_path_to(root, root)
+		found[stand if not stand.is_empty() else a_name_that_travels(root)] = _facts(root)
+		for button: Node in _buttons_under(root):
+			found[_a_path_to(root, button)] = _facts(button)
+		return found
+	for path: String in watch:
 		var node: Node = root.get_node_or_null(NodePath(path))
 		if node == null:
 			found[path] = { "missing": true }
@@ -174,7 +206,7 @@ static func lines(reading: Dictionary) -> PackedStringArray:
 	var device: Dictionary = reading.get(DEVICE, { })
 	out.append(
 		(
-			"%s%sdpi=%.1f%sscale=%.3f%sbuilt_at=%.1f"
+			"%s%sdpi=%.1f%sscale=%.3f%sbuilt_at=%.1f%sformat=%d"
 			% [
 				DEVICE,
 				FIELD,
@@ -183,6 +215,11 @@ static func lines(reading: Dictionary) -> PackedStringArray:
 				float(device.get("scale", 0.0)),
 				FIELD,
 				float(device.get("built_at", 0.0)),
+				FIELD,
+				# **Stamped, not copied out of the reading.** This function writes *this* format by definition -
+				# what comes in is a reading and what goes out is a file - so taking the number from the dictionary
+				# would let a reading made by hand in a test write a file that is then refused as an older format.
+				FORMAT,
 			]
 		)
 	)
@@ -192,9 +229,13 @@ static func lines(reading: Dictionary) -> PackedStringArray:
 			out.append("%s%smissing" % [path, FIELD])
 			continue
 		var size: Vector2i = facts["size"]
+		# **Where the control stands, in the frame every control on the screen shares**, which is the one fact a pair
+		# of readings needs to be asked whether two controls overlap - and no other fact can answer it. Appended at
+		# the end of the row so that every earlier field keeps its place in a file already written.
+		var at: Vector2i = facts.get("at", Vector2i.ZERO)
 		out.append(
 			(
-				"%s%svisible=%s%ssize=%dx%d%schildren=%d%starget=%s%sfont=%d"
+				"%s%svisible=%s%ssize=%dx%d%schildren=%d%starget=%s%sfont=%d%sat=%d,%d"
 				% [
 					path,
 					FIELD,
@@ -208,6 +249,9 @@ static func lines(reading: Dictionary) -> PackedStringArray:
 					str(facts.get("target", false)),
 					FIELD,
 					int(facts.get("font", 0)),
+					FIELD,
+					at.x,
+					at.y,
 				]
 			)
 		)
@@ -234,6 +278,17 @@ static func from_lines(written: PackedStringArray) -> Dictionary:
 				device["scale"] = String(parts[2]).trim_prefix("scale=").to_float()
 			if parts.size() > 3:
 				device["built_at"] = String(parts[3]).trim_prefix("built_at=").to_float()
+			# **A reading of an older format is refused, and this is the whole reason the number exists.** The format
+			# gained where each control stands, and a row written before it reads as a control at `0,0`, so an old
+			# file against a new one would report every node as moved. A refusal is somebody being told to look
+			# again; a guess is a screenful of differences that are not there, with the real ones buried among them.
+			# **`its_format` and not `written`, because `written` is this function's own parameter** - a local
+			# shadowing it is a slip this project's analyser names, and the two are different things: one is the
+			# lines being read, the other is the number they claim to be in.
+			var its_format: int = 1 if parts.size() <= 4 else String(parts[4]).trim_prefix("format=").to_int()
+			if its_format != FORMAT:
+				return { }
+			device["format"] = its_format
 			found[DEVICE] = device
 			continue
 		if parts[1] == "missing":
@@ -253,6 +308,10 @@ static func from_lines(written: PackedStringArray) -> Dictionary:
 			# size of any words, and inventing a fault from a fact that was never written is the fault this file
 			# exists to avoid.
 			"font": 0 if parts.size() <= 5 else String(parts[5]).trim_prefix("font=").to_int(),
+			# **Where it stands, defaulted to nothing rather than invented.** A row of this format always carries it;
+			# the default is what a row of an older format would read as, and that reading has already been refused
+			# above, so an absent place is a zero and never a claim about where a control is.
+			"at": Vector2i.ZERO if parts.size() <= 6 else _a_point(String(parts[6]).trim_prefix("at=")),
 		}
 	return found
 
@@ -320,6 +379,15 @@ static func _differences_for(path: String, one: Dictionary, other: Dictionary) -
 		out.append("%s: %d child(ren) against %d" % [path, int(here["children"]), int(there["children"])])
 	if int(here.get("font", 0)) != int(there.get("font", 0)):
 		out.append("%s: %d px of type against %d" % [path, int(here.get("font", 0)), int(there.get("font", 0))])
+	# **And where it stands, which the first four facts between them could not say.** A control that has slid across
+	# the screen while keeping its size, its type and its visibility is exactly the change a person laying a GUI out
+	# makes and the one this file used to be silent about - measured, a button moved 40 px came back as no difference
+	# at all. Both places are named, in the order the two readings were handed in, so the sentence is readable either
+	# way round rather than needing the caller to remember which argument was which.
+	var here_at: Vector2i = here.get("at", Vector2i.ZERO)
+	var there_at: Vector2i = there.get("at", Vector2i.ZERO)
+	if here_at != there_at:
+		out.append("%s: it stood at %d,%d and now at %d,%d" % [path, here_at.x, here_at.y, there_at.x, there_at.y])
 	return out
 
 
@@ -426,12 +494,35 @@ static func _every_path(reading: Dictionary) -> Array[String]:
 static func _facts(node: Node) -> Dictionary:
 	var control: Control = node as Control
 	return {
-		"visible": node.is_visible_in_tree(),
+		# **Asked in whichever way the node can answer.** `is_visible_in_tree` belongs to `CanvasItem`, so a plain `Node`
+		# has no such call - measured, a reading whose root was a `Node` failed inside this function and left every fact
+		# after it unwritten, so `differences` reported a row it had never managed to read. A `CanvasLayer` is not a
+		# `CanvasItem` either and keeps its own `visible`, which means what it says; anything else is not hidden, which is
+		# the honest answer for a thing that cannot be.
+		"visible": _is_showing(node),
 		"size": Vector2i.ZERO if control == null else Vector2i(control.size),
+		# **Where it stands in the common frame, which no other fact can say.** `global_position` rather than
+		# `position`: two controls under different parents have no frame in common otherwise, and an overlap question
+		# asked in two frames is two answers. Truncated to whole pixels, as the size is, because this is a reading of
+		# a layout and not of a sub-pixel.
+		"at": Vector2i.ZERO if control == null else Vector2i(control.global_position),
 		"children": node.get_child_count(),
 		"target": is_a_target(node),
 		"font": 0 if control == null else control.get_theme_font_size(&"font_size"),
 	}
+
+
+## Whether a node is showing, asked in whichever way it can answer.
+##
+## **This is a fact about the node's *class* and not about the scene**, which is why it is here rather than in the
+## reading: a walk that can meet any node at all has to be able to ask that node its questions, and asking a `Node`
+## for a `CanvasItem`'s leaves a reading half taken rather than reporting that it could not.
+static func _is_showing(node: Node) -> bool:
+	if node is CanvasItem:
+		return (node as CanvasItem).is_visible_in_tree()
+	if node is CanvasLayer:
+		return (node as CanvasLayer).visible
+	return true
 
 
 ## Every control a finger could press under this node, the node itself excluded because `read` takes it already.
@@ -450,3 +541,168 @@ static func _a_size(written: String) -> Vector2i:
 	if halves.size() != 2:
 		return Vector2i.ZERO
 	return Vector2i(halves[0].to_int(), halves[1].to_int())
+
+
+## "221,31" as a `Vector2i`, for **a place** rather than a size.
+##
+## **Its own reader rather than `_a_size`, because the separators are deliberately different.** A size and a place
+## that read alike in a file would be read into each other's field by a person's eye, and somebody comparing two
+## readings should not have to count fields to know which pair of numbers is which.
+static func _a_point(written: String) -> Vector2i:
+	var halves: PackedStringArray = written.split(",")
+	if halves.size() != 2:
+		return Vector2i.ZERO
+	return Vector2i(halves[0].to_int(), halves[1].to_int())
+
+
+## The marker a judgement line carries in a written reading, so the words and the numbers can travel in one file and
+## still be told apart. It leads the line and is stripped on the way back in.
+const VERDICT_LINE := "! "
+
+
+## The file one workspace's half of the comparison leaves its reading in, **named for the workspace**.
+##
+## **This is the fault that would have waited for a second user of this instrument.** The names were the phone
+## workshop's, hard-coded: any other scene that read itself would have left its numbers where the phone's were, and
+## then been compared against a phone HUD it had never built - reporting a screenful of differences that were not
+## there, and hiding the real ones among them. A reading names itself the way a person names a file, and `which` is
+## the half it is - `"editor"` or `"run"`, the two processes that cannot share one file because one would overwrite
+## the other's.
+static func a_reading_file(called: String, which: String) -> String:
+	return "user://%s_%s_reading.txt" % [called, which]
+
+
+## Every judgement line of a written reading, in the order written, with the marker taken off - so a run can echo what
+## an editor said about its own furniture, and an editor can do the same for a run.
+static func verdict_lines_of(written: PackedStringArray) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	for one: String in written:
+		if one.begins_with(VERDICT_LINE):
+			out.append(one.trim_prefix(VERDICT_LINE))
+	return out
+
+
+## Leave a reading where the other half of the comparison can find it, through a temporary file and a rename - the
+## house rule for every write, so a write that fails never leaves a shorter file where the real one was.
+##
+## **The judgement travels with the numbers**, marked by `VERDICT_LINE`: figures without their judgement make every
+## reader work it out again, and a judgement without its figures cannot be checked. `false` comes back when the write
+## failed, so a caller can say so rather than believe a reading was left.
+static func leave(reading: Dictionary, where: String) -> bool:
+	var temporary: String = where + ".writing"
+	var file: FileAccess = FileAccess.open(temporary, FileAccess.WRITE)
+	if file == null:
+		return false
+	for line: String in lines(reading):
+		file.store_line(line)
+	for told: String in looks_built_for_a_finger(reading):
+		file.store_line(VERDICT_LINE + told)
+	file.close()
+	return DirAccess.rename_absolute(temporary, where) == OK
+
+
+## A reading read back off a file, or nothing where there was none - which is what lets "nothing to compare with yet"
+## be said rather than a comparison against an absent reading that agrees with everything. Blank lines are dropped,
+## because a trailing newline is a property of the file and not a node of the scene.
+static func lines_from(where: String) -> PackedStringArray:
+	if not FileAccess.file_exists(where):
+		return PackedStringArray()
+	var file: FileAccess = FileAccess.open(where, FileAccess.READ)
+	if file == null:
+		return PackedStringArray()
+	var out: PackedStringArray = PackedStringArray()
+	while not file.eof_reached():
+		var one: String = file.get_line()
+		if not one.is_empty():
+			out.append(one)
+	file.close()
+	return out
+
+
+## How many of the nodes a reading holds are ones a finger could press - **the set the floor is measured against**,
+## and therefore the number that belongs beside a judgement about a finger. Public because a workspace may want to say
+## it on its own account, and a count of the reading is the reading's own business to work out.
+static func how_many_a_finger_could_press(reading: Dictionary) -> int:
+	var out: int = 0
+	for path: String in _every_path(reading):
+		if bool((reading[path] as Dictionary).get("target", false)):
+			out += 1
+	return out
+
+
+## Every control a finger could press, as the shape `Spacing` asks its pairs in: `{ "name", "rect" }`, with the
+## rectangle built from the two facts the reading already carries.
+##
+## **Built here rather than in a workspace**, because *which controls are targets* is a fact of the reading and a
+## workspace that worked it out again could come to disagree about who is in the list - the one thing this instrument
+## exists to make visible. And a control the reading holds no place for is left out rather than placed at `0,0`: an
+## absent place is not a place, and a reading that invented one would report an overlap with whatever really stands at
+## the origin.
+static func the_things_a_finger_could_press(reading: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for path: String in _every_path(reading):
+		var facts: Dictionary = reading[path]
+		# **And what a person cannot see is not a pair.** A hidden control is not one a finger can meet, so it cannot be
+		# confused with one - and `looks_built_for_a_finger` already judges only what is showing, so a pair list that
+		# did not would be two answers to one question, free to disagree. Measured on the demo scene: the HUD's sheet
+		# is down, its Close reads `visible=false`, and it stood clear of everything by luck rather than by rule.
+		if (
+			bool(facts.get("missing", false)) or not bool(facts.get("target", false))
+			or not bool(facts.get("visible", false)) or not facts.has("at")
+		):
+			continue
+		var at: Vector2i = facts["at"]
+		var size: Vector2i = facts["size"]
+		out.append({ "name": path, "rect": Rect2i(at, size) })
+	return out
+
+
+## What a finger's row comes to on the devices that matter, **asked of `PhoneHud` and never restated**: the device the
+## reading was taken at, this machine's own, and the density `TouchInput` decides by. A floor is a length only once a
+## density turns it into pixels, so three densities is three answers to one question - and the arithmetic belongs to
+## `PhoneHud`, which is why nothing here works one out.
+static func _rows_where_it_matters(density: float) -> String:
+	var here: float = PhoneHudScript.dpi()
+	return (
+		"a finger's row is %.1f px at %.0f dpi, %.1f at this machine's %.0f, %.1f at the %.0f TouchInput decides by"
+		% [
+			expected_row_height(density),
+			density,
+			expected_row_height(here),
+			here,
+			expected_row_height(TouchInputScript.HELD_DPI),
+			TouchInputScript.HELD_DPI,
+		]
+	)
+
+
+## The caption a 2D workspace draws over the scene it is reading: the judgement, how much of the scene was read, the
+## device it was read at, which controls are under a finger's floor, and what a finger's row comes to elsewhere.
+##
+## **This is the half a scene should not have to word for itself.** A reading and the words about it are one thing
+## here for the same reason the arithmetic is: a caption written beside a report is a second place that can disagree
+## with it, and the words are the part a person actually reads. **Which** controls are under the floor are named,
+## not counted, for the first two - a count sends a person hunting - and the rest are a count, so a screen with forty
+## faults still says so in one line rather than running off the edge of the room.
+##
+## The count of nodes read is `reading.size() - 1` because `read` writes the device line first and that line is not a
+## node. The judgement is the device's own floor, so a scene drawn for a desk is measured against a desk's floor and
+## says nothing at all about a finger - see `looks_built_for_a_finger`.
+static func caption_lines(reading: Dictionary, density: float, built_scale: float) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	var told: Array[String] = looks_built_for_a_finger(reading)
+	var said: String = "built for a finger" if told.is_empty() else "%d under a finger's floor" % told.size()
+	# **And how much of what was read a finger could press, said beside the judgement.** "27 nodes read" does not
+	# say how many of them are things a thumb can meet: a scene of forty containers and three buttons would read as
+	# either enormous or tiny depending on which number a person guessed, and the set the floor is measured against is
+	# the fingers', not the nodes'.
+	out.append(
+		"%s - %d node(s) read, %d of them a finger's, at %.0f dpi, canvas scale %.3f"
+		% [said, reading.size() - 1, how_many_a_finger_could_press(reading), density, built_scale]
+	)
+	for one: String in told.slice(0, 2):
+		out.append(one)
+	if told.size() > 2:
+		out.append("... and %d more" % (told.size() - 2))
+	out.append(_rows_where_it_matters(density))
+	return out

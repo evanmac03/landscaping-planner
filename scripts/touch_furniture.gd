@@ -401,6 +401,21 @@ var on_a_finger: bool = false
 var palette_gap: float = 0.0
 
 
+## The surfaces a phone arrangement puts away because they belong to a desk: the presentation panel, the desk's own
+## palette column, the drafting hints. **Handed in by the workspace rather than named here**, because which surfaces a
+## scene has is the scene's own fact and not this module's - the same split as every other door on this class.
+##
+## **Hidden, and remembered.** A phone arrangement takes the desk's surfaces away and **gives back exactly the ones it
+## took**: a panel whose own logic has decided to stay down must not be brought up by a change of arrangement, and a
+## panel this arrangement took away must not be left down when the desk comes back - which a HUD that follows a
+## window's shape really does. Hiding without remembering is right in a view that never switches and wrong in the
+## program that does, so the memory is the rule rather than a nicety.
+var desk_panels: Array[Control] = []
+
+## The desk's surfaces this arrangement has taken away, so that only those come back.
+var _put_away: Array[Control] = []
+
+
 ## Say which of the two arrangements is up: the dock and the row of controls, or the palette and the menus.
 ##
 ## `working` is the question the frame has already asked - whether the drawing's own furniture belongs on the
@@ -418,6 +433,22 @@ func show_the_furniture(working: bool) -> void:
 	# sheet puts it away with the rest - and whatever it borrowed is handed straight back when that happens.
 	if sheet != null and sheet.visible and not (on_a_finger and working) and close_door.is_valid():
 		close_door.call()
+	# **And the desk's own surfaces go away with the desk** - the ones this pass actually took, so that a desk coming back
+	# gets them and nothing else. This is the reading `Hud` makes when it starts the presentation panel put away on a
+	# finger; the panel stands at `1276,70 .. 1588,88`, inside the top bar's plate and straight across `Ground view`,
+	# and it is the one panel in this program with no placement rule at all, so it kept a desk rectangle and drew a
+	# ghost over two of the bar's buttons. "Which arrangement is up" is one question and this is the place that answers
+	# it, so the answer belongs here rather than in each workspace.
+	if on_a_finger and working:
+		for panel: Control in desk_panels:
+			if panel != null and panel.visible:
+				panel.visible = false
+				_put_away.append(panel)
+	else:
+		for panel: Control in _put_away:
+			if is_instance_valid(panel):
+				panel.visible = true
+		_put_away.clear()
 
 
 ## Put the dock along the foot of the screen, above whatever the device keeps there for itself.

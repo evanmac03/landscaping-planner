@@ -72,8 +72,12 @@ const PHONE_SAFE_AREA := Rect2i(0, 100, 1080, 2240)
 const PalettePanelScript := preload("res://scripts/palette_panel.gd")
 
 ## The reading the two sides share, and where an editor leaves its own for a run to compare with.
+## The two readings the halves of the comparison are left in. **Two files, because the two sides are two processes
+## and neither may overwrite the other's** - and because a comparison whose two halves are the same file is a
+## reading compared with itself, which agrees by construction and measures nothing.
 const WorkspaceReportScript := preload("res://tools/workspace_report.gd")
 const EDITOR_READING := "user://touch_workspace_editor_reading.txt"
+const RUN_READING := "user://touch_workspace_run_reading.txt"
 
 ## The tab whose tools are a different list rather than a selection of the drawing tools. Named so the one
 ## comparison below reads as the fact it is.
@@ -112,6 +116,17 @@ const NODES := {
 	"top_bar": "Root/TopBar",
 	"overlay": "Root/Overlay",
 }
+
+
+## The surfaces that belong to a desk rather than to a finger, as paths under `Hud/`: the presentation panel, the
+## desk's own palette column and the drafting hints.
+##
+## **Measured before this line existed, and it is why it exists.** The presentation panel stood at `1276,70 ..
+## 1588,88` - inside the top bar's plate (`12,12 .. 1588,128`) and straight across `Ground view`
+## (`1208,0 .. 1544,97`) - which is the ghost two of the bar's buttons had shown all along. Nothing caught it: it is
+## not one of `hud.gd`'s `_the_overlay_panels`, so no rule places it, and it is not a drawn surface the probe's own
+## rules cover. **A view that shows a desk panel over the phone's bar is a view of an arrangement nobody runs.**
+const DESK_PANELS: Array[String] = ["Root/Presentation", "Root/Palette", "Root/DraftHints"]
 
 
 ## Whether the arrangement is **standing**, so the two doors below cannot do it twice.
@@ -216,6 +231,17 @@ func _stand_the_phone_arrangement() -> void:
 		return
 	_clear_what_was_built(furniture)
 	furniture.on_a_finger = true
+	# **The desk's own surfaces, found by the name the scene gives them.** They are not in `NODES` above because that
+	# map hands each entry to the furniture as a named property and these are a *list* rather than a piece of the
+	# furniture: the workspace says which surfaces its scene has, and the module says what a phone arrangement does
+	# with them. Without this the view showed a desk panel drawn over the bar, which is not an arrangement the program
+	# ever runs.
+	var going_away: Array[Control] = []
+	for one: String in DESK_PANELS:
+		var found: Control = get_node_or_null(NodePath("Hud/" + one)) as Control
+		if found != null:
+			going_away.append(found)
+	furniture.desk_panels = going_away
 	furniture.app_window = get_window()
 	# The two doors that make the view answerable. `press_a_tab` is the furniture's own, bound rather than
 	# rewritten, so pressing a tab in the editor runs the same arrangement the running program runs - it marks the
@@ -447,6 +473,14 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 		add_child(_verdict)
 	var told: Array[String] = WorkspaceReportScript.looks_built_for_a_finger(reading)
 	var said: String = "built for a finger" if told.is_empty() else "%d under a finger's floor" % told.size()
+	# **And the caption may not argue with its own figures.** The verdict is the report's; the row below it is the
+	# furniture's - and this line once read "built for a finger" beside "its own row is 0.0 px", which is a sentence
+	# contradicting itself in the same breath. It happened because the *floor* was broken and came back zero, so
+	# every control cleared it; the report now refuses that floor, and this says so anyway. **A caption holds the
+	# achieved number in its own hand, so it is owed the judgement that follows from it, whatever the door says.**
+	var achieved: float = 0.0 if _furniture == null else _furniture.row_height()
+	if _furniture != null and achieved <= 0.0:
+		said = "nothing was dressed - a row of 0 px is no row at all"
 	# **Put in the board's own middle, and that is a correction rather than a taste.** The first version stood at
 	# (10, 10), which is precisely where the top bar's own controls are - on a view whose entire purpose is looking at
 	# them. Measured, the caption lay across `Menu` and the four words it was there to help judge, so the instrument
@@ -462,7 +496,7 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 	# carries, because those two are the same number only when the dressing ran.
 	var was: String = ""
 	if _furniture != null:
-		was = "; its own row is %.1f px" % _furniture.row_height()
+		was = "; its own row is %.1f px" % achieved
 		if _furniture.row != null and _furniture.row.get_child_count() > 0:
 			var made: Button = _furniture.row.get_child(0) as Button
 			var asked: float = 0.0
@@ -472,8 +506,41 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 		# **And how many buttons were dressed**, which is what tells "the arrangement never reached `build`" apart
 		# from "it reached it and the size came out nothing" - two faults that need opposite repairs.
 		was += "; %d dressed" % _furniture.dressings
+	# **And which controls, not only how many.** A count sends a person hunting; the words and the figure put the
+	# control in their hand. Two are enough for a caption a person reads at a glance, and the rest are said as a
+	# count so that a screen with forty faults still says so in one line.
+	var named: String = ""
+	if not told.is_empty():
+		named = "\n" + "\n".join(PackedStringArray(told.slice(0, 2)))
+		if told.size() > 2:
+			named += "\n... and %d more" % (told.size() - 2)
 	_verdict.text = (
-		"%s - %d nodes read at %.0f dpi, canvas scale %.3f%s" % [said, reading.size() - 1, density, built_scale, was]
+		"%s - %d nodes read at %.0f dpi, canvas scale %.3f%s%s\n%s"
+		% [said, reading.size() - 1, density, built_scale, was, named, _the_devices_line(density)]
+	)
+
+
+## What a row of a finger's furniture comes to on the devices that matter, **asked of `PhoneHud` and never restated
+## here** - because this whole view exists to make a distant device's furniture visible, and the next question after
+## "does it match" is always "what would it be elsewhere".
+##
+## The three are the ones this project has a reason to name: **the phone it is being built for**, **this machine**,
+## whose own density is what a desk's furniture is made at, and **the density `TouchInput` decides by**, which is the
+## threshold that turns a hand into a thumb and is deliberately not a screen. A floor is a length only once a density
+## turns it into pixels, so three densities is three answers to one question - and the arithmetic belongs to
+## `PhoneHud`, which is why nothing here works one out.
+func _the_devices_line(built_at_density: float) -> String:
+	var here: float = PhoneHudScript.dpi()
+	return (
+		"a finger's row is %.1f px at the phone's %.0f dpi, %.1f at this machine's %.0f, %.1f at the %.0f TouchInput decides by"
+		% [
+			WorkspaceReportScript.expected_row_height(built_at_density),
+			built_at_density,
+			WorkspaceReportScript.expected_row_height(here),
+			here,
+			WorkspaceReportScript.expected_row_height(TouchInputScript.HELD_DPI),
+			TouchInputScript.HELD_DPI,
+		]
 	)
 
 
@@ -521,9 +588,11 @@ func _say_the_report() -> void:
 	# without running anything - so the judgement is put on the screen, over the furniture it is about.
 	_show_the_verdict(mine, density, built_scale)
 	if Engine.is_editor_hint():
-		_leave_the_reading_for_a_run(mine)
+		_leave_the_reading_for_a_run(mine, EDITOR_READING)
+		_say_how_the_last_run_compares(mine)
 		return
-	var left: PackedStringArray = _read_what_the_editor_left()
+	_leave_the_reading_for_a_run(mine, RUN_READING)
+	var left: PackedStringArray = _read_lines(EDITOR_READING)
 	var theirs: Dictionary = WorkspaceReportScript.from_lines(left)
 	if theirs.is_empty():
 		print("TOUCH WORKSHOP: no editor reading to compare with - open this scene in the editor once first")
@@ -547,10 +616,39 @@ func _say_the_report() -> void:
 		print("  - ", one)
 
 
-## Leave this side's reading where a run can find it, through a temporary file and a rename - the house rule for
-## every write, so a write that fails never leaves a shorter file where the real one was.
-func _leave_the_reading_for_a_run(mine: Dictionary) -> void:
-	var temporary := EDITOR_READING + ".writing"
+## Say, **on the glass**, how this side's report compares with the last run's - which is the question a person editing
+## here actually has, and which used to be answerable only by running the scene.
+##
+## **A reading is one half of a comparison, and until now only one side of this pair was ever compared.** A run wrote
+## nothing, so an editor could say what it had built and nothing about whether it matched; the file travelled one way
+## and the answer travelled none. Two files instead of one costs a constant and buys the whole question: change the
+## GUI here, reload, and the caption says whether F6 will show what you are looking at.
+##
+## The count is capped the way the findings are, because a caption a person reads at a glance is not a report - the
+## console and the file carry the rest. The reason a difference is worth stating on the glass at all is that the
+## device line is the first of them: two readings of one screen that were built for different screens are a real
+## finding, and it would be the only one on a screen where every size then matched.
+func _say_how_the_last_run_compares(mine: Dictionary) -> void:
+	if _verdict == null:
+		return
+	var left: PackedStringArray = _read_lines(RUN_READING)
+	if left.is_empty():
+		_verdict.text += "\nnothing to compare with yet - run the scene once (F6), reload, and this line answers"
+		return
+	var apart: Array[String] = WorkspaceReportScript.differences(WorkspaceReportScript.from_lines(left), mine)
+	if apart.is_empty():
+		_verdict.text += "\nmatches the last run on every node read"
+		return
+	_verdict.text += "\n%d difference(s) from the last run:" % apart.size()
+	for one: String in apart.slice(0, 2):
+		_verdict.text += "\n  " + one
+
+
+## Leave this side's reading where the other side can find it, through a temporary file and a rename - the house rule
+## for every write, so a write that fails never leaves a shorter file where the real one was. The caller says which
+## half of the comparison this is, because the two sides are two processes and neither may overwrite the other's.
+func _leave_the_reading_for_a_run(mine: Dictionary, where: String) -> void:
+	var temporary: String = where + ".writing"
 	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
 		print("TOUCH WORKSHOP: the reading could not be left for a run: ", FileAccess.get_open_error())
@@ -581,14 +679,14 @@ func _leave_the_reading_for_a_run(mine: Dictionary) -> void:
 		# one out.
 		file.store_line(VERDICT_LINE + "the last dressing was " + _furniture.last_dressing)
 	file.close()
-	DirAccess.rename_absolute(temporary, EDITOR_READING)
+	DirAccess.rename_absolute(temporary, where)
 
 
 ## What an editor left, or nothing at all when it has never been opened there.
-func _read_what_the_editor_left() -> PackedStringArray:
-	if not FileAccess.file_exists(EDITOR_READING):
+func _read_lines(where: String) -> PackedStringArray:
+	if not FileAccess.file_exists(where):
 		return PackedStringArray()
-	var file := FileAccess.open(EDITOR_READING, FileAccess.READ)
+	var file := FileAccess.open(where, FileAccess.READ)
 	if file == null:
 		return PackedStringArray()
 	var out: PackedStringArray = PackedStringArray()

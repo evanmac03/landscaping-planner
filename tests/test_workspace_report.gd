@@ -328,3 +328,79 @@ func _a_row_of_two_buttons() -> Node:
 		button.text = ["Draw", "Dim"][index]
 		parent.add_child(button)
 	return root
+
+
+const SpacingScript := preload("res://scripts/spacing.gd")
+
+
+## A control that has moved is named, **with both places** - the fifth fact, and the one the format was bumped for.
+## Before it, a button that slid 40 px across the screen kept its size, its type and its visibility, so a report of
+## the two readings came back empty: measured, not supposed, and it is why this test exists.
+func test_a_control_that_moved_is_named_with_both_places() -> void:
+	var nothing: Array[String] = []
+	var root: Node = _a_row_of_two_buttons()
+	var row: Control = root.get_node("Hud/Root/TopBar/Row/TouchRow") as Control
+	var button: Control = row.get_child(0) as Control
+	button.position = Vector2.ZERO
+	var before: Dictionary = WorkspaceReportScript.read(root, 450.0, 1.0, 450.0, nothing)
+	button.position = Vector2(40.0, 0.0)
+	var after: Dictionary = WorkspaceReportScript.read(root, 450.0, 1.0, 450.0, nothing)
+	var named: Array[String] = WorkspaceReportScript.differences(before, after)
+	var said: String = " ".join(named)
+	assert(not named.is_empty(), "a control that moved is a difference, and there was none")
+	assert(said.contains("40,0"), "and both places are named: %s" % said)
+	root.free()
+
+
+## **A reading asked for no particular rows is a HUD workspace's reading, and this pins it rather than leaving it to
+## be discovered.** `read`'s default is the HUD's own nine rows - deliberately, because `touch_hud_workspace` asks
+## with four arguments and that is where its thirteen rows come from. So a general caller that forgets to hand its own
+## list is told about nine paths its scene never had and reads none of its own controls. It cost a silent hang to
+## find, and the next person to meet it should meet this test instead.
+func test_a_reading_with_no_watch_list_names_the_huds_own_rows() -> void:
+	var nothing: Array[String] = []
+	var scene := Control.new()
+	scene.name = "MyStand"
+	var only := Button.new()
+	only.name = "Only"
+	scene.add_child(only)
+	var by_default: Dictionary = WorkspaceReportScript.read(scene, 450.0, 1.0, 450.0)
+	assert(not by_default.has("MyStand"), "a scene's own root is not what a default reading names")
+	assert(not by_default.has("Only"), "and neither is anything in it")
+	var asked_for: Dictionary = WorkspaceReportScript.read(scene, 450.0, 1.0, 450.0, nothing)
+	assert(asked_for.has("MyStand"), "while an empty watch list means the scene's own tree")
+	assert(asked_for.has("Only"), "and every control a finger could press inside it")
+	scene.free()
+
+
+## Two controls a finger cannot choose between are found **by the module that owns the question**, from rectangles a
+## reading already carries. An overlap is the worst gap there is and `Spacing` reads it as 0 - not as a negative - so
+## the number this asserts is the number its own doc promises.
+func test_two_controls_a_finger_cannot_choose_between_are_found() -> void:
+	var nothing: Array[String] = []
+	var scene := Control.new()
+	scene.name = "MyStand"
+	var left := Button.new()
+	left.name = "Left"
+	left.position = Vector2(100.0, 100.0)
+	left.size = Vector2(120.0, 90.0)
+	var right := Button.new()
+	right.name = "Right"
+	right.position = Vector2(215.0, 100.0)
+	right.size = Vector2(120.0, 90.0)
+	scene.add_child(left)
+	scene.add_child(right)
+	# **In the tree, because a control that is not in one is not showing** - and the list of pairs is a list of things
+	# a finger can meet. A test that built its scene loose would prove the rule against a screen with nothing on it,
+	# which is precisely the fault this file exists to refuse.
+	add_child(scene)
+	var reading: Dictionary = WorkspaceReportScript.read(scene, 450.0, 1.0, 450.0, nothing)
+	var items: Array[Dictionary] = WorkspaceReportScript.the_things_a_finger_could_press(reading)
+	assert(items.size() == 2, "both buttons are things a finger could press: %d" % items.size())
+	var found: Array[Dictionary] = SpacingScript.faults(items)
+	assert(
+		found.size() == 1,
+		"and the two overlapping by five pixels are the pair a thumb cannot choose between: %s" % str(found),
+	)
+	assert(int(found[0]["gap"]) == 0, "the gap of an overlap is nothing, not a negative: %s" % str(found[0]))
+	scene.free()

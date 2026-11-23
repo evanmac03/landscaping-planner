@@ -306,3 +306,34 @@ func _files_under(root: String) -> PackedStringArray:
 		name = dir.get_next()
 	dir.list_dir_end()
 	return out
+
+
+## A phone arrangement puts the desk's own surfaces away, and **hides them rather than showing them**.
+##
+## **The first half is the fault this was written for.** The presentation panel stood at `1276,70 .. 1588,88` - inside
+## the top bar's plate (`12,12 .. 1588,128`) and straight across `Ground view` (`1208,0 .. 1544,97`) - so the 2D
+## workspace drew a ghost over two of the bar's buttons, and nothing caught it: the panel is not one of `hud.gd`'s
+## `_the_overlay_panels`, so no rule places it, and it is not a drawn surface the probe's own rules cover.
+##
+## **The second half is what stops the cure becoming a fault of its own.** A panel the program itself has put away
+## must not be brought back up by a change of arrangement, or a desk's palette would appear on a phone - which is why
+## this module hides and never shows.
+func test_a_phone_arrangement_hides_the_desks_own_surfaces() -> void:
+	var furniture: TouchFurniture = TouchFurniture.new()
+	var up: PanelContainer = PanelContainer.new()
+	up.visible = true
+	var down: PanelContainer = PanelContainer.new()
+	down.visible = false
+	furniture.desk_panels = [up, down]
+	# A finger: the desk's own surfaces go, and a surface already away is left away.
+	furniture.on_a_finger = true
+	furniture.show_the_furniture(true)
+	assert(not up.visible, "a desk panel left standing over a phone's bar")
+	assert(not down.visible, "a panel the program put away is still away under a finger")
+	# A desk: what was up is given back, and what was down is not resurrected.
+	furniture.on_a_finger = false
+	furniture.show_the_furniture(true)
+	assert(up.visible, "a desk arrangement gives the panel back")
+	assert(not down.visible, "and does not bring back what it never showed")
+	up.free()
+	down.free()
