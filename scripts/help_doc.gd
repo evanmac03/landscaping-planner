@@ -448,6 +448,10 @@ static func _topics() -> Array[Dictionary]:
 				"",
 				"On a phone the whole screen is also drawn larger - by about a third - and the palette's buttons "
 				+ "are made as tall as a thumb needs rather than as tall as a desk did.",
+				"",
+				"Undo stands in the strip beside the drawing tools, where a thumb reaches it without scrolling "
+				+ "past a tool. What a phone gains is the reach and not a different word, so it says \"Undo\" and "
+				+ "the status line says what it took back the moment it is pressed.",
 			],
 		)
 	)

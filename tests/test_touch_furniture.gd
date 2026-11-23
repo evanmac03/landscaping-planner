@@ -79,3 +79,55 @@ func test_a_tab_fills_the_strip_from_whatever_its_door_hands_back() -> void:
 	assert(furniture.tab_in_hand == "Draw", "with the tab that did it held as the one in hand")
 	for node: Node in [strip, strip_row, tabs, column]:
 		node.free()
+
+
+## **One undo button, moved rather than copied.** A desk's palette is put away on a finger, so the button it holds
+## is off the screen there and a thumb has no undo at all. This is the rule that the finger's arrangement gets
+## *that* button - the same instance, reporting the same command - and hands it back wearing what it wore.
+##
+## The fixture is a faithful miniature of the dock the scene describes: a plate holding a scroll holding the strip.
+## It cannot be less than that, because the wrap is the point: a button left *inside* the scroll is a button a
+## person has to scroll past a tool to find, which is the fault this closes. `PalettePanel.build` is callable with
+## no draft for exactly this reason - a bare `PalettePanel.new()` is the whole fixture.
+func test_the_finger_borrows_the_palettes_own_undo_and_hands_it_back_as_it_was() -> void:
+	var column: PalettePanelScript = PalettePanelScript.new()
+	column.build(null, { })
+	var borrowed: Button = column.undo_button()
+	assert(borrowed != null, "the palette builds an Undo of its own, and that is the button a finger gets")
+	var plate := PanelContainer.new()
+	var scrolling := ScrollContainer.new()
+	var strip_row := HBoxContainer.new()
+	scrolling.add_child(strip_row)
+	plate.add_child(scrolling)
+	var furniture: TouchFurnitureScript = TouchFurnitureScript.new()
+	furniture.strip = plate
+	furniture.strip_row = strip_row
+	furniture.palette_column = column
+	furniture.on_a_finger = true
+	furniture.stated_density = 450.0
+	furniture.stated_scale = 1.0
+	var flags: int = borrowed.size_flags_horizontal
+	var wanted: Vector2 = borrowed.custom_minimum_size
+	furniture.stand_the_gesture_button()
+	assert(borrowed.get_parent() != column, "the button leaves the palette for the dock while a finger is up")
+	assert(
+		borrowed.get_parent() != scrolling,
+		"and not inside the strip's scroll, where a tab's own tools would push it out of reach",
+	)
+	assert(borrowed.get_parent() == scrolling.get_parent(), "but beside it, in the one row both of them stand in")
+	assert(scrolling.get_parent().get_parent() == plate, "which is a level in from the plate the scene gave the strip")
+	assert(
+		borrowed.custom_minimum_size.y > wanted.y,
+		"dressed for a thumb rather than left at the size the palette gave it: %s" % str(borrowed.custom_minimum_size),
+	)
+	assert(borrowed.has_theme_font_size_override(&"font_size"), "and wearing the device's own type")
+	furniture.give_the_gesture_button_back()
+	assert(borrowed.get_parent() == column, "the arrangement it was borrowed for hands it back")
+	assert(borrowed.size_flags_horizontal == flags, "wearing the flags the palette laid it out with")
+	assert(borrowed.custom_minimum_size == wanted, "and the size the palette gave it back")
+	assert(
+		not borrowed.has_theme_font_size_override(&"font_size"),
+		"and the palette's own type, not the device's - a phone session must not deform a desk's palette",
+	)
+	for node: Node in [plate, column]:
+		node.free()

@@ -129,6 +129,27 @@ length) rather than replacing them, so a laptop with a touch screen keeps its ke
 goes through `PlanPlayer.look_by_drag`, the same call the mouse makes, so a finger and a mouse
 cannot have two sensitivities.
 
+### 2.4 The Undo a thumb can reach (`TouchFurniture.stand_the_gesture_button`)
+
+A desk's palette is put away on a finger (`show_the_furniture` does that), and the palette is where the one undo
+button on the screen lives - so a thumb had no undo at all. What a phone gains is the **reach**, not a second
+button: the palette's own is *moved* into the dock's strip, reporting the same `draft_undo` command the menu bar
+reports, and handed back to the palette wearing exactly what it wore. That is section 2's rule applied to a
+`Button`.
+
+It stands **outside the strip's own scroll**, which is the difference between one tap and a hunt: the strip scrolls
+on a narrow phone, so a control left inside it is a control to scroll past a tool to find. `ToolStrip` is a
+`PanelContainer` and a `PanelContainer` holds exactly one child, so the scroll is wrapped in a row the furniture
+makes - the scene is not changed, and the wrap is the same `reparent` the strip's borrowed tools already use.
+
+The words stay "Undo", because the recorded rule for these two buttons is that the text is the verb and the
+gesture's name goes to the tooltip. A thumb sees no tooltip, so the naming reaches a finger through the sentence
+the status line says the moment the button is pressed ("undid drawing a new line").
+
+Measured on the desk-side phone run of `tools/touch_hud_workspace.tscn` (2026-11-23), the button stands at
+`screen (1404, 624) .. (1519, 722) 115x98 px`, 41 px of type at the A16W's 450 dpi, with the six drawing tools
+inside the scroll beside it and nothing in a row it may not share.
+
 ## 3. Storage: a file on a phone is handed over, not addressed (`PhoneFiles`)
 
 Android gives a program permission to one document at a time, through its own picker. A path

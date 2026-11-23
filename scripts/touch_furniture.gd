@@ -105,6 +105,30 @@ var tabs: HBoxContainer = null
 var sheet: PanelContainer = null
 var sheet_close: Button = null
 
+## The plate the gesture button stands on beside the strip, and the scroll it was lifted out of to make it.
+##
+## Both are made or moved by this file rather than added to the scene, because `strip` is a `PanelContainer` and a
+## `PanelContainer` holds exactly one child: a second control beside the strip's own scroll cannot be a scene node
+## without the scene gaining a level, and the scene is drawn the way it is for reasons of its own. It is the same
+## `reparent` the strip's borrowed tools already use, so the dock the scene describes stays the dock it drew.
+var _strip_plate: HBoxContainer = null
+var _strip_scroll: Node = null
+
+## The undo button this file borrowed from the palette while the finger's arrangement is up - and the four
+## properties it wore before it was borrowed.
+##
+## **Every one of them is handed back with it, and each is a fault that would otherwise be silent.** The palette
+## lays its command buttons out to fill their cell (`EXPAND_FILL`) with its own type; a button dressed as a
+## finger's target is a square of the device's own row with the device's own type override. A button returned
+## wearing either of the finger's answers would deform the desk's palette the moment a session went from a phone
+## to a desk - which is what the development view does every time it reports on both arrangements in one run.
+var _undo_button: Button = null
+var _undo_size_wanted: Vector2 = Vector2.ZERO
+var _undo_flags: int = 0
+var _undo_focus: Control.FocusMode = Control.FOCUS_ALL
+## The type size the palette had put on it, or `-1` when it had none of its own.
+var _undo_font: int = -1
+
 ## The one control in the scene wearing the bar's plate, from which every other pane here is derived.
 var top_bar: PanelContainer = null
 
@@ -182,6 +206,10 @@ func build() -> void:
 	# for the length of the build has put its machine's own back.
 	built_at = density_for_a_size()
 	build_the_row()
+	# **And the one control a thumb needs within reach of every tool.** The strip's tools change with the tab, but
+	# what a person most often wants to take back is whatever they have just done - which is the same gesture
+	# whatever tool was in hand. See `stand_the_gesture_button` for why it is borrowed rather than built.
+	stand_the_gesture_button()
 	build_the_tabs()
 	apply_the_plates()
 	# **The sheet's Close is a scene node, so nothing that builds a button ever touched it.** Measured on the
@@ -429,6 +457,13 @@ func show_the_furniture(working: bool) -> void:
 		menu_bar.visible = not on_a_finger
 	if dock != null:
 		dock.visible = on_a_finger and working
+	# **And the Undo stands and falls with the arrangement it belongs to.** A button left in the dock's plate while
+	# a desk is up would be a rectangle over the palette's own tools - and the palette would be missing the button
+	# besides. One undo button in two places at once is exactly the answer this file exists to avoid.
+	if on_a_finger and working:
+		stand_the_gesture_button()
+	else:
+		give_the_gesture_button_back()
 	# A sheet is part of the drawing's furniture rather than a page of its own, so a presentation or a painted
 	# sheet puts it away with the rest - and whatever it borrowed is handed straight back when that happens.
 	if sheet != null and sheet.visible and not (on_a_finger and working) and close_door.is_valid():
@@ -722,6 +757,107 @@ func put_the_tools_back() -> void:
 	for child: Node in strip_row.get_children():
 		if child is Button:
 			(child as Button).reparent(palette_column, false)
+
+
+## Stand the palette's own Undo beside the strip, where a thumb reaches it without scrolling past a tool.
+##
+## **Borrowed rather than built, and that is the whole of why this is small.** The program has one undo *act*, one
+## place that words what it would take back, and one button that carries it - the palette's, reporting the same
+## command the menu bar's `Undo` reports, so the two cannot come to mean different things by one name. A button
+## built here would be a second copy of all three, and a button that could disagree with the palette's about what
+## it will do is the defect this codebase spends its effort not having. The palette is put away on a finger
+## (`show_the_furniture` does that), so its button is off the screen and doing nothing there anyway: this moves it
+## to where the thumb already is.
+##
+## It stands **outside the strip's own scroll**, and that is the difference between one tap and a hunt. The strip
+## scrolls on a narrow phone, so a control left inside it is a control a person has to scroll past a tool to find.
+## `strip` holds exactly one child, so the scroll is wrapped in a row this file makes and the scene is left alone.
+##
+## **The words stay "Undo"**, which is the recorded rule for these two buttons: the text is the verb and the
+## gesture's name goes to the tooltip and to the status line. A thumb sees no tooltip, so the naming reaches a
+## finger through the sentence the drawing says the moment the button is pressed - "undid drawing a new line" -
+## which the controller already writes. What a phone gains is the *reach*, not a new wording.
+##
+## It does nothing the second time it is called, and nothing at all on a desk: the density a size is worked out at
+## is captured once by `build`, so a later dressing would measure the button against the wrong screen.
+func stand_the_gesture_button() -> void:
+	if not on_a_finger or strip == null or strip_row == null or palette_column == null:
+		return
+	if _undo_button != null and is_instance_valid(_undo_button):
+		return
+	var borrowed: Button = palette_column.undo_button()
+	if borrowed == null:
+		return
+	# The scroll the strip stands in, which is the scene's own node and is wrapped rather than replaced.
+	var scrolling: Node = strip_row.get_parent()
+	if scrolling == null or scrolling.get_parent() != strip:
+		return
+	_strip_plate = HBoxContainer.new()
+	_strip_plate.name = "StripPlate"
+	_strip_scroll = scrolling
+	strip.remove_child(scrolling)
+	_strip_plate.add_child(scrolling)
+	# **The scroll takes the room and the button keeps its own size**, and that is what holds the button in the
+	# same place for every tab: the strip's tools are a different width in each of them, so a button that moved
+	# when the tab changed would be a target a thumb has to look for rather than one it knows.
+	(scrolling as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_undo_button = borrowed
+	_undo_size_wanted = borrowed.custom_minimum_size
+	_undo_flags = borrowed.size_flags_horizontal
+	_undo_focus = borrowed.focus_mode
+	_undo_font = -1
+	if borrowed.has_theme_font_size_override(&"font_size"):
+		_undo_font = borrowed.get_theme_font_size(&"font_size")
+	borrowed.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# **`reparent` rather than `add_child`, and the first version of this was caught making the difference.** The
+	# button still stands in the palette's own row, and this engine refuses to give a node a second parent:
+	# `Can't add child 'draft_undo' to 'StripPlate', already has a parent 'EditRow'`. `reparent` does the two halves
+	# that sentence asks for, in the order that does not leave the button parentless in between.
+	borrowed.reparent(_strip_plate, false)
+	strip.add_child(_strip_plate)
+	dress_for_a_finger(borrowed)
+
+
+## Hand the palette's button back to the column it was built in, wearing exactly what it wore before.
+##
+## The four answers are restored rather than left, because each of them is a shape the desk's palette would keep:
+## the cell it fills, the size the palette gave it, the focus it keeps away from a drawing tool's keys, and the
+## palette's own type. None of them would be a crash - every one of them would be a desk that looks wrong after a
+## phone has been used, which is the kind of fault nobody reports because nobody can name it.
+func give_the_gesture_button_back() -> void:
+	if _undo_button == null:
+		return
+	if is_instance_valid(_undo_button) and palette_column != null:
+		_undo_button.custom_minimum_size = _undo_size_wanted
+		_undo_button.size_flags_horizontal = _undo_flags
+		_undo_button.focus_mode = _undo_focus
+		if _undo_font < 0:
+			_undo_button.remove_theme_font_size_override(&"font_size")
+		else:
+			_undo_button.add_theme_font_size_override(&"font_size", _undo_font)
+		_undo_button.reparent(palette_column, false)
+	_undo_button = null
+	strip_scroll_put_back()
+
+
+## Put the strip's scroll straight back where the scene put it, so a desk coming back gets the dock it was drawn
+## with rather than the arrangement this file made for a finger.
+##
+## **The empty row is freed rather than left standing**, and the scroll is put back *before* it goes: the plate the
+## scene gave the strip holds exactly one child, so a moment with two of them would lay the scroll and the row out
+## on top of one another. Nothing else refers to that row - `stand_the_gesture_button` makes a fresh one - so it
+## goes with the arrangement it was made for.
+func strip_scroll_put_back() -> void:
+	if _strip_plate == null or not is_instance_valid(_strip_plate):
+		return
+	if strip != null and _strip_scroll != null and _strip_scroll.get_parent() == _strip_plate:
+		_strip_plate.remove_child(_strip_scroll)
+		if _strip_plate.get_parent() == strip:
+			strip.remove_child(_strip_plate)
+		_strip_plate.free()
+		strip.add_child(_strip_scroll)
+	_strip_plate = null
+	_strip_scroll = null
 
 
 ## Lay the strip's buttons out for a finger, on the frame after they were moved: a control asked for a size
