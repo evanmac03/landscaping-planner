@@ -166,7 +166,20 @@ static func _is_a_fault(one: Dictionary, other: Dictionary) -> bool:
 	if not one_bar and not other_bar:
 		return false
 	if one_kind == WORDS or other_kind == WORDS:
-		return true
+		# **Words a bar covers whole are hidden, not jumbled, and only the second is this rule's business.**
+		# Measured on the glass with the estimate page over the board: the palette's own header was not fighting
+		# the page's title, it was behind it - which is what a floating page does. The fault this is written for
+		# is the other case, two sets of words partly showing in one set of rows with neither of them readable.
+		# So a bar holding the words entire is saying nothing at all about them. **The limit, stated rather than
+		# hidden**: a bar sharing only part of a wide control's box is still named, because a rectangle cannot say
+		# where the characters sit inside it - which is why a report of these says "named, not counted".
+		var words_at: Rect2i = other["rect"]
+		var bar_at: Rect2i = other["rect"]
+		if one_kind == WORDS:
+			words_at = one["rect"]
+		if one_bar:
+			bar_at = one["rect"]
+		return not bar_at.encloses(words_at)
 	if one_kind == TOP_BAR or other_kind == TOP_BAR:
 		return true
 	return one_bar and other_bar

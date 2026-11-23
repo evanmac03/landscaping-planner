@@ -29,6 +29,27 @@ func test_two_pages_titles_may_not_share_rows() -> void:
 	)
 
 
+## **The case the glass settled.** With the estimate page over the board the palette's own header was not
+## fighting the page's title - it was behind it, which is what a floating page does and is not this rule's
+## business. On a phone the bars are tall enough to hold a caption whole, and that is where this reaches.
+func test_words_a_title_bar_covers_whole_are_hidden_rather_than_a_fault() -> void:
+	var surfaces: Array = [
+		DrawnSurfacesScript.bar_of("a page on a phone", Rect2i(20, 60, 1400, 900), 71),
+		DrawnSurfacesScript.words("Drawing (0)", Rect2i(28, 0, 200, 40)),
+	]
+	var found: Array[Dictionary] = DrawnSurfacesScript.meetings(surfaces)
+	assert(found.is_empty(), "words a bar holds entirely are covered, not a fault: %d found" % found.size())
+	# And the edge of it: the same bar, with the same words moved so only their bottom shares its rows.
+	var half: Array = [
+		DrawnSurfacesScript.bar_of("a page on a phone", Rect2i(20, 60, 1400, 900), 71),
+		DrawnSurfacesScript.words("Drawing (0)", Rect2i(28, 40, 200, 40)),
+	]
+	assert(
+		DrawnSurfacesScript.meetings(half).size() == 1,
+		"and words it only partly covers are still two things in one row",
+	)
+
+
 func test_a_pages_title_may_not_be_drawn_over_words() -> void:
 	# The menu titles are buttons at the top of the screen, and a page placed high enough draws its own title
 	# over them - which is the fault this rule was written for. The page is at 43: what the probe recorded
