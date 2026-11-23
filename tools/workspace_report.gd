@@ -410,6 +410,44 @@ static func _differences_for(path: String, one: Dictionary, other: Dictionary) -
 	return out
 
 
+## What a caption may say about a reading, from the figures a run and an editor both have.
+##
+## **A caption may not argue with its own figures.** The verdict below and the row that follows it are read the
+## same screen, and a caption that said "built for a finger" beside "its own row is 0.0 px" contradicts itself
+## in one breath - measured, when the *floor* was broken and came back zero so that every control cleared it. So
+## the achieved row is handed in and the judgement follows from it, whatever a door or a floor says.
+static func verdict_words(told: Array[String], row_achieved: float) -> String:
+	if row_achieved <= 0.0:
+		return "nothing was dressed - a row of 0 px is no row at all"
+	if told.is_empty():
+		return "built for a finger"
+	return "%d under a finger's floor" % told.size()
+
+
+## What the furniture itself came to, in words - and **the number that was achieved, not the one that was
+## asked for**.
+##
+## A stated device reads the same whether or not one button was ever dressed with it: measured, the editor
+## showed furniture 31 px tall under a caption that said 450 dpi and a scale of one, which is a diagnostic that
+## cannot fail and is therefore worse than none. So the row that was measured and the first button's own minimum
+## are both printed, because those two are the same number only when the dressing ran. `dressings` is how many
+## buttons it reached, which is what tells "the arrangement never reached `build`" apart from "it reached it and
+## the size came out nothing" - two faults needing opposite repairs. Empty when nothing was read at all.
+static func furniture_words(
+	was_read: bool,
+	row_achieved: float,
+	first_button: float,
+	has_a_button: bool,
+	dressings: int,
+) -> String:
+	if not was_read:
+		return ""
+	var said: String = "; its own row is %.1f px" % row_achieved
+	if has_a_button:
+		said += " and its first button carries %.1f" % first_button
+	return said + "; %d dressed" % dressings
+
+
 ## What a row of a finger's furniture should measure on the device this program is aimed at - the floor
 ## `PhoneHud` states, asked of it rather than written down here.
 static func expected_row_height(density: float) -> float:

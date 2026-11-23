@@ -33,7 +33,9 @@ func test_the_autoloads_are_read_where_godot_keeps_them() -> void:
 
 
 ## An index with a dead line in it is worse than no index. Every instrument named is a file that is really
-## there, is a dev tool rather than something shipped, and comes with the question it answers.
+## there, is a dev tool rather than something shipped, and comes with the question it answers **and the limit of
+## what it can answer** - a line that promises everything sends a person to an instrument for a question it will
+## answer confidently and wrongly.
 func test_every_instrument_it_names_is_really_there() -> void:
 	assert(not Toolbox.INSTRUMENTS.is_empty(), "the toolbox names the instruments this project has")
 	var seen: Array[String] = []
@@ -42,6 +44,10 @@ func test_every_instrument_it_names_is_really_there() -> void:
 		assert(ResourceLoader.exists(scene), scene + " is named by the toolbox and is not there")
 		assert(scene.begins_with("res://tools/"), scene + " is not a dev tool under res://tools/")
 		assert(not String(row["question"]).is_empty(), scene + " is named with no question")
+		assert(
+			not String(row["cannot"]).is_empty(),
+			scene + " is named with no limit stated, and an unstated scope is not a reading",
+		)
 		assert(not seen.has(scene), scene + " is named twice")
 		seen.append(scene)
 

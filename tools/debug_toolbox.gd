@@ -45,96 +45,115 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{
 		"name": "run_tests",
 		"question": "does everything this project promises still hold",
+		"cannot": "run in this process: its rule is a process of its own with the runtime server off",
 		"scene": "res://tools/run_tests.tscn",
 	},
 	{
 		"name": "audit",
 		"question": "one pass: the plant check, the HUD layout, the page layout, every scene of this project's own loading",
+		"cannot": "judge the HUD's layout with no screen: the dummy display names faults nobody has",
 		"scene": "res://tools/audit.tscn",
 	},
 	{
 		"name": "tree_sitter_audit",
 		"question": "is every declaration, return type and parameter typed",
+		"cannot": "judge what a type means - a shadow or a bad call is the compiler's question, not this one",
 		"scene": "res://tools/tree_sitter_audit.tscn",
 	},
 	{
 		"name": "mem_report",
 		"question": "what the program costs, stage by stage, with the real main.tscn up",
+		"cannot": "cost another machine, or a stage the scene it runs never reaches",
 		"scene": "res://tools/mem_report.tscn",
 	},
 	{
 		"name": "console",
 		"question": "what the running program thinks: :where, :pages, :probe, :mode, :doc",
+		"cannot": "reach a control inside a page's own Window, which is a viewport of its own",
 		"scene": "res://tools/console.tscn",
 	},
 	{
 		"name": "vocabulary",
 		"question": "what this program itself calls things: its pages, its menus, its tools, its keys and its layers",
+		"cannot": "say whether a name is a good one: it says which name the program itself uses",
 		"scene": "res://tools/vocabulary.tscn",
 	},
 	{
 		"name": "gui_sweep",
 		"question": "every page holding prose or a list: its cut boxes and its wrong words",
+		"cannot": "open a door its own hand-written PAGES list does not name, and a deliberate scroller's cut it names rather than judges",
 		"scene": "res://tools/gui_sweep.tscn",
 	},
 	{
 		"name": "hud_layout_check",
 		"question": "the same two faults, for whatever is on the screen now",
+		"cannot": "ask a finger's floor with no screen: it says so and reads no numbers at all",
 		"scene": "res://tools/hud_layout_check.tscn",
 	},
 	{
 		"name": "gui_captions",
 		"question": "what moved on the screen around one action, and what held still",
+		"cannot": "know a caption that should have moved: what moved is a reading, and what should is the page's own promise",
 		"scene": "res://tools/gui_captions.tscn",
 	},
 	{
 		"name": "gui_stillness",
 		"question": "the screen compared with itself over time",
+		"cannot": "say what moved - the rows that differ are grouped, and only the caption ledger names words",
 		"scene": "res://tools/gui_stillness.tscn",
 	},
 	{
 		"name": "gui_overlap_show",
 		"question": "the picture that shows one surface drawn over another",
+		"cannot": "decide whether the meeting it draws is wrong: DrawnSurfaces reports, and never decides",
 		"scene": "res://tools/gui_overlap_show.tscn",
 	},
 	{
 		"name": "screen_shot",
 		"question": "a picture of the screen as it is now, with the moment named - one region of any picture twice as big, or what moved between two pictures and when each was taken",
+		"cannot": "see movement: one picture is one moment, and two of them are a comparison somebody else makes",
 		"scene": "res://tools/screen_shot.tscn",
 	},
 	{
 		"name": "page_chrome_probe",
 		"question": "a page's own strip, and a colour walk down the screen",
+		"cannot": "measure a control: it walks the framebuffer and a page's own strip, and reads numbers",
 		"scene": "res://tools/page_chrome_probe.tscn",
 	},
 	{
 		"name": "phone_screen",
 		"question": "the program laid out in the A16W's own room on this desk, with a picture of it and the device's own block",
+		"cannot": "run on the phone: it lays the device's own room out on this desk, which is what makes it cheap",
 		"scene": "res://tools/phone_screen.tscn",
 	},
 	{
 		"name": "phone_touch_sweep",
 		"question": "a finger's questions asked of every page, at the A16W's own numbers",
+		"cannot": "ask its questions with no screen, and it sweeps the doors gui_sweep lists rather than every method a HUD has",
 		"scene": "res://tools/phone_touch_sweep.tscn",
 	},
 	{
 		"name": "phone_touch_pass",
 		"question": "the newest probe block, pulled off the phone, in that order",
+		"cannot": "build a program - an export is its own three minutes, and this says so rather than making one",
 		"scene": "res://tools/phone_touch_pass.tscn",
 	},
 	{
 		"name": "touch_hud_workspace",
 		"question": "the phone's HUD standing still - the bar's four words, the dock's five tabs and the sheet - for looking at and pushing about in the editor rather than reading out of a block",
+		"cannot": "speak for a run: it holds one side of a comparison, and the other side is a second run",
 		"scene": "res://tools/touch_hud_workspace.tscn",
 	},
 	{
 		"name": "plant_scene_check",
 		"question": "one species of every category planted in the real main.tscn",
+		"cannot": "plant every species at once: one of a category at a time is what keeps the reading readable",
 		"scene": "res://tools/plant_scene_check.tscn",
 	},
 	{
 		"name": "help_shot",
 		"question": "the picture one of the manual's subjects shows",
+		"cannot": "illustrate a subject the manual has not listed: it takes the ones PICTURES names",
 		"scene": "res://tools/help_shot.tscn",
 	},
 ]
@@ -228,13 +247,19 @@ func _run_the_checks() -> void:
 	print("  the suite     not in this process: res://tools/run_tests.tscn  (see the note on this function)")
 
 
-## What this project already has to look at a fault with, one line each, and the command that runs it.
+## What this project already has to look at a fault with, one line each, the command that runs it, **and the
+## limit of what it can answer**.
+##
+## The limit is not decoration: an instrument reached for a question it cannot answer costs a session and hands
+## back a confident wrong reading, which is worse than not reaching for it at all - so each line says what it
+## does *and* what it cannot do, and `tests/test_debug_toolbox.gd` refuses a line that states no limit.
 func _say_the_instruments() -> void:
 	print("")
 	print("INSTRUMENTS   (open the scene and press F6, or run the command under its name)")
 	for row: Dictionary in INSTRUMENTS:
 		print("  ", row["name"])
 		print("      ", row["question"])
+		print("      what it cannot do: ", row["cannot"])
 		print("      ", row["scene"])
 
 

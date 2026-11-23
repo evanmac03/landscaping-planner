@@ -445,3 +445,43 @@ func test_two_controls_a_finger_cannot_choose_between_are_found() -> void:
 	)
 	assert(int(found[0]["gap"]) == 0, "the gap of an overlap is nothing, not a negative: %s" % str(found[0]))
 	scene.free()
+
+# --- the caption's own words ---------------------------------------------------------------------------------
+
+
+## **The caption may not argue with its own figures** - the fault the pair below exists to stop.
+func test_a_caption_shown_a_row_of_nothing_says_so_whatever_the_reading_said() -> void:
+	# Measured on the desk: a broken floor came back zero, every control cleared it, and the caption read "built for
+	# a finger" beside "its own row is 0.0 px". The achieved row decides now, not the reading.
+	var clean: Array[String] = []
+	assert(
+		WorkspaceReportScript.verdict_words(clean, 97.0) == "built for a finger",
+		"a dressed row with nothing under the floor is built for a finger",
+	)
+	assert(
+		WorkspaceReportScript.verdict_words(clean, 0.0) == "nothing was dressed - a row of 0 px is no row at all",
+		"and a row of nothing says so, however clean the reading it was handed",
+	)
+	var short: Array[String] = ["a button", "another button"]
+	assert(
+		WorkspaceReportScript.verdict_words(short, 40.0) == "2 under a finger's floor",
+		"the count of what fell short is the report's own, and it is worded once",
+	)
+
+
+## The row a caption prints is the one that was measured, with the button's own minimum beside it - which are the
+## same number only when the dressing ran.
+func test_the_caption_prints_the_row_that_was_achieved_and_not_the_one_that_was_asked_for() -> void:
+	assert(
+		WorkspaceReportScript.furniture_words(false, 0.0, 0.0, false, 0).is_empty(),
+		"nothing read is nothing said, rather than a row of zero",
+	)
+	var dressed: String = WorkspaceReportScript.furniture_words(true, 97.0, 97.0, true, 6)
+	assert(dressed.contains("row is 97.0 px"), "the achieved row is printed: %s" % dressed)
+	assert(dressed.contains("first button carries 97.0"), "and the button's own minimum: %s" % dressed)
+	assert(dressed.contains("6 dressed"), "with how many buttons it reached: %s" % dressed)
+	var undressed: String = WorkspaceReportScript.furniture_words(true, 31.0, 31.0, true, 0)
+	assert(
+		undressed.contains("31.0") and undressed.contains("0 dressed"),
+		"and a row that came out a desk's says so, which is the fault it was written for: %s" % undressed,
+	)

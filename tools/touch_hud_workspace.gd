@@ -472,15 +472,11 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 		_verdict.add_theme_color_override("font_color", Color(1.0, 0.92, 0.45))
 		add_child(_verdict)
 	var told: Array[String] = WorkspaceReportScript.looks_built_for_a_finger(reading)
-	var said: String = "built for a finger" if told.is_empty() else "%d under a finger's floor" % told.size()
-	# **And the caption may not argue with its own figures.** The verdict is the report's; the row below it is the
-	# furniture's - and this line once read "built for a finger" beside "its own row is 0.0 px", which is a sentence
-	# contradicting itself in the same breath. It happened because the *floor* was broken and came back zero, so
-	# every control cleared it; the report now refuses that floor, and this says so anyway. **A caption holds the
-	# achieved number in its own hand, so it is owed the judgement that follows from it, whatever the door says.**
+	# **The verdict is the report's to word, and that is the point of asking it rather than composing it here.** The
+	# report holds the floor, the reading and the count of what fell short; a caption that worded its own verdict
+	# would be a second place free to disagree with the first - and the two are read on one screen.
 	var achieved: float = 0.0 if _furniture == null else _furniture.row_height()
-	if _furniture != null and achieved <= 0.0:
-		said = "nothing was dressed - a row of 0 px is no row at all"
+	var said: String = WorkspaceReportScript.verdict_words(told, achieved)
 	# **Put in the board's own middle, and that is a correction rather than a taste.** The first version stood at
 	# (10, 10), which is precisely where the top bar's own controls are - on a view whose entire purpose is looking at
 	# them. Measured, the caption lay across `Menu` and the four words it was there to help judge, so the instrument
@@ -488,24 +484,21 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 	# the view is run, so the verdict goes there, and it is placed on every report rather than once in case the room
 	# has changed shape since.
 	_verdict.position = Vector2(16.0, maxf(get_rect().size.y * 0.45, 8.0))
-	# **And the number that was actually achieved, which is not the one that was asked for.** The first version of
-	# this caption printed the density and scale the view *stated* - 450 and 1.000 - and a stated device reads the
-	# same whether or not one button was ever dressed with it. Measured, the editor showed furniture 31 px tall
-	# under a caption that said 450 dpi and a scale of one, which is a diagnostic that cannot fail and is therefore
-	# worse than none. What is printed is what the furniture's own row came to and what its first button actually
-	# carries, because those two are the same number only when the dressing ran.
-	var was: String = ""
-	if _furniture != null:
-		was = "; its own row is %.1f px" % achieved
-		if _furniture.row != null and _furniture.row.get_child_count() > 0:
-			var made: Button = _furniture.row.get_child(0) as Button
-			var asked: float = 0.0
-			if made != null:
-				asked = made.custom_minimum_size.y
-			was += " and its first button carries %.1f" % asked
-		# **And how many buttons were dressed**, which is what tells "the arrangement never reached `build`" apart
-		# from "it reached it and the size came out nothing" - two faults that need opposite repairs.
-		was += "; %d dressed" % _furniture.dressings
+	# What the furniture itself came to is read from this scene and **worded by the report**, for the reason the
+	# verdict is: one owner for the words, and the number printed is the one that was achieved.
+	var has_a_button: bool = (_furniture != null and _furniture.row != null and _furniture.row.get_child_count() > 0)
+	var asked: float = 0.0
+	if has_a_button:
+		var made: Button = _furniture.row.get_child(0) as Button
+		if made != null:
+			asked = made.custom_minimum_size.y
+	var was: String = WorkspaceReportScript.furniture_words(
+		_furniture != null,
+		achieved,
+		asked,
+		has_a_button,
+		0 if _furniture == null else _furniture.dressings,
+	)
 	# **And which controls, not only how many.** A count sends a person hunting; the words and the figure put the
 	# control in their hand. Two are enough for a caption a person reads at a glance, and the rest are said as a
 	# count so that a screen with forty faults still says so in one line.
