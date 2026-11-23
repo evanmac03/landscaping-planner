@@ -1260,13 +1260,62 @@ func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
 	else:
 		mode_label.text = "GROUND VIEW"
 		mode_label.add_theme_color_override("font_color", Color(0.85, 0.78, 0.5))
-	var switch_key := _key_label(&"toggle_view")
-	toggle_button.text = "3D view  (%s)" % switch_key if flat else "2D plan  (%s)" % switch_key
+	var words: Array[String] = _view_button_words(new_mode, _key_label(&"toggle_view"), shows_touch_controls())
+	toggle_button.text = words[0]
 	toggle_button.visible = overhead
 	fit_button.visible = overhead
-	ground_button.text = "Ground view  (G)" if overhead else "Back to overhead  (G)"
+	ground_button.text = words[1]
 	_refresh_hints()
 	overlay.set_mode(new_mode)
+
+
+## What the top bar's two view controls say, in the one place either of them is worded.
+##
+## **A key hint is a desk's business, and on a phone it is a small lie.** There is no keyboard to press there, so
+## a button reading "2D plan  (Q)" names a key that does not exist - the same thing the foot line's own
+## `HINTS_OVERHEAD_ON_A_FINGER` was written to stop, and the same reading decides both, so a button and the line
+## beneath it cannot come to disagree about what this device has.
+##
+## **And it was the room the bar was missing.** Measured on the A16W standing, the bar's row wanted 1289 px of a
+## 1185 px room, and these two hints were **119 of it**: a thumb's own floor holds every control at 107 px
+## square, so the words are the only place a narrower bar can come from. Nothing is lost with them: the key they
+## named was never one a thumb could press.
+##
+## **The name itself is shortened too, where the room is still short.** With the hints gone the row wanted
+## 1170 px of the same room, so the bar's own plate ran 7 px past the glass - every control inside it and the
+## plate over. "Ground view" is 284 of those pixels and "Ground" is the same name with its second word off,
+## which is how the phone's own foot line already words the views (`HINTS_GROUND_ON_A_FINGER`). The way *out* of
+## the ground view keeps its whole sentence: the other two controls are hidden there, so there is room for it.
+static func _view_button_words(mode: int, switch_key: String, on_a_finger: bool) -> Array[String]:
+	var flat: bool = mode == ViewController.ViewMode.PLAN_2D
+	var overhead: bool = mode != ViewController.ViewMode.GROUND
+	var toggle: String = "3D view" if flat else "2D plan"
+	var ground: String = "Ground view" if overhead else "Back to overhead"
+	if on_a_finger:
+		ground = "Ground" if overhead else "Back to overhead"
+	else:
+		toggle += "  (%s)" % switch_key
+		ground += "  (G)"
+	var words: Array[String] = []
+	words.append(toggle)
+	words.append(ground)
+	return words
+
+
+## Word the bar's two view controls from the view it is in now.
+##
+## **A phone needs this at launch, and not only when the view moves.** Nothing emits `view_mode_changed` as the
+## program starts - `ViewController._ready` sets the camera up and says nothing - so a bar left to the scene
+## keeps the words a desk's scene was written with, which is how the A16W's own block came to read
+## `2D plan  (Q)` on a glass carrying no key at all. Asked here, where the room first becomes known, and again by
+## `_on_view_mode_changed` whenever the view changes, so the two callers cannot word one button two ways.
+func _word_the_view_buttons() -> void:
+	if toggle_button == null or ground_button == null:
+		return
+	var mode: int = ViewController.ViewMode.OVERHEAD_3D if view_controller == null else view_controller.mode
+	var words: Array[String] = _view_button_words(mode, _key_label(&"toggle_view"), shows_touch_controls())
+	toggle_button.text = words[0]
+	ground_button.text = words[1]
 
 
 ## The control hints for a view, with the key that swaps the overhead views filled
@@ -2414,6 +2463,9 @@ func size_for_a_finger(draw_up: bool) -> int:
 		return 0
 	var fitted: int = fit_the_chrome_for_a_finger(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
 	_put_away_what_the_top_bar_cannot_hold()
+	# And the same pass words the two view controls: a phone's bar carries no key for them to name, and nothing
+	# emits a view change as the program starts, so the scene's desk words are what a launch would otherwise show.
+	_word_the_view_buttons()
 	return fitted
 
 

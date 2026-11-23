@@ -995,8 +995,8 @@ func _capture_the_two_gaps() -> void:
 	# no block - what a block follows is the pages up - so the newest block's own view can be several turns old:
 	# measured 2026-11-17, the log's newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and
 	# a first version of this *pressed* the toggle on that reading and turned the board to 3D the wrong way. So the
-	# view is named and left to the person, whose own button says which way it goes - `2D plan  (Q)` from the 3D
-	# view - which is better than a run guessing and being wrong with confidence.
+	# view is named and left to the person, whose own button says which way it goes - `2D plan` from the 3D view on
+	# a finger, which wears no key, and `2D plan  (Q)` on a desk - which is better than a run guessing and wrong.
 	print("PHONE the view: a launch starts in the 3D overhead view whatever was in use, and a view change publishes")
 	var named: String = "no view at all" if _view_as_found.is_empty() else _view_as_found
 	print("      no block, so the block above knows no better than this (%s) - press the view button" % named)

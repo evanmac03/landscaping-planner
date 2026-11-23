@@ -428,8 +428,9 @@ func _menu_row(menu: PopupMenu) -> float:
 ## and at a phone's legible size that is far wider than the screen. A row that cannot hold all of it gives up
 ## what is not a **door** - and on a device with no keyboard the view controls are the most important doors
 ## there are, so they are the last thing that can go. The view's name goes with the decoration because the
-## controls say it themselves: the button reads "2D plan (Q)" from the 3D view and "Back to overhead (G)" from
-## the ground. The four controls are stated here rather than looked up, so the test holds the decision.
+## controls say it themselves: the button reads "2D plan (Q)" from the 3D view on a desk and "Back to overhead
+## (G)" from the ground, while the same two buttons on a finger wear no key at all. The four controls are
+## stated here rather than looked up, so the test holds the decision.
 func test_a_phone_gives_up_the_top_bars_decoration_and_a_desk_keeps_its_own() -> void:
 	var hud := PlannerHudScript.new()
 	var name_label := Label.new()
@@ -451,6 +452,30 @@ func test_a_phone_gives_up_the_top_bars_decoration_and_a_desk_keeps_its_own() ->
 	name_label.free()
 	rule.free()
 	view_name.free()
+
+
+## A phone's view buttons name no key, and a desk's name the key they press.
+##
+## **This is what let a standing bar fit, and it is the repair of a small lie rather than a smaller bar.**
+## Measured on the A16W standing: the bar's row wanted 1289 layout px of a 1185 px room, and the two key hints
+## were 173 of that - while a thumb's own floor holds every control at 107 px square, so the words are the only
+## place a narrower bar can come from. A phone has no keyboard, so "2D plan  (Q)" tells it about a key it cannot
+## press: the same fault `HINTS_OVERHEAD_ON_A_FINGER` was written to end for the foot line, and the same reading
+## (`shows_touch_controls`) decides both. The name itself is shortened where the room is still short, and only
+## where the control stands beside the two that make its full name unnecessary.
+func test_a_phones_view_buttons_name_no_key_and_a_desks_name_the_one_they_press() -> void:
+	var desk: Array[String] = PlannerHudScript._view_button_words(ViewController.ViewMode.OVERHEAD_3D, "Q", false)
+	assert(desk[0] == "2D plan  (Q)", "a desk's toggle names the key that presses it: %s" % desk[0])
+	assert(desk[1] == "Ground view  (G)", "and so does the way into the ground view: %s" % desk[1])
+	var thumb: Array[String] = PlannerHudScript._view_button_words(ViewController.ViewMode.OVERHEAD_3D, "Q", true)
+	assert(thumb[0] == "2D plan", "a thumb's toggle names no key, because there is none to press: %s" % thumb[0])
+	assert(thumb[1] == "Ground", "and the ground button loses its second word, the room being short: %s" % thumb[1])
+	# The way out of the ground view is the longest thing either button ever says, and the one a person in the
+	# ground view most needs to read, so it is held too.
+	var out_of_it: Array[String] = PlannerHudScript._view_button_words(ViewController.ViewMode.GROUND, "Q", true)
+	assert(out_of_it[1] == "Back to overhead", "the way out says what it does: %s" % out_of_it[1])
+	var desk_out: Array[String] = PlannerHudScript._view_button_words(ViewController.ViewMode.GROUND, "Q", false)
+	assert(desk_out[1] == "Back to overhead  (G)", "and a desk is told the key as well: %s" % desk_out[1])
 
 
 ## On a phone a row of answers is as tall as a thumb needs, which is what the constant states and what

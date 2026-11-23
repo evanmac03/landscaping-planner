@@ -227,6 +227,32 @@ the 91 px a landscape bar had left behind to **247 px** of the room, the row's o
 `at=(16, 9)` to `at=(16, 131)`, and the three view buttons out of the band altogether - six `unsafe` and
 `middle` findings became none.
 
+**And the row itself was wider than a standing room** - found 2026-11-23 with the phone attached, and
+invisible on a desk for three reasons at once. The row wanted **1289 layout px of a 1185 px room**, so the
+bar's own plate ran 61 px past the left edge of the glass and 62 past the right, `TouchRow` and its `Menu`
+button 47 px past one edge, and `GroundButton` 47 px past the other - and 47 px inside the band the device
+keeps, so a control a finger is meant to press stood under the system's own gesture area. A desk hides all of
+it: standing is the *narrowest* room the program is ever drawn in, the phone's scale differs (0.91 standing,
+1.62 lying), and its font is the device's own, so the same row of words measures differently there than on
+the desk that laid the scene out.
+
+**The cure is the words, because a thumb's floor leaves nowhere else.** `dress_for_a_finger` holds every
+button at `PhoneHud.row_height` square (107 px here) whatever its text, so a shorter word is the only saving
+a bar can make - and two of the three view buttons were wearing a **keyboard shortcut a phone does not
+have**: "2D plan  (Q)", "Ground view  (G)". That is the same fault `HINTS_OVERHEAD_ON_A_FINGER` was written
+to end for the foot line, and `Hud._view_button_words` answers both from the same reading
+(`shows_touch_controls`), so a button and the line beneath it cannot disagree about what this device has.
+Nothing is lost with the hint: the key it named was never one a thumb could press. Removing it took 119 of
+the 136 px the bar needed; the last 17 came off "Ground view", which a phone's bar shows as "Ground" - the
+same name with its second word off. The way *out* of the ground view keeps its whole sentence, because the
+other two controls are hidden there and there is room for it.
+
+**Measured on the A16W standing, the same block before and after**: the row 1289 -> **1076**, the bar's plate
+61/62 px past the glass -> **inside it**, four `offscreen` lines and one `unsafe` line -> **none**, and every
+control's own rectangle - `Menu` at 26..147 through to `Ground` at 881..1054 - inside a 1080 px screen. The
+desk is untouched, and its own instrument says so: `hud_layout_check` still prints `TopBar row wants 1544.0
+px, panel is 1576.0 px -> FITS`, the number this project recorded for it before the change.
+
 The plate is a `StyleBoxFancy` (`addons/StyleboxFancy/`, vendored) rather than the scene's `StyleBoxFlat`,
 and `scripts/chrome_style.gd` is its **one owner**. Two things about it are worth writing down, because
 both were learned by looking at the glass rather than by reading a property:
@@ -314,13 +340,6 @@ needed: no".
   a field grows with its font and making one grow is a change to that page rather than to a thumb.
 - The palette is the only screen surface resized. The top bar's **row** is fitted now too, and re-fitted
   when the glass changes shape (§4.2); the presentation panel is still unchanged.
-- **The top bar does not fit a standing room, and this is measured and unrepaired.** On the A16W standing
-  (room 1185 x 2567, screen 1080 x 2340) one block reads `offscreen TopBar ... 61 px past the left edge, and
-  62 px past the right`, with `Row`, `TouchRow`, a `Menu` button and `GroundButton` each 47 px past an edge,
-  and `unsafe GroundButton "Ground view  (G)" stands 47 px into the right band, which the device keeps for
-  itself` - so a control a finger is meant to press stands partly under the system's own gesture band. The
-  bar's own fold is not the fault (it settles, §4.2): the row is laid out for the lying room. Named rather than
-  guessed at, so that whoever repairs it has the block to read.
 - The **foot strip speaks a desk's language** on a phone. The ground view's line was the first one fixed -
   `HINTS_GROUND_ON_A_FINGER`, chosen by the same `shows_touch_controls` that decides whether the thumb pad
   is built at all - because a phone in a garden has no keys *and* no mouse, and the two gestures it does
