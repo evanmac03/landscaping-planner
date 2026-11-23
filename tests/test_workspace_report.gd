@@ -32,6 +32,47 @@ func test_a_reading_survives_being_written_down_and_read_back() -> void:
 	assert(int(walked["font"]) == 41, "and the size of its words: %s" % str(walked["font"]))
 
 
+## **The overlap question, asked of a tree rather than of rectangles.** A plate and a control a finger presses are
+## gathered in one place, so a workspace judging its own scene cannot come to a different answer about what a
+## surface *is* than the HUD comes to about its board - and the ancestry is the one hard part of the rule, because
+## it is what keeps a panel's own button out of the answer.
+##
+## The nodes are real and in the tree for the reason the whole instrument is: `HudProbe` reads what is *drawn*, and
+## a rectangle that was never laid out is not a rectangle. They are freed at the end, as every node in a test is.
+##
+## **Two meetings may be found rather than one** - a plate is over the control and over the words on it - so the
+## count is asserted as "at least one" and the line is asserted to name both parties. What the test is for is the
+## *naming* and the ancestry, not the arithmetic of how many pairs a rectangle makes.
+func test_a_plate_beside_a_control_is_named_over_it_and_a_plate_around_one_is_not() -> void:
+	var tree := Control.new()
+	tree.name = "TheScene"
+	add_child(tree)
+	var cover := Panel.new()
+	cover.name = "Cover"
+	cover.position = Vector2(40.0, 40.0)
+	cover.size = Vector2(140.0, 60.0)
+	tree.add_child(cover)
+	var press := Button.new()
+	press.name = "Press"
+	press.text = "Press me"
+	press.position = Vector2(60.0, 60.0)
+	press.size = Vector2(90.0, 30.0)
+	tree.add_child(press)
+	var said: PackedStringArray = WorkspaceReportScript.overlap_lines(tree)
+	assert(said.size() >= 1, "a plate over a control is a fault, and this tree has one: %s" % str(said))
+	assert("Cover" in said[0] and "Press me" in said[0], "and the line puts both in a person's hand: %s" % said[0])
+	# **And the same control moved inside the plate is not covered by it.** This is the whole of why the rule asks
+	# the ancestry before it decides: a panel is where a panel's own buttons belong, and a rule that named them would
+	# be answering "what is inside what" with "what is over what".
+	press.reparent(cover, false)
+	var again: PackedStringArray = WorkspaceReportScript.overlap_lines(tree)
+	assert(
+		again.size() == 1 and "nothing meets" in again[0],
+		"a panel is not drawn over its own button: %s" % str(again),
+	)
+	tree.free()
+
+
 ## **A target's height and the size of its type are two questions, and the tool could answer only the first.**
 ##
 ## Measured on the strip: the six tool stand-ins stood 98 px tall in a 98 px row with their words drawn at the

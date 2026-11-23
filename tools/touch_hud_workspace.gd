@@ -514,6 +514,15 @@ func _show_the_verdict(reading: Dictionary, density: float, built_scale: float) 
 		named = "\n" + "\n".join(PackedStringArray(told.slice(0, 2)))
 		if told.size() > 2:
 			named += "\n... and %d more" % (told.size() - 2)
+	# **And the one fault a count of the furniture cannot see.** Every control here can be a row tall and clear of
+	# its neighbour while a sentence is drawn straight across the whole of it - which is exactly what happened on a
+	# phone, where the foot line lay over the dock's own tabs. `Spacing` judges two targets against each other and
+	# `looks_built_for_a_finger` judges each one alone; this is the third question, and it is the one that needs the
+	# tree rather than a reading, so it is asked here, where the scene is in hand. The line is printed whether or not
+	# anything meets, because how many surfaces were looked at is what says the question was asked at all.
+	var met: PackedStringArray = WorkspaceReportScript.overlap_lines(self)
+	if not met.is_empty():
+		named += "\n" + "\n".join(met)
 	_verdict.text = (
 		"%s - %d nodes read at %.0f dpi, canvas scale %.3f%s%s\n%s"
 		% [said, reading.size() - 1, density, built_scale, was, named, _the_devices_line(density)]
@@ -663,6 +672,12 @@ func _leave_the_reading_for_a_run(mine: Dictionary, where: String) -> void:
 	# read off a file because nothing could be asked to speak.
 	for told: String in WorkspaceReportScript.looks_built_for_a_finger(mine):
 		file.store_line(VERDICT_LINE + told)
+	# **And what is drawn across what, which is the one judgement of this scene a reading cannot carry.** A row of
+	# numbers says where a surface stands and not what stands over it, so this half of the verdict has to be asked of
+	# the tree - and the tree is here. An editor writes it down beside the finger's own judgement so that a person
+	# reading either side sees the same two questions answered.
+	for met: String in WorkspaceReportScript.overlap_lines(self):
+		file.store_line(VERDICT_LINE + met)
 	# **And the count, which is the one fact that tells the two possible causes apart.** An editor that reached
 	# `build` dressed its buttons; one that never got there dressed none. Written down because nothing can ask an
 	# editor anything, so "0 dressed" against "12 dressed with a row of 0.0" is the whole of the answer.
