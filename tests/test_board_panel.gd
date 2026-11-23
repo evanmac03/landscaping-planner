@@ -21,6 +21,28 @@ func _a_wrapper(room: Vector2, page_size: Vector2) -> BoardPanel:
 	return wrapper
 
 
+## A wrapper whose page holds a scroller, which is the shape every one of `hud.gd`'s eight panel builders gives
+## its page: `Page` (a `PanelContainer`) -> `Scroll` -> the `Column` inside it. Off-tree a `ScrollContainer`
+## reports a minimum height of `0` and a plain `Control` reports its `custom_minimum_size`, so `contents_want` is
+## what the column is holding.
+func _a_wrapper_with_a_scroller(room: Vector2, frame: Vector2, contents_want: float) -> BoardPanel:
+	var wrapper: BoardPanel = BoardPanelScript.new()
+	wrapper.size = room
+	var page := PanelContainer.new()
+	page.name = "Page"
+	page.custom_minimum_size = frame
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	var column := Control.new()
+	column.name = "Column"
+	column.custom_minimum_size = Vector2(100.0, contents_want)
+	scroll.add_child(column)
+	page.add_child(scroll)
+	wrapper.add_child(page)
+	wrapper.place_the_page()
+	return wrapper
+
+
 func _free_it(wrapper: BoardPanel) -> void:
 	wrapper.free()
 
@@ -96,4 +118,38 @@ func test_a_wrapper_with_no_page_asks_for_no_room() -> void:
 	wrapper.place_the_page()
 	assert(wrapper.custom_minimum_size == Vector2.ZERO, "nothing to place asks for nothing")
 	assert(wrapper.the_page() == null, "and there is no page to find")
+	_free_it(wrapper)
+
+
+## **A page's scroller is holding its contents, so what a page wants is its own frame plus what is inside the
+## scroller.** A `ScrollContainer` reports a minimum height of `0` - that is exactly what makes it a scroller - so
+## without this the page's own minimum is its frame and nothing else, and a desk drew a sliver of a panel that
+## scrolled. Measured on the live site report on 2026-11-24: the page stood 18 px tall with its column 319 px
+## below the fold, which is what `gui_sweep`'s `crowded` line named.
+func test_what_a_page_wants_counts_what_its_scroller_is_holding() -> void:
+	var wrapper: BoardPanel = _a_wrapper_with_a_scroller(Vector2(1600.0, 900.0), Vector2(620.0, 18.0), 319.0)
+	var page: Control = wrapper.the_page()
+	var frame: Vector2 = page.get_combined_minimum_size()
+	assert(
+		(
+			is_equal_approx(page.size.y, frame.y + 319.0)
+			and "the page is its own frame plus the column below the fold: %.1f against a frame of %.1f"
+			% [page.size.y, frame.y]
+		),
+	)
+	_free_it(wrapper)
+
+
+## **And a page whose column wants more than the room keeps its scroll**, which is what the scroller is for: a
+## band's page is never taller than the band it was given.
+func test_a_band_caps_a_column_that_wants_more_than_the_room() -> void:
+	var wrapper: BoardPanel = _a_wrapper_with_a_scroller(Vector2(1185.0, 405.0), Vector2(520.0, 18.0), 600.0)
+	wrapper.along_the_foot = true
+	wrapper.place_the_page()
+	var page: Control = wrapper.the_page()
+	assert(is_equal_approx(page.size.y, 405.0), "the page is the band's own height: %.1f" % page.size.y)
+	assert(
+		is_zero_approx(page.position.y + page.size.y - wrapper.size.y),
+		"and its foot is the band's foot: ends at %.1f" % (page.position.y + page.size.y),
+	)
 	_free_it(wrapper)

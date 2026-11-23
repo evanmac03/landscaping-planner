@@ -26,14 +26,20 @@ extends Control
 ## with. Only *where* it stands changes.
 ##
 ## **On a desk this node is the `CenterContainer` it replaced, to the pixel**, and that is deliberate: the desk
-## must draw what it always drew. That means the wrapper still grows to its page's minimum - which is why the
-## four long panels (keys, water, light, hatch) overflow the room on a desk exactly as they always have - and
-## still centres it. Both behaviours are the same two lines of arithmetic here, chosen by `along_the_foot`,
-## rather than two kinds of node that could disagree about a panel.
+## must draw what it always drew. That means the wrapper still grows to what its page wants and still centres it,
+## so a page genuinely taller than the room grows past it, as it always has. None of the eight panels it holds are
+## taller than the room any more, though: each of their pages now counts the contents of its scroller, and the
+## tallest of them is 618 px in a 900 px room. Both behaviours are the same few lines of arithmetic here, chosen
+## by `along_the_foot`, rather than two kinds of node that could disagree about a panel.
 
 ## Which way up the page stands in the room this wrapper was given. A desk centres it; a finger stands it along
 ## the foot, with the band's own foot for the page's foot.
 @export var along_the_foot: bool = false
+
+## Where the page was last put - its rectangle, so both the size and the offset are in the record - and the room
+## it was given. See the guard in `place_the_page`.
+var _placed: Rect2 = Rect2(-1.0, -1.0, -1.0, -1.0)
+var _placed_in: Vector2 = Vector2(-1.0, -1.0)
 
 
 func _notification(what: int) -> void:
@@ -42,6 +48,15 @@ func _notification(what: int) -> void:
 	# calls `place_the_page` itself where it needs the answer in the frame it asked for it.
 	if what == NOTIFICATION_RESIZED:
 		place_the_page()
+	# **And the contents are watched, because what they want grows after the page is first placed.** A wrapped
+	# caption's minimum height is only known once it has been given a width, and that is one layout pass *after*
+	# this node has already placed the page: measured 2026-11-24, the site report's page was placed 85 px tall
+	# while its column went on wanting 319. So the thing inside the scroller says when it has changed shape, and
+	# `place_the_page`'s guard is what keeps that from being a loop.
+	if what == NOTIFICATION_READY:
+		var contents: Control = the_pages_contents()
+		if contents != null and not contents.resized.is_connected(place_the_page):
+			contents.resized.connect(place_the_page)
 
 
 ## Put the page in this wrapper's room, at its own size, where `along_the_foot` says.
@@ -56,7 +71,7 @@ func place_the_page() -> void:
 	# *band* needs it and has: `Hud._place_the_overlay_panels` runs whenever the type changes and asks for the
 	# placement again, so a band follows a page that grows. A desk's wrapper is read once at the desk's own type and
 	# does not change, so there is nothing left to follow.
-	var wanted: Vector2 = page.get_combined_minimum_size()
+	var wanted: Vector2 = wanted_by_the_page(page)
 	# **A band takes the room it is given; a desk's wrapper is a box around its page and grows to it.** The second
 	# is what this node replaced, and the `custom_minimum_size` is stated rather than left to the default so the
 	# desk's own behaviour is visible here instead of inherited from a node that is no longer used.
@@ -75,10 +90,61 @@ func place_the_page() -> void:
 	var standing: Vector2 = Vector2(wanted.x, minf(wanted.y, room.y)) if along_the_foot else wanted
 	var across: float = (room.x - standing.x) * 0.5
 	var down: float = room.y - standing.y if along_the_foot else (room.y - standing.y) * 0.5
-	page.position = Vector2(across, down)
+	var place: Vector2 = Vector2(across, down)
+	# **The guard the first attempt at following the contents did not have, and the reason it is here.** Placing
+	# the page *sizes* it, which fires `resized` all through what it holds, so a rule that follows a content's
+	# resize without this places for ever: the measured runaway was the keys wrapper at `0..17934` in a 900 px
+	# room, with four named clashes. Nothing to do means nothing done - the page already standing where this
+	# placement would put it, at the size this placement would give it, in the room it was given.
+	#
+	# **The page's offset is in the record and not only its size**, because *where* a page stands is decided by
+	# `along_the_foot`: a wrapper placed as a desk and then asked to stand along the foot puts the page at a
+	# different offset for the very same size, and a record of size alone would skip it. Found by
+	# `test_a_finger_stands_the_page_along_the_foot` on 2026-11-24, where the page stayed at its desk offset and
+	# its foot came out 331 px down a 405 px band.
+	if Rect2(place, standing) == _placed and room == _placed_in:
+		return
+	_placed = Rect2(place, standing)
+	_placed_in = room
+	page.position = place
 	page.size = standing
 
 
 ## The page this wrapper holds, by the name every panel builder in `hud.gd` gives it.
 func the_page() -> Control:
 	return get_node_or_null(^"Page") as Control
+
+
+## **What the page wants to be, which is its own minimum plus what its scroller is holding.**
+##
+## A page's own minimum is the honest answer for a page, and it is the wrong one for the eight panels this holds:
+## all of them put their contents inside a `ScrollContainer` (`Page/Scroll`, with the `Column` inside it - the name
+## every panel builder gives them), and **a `ScrollContainer` reports a minimum height of 0**, because that is
+## exactly what makes it a scroller. So the page's minimum is its own frame and nothing else: measured 2026-11-24
+## the site report's page stood **18 px** tall - the `PanelContainer`'s own margins - with its column 319 px below
+## the fold, and the desk drew a sliver of a panel that scrolled. Four of these panels were in that state, which
+## is what `gui_sweep`'s `crowded` lines named: the site report cut down by 319 px, hatch by 278, dxf and landxml
+## by 120, and each of them with 432 px to give.
+##
+## A page with no scroller is untouched - its minimum is already the truth - and a page whose contents want more
+## than the room keeps its scroll, which is what the scroller is for.
+func wanted_by_the_page(page: Control) -> Vector2:
+	if page == null:
+		return Vector2.ZERO
+	var frame: Vector2 = page.get_combined_minimum_size()
+	var contents: Control = the_pages_contents()
+	if contents == null:
+		return frame
+	return Vector2(frame.x, frame.y + contents.get_combined_minimum_size().y)
+
+
+## The thing a page's scroller is holding, or null where the page has no scroller to hold anything.
+func the_pages_contents() -> Control:
+	var scroll: Control = get_node_or_null(^"Page/Scroll") as Control
+	if scroll == null:
+		return null
+	for child: Node in scroll.get_children():
+		var contents: Control = child as Control
+		if contents != null:
+			return contents
+	return null
