@@ -131,3 +131,30 @@ func test_the_finger_borrows_the_palettes_own_undo_and_hands_it_back_as_it_was()
 	)
 	for node: Node in [plate, column]:
 		node.free()
+
+
+## **The dock is given ground on the sides as well as along the foot**, because the band a phone keeps is not only
+## along its foot: held sideways the camera is across a side, and the dock is placed by hand like the palette and
+## the top bar - both of which had been given that ground while this piece of furniture never asked. Measured on
+## the A16W lying down, the display's first 100 px is the room's first 62, and the dock's `Draw` tab - the first
+## thing a thumb reaches on it - stood 25 px inside the band, so a press aimed at a tool was answered by the
+## system. The reading is handed in rather than taken here, which is the whole reason the arithmetic is its own
+## function: a device with a band across it is not a thing this machine can be.
+func test_the_dock_gives_the_device_its_ground_on_the_sides_as_well_as_the_foot() -> void:
+	var at_a_desk: Vector4 = TouchFurnitureScript.offsets_for_the_dock(49.0, Vector4i.ZERO, 200.0)
+	assert(
+		at_a_desk.x == 49.0 and at_a_desk.y == -49.0,
+		"a display keeping nothing is given the scene's own margins: %s" % str(at_a_desk),
+	)
+	assert(at_a_desk.z == -200.0 and at_a_desk.w == -200.0, "and stands above the foot by what it was told")
+
+	# The A16W lying down: its camera along the left, and the dock's own edge moved in by that band.
+	var lying: Vector4 = TouchFurnitureScript.offsets_for_the_dock(49.0, Vector4i(62, 0, 0, 42), 200.0)
+	assert(lying.x == 111.0, "a band on the left moves the dock's left edge in by it: %s" % lying.x)
+	assert(lying.y == -49.0, "and leaves the right edge exactly where the scene drew it: %s" % lying.y)
+
+	# **And the mirror of it**, which is the half a one-sided guess would get wrong: the same phone held the other
+	# way keeps its camera on the right, so the right edge comes in and the left one does not move.
+	var the_other_way: Vector4 = TouchFurnitureScript.offsets_for_the_dock(49.0, Vector4i(0, 0, 62, 42), 200.0)
+	assert(the_other_way.x == 49.0, "a phone lying the other way keeps its left edge: %s" % the_other_way.x)
+	assert(the_other_way.y == -111.0, "and gives ground on the right instead: %s" % the_other_way.y)

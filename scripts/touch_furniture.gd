@@ -512,10 +512,17 @@ func place_the_dock() -> void:
 	# and the foot line's top. Both ends are floors for the reason that placement keeps: a desk's own numbers are
 	# already inside them and come back to the pixel.
 	var from_the_foot: float = maxf(foot + margin, float(room.y) - top_of_the_foot_line() + palette_gap)
-	dock.offset_left = margin
-	dock.offset_right = -margin
-	dock.offset_bottom = -from_the_foot
-	dock.offset_top = dock.offset_bottom
+	# **The band the device keeps is not only along the foot.** A phone held upright keeps one along its top and a
+	# phone held sideways keeps it along the left - measured on the A16W lying down, the display's first 100 px is
+	# the room's first 62, and this dock's `Draw` tab, the first thing a thumb reaches on it, stood 25 px inside
+	# that band: a press aimed at a tool was answered by the system. The palette and the top bar had both been
+	# given that ground; this piece of furniture, which is placed by hand like them, had never asked. A desk's
+	# insets are all zero, so the scene's own margins come back to the pixel.
+	var placed: Vector4 = offsets_for_the_dock(margin, PhoneHudScript.cutout_here(room), from_the_foot)
+	dock.offset_left = placed.x
+	dock.offset_right = placed.y
+	dock.offset_bottom = placed.z
+	dock.offset_top = placed.w
 	# **The aids are stood clear on the next real frame, and `call_deferred` is not one of those.** A deferred call
 	# made from inside `_process` runs at the end of the *same* frame, before the dock has laid out at the offsets
 	# just set - so the first figure read was 161 px against the 285 the dock really occupies. `process_frame`
@@ -633,10 +640,30 @@ func place_the_sheet() -> void:
 	# inherits that clearance by standing on the dock's own top.
 	var above_the_dock: float = absf(dock.offset_bottom) + maxf(dock.size.y, row_height())
 	var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * row_height())
-	sheet.offset_left = margin
-	sheet.offset_right = -margin
+	# The sheet is the dock's own continuation - the strip a tab opens standing directly above it - so it takes the
+	# same ground on the sides, from the same reading and through the same helper: a strip that stood in the band
+	# the dock beside it had been held clear of would put a thumb's press back under the camera.
+	var placed: Vector4 = offsets_for_the_dock(margin, PhoneHudScript.cutout_here(room), above_the_dock)
+	sheet.offset_left = placed.x
+	sheet.offset_right = placed.y
 	sheet.offset_bottom = -above_the_dock
 	sheet.offset_top = -(above_the_dock + tall)
+
+
+## The dock's own four offsets - left, right, bottom, top - from the three figures the caller has read.
+##
+## Pure, and the whole of the placement: `place_the_dock` reads the room, the device's own band, the edge margin
+## and the top of the foot line off the things themselves and this decides what to do with them, so what a phone
+## would be told can be held by a test without being one - the same split `Hud.offsets_for_the_left_column` keeps.
+##
+## **The band is given ground on the sides as well as along the foot.** The two are the same reading taken on
+## different days: `PhoneHud.cutout_here` answers (left, top, right, bottom) in the room's own pixels, so a phone
+## lying with its camera on the left moves the dock's left edge in and leaves its right edge where the scene drew
+## it, and a phone lying the other way does the mirror of that. Nothing is moved on a desk, whose insets are all
+## zero. The dock's top and its foot are the same number on purpose: the dock is a band whose height is its own
+## contents', so it is placed by its foot and grows upward from there.
+static func offsets_for_the_dock(margin: float, band: Vector4i, from_the_foot: float) -> Vector4:
+	return Vector4(margin + float(maxi(band.x, 0)), -margin - float(maxi(band.z, 0)), -from_the_foot, -from_the_foot)
 
 
 ## The palette whose buttons the strip borrows, and the sheet's own title.
