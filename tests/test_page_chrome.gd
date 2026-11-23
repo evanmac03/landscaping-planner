@@ -504,6 +504,53 @@ func test_a_desk_leaves_no_room_for_a_camera_cutout() -> void:
 	_free_pages()
 
 
+## **A page's contents are held clear of the band the device keeps along its foot, which is the one reading of the
+## four a display will not give.** `PhoneHud.KEPT_FEET` states it, and measured on the glass lying down the band is
+## where the front door's own `Take a photograph` took a finger at its middle - 13 px above the screen's foot, so
+## the press a person aimed at the middle of a button was inside the region the system answers for.
+##
+## **Lying is a shape of its own here**, and that is the half a first reading would miss: the table is keyed by the
+## screen the display reports, and that follows the rotation, so the room a page may use lying down is a band
+## smaller than the same page on a desk. A desk's readings are all zero and it keeps exactly the room it was drawn
+## for, which is what leaves every other page test and the page-layout check measuring the pages a desk has.
+func test_a_page_keeps_clear_of_the_band_the_device_states() -> void:
+	PhoneHudScript.force_density(PHONE_DPI)
+	# The A16W lying down exactly as the glass reports it: 100 px of a 2340 px display is its camera, and the safe
+	# area runs to the foot of the screen - which is the whole of why the band along the foot has to be *stated*
+	# rather than read, and why a page that asked only `cutout_here` kept none of it.
+	PhoneHudScript.force_display(Vector2i(2340, 1080), Rect2i(100, 0, 2240, 1080))
+	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+	var page: Window = _page()
+	add_child(page)
+	var room := Vector2i(1444, 666)
+	var band: int = PhoneHudScript.kept_foot(room)
+	assert(band > 0, "a phone lying down is told the band it keeps along its foot: %d" % band)
+	var above: int = PageChromeScript.chrome_above(page) + PageChromeScript.reserved_above
+	assert(
+		PageChromeScript.content_room_in(page, room).y == room.y - above - band,
+		"and the room a page's contents may use stops above that band: %s"
+		% str(PageChromeScript.content_room_in(page, room)),
+	)
+	# The camera is along a *side*, so the width loses that and only that: a foot band taken off the width as well
+	# would be a page narrower than the screen for a band no person could point at.
+	assert(
+		PageChromeScript.content_room_in(page, room).x == room.x - PhoneHudScript.share_of_the_room(100, 2340, room.x),
+		"while the width loses the camera's own share and nothing else: %d"
+		% PageChromeScript.content_room_in(page, room).x,
+	)
+	# And the desk this suite runs on keeps exactly the room it drew: nothing to state, nothing to take off.
+	PhoneHudScript.force_display(Vector2i.ZERO, Rect2i())
+	assert(
+		PageChromeScript.content_room_in(page, room).y == room.y - above,
+		"and a desk is given the room less its own chrome and nothing else: %s"
+		% str(PageChromeScript.content_room_in(page, room)),
+	)
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+	PhoneHudScript.force_density(0.0)
+	remove_child(page)
+	_free_pages()
+
+
 func test_a_page_as_tall_as_the_screen_still_keeps_its_title_bar() -> void:
 	# The camera page's own case: it declares a floor as tall as the canvas it lands on, which is what a
 	# phone did to its 720, and the floor is taken below the page's own title bar rather than to the canvas

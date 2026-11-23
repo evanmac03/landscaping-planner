@@ -336,6 +336,16 @@ static func content_room_in(page: Window, room: Vector2i) -> Vector2i:
 	if room.x <= 0 or room.y <= 0:
 		return room
 	var insets: Vector4i = PhoneHud.cutout_here(room)
+	# **What the device keeps along the foot is taken off as well, and it is the one reading of the four that a
+	# display will not give.** `cutout_here` answers the camera cutout and nothing more, so a navigation bar is
+	# invisible to it: the A16W lying down reports `b=0`, and the 42 px it really keeps is stated by
+	# `PhoneHud.KEPT_FEET` instead. Measured on the glass, the front door's own `Take a photograph` took a finger at
+	# its middle 13 px above the screen's foot, inside that band - and every page was placed the same way.
+	#
+	# **The larger of the two readings and never their sum**, because they are the same band: where a display does
+	# answer with a bottom inset, `KEPT_FEET` is naming the band that inset already accounts for, and adding the two
+	# would hold a page's contents twice as far off the foot as the device keeps them.
+	var foot: int = maxi(insets.w, PhoneHud.kept_foot(room))
 	# **A room is never less than nothing, whichever way its parts add up.** The guard the paragraph above
 	# keeps against a display that cannot be asked is kept here against the strip too, because the strip is a
 	# number a *bar* states rather than one this file can bound: on the SM-A166W the bar's foot reads 357 while
@@ -347,7 +357,7 @@ static func content_room_in(page: Window, room: Vector2i) -> Vector2i:
 	# width and no height rather than a room pointing the other way.
 	return Vector2i(
 		maxi(room.x - insets.x - insets.z, 0),
-		maxi(room.y - chrome_above(page) - reserved_above - insets.y - insets.w, 0),
+		maxi(room.y - chrome_above(page) - reserved_above - insets.y - foot, 0),
 	)
 
 
@@ -562,6 +572,11 @@ static func the_floor_a_page_lands_on(page: Window) -> Vector2i:
 static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 	var room: Vector2i = room_for(page)
 	var insets: Vector4i = PhoneHud.cutout_here(room)
+	# The same bottom `content_room_in` uses, read the same way, so that how tall a page is and where it goes
+	# cannot disagree about how much of the screen the device keeps. The page is moved down by what is off the top
+	# less the half of what is off the foot, because the engine centred it in the whole screen: that is what puts
+	# its contents between the bar's strip and the band, to the pixel, where the room allows it.
+	var foot: int = maxi(insets.w, PhoneHud.kept_foot(room))
 	var clamped_floor: Vector2i = clamped_minimum(preferred, content_room(page))
 	page.min_size = clamped_floor
 	page.popup_centered_clamped(clamped_floor, SCREEN_RATIO)
@@ -573,7 +588,7 @@ static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 	# left of the screen.
 	page.position += Vector2i(
 		roundi((insets.x - insets.z) / 2.0),
-		roundi((chrome_above(page) + reserved_above + insets.y - insets.w) / 2.0),
+		roundi((chrome_above(page) + reserved_above + insets.y - foot) / 2.0),
 	)
 	return clamped_floor
 

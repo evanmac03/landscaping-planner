@@ -232,6 +232,10 @@ func test_the_stated_foot_band_becomes_the_rooms_own_pixels() -> void:
 		PhoneHudScript.KEPT_FEET.get(Vector2i(1080, 2340), 0) == 42,
 		"the phone this program is written for keeps 42 px along its foot",
 	)
+	assert(
+		PhoneHudScript.KEPT_FEET.get(Vector2i(2340, 1080), 0) == 42,
+		"and the same 42 px lying down, because the key is the screen and that follows the rotation",
+	)
 	var upright: int = PhoneHudScript.share_of_the_room(42, 2340, 2567)
 	assert(upright == roundi(2567.0 * (42.0 / 2340.0)), "upright that is its share of the room: %d" % upright)
 	var lying: int = PhoneHudScript.share_of_the_room(42, 1080, 666)

@@ -172,7 +172,14 @@ static func cutout_top(room: Vector2i) -> int:
 ## written down here rather than read from anywhere. A screen this table does not name is answered with a zero,
 ## because a band guessed at is worse than the clearance the scene already keeps: 8 px of bare board under the foot
 ## line is a small fault, and a foot line pushed up the screen on a device that keeps nothing is a large one.
-const KEPT_FEET: Dictionary = { Vector2i(1080, 2340): 42 }
+##
+## **Both ways up, because the key is the screen the display reports and that follows the rotation.** The A16W's
+## own reports name the band twice - `[0,100][1080,2298]` upright and `[100,0][2340,1038]` lying, **42 px along the
+## foot either way** - and `screen_here` answers 1080 by 2340 for the first and 2340 by 1080 for the second, so a
+## table naming only the upright one gave a phone held sideways no ground at all: measured on the glass lying down,
+## the front door's own `Take a photograph` took a finger at its middle 13 px above the screen's foot, inside the
+## band. A phone held sideways is a phone this project measures, and the spec states the figure for both.
+const KEPT_FEET: Dictionary = { Vector2i(1080, 2340): 42, Vector2i(2340, 1080): 42 }
 
 
 ## How far that foot band reaches up from the bottom of the screen this program is running on, in the display's own
