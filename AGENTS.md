@@ -246,6 +246,27 @@ own orientation, and `adb` is not on the PATH - the SDK copy is.
 **The discipline.** A rectangle is a statement by the program about itself; the glass is what a person
 sees. When the two disagree, the disagreement gets a name - a line, a measurement of the glass, or a
 test that pins the number - rather than a guess about which of them is right.
+## Traps that have already bitten an agent
+
+Each of these cost real time here, and each is cheap to avoid. Read the list before driving the program
+or pushing a change.
+
+- **Nothing clicks inside an embedded `Window`.** A `run_scene` `target` click or a click at pixel
+  coordinates reports `delivered: true` and reaches no control, because a page is its own viewport: the
+  event reaches the main viewport and the window's never sees it. Open a page from code - a tool scene
+  that calls the same methods - or, on a device, press TAB and ENTER.
+- **The formatter's gate is exact**: `--check --max-line-length 120 --verify-structure scripts tests tools`.
+  Dropping `--verify-structure`, or passing a hand-picked list of files, has called a file clean that CI
+  then refused. `docs/gdscript-formatting.md` is the sweep and the reason.
+- **A `static var` initialiser does not run for a script the editor loads without `@tool`.** A module an
+  editor uses is `@tool`, and it guards its own state for exactly that reason.
+- **The editor's class registry goes stale.** A new `class_name` needs *Project > Reload Current Project*;
+  reloading the scene on its own is not enough.
+- **`execute_script` takes the runtime port (6570).** Run a demo with `GODOT_MCP_RUNTIME=0`, or it claims
+  this project's runtime entry from a real game session.
+- **Do not walk the whole tree.** A `find` from the repository root times out here; name the directory,
+  use a glob, or read the tree through the tools that already know it.
+
 ## Do not
 
 - **Do not touch `addons/`.** It is third-party: the Godot AI bridge (`addons/godot_ai`, gitignored, its plugin off), the GitHub
