@@ -78,6 +78,7 @@ const PAGES: Array[String] = [
 	"open_capture_window",
 	"open_dxf_panel",
 	"open_landxml_panel",
+	"open_survey_panel",
 	"open_hatch_panel",
 	"open_water_panel",
 	"open_light_panel",

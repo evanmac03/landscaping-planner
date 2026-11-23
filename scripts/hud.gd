@@ -5654,7 +5654,14 @@ func survey_import_enabled() -> bool:
 	return SurveyFileScript.is_sound(_pending_survey)
 
 
-func open_survey_panel(parsed: Dictionary) -> void:
+## **The survey the reader was given is optional, so the door can be asked with nothing at all.** The one caller
+## in the program is the FileDialog's read, which always hands something in; a different caller - a sweep opening
+## every door a person can reach (`tools/gui_sweep.gd`) - has no file to have read, and without a default this was
+## the single door in the whole program no instrument could ask. Nothing is invented by the default: with no survey
+## the page opens on `survey_report_text`'s own refusal, "no survey has been read", and the button that would put
+## one on the drawing is dead, because `survey_import_enabled` asks `SurveyFile` whether there is a sound survey
+## rather than whether the caller meant well.
+func open_survey_panel(parsed: Dictionary = { }) -> void:
 	if _survey_panel == null:
 		return
 	_pending_survey = parsed

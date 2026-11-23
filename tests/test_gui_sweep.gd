@@ -116,9 +116,11 @@ func test_the_sweep_ends_when_it_is_done() -> void:
 ## 2026-11-24: `PAGES` held 39 doors while `hud.gd` had 52 `open_*` methods, and **three of those were doors no
 ## instrument had ever asked a question of** - `open_capture_window` (the field-capture page, wired to its own
 ## menu entry through `_menu_capture_window`), `open_landxml_panel` (a panel of the same kind as the `DxfPanel`
-## standing beside it) and `open_survey_panel` (which takes what a survey file's read handed it). The first two are
-## swept now; the third cannot be, and says so below rather than being passed over. The field page was also one of
-## the two of `PageIndex`'s 35 pages outside the list for this reason.
+## standing beside it) and `open_survey_panel`, which took what a survey file's read handed it and so could not be
+## called with nothing at all. **All three are swept now**: the survey door's parameter has a default, so the sweep
+## opens it on the page's own refusal - "no survey has been read", with the button that would put one on the
+## drawing dead - rather than the door being passed over. The field page was also one of the two of `PageIndex`'s
+## 35 pages outside the list for this reason.
 ##
 ## What is held is **not** "every door must be swept" - a `FileDialog` is the engine's own furniture, the doorway
 ## is up before anything can notice it arriving, and the camera asks the device - but **nothing may be unaccounted
@@ -141,7 +143,6 @@ const OUTSIDE := {
 	"open_the_front_door": "up at launch, so `what_came_up` cannot answer it",
 	"open_page_help": "a second route onto `help_window`, already swept",
 	"open_painted": "a toggle over the presentation sheet, not a door",
-	"open_survey_panel": "takes what a file's read handed it, so nothing to show",
 	"open_drawing_dialog": A_DIALOG,
 	"open_dxf_dialog": A_DIALOG,
 	"open_landxml_dialog": A_DIALOG,
