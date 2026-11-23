@@ -27,6 +27,19 @@ func _free_pages() -> void:
 	_pages.clear()
 
 
+## The words a page that has to scroll says about itself keep the page's own name and say what is happening.
+##
+## A one-line rule with no scene in it, and worth holding down because the alternative is silent: a page whose
+## bottom has been cut looks exactly like a page that has ended.
+func test_the_words_for_a_page_that_scrolls_keep_the_name_and_say_what_to_do() -> void:
+	var said: String = PageLayoutScript.words_for_a_page_that_scrolls("The figures")
+	assert(said.begins_with("The figures"), "the page still says its own name first: %s" % said)
+	assert("scroll" in said, "and the words say what a person has to do: %s" % said)
+	assert(said.count("\n") == 0, "in one line, because the bar it stands in is one line: %s" % said)
+	var nameless: String = PageLayoutScript.words_for_a_page_that_scrolls("")
+	assert(not nameless.begins_with(":"), "a page with no name is still given the sentence: %s" % nameless)
+
+
 ## A page of plain lines, so a test can state exactly how much room the contents want without depending
 ## on any page in the project changing its wording: `lines` labels of 20 px each, 300 px wide.
 func _plain_page(lines: int, declared: Vector2i) -> Window:

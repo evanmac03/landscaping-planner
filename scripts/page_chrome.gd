@@ -584,7 +584,10 @@ static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 ## as it was built. On a computer the room is larger than every page this project declares, so nothing is
 ## wrapped there and a desk's pages are the pages they always were.
 ##
-## Returns whether a wrapper was put in, which is the part a test can hold.
+## Returns whether a wrapper was put in, which is the part a test can hold. **A page wrapped here also says so**,
+## in its own title bar, and that is the same decision rather than a second one: a page whose bottom has been cut
+## shows no sign of it, and the bar is the only strip of a page a scroll cannot take away. `PageLayout` words the
+## sentence - `words_for_a_page_that_scrolls` - because it owns the measurement this function just made.
 static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool:
 	if page == null or landed_at.y <= 0:
 		return false
@@ -596,6 +599,9 @@ static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool
 	if _fits_the_height(page, landed_at):
 		return false
 	_wrap_in_a_scroll(page, contents)
+	# **And the page says so**, once: a page re-landed on a changed shape asks this question again, and the scroll
+	# it already has is what stops the sentence being written a second time.
+	page.title = PageLayoutScript.words_for_a_page_that_scrolls(page.title)
 	return true
 
 

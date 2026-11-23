@@ -452,6 +452,10 @@ static func _topics() -> Array[Dictionary]:
 				"Undo stands in the strip beside the drawing tools, where a thumb reaches it without scrolling "
 				+ "past a tool. What a phone gains is the reach and not a different word, so it says \"Undo\" and "
 				+ "the status line says what it took back the moment it is pressed.",
+				"",
+				"A page with more in it than the screen holds says so in its own title bar, so that a page whose "
+				+ "bottom has been cut is never mistaken for a page that has ended. The words are the page's own "
+				+ "name and then what to do about it, and a page that fits says nothing extra at all.",
 			],
 		)
 	)

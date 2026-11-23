@@ -115,6 +115,24 @@ static func scroll_of(root: Control) -> ScrollContainer:
 	return null
 
 
+## The words a page that has had to be given a scroll says about itself: the page's own name first, and then the
+## one thing a person cannot otherwise tell by looking at it.
+##
+## **The title bar is the only strip of a page that cannot be scrolled away.** A page whose bottom has been cut
+## shows no sign of it, and a caption put inside the contents would be scrolled out of sight by the very thing it
+## is warning about - so the sentence stands above the scroll, in the bar, and the page keeps its own name so that
+## a person still knows which page they are on.
+##
+## This **words** the sentence and decides nothing: whoever calls it has already measured the page against the
+## room, and this file is the one owner of that sum. A caller that worked the sentence out for itself as well
+## could describe one page two ways, which is the fault this module spends its length avoiding.
+static func words_for_a_page_that_scrolls(title: String) -> String:
+	var said := "taller than the screen - scroll for the rest"
+	if title.is_empty():
+		return said
+	return "%s: %s" % [title, said]
+
+
 ## The padding a page puts around its own contents: the offsets of whichever node is the page's own child.
 ## A page that scrolls carries them on the `ScrollContainer` - a container positions the child it holds, so
 ## an offset written on that child would be overwritten and its offsets are its rectangle instead - and a

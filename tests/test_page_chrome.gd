@@ -30,6 +30,43 @@ func _page() -> Window:
 	return page
 
 
+## **A page that has outgrown the room says so where a scroll cannot take the words away.** The wiring half of
+## `PageLayout.words_for_a_page_that_scrolls`: the function that decides a page needs a scroll is the function
+## that tells the person, so there is one decision and one sentence.
+##
+## It says it **once**, which is the half a first version would miss: a page is landed again on every change of
+## the room's shape, so the same question is asked repeatedly and a second sentence would stack up in the bar.
+## What stops it is the scroll the page already has, not a mark kept beside it.
+##
+## No tree is needed, for the reason this file's head gives: the decision is made from the minimum sizes a
+## `Container` reports, and those do not wait for a layout pass.
+func test_a_page_that_is_given_a_scroll_says_so_in_its_title_and_only_once() -> void:
+	var page: Window = _page()
+	page.title = "The figures"
+	var column := VBoxContainer.new()
+	column.name = PageLayoutScript.CONTENT_NODE
+	page.add_child(column)
+	var taller := Control.new()
+	taller.custom_minimum_size = Vector2(300.0, 900.0)
+	column.add_child(taller)
+	assert(
+		PageChromeScript.scroll_if_it_does_not_fit(page, Vector2i(400, 200)),
+		"a column taller than the room it landed in is given a scroll",
+	)
+	assert(column.get_parent() is ScrollContainer, "the column is inside the scroll rather than where it stood")
+	assert(
+		page.title.begins_with("The figures") and "scroll" in page.title,
+		"and the page says so in its own title: %s" % page.title,
+	)
+	var said: String = page.title
+	assert(
+		not PageChromeScript.scroll_if_it_does_not_fit(page, Vector2i(400, 200)),
+		"asking again finds the scroll it already has",
+	)
+	assert(page.title == said, "and the sentence is not written a second time: %s" % page.title)
+	_free_pages()
+
+
 func test_every_page_title_is_the_same_size() -> void:
 	# The drift this replaces: 15 on the ground page, 16 on the revision and sheet pages, 18 in the
 	# manual, 20 on the field and status pages.
