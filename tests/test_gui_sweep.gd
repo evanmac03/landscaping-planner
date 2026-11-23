@@ -110,3 +110,89 @@ func test_a_door_that_swaps_pages_is_answered_and_one_that_opens_nothing_is_not(
 func test_the_sweep_ends_when_it_is_done() -> void:
 	var source: String = FileAccess.get_file_as_string("res://tools/gui_sweep.gd")
 	assert(source.contains("get_tree().quit()"), "the sweep puts the program away when it has said its verdict")
+
+
+## **The door list is hand-written, and this is the file that stops it being a silent gap.** Measured
+## 2026-11-24: `PAGES` held 39 doors while `hud.gd` had 52 `open_*` methods, and **three of those were doors no
+## instrument had ever asked a question of** - `open_capture_window` (the field-capture page, wired to its own
+## menu entry through `_menu_capture_window`), `open_landxml_panel` (a panel of the same kind as the `DxfPanel`
+## standing beside it) and `open_survey_panel` (which takes what a survey file's read handed it). The first two are
+## swept now; the third cannot be, and says so below rather than being passed over. The field page was also one of
+## the two of `PageIndex`'s 35 pages outside the list for this reason.
+##
+## What is held is **not** "every door must be swept" - a `FileDialog` is the engine's own furniture, the doorway
+## is up before anything can notice it arriving, and the camera asks the device - but **nothing may be unaccounted
+## for**. Every `open_*` door is either in `PAGES` or in the table below with the reason it is not, so a door added
+## tomorrow fails this test until somebody says which kind it is. That is the whole of the cure for a list a person
+## types: it cannot be wrong silently.
+##
+## The table is read in one direction more than the other - a name in it that is no longer a door is a fault too,
+## because a line that has stopped describing anything reads as though there were something to it.
+const HUD := "res://scripts/hud.gd"
+
+## The reason six of these share: the engine's own file picker, which is furniture rather than anything this
+## program builds.
+const A_DIALOG := "the engine's own FileDialog, not a page or a panel"
+
+## The doors deliberately outside the sweep, each with the reason. The longer reasoning is above; what is here is
+## what a reader of the table needs in order to know it was a decision.
+const OUTSIDE := {
+	"open_camera_window": "a mode that asks the device, not a page",
+	"open_the_front_door": "up at launch, so `what_came_up` cannot answer it",
+	"open_page_help": "a second route onto `help_window`, already swept",
+	"open_painted": "a toggle over the presentation sheet, not a door",
+	"open_survey_panel": "takes what a file's read handed it, so nothing to show",
+	"open_drawing_dialog": A_DIALOG,
+	"open_dxf_dialog": A_DIALOG,
+	"open_landxml_dialog": A_DIALOG,
+	"open_osm_map_dialog": A_DIALOG,
+	"open_underlay_dialog": A_DIALOG,
+	"open_survey_dialog": A_DIALOG,
+}
+
+
+## Every `open_*` method the HUD has is either swept or named with its reason, every door the sweep calls is one
+## the HUD really has, and no line of the table has outlived its door.
+func test_every_door_the_hud_has_is_either_swept_or_named_with_its_reason() -> void:
+	var doors: Array[String] = _the_huds_open_doors()
+	# **A source read that found nothing would pass every assertion below by finding nothing**, so the count is
+	# asked for first: this many doors were read out of the file, or the read did not happen.
+	assert(doors.size() > 40, "the HUD's own doors were found at all: %d" % doors.size())
+
+	var unaccounted: Array[String] = []
+	for door: String in doors:
+		if door in Sweep.PAGES or OUTSIDE.has(door):
+			continue
+		unaccounted.append(door)
+	assert(
+		unaccounted.is_empty(),
+		"every door the HUD has is either swept or named with the reason it is not: %s" % ", ".join(unaccounted),
+	)
+
+	var ghosts: Array[String] = []
+	for door: String in Sweep.PAGES:
+		if not door in doors:
+			ghosts.append(door)
+	assert(ghosts.is_empty(), "and every door the sweep calls is one the HUD really has: %s" % ", ".join(ghosts))
+
+	var stale: Array[String] = []
+	for name: Variant in OUTSIDE:
+		if not String(name) in doors:
+			stale.append(String(name))
+	assert(stale.is_empty(), "and no line of the table has stopped describing anything: %s" % ", ".join(stale))
+
+
+## The HUD's own `open_*` methods, read out of its **source**: the one list of them that cannot drift, because it
+## is the file the doors are written in rather than a second copy of them kept somewhere.
+func _the_huds_open_doors() -> Array[String]:
+	var source: String = FileAccess.get_file_as_string(HUD)
+	assert(not source.is_empty(), "%s is readable, so the doors can be read out of it" % HUD)
+	var doors: Array[String] = []
+	for line: String in source.split("\n"):
+		if not line.begins_with("func open_"):
+			continue
+		var named: String = line.substr("func ".length()).split("(")[0]
+		if not named in doors:
+			doors.append(named)
+	doors.sort()
+	return doors
