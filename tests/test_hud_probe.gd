@@ -483,6 +483,41 @@ func test_a_page_whose_own_rectangle_is_composed_off_the_screen_is_named() -> vo
 	_free_made()
 
 
+## **A page that has been put away is not on the screen, and no composer may name it.** This was an open finding
+## for a time - a `page-edge` line about a page at the instant it was hidden, read as a page at 1 x 409 px - and it
+## is an artifact rather than a fault. The engine answers it: a `Window` leaves the viewport's own embedded
+## subwindows **in the same frame** as its `hide()`, which was measured directly on 2026-11-24, so a page a person
+## has closed is not in the list `Hud` reads the screen through, and `page_edge_lines` filters `visible` besides.
+## The desk agrees: the 39-door sweep reports **0 offscreen and 0 adrift** for every page, and the launch block
+## names the one page that is up. What is held here is the rule both rest on, so that neither can be loosened
+## quietly - the check names a page standing past the edge, and stays silent about the same page once it is away.
+func test_a_page_that_has_been_put_away_is_not_named_by_the_page_edge_check() -> void:
+	var up := Window.new()
+	up.name = "ProbeUp"
+	_made.append(up)
+	add_child(up)
+	# Far past any room, so the rule's own answer does not depend on the size of the screen the suite runs on.
+	up.position = Vector2i(1000000, 100)
+	up.size = Vector2i(300, 200)
+	var away := Window.new()
+	away.name = "ProbeAway"
+	_made.append(away)
+	add_child(away)
+	away.position = up.position
+	away.size = up.size
+	away.hide()
+
+	var lines: PackedStringArray = HudProbeScript.page_edge_lines([up, away])
+	assert(lines.size() == 1, "only the page still standing is named: %s" % str(lines))
+	assert(lines[0].contains("ProbeUp"), "and the line is about the one that is up: %s" % lines[0])
+	# The engine's own half of the same fact, which is why no composer can see a hidden page at all.
+	assert(
+		not get_viewport().get_embedded_subwindows().has(away),
+		"a put-away page leaves the viewport's own subwindows in the same frame it is hidden",
+	)
+	_free_made()
+
+
 ## A caption is judged against the room it was given in its own pixels, and a control that puts its words on
 ## another line has cut nothing - which is the difference between a box short of room and a caption that has
 ## lost a word. The phone's own foot line showed "Pinch: zoo".
