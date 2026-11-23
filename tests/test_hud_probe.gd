@@ -118,6 +118,63 @@ func test_a_button_that_something_stands_over_is_not_the_switched_off_kind() -> 
 	_free_made()
 
 
+## **A control inside a box that clips it is handed over where it shows**, because that is where a tap can be
+## aimed: the rectangle a box hands over is the part a person can see, so a control half in is judged as the half
+## that is in, and one scrolled wholly out of view is handed over by nobody.
+##
+## **This is the rule the survey panel's own `ImportSurvey` cost** (measured 2026-11-24): its `disabled` button
+## stands inside the panel's `Scroll`, and the walk had been asking the *other* question - "is anything above this
+## clipping at all" - so everything inside a scroller was handed over by nobody. The panel's own buttons therefore
+## reached the reach net not at all and a button that does nothing drew no finding, which is the one answer a
+## driver hunting "why does this toolbar button not answer" is looking for. `reach_findings` is built on this walk,
+## so the two halves are held together here: the boxes and the findings are one arrangement, not two rules.
+func test_a_button_inside_a_box_that_clips_it_is_handed_over_where_it_shows() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	var clipped: Control = _control(root, box, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+	var dead := Button.new()
+	dead.text = "Take it back"
+	dead.disabled = true
+	_control(clipped, dead, Vector2(0.0, 0.0), Vector2(400.0, 100.0))
+
+	var handed: int = 0
+	for one: Dictionary in HudProbeScript.tap_boxes(root, "a panel", HudProbeScript.screen_room(root)):
+		if String(one["name"]).contains("Take it back"):
+			handed += 1
+			assert(not bool(one["enabled"]), "and handed over as the switched-off thing it is: %s" % str(one))
+	assert(handed == 1, "the clipped button is handed over, exactly once: %s" % str(handed))
+
+	var findings: Array[Dictionary] = HudProbeScript.reach_findings(root, [], "a panel")
+	assert(findings.size() == 1, "so the reach walk sees it at all, which it could not before: %s" % str(findings))
+	assert(bool(findings[0]["switched_off"]), "and names it as switched off: %s" % str(findings[0]))
+	assert(String(findings[0]["line"]).contains("Take it back"), "by the words on the button: %s" % str(findings[0]))
+	_free_made()
+
+
+## And the other half of the same arrangement: **a control a box has scrolled wholly out of view is handed over by
+## nobody**, and a control handed over by nobody is not a fault - it is reached by scrolling rather than by aiming.
+## Without this half the fix above could be satisfied by handing over every rectangle a scroller clips, which would
+## offer a driver a point on the scroller's own foot that no tap can press.
+func test_a_button_scrolled_wholly_out_of_view_is_handed_over_by_nobody() -> void:
+	var root: Control = _root()
+	var box := Control.new()
+	box.clip_contents = true
+	var clipped: Control = _control(root, box, Vector2(0.0, 0.0), Vector2(400.0, 200.0))
+	var below := Button.new()
+	below.text = "Play the season"
+	below.disabled = true
+	_control(clipped, below, Vector2(0.0, 300.0), Vector2(400.0, 100.0))
+
+	for one: Dictionary in HudProbeScript.tap_boxes(root, "a panel", HudProbeScript.screen_room(root)):
+		assert(
+			not String(one["name"]).contains("Play the season"),
+			"nothing past the fold is handed over: %s" % str(one),
+		)
+	assert(HudProbeScript.reach_findings(root, [], "a panel").is_empty(), "and a dropped button is not a fault")
+	_free_made()
+
+
 ## The middle of the rectangle the probe itself reports for a control, so that the point asked about is one the
 ## probe would publish rather than a pixel count no headless run could vouch for.
 func _middle_of(control: Control) -> Vector2i:

@@ -956,13 +956,23 @@ static func offscreen_lines(root: Node, scope: String) -> PackedStringArray:
 ## point** and reporting every button cannot come to disagree about what is at a place: a control the mouse
 ## passes through is not handed over at all, a control covering the whole room is the screen's own backdrop
 ## rather than a thing in the way, and the name on each box is the one the block prints.
+##
+## **A box carries the part of its control that is drawn**, so a control in a scroller is handed over where it
+## shows and a control scrolled wholly out of view is not handed over at all. That matters to every reader of this
+## walk's output: `reach_findings` can only report a button it was given, so a page's contents inside the scroller
+## `PageChrome` gives an over-tall page were invisible to it, as were the palette's own tools - which is how a
+## `disabled` button on the survey panel came to produce no finding at all (measured 2026-11-24).
 static func tap_boxes(root: Node, scope: String, room: Vector2i) -> Array:
 	var boxes: Array = []
 	for control: Control in _controls_under(root):
 		if not _a_tap_stops_here(control):
 			continue
-		var rect: Rect2 = screen_rect(control)
-		if rect.size.x < 1.0 or rect.size.y < 1.0:
+		# **The part that shows, which is what a tap can be aimed at.** A control inside a scroller is drawn where
+		# it shows and nowhere else, so handing over its whole rectangle would offer a point on the scroller's own
+		# foot that no tap can press. Emptiness rather than a pixel floor, for `drawn_rect`'s own reason: a floor
+		# counted in pixels needs a screen to count it on, and a headless runner asks this too.
+		var rect: Rect2 = drawn_rect(control)
+		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 			continue
 		# A control covering the whole room is the screen's own backdrop, stopping the mouse on purpose
 		# while a person is being asked something. It is not a thing that got in the way. **The same call
@@ -1074,8 +1084,12 @@ static func reach_findings(board: Node, pages: Array, board_scope: String) -> Ar
 		for control: Control in _controls_under(root):
 			if not _a_tap_stops_here(control) or not (control is BaseButton):
 				continue
-			var rect: Rect2 = screen_rect(control)
-			if rect.size.x < 1.0 or rect.size.y < 1.0:
+			# **The part that shows**, so that the point asked about is one a finger could land on: the middle of
+			# a button half out of a scroller is inside the scroller, not on the scroller's foot below it. This is
+			# the same rectangle the walk above hands over, so a button and the boxes it is judged against cannot
+			# come to different answers about where it is.
+			var rect: Rect2 = drawn_rect(control)
+			if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 				continue
 			# A button the room cannot hold belongs to `offscreen` and would only be named a second time here: a
 			# tap cannot be aimed at a control nobody can see, and the aiming is what this asks about.
@@ -1685,7 +1699,13 @@ static func tiny_lines(root: Node, scope: String, scale: float, density: float) 
 static func _targets_under(root: Node, scope: String) -> Array:
 	var items: Array = []
 	for control: Control in _controls_under(root):
-		if not _a_tap_stops_here(control):
+		# **A control a scroller is clipping is left out, and that is this question's own answer rather than the
+		# walk's.** `TouchTarget` and `Spacing` ask whether a finger can hit a target *the program has placed*, and
+		# a control standing below a scroller's foot is reached by scrolling rather than by aiming - the same
+		# reasoning `offscreen_lines` gives. **It is a ceiling worth naming**: the palette's own tools sit inside
+		# `PaletteScroll` and so have never been measured for a finger's height, and whether they should be is a
+		# question for the phone's own readings (`hud_probe.tap_lines` publishes them, `small` does not ask them).
+		if not _a_tap_stops_here(control) or _clipped(control):
 			continue
 		# **A part the engine built is not a target of its own.** A `SpinBox`'s field is a `LineEdit`, so it
 		# would be reported beside the `SpinBox` as a second target in the same place: 68 px wide where the
@@ -1767,8 +1787,17 @@ static func drawn(control: Control) -> bool:
 ## Whether a tap stops at a control at all: something on the screen that takes the mouse. The engine's own
 ## `mouse_filter` answers it - a plain panel under a button passes the click through to the button - so a control
 ## that ignores the mouse is not a thing a tap can reach.
+##
+## **Clipping is asked by the caller and not here, because the callers want opposite answers to it.** For what a
+## tap *reaches*, a control inside a scroller is reachable wherever it shows, and `drawn_rect` is the rectangle
+## that says where that is - the clip is what makes that rectangle right rather than a reason to leave the control
+## out. For `offscreen` and for the finger questions, being past the edge of a scroller is the design and the
+## control is left out altogether, which is `_showing_at_all`'s answer. Asking it here answered one of the two
+## questions for both, and the answer it gave the first one was wrong: **everything inside a `ScrollContainer`
+## was handed over by nobody** - the palette's own tools, and every page's contents - so nothing in this program's
+## scrollers could ever be reported as blocked or as switched off.
 static func _a_tap_stops_here(control: Control) -> bool:
-	if not _showing_at_all(control):
+	if not control.is_visible_in_tree():
 		return false
 	return control.mouse_filter != Control.MOUSE_FILTER_IGNORE
 
