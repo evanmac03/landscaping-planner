@@ -508,6 +508,53 @@ static func run(main: Node, tree: SceneTree) -> Dictionary:
 	if unmet == 0:
 		print("  every button on the screen would be reached by a tap at its middle")
 
+	# **Whether the words a control draws fit the box it draws them in**, which is the one question of this whole
+	# family that means the same thing on a desk as on a phone: a caption wanting more room than it was given is
+	# a caption losing words at every size, and it is how the phone's own foot line was found reading "Pinch:
+	# zoo" where the program had written "Pinch: zoom". It is **counted**, like a control the room cannot hold,
+	# because both widths are the program's own measurements taken in the control's own pixels - there is nothing
+	# here for a person to judge, and `gui_sweep` counts it on the same grounds.
+	print("--- words that want more room than the box they are drawn in ---")
+	var too_long := 0
+	for room: Node in rooms:
+		var long_scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+		for line: String in HudProbeScript.clipped_lines(room, long_scope):
+			too_long += 1
+			print("  " + line)
+	if too_long == 0:
+		print("  every caption, button and label stands inside the box it is drawn in")
+	overflow += too_long
+
+	# **The band the device keeps for itself, and the one section here that has to refuse the question.** A
+	# monitor promises nothing - `HudProbe._the_bands_kept` reads the platform only where `PhoneHud.zooming_here`
+	# says the room really is a phone's - so on a desk there is no area to measure anything against. A section
+	# that asked anyway and printed nothing would be **a check that cannot fail**, which is worse than no check
+	# at all: it would read as "no target stands in the band" when the truth is "this display has no band to tell
+	# us about". So the reading is asked for and the refusal **says why**, naming the tool that can answer it -
+	# the device, through `tools/phone_touch_pass.tscn`, which pulls the probe's own block off the phone.
+	#
+	# Where a band does exist the same section becomes live and names what stands in it: a target whose **middle**
+	# is inside the band is the sharper half of the question, because a finger lands where it was aimed - the
+	# board's three view buttons each *reach* 81 px into the top band while it is their middles at y=68 that hand
+	# the press to the system. Named rather than counted, as the probe names it: the count belongs to the pass
+	# that runs on the device the numbers came from.
+	print("--- the band the device keeps, and what stands in it ---")
+	var kept: Rect2i = HudProbeScript._the_bands_kept(root)
+	if kept.size.x <= 0 or kept.size.y <= 0:
+		print(
+			"  this display states no band of its own, so no target can be named here:"
+			+ " the numbers are the device's, and `tools/phone_touch_pass.tscn` asks the question on it"
+		)
+	else:
+		var in_the_band := 0
+		for room: Node in rooms:
+			var band_scope: String = "the board" if room == root else PageLayoutScript.page_name(room as Window)
+			for line: String in HudProbeScript.middle_lines(room, band_scope):
+				in_the_band += 1
+				print("  " + line)
+		if in_the_band == 0:
+			print("  no target stands with its middle in the band this display states (%s)" % kept)
+
 	# The one phone-only question a desk-sized window can ask honestly. Measured on the A16W: with a
 	# finger's type the top bar grows far past the scene's 50 px and the foot line wraps onto three, and the
 	# offsets the scene drew the palette with - right for a desk's 62 px bar - then drew it *over* the menu
