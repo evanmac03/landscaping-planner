@@ -373,6 +373,20 @@ static func tap_lines(root: Node, scope: String, first: int = 1) -> PackedString
 	return lines
 
 
+## Every surface one tree draws that can meet another: the words, the plates, and the controls a finger
+## presses. **The one place the three are gathered**, so the HUD and a workspace asking the same question of
+## their own trees cannot come to two different answers about what a surface is.
+##
+## **A page is not here, and that is deliberate rather than an omission**: a page is a `Window` beside the
+## board rather than a control under it, so whoever knows the pages hands them in through `page_surfaces` -
+## exactly as `hud.gd` does. This gathers what one walk of one tree can find.
+static func all_in(root: Node, scope: String = "the board") -> Array[Dictionary]:
+	var surfaces: Array[Dictionary] = words_in(root)
+	surfaces.append_array(plates_in(root))
+	surfaces.append_array(targets_in(root, scope))
+	return surfaces
+
+
 ## Every control that draws a plate of its own and says nothing, with the rectangle it is drawn in.
 ##
 ## **A plate and not a page.** A page over the furniture it covers is what a page is, and pages are handed in by

@@ -1005,7 +1005,7 @@ func _the_screen_said() -> void:
 ## them are in the one space a screenshot is counted in.
 func drawn_surfaces() -> Array:
 	var board: Control = get_node_or_null(^"Root") as Control
-	var surfaces: Array = HudProbeScript.words_in(board)
+	var surfaces: Array = HudProbeScript.all_in(board)
 	# **And what is drawn across it, which is the fault no instrument named.** A plate - a panel's own rectangle - over
 	# a control a finger must press takes the press away from the person; over words it takes half a sentence away.
 	# Measured, `Presentation` stood at `1276,70 .. 1588,88`, inside the top bar's plate and straight across
@@ -1016,8 +1016,6 @@ func drawn_surfaces() -> Array:
 	# because a surface is named by the caption it draws and the ancestry walk was writing node names. Both are named
 	# now, and `plates_in` is here so that a plate is a surface at all, which it was not before: all six of those
 	# lines were target against words, and the ghost was in none of them.
-	surfaces.append_array(HudProbeScript.plates_in(board))
-	surfaces.append_array(HudProbeScript.targets_in(board))
 	if top_bar != null:
 		surfaces.append(DrawnSurfacesScript.top_bar("the top bar", Rect2i(HudProbeScript.screen_rect(top_bar))))
 	for window: Window in get_viewport().get_embedded_subwindows():

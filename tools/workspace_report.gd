@@ -85,6 +85,9 @@ const DEVICE := "#device"
 ## two devices, and the answer already lives with the question.
 const PhoneHudScript := preload("res://scripts/phone_hud.gd")
 const TouchInputScript := preload("res://scripts/touch_input.gd")
+## What is drawn over what, and the words for it: the gathering of a scene's surfaces and the sentence for a
+## meeting are `HudProbe`'s and `DrawnSurfaces`', so this file asks the question and writes nothing of its own.
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
 
 
 ## Read the named nodes out of whatever tree is handed in, and every control a finger could press underneath
@@ -189,6 +192,22 @@ static func is_a_target(node: Node) -> bool:
 	if button == null:
 		return false
 	return not button.disabled
+
+
+## What is drawn over what in the scene handed in, in `HudProbe`'s words and `DrawnSurfaces`' own sentence.
+##
+## **The question `Spacing` cannot ask**, and the reason this is here rather than in that caption. `Spacing`
+## judges two targets against each other; this is the other fault - a plate or a sentence drawn across a
+## control, or across other words - and it is the one that hid on a phone: the foot line was drawn straight
+## across the dock's own tabs while every target was still a row tall and clear of its neighbour.
+##
+## It needs the **scene** rather than a reading, because what a surface stands inside is not something a row of
+## numbers carries - so it is asked of whatever tree the workspace was handed, and a saved reading cannot
+## answer it. That is the one place this differs from `Spacing`, which a reading can answer on its own.
+static func overlap_lines(root: Node) -> PackedStringArray:
+	if root == null:
+		return PackedStringArray()
+	return HudProbeScript.meeting_lines(HudProbeScript.all_in(root, "the scene"))
 
 
 ## One reading as lines, which is both what a person reads and what `from_lines` parses back.

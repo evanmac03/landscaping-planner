@@ -189,6 +189,8 @@ func _read_and_say(tell_the_other_half: bool) -> void:
 		print("  ", line)
 	for told_one: String in told:
 		print("  ! ", told_one)
+	for meeting: String in WorkspaceReportScript.overlap_lines(_the_read()):
+		print("  o ", meeting)
 	# **The judgement travels with the numbers**, so the half that cannot ask anything can still read both: a run
 	# cannot ask an editor what it thinks and an editor's `print` reaches nobody, which is why the reading goes to a
 	# file at all. Which file is the workspace's own name, so a second workspace cannot be measured against the first.
@@ -238,6 +240,10 @@ func _show(mine: Dictionary, density: float, built_scale: float) -> void:
 	# the tall thing and the middle is where the scene is. The caption's own words are kept at the head of it - the
 	# judgement is still the first thing read - and the rows follow, which is the order a person reads them in.
 	var words: PackedStringArray = WorkspaceReportScript.caption_lines(mine, density, built_scale)
+	# **And what is drawn across what, asked of the scene the person is standing in.** It cannot come from the
+	# reading: whether a plate covers a control is a question about the tree, not about a row of numbers, which is
+	# why `Spacing`'s caption can be read off a saved file and this one cannot.
+	words.append_array(WorkspaceReportScript.overlap_lines(_the_read()))
 	_caption.add_theme_font_size_override("font_size", 12 if show_the_reading else 20)
 	if show_the_reading:
 		words.append_array(WorkspaceReportScript.lines(mine))
