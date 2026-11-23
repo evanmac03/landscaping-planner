@@ -314,6 +314,13 @@ needed: no".
   a field grows with its font and making one grow is a change to that page rather than to a thumb.
 - The palette is the only screen surface resized. The top bar's **row** is fitted now too, and re-fitted
   when the glass changes shape (§4.2); the presentation panel is still unchanged.
+- **The top bar does not fit a standing room, and this is measured and unrepaired.** On the A16W standing
+  (room 1185 x 2567, screen 1080 x 2340) one block reads `offscreen TopBar ... 61 px past the left edge, and
+  62 px past the right`, with `Row`, `TouchRow`, a `Menu` button and `GroundButton` each 47 px past an edge,
+  and `unsafe GroundButton "Ground view  (G)" stands 47 px into the right band, which the device keeps for
+  itself` - so a control a finger is meant to press stands partly under the system's own gesture band. The
+  bar's own fold is not the fault (it settles, §4.2): the row is laid out for the lying room. Named rather than
+  guessed at, so that whoever repairs it has the block to read.
 - The **foot strip speaks a desk's language** on a phone. The ground view's line was the first one fixed -
   `HINTS_GROUND_ON_A_FINGER`, chosen by the same `shows_touch_controls` that decides whether the thumb pad
   is built at all - because a phone in a garden has no keys *and* no mouse, and the two gestures it does
