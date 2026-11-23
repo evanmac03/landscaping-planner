@@ -422,10 +422,8 @@ static func _covers_the_room(control: Control, rect: Rect2) -> bool:
 		return false
 	var room: Rect2 = viewport.get_visible_rect()
 	return (
-		rect.position.x <= room.position.x
-		and rect.position.y <= room.position.y
-		and rect.end.x >= room.end.x
-		and rect.end.y >= room.end.y
+		rect.position.x <= room.position.x and rect.position.y <= room.position.y
+		and rect.end.x >= room.end.x and rect.end.y >= room.end.y
 	)
 
 
