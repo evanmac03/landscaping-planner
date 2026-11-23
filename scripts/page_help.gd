@@ -38,6 +38,7 @@ const SUBJECT_OF: Dictionary = {
 	"ground_window": "The ground under the garden",
 	"harvest_window": "Food: what's ready when",
 	"layer_window": "Layers, units and the site",
+	"nearby_window": "What is around me on site",
 	"osm_window": "Importing somebody else's file",
 	"pipeline_board": "Leads and the pipeline",
 	"plant_key_window": "Identifying a plant by answering questions",

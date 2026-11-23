@@ -660,6 +660,11 @@ static func site_items() -> Array[Dictionary]:
 	items.append(_command(&"site.grade.slope", "Draw a slope arrow", &"grade_slope", &"_menu_grade_slope", NEEDS_DRAFT))
 	items.append(_command(&"site.grade.check", "Check the grading", &"", &"_menu_check_grading", NEEDS_DRAFT))
 	items.append(_separator())
+	# **The nearer half of the same question.** The check beside this looks at the whole drawing and names the
+	# plants its own conditions disagree with; this looks at the spot a person is standing on and names what goes
+	# in beside them. It sits with the check rather than with the survey because both are about what the plan has
+	# already placed - which is also why it is the one Site door that needs one.
+	items.append(_command(&"site.nearby", "What is around me...", &"", &"_menu_nearby", NEEDS_DRAFT))
 	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
 	items.append(_separator())
 	items.append(_command(&"site.report", "Site statistics", &"", &"_menu_site_report"))

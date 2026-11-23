@@ -151,6 +151,16 @@
 			"scrolls": true,
 			"wanted_width": 507.0
 		},
+		"nearby_window": {
+			"children": 8,
+			"declared": [
+				560.0,
+				620.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 183.0
+		},
 		"osm_window": {
 			"children": 6,
 			"declared": [

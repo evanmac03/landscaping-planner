@@ -963,6 +963,60 @@ plot extent and closeout here.
 **Nothing ships stated.** The readings file is absent until somebody has read a leaf, a blank cell is
 not a statement, and the tool drops its own name column rather than passing it on as a leaf. No leaf
 trait in this repository was written by a guess.
+
+## 7d. What is around me on site
+
+**The build step was the one step of a job with no page of its own.** A survey has a page, a drawing, an
+estimate, a presentation and an invoice each have one - and the person standing in the garden with the plan in
+hand had nothing that answered "what goes in beside me?". `Site > What is around me...` is that page. It lists
+the things the drawing places nearest where that person is standing, closest first, each with its distance and
+the direction to look.
+
+### 7d.1 The place comes from the drawing, and not from the live mouse
+
+The place is the drawing's own `cursor_point`, which is the reading `ViewController.ground_at_cursor` already
+makes and for the same reason: a person reaches this page from the menus, so by the time anything asks, the
+pointer is over the menu bar - and the spot they mean is the one it was over on its way there. Nothing is
+converted: plan metres are the model's own space, so `NearbyWork.planted_things` reads a yard node's position
+straight through, exactly as `PlantSuitability.audit` does.
+
+### 7d.2 The page is small on purpose
+
+`NearbyWindow` keeps to a corner of the screen and leaves the board's room to the plan, because the plan *is*
+half the answer at this step. It is the one page in the program meant to be read with the drawing still in
+front of it, and the HUD re-reads where the person is on every frame while it is up - so pointing at the plan
+behind the page moves the list.
+
+**The rows are rewritten on the page's own signature, and not on the tick.** The signature rounds the place to
+a tenth of a metre, so a hand resting on a mouse is not a person standing somewhere else and the list cannot
+flicker under a reader's eyes. `stand_at` therefore states where the place is and does not force a rewrite:
+the signature decides, and only the signature.
+
+### 7d.3 A handful, and the count of the rest
+
+`NearbyWork.NEAREST` is five. A list of thirty is a schedule, and a schedule is a page this program already
+has (`PlantPlacement.schedule`) - so the page lists the nearest few and the line under the list says how many
+the drawing really holds.
+
+### 7d.4 The owners it borrows from, rather than repeating
+
+- **The axis.** East is +X and north is -Z, which is `Survey.traverse`'s own convention, read from there
+  rather than restated. A direction is that azimuth said as one of the eight points of the compass, because
+  "north-east" is something a person in a garden can point at and an angle in degrees is not.
+- **A length.** `DraftUnits.length_words`, the one place a length becomes words in this program.
+- **The walk and the species.** `PlantPlacement.planted` and `PlantPlacement.species_of` - the same two owners
+  the audit reads a planted thing through.
+- **The words for a plant with no species.** The audit's own "with no species recorded", because a person who
+  has run Check the planting and then opened this page is reading about the same thirty plants in both, and
+  two ways of saying it would read as two different problems.
+
+### 7d.5 What it refuses to show
+
+A drawing with nothing planted says so rather than showing an empty list, because an empty list would leave a
+person unable to tell "nothing goes here" from "this program could not read the drawing". A plant the
+catalogue cannot name is counted and said rather than dropped. And a page shown no place at all says there is
+no drawing open, rather than standing somewhere it invented.
+
 ## 8. What is not built
 
 The ground can be **read from the drawing** (§7a.4), stated for the site and for any area the

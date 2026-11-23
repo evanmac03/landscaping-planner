@@ -47,6 +47,7 @@ const SUBJECTS: Array[String] = [
 	"Tracing over a picture",
 	"What is on site: the field survey",
 	"Reading a photograph",
+	"What is around me on site",
 	"Identifying a plant by answering questions",
 	"The leaves a list states",
 	"What suits this bed",
@@ -112,6 +113,7 @@ const SECTIONS: Array[Dictionary] = [
 			"Tracing over a picture",
 			"What is on site: the field survey",
 			"Reading a photograph",
+			"What is around me on site",
 		],
 	},
 	{
@@ -169,6 +171,7 @@ const SEE_ALSO: Dictionary = {
 	"The ground under the garden": ["Stating levels and falls", "Plants"],
 	"What is on site: the field survey": ["Reading a photograph", "Plants"],
 	"Reading a photograph": ["What is on site: the field survey", "Plants"],
+	"What is around me on site": ["What is on site: the field survey", "Plants"],
 	"Identifying a plant by answering questions": ["Reading a photograph", "Plants"],
 	"What suits this bed": ["Identifying a plant by answering questions", "The ground under the garden"],
 	"The leaves a list states": ["Identifying a plant by answering questions", "What suits this bed"],
@@ -804,6 +807,33 @@ static func _topics() -> Array[Dictionary]:
 				+ "questions that tell them apart. A reading of one plant is already a name, and a reading this "
 				+ "list cannot place leaves the key on the whole list - so the invitation is there only when there "
 				+ "is a choice to settle.",
+			],
+		)
+	)
+	out.append(
+		_topic(
+			"What is around me on site",
+			[
+				"The plan is what you carry out to the garden, and Site > What is around me... is the page for the "
+				+ "moment you are standing in it with the drawing in hand: it lists the things the plan places "
+				+ "nearest where you are, closest first, each with how far away it is and which way to look.",
+				"",
+				"Where you are is where the plan was last pointed at rather than where the pointer happens to be, "
+				+ "so you point at or tap the spot you are standing on and then open the page. The page is "
+				+ "deliberately small and the plan stays visible behind it, so you can point at the plan again "
+				+ "while it is open and the list follows you as you walk a bed.",
+				"",
+				"A distance is stated the way this program states every length - in metres, or in feet if you have "
+				+ "asked for feet - and a direction is one of the eight points of the compass rather than an angle "
+				+ "in degrees: north-east is something you can point at.",
+				"",
+				"A plant the catalogue cannot name is counted and said rather than left out. Site > Check the "
+				+ "planting reports those same plants in the same words, because it is one thing wrong with the "
+				+ "drawing and not two.",
+				"",
+				"On a drawing with nothing planted yet the page says so. It shows no list and no zero, because an "
+				+ "empty list would leave you unable to tell \"nothing goes here\" from \"this program could not "
+				+ "read the drawing\".",
 			],
 		)
 	)

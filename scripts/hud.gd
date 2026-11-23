@@ -370,6 +370,8 @@ const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
+const NearbyWindowScript := preload("res://scripts/nearby_window.gd")
+const NearbyWorkScript := preload("res://scripts/plants/nearby_work.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
@@ -474,6 +476,9 @@ var _plant_export_dialog: FileDialog = null
 ## The ground: one window, because the site's conditions and the conditions of every area of the plan
 ## are one subject, and a menu cannot hold an area.
 var _ground_window: GroundWindow = null
+## What is around me: the things the drawing puts nearest where a person is standing. A window, because the
+## answer is a list somebody reads while they point at the plan behind it.
+var _nearby_window: NearbyWindow = null
 ## The drawing's layers: every layer, what it is for, and the two things done to one from it - lock it
 ## or make it current. A window because it has a search box to type into.
 var _layer_window: LayerWindowScript = null
@@ -771,6 +776,7 @@ func _ready() -> void:
 	_build_recovery_dialog()
 	_build_plant_library()
 	_build_ground_window()
+	_build_nearby_window()
 	_build_layer_window()
 	_build_site_report_panel()
 	_build_survey_panel()
@@ -1181,6 +1187,9 @@ func _process(delta: float) -> void:
 	# And the same for what has been said: the page is a view of the drawing's own history, and it says
 	# it is showing the newest answer, so it has to be showing it.
 	_tick_status_window()
+	# And the same for what is around me: where a person stands moves as they point at the plan behind that page, and
+	# what the drawing holds moves as they plant, so both are read again while it is up.
+	_tick_nearby_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
@@ -3303,6 +3312,7 @@ func pages_in_windows() -> Array[Window]:
 		_plant_window,
 		_command_palette,
 		_ground_window,
+		_nearby_window,
 		_layer_window,
 		_sheet_window,
 		_revision_window,
@@ -9199,6 +9209,77 @@ func close_ground_window() -> void:
 		_ground_window.say("")
 
 
+## What is around me: the things the drawing puts nearest where a person is standing, for somebody on site with the
+## plan in hand.
+##
+## A `Window` like the ground's, and deliberately a **small** one: the plan behind it is half the answer, so this
+## page keeps to a corner and leaves the board visible and usable around it. Built by hand rather than left to its
+## own `_ready`, so that the page a person opens is the page this file has already wired to the menu and the
+## drawing.
+func _build_nearby_window() -> void:
+	if _nearby_window != null:
+		return
+	_nearby_window = NearbyWindowScript.new()
+	_nearby_window.name = "NearbyWindow"
+	add_child(_nearby_window)
+	_nearby_window.closed.connect(_on_nearby_closed)
+	_nearby_window.hide()
+
+
+## Open it, standing where the drawing's cursor last was.
+func open_nearby_window() -> void:
+	if _nearby_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_stand_the_nearby_page()
+	PageChromeScript.show_centred(_nearby_window)
+	# A window holds the keyboard while it is up, which is exactly what a window is for; the moment it closes the
+	# drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+func close_nearby_window() -> void:
+	if _nearby_window != null:
+		_nearby_window.hide()
+		_nearby_window.say("")
+
+
+func is_nearby_window_open() -> bool:
+	return _nearby_window != null and _nearby_window.visible
+
+
+## Hand the page where the person stands and what the drawing holds.
+##
+## **The spot is the drawing's own `cursor_point` and not the live mouse**, for the reason
+## `ViewController.ground_at_cursor` gives: a person reaches this page from the menus, so by the time anything asks,
+## the pointer is over the menu bar - and the place they mean is the one it was over on its way there. The place is
+## in plan metres, the model's own space, so nothing is converted here.
+##
+## This is read on the frame while the page is up, because the answer changes as a person points at the plan behind
+## it. What is re-read is the HUD's one cached catalogue and a walk over the yard's own plants, so it is a handful
+## of meta values; **the page decides for itself whether the rows are worth rewriting.**
+func _stand_the_nearby_page() -> void:
+	if _nearby_window == null or _draft == null:
+		return
+	var yard: Node3D = view_controller.yard if view_controller != null else null
+	_nearby_window.stand_at(_draft.cursor_point, NearbyWorkScript.planted_things(plant_list(), yard))
+
+
+## The page while it is up, for the reasons `_stand_the_nearby_page` gives.
+func _tick_nearby_window() -> void:
+	if _nearby_window == null or not _nearby_window.visible:
+		return
+	_stand_the_nearby_page()
+
+
+## The page was put away. Nothing of the drawing's is stale, but the sentence it was showing is not a claim about
+## the drawing once nobody is reading it - so it is dropped, the same way the ground's is.
+func _on_nearby_closed() -> void:
+	if _nearby_window != null:
+		_nearby_window.say("")
+
+
 ## The drawing's layers: every layer, what it is for, and the two things done to one here - lock it
 ## against editing, or make it the layer new shapes are drawn on.
 ##
@@ -9701,6 +9782,11 @@ func _menu_label_plants(_entry: Dictionary) -> void:
 ## Open the ground window: the site's conditions and one statement per area of the plan.
 func _menu_ground_window(_entry: Dictionary) -> void:
 	open_ground_window()
+
+
+## Open the page for somebody standing in the garden with the plan in hand.
+func _menu_nearby(_entry: Dictionary) -> void:
+	open_nearby_window()
 
 
 func _menu_layer_window(_entry: Dictionary) -> void:
