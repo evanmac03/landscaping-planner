@@ -25,19 +25,25 @@ const PHONE_SCALE := 1.62
 ## with. Measured on the A16W held upright: the three view buttons and the menus sat 81 px inside that strip with
 ## their middles at y 67, so a tap aimed at `Fit` was answered by the system and not by the program.
 ##
-## The inset is **stated** here rather than read, which is the whole reason the door exists: on this desk
-## `cutout_top` answers zero, and a device with a band along its top is not a thing this machine can be.
+## **And lying down the same bar stands in the band the camera is kept in**, which is why the reading handed in is
+## all four sides rather than the top: measured on the A16W lying down, the bar's own controls stood at x 28 while
+## the device kept the room's first 62 px, so `Menu` reached 55 px into that band.
+##
+## The band is **stated** here rather than read, which is the whole reason the door exists: on this desk
+## `cutout_here` answers zero, and a device with a band along its top is not a thing this machine can be.
 func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() -> void:
 	var hud: PlannerHud = PlannerHudScript.new()
 	var bar := PanelContainer.new()
+	bar.offset_left = 12.0
 	bar.offset_top = 12.0
+	bar.offset_right = -12.0
 	bar.offset_bottom = 62.0
 	hud.top_bar = bar
 	# What the plate's own margin was before anything moved it: the assertions below are that it moved by the band
 	# and by the distance the plate's own top moved, rather than by numbers a theme might one day change.
 	var was: float = bar.get_theme_stylebox(&"panel").content_margin_top
 
-	hud.lift_the_top_bar_by(100)
+	hud.lift_the_top_bar_by(Vector4i(0, 100, 0, 0))
 	# **The plate runs to the top of the screen and only its row is lifted.** Where the device keeps a band along the
 	# top - a phone's camera cutout - the plate's own top is the glass's own top, so the band is covered by the bar
 	# rather than by bare board and the row of menus inside is pushed clear of it. The 12 is the scene's own top
@@ -59,10 +65,17 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 		is_equal_approx(margin_now, was + 12.0 + 100.0),
 		"the row is the scene's margin, plus the 12 the plate's top moved up, plus the band: %s" % str(margin_now),
 	)
+	# A band on the top alone leaves the sides exactly where the scene drew them, and the row's own side insets with
+	# them: a phone held upright keeps nothing along its sides, and a bar given ground it does not need is a bar
+	# drawn in the wrong place.
+	assert(
+		is_equal_approx(bar.offset_left, 12.0) and is_equal_approx(bar.offset_right, -12.0),
+		"and nothing moves the sides when the band is along the top: %s" % str([bar.offset_left, bar.offset_right]),
+	)
 
 	# **A turn re-runs the pass that does this**, so it has to answer the same thing every time: a lift that read its
 	# own output back would walk the bar down the screen by a band on every rotation.
-	hud.lift_the_top_bar_by(100)
+	hud.lift_the_top_bar_by(Vector4i(0, 100, 0, 0))
 	assert(is_equal_approx(bar.offset_top, 0.0), "the second pass moves nothing: %s" % str(bar.offset_top))
 	assert(is_equal_approx(bar.offset_bottom, 162.0), "and its foot is where it was: %s" % str(bar.offset_bottom))
 	assert(
@@ -71,7 +84,7 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 	)
 
 	# A device with nothing to clear - every desk - is given the bar the scene drew, to the pixel.
-	hud.lift_the_top_bar_by(0)
+	hud.lift_the_top_bar_by(Vector4i.ZERO)
 	assert(is_equal_approx(bar.offset_top, 12.0), "nothing to clear puts it back: %s" % str(bar.offset_top))
 	assert(is_equal_approx(bar.offset_bottom, 62.0), "both offsets, exactly: %s" % str(bar.offset_bottom))
 	assert(not bar.has_theme_stylebox_override(&"panel"), "and the plate's own margin is handed back, not left lifted")
@@ -80,6 +93,44 @@ func test_the_top_bar_is_lifted_by_the_band_the_device_keeps_and_never_drifts() 
 	# safe area keeps nothing back either way.
 	hud.lift_the_top_bar_clear_of_the_device()
 	assert(is_equal_approx(bar.offset_top, 12.0), "a desk's own reading leaves the bar alone")
+
+	hud.top_bar = null
+	bar.free()
+	hud.free()
+
+
+## **The band a phone lying down keeps is along a side, and this is the half of the lift that was missing.** The
+## camera is on the left, so the plate runs to the screen's own left edge and the row is pushed right by the band
+## plus the 12 the plate's own left edge moved - while the top, the foot and the right side are given the scene's
+## own numbers to the pixel, because the device keeps nothing there.
+func test_a_band_along_a_side_lifts_the_row_across_without_moving_anything_else() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+	var bar := PanelContainer.new()
+	bar.offset_left = 12.0
+	bar.offset_top = 12.0
+	bar.offset_right = -12.0
+	bar.offset_bottom = 62.0
+	hud.top_bar = bar
+	var margin_was: float = bar.get_theme_stylebox(&"panel").content_margin_left
+
+	# The A16W lying down: 100 px of its 2340 px display, which is 62 px of the 1600 px room this runs in.
+	hud.lift_the_top_bar_by(Vector4i(62, 0, 0, 0))
+	assert(is_equal_approx(bar.offset_left, 0.0), "the plate runs to the screen's own left: %s" % str(bar.offset_left))
+	assert(is_equal_approx(bar.offset_right, -12.0), "and its right edge is the scene's, untouched")
+	assert(is_equal_approx(bar.offset_top, 12.0), "the top is the scene's too: %s" % str(bar.offset_top))
+	assert(is_equal_approx(bar.offset_bottom, 62.0), "and so is its foot: %s" % str(bar.offset_bottom))
+	# **The row is what a thumb meets**, so this is the figure that matters: 100 px of ground is what the row is
+	# pushed across by, and a row that kept the scene's 16 would still be under the camera.
+	assert(
+		is_equal_approx(bar.get_theme_stylebox(&"panel").content_margin_left, margin_was + 12.0 + 62.0),
+		"and the row is pushed across by the band and the 12 the plate's edge moved: %s"
+		% str(bar.get_theme_stylebox(&"panel").content_margin_left),
+	)
+	# A band along one side moves nothing on any other axis: the plate is handed back to the scene's own numbers the
+	# moment there is nothing on that side, and a side left lifted would be a bar drawn off its own edge.
+	hud.lift_the_top_bar_by(Vector4i.ZERO)
+	assert(is_equal_approx(bar.offset_left, 12.0), "nothing to clear puts the side back: %s" % str(bar.offset_left))
+	assert(not bar.has_theme_stylebox_override(&"panel"), "and the plate is the scene's again")
 
 	hud.top_bar = null
 	bar.free()
@@ -112,6 +163,30 @@ func test_a_phone_held_sideways_gives_ground_where_the_camera_is() -> void:
 	assert(insets.x == roundi(2567.0 * (120.0 / 2340.0)), "the left takes the cutout's share of the width")
 	assert(insets.z == 0, "the right takes none of it")
 	assert(insets.y == 0 and insets.w == 0, "and the top and foot take none, held this way")
+
+
+## **A safe area that is not a rectangle of this screen is not a reading about it**, and this desk is where that was
+## measured: the window's screen reads 2880 by 1620 while the usable rectangle the display answers with begins at
+## x 3840 - a second monitor's space - so the band came out wider than the screen it was a share of, and every
+## control given ground on that side was pushed off the glass by 1580 px. Nothing had read the left inset before,
+## so the hole had never shown.
+##
+## What is kept is the part of this screen the safe area actually covers: one that meets none of it, and one that
+## covers all of it, both keep nothing and answer zero on every side - the answer a display that has promised
+## nothing already gives.
+func test_a_safe_area_that_is_not_on_this_screen_names_no_band() -> void:
+	assert(
+		PhoneHudScript.band_edges(Vector2i(2880, 1620), Rect2i(3840, 0, 2880, 1548)) == Vector4i.ZERO,
+		"a safe area that does not meet the screen has promised nothing about it",
+	)
+	assert(
+		PhoneHudScript.band_edges(Vector2i(1080, 2340), Rect2i(0, 0, 4000, 3000)) == Vector4i.ZERO,
+		"a safe area that covers all of the screen takes nothing off it",
+	)
+	# A safe area hanging off an edge keeps nothing on the side it is off, and is read normally everywhere it does
+	# cover - the clip is the whole of what happens to it, not a refusal of the reading.
+	var off_the_edge: Vector4i = PhoneHudScript.band_edges(Vector2i(1080, 2340), Rect2i(-100, 0, 1000, 1000))
+	assert(off_the_edge == Vector4i(0, 0, 180, 1340), "and one off an edge keeps nothing there: %s" % str(off_the_edge))
 
 
 ## A display reporting no furniture, and a room nobody could state, both answer zero on all four sides:

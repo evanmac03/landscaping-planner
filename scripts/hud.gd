@@ -294,6 +294,12 @@ var _menu_titles: Array[String] = []
 ## furniture writes the bar's offsets, so a second pass that read them back and lifted again would walk the bar
 ## down the screen one rotation at a time. What the lift adds to is what the scene drew.
 var _bar_offsets_as_drawn: Vector2 = Vector2(INF, INF)
+## The **left and right** offsets the scene drew the top bar with, kept as a second pair rather than a wider first
+## one, and for a reason of its own: the pair above is read as the bar's top and its foot - a height - and a
+## horizontal number put into it would be the same fact in two spaces. Remembered on the same first pass, because
+## a phone held sideways keeps its camera on one *side* of the screen and the pass that gives the row ground there
+## runs again on every turn, so a second pass reading its own output would walk the row across the screen.
+var _bar_sides_as_drawn: Vector2 = Vector2(INF, INF)
 ## The offsets the scene drew the palette with, remembered the first time the left column is placed for a
 ## device, and for the same reason: that pass runs again on every change of the room's shape, so a placement
 ## measured from its own output would walk the palette up the screen one turn at a time. Infinity until then,
@@ -1853,9 +1859,16 @@ func _state_the_strip_the_pages_may_not_use() -> bool:
 	return true
 
 
-## Lift the top bar clear of whatever the device keeps for itself along the top of the screen - the status bar,
-## the camera cutout, a rounded corner - and put it back exactly where the scene drew it where there is nothing
-## to clear.
+## Lift the top bar clear of whatever the device keeps for itself around the screen - the status bar, the camera
+## cutout, a rounded corner - and put it back exactly where the scene drew it where there is nothing to clear.
+##
+## **The whole reading is taken, not the top alone, because a phone held sideways keeps its camera on a side.**
+## `PhoneHud.cutout_here` answers the device's own band as (left, top, right, bottom) in the room's own pixels, and
+## measured on the A16W lying down the bar's controls stood at x 28 while the device kept the room's first 62 px -
+## so `Menu` reached 55 px into that band and a thumb aimed at it was answered by the system rather than by the
+## program. The palette had already been given that ground; the bar, the one plate standing over the band's own
+## edge, never asked. What the device keeps along the **foot** is not this pass's business: the plates down there
+## are given their ground by `give_the_foot_line_clear_of_the_device`.
 ##
 ## The palette's own **left and right** offsets, remembered for the same reason `_palette_offsets_as_drawn` is, and
 ## kept as a second pair rather than a wider first one: that one is handed to `offsets_for_the_left_column`, whose
@@ -1870,52 +1883,61 @@ var _palette_sides_as_drawn: Vector2 = Vector2(INF, INF)
 ## contents are lifted by `PageChrome.content_room_in`, a page is placed inside the insets, and a page's title bar
 ## is kept below this bar - the bar itself was the one thing that never asked.
 ##
-## **Where a band is kept, the plate runs to the screen's own top and only its row is lifted.** The plate covers
-## the band the camera sits in, so the bar reads as one pane running off the top of the glass, and the row of
-## menus inside it is pushed clear. The plate given there is `ChromeStyle`'s, which is the one place a chrome
-## plate is styled; where there is no band to clear the override is taken away and the bar is the bar the scene
-## drew, to the pixel. A computer never moves at all, because `PhoneHud.cutout_top` answers zero for a screen
-## with no safe area and for anything not served a finger.
+## **Where a band is kept, the plate runs to the screen's own edge and only its row is lifted**, which the
+## measuring door below does for each of the three sides a device may keep one on. A computer never moves at all,
+## because `PhoneHud.cutout_here` answers zero for a screen with no safe area and for anything not served a finger.
 func lift_the_top_bar_clear_of_the_device() -> void:
 	var viewport: Viewport = get_viewport()
 	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
-	lift_the_top_bar_by(PhoneHudScript.cutout_top(room))
+	lift_the_top_bar_by(PhoneHudScript.cutout_here(room))
 
 
-## The measuring half, with the inset stated rather than read, so a test can hold what a phone would be told
+## The measuring half, with the band stated rather than read, so a test can hold what a phone would be told
 ## without being one - the same door `fit_the_chrome_for_a_finger` is.
 ##
-## The inset is in the layout's own pixels, which is the space the bar's offsets are in: the room handed over is
-## the viewport's, and `PhoneHud.cutout_here` answers in the units of the room it was asked about.
-func lift_the_top_bar_by(inset: int) -> void:
+## The band is `cutout_here`'s own answer - (left, top, right, bottom) in the layout's own pixels, which is the
+## space the bar's offsets are in, because the room that was asked for it is the viewport's. Three of the four are
+## used and the foot is deliberately not, for the reason stated above the reader: what a device keeps along the
+## bottom belongs to the plates down there.
+func lift_the_top_bar_by(band: Vector4i) -> void:
 	if top_bar == null:
 		return
 	if _bar_offsets_as_drawn.x == INF:
 		_bar_offsets_as_drawn = Vector2(top_bar.offset_top, top_bar.offset_bottom)
+	if _bar_sides_as_drawn.x == INF:
+		_bar_sides_as_drawn = Vector2(top_bar.offset_left, top_bar.offset_right)
 	# **The plate the scene drew is remembered whole**, not only its margin: the plate that replaces it is derived
 	# from it, so its paper, its corners and its insets are read off the one statement of them - and after the
 	# override is set `get_theme_stylebox` answers the new plate rather than the scene's, which is why it is kept.
 	if not top_bar.has_meta(&"plate_as_drawn"):
 		top_bar.set_meta(&"plate_as_drawn", top_bar.get_theme_stylebox(&"panel"))
 	var plate_as_drawn: StyleBox = top_bar.get_meta(&"plate_as_drawn")
-	var down: float = float(maxi(inset, 0))
-	var lifted: bool = down > 0.0
-	# **The plate runs to the top of the screen and only its row is lifted.** Measured on the A16W, lifting the
-	# plate as well left 212 px of bare sheet above the first button, which is what a person sees as a bar that is
-	# not at the top. Where the device keeps a band along the top - a phone's camera cutout - the plate's own top
-	# is the screen's own top, so the band is covered by the bar rather than by bare board and the row inside is
-	# pushed clear of it.
-	top_bar.offset_top = 0.0 if lifted else _bar_offsets_as_drawn.x
+	var down: float = float(maxi(band.y, 0))
+	var from_the_left: float = float(maxi(band.x, 0))
+	var from_the_right: float = float(maxi(band.z, 0))
+	var lifted: bool = down > 0.0 or from_the_left > 0.0 or from_the_right > 0.0
+	# **The plate runs to the screen's own edge on every side the device keeps something, and only its row is
+	# lifted.** Measured on the A16W, lifting the plate as well left 212 px of bare sheet above the first button,
+	# which is what a person sees as a bar that is not at the top. Where the device keeps a band - a phone's camera
+	# cutout, along the top or down a side - the plate's own edge is the screen's own edge, so the band is covered by
+	# the bar rather than by bare board and the row inside is pushed clear of it. The scene's offsets are the floor
+	# on every side, so a desk, and a side the device keeps nothing on, are given exactly what was drawn.
+	top_bar.offset_top = 0.0 if down > 0.0 else _bar_offsets_as_drawn.x
 	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
+	top_bar.offset_left = 0.0 if from_the_left > 0.0 else _bar_sides_as_drawn.x
+	top_bar.offset_right = 0.0 if from_the_right > 0.0 else _bar_sides_as_drawn.y
 	# The row is moved by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its child
 	# out itself, so an offset set on the child is overwritten by the next layout. The distance is the scene's own
-	# margin, plus the distance the plate's top has just moved up, plus what the device keeps.
+	# margin, plus the distance the plate's own edge moved, plus what the device keeps - one side at a time, and
+	# `_the_row_moved_by` is the one statement of that sum.
 	if lifted:
 		top_bar.add_theme_stylebox_override(
 			&"panel",
 			ChromeStyleScript.bar_plate(
 				plate_as_drawn,
-				plate_as_drawn.content_margin_top + _bar_offsets_as_drawn.x + down,
+				plate_as_drawn.content_margin_top + _the_row_moved_by(down, _bar_offsets_as_drawn.x),
+				plate_as_drawn.content_margin_left + _the_row_moved_by(from_the_left, _bar_sides_as_drawn.x),
+				plate_as_drawn.content_margin_right + _the_row_moved_by(from_the_right, -_bar_sides_as_drawn.y),
 			),
 		)
 		top_bar.set_meta(&"row_lifted", true)
@@ -1925,6 +1947,21 @@ func lift_the_top_bar_by(inset: int) -> void:
 		# of what it did, and the bar is the bar the scene drew again.
 		top_bar.remove_theme_stylebox_override(&"panel")
 		top_bar.remove_meta(&"row_lifted")
+
+
+## How far the row inside the bar is moved along **one axis** by the band the device keeps on that side.
+##
+## **Two figures rather than the band alone, because the plate's own edge has moved as well.** Where the device
+## keeps something on a side, the plate runs to that screen's edge and the distance it moved is what the row must
+## be given beside the band - the scene's own inset is no longer the plate's inset, because the plate no longer
+## starts where the scene drew it. Where the device keeps nothing the plate has not moved and the row keeps exactly
+## the scene's own inset, which is why the answer is zero and not the offset: a desk, and a side a phone keeps
+## nothing on, are handed the bar the scene drew, to the pixel. Written once because three sides of the same lift
+## ask it and a fourth answer that rounded the other way would be one fact in two places.
+static func _the_row_moved_by(band: float, the_plate_moved: float) -> float:
+	if band <= 0.0:
+		return 0.0
+	return band + the_plate_moved
 
 
 ## Give the plates at the foot of the screen the ground the device keeps there, and put them back exactly where the
@@ -1972,7 +2009,7 @@ const PALETTE_GAP := 8.0
 ##
 ## Pure, and the whole of the placement: `place_the_left_column_for_a_device` reads the four numbers off the
 ## things themselves and this decides what to do with them, so what a phone would be told can be held by a
-## test without being one - the split `PhoneHud.cutout_top` and `lift_the_top_bar_by` already keep.
+## test without being one - the split `PhoneHud.cutout_here` and `lift_the_top_bar_by` already keep.
 ##
 ## Both ends are **floors rather than assignments**. The top may only come down from where the scene drew it
 ## and the foot may only come up, so a desk - whose bar and plate both still agree with the scene's own

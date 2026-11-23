@@ -115,15 +115,22 @@ static func share_of_the_room(of_the_screen: int, screen_side: int, room_side: i
 ## band and never how big the band was, so 212 px of bare sheet above the first button had no figure beside it. This
 ## is the raw reading a person compares with what the phone is asked; a desk, and a display that promises nothing,
 ## answer zero on every side.
+##
+## **The safe area is clipped to the screen it is a reading about, and a desk is where that is measured.** The two
+## are read from the display and this assumes they are in one space: `screen_here` answers the screen the program
+## is on and `safe_area_here` the usable rectangle of it. Measured on this desk, they are not - the screen reads
+## 2880 by 1620 while the usable rectangle begins at x 3840, a second monitor's space - so the band came out
+## **wider than the screen it was a share of** (the block printed `display l=3840` beside a 2880 px screen) and
+## every control given ground on that side was pushed off the glass. What is kept is the part of this screen the
+## safe area actually covers, and one covering none of it - or all of it - answers zero on every side, which is
+## the answer a display that has promised nothing already gives.
 static func band_edges(screen: Vector2i, safe: Rect2i) -> Vector4i:
 	if screen.x <= 0 or screen.y <= 0:
 		return Vector4i.ZERO
-	return Vector4i(
-		maxi(safe.position.x, 0),
-		maxi(safe.position.y, 0),
-		maxi(screen.x - safe.end.x, 0),
-		maxi(screen.y - safe.end.y, 0),
-	)
+	var inside: Rect2i = Rect2i(Vector2i.ZERO, screen).intersection(safe)
+	if inside.size.x <= 0 or inside.size.y <= 0:
+		return Vector4i.ZERO
+	return Vector4i(inside.position.x, inside.position.y, screen.x - inside.end.x, screen.y - inside.end.y)
 
 
 ## The same reading for the display this program is running on - the half that asks the platform, kept beside the

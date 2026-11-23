@@ -13,6 +13,9 @@ const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
 
 ## The top inset a lifted bar hands the plate: a row starting below the 110 px band a phone keeps.
 const LIFTED_BY := 131.0
+## The ground a lifted bar hands the plate on **one side**: what a phone held sideways keeps for its camera, in
+## the room's own pixels (measured on the A16W lying down, 100 px of the display is 62 px of the room).
+const ACROSS := 62.0
 
 
 ## The plate the scene draws, and the numbers this file states for the case it cannot read one. They are the same
@@ -36,19 +39,29 @@ func test_the_scenes_plate_is_the_look_this_file_states() -> void:
 	assert(is_equal_approx(drawn.content_margin_bottom, ChromeStyleScript.FOOT), "and the same inset at the foot")
 
 
-## What a phone's bar wears: the scene's own look, with the row pushed down by the number handed in.
+## What a phone's bar wears: the scene's own look, with the row pushed down by the number handed in and given
+## ground on the side a phone held sideways keeps its camera.
 func test_the_phone_plate_is_the_scenes_look_with_the_row_lifted() -> void:
 	var drawn: StyleBoxFlat = _the_scenes_plate()
-	var plate: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
+	var plate: StyleBox = ChromeStyleScript.bar_plate(
+		drawn,
+		LIFTED_BY,
+		drawn.content_margin_left + ACROSS,
+		drawn.content_margin_right,
+	)
 	assert(
 		is_equal_approx(plate.content_margin_top, LIFTED_BY),
 		"the row is lifted by the number handed in, not by this file's own idea of it: %s"
 		% str(plate.content_margin_top),
 	)
 	assert(
-		is_equal_approx(plate.content_margin_left, drawn.content_margin_left)
+		is_equal_approx(plate.content_margin_left, drawn.content_margin_left + ACROSS),
+		"and given ground on the side the device keeps its camera: %s" % str(plate.content_margin_left),
+	)
+	assert(
+		is_equal_approx(plate.content_margin_right, drawn.content_margin_right)
 		and is_equal_approx(plate.content_margin_bottom, drawn.content_margin_bottom),
-		"and the sides and the foot are the scene's",
+		"while the side it keeps nothing on, and the foot, stay the scene's own",
 	)
 	var ink: Color = plate.get(&"color")
 	assert(ink == drawn.bg_color, "and the paper is the scene's: %s" % str(ink))
@@ -64,7 +77,13 @@ func test_the_phone_plate_is_the_scenes_look_with_the_row_lifted() -> void:
 ## addon's anti-aliased path the ring that reaches the glass is the border's own width less the anti-aliasing's
 ## width, so a one-pixel hairline leaves the two rects coincident and the ring is dropped.
 func test_the_rule_is_wider_than_the_anti_aliasing_that_would_erase_it() -> void:
-	var plate: StyleBox = ChromeStyleScript.bar_plate(_the_scenes_plate(), LIFTED_BY)
+	var drawn: StyleBoxFlat = _the_scenes_plate()
+	var plate: StyleBox = ChromeStyleScript.bar_plate(
+		drawn,
+		LIFTED_BY,
+		drawn.content_margin_left + ACROSS,
+		drawn.content_margin_right,
+	)
 	var rules: Array = plate.get(&"borders")
 	assert(rules.size() == 1, "the plate wears one rule: %d" % rules.size())
 	if rules.size() != 1:
@@ -84,8 +103,8 @@ func test_covering_the_bar_does_not_move_the_panels_that_share_the_scenes_plate(
 	var drawn: StyleBoxFlat = _the_scenes_plate()
 	var was_side: float = drawn.content_margin_left
 	var was_top: float = drawn.content_margin_top
-	var one: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
-	var two: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
+	var one: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY, was_side + ACROSS, drawn.content_margin_right)
+	var two: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY, was_side + ACROSS, drawn.content_margin_right)
 	assert(one != two, "each lift is a stylebox of its own")
 	assert(two != drawn, "and never the scene's own plate")
 	assert(
@@ -156,7 +175,12 @@ func test_a_floating_plate_keeps_every_corner_and_the_whole_rule() -> void:
 ## of them was lifted to clear a device's band.
 func test_no_two_touch_plates_are_the_same_stylebox() -> void:
 	var drawn: StyleBoxFlat = _the_scenes_plate()
-	var bar: StyleBox = ChromeStyleScript.bar_plate(drawn, LIFTED_BY)
+	var bar: StyleBox = ChromeStyleScript.bar_plate(
+		drawn,
+		LIFTED_BY,
+		drawn.content_margin_left + ACROSS,
+		drawn.content_margin_right,
+	)
 	var dock: StyleBox = ChromeStyleScript.dock_plate(drawn, 0.0)
 	var strip: StyleBox = ChromeStyleScript.floating_plate(drawn)
 	assert(bar != dock and dock != strip and bar != strip, "each plate stands on its own: %s" % str([bar, dock, strip]))

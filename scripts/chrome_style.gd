@@ -49,18 +49,24 @@ const FOOT := 9.0
 const ANTI_ALIASING_SIZE := 1.0
 
 
-## The top bar's plate: the plate the scene drew, with the row's own top inset handed in and the rule laid just
+## The top bar's plate: the plate the scene drew, with the row's own insets handed in and the rule laid just
 ## inside its edge.
 ##
-## **The top inset is an argument rather than a constant, because it is the whole of what the lift does.** The
-## plate is asked to run to the screen's own top so that a band the device keeps - a phone's camera cutout - is
-## covered by the bar rather than by bare board, and the row inside it is pushed down by exactly what the device
-## keeps, plus the distance the plate's own top moved up. The caller knows that figure, because it is the caller
-## that read the display and moved the bar; this file only draws.
-static func bar_plate(drawn: StyleBox, content_top: float) -> StyleBox:
+## **The three insets are arguments rather than constants, because they are the whole of what a lift does.** The
+## plate is asked to run to the screen's own edges so that a band the device keeps - a phone's camera cutout - is
+## covered by the bar rather than by bare board, and the row inside it is pushed clear by exactly what the device
+## keeps, plus the distance the plate's own edge moved. **The sides are here because a phone held sideways keeps
+## its camera on the left**: measured on the A16W lying down, the bar's row stood at x 28 while the device kept the
+## room's first 62 px, so the row was under the camera and a thumb aimed at `Menu` met the system. The caller knows
+## every one of those figures, because it is the caller that read the display and moved the bar; this file only
+## draws, and it states no inset of its own.
+static func bar_plate(drawn: StyleBox, content_top: float, content_left: float, content_right: float) -> StyleBox:
 	var plate: Variant = _plate_from(drawn)
-	# The row is the one margin the caller states, and it is set **after** the scene's, or the scene's would win.
+	# The row's insets are the ones the caller states, and they are set **after** the scene's, or the scene's would
+	# win - which is what makes the same call put the row back where the scene drew it when there is no band.
 	plate.content_margin_top = content_top
+	plate.content_margin_left = content_left
+	plate.content_margin_right = content_right
 	_add_the_full_rule(plate)
 	return plate as StyleBox
 
