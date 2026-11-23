@@ -473,14 +473,21 @@ not a pixel over it. The price is that a page as tall as the room reaches the st
 far, and the ten pages that declare more than a screen already scroll their length, so a page brought
 down shorter than its contents still shows its own last row.
 
-**And a page that has outgrown its room now says so.** It was silent before, and silently wrong: a page whose
+**And a page that has outgrown its room says so.** It was silent before, and silently wrong: a page whose
 bottom had been cut looked exactly like a page that had ended. The sentence stands in the page's own title bar -
 the one strip of a page that a scroll cannot take away, where a caption put inside the contents would be
 scrolled out of sight by the very thing it warns about. `PageLayout.words_for_a_page_that_scrolls` words it,
-because that module owns the measurement `PageChrome.scroll_if_it_does_not_fit` has just made, and it is said
-**once**: a page re-landed on a changed shape asks the same question again, and the scroll the page already has
-is what stops a second sentence stacking up in the bar. A page that fits says nothing extra, so a desk's titles
-are exactly the titles they always were.
+because that module owns the measurement `PageChrome.scroll_if_it_does_not_fit` has just made.
+
+**And it says what is true of the page now, not what was true once.** The wrapper is made once and left
+standing, because it does no harm once it is there - but the title is written on every landing, so a page
+wrapped for a phone and landed again on a desk comes out saying its own name and nothing more. The first
+version added the sentence once and left it, and `hud_layout_check` printed it as a lie: the front door of a
+1600 x 900 desk announced that it was taller than the screen while it stood whole in the middle of one.
+`PageLayout.the_title_itself` takes the sentence off again, and that pair is what makes writing it on every
+landing idempotent. A page that fits says nothing extra, so a desk's titles are exactly the titles they were -
+and the same device measured both ways: with the pair in place the front door of the A16W's own block reads
+`"Landscaping Planner"`, where the page fills the room it was given rather than overflowing it.
 
 **Still owed.** The direction of that quarter turn was chosen clockwise and has not been seen on a phone
 held upright; it is one number in `HeldOrientation.quarter_turns` if it is the wrong way.

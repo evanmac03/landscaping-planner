@@ -64,6 +64,35 @@ func test_a_page_that_is_given_a_scroll_says_so_in_its_title_and_only_once() -> 
 		"asking again finds the scroll it already has",
 	)
 	assert(page.title == said, "and the sentence is not written a second time: %s" % page.title)
+	# **And a page that fits again stops saying it.** The wrapper is left standing, because it does no harm once it
+	# is there - but the title has to tell the truth: a front door saying it is taller than the screen while it
+	# stands whole in the middle of a 1600 x 900 desk is a caption that lies, which is worse than the silence this
+	# sentence was written to end.
+	#
+	# The fitting page is built whole rather than shrunk from the first one: a control that has already been
+	# measured does not report a `custom_minimum_size` changed a moment ago until a layout pass runs, and a headless
+	# test never gives it one. The offsets below stand in for the rectangle a `ScrollContainer` wears on its child in
+	# a live tree - and that rectangle is exactly what must not be counted as the page's own padding.
+	var roomy: Window = _page()
+	roomy.title = PageLayoutScript.words_for_a_page_that_scrolls("The figures")
+	var scroll := ScrollContainer.new()
+	roomy.add_child(scroll)
+	var inner := VBoxContainer.new()
+	inner.name = PageLayoutScript.CONTENT_NODE
+	scroll.add_child(inner)
+	var short_one := Control.new()
+	short_one.custom_minimum_size = Vector2(300.0, 10.0)
+	inner.add_child(short_one)
+	inner.offset_bottom = -400.0
+	assert(
+		PageLayoutScript.wanted_size(inner).y > 400.0,
+		"the column's offsets stand in for the rectangle a scroll gives it: the page's own height, counted twice",
+	)
+	assert(
+		not PageChromeScript.scroll_if_it_does_not_fit(roomy, Vector2i(400, 200)),
+		"a page whose children fit the room is not wrapped, however tall the rectangle it wears",
+	)
+	assert(roomy.title == "The figures", "and it says its own name and nothing more: %s" % roomy.title)
 	_free_pages()
 
 

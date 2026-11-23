@@ -412,6 +412,10 @@ static func plates_in(root: Node) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
 	if root == null:
 		return found
+	# **The room, in the space a plate is measured in.** `screen_room` is the screen's own pixels rather than a
+	# viewport's, which is the whole of the fault `_covers_the_room` records: a plate's rectangle comes from
+	# `drawn_rect` and so does this, and the two must be read in one space.
+	var room: Vector2i = screen_room(root)
 	for control: Control in _controls_under(root):
 		if not drawn(control) or _the_engines_own(control):
 			continue
@@ -423,22 +427,31 @@ static func plates_in(root: Node) -> Array[Dictionary]:
 		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
-		if _covers_the_room(control, rect):
+		if _covers_the_room(rect, room):
 			continue
 		found.append(DrawnSurfacesScript.plate(String(control.name), Rect2i(rect)))
 	return found
 
 
 ## Whether a control is drawn across the whole room, which is the one thing a plate may cover and be nothing.
-static func _covers_the_room(control: Control, rect: Rect2) -> bool:
-	var viewport: Viewport = control.get_viewport()
-	if viewport == null:
+##
+## **It is the screen's own pixels that are compared, and a device is what found that this function was not.** It
+## read the control's *own* viewport rectangle, which is the logical room a page is laid out in: on the A16W that
+## is 1185 x 2567 while the screen is 1080 x 2340. So the front door's backdrop - a full-rect `ColorRect` across
+## the whole of the glass - came back as *not* covering the room, and the block named it as drawn over all twelve
+## controls beneath it. On a desk the two numbers are equal and no run here could ever have shown it, which is why
+## `hud_layout_check` had called this clean since the rule was written.
+##
+## `screen_room` is that figure, from the same place `screen_rect` measures a control and the block's `tap`
+## centres are published: the two sides of this comparison cannot come from two spaces again, because there is now
+## one source for the room and the same call answers `tap_boxes`.
+##
+## A room of nothing - a headless run, whose dummy display has no screen to speak of - is the rule's own case:
+## nothing is outside a room that is not there, so no plate is taken for a backdrop and nothing is hidden by this.
+static func _covers_the_room(rect: Rect2, room: Vector2i) -> bool:
+	if room.x <= 0 or room.y <= 0:
 		return false
-	var room: Rect2 = viewport.get_visible_rect()
-	return (
-		rect.position.x <= room.position.x and rect.position.y <= room.position.y
-		and rect.end.x >= room.end.x and rect.end.y >= room.end.y
-	)
+	return Rect2i(rect).encloses(Rect2i(0, 0, room.x, room.y))
 
 
 ## Every control a finger must press, as `DrawnSurfaces` wants it: its rectangle, and **the names of the panels it
@@ -952,8 +965,10 @@ static func tap_boxes(root: Node, scope: String, room: Vector2i) -> Array:
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
 		# A control covering the whole room is the screen's own backdrop, stopping the mouse on purpose
-		# while a person is being asked something. It is not a thing that got in the way.
-		if Rect2i(rect).encloses(Rect2i(0, 0, room.x, room.y)):
+		# while a person is being asked something. It is not a thing that got in the way. **The same call
+		# `plates_in` makes**, so the two answers about what the backdrop is cannot drift apart - which they
+		# had, because this one was given the room and that one read a viewport.
+		if _covers_the_room(rect, room):
 			continue
 		boxes.append({ "name": _press_name(scope, control), "rect": Rect2i(rect), "enabled": _answers_a_tap(control) })
 	return boxes

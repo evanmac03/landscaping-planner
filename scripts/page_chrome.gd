@@ -462,9 +462,18 @@ static func fit_the_room_to_the_page(page: Window, landed_at: Vector2i) -> bool:
 ## Whether a page's contents fit the height the page was given. The measurement is `PageLayout`'s own - the
 ## figure the page-layout check reports a page against - rather than a second sum worked out here that could
 ## disagree with it.
+##
+## **A page that scrolls is measured by what its children want, never by what it wants with its padding**, which is
+## `PageLayout`'s own rule, stated on `wanted_contents`: the column inside a `ScrollContainer` wears the *rectangle*
+## that container gave it, and those offsets read as a pad are the page's own height counted twice - or, as the
+## module warns, negative, and a page that wants less than nothing passes every check there is.
 static func _fits_the_height(page: Window, landed_at: Vector2i) -> bool:
 	var contents: Control = PageLayoutScript.content_root(page)
-	return contents == null or PageLayoutScript.wanted_size(contents).y <= float(landed_at.y)
+	if contents == null:
+		return true
+	if PageLayoutScript.scroll_of(contents) != null:
+		return PageLayoutScript.wanted_contents(contents).y <= float(landed_at.y)
+	return PageLayoutScript.wanted_size(contents).y <= float(landed_at.y)
 
 
 ## Put a page over the whole of the room rather than in the middle of it: a viewfinder is not a form.
@@ -584,25 +593,35 @@ static func _place(page: Window, preferred: Vector2i) -> Vector2i:
 ## as it was built. On a computer the room is larger than every page this project declares, so nothing is
 ## wrapped there and a desk's pages are the pages they always were.
 ##
-## Returns whether a wrapper was put in, which is the part a test can hold. **A page wrapped here also says so**,
-## in its own title bar, and that is the same decision rather than a second one: a page whose bottom has been cut
-## shows no sign of it, and the bar is the only strip of a page a scroll cannot take away. `PageLayout` words the
-## sentence - `words_for_a_page_that_scrolls` - because it owns the measurement this function just made.
+## Returns whether a wrapper was put in **on this call**, which is the part a test can hold. **A page wrapped here
+## also says so**, in its own title bar, and that is the same decision rather than a second one: a page whose bottom
+## has been cut shows no sign of it, and the bar is the only strip of a page a scroll cannot take away.
+## `PageLayout` words the sentence - `words_for_a_page_that_scrolls` - because it owns the measurement this function
+## just made, and its pair `the_title_itself` takes the sentence off again.
+##
+## **The title is set on every call and the wrapper is made once.** A page landed again on a changed shape, or one
+## the HUD has retitled since, comes out of this saying what is true of it *now*: a page wrapped for a phone and
+## landed on a desk again fits, and it must stop claiming it does not. Measured on `hud_layout_check`, whose own
+## probe printed the front door as "taller than the screen" while it stood whole in a 1600 x 900 room - a caption
+## that lies, which is worse than the silence the sentence was written to end.
 static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool:
 	if page == null or landed_at.y <= 0:
 		return false
 	var contents: Control = PageLayoutScript.content_root(page)
+	if contents == null:
+		return false
+	var fits: bool = _fits_the_height(page, landed_at)
+	var wrapped: bool = false
 	# `scroll_of` walks upwards from the contents and answers with the wrapper they are inside, which is the
 	# right question: what lets a person reach a page's last row is *being inside one*, not its node name.
-	if contents == null or PageLayoutScript.scroll_of(contents) != null:
-		return false
-	if _fits_the_height(page, landed_at):
-		return false
-	_wrap_in_a_scroll(page, contents)
-	# **And the page says so**, once: a page re-landed on a changed shape asks this question again, and the scroll
-	# it already has is what stops the sentence being written a second time.
-	page.title = PageLayoutScript.words_for_a_page_that_scrolls(page.title)
-	return true
+	if not fits and PageLayoutScript.scroll_of(contents) == null:
+		_wrap_in_a_scroll(page, contents)
+		wrapped = true
+	if fits:
+		page.title = PageLayoutScript.the_title_itself(page.title)
+	else:
+		page.title = PageLayoutScript.words_for_a_page_that_scrolls(page.title)
+	return wrapped
 
 
 ## The mark that says a page's contents have already been told to give their size again, so that landing the same

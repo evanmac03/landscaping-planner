@@ -38,6 +38,16 @@ func test_the_words_for_a_page_that_scrolls_keep_the_name_and_say_what_to_do() -
 	assert(said.count("\n") == 0, "in one line, because the bar it stands in is one line: %s" % said)
 	var nameless: String = PageLayoutScript.words_for_a_page_that_scrolls("")
 	assert(not nameless.begins_with(":"), "a page with no name is still given the sentence: %s" % nameless)
+	# **And it can be taken off again**, which is what lets a page stop saying it the moment it fits: the pair is
+	# asked for on every landing, so the second ask has to be the same words rather than one more sentence.
+	assert(
+		PageLayoutScript.words_for_a_page_that_scrolls(said) == said,
+		"asking again about a title that already says it changes nothing: %s" % said,
+	)
+	assert(
+		PageLayoutScript.the_title_itself(said) == "The figures",
+		"and the sentence comes off, leaving the page's own name: %s" % PageLayoutScript.the_title_itself(said),
+	)
 
 
 ## A page of plain lines, so a test can state exactly how much room the contents want without depending

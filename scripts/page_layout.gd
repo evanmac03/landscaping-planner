@@ -115,6 +115,11 @@ static func scroll_of(root: Control) -> ScrollContainer:
 	return null
 
 
+## What a page that has outgrown its room says after its own name, in one place so that the sentence can be
+## recognised and taken off again as well as put on.
+const TALLER := "taller than the screen - scroll for the rest"
+
+
 ## The words a page that has had to be given a scroll says about itself: the page's own name first, and then the
 ## one thing a person cannot otherwise tell by looking at it.
 ##
@@ -124,13 +129,32 @@ static func scroll_of(root: Control) -> ScrollContainer:
 ## a person still knows which page they are on.
 ##
 ## This **words** the sentence and decides nothing: whoever calls it has already measured the page against the
-## room, and this file is the one owner of that sum. A caller that worked the sentence out for itself as well
+## room, and this module is the one owner of that sum. A caller that worked the sentence out for itself as well
 ## could describe one page two ways, which is the fault this module spends its length avoiding.
+##
+## **It is idempotent, and that is what lets the sentence tell the truth every time it is asked for.** A page
+## wrapped on a phone and landed on a desk again fits, and a title still claiming otherwise is a caption that
+## lies - measured on `hud_layout_check`, whose own probe printed the front door as "taller than the screen" while
+## it stood whole in a 1600 x 900 room. So a title that already says it is recognised and named once, not twice.
 static func words_for_a_page_that_scrolls(title: String) -> String:
-	var said := "taller than the screen - scroll for the rest"
-	if title.is_empty():
-		return said
-	return "%s: %s" % [title, said]
+	var name: String = the_title_itself(title)
+	if name.is_empty():
+		return TALLER
+	return "%s: %s" % [name, TALLER]
+
+
+## The page's own title, with this sentence taken off if it is there.
+##
+## The other half of the pair above. It exists because a page may be renamed while it is open - the HUD retitles
+## the window as the drawing is saved - so the plain name cannot be kept in a corner and put back: it has to be
+## read out of the title that is there now, which is what this does.
+static func the_title_itself(title: String) -> String:
+	if title == TALLER:
+		return ""
+	var said: String = ": " + TALLER
+	if not title.ends_with(said):
+		return title
+	return title.substr(0, title.length() - said.length())
 
 
 ## The padding a page puts around its own contents: the offsets of whichever node is the page's own child.
