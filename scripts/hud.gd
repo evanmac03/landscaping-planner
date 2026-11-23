@@ -448,6 +448,9 @@ const WindowPostureScript := preload("res://scripts/window_posture.gd")
 ## What a control a finger presses looks like in each state, and what one that cannot be pressed looks like:
 ## see the file. Worn by this HUD's own `Root` control here, and by every page where `PageChrome` lands it.
 const TouchStyleScript := preload("res://scripts/touch_style.gd")
+## What the desk's own words are drawn in: the title, the body lines, the three dimmed kinds. Worn by this
+## HUD's own `Root` control here, beside the style above, and by every page where `PageChrome` lands it.
+const DeskStyleScript := preload("res://scripts/desk_style.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -712,6 +715,9 @@ func _ready() -> void:
 	# layer. The pages are the other carrier, and they are not this function's business: a page is a `Window`
 	# beside `Root`, and `PageChrome` hands it the same style where the page lands.
 	TouchStyleScript.apply_to(get_node_or_null(^"Root"))
+	# And the desk's own words, merged into that same theme: the two state different things about different
+	# kinds, and one control can wear one theme. `merge_with` leaves each file's own answer alone.
+	DeskStyleScript.apply_to(get_node_or_null(^"Root"))
 	# Whether the thumb controls are worth offering is the same question the layout is sized by, asked the
 	# same way: a finger *and* a density that says the row a desk was drawn with is too small to hit.
 	# `DisplayServer.is_touchscreen_available()` alone was the wrong signal - a touchscreen laptop wants its
@@ -1000,6 +1006,18 @@ func _the_screen_said() -> void:
 func drawn_surfaces() -> Array:
 	var board: Control = get_node_or_null(^"Root") as Control
 	var surfaces: Array = HudProbeScript.words_in(board)
+	# **And what is drawn across it, which is the fault no instrument named.** A plate - a panel's own rectangle - over
+	# a control a finger must press takes the press away from the person; over words it takes half a sentence away.
+	# Measured, `Presentation` stood at `1276,70 .. 1588,88`, inside the top bar's plate and straight across
+	# `Ground view`, and the probe reported `nothing meets anything it may not` for that very block.
+	#
+	# **A first attempt at this was withdrawn because this check measured it and said no**: `targets_in` alone
+	# produced six meetings of which five were false - a `SpinBox`'s own text against the `SpinBox`, four times -
+	# because a surface is named by the caption it draws and the ancestry walk was writing node names. Both are named
+	# now, and `plates_in` is here so that a plate is a surface at all, which it was not before: all six of those
+	# lines were target against words, and the ghost was in none of them.
+	surfaces.append_array(HudProbeScript.plates_in(board))
+	surfaces.append_array(HudProbeScript.targets_in(board))
 	if top_bar != null:
 		surfaces.append(DrawnSurfacesScript.top_bar("the top bar", Rect2i(HudProbeScript.screen_rect(top_bar))))
 	for window: Window in get_viewport().get_embedded_subwindows():

@@ -47,6 +47,21 @@ const WORDS := &"words"
 ## the rest of the HUD's furniture, which a page covering is what a page is.
 const TOP_BAR := &"top bar"
 
+## **A control a person must press**, and the names of the surfaces it *stands inside*.
+##
+## The rectangle is the one `HudProbe` already reports for it - this module measures nothing of its own - and the
+## names are the whole of what makes "covered by" mean anything: a panel meets its own children's rectangles by
+## definition, so a hand-in that did not say what a control stands inside would report every button in the program
+## as covered by the panel it is in.
+const TARGET := &"target"
+
+## **Something drawn that a person cannot press**: a panel's plate, a filled rectangle, a scrim.
+##
+## Apart from `WORDS` because the two failures differ - words over a button hides the button's *label*, a plate over a
+## button takes the *press* - and apart from `PAGE`, which is a page, and a page over the furniture it covers is what
+## a page is.
+const PLATE := &"plate"
+
 
 ## The HUD's own bar at the top of the screen.
 static func top_bar(name: String, rect: Rect2i) -> Dictionary:
@@ -65,9 +80,28 @@ static func bar_of(name: String, rect: Rect2i, above: int) -> Dictionary:
 	return { "kind": BAR, "name": name, "rect": Rect2i(rect.position.x, rect.position.y - above, rect.size.x, above) }
 
 
-## A control that says something, at the rectangle it is drawn in.
-static func words(name: String, rect: Rect2i) -> Dictionary:
-	return { "kind": WORDS, "name": name, "rect": rect }
+## A control that says something, at the rectangle it is drawn in, and **the surfaces it stands inside**.
+##
+## `inside` is what a control's own text makes necessary: a `SpinBox` is a thing a finger presses and the `LineEdit`
+## inside it is what says the number, so the two rectangles differ by the box's own buttons and neither contains the
+## other. Measured on the layout check itself - five fields were reported against their own text until the rule began
+## asking this way round too.
+static func words(name: String, rect: Rect2i, inside: PackedStringArray = PackedStringArray()) -> Dictionary:
+	return { "kind": WORDS, "name": name, "rect": rect, "inside": inside }
+
+
+## A control a person must press, and the surfaces it stands inside.
+##
+## **Those names are the rule's one difficulty and the reason they are an argument rather than a walk.** A panel
+## covers its own children by definition, so a module that worked the ancestry out itself would be measuring the
+## scene - which is the thing this file exists not to do.
+static func target(name: String, rect: Rect2i, inside: PackedStringArray) -> Dictionary:
+	return { "kind": TARGET, "name": name, "rect": rect, "inside": inside }
+
+
+## Something drawn that a person cannot press: a panel's plate, a filled rectangle, a scrim.
+static func plate(name: String, rect: Rect2i) -> Dictionary:
+	return { "kind": PLATE, "name": name, "rect": rect }
 
 
 ## Which of the surfaces handed in may not share rows, each with the rectangle they both cover. Empty is the
@@ -99,6 +133,32 @@ static func meetings(surfaces: Array) -> Array[Dictionary]:
 static func _is_a_fault(one: Dictionary, other: Dictionary) -> bool:
 	var one_kind: StringName = StringName(one["kind"])
 	var other_kind: StringName = StringName(other["kind"])
+	# **A control a person must press, with something drawn over it that is not one of the things it stands inside.**
+	# This is the case the class comment records as the one *no instrument named*: on the A16W a palette group header
+	# was drawn across the foot line's words, the probe reported `nothing meets anything it may not` because neither
+	# of the two is a title bar, and a crop of the glass is what settled it. Here it is a rule - a plate over a
+	# button takes the press away from the person, words over a button take its label - and the names a target stands
+	# inside are what keeps a panel's own buttons out of the answer.
+	if one_kind == TARGET or other_kind == TARGET:
+		var pressed: Dictionary = one if one_kind == TARGET else other
+		var over: Dictionary = other if one_kind == TARGET else one
+		var over_kind: StringName = StringName(over["kind"])
+		# **Two surfaces in exactly one rectangle are one thing**, which is `Stacked`'s question and not this one: a
+		# control a finger presses is handed in as its words *and* as a target - that is how `HudProbe` reports what a
+		# person reads and what a person presses - and the two agree by construction. Reporting that pair would put
+		# every button in the program in the answer.
+		if (one["rect"] as Rect2i) == (other["rect"] as Rect2i):
+			return false
+		if over_kind != PLATE and over_kind != WORDS:
+			return false
+		var stands_inside: PackedStringArray = PackedStringArray(pressed.get("inside", PackedStringArray()))
+		if String(over["name"]) in stands_inside:
+			return false
+		# **And the same question the other way round**, which is the pair a control makes with its own text. A
+		# `SpinBox` is a thing a finger presses and the `LineEdit` inside it says the number; their rectangles differ
+		# by the box's own arrows, so neither contains the other and only the names can say they are one thing.
+		# Measured on the layout check: five fields were named against their own text before this line existed.
+		return String(pressed["name"]) not in PackedStringArray(over.get("inside", PackedStringArray()))
 	if one_kind == WORDS and other_kind == WORDS:
 		return true
 	var one_bar: bool = one_kind == BAR

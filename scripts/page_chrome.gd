@@ -59,6 +59,10 @@ const PageLayoutScript := preload("res://scripts/page_layout.gd")
 ## like: a page is handed it where it lands, which is the one place a page is shown.
 const TouchStyleScript := preload("res://scripts/touch_style.gd")
 
+## What the desk's own words are drawn in - a page's title, its body lines, its three dimmed kinds: see the
+## file. Worn by the same page, beside the style above, so that the kind a label is follows it wherever it lands.
+const DeskStyleScript := preload("res://scripts/desk_style.gd")
+
 ## The node name of a page's content root. `PageLayout.CONTENT_NODE` says the same word, and the two are
 ## held to each other by a test.
 const COLUMN_NAME := "Column"
@@ -408,6 +412,9 @@ static func _land(page: Window, preferred: Vector2i) -> Vector2i:
 	# its buttons look. A carrier that already wears a theme keeps it, so landing the same page again and again
 	# costs nothing: the theme the page already wears is not rebuilt.
 	TouchStyleScript.apply_to(page)
+	# The desk's own words, merged into the same theme rather than put in its place: one control wears one theme,
+	# and a page's buttons need the phone's press states while its title needs this. Order cannot matter.
+	DeskStyleScript.apply_to(page)
 	var landed_at: Vector2i = _place(page, preferred)
 	# After it, because what a page's contents have to fit is the room the page was actually given: a phone
 	# brings a page down to its own screen, and a page brought down shorter than its contents has its last row
@@ -918,6 +925,12 @@ static func _label(words: String, node_name: String, size: int, wrap_text: bool 
 	var label := Label.new()
 	label.name = node_name
 	label.text = words
+	# **The kind is stated as a name, and the size is kept beside it.** `DeskStyle` states one variation per kind
+	# - `Label/Heading`, `Label/Text` - so a control that asks by name gets the look without a number at all.
+	# The override stays because a page built off the tree, which is every test, wears no theme and would
+	# otherwise take the engine's own default in place of its own size. Both read the same constant, so the two
+	# can never come to disagree - which is what `tests/test_desk_style.gd` holds.
+	label.theme_type_variation = StringName(node_name)
 	label.add_theme_font_size_override("font_size", size)
 	if wrap_text:
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -146,3 +146,60 @@ func test_and_the_same_happens_to_a_button_under_the_foot_line() -> void:
 		(found[0]["covered"] as Rect2i) == Rect2i(28, 872, 209, 5),
 		"five rows of the button are covered, exactly as the probe measured: %s" % str(found[0]["covered"]),
 	)
+
+
+## **A panel drawn over two of the HUD's buttons, at the rectangles the scene itself reported.** This is the fault the
+## module's own class comment records as the one *no instrument named*: `Presentation` stood at `1276,70 .. 1588,88` -
+## inside the top bar's plate and straight across `Ground view` - the probe reported `nothing meets anything it may
+## not`, and the ghost it drew over the bar's buttons was found by reading twenty-one rectangles out of the scene and
+## comparing them by hand. Here it is a case in a test.
+func test_a_plate_over_a_button_is_a_fault_and_names_both() -> void:
+	var surfaces: Array = [
+		DrawnSurfacesScript.plate("Presentation", Rect2i(1276, 70, 312, 18)),
+		DrawnSurfacesScript.target("Ground view (G)", Rect2i(1208, 0, 336, 97), PackedStringArray(["Row"])),
+	]
+	var found: Array[Dictionary] = DrawnSurfacesScript.meetings(surfaces)
+	assert(found.size() == 1, "a plate drawn over a button is a fault: %d found" % found.size())
+	assert(
+		(found[0]["covered"] as Rect2i) == Rect2i(1276, 70, 268, 18),
+		# **268 and not the plate's own 312**: what a meeting carries is the columns the two *share*, and the button
+		# ends at 1544 while the plate runs on to 1588 - which is exactly the arithmetic the first version of this
+		# assertion got wrong by writing down the panel's own width.
+		"and the rows and columns they share are where the ghost was: %s" % str(found[0]["covered"]),
+	)
+
+
+## **And a plate is not a fault over a control that stands inside it**, which is the whole reason a target says what
+## it stands inside. A panel's plate is over its own buttons by definition and a button in a row is drawn over its
+## row; a rule that did not know that would report every control in the program.
+func test_a_plate_is_not_a_fault_over_the_control_it_stands_inside() -> void:
+	var surfaces: Array = [
+		DrawnSurfacesScript.plate("TouchDock", Rect2i(49, 615, 1502, 231)),
+		DrawnSurfacesScript.target("Draw", Rect2i(65, 739, 287, 98), PackedStringArray(["TouchDock", "Column"])),
+	]
+	var found: Array[Dictionary] = DrawnSurfacesScript.meetings(surfaces)
+	assert(found.is_empty(), "a dock's plate over its own tab is what a dock is: %s" % str(found))
+
+
+## A control that says something drawn across a control a person must press - the same fault with words in it, and
+## what is lost is the button's own label rather than its press.
+func test_words_over_a_button_are_a_fault() -> void:
+	var surfaces: Array = [
+		DrawnSurfacesScript.words("Left-drag: move a plant", Rect2i(28, 857, 720, 20)),
+		DrawnSurfacesScript.target("Place", Rect2i(28, 872, 209, 31), PackedStringArray(["Foot"])),
+	]
+	var found: Array[Dictionary] = DrawnSurfacesScript.meetings(surfaces)
+	assert(found.size() == 1, "words drawn over a button are a fault: %d found" % found.size())
+
+
+## **A control a finger presses is handed in twice - as its words and as a target - and that pair is not a fault.**
+## The two carry the same rectangle by construction, so the pair is `Stacked`'s question and not this one; without this
+## every button in the program would be reported against itself, and the wiring that hands both in would have made the
+## instrument worse than the silence it replaced.
+func test_a_target_and_its_own_words_in_one_rectangle_are_one_thing() -> void:
+	var surfaces: Array = [
+		DrawnSurfacesScript.words("Ground view (G)", Rect2i(1208, 0, 336, 97)),
+		DrawnSurfacesScript.target("Ground view (G)", Rect2i(1208, 0, 336, 97), PackedStringArray(["TopBar"])),
+	]
+	var found: Array[Dictionary] = DrawnSurfacesScript.meetings(surfaces)
+	assert(found.is_empty(), "a control's own words are not drawn over it: %s" % str(found))

@@ -346,7 +346,10 @@ static func tap_controls(root: Node, scope: String, first: int = 1) -> Array[Dic
 		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
-		found.append({ "n": number, "scope": scope, "name": _caption(control), "rect": rect })
+		# **The control itself travels with the number**, so that one walk answers both "where can a finger tap" and
+		# "what does a plate cover": a control numbered here and unknown to `targets_in` would be a control that can
+		# be pressed and cannot be reported on.
+		found.append({ "n": number, "scope": scope, "name": _caption(control), "rect": rect, "control": control })
 		number += 1
 	return found
 
@@ -368,6 +371,108 @@ static func tap_lines(root: Node, scope: String, first: int = 1) -> PackedString
 			)
 		)
 	return lines
+
+
+## Every control that draws a plate of its own and says nothing, with the rectangle it is drawn in.
+##
+## **A plate and not a page.** A page over the furniture it covers is what a page is, and pages are handed in by
+## `page_surfaces`; what this catches is the other thing - a plate drawn across a control a finger must press, which
+## takes the press away, or across words, which takes half a sentence away, and neither can be read.
+##
+## **Named by its node name, and that is the scheme rather than an inconsistency**: a surface that says something is
+## named by the words it says, and one that says nothing has only the tree's name to be known by. The ancestry a
+## target carries holds both, so either will match.
+##
+## **A plate that covers the whole room is not in anybody's way**, which is `Topmost`'s own rule and now this one:
+## the screen's own backdrop stands under everything by design, and the front door's is drawn across the entire board.
+## **This paragraph used to reason instead**, and the reasoning was wrong: it said a sheet that is up has the furniture
+## under it switched off, so a covering plate would never become a pair - measured on `hud_layout_check`,
+## `StartBackdrop` was paired with every button on the screen, because the front door's board is very much still
+## drawn underneath. The room is the *root viewport's* rectangle, never the plate's own viewport, for the reason
+## `in_view.gd` states: a page is a viewport of its own and would answer with itself.
+##
+## **By the engine's own panel kinds, a limit worth stating rather than hiding**: a bare `Control` with a `StyleBox`
+## override of its own covers its children too and this does not name it. What it does name is the fault this exists
+## for - `Presentation` is a `PanelContainer`, and it was drawn across two of the bar's buttons.
+static func plates_in(root: Node) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	if root == null:
+		return found
+	for control: Control in _controls_under(root):
+		if not drawn(control) or _the_engines_own(control):
+			continue
+		if not (control is PanelContainer or control is Panel or control is ColorRect or control is TextureRect):
+			continue
+		var said: String = _caption(control)
+		if not said.is_empty() and said != control.get_class():
+			continue
+		var rect: Rect2 = drawn_rect(control)
+		if rect.size.x < 1.0 or rect.size.y < 1.0:
+			continue
+		if _covers_the_room(control, rect):
+			continue
+		found.append(DrawnSurfacesScript.plate(String(control.name), Rect2i(rect)))
+	return found
+
+
+## Whether a control is drawn across the whole room, which is the one thing a plate may cover and be nothing.
+static func _covers_the_room(control: Control, rect: Rect2) -> bool:
+	var viewport: Viewport = control.get_viewport()
+	if viewport == null:
+		return false
+	var room: Rect2 = viewport.get_visible_rect()
+	return (
+		rect.position.x <= room.position.x
+		and rect.position.y <= room.position.y
+		and rect.end.x >= room.end.x
+		and rect.end.y >= room.end.y
+	)
+
+
+## Every control a finger must press, as `DrawnSurfaces` wants it: its rectangle, and **the names of the panels it
+## stands inside**.
+##
+## **The names are the whole rule.** A panel meets its own children's rectangles by definition, so a list that did not
+## say what each control stands inside would report every button in the program as covered by the panel it is in. That
+## is why the parent chain is walked here, where the tree is, rather than in a module that measures nothing of its own.
+##
+## It goes through `tap_controls`, so "where can a finger tap" and "what does a plate cover" are answered by one walk
+## of the board and cannot disagree about which controls exist.
+static func targets_in(root: Node, scope: String = "the board") -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	for one: Dictionary in tap_controls(root, scope):
+		var control: Control = one.get("control") as Control
+		var where: Rect2 = one["rect"]
+		found.append(DrawnSurfacesScript.target(String(one["name"]), Rect2i(where), _surfaces_above(control)))
+	return found
+
+
+## The names of the controls a control stands inside, outermost first - **both names it can be known by**.
+##
+## **The naming scheme, decided once.** A surface handed to `DrawnSurfaces` is named by what a person *reads* - the
+## caption a control draws, so that a report is a sentence and not a tree - while a plate that says nothing is named
+## by its node name, because that is the only name it has. So the ancestry carries **both**: a control is its caption
+## to a reader and its node name to the tree, and a rule that asked after one of the two was measured naming five
+## `SpinBox` fields against their own text, because the walk wrote `"SpinBox"` where the surface said `"16.0  h"`.
+##
+## Every ancestor is named, and not only the panels: a `SpinBox` is a thing a finger presses and the `LineEdit` inside
+## it is what says the number, so neither's rectangle contains the other and only the names can say they are one thing.
+## An ancestor that is no surface at all costs nothing by being named - these names are only ever asked whether one
+## control is another's.
+static func _surfaces_above(control: Control) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if control == null:
+		return out
+	var parent: Node = control.get_parent()
+	while parent != null:
+		var box: Control = parent as Control
+		if box != null:
+			out.append(String(box.name))
+			var said: String = _caption(box)
+			if not said.is_empty() and said != box.get_class():
+				out.append(said)
+		parent = parent.get_parent()
+	return out
 
 
 ## One page as it stands: what it is, the rectangle it was given, and every control a finger could hit.
@@ -544,7 +649,7 @@ static func words_in(root: Node) -> Array[Dictionary]:
 		var rect: Rect2 = drawn_rect(control)
 		if rect.size.x < 1.0 or rect.size.y < 1.0:
 			continue
-		found.append(DrawnSurfacesScript.words(said, Rect2i(rect)))
+		found.append(DrawnSurfacesScript.words(said, Rect2i(rect), _surfaces_above(control)))
 	return found
 
 
