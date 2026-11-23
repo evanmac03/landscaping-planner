@@ -630,7 +630,7 @@ static func scroll_if_it_does_not_fit(page: Window, landed_at: Vector2i) -> bool
 	# `scroll_of` walks upwards from the contents and answers with the wrapper they are inside, which is the
 	# right question: what lets a person reach a page's last row is *being inside one*, not its node name.
 	if not fits and PageLayoutScript.scroll_of(contents) == null:
-		_wrap_in_a_scroll(page, contents)
+		_wrap_in_a_scroll(contents)
 		wrapped = true
 	if fits:
 		page.title = PageLayoutScript.the_title_itself(page.title)
@@ -674,7 +674,7 @@ static func _ask_for_a_scroll_if_it_does_not_fit(page: Window) -> void:
 ## the page's own child, so a wrapped page is still measured for the space around its words and the size it
 ## declares still means what it meant. The column keeps its name and is put back at the index it held, so the
 ## keyboard walk and a page's own tests find it where the page built it, one level down.
-static func _wrap_in_a_scroll(page: Window, contents: Control) -> void:
+static func _wrap_in_a_scroll(contents: Control) -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = SCROLL_NAME
 	# **The wrapper stands exactly where the column stood**, anchors and offsets both, rather than being anchored
@@ -699,9 +699,18 @@ static func _wrap_in_a_scroll(page: Window, contents: Control) -> void:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	# A page is walked with Tab, and a control below the fold has to come into view when it takes the keyboard.
 	scroll.follow_focus = true
+	# **The wrapper stands where the column stood *in the column's own parent***, which for a page this file
+	# builds is the page itself and for a page whose contents are nested is not. `contents.get_index()` is an index
+	# among its own siblings, and handing it to the page put the wrapper at that index of the *page's* children
+	# instead: the plant library's column is `Browser/Margin/Column` and stood at 0, so the scroll became the
+	# page's first child and the browser and its margin were left as an empty pane drawn **after** the whole
+	# scroll - over every control the page has. Measured on the desk by `gui_sweep`, that put 67 of the library's
+	# own targets under a control that draws nothing: its search box, five pickers, the tags and all three buttons
+	# at its foot. Where the column's parent is the page this is the line it always was, to the pixel.
 	var stood_at: int = contents.get_index()
-	page.add_child(scroll)
-	page.move_child(scroll, stood_at)
+	var where: Node = contents.get_parent()
+	where.add_child(scroll)
+	where.move_child(scroll, stood_at)
 	contents.reparent(scroll, false)
 	# The column stops being anchored to the page and becomes the thing the scroll holds: the scroll gives it
 	# the page's width and the height its contents ask for, which is what makes a longer column scroll instead

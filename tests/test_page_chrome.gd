@@ -1234,3 +1234,69 @@ func test_a_page_is_shown_by_the_one_door_and_by_no_other() -> void:
 		offenders.is_empty(),
 		"a page is shown by PageChrome.show_centred and by nothing else; these show one themselves: %s" % str(offenders),
 	)
+
+
+## **A page whose contents are nested gets its wrapper inside the container they were nested in**, not at that
+## index of the page's own children.
+##
+## The two are the same line for a page this file builds, because the column it finds *is* the page's child. They
+## part company for a page built in code with a shape of its own - the plant library's contents are
+## `Browser/Margin/Column` - and the difference is not depth but draw order: a wrapper put at the *page's* index
+## leaves the containers the column was nested in as a pane standing **after** the scroll, over every control the
+## page has. Measured on the desk by `gui_sweep`: 67 of that page's own targets held by a control that draws
+## nothing, which is the whole of the library's search box, its five pickers, its tags and its three foot buttons.
+##
+## Held here as the shape of the tree, which is what decides the order; the rectangles are the sweep's question.
+func test_a_wrapped_pages_scroll_stands_where_its_column_stood_in_the_columns_own_parent() -> void:
+	var page: Window = _page()
+	# The floor is stated so the test does not depend on the screen it runs on, as the sibling test above does:
+	# the page asks for a short page, and its contents want far more than that.
+	page.min_size = Vector2i(400, 300)
+	add_child(page)
+	# The shape a page built in code has: a control filling the page, a margin inside it, and the column
+	# `PageLayout` finds a page's contents by inside that - the plant library's own `Browser/Margin/Column`.
+	var shell := Control.new()
+	shell.name = "Shell"
+	shell.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	var column := VBoxContainer.new()
+	column.name = PageLayoutScript.CONTENT_NODE
+	var tall := Control.new()
+	tall.custom_minimum_size = Vector2(0.0, 4000.0)
+	column.add_child(tall)
+	margin.add_child(column)
+	shell.add_child(margin)
+	page.add_child(shell)
+
+	PageChromeScript.show_centred(page)
+	var scroll: ScrollContainer = PageLayoutScript.scroll_of(column)
+	assert(scroll != null, "and the column is inside a scroll")
+	if scroll == null:
+		remove_child(page)
+		_free_pages()
+		return
+	assert(column.get_parent() == scroll, "which holds the column it was made for")
+	assert(
+		scroll.get_parent() == margin,
+		"and stands in the margin, where the column stood: %s" % str(scroll.get_parent()),
+	)
+	assert(shell.is_ancestor_of(scroll), "so the page's own child stands **around** the scroll rather than over it")
+	# The other half, the shape every page this file builds has: a column that is the page's own child, whose
+	# parent *is* the page - and there every word of this is the line it always was.
+	var plain: Window = _page()
+	plain.min_size = Vector2i(400, 300)
+	add_child(plain)
+	var own: VBoxContainer = PageChromeScript.column(plain)
+	var also_tall := Control.new()
+	also_tall.custom_minimum_size = Vector2(0.0, 4000.0)
+	own.add_child(also_tall)
+	PageChromeScript.show_centred(plain)
+	var theirs: ScrollContainer = PageLayoutScript.scroll_of(own)
+	assert(theirs != null and theirs.get_parent() == plain, "and its wrapper stands in the page, as it always did")
+	if theirs != null:
+		assert(theirs.get_index() == 0, "at the index the column stood at: %d" % theirs.get_index())
+
+	remove_child(page)
+	remove_child(plain)
+	_free_pages()
