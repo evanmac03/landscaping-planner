@@ -844,6 +844,42 @@ func test_a_spinboxs_own_field_is_the_engines_part_rather_than_a_second_control(
 	box.free()
 
 
+## **A control the program built in code without naming it is still a control a finger presses**, and the rule
+## that dropped every engine-named control from the finger questions **hid the phone's own bar**: the four controls
+## of `TouchRow` are `@Button@78` to `@Button@81` (measured on the A16W, 2026-11-24), so `unsafe` and `middle` had
+## never asked them, and the block published "none stands in a band the device keeps" while its own taps showed
+## `Menu` reaching 55 px into the left camera band at 45 px of a 2340 px screen.
+func test_a_button_the_program_built_without_a_name_is_still_a_target() -> void:
+	var root: Control = _root()
+	var built := Button.new()
+	built.text = "Menu"
+	_control(root, built, Vector2(0.0, 0.0), Vector2(120.0, 90.0))
+	assert(HudProbeScript._the_engines_own(built), "the engine named it, which is the case: %s" % built.name)
+
+	var found: Array = HudProbeScript._targets_under(root, "a bar")
+	assert(found.size() == 1, "and it is a target all the same: %s" % str(found))
+	assert(String(found[0]["name"]).contains("Menu"), "named by the words on it: %s" % str(found[0]))
+	_free_made()
+
+
+## And the half that must stay out, held beside it because the two are one rule about whose *part* a control is
+## rather than two rules about a name: a `SpinBox` composes its field, so the field is the `SpinBox`'s face and not
+## a second control standing in the same rectangle.
+func test_a_spinboxs_field_is_a_part_rather_than_a_second_target() -> void:
+	var root: Control = _root()
+	var box := SpinBox.new()
+	_control(root, box, Vector2(0.0, 0.0), Vector2(120.0, 40.0))
+	var field: LineEdit = box.get_line_edit()
+	assert(field != null and HudProbeScript._the_engines_own(field), "the field is engine-named: %s" % field.name)
+
+	for one: Dictionary in HudProbeScript._targets_under(root, "a bar"):
+		assert(
+			not String(one["name"]).contains("LineEdit"),
+			"and no line names the field as a target of its own: %s" % str(one),
+		)
+	_free_made()
+
+
 ## **Why this is a reading and not a walk.** `get_children(true)` reads internal children on purpose - a
 ## `ScrollContainer`'s bars are internal and a driver needs their rectangles - so a rule applied to the walk
 ## would take a control the *program* built with it, because a control *added* with no name of its own is named

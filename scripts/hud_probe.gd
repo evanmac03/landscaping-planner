@@ -1707,14 +1707,23 @@ static func _targets_under(root: Node, scope: String) -> Array:
 		# question for the phone's own readings (`hud_probe.tap_lines` publishes them, `small` does not ask them).
 		if not _a_tap_stops_here(control) or _clipped(control):
 			continue
-		# **A part the engine built is not a target of its own.** A `SpinBox`'s field is a `LineEdit`, so it
-		# would be reported beside the `SpinBox` as a second target in the same place: 68 px wide where the
-		# `SpinBox` is 87, four pixels from the next row where the `SpinBox` is four from it, and one control's
-		# size counted twice over. The `SpinBox` is what a finger presses; the field is its face. Measured on the
-		# desk's finger pass: `small` named 15 things and `close` 10 pairs before this, and 10 and 5 after, with
-		# every `@SpinBoxLineEdit@…` gone from both - and the real four-pixel pair of `StillSize` and
-		# `RenderStill`, which are two different controls, still named.
-		if _the_engines_own(control):
+		# **A part of another control is not a target of its own, and what says so is the parent rather than the
+		# name.** A `SpinBox` composes its field, so the field would be reported beside the `SpinBox` as a second
+		# target in the same place: 68 px wide where the `SpinBox` is 87, four pixels from the next row where the
+		# `SpinBox` is four from it, and one control's size counted twice over. The `SpinBox` is what a finger
+		# presses; the field is its face. Measured on the desk's finger pass, dropping it took `small` from 15
+		# things to 10 and `close` from 10 pairs to 5 - and the real four-pixel pair of `StillSize` and
+		# `RenderStill`, which are two different controls, stayed named.
+		#
+		# **A name beginning `@` is NOT that tell, and reading it as one hid the phone's own bar.** A control the
+		# program builds in code without naming is given an engine name too, and the whole finger furniture is
+		# built that way: the four controls of `TouchRow` are `@Button@78` to `@Button@81`. So the furniture was
+		# invisible to every question about a finger - measured on the A16W 2026-11-24, the block published
+		# "none stands in a band the device keeps" while its own taps showed `Menu` reaching 55 px into the left
+		# camera band, at 45 px of a 2340 px screen. The name is the right tell for the walks whose question is
+		# *what a control says* - `words_in` and `plates_in`, through `_the_engines_own` - and the wrong one for a
+		# question about where a finger can land.
+		if control.get_parent() is SpinBox:
 			continue
 		if not (control is BaseButton or control is LineEdit):
 			continue
