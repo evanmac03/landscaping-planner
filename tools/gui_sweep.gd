@@ -161,14 +161,21 @@ func _ready() -> void:
 		# words at every size. It is the question the phone's own foot line answered with "Pinch: zoo". The
 		# questions that depend on the *device* - a floor in pixels, a band the system keeps - are asked where
 		# the device is, which is the phone itself through the probe's log and `tools/phone_touch_pass`.
-		var cut: PackedStringArray = HudProbeScript.clipped_lines(up, scope)
+		var clipped: PackedStringArray = HudProbeScript.clipped_lines(up, scope)
 		faults += (
 			found.size() + said.size() + loose.size() + covered + unreadable.size()
-			+ twins.size() + empties.size() + adrift.size() + cut.size()
+			+ twins.size() + empties.size() + adrift.size() + clipped.size()
 		)
 		print(
 			(
-				"SWEEP %-26s %-22s %d cut, %d word(s), %d offscreen, %d blocked, %d switched off, %d unreadable, %d twin(s), %d blank, %d adrift, %d clipped"
+				# **The format is built by `+` and the arguments are applied to the WHOLE of it**, which is what the
+				# wrapping parentheses are for: `%` binds tighter than `+`, so without them the arguments went to the
+				# second fragment alone and all 41 doors printed the format string with "a number is required"
+				# beside it - a change made only to keep the line inside 120 characters, and caught by running it.
+				(
+					"SWEEP %-26s %-22s %d crowded, %d word(s), %d offscreen, %d blocked, %d switched off,"
+					+ " %d unreadable, %d twin(s), %d blank, %d adrift, %d clipped"
+				)
 				% [
 					door,
 					scope,
@@ -181,14 +188,14 @@ func _ready() -> void:
 					twins.size(),
 					empties.size(),
 					adrift.size(),
-					cut.size(),
+					clipped.size(),
 				]
 			)
 		)
 		var far_lines := PackedStringArray()
 		for one: Dictionary in far:
 			far_lines.append(String(one["line"]))
-		for line: String in found + said + loose + far_lines + unreadable + twins + empties + adrift + cut:
+		for line: String in found + said + loose + far_lines + unreadable + twins + empties + adrift + clipped:
 			print("       " + line)
 		# And whatever came up is put away, page or panel: the old run left every panel standing, which is what
 		# filled the block above with one panel's words drawn over the next one's.
