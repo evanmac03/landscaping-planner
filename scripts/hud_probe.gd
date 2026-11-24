@@ -260,6 +260,22 @@ static func device_lines(
 			"kept     the foot: nothing stated for a %d by %d screen, so the scene's own clearance stands"
 			% [PhoneHudScript.screen_here().x, PhoneHudScript.screen_here().y]
 		)
+	# **The corner the glass itself rounds**, printed for the reason both lines above are: it is a figure the program
+	# is *told* rather than reads, and without it a bar whose plate runs to the glass's own edges on all three sides
+	# reads to whoever is looking at a picture as a bar that has lost its margins rather than one following the
+	# screen's own curve. The display's figure first, so it can be set against what the phone's own report says, and
+	# the room's second, because that is the number the plate's corner was set to.
+	var corner: int = PhoneHudScript.rounded_corner(room)
+	if corner > 0:
+		lines.append(
+			"corner   the display rounds %d px of its own, %d of the room (stated, not read)"
+			% [PhoneHudScript.stated_corner(), corner]
+		)
+	else:
+		lines.append(
+			"corner   nothing stated for a %d by %d screen, so the plate keeps the scene's own corners"
+			% [PhoneHudScript.screen_here().x, PhoneHudScript.screen_here().y]
+		)
 	lines.append("foot     \"%s\"" % foot)
 	lines.append("tool     \"%s\"" % tool)
 	return lines

@@ -3,9 +3,14 @@ extends Node
 ##
 ## The scene's job is to make a window the size of a phone's glass and put the program in it, which a test runner
 ## has no display for - so what is held here is everything that decides **which phone a run states**: the way up the
-## line asks for, the glass and the usable rectangle each way up is stated with, and the verb a typo is refused by.
-## A run that quietly states the wrong shape answers every question with the wrong device and looks perfectly
-## healthy doing it, which is the whole reason these three are here rather than left to a person's eye.
+## line asks for, and the verb a typo is refused by. A run that quietly states the wrong shape answers every question
+## with the wrong device and looks perfectly healthy doing it, which is the whole reason they are here rather than
+## left to a person's eye.
+##
+## **The glass and the usable rectangle are not held here, because they were a table here and are not any more.** The
+## A16W both ways up lives in `PhoneHud.MEASURED_SCREENS`, beside the two other things a device is told about itself,
+## and is held by that module's own tests; what is left for this file is the half that belongs to this tool - reading
+## a line and answering a stranger. Two copies of one device are the fault the move was made to end.
 
 ## A line that names neither way up is the standing glass, which is what every reading in this project was taken at
 ## until the lying one was written down.
@@ -20,29 +25,6 @@ func test_a_line_that_names_no_shape_is_standing_and_lying_is_what_the_verb_says
 		Screen.shape_from(PackedStringArray(["--lying", "--standing"])) == "lying",
 		"--lying wins when both are given",
 	)
-
-
-## Both ways up are the A16W's own numbers, read off its own block: standing is 1080 by 2340 with the cutout at the
-## top, lying is 2340 by 1080 with the same 100 px turned to the **left**. The usable rectangle is the whole glass
-## less that inset and is a rectangle rather than an inset, because a rectangle is what the door takes.
-func test_each_way_up_states_the_glass_and_the_usable_rectangle_the_device_itself_reports() -> void:
-	var standing: Dictionary = Screen.SHAPES["standing"]
-	assert(standing["glass"] == Vector2i(1080, 2340), str(standing["glass"]))
-	assert(standing["usable"] == Rect2i(0, 100, 1080, 2240), str(standing["usable"]))
-	var lying: Dictionary = Screen.SHAPES["lying"]
-	assert(lying["glass"] == Vector2i(2340, 1080), str(lying["glass"]))
-	assert(lying["usable"] == Rect2i(100, 0, 2240, 1080), str(lying["usable"]))
-
-
-## The two ways up are the same glass turned, which is the one thing that has to be true of them: the usable
-## rectangle's shorter side is the inset itself, and neither states a glass the other could be mistaken for.
-func test_the_two_ways_up_are_the_same_glass_turned() -> void:
-	var standing: Dictionary = Screen.SHAPES["standing"]
-	var lying: Dictionary = Screen.SHAPES["lying"]
-	var upright: Vector2i = standing["glass"]
-	var sideways: Vector2i = lying["glass"]
-	assert(sideways == Vector2i(upright.y, upright.x), "%s is not %s turned" % [sideways, upright])
-	assert(sideways != upright, "one glass, two ways up - and the two are not the same rectangle")
 
 
 ## A `--word` this tool does not have is refused and the words it does have are named, because a typo would

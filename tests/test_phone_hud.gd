@@ -363,6 +363,192 @@ func test_a_display_can_be_stated_and_answers_as_the_phone_it_names() -> void:
 	PhoneHudScript.force_density(0.0)
 
 
+## **The corner the glass rounds is the second thing this program has to be told about a phone**, and it is stated
+## the way the foot band is: keyed by the screen the display reports, answered zero for a screen nobody has measured,
+## and handed to a room through the one share arithmetic.
+##
+## The A16W's own report is the figure - `RoundedCorner{position=TopLeft, radius=118, ...}` at every corner of a 1080
+## by 2340 glass, read off the phone with `adb shell dumpsys window displays` - which is 42 dp, and the same figure
+## squared off in each corner. What this holds is that the table carries it both ways up, and that the room is given
+## the share of the *screen's own side*: the same conversion the cutout and the foot band go through, or a corner
+## would be measured in the display's pixels and drawn in the room's.
+func test_the_display_states_the_corner_it_rounds_and_the_room_gets_its_own_share() -> void:
+	assert(
+		int(PhoneHudScript.ROUNDED_CORNERS.get(Vector2i(1080, 2340), 0)) == 118,
+		"the A16W rounds 118 px of its own glass, upright",
+	)
+	assert(
+		int(PhoneHudScript.ROUNDED_CORNERS.get(Vector2i(2340, 1080), 0)) == 118,
+		"and lying down, because the key is the screen and that follows the rotation",
+	)
+
+	var lying := Vector2i(1444, 666)
+	var standing := Vector2i(1185, 2567)
+	PhoneHudScript.force_density(PHONE_DPI)
+	PhoneHudScript.force_display(Vector2i(2340, 1080), Rect2i(100, 0, 2240, 1038))
+	TouchInputScript.force(TouchInputScript.Answer.FINGER)
+	assert(PhoneHudScript.stated_corner() == 118, "a stated A16W is told the corner it rounds")
+	assert(
+		PhoneHudScript.rounded_corner(lying) == roundi(1444.0 * (118.0 / 2340.0)),
+		"and the lying room's own share of it: %d" % PhoneHudScript.rounded_corner(lying),
+	)
+
+	PhoneHudScript.force_display(Vector2i(1080, 2340), Rect2i(0, 100, 1080, 2240))
+	assert(
+		PhoneHudScript.rounded_corner(standing) == roundi(1185.0 * (118.0 / 1080.0)),
+		"and the share a standing room is given: %d" % PhoneHudScript.rounded_corner(standing),
+	)
+
+	# **A screen nobody has measured rounds nothing, as far as this is told** - which is what leaves the scene's own
+	# plate exactly as it was drawn, rather than a corner guessed at and a bar with corners no glass has.
+	PhoneHudScript.force_display(Vector2i(1440, 3120), Rect2i(0, 0, 1440, 3120))
+	assert(PhoneHudScript.stated_corner() == 0, "a screen this table does not name states no corner")
+	assert(PhoneHudScript.rounded_corner(Vector2i(1440, 3120)) == 0, "and its room is answered with a zero")
+
+	TouchInputScript.force(TouchInputScript.Answer.AUTO)
+	PhoneHudScript.force_display(Vector2i.ZERO, Rect2i())
+	PhoneHudScript.force_density(0.0)
+	assert(PhoneHudScript.stated_corner() == 0, "and a desk states no corner at all")
+	assert(
+		PhoneHudScript.rounded_corner(Vector2i(1444, 666)) == 0,
+		"so a desk's own room is handed the scene's corners",
+	)
+
+
+## **The corner cut out of the glass is the corner the bar's plate is rounded with, and both are this file's.** A view
+## that draws the glass - `tools/phone_workspace.tscn`, and the frame around the 2D workspace - asks for the same
+## radius the running program's own plate is given, so the curve a person sees cut out of the screen and the curve
+## the plate follows cannot come out as two shapes.
+##
+## Each corner comes back as the square that corner owns less the quarter of a circle inside it, and this holds that
+## region rather than the points: a point at the very corner is **inside** it (there is no glass there), the circle's
+## own centre is **outside** it (that part of the glass is there), and a point between the two along the corner's own
+## diagonal is **inside** it again - which is the assertion a straight chord drawn in place of the arc would fail.
+func test_the_corner_the_glass_loses_is_the_region_the_plates_own_curve_leaves() -> void:
+	var room := Vector2i(1444, 666)
+	var lying := Vector2i(2340, 1080)
+	var radius: int = PhoneHudScript.corner_share(room, lying)
+	assert(radius > 0, "the lying room is a room a display rounds a corner on: %d" % radius)
+	assert(
+		radius == PhoneHudScript.share_of_the_room(118, lying.x, room.x),
+		"the lying room's corner is the display's own share of that glass's width: %d" % radius,
+	)
+
+	var cuts: Array[PackedVector2Array] = PhoneHudScript.corners_cut_out(room, lying)
+	assert(cuts.size() == 4, "one region per corner of the glass: %d" % cuts.size())
+	assert(
+		[cuts[0][0], cuts[1][0], cuts[2][0], cuts[3][0]]
+		== [Vector2(0.0, 0.0), Vector2(1444.0, 0.0), Vector2(1444.0, 666.0), Vector2(0.0, 666.0)],
+		"each region starting at its own corner, in the order a person names them",
+	)
+	assert(
+		cuts[0].size() == PhoneHudScript.CORNER_STEPS + 2,
+		"and walked out along one edge and round the circle: %d points" % cuts[0].size(),
+	)
+
+	var top_left: PackedVector2Array = cuts[0]
+	var r := float(radius)
+	assert(
+		Geometry2D.is_point_in_polygon(Vector2(0.0, 0.0), top_left),
+		"the very corner of the glass is part of what the display takes away",
+	)
+	assert(
+		not Geometry2D.is_point_in_polygon(Vector2(r, r), top_left),
+		"while the centre of that corner's circle is glass, and is not",
+	)
+	assert(
+		Geometry2D.is_point_in_polygon(Vector2(r * 0.2, r * 0.2), top_left),
+		"and the wedge between the corner and the circle is taken away as well - an arc, not a chord",
+	)
+
+	assert(
+		PhoneHudScript.corners_cut_out(room, Vector2i(2880, 1620)).is_empty(),
+		"and a display that rounds nothing has no corner to cut, rather than a corner nobody has",
+	)
+
+
+## **A corner the display rounds is not a band, and the bar answers it differently.** The plate runs to the glass's
+## own edges on **both sides of the corner** and wears the glass's own radius there, while the row inside is left
+## exactly where it was: a corner is not something a thumb can press into, so it needs no ground from it.
+##
+## This is the fault measured on the glass lying down on 2026-11-24. The plate stopped 19 px below the screen's top
+## and 19 px short of its right edge, so the corner the display rounds away - 118 px of its own, an eighth of the
+## screen - showed bare board where the bar should have been, which is what a person reports as the menu bar not
+## following the screen's curve.
+func test_the_bars_plate_reaches_the_glass_wherever_the_display_rounds_a_corner() -> void:
+	var hud: PlannerHud = PlannerHudScript.new()
+	var bar := PanelContainer.new()
+	bar.offset_left = 12.0
+	bar.offset_top = 12.0
+	bar.offset_right = -12.0
+	bar.offset_bottom = 62.0
+	hud.top_bar = bar
+	var drew: StyleBoxFlat = bar.get_theme_stylebox(&"panel") as StyleBoxFlat
+	assert(drew != null, "the bar wears a flat plate off a tree, which is what a test can read")
+	if drew == null:
+		bar.free()
+		hud.free()
+		return
+	var was_top: float = drew.content_margin_top
+
+	# The A16W lying down, with no band along the top and none along its right: the corner alone is what the plate
+	# has to reach the glass for.
+	hud.lift_the_top_bar_by(Vector4i.ZERO, 73)
+	assert(is_equal_approx(bar.offset_top, 0.0), "the plate's top is the screen's own: %s" % str(bar.offset_top))
+	assert(
+		is_equal_approx(bar.offset_left, 0.0) and is_equal_approx(bar.offset_right, 0.0),
+		"and both of its sides, because a corner has two: %s" % str([bar.offset_left, bar.offset_right]),
+	)
+	assert(
+		is_equal_approx(bar.offset_bottom, 62.0),
+		"while its foot is the scene's, so the plate grew upward rather than moved: %s" % str(bar.offset_bottom),
+	)
+	# **The row does not move.** The plate's own top edge moved 12 px up, so the row is handed that 12 as margin and
+	# stands where it stood - and nothing else about it moves, because a corner is not ground a finger needs.
+	var plate: StyleBox = bar.get_theme_stylebox(&"panel")
+	assert(
+		is_equal_approx(plate.content_margin_top, was_top + 12.0),
+		"the row is the scene's margin plus the 12 the plate's top moved: %s" % str(plate.content_margin_top),
+	)
+	assert(
+		is_equal_approx(plate.content_margin_left, drew.content_margin_left + 12.0)
+		and is_equal_approx(plate.content_margin_right, drew.content_margin_right + 12.0),
+		"and the same down both sides, so the row stands where a desk's stands",
+	)
+	assert(
+		int(plate.get(&"corner_radius_top_left")) == 73 and int(plate.get(&"corner_radius_top_right")) == 73,
+		"and the two corners that meet the glass wear its own radius: %s" % str(plate.get(&"corner_radius_top_left")),
+	)
+	assert(
+		int(plate.get(&"corner_radius_bottom_left")) == drew.corner_radius_bottom_left,
+		"while the two at its foot, out on the board, keep the scene's",
+	)
+
+	# A turn re-runs the pass, so it must answer the same thing every time: a lift that read its own output back
+	# would walk the plate off the screen by a corner on every rotation.
+	hud.lift_the_top_bar_by(Vector4i.ZERO, 73)
+	assert(
+		is_equal_approx(bar.offset_top, 0.0) and is_equal_approx(plate.content_margin_top, was_top + 12.0),
+		"and the second pass moves nothing",
+	)
+
+	# A glass that rounds nothing - and every desk - hands the bar back to the pixel.
+	hud.lift_the_top_bar_by(Vector4i.ZERO, 0)
+	assert(
+		is_equal_approx(bar.offset_top, 12.0) and is_equal_approx(bar.offset_bottom, 62.0),
+		"nothing to follow puts the plate back: %s" % str([bar.offset_top, bar.offset_bottom]),
+	)
+	assert(
+		is_equal_approx(bar.offset_left, 12.0) and is_equal_approx(bar.offset_right, -12.0),
+		"both sides too: %s" % str([bar.offset_left, bar.offset_right]),
+	)
+	assert(not bar.has_theme_stylebox_override(&"panel"), "and the scene's own plate is handed back")
+
+	hud.top_bar = null
+	bar.free()
+	hud.free()
+
+
 func _reset() -> void:
 	PhoneFilesScript.force(PhoneFilesScript.Device.AUTO)
 
@@ -1074,3 +1260,37 @@ func test_the_column_is_placed_again_when_the_plate_at_the_foot_changes_height()
 	assert(not hud._the_plate_moved(42.0), "once, again")
 
 	hud.free()
+
+
+## **The glass this program has been measured against, named and handed out from one place.** The two shapes are the
+## A16W's own readings - standing 1080 by 2340 with the camera cut into the top 100 px, lying 2340 by 1080 with that
+## same 100 px turned to the **left** edge, because the notch turns with the device - and each is handed out by the
+## word the block prints (`shape=lying`), so that a tool standing a phone up and a person reading a log are reading
+## one vocabulary rather than two.
+##
+## **The rectangle travels with the glass, and a shape nobody has measured is handed out as nothing at all.** A
+## screen with no furniture is half a phone - every band would answer zero - and a glass handed out for a shape
+## nobody measured would put a phone in front of a person that this project has never held. Both failures are the
+## same one the two tables above exist to stop, which is why the numbers live here rather than in a tool.
+func test_the_measured_glass_is_handed_out_by_the_word_the_block_prints() -> void:
+	assert(
+		PhoneHudScript.measured_glass("standing") == Vector2i(1080, 2340),
+		"the A16W upright is 1080 by 2340: %s" % str(PhoneHudScript.measured_glass("standing")),
+	)
+	assert(
+		PhoneHudScript.measured_usable("standing") == Rect2i(0, 100, 1080, 2240),
+		"with the camera cut into its top 100 px: %s" % str(PhoneHudScript.measured_usable("standing")),
+	)
+	assert(
+		PhoneHudScript.measured_glass("lying") == Vector2i(2340, 1080),
+		"the same phone on its side is 2340 by 1080: %s" % str(PhoneHudScript.measured_glass("lying")),
+	)
+	assert(
+		PhoneHudScript.measured_usable("lying") == Rect2i(100, 0, 2240, 1080),
+		"and the same 100 px is at its left edge: %s" % str(PhoneHudScript.measured_usable("lying")),
+	)
+	assert(
+		PhoneHudScript.measured_glass("on-a-table") == Vector2i.ZERO
+		and PhoneHudScript.measured_usable("on-a-table") == Rect2i(),
+		"while a shape nobody has measured is handed out as nothing at all",
+	)

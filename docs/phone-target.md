@@ -273,6 +273,34 @@ Where a device keeps no band the override is taken away and the bar is the bar t
 pixel. `tests/test_chrome_style.gd` holds the scene's plate and this file's numbers together, and
 `tests/test_phone_hud.gd` holds the lift itself.
 
+**A display that rounds its own corner is the second thing about a phone the program is told rather than reads, and
+the bar answers it the way it answers a band.** The A16W rounds **118 px** at every corner of its 1080 by 2340 glass -
+the phone's own report, `mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=118,
+center=Point(118, 118)}, ...]}`, read with `adb shell dumpsys window displays` - which is 42 dp, about an eighth of
+the screen's own short side. `PhoneHud.ROUNDED_CORNERS` states it for the screens this project has measured and
+answers zero for any other, the way `KEPT_FEET` does, because `DisplayServer` reports a screen and a safe area and
+says nothing about a corner: `PhoneHud.rounded_corner(room)` is that figure in the room's own pixels, through the
+same share arithmetic the cutout and the foot band go through.
+
+**What a corner demands is the opposite of what a band demands, and that is the whole of the change.** A band is
+glass a thumb must not be asked to press, so the *row* is given ground and the plate covers it; a corner is glass the
+display has taken away altogether, so the *plate* runs to the screen's own edges on **both sides of that corner**, and
+its two top corners wear the display's own radius - so the curve a person sees there is the plate's own curve, rather
+than the glass cutting a square corner out of a plate that never reached it. **The row is not moved for a corner**: a
+thumb cannot press into a rounded corner, so it needs no ground from one, and a row that shifted every time a glass
+rounded its corners differently would be a bar drawn in the wrong place.
+
+Measured on the glass lying down on 2026-11-24, before the change: the plate stopped 19 px below the screen's own top
+and 19 px short of its right edge, so the rows above the bar and the whole right-hand column of the screen outside it
+were bare board - which is what a person reports as *the menu bar doesn't follow the screen curve*. The figure being
+the display's own is what makes the corner right: a plate whose radius was narrower than the glass's is merely cut by
+the display and looks right, while one whose radius was *wider* would leave a sliver of board in a corner the bar is
+meant to cover. Stating the display's radius makes the two curves one curve, which is also what lets this be checked
+without a phone - a framebuffer read on a desk that has been told it is an A16W draws the corner the glass will draw.
+On the desk's own screen every figure is still zero and the bar is the bar the scene drew, to the pixel:
+`tests/test_phone_hud.gd` holds both halves, and `tests/test_chrome_style.gd` holds the two corners the plate rounds
+against the two it leaves alone.
+
 **A phone lying on its side has no band along the top at all.** The A16W's notch turns with the device, so
 the inset it keeps - 110 px of the room standing - is 62 px along the *left* edge once the phone is lying,
 which is why the palette is given ground on that side, and the bar keeps the landscape bar it always had:
@@ -774,6 +802,68 @@ deliberately not stated, because it is the program's own arithmetic: a lying win
 stretch yields the 1444 by 666 with `scale=1.62` that the device itself reports, so both attitudes are reproduced
 from the display alone. A `--word` that is not one of the tool's verbs is refused by name, because a typo would
 otherwise state the standing glass, answer every question with it, and say nothing about having done it.
+
+### 13.2 The same phone as a window, for using rather than photographing
+
+`tools/phone_workspace.tscn` is the other half of 13.1, and it asks a different question: what the phone's
+own screen *is*, rather than what a block says about it. It states the same A16W through the same doors,
+then asks Godot for a window of the glass's own size - 2340 by 1080 lying, the phone this project was
+measured against - and puts `main.tscn` straight into it. Measured 2026-11-24: the window is 2340 by 1080
+and its room is `1444 by 666 at 1.62`, which is exactly what the device's own block reports, and every
+figure the chrome is worked out from is the window's own.
+
+**The window itself is the phone, and that is the whole design.** A row's height is a millimetre floor
+turned into pixels by the density and divided by the *window's* canvas scale, and the room is the window's
+visible rectangle; a desk's window answers 1.0 where the phone answers 1.62. Putting the program in a
+`SubViewport` of the glass's size instead was built and measured, and it makes the program's own
+instruments lie: `InView` compares a control with the **root** viewport's rectangle, which is the rule that
+found the phone's own view buttons drawn off the glass, and in that nesting the root is the desk - so a
+perfectly placed phone names every one of its controls as standing off a 1600 by 900 screen it is not on. A
+screen whose own report cannot be trusted is worth nothing, which is why this one is a window and not a
+picture.
+
+**The glass's own furniture is drawn over the program.** The four corners the display takes away are cut
+with the radius `PhoneHud.ROUNDED_CORNERS` states, and the camera band and the foot band are washed in the
+room's own pixels - 118 px of the glass is 73 of the lying room, and the camera's 100 px is 62 - so the
+corner a person sees here is the same corner the bar's plate is rounded by, both read from the one place.
+It draws in a `CanvasLayer` above the HUD's own, because a layer draws above everything outside one
+whatever order the nodes were added in, and a corner drawn under a menu bar is not a corner. Its figure
+line is written in the foot band, the one strip of the screen the program itself keeps clear.
+
+**It opens lying, and it says what it could not do.** The device this project is aimed at was measured
+lying, so that is what silence means here; `--standing` is the other way up, and the two shapes are named
+with the words the block prints. A desk whose screen cannot hold the glass keeps the window it has, and the
+window's size and the glass's are printed side by side so a person can see which arrangement they are
+looking at: a phone drawn at a fraction lays out at that fraction, so shrinking one to fit would be a
+picture of a phone nobody has. This is where it parts from `tools/touch_hud_workspace.tscn`, which stands
+the phone's *furniture* up by hand in the 2D workspace to be pushed about with a mouse and presses nothing;
+this one runs the program, so what is on the desk is what is on the phone.
+
+### 13.3 The same shape drawn round the 2D workspace
+
+`tools/touch_hud_workspace.tscn` stands the phone's furniture up by hand in the 2D view, in whatever room that view
+has. `tools/phone_frame.gd` draws the glass around it - the four corners the display rounds away and the two bands it
+keeps - so the workspace reads as a phone rather than as a bar, a dock and a sheet on a grey field. Every figure is
+asked of `PhoneHud` **for the room the view actually has**, so what is drawn is the phone's own share of *this* room
+rather than a phone's pixels; the room is still the view's, which is the one thing that tool and
+`tools/phone_workspace.tscn` do not have in common.
+
+**Which way up the phone is, is the room's own answer** - wider than it is tall is lying, which is the device's own
+rule - so the glass and its camera come from `PhoneHud.MEASURED_SCREENS` rather than being written down a fourth
+time. Stating the standing glass beside a landscape room was measured first, and drew a **175 px corner on a 900 px
+screen**: four wedges twice the size of a phone's corner, because the corner is a share of the glass's own *width*
+and that is not the side a landscape room is scaled from. The same editor view, asked the room's own way, reports
+`a lying room of 1600 x 900 - the glass 2340 x 1080, camera (68, 0, 0, 0), foot 35, corner 81, 4 corners cut`, and the
+camera lands down the **left** edge - which is where a phone held lying keeps it, and the whole point of asking the
+room rather than stating a glass.
+
+**The questions asked are the ones that take the screen as an argument** - `corners_cut_out`, `cutout_insets`,
+`foot_share` and `corner_share` - rather than the reading doors beside them. That is the same trade
+`TouchFurniture.stated_density` makes and for the same measured reason: an editor hands a plain script a separate copy
+of itself with its own statics, so a frame that stated a device through `PhoneHud.force_display` and then read it back
+drew **nothing at all** for an afternoon, with a stated 450 dpi beside a screen that never arrived. `corner_share` and
+`foot_share` are new here; they are the halves `rounded_corner` and `kept_foot` now delegate to, which is the shape
+`cutout_here` and `cutout_insets` already had.
 
 ## 14. The rules this follows, and the one it breaks
 

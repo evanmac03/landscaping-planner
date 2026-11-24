@@ -100,9 +100,10 @@ static func cutout_insets(room: Vector2i, screen: Vector2i, safe: Rect2i) -> Vec
 
 ## **One side's share of the room it becomes, and the only arithmetic that turns a figure read off a display into
 ## one laid out in a room.** A band is a fact about the glass and a room's pixels are not the glass's, so the two
-## are joined by that screen's own side and nothing else. Written once because it has two callers - the four sides
-## of a cutout and the foot band below - and a second conversion that rounded the other way would be the same fact
-## in two places, disagreeing by a pixel, which is the fault this file exists to avoid.
+## are joined by that screen's own side and nothing else. Written once because it has three callers - the four sides
+## of a cutout, the foot band below, and the corner the display rounds - and a second conversion that rounded the
+## other way would be the same fact in two places, disagreeing by a pixel, which is the fault this file exists to
+## avoid.
 static func share_of_the_room(of_the_screen: int, screen_side: int, room_side: int) -> int:
 	if screen_side <= 0 or room_side <= 0:
 		return 0
@@ -191,16 +192,177 @@ static func stated_foot() -> int:
 	return int(KEPT_FEET.get(screen_here(), 0))
 
 
+## **The foot band a room is given, for a screen stated rather than read** - the reading half's twin, and the reason
+## `corner_share` gives. The band scales with the screen's own **height**, because that is the side a band along the
+## foot is a share of - the same joining `cutout_insets` makes for the foot of a cutout - and it is why `KEPT_FEET` is
+## keyed by the screen rather than by a room. A screen this table does not name keeps nothing.
+static func foot_share(room: Vector2i, screen: Vector2i) -> int:
+	if room.y <= 0 or screen.y <= 0:
+		return 0
+	return share_of_the_room(int(KEPT_FEET.get(screen, 0)), screen.y, room.y)
+
+
 ## The same band in the room's own pixels, which is the space the foot line is laid out in: the figure `Hud` gives
 ## the plates at the foot their ground by, and the room's half of what the block prints beside the display's. Its
-## own function, beside `cutout_top`, because the two are the top and the foot of the same question.
+## own function, beside `cutout_top`, because the two are the top and the foot of the same question - and its
+## arithmetic is `foot_share`'s, so a view told a stated device and this reading agree.
 static func kept_foot(room: Vector2i) -> int:
-	if not on_a_finger_here() or room.y <= 0:
+	if not on_a_finger_here():
 		return 0
-	var size: Vector2i = screen_here()
-	if size.y <= 0:
+	return foot_share(room, screen_here())
+
+
+## **The corner the display itself rounds, in the display's own pixels, keyed by the size of the screen it was
+## measured on** - the second thing about a phone this program has to be told rather than read.
+##
+## The A16W rounds **118 px** at every corner of its 1080 by 2340 display, which is 42 dp and about a ninth of the
+## screen's own short side. The phone's own report says so -
+## `mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=118, center=Point(118, 118)}, ...]}`,
+## read with `adb shell dumpsys window displays` - and Godot has **no answer for it**: `DisplayServer` reports a
+## screen and a safe area and says nothing about a corner, and the safe area is the display cutout alone. So the
+## number is written down here the way `KEPT_FEET` is, and for the same reason: a figure read from somewhere is
+## worth five guessed at.
+##
+## A screen this table does not name is answered with a **zero**, and a zero corner is what a desk and an unmeasured
+## display have: the scene's own plate is then exactly the plate that was drawn, to the pixel. The fault a guessed
+## corner would cause is the one this is here to cure - a bar whose plate stops short of the glass inside a corner
+## the display rounds away, leaving bare board where the bar should be.
+##
+## **Both ways up, because the key is the screen the display reports and that follows the rotation** - the same
+## reason `KEPT_FEET` states both - and the A16W's corners are the same four either way up.
+const ROUNDED_CORNERS: Dictionary = { Vector2i(1080, 2340): 118, Vector2i(2340, 1080): 118 }
+
+
+## How far the display this program is running on rounds its own corners, in the display's own pixels - the figure a
+## person compares with what the phone itself reports. Zero on a desk, on a device nobody has measured, and on
+## anything not served a finger.
+static func stated_corner() -> int:
+	if not on_a_finger_here():
 		return 0
-	return share_of_the_room(int(KEPT_FEET.get(size, 0)), size.y, room.y)
+	return int(ROUNDED_CORNERS.get(screen_here(), 0))
+
+
+## **The corner a room is given, for a screen stated rather than read** - the half of `rounded_corner` a caller who is
+## not on the device can ask, so that a view standing a phone's furniture up on a desk is not asking *this machine*
+## what a phone is. It is the shape `cutout_insets` already keeps for the camera, and for the same reason: an editor
+## hands a plain script a separate copy of itself with its own statics, so a tool that stated a device through the
+## doors above and then read it back through them has been known to read the desk instead.
+##
+## **Measured along the width, and the two axes agree on every screen this project has measured** - the room and the
+## display are scaled uniformly (1444 by 666 for 2340 by 1080 lying down, 1185 by 2567 for 1080 by 2340 upright), so
+## a corner measured down a side and one measured across come out the same to the pixel. A display whose two shares
+## disagreed would have an oval corner, which is not a thing a stylebox can draw.
+static func corner_share(room: Vector2i, screen: Vector2i) -> int:
+	if room.x <= 0 or screen.x <= 0:
+		return 0
+	return share_of_the_room(int(ROUNDED_CORNERS.get(screen, 0)), screen.x, room.x)
+
+
+## The same corner in the room's own pixels, which is the space a plate's own corner radius is stated in: the figure
+## `Hud` hands the bar so that the curve a person sees at the top of the glass is the plate's own curve, rather than
+## the glass's edge cutting a square corner out of a plate that never reached it. **The reading half of the question**
+## - zero on a desk, on a device nobody has measured, and on anything not served a finger - and the arithmetic is
+## `corner_share`'s, so that what this answers for the display in hand and what a view is told for a stated one are
+## one figure.
+static func rounded_corner(room: Vector2i) -> int:
+	if not on_a_finger_here():
+		return 0
+	return corner_share(room, screen_here())
+
+
+## How many straight lines one quarter of a circle is drawn with, for the view below. Enough that a person reads a
+## curve rather than a cut, and no more: this is a picture of a display's own corner, not a second tolerance of the
+## program's.
+const CORNER_STEPS := 16
+
+
+## **The four corners a display rounds away, as the region of the room it takes** - the geometry of the cut, in the
+## room's own pixels, for a view that means to show a person the glass rather than what is drawn on it.
+##
+## Each entry is one corner's polygon: the square that corner owns, less the quarter of a circle inside it. A view
+## fills them with the colour of "no glass here" and the corner reads as cut, which is what a person sees at the edge
+## of a display that rounds its corners. **The screen is an argument**, so that a view standing a phone up on a desk
+## asks for the phone's own corner through `corner_share` rather than this machine for one - and so that the curve it
+## cuts is the same figure `rounded_corner` hands the bar's plate, which cannot come out differently because it is
+## the same call.
+##
+## **An empty list is the honest answer for every room a display rounds nothing on**, which is every desk and every
+## display nobody has measured: `corner_share` answers zero there, there is no curve to cut, and a caller drawing the
+## list draws nothing at all rather than a corner nobody has.
+##
+## The order is top-left, top-right, bottom-right, bottom-left - so a view naming what it draws names the corner the
+## way a person would - and each polygon starts at its own corner and closes along the two edges.
+static func corners_cut_out(room: Vector2i, screen: Vector2i, steps: int = CORNER_STEPS) -> Array[PackedVector2Array]:
+	var cuts: Array[PackedVector2Array] = []
+	var radius: int = corner_share(room, screen)
+	if radius <= 0 or steps <= 0:
+		return cuts
+	for at: Vector2i in [Vector2i(0, 0), Vector2i(room.x, 0), Vector2i(room.x, room.y), Vector2i(0, room.y)]:
+		cuts.append(_the_corner_cut(at, radius, steps))
+	return cuts
+
+
+## One corner as the square less the quarter of a circle inside it, walked so that the polygon is simple: out along
+## one edge to where the circle meets it, round the circle's own quarter towards the other edge, and closed by the
+## polygon itself along that edge. The arc is walked through the point nearest the corner, which is what leaves the
+## region between the two edges and the circle rather than the circle's own quarter.
+static func _the_corner_cut(at: Vector2i, radius: int, steps: int) -> PackedVector2Array:
+	# Which way each edge runs away from this corner: to the right and down at the top-left, to the left and up at
+	# the bottom-right, and one of each at the other two.
+	var across: int = 1 if at.x == 0 else -1
+	var down: int = 1 if at.y == 0 else -1
+	var centre := Vector2(float(at.x + across * radius), float(at.y + down * radius))
+	var points: PackedVector2Array = PackedVector2Array()
+	points.append(Vector2(at))
+	points.append(Vector2(float(at.x + across * radius), float(at.y)))
+	for step: int in range(1, steps + 1):
+		var turn: float = (float(step) / float(steps)) * PI * 0.5
+		points.append(
+			Vector2(centre.x - float(across * radius) * sin(turn), centre.y - float(down * radius) * cos(turn))
+		)
+	return points
+
+
+## **The glass this program has been measured against, both ways up** - the screen itself and the rectangle a display
+## promises to draw in, keyed by the size the display reports, which is the same key the two tables above use.
+##
+## Every number here was read off the A16W's own block rather than derived. Standing it reports 1080 by 2340 with the
+## camera cut into the **top** 100 px (`display l=0 t=100`); lying it reports 2340 by 1080 with the same 100 px turned
+## to the **left** edge (`display l=100 t=0`), because the notch turns with the device. The usable rectangle is the
+## whole glass less that inset - `force_display`'s own shape - and the shape word is the one the block prints
+## (`shape=lying`), so a person's reading of the phone and this table's key are the same vocabulary.
+##
+## **This is a table and not two constants in a tool, because three separate things need it and a copy in each is the
+## fault this project spends the most effort avoiding.** `tools/phone_screen.gd` (the layout put in a phone-shaped
+## window and photographed) and `tools/phone_workspace.gd` (the phone's own screen stood on the desk) both ask for
+## it, and the *room* each of them ends up with - 1444 by 666 lying, 1185 by 2567 standing - is the program's own
+## arithmetic from the glass and the project's stretch, not a figure anybody states.
+##
+## The two bands a display keeps are stated above and beside this: `KEPT_FEET` for the swipe the system draws over,
+## and `ROUNDED_CORNERS` for the corner it takes away.
+const MEASURED_SCREENS: Dictionary = {
+	Vector2i(1080, 2340): { "shape": "standing", "usable": Rect2i(0, 100, 1080, 2240) },
+	Vector2i(2340, 1080): { "shape": "lying", "usable": Rect2i(100, 0, 2240, 1080) },
+}
+
+
+## The glass a shape's own word names, or a size of nothing for a shape nobody has measured - so that a tool asking
+## for `--standing` on a project that had only ever measured a lying phone is handed nothing rather than a
+## rectangle nobody measured. A zero glass is also what leaves `on_a_finger_here` answering no device at all.
+static func measured_glass(shape: String) -> Vector2i:
+	for size: Vector2i in MEASURED_SCREENS:
+		if String(MEASURED_SCREENS[size]["shape"]) == shape:
+			return size
+	return Vector2i.ZERO
+
+
+## The rectangle that glass promises to draw in, and nothing at all where the shape is not one this project has
+## measured: the two travel together or neither does, for the reason `force_display` gives.
+static func measured_usable(shape: String) -> Rect2i:
+	var glass: Vector2i = measured_glass(shape)
+	if glass == Vector2i.ZERO:
+		return Rect2i()
+	return MEASURED_SCREENS[glass]["usable"]
 
 
 ## State what a device would be told about its density, for a demonstration or a test - and 0 puts the

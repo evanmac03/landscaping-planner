@@ -140,9 +140,15 @@ const INSTRUMENTS: Array[Dictionary] = [
 	},
 	{
 		"name": "touch_hud_workspace",
-		"question": "the phone's HUD standing still - the bar's four words, the dock's five tabs and the sheet - for looking at and pushing about in the editor rather than reading out of a block",
+		"question": "the phone's HUD standing still - the bar's four words, the dock's five tabs and the sheet, inside the glass's own cut corners and its two bands - for looking at and pushing about in the editor rather than reading out of a block",
 		"cannot": "speak for a run: it holds one side of a comparison, and the other side is a second run",
 		"scene": "res://tools/touch_hud_workspace.tscn",
+	},
+	{
+		"name": "phone_workspace",
+		"question": "the phone's own screen on this desk - the whole program running in a window of the glass's own size, with the corners the display rounds and the two bands it keeps drawn round it",
+		"cannot": "fit a phone on a desk smaller than the glass: it says so and leaves the window as it is, rather than drawing a phone at a fraction",
+		"scene": "res://tools/phone_workspace.tscn",
 	},
 	{
 		"name": "plant_scene_check",

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bke30dcqy0tis" path="res://tools/touch_hud_workspace.gd" id="1_ws"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
+[ext_resource type="Script" uid="uid://rw3jwa1ha0a8" path="res://tools/phone_frame.gd" id="3_glass"]
 
 [node name="TouchHudWorkspace" type="Control" unique_id=2061268266]
 layout_mode = 3
@@ -14,3 +15,16 @@ mouse_filter = 2
 script = ExtResource("1_ws")
 
 [node name="Hud" parent="." unique_id=12748065 instance=ExtResource("2_hud")]
+
+[node name="TheGlass" type="CanvasLayer" parent="." unique_id=667710652]
+layer = 100
+
+[node name="PhoneFrame" type="Control" parent="TheGlass" unique_id=660059804]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_glass")

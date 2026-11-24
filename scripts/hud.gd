@@ -1883,13 +1883,14 @@ var _palette_sides_as_drawn: Vector2 = Vector2(INF, INF)
 ## contents are lifted by `PageChrome.content_room_in`, a page is placed inside the insets, and a page's title bar
 ## is kept below this bar - the bar itself was the one thing that never asked.
 ##
-## **Where a band is kept, the plate runs to the screen's own edge and only its row is lifted**, which the
-## measuring door below does for each of the three sides a device may keep one on. A computer never moves at all,
-## because `PhoneHud.cutout_here` answers zero for a screen with no safe area and for anything not served a finger.
+## **Where a band is kept, or a corner rounded, the plate runs to the screen's own edge and only its row is
+## lifted**, which the measuring door below does for each of the three sides a device may keep a band on. A computer
+## never moves at all, because `PhoneHud.cutout_here` and `PhoneHud.rounded_corner` both answer zero for a screen
+## with no safe area, for a screen nobody has measured, and for anything not served a finger.
 func lift_the_top_bar_clear_of_the_device() -> void:
 	var viewport: Viewport = get_viewport()
 	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
-	lift_the_top_bar_by(PhoneHudScript.cutout_here(room))
+	lift_the_top_bar_by(PhoneHudScript.cutout_here(room), PhoneHudScript.rounded_corner(room))
 
 
 ## The measuring half, with the band stated rather than read, so a test can hold what a phone would be told
@@ -1899,7 +1900,17 @@ func lift_the_top_bar_clear_of_the_device() -> void:
 ## space the bar's offsets are in, because the room that was asked for it is the viewport's. Three of the four are
 ## used and the foot is deliberately not, for the reason stated above the reader: what a device keeps along the
 ## bottom belongs to the plates down there.
-func lift_the_top_bar_by(band: Vector4i) -> void:
+##
+## **The second figure is stated beside it, and it is not a band: the corner the display rounds.** Where the glass
+## itself takes the corner away - the A16W rounds 118 px of its 1080 by 2340 display, which is 42 dp - the plate must
+## run to the screen's own edges on **both sides of that corner** and wear the glass's own radius there, or the corner
+## shows bare board where the bar should be and the bar reads as a plate floating inside a curved screen. Measured on
+## the glass lying down, 2026-11-24: the plate stopped 19 px below the screen's top and 19 px short of its right edge,
+## so the top rows of the room above the bar, and the whole right-hand column outside it, were board - which is what a
+## person reports as "the menu bar doesn't follow the screen curve". **The row is not moved for it**: a corner is not
+## something a thumb can press into, so it needs no ground from it, and a row that shifted every time a glass rounded
+## a corner would be a bar drawn in the wrong place.
+func lift_the_top_bar_by(band: Vector4i, corner: int = 0) -> void:
 	if top_bar == null:
 		return
 	if _bar_offsets_as_drawn.x == INF:
@@ -1915,29 +1926,42 @@ func lift_the_top_bar_by(band: Vector4i) -> void:
 	var down: float = float(maxi(band.y, 0))
 	var from_the_left: float = float(maxi(band.x, 0))
 	var from_the_right: float = float(maxi(band.z, 0))
-	var lifted: bool = down > 0.0 or from_the_left > 0.0 or from_the_right > 0.0
-	# **The plate runs to the screen's own edge on every side the device keeps something, and only its row is
-	# lifted.** Measured on the A16W, lifting the plate as well left 212 px of bare sheet above the first button,
-	# which is what a person sees as a bar that is not at the top. Where the device keeps a band - a phone's camera
-	# cutout, along the top or down a side - the plate's own edge is the screen's own edge, so the band is covered by
-	# the bar rather than by bare board and the row inside is pushed clear of it. The scene's offsets are the floor
-	# on every side, so a desk, and a side the device keeps nothing on, are given exactly what was drawn.
-	top_bar.offset_top = 0.0 if down > 0.0 else _bar_offsets_as_drawn.x
+	var rounded: bool = corner > 0
+	# **The plate runs to the screen's own edge on every side it meets the glass at, and only its row is lifted.**
+	# Measured on the A16W, lifting the plate as well left 212 px of bare sheet above the first button, which is what
+	# a person sees as a bar that is not at the top. Where the device keeps a band - a phone's camera cutout, along the
+	# top or down a side - the plate's own edge is the screen's own edge, so the band is covered by the bar rather than
+	# by bare board and the row inside is pushed clear of it. **A corner is the same demand on both of its sides** and
+	# takes nothing from the row: a display that rounds its corner has taken that glass away, so a plate stopping short
+	# of either edge leaves bare board in a corner the bar is meant to cover. The scene's offsets are the floor on
+	# every side, so a desk, and a side the device keeps nothing on and rounds nothing at, are given exactly what was
+	# drawn.
+	var to_the_top: bool = down > 0.0 or rounded
+	var to_the_left: bool = from_the_left > 0.0 or rounded
+	var to_the_right: bool = from_the_right > 0.0 or rounded
+	var reached: bool = to_the_top or to_the_left or to_the_right
+	top_bar.offset_top = 0.0 if to_the_top else _bar_offsets_as_drawn.x
 	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
-	top_bar.offset_left = 0.0 if from_the_left > 0.0 else _bar_sides_as_drawn.x
-	top_bar.offset_right = 0.0 if from_the_right > 0.0 else _bar_sides_as_drawn.y
+	top_bar.offset_left = 0.0 if to_the_left else _bar_sides_as_drawn.x
+	top_bar.offset_right = 0.0 if to_the_right else _bar_sides_as_drawn.y
 	# The row is moved by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its child
 	# out itself, so an offset set on the child is overwritten by the next layout. The distance is the scene's own
 	# margin, plus the distance the plate's own edge moved, plus what the device keeps - one side at a time, and
-	# `_the_row_moved_by` is the one statement of that sum.
-	if lifted:
+	# `_the_row_moved_by` is the one statement of that sum. **The distance the edge moved is handed in as a zero where
+	# it did not move**, which is what keeps a desk's row, and the row of a side the device keeps nothing on, exactly
+	# where the scene drew it.
+	if reached:
 		top_bar.add_theme_stylebox_override(
 			&"panel",
 			ChromeStyleScript.bar_plate(
 				plate_as_drawn,
-				plate_as_drawn.content_margin_top + _the_row_moved_by(down, _bar_offsets_as_drawn.x),
-				plate_as_drawn.content_margin_left + _the_row_moved_by(from_the_left, _bar_sides_as_drawn.x),
-				plate_as_drawn.content_margin_right + _the_row_moved_by(from_the_right, -_bar_sides_as_drawn.y),
+				plate_as_drawn.content_margin_top
+				+ _the_row_moved_by(down, _bar_offsets_as_drawn.x if to_the_top else 0.0),
+				plate_as_drawn.content_margin_left
+				+ _the_row_moved_by(from_the_left, _bar_sides_as_drawn.x if to_the_left else 0.0),
+				plate_as_drawn.content_margin_right
+				+ _the_row_moved_by(from_the_right, -_bar_sides_as_drawn.y if to_the_right else 0.0),
+				corner,
 			),
 		)
 		top_bar.set_meta(&"row_lifted", true)
@@ -1949,18 +1973,17 @@ func lift_the_top_bar_by(band: Vector4i) -> void:
 		top_bar.remove_meta(&"row_lifted")
 
 
-## How far the row inside the bar is moved along **one axis** by the band the device keeps on that side.
+## How far the row inside the bar is moved along **one axis**: the band the device keeps on that side, plus the
+## distance the plate's own edge moved on it.
 ##
-## **Two figures rather than the band alone, because the plate's own edge has moved as well.** Where the device
-## keeps something on a side, the plate runs to that screen's edge and the distance it moved is what the row must
-## be given beside the band - the scene's own inset is no longer the plate's inset, because the plate no longer
-## starts where the scene drew it. Where the device keeps nothing the plate has not moved and the row keeps exactly
-## the scene's own inset, which is why the answer is zero and not the offset: a desk, and a side a phone keeps
-## nothing on, are handed the bar the scene drew, to the pixel. Written once because three sides of the same lift
-## ask it and a fourth answer that rounded the other way would be one fact in two places.
+## **Two figures, and the second is handed in as a zero when the plate has not moved** - which is why nothing at all
+## is the answer for a desk, rather than the scene's own inset. The plate's own edge moves for either of two reasons:
+## a band along that side, or a glass that rounds its corner at it, where the plate runs to the screen's own edge and
+## a row left where the plate's new edge put it would ride up or across with the plate. Both are the caller's reading,
+## so both are the caller's arguments: `Hud` hands the distance it actually moved the edge by, and a side it moved
+## nothing on is handed a zero. Written once because three sides of the same lift ask it and a fourth answer that
+## rounded the other way would be one fact in two places.
 static func _the_row_moved_by(band: float, the_plate_moved: float) -> float:
-	if band <= 0.0:
-		return 0.0
 	return band + the_plate_moved
 
 

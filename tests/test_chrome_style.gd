@@ -16,6 +16,10 @@ const LIFTED_BY := 131.0
 ## The ground a lifted bar hands the plate on **one side**: what a phone held sideways keeps for its camera, in
 ## the room's own pixels (measured on the A16W lying down, 100 px of the display is 62 px of the room).
 const ACROSS := 62.0
+## The radius a display that rounds its corners hands the bar, in the room's own pixels: the A16W's own 118 px of a
+## 1080 by 2340 glass, which is 73 px of the 1444-wide room it is lying in (its own report, `RoundedCorner{...
+## radius=118 ...}`, read with `adb shell dumpsys window displays`).
+const ROUNDED := 73
 
 
 ## The plate the scene draws, and the numbers this file states for the case it cannot read one. They are the same
@@ -70,6 +74,43 @@ func test_the_phone_plate_is_the_scenes_look_with_the_row_lifted() -> void:
 	assert(
 		plate.get_script() == ChromeStyleScript.FancyScript,
 		"and the plate is the addon's own stylebox, which is the only one here that can stack a rule",
+	)
+
+
+## **The two corners the bar stands in the glass's own corner wear the glass's own radius**, and the two at its foot
+## keep the scene's. The glass rounds those corners away, so a plate whose own curve was narrower there would simply
+## be cut by the display, and one whose curve was wider would leave a sliver of bare board in a corner the bar is
+## meant to cover - which is the fault this plate is here to cure rather than cause.
+##
+## A zero is the whole of the look the scene drew, which is why every other test in this file still asks for this
+## plate with four arguments: a desk, and a display that rounds nothing, are handed nothing to do.
+func test_the_bar_plate_wears_the_glasss_corner_only_where_it_meets_it() -> void:
+	var drawn: StyleBoxFlat = _the_scenes_plate()
+	var plate: StyleBox = ChromeStyleScript.bar_plate(
+		drawn,
+		LIFTED_BY,
+		drawn.content_margin_left + ACROSS,
+		drawn.content_margin_right,
+		ROUNDED,
+	)
+	assert(
+		int(plate.get(&"corner_radius_top_left")) == ROUNDED and int(plate.get(&"corner_radius_top_right")) == ROUNDED,
+		"both corners the glass rounds are the glass's own radius: %s" % str(plate.get(&"corner_radius_top_left")),
+	)
+	assert(
+		int(plate.get(&"corner_radius_bottom_left")) == drawn.corner_radius_bottom_left
+		and int(plate.get(&"corner_radius_bottom_right")) == drawn.corner_radius_bottom_right,
+		"and the two at its foot, out on the board, are the scene's: %s" % str(plate.get(&"corner_radius_bottom_left")),
+	)
+	var plain: StyleBox = ChromeStyleScript.bar_plate(
+		drawn,
+		LIFTED_BY,
+		drawn.content_margin_left + ACROSS,
+		drawn.content_margin_right,
+	)
+	assert(
+		int(plain.get(&"corner_radius_top_left")) == drawn.corner_radius_top_left,
+		"and a display that rounds nothing leaves every corner exactly as the scene drew it",
 	)
 
 

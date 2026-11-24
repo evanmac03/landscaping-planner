@@ -60,15 +60,43 @@ const ANTI_ALIASING_SIZE := 1.0
 ## room's first 62 px, so the row was under the camera and a thumb aimed at `Menu` met the system. The caller knows
 ## every one of those figures, because it is the caller that read the display and moved the bar; this file only
 ## draws, and it states no inset of its own.
-static func bar_plate(drawn: StyleBox, content_top: float, content_left: float, content_right: float) -> StyleBox:
+##
+## **The fifth argument is the corner the display rounds, and a zero leaves the look exactly as the scene drew it.**
+## Where the bar runs to the glass's own edges its two top corners stand *in* the display's rounded corner, and the
+## radius there is the display's own figure rather than the scene's eight: a plate whose own curve was wider than the
+## glass's would leave a sliver of bare board in a corner the bar is meant to cover, and one whose curve was narrower
+## would simply be cut by the glass. Stating the display's radius makes the two curves the same curve, which is what
+## a person sees as a bar that follows the screen. A desk, and a display that rounds nothing, hand in nothing.
+static func bar_plate(
+	drawn: StyleBox,
+	content_top: float,
+	content_left: float,
+	content_right: float,
+	corner: int = 0,
+) -> StyleBox:
 	var plate: Variant = _plate_from(drawn)
 	# The row's insets are the ones the caller states, and they are set **after** the scene's, or the scene's would
 	# win - which is what makes the same call put the row back where the scene drew it when there is no band.
 	plate.content_margin_top = content_top
 	plate.content_margin_left = content_left
 	plate.content_margin_right = content_right
+	_add_the_round_to_the_top_corners(plate, corner)
 	_add_the_full_rule(plate)
 	return plate as StyleBox
+
+
+## **The corners the plate meets the glass at, which the glass itself decides.** The bar's own two top corners are
+## the only ones it has standing in a screen corner - its foot is out on the board - so those are the two this
+## rounds, and the scene's own radius is **replaced** rather than raised: the eight px was this program's statement
+## about a pane lying in the middle of a board, and inside the display's own rounded corner the glass's figure is the
+## one that is true.
+##
+## A zero draws nothing here and leaves every corner exactly as `_plate_from` read it, which is the whole of the desk.
+static func _add_the_round_to_the_top_corners(plate: Variant, corner: int) -> void:
+	if corner <= 0:
+		return
+	plate.corner_radius_top_left = corner
+	plate.corner_radius_top_right = corner
 
 
 ## A plate anchored to the foot of the screen: `TouchDock` under a finger, and the sheets that open over it.

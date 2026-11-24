@@ -33,20 +33,14 @@ const BlankPictureScript := preload("res://scripts/blank_picture.gd")
 ## The phone this program is aimed at, as its own report states it: the glass, its camera cut into the top 100 px,
 ## and the density its panel is measured at. **All three go together** - a stated screen on a desk that is not also
 ## told its density answers nothing at all, because `on_a_finger_here` asks a touchscreen *and* a dense panel.
-## **The glass and the usable rectangle, for each way up the board can be held.**
 ##
-## Every number here was read off the A16W's own block rather than derived: standing it reports 1080 by 2340 with
-## the cutout at the top (`display l=0 t=100`), and lying it reports 2340 by 1080 with the cutout turned to the
-## **left** (`display l=100 t=0`, the same 100 px the notch is worth, now standing at the left edge). The usable
-## rectangle is the whole glass less that inset, which is the shape `PhoneHud.force_display` takes.
-##
-## The *room* is not here, because it is the program's own arithmetic and not a statement: a window of the lying
-## glass with the project's own stretch gives 1444 by 666, which is exactly what the device reports (`scale=1.62`,
-## being min(2340/1600, 1080/900) * 1.35) - so both ways up are reproduced from the display alone.
-const SHAPES: Dictionary = {
-	"standing": { "glass": Vector2i(1080, 2340), "usable": Rect2i(0, 100, 1080, 2240) },
-	"lying": { "glass": Vector2i(2340, 1080), "usable": Rect2i(100, 0, 2240, 1080) },
-}
+## **The glass and its usable rectangle are `PhoneHud.MEASURED_SCREENS`' own now, and they used to be a table here.**
+## Two tools ask for an A16W and a third was about to: `tools/phone_workspace.gd` stands the phone's own screen on
+## this desk, and this file photographs one. A copy of the device in each of them is three statements free to
+## disagree about what a phone is, so the numbers live with the other two things a device is *told* about itself -
+## `KEPT_FEET` and `ROUNDED_CORNERS`. **The room is not there and never was**: it is the program's own arithmetic
+## from the glass and the project's stretch - 1080 by 2340 gives 1185 by 2567, and 2340 by 1080 gives 1444 by 666 -
+## which is why both are reproduced from the display alone.
 const PHONE_DPI := 450.0
 
 ## The verbs this tool has. Everything after a verb is its own value, and a value here never begins with `--`.
@@ -81,11 +75,16 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	# **Which way up the board is being asked about**, from the line: `--lying` states the phone on its side, and
-	# standing is what silence means. The glass and the usable rectangle come from the one table, because a display
-	# stated half one way up and half the other is exactly the lie that taking both halves avoids.
-	var place: Dictionary = SHAPES[shape_from(asked)]
-	_glass = place["glass"]
-	_usable = place["usable"]
+	# standing is what silence means. The glass and the usable rectangle come from `PhoneHud`'s own table of the
+	# device - and a shape it does not name hands back a glass of nothing, which is the honest answer rather than a
+	# rectangle nobody measured.
+	var shape: String = shape_from(asked)
+	_glass = PhoneHudScript.measured_glass(shape)
+	_usable = PhoneHudScript.measured_usable(shape)
+	if _glass == Vector2i.ZERO:
+		print("PHONE SCREEN: %s is not a shape this project has measured, so there is no glass to state" % shape)
+		get_tree().quit(1)
+		return
 	_state_the_device()
 
 	_phone = Window.new()
