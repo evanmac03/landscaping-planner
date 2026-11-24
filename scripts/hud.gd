@@ -145,6 +145,7 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunWindowScript := preload("res://scripts/sun_window.gd")
+const ModelAdvisorWindowScript := preload("res://scripts/model_advisor_window.gd")
 const WalkWindowScript := preload("res://scripts/walk_window.gd")
 const SnapWindowScript := preload("res://scripts/snap_window.gd")
 const StatusWindowScript := preload("res://scripts/status_window.gd")
@@ -626,6 +627,11 @@ var _yield_state: String = ""
 ## The study of the sun: a list of moments, and what the height in hand casts at each. A window,
 ## because the height is typed and the study is built out of the fields.
 var _sun_window: SunWindowScript = null
+
+## Whether this machine can carry the model that reads a plant off a photograph, and where to put one
+## if it cannot. A window, because the reading is taken again by hand and the steps are read at length
+## rather than glanced at.
+var _model_advisor_window: ModelAdvisorWindowScript = null
 ## The walk-through: the places a client is shown, and the clock that walks the presentation camera
 ## through them. A window, because the walk is played from it and the camera belongs to the scene.
 var _walk_window: WalkWindowScript = null
@@ -822,6 +828,9 @@ func _ready() -> void:
 	_build_analytics_window()
 	# The sun's study: a window, because the height it reports about is typed into it.
 	_build_sun_window()
+	# Whether this machine can carry the model that reads a plant off a photograph. Built here so the
+	# page is in `pages_in_windows()` before the Escape pass runs over it.
+	_build_model_advisor_window()
 	# The walk-through: a window, because the walk is played from it and it holds the clock.
 	_build_walk_window()
 	# Snapping: a window, because the settings are switches and the legend has no room for them.
@@ -3389,6 +3398,7 @@ func pages_in_windows() -> Array[Window]:
 		_sowing_window,
 		_yield_window,
 		_sun_window,
+		_model_advisor_window,
 		_walk_window,
 		_snap_window,
 		_status_window,
@@ -7097,6 +7107,48 @@ func start_the_presentation_panel_for(finger: bool) -> void:
 
 func _menu_sun_window(_entry: Dictionary) -> void:
 	open_sun_window()
+
+
+## Build the page. Nothing about the drawing is needed to fill it: what it weighs a model against is the
+## machine this program is running on, which is a fact about neither the plan nor the plant list.
+func _build_model_advisor_window() -> void:
+	if _model_advisor_window != null:
+		return
+	_model_advisor_window = ModelAdvisorWindowScript.new()
+	_model_advisor_window.name = "ModelAdvisorWindow"
+	_model_advisor_window.closed.connect(_on_model_advisor_window_closed)
+	add_child(_model_advisor_window)
+	_model_advisor_window.build()
+	_model_advisor_window.hide()
+
+
+func open_model_advisor() -> void:
+	_build_model_advisor_window()
+	if _model_advisor_window == null:
+		return
+	# The reading is taken as the page opens rather than when it was built: free memory is what a model
+	# has to fit into, and a reading taken at launch is a reading from before somebody started another
+	# program. The page's own button is for the second reading, taken while a person is reading it.
+	_model_advisor_window.scan()
+	PageChromeScript.show_centred(_model_advisor_window)
+	release_keyboard_focus(self)
+
+
+func close_model_advisor() -> void:
+	if _model_advisor_window != null and _model_advisor_window.visible:
+		_model_advisor_window.hide()
+
+
+func is_model_advisor_open() -> bool:
+	return _model_advisor_window != null and _model_advisor_window.visible
+
+
+func _on_model_advisor_window_closed() -> void:
+	_refresh_menus()
+
+
+func _menu_model_advisor(_entry: Dictionary) -> void:
+	open_model_advisor()
 
 
 func _on_sun_window_closed() -> void:

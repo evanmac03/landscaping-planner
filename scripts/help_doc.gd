@@ -47,6 +47,7 @@ const SUBJECTS: Array[String] = [
 	"Tracing over a picture",
 	"What is on site: the field survey",
 	"Reading a photograph",
+	"Finding a model for this device",
 	"What is around me on site",
 	"Identifying a plant by answering questions",
 	"The leaves a list states",
@@ -113,6 +114,7 @@ const SECTIONS: Array[Dictionary] = [
 			"Tracing over a picture",
 			"What is on site: the field survey",
 			"Reading a photograph",
+			"Finding a model for this device",
 			"What is around me on site",
 		],
 	},
@@ -164,6 +166,7 @@ const SECTIONS: Array[Dictionary] = [
 ## sow, how much to plant, and the order that comes out of it - so each points at the next, and a reader
 ## who came in at the middle can walk it either way.
 const SEE_ALSO: Dictionary = {
+	"Finding a model for this device": ["Reading a photograph"],
 	"Where you start: the front door": ["What this program is", "The three views"],
 	"The three views": ["A phone or a tablet", "Presenting the garden", "The sun and the shadows"],
 	"A phone or a tablet": ["The three views", "Where you start: the front door"],
@@ -807,6 +810,38 @@ static func _topics() -> Array[Dictionary]:
 				+ "questions that tell them apart. A reading of one plant is already a name, and a reading this "
 				+ "list cannot place leaves the key on the whole list - so the invitation is there only when there "
 				+ "is a choice to settle.",
+			],
+		)
+	)
+	out.append(
+		_topic(
+			"Finding a model for this device",
+			[
+				"Reading a plant off a photograph needs a vision model, and that model has to run "
+				+ "somewhere: on this machine, or on one beside it. This page is about which of those two is "
+				+ "the honest answer for the machine you are sitting at, and it reads the machine rather than "
+				+ "asking you questions about it - how much memory it has, how much of that is free right "
+				+ "now, how many processors, and what graphics card it carries.",
+				"",
+				"The answer is the machine's own. It says what to run, why that is the answer here, what "
+				+ "each model costs to download and to run, and which models it cannot carry with the reason "
+				+ "for each - and a model that does not fit says so in the terms of the thing that is short, "
+				+ "the memory or the disk, rather than as a refusal with no way forward.",
+				"",
+				"A machine with too little room is not told to give up: it is told where to put the model "
+				+ "instead, on a computer on the same Wi-Fi, with the steps to set that up. The smallest "
+				+ "model is offered as well, as an experiment that is expected to be killed, with a sentence "
+				+ "saying what that experiment costs you.",
+				"",
+				"The reading is taken again when you press Scan this machine again, because free memory is "
+				+ "the one fact on the page that changes while you read it - something else on the machine "
+				+ "can take it, and a model has to fit into what is free.",
+				"",
+				"What the page does not do is fetch or change anything. It does not download a model, it "
+				+ "does not install a runner, and it does not ask one what it already has: which models are "
+				+ "on a machine is that runner's own answer, and the address of one is put in the page that "
+				+ "reads the photograph. What it gives you is the steps to run, and the numbers to weigh "
+				+ "them against.",
 			],
 		)
 	)

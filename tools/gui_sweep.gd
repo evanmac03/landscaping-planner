@@ -72,6 +72,7 @@ const PAGES: Array[String] = [
 	"open_sync_window",
 	"open_grading_window",
 	"open_sun_window",
+	"open_model_advisor",
 	"open_layer_window",
 	"open_nearby_window",
 	"open_site_report",
