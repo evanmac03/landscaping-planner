@@ -50,16 +50,15 @@ var job_desk: JobDesk = null
 ## Every punch item, every job's, oldest first.
 var items: Array[PunchItem] = []
 ## One warranty per job, keyed by job id.
-var warranties: Dictionary = {}
+var warranties: Dictionary = { }
 ## The history of hand-over dates, keyed by job id: one entry per statement, oldest first, each
 ## `{at, by, why}`. The **current** date is the last of them, and the earlier ones are what says a
 ## date was moved and why.
-var completions: Dictionary = {}
+var completions: Dictionary = { }
 
 
 func bind(jobs: JobDesk) -> void:
 	job_desk = jobs
-
 
 # --- the punch list --------------------------------------------------------------------------
 
@@ -70,48 +69,50 @@ func bind(jobs: JobDesk) -> void:
 ## The trade is the last argument because it is the only one that can be blank: an item with nobody
 ## named to put it right is our own crew's, which is a real answer, while an item with no place, no
 ## description, no date or nobody to ask is not an item at all.
-func raise_item(job_id: String, where: String, what: String, by: String, at: String,
-		who: String = "") -> Dictionary:
+func raise_item(job_id: String, where: String, what: String, by: String, at: String, who: String = "") -> Dictionary:
 	var no_job: String = _job_problem(job_id)
 	if not no_job.is_empty():
-		return {"ok": false, "reason": no_job, "id": ""}
+		return { "ok": false, "reason": no_job, "id": "" }
 	var held_item: PunchItem = ItemScript.make(next_item_id(), job_id, at, where, what, by)
 	if held_item == null:
-		return {"ok": false, "reason": _item_refusal(where, what, by, at), "id": ""}
+		return { "ok": false, "reason": _item_refusal(where, what, by, at), "id": "" }
 	held_item.who = who.strip_edges()
 	items.append(held_item)
-	return {"ok": true, "reason": "", "id": held_item.id}
+	return { "ok": true, "reason": "", "id": held_item.id }
 
 
 func fix_item(item_id: String, at: String, note: String = "") -> Dictionary:
 	var held_item: PunchItem = item(item_id)
 	if held_item == null:
-		return {"ok": false, "reason": "there is no item %s" % item_id}
+		return { "ok": false, "reason": "there is no item %s" % item_id }
 	if not held_item.mark_fixed(at, note):
-		return {"ok": false, "reason": _act_refusal(held_item, "fixed", at)}
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": _act_refusal(held_item, "fixed", at) }
+	return { "ok": true, "reason": "" }
 
 
 func accept_item(item_id: String, by: String, at: String) -> Dictionary:
 	var held_item: PunchItem = item(item_id)
 	if held_item == null:
-		return {"ok": false, "reason": "there is no item %s" % item_id}
+		return { "ok": false, "reason": "there is no item %s" % item_id }
 	if not held_item.mark_accepted(by, at):
 		if held_item.is_fixed():
-			return {"ok": false, "reason": _nobody_or_moment("checking", by, at)}
-		return {"ok": false, "reason": "'%s' is %s, so there is nothing to check" % [item_id, held_item.state_name()]}
-	return {"ok": true, "reason": ""}
+			return { "ok": false, "reason": _nobody_or_moment("checking", by, at) }
+		return { "ok": false, "reason": "'%s' is %s, so there is nothing to check" % [item_id, held_item.state_name()] }
+	return { "ok": true, "reason": "" }
 
 
 func reject_item(item_id: String, by: String, at: String, why: String) -> Dictionary:
 	var held_item: PunchItem = item(item_id)
 	if held_item == null:
-		return {"ok": false, "reason": "there is no item %s" % item_id}
+		return { "ok": false, "reason": "there is no item %s" % item_id }
 	if not held_item.mark_rejected(by, at, why):
 		if held_item.is_fixed():
-			return {"ok": false, "reason": _nobody_or_reason("rejecting", by, why, at)}
-		return {"ok": false, "reason": "'%s' is %s, so there is nothing to reject" % [item_id, held_item.state_name()]}
-	return {"ok": true, "reason": ""}
+			return { "ok": false, "reason": _nobody_or_reason("rejecting", by, why, at) }
+		return {
+			"ok": false,
+			"reason": "'%s' is %s, so there is nothing to reject" % [item_id, held_item.state_name()],
+		}
+	return { "ok": true, "reason": "" }
 
 
 ## Take an item off the list: raised in error, or agreed with the client to be left as it is. It
@@ -119,12 +120,15 @@ func reject_item(item_id: String, by: String, at: String, why: String) -> Dictio
 func withdraw_item(item_id: String, by: String, at: String, why: String) -> Dictionary:
 	var held_item: PunchItem = item(item_id)
 	if held_item == null:
-		return {"ok": false, "reason": "there is no item %s" % item_id}
+		return { "ok": false, "reason": "there is no item %s" % item_id }
 	if not held_item.mark_withdrawn(by, at, why):
 		if held_item.is_closed() or held_item.is_withdrawn():
-			return {"ok": false, "reason": "'%s' is %s, and it cannot be taken off again" % [item_id, held_item.state_name()]}
-		return {"ok": false, "reason": _nobody_or_reason("withdrawing", by, why, at)}
-	return {"ok": true, "reason": ""}
+			return {
+				"ok": false,
+				"reason": "'%s' is %s, and it cannot be taken off again" % [item_id, held_item.state_name()],
+			}
+		return { "ok": false, "reason": _nobody_or_reason("withdrawing", by, why, at) }
+	return { "ok": true, "reason": "" }
 
 
 func item(item_id: String) -> PunchItem:
@@ -161,7 +165,6 @@ func next_item_id() -> String:
 				highest = maxi(highest, tail.to_int())
 	return "%s%d" % [ITEM_PREFIX, highest + 1]
 
-
 # --- the hand-over date ----------------------------------------------------------------------
 
 
@@ -170,19 +173,19 @@ func next_item_id() -> String:
 func state_completion(job_id: String, at: String, by: String, why: String = "") -> Dictionary:
 	var no_job: String = _job_problem(job_id)
 	if not no_job.is_empty():
-		return {"ok": false, "reason": no_job}
+		return { "ok": false, "reason": no_job }
 	if by.strip_edges().is_empty():
-		return {"ok": false, "reason": "a date of substantial completion needs somebody to state it"}
+		return { "ok": false, "reason": "a date of substantial completion needs somebody to state it" }
 	if not RateScript.is_date(at):
-		return {"ok": false, "reason": "'%s' is not a date this program writes" % at}
+		return { "ok": false, "reason": "'%s' is not a date this program writes" % at }
 	var history: Array = completions.get(job_id, [])
 	if not history.is_empty() and why.strip_edges().is_empty():
-		return {"ok": false, "reason": "the date is already stated; moving it needs a reason"}
-	var entry := {"at": at, "by": by.strip_edges(), "why": why.strip_edges()}
+		return { "ok": false, "reason": "the date is already stated; moving it needs a reason" }
+	var entry := { "at": at, "by": by.strip_edges(), "why": why.strip_edges() }
 	var kept: Array = history.duplicate()
 	kept.append(entry)
 	completions[job_id] = kept
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## The date now in force, or "".
@@ -208,32 +211,30 @@ func completion_history(job_id: String) -> Array[Dictionary]:
 			out.append(entry)
 	return out
 
-
 # --- the warranty -----------------------------------------------------------------------------
 
 
 ## State, or correct, a job's warranty. Refused for a job this desk does not have, for a term nobody
 ## can read, and for a job whose garden has not been handed over - a warranty starts at completion,
 ## so there is no such thing as one before it.
-func state_warranty(job_id: String, parts: Array, months: int, starts_on: String,
-		excludes: Array = []) -> Dictionary:
+func state_warranty(job_id: String, parts: Array, months: int, starts_on: String, excludes: Array = []) -> Dictionary:
 	var no_job: String = _job_problem(job_id)
 	if not no_job.is_empty():
-		return {"ok": false, "reason": no_job}
+		return { "ok": false, "reason": no_job }
 	if completed_on(job_id).strip_edges().is_empty():
-		return {"ok": false, "reason": "the garden has not been handed over yet, so nothing has started"}
+		return { "ok": false, "reason": "the garden has not been handed over yet, so nothing has started" }
 	var record: Warranty = warranty_for(job_id)
 	if record == null:
 		record = WarrantyScript.new(job_id)
 		if not record.set_term(parts, months, starts_on):
-			return {"ok": false, "reason": _term_refusal(parts, months, starts_on)}
+			return { "ok": false, "reason": _term_refusal(parts, months, starts_on) }
 		record.excludes = _lines(excludes)
 		warranties[job_id] = record
-		return {"ok": true, "reason": ""}
+		return { "ok": true, "reason": "" }
 	if not record.set_term(parts, months, starts_on):
-		return {"ok": false, "reason": _term_refusal(parts, months, starts_on)}
+		return { "ok": false, "reason": _term_refusal(parts, months, starts_on) }
 	record.excludes = _lines(excludes)
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 func warranty_for(job_id: String) -> Warranty:
@@ -252,41 +253,48 @@ func has_warranty(job_id: String) -> bool:
 func file_claim(job_id: String, at: String, what: String, by: String) -> Dictionary:
 	var record: Warranty = warranty_for(job_id)
 	if record == null:
-		return {"ok": false, "reason": "%s has no warranty yet, so there is nothing to claim against" % _job_words(job_id), "id": ""}
+		return {
+			"ok": false,
+			"reason": "%s has no warranty yet, so there is nothing to claim against" % _job_words(job_id),
+			"id": "",
+		}
 	if not RateScript.is_date(at) or what.strip_edges().is_empty() or by.strip_edges().is_empty():
-		return {"ok": false, "reason": _claim_refusal(at, what, by), "id": ""}
+		return { "ok": false, "reason": _claim_refusal(at, what, by), "id": "" }
 	var filed: WarrantyClaim = record.file_claim(at, what, by)
 	if filed == null:
-		return {"ok": false, "reason": "%s's warranty cannot be read, so a claim cannot be judged against it" % _job_words(job_id), "id": ""}
-	return {"ok": true, "reason": "", "id": filed.id}
+		return {
+			"ok": false,
+			"reason": "%s's warranty cannot be read, so a claim cannot be judged against it" % _job_words(job_id),
+			"id": "",
+		}
+	return { "ok": true, "reason": "", "id": filed.id }
 
 
 ## Answer a claim: covered or not, with the reason either way.
-func answer_claim(job_id: String, claim_id: String, by: String, at: String, covered: bool,
-		why: String) -> Dictionary:
+func answer_claim(job_id: String, claim_id: String, by: String, at: String, covered: bool, why: String) -> Dictionary:
 	var record: Warranty = warranty_for(job_id)
 	if record == null or record.claim(claim_id) == null:
-		return {"ok": false, "reason": "there is no claim %s against %s" % [claim_id, _job_words(job_id)]}
+		return { "ok": false, "reason": "there is no claim %s against %s" % [claim_id, _job_words(job_id)] }
 	if not record.answer_claim(claim_id, by, at, covered, why):
 		if record.claim(claim_id).is_answered():
-			return {"ok": false, "reason": "claim %s is already answered" % claim_id}
-		return {"ok": false, "reason": _nobody_or_reason("answering", by, why, at)}
-	return {"ok": true, "reason": ""}
+			return { "ok": false, "reason": "claim %s is already answered" % claim_id }
+		return { "ok": false, "reason": _nobody_or_reason("answering", by, why, at) }
+	return { "ok": true, "reason": "" }
 
 
 ## The work, on a claim that is covered.
 func finish_claim(job_id: String, claim_id: String, at: String, note: String = "") -> Dictionary:
 	var record: Warranty = warranty_for(job_id)
 	if record == null or record.claim(claim_id) == null:
-		return {"ok": false, "reason": "there is no claim %s against %s" % [claim_id, _job_words(job_id)]}
+		return { "ok": false, "reason": "there is no claim %s against %s" % [claim_id, _job_words(job_id)] }
 	if not record.finish_claim(claim_id, at, note):
 		var held_claim: WarrantyClaim = record.claim(claim_id)
 		if not held_claim.is_answered():
-			return {"ok": false, "reason": "claim %s has not been answered yet" % claim_id}
+			return { "ok": false, "reason": "claim %s has not been answered yet" % claim_id }
 		if not held_claim.covered:
-			return {"ok": false, "reason": "claim %s is not covered, so there is nothing to do" % claim_id}
-		return {"ok": false, "reason": "claim %s wants a date it was done on" % claim_id}
-	return {"ok": true, "reason": ""}
+			return { "ok": false, "reason": "claim %s is not covered, so there is nothing to do" % claim_id }
+		return { "ok": false, "reason": "claim %s wants a date it was done on" % claim_id }
+	return { "ok": true, "reason": "" }
 
 
 func claim_rows(job_id: String) -> Array[Dictionary]:
@@ -295,7 +303,6 @@ func claim_rows(job_id: String) -> Array[Dictionary]:
 	if record == null:
 		return empty
 	return record.claim_rows()
-
 
 # --- the answer a page asks for ---------------------------------------------------------------
 
@@ -306,9 +313,7 @@ func report(job_id: String, as_of: String = "") -> Closeout:
 	var contracted: Job = _job(job_id)
 	if contracted == null:
 		return null
-	return CloseoutScript.of(
-		contracted, items, warranty_for(job_id), completed_on(job_id), as_of
-	)
+	return CloseoutScript.of(contracted, items, warranty_for(job_id), completed_on(job_id), as_of)
 
 
 ## The jobs this desk has anything to say about: a punch item, a hand-over date or a warranty.
@@ -383,7 +388,6 @@ func problems() -> Array[String]:
 			out.append(bad)
 	return out
 
-
 # --- what the desk is, in a file ---------------------------------------------------------------
 
 
@@ -391,15 +395,15 @@ func to_dict() -> Dictionary:
 	var held: Array[Dictionary] = []
 	for record: PunchItem in items:
 		held.append(record.to_dict())
-	var stated := {}
+	var stated := { }
 	for key: Variant in warranties:
 		var record: Warranty = warranty_for(String(key))
 		if record != null:
 			stated[String(key)] = record.to_dict()
-	var dates := {}
+	var dates := { }
 	for key: Variant in completions:
 		dates[String(key)] = completion_history(String(key))
-	return {"items": held, "warranties": stated, "completions": dates}
+	return { "items": held, "warranties": stated, "completions": dates }
 
 
 static func from_dict(data: Dictionary) -> CloseoutDesk:
@@ -409,13 +413,13 @@ static func from_dict(data: Dictionary) -> CloseoutDesk:
 		for entry: Variant in held:
 			if entry is Dictionary:
 				desk.items.append(ItemScript.from_dict(entry))
-	var stated: Variant = data.get("warranties", {})
+	var stated: Variant = data.get("warranties", { })
 	if stated is Dictionary:
 		for key: Variant in stated:
 			var body: Variant = stated[key]
 			if body is Dictionary:
 				desk.warranties[String(key)] = WarrantyScript.from_dict(body)
-	var dates: Variant = data.get("completions", {})
+	var dates: Variant = data.get("completions", { })
 	if dates is Dictionary:
 		for key: Variant in dates:
 			var body: Variant = dates[key]
@@ -426,7 +430,6 @@ static func from_dict(data: Dictionary) -> CloseoutDesk:
 						history.append(entry)
 				desk.completions[String(key)] = history
 	return desk
-
 
 # --- the words a refusal uses ------------------------------------------------------------------
 
@@ -487,9 +490,7 @@ func _term_refusal(parts: Array, months: int, starts_on: String) -> String:
 			WarrantyScript.PARTS
 		)
 	if months < 1 or months > WarrantyScript.MAX_MONTHS:
-		return "a warranty runs for between 1 and %d months, and %d was asked for" % [
-			WarrantyScript.MAX_MONTHS, months,
-		]
+		return "a warranty runs for between 1 and %d months, and %d was asked for" % [WarrantyScript.MAX_MONTHS, months]
 	return "'%s' is not a date this program writes" % starts_on
 
 

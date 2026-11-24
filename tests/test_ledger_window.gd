@@ -1,11 +1,13 @@
 extends Node
 ## The outbox on a page: what it shows, what its buttons do, and what it refuses to do (spec §9.7).
 ##
-## The properties under test. **Nothing on the page takes the keyboard** beyond the typed fields, which
-## is the rule every page in this project obeys. **A row carries a Post button only while the queue can
-## still send it** - a delivered document has no button, because posting it again is not an action. **A
-## run reports what it did**, including when it did nothing. And **the page decides nothing**: every
-## line and every list is the desk's own, and the settings it shows are the backend's own declaration.
+## The properties under test. **The page builds every button without a keyboard of its own**, the typed
+## fields being the only controls that keep one - the rule every page in this project obeys, and what an
+## *open* page does with the keyboard is decided once by the shared show. **A row carries a Post button
+## only while the queue can still send it** - a delivered document has no button, because posting it
+## again is not an action. **A run reports what it did**, including when it did nothing. And **the page
+## decides nothing**: every line and every list is the desk's own, and the settings it shows are the
+## backend's own declaration.
 
 const WindowScript := preload("res://scripts/ledger_window.gd")
 const DeskScript := preload("res://scripts/biz/ledger_desk.gd")
@@ -18,7 +20,6 @@ const MoneyScript := preload("res://scripts/biz/money.gd")
 
 const TEST_FOLDER := "user://test_ledger_window"
 const CLIENT := "Wpmbk5ezJn"
-
 
 # --- fixtures -----------------------------------------------------------------------------------
 
@@ -46,37 +47,43 @@ func _page(desk: DeskScript) -> WindowScript:
 func _invoice(number: String = "INV-2026-0001") -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV-%s" % number)
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "external_id": CLIENT}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(53550), &"HARDSCAPE", &"HST-ON")
+	invoice.customer = { "name": "Smith", "external_id": CLIENT }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(53550),
+		&"HARDSCAPE",
+		&"HST-ON",
+	)
 	assert(bool(invoice.issue("2026-06-10", 30, number)["ok"]))
 	return invoice
 
 
 func _answered(push: PushScript, status: int, body: Dictionary) -> bool:
-	var response: Dictionary = {"status": status, "body": body}
+	var response: Dictionary = { "status": status, "body": body }
 	return push.record_response(response, AdapterScript.new().parse_common(response), "2026-06-12")
-
 
 # --- the page itself ----------------------------------------------------------------------------
 
 
 func test_the_page_has_the_controls_a_page_about_a_ledger_has() -> void:
 	var page := _page(_desk())
-	assert(page.get_node_or_null(^"Column/Summary") != null)
-	assert(page.get_node_or_null(^"Column/BackendRow/BackendOption") != null)
-	assert(page.get_node_or_null(^"Column/BackendRow/Saveitssettings") != null)
-	assert(page.get_node_or_null(^"Column/BackendRow/Testit") != null)
-	assert(page.get_node_or_null(^"Column/RunRow/Handovereverythingwaiting") != null)
-	assert(page.get_node_or_null(^"Column/Rows") != null)
-	assert(page.get_node_or_null(^"Column/Disagreements") != null)
-	assert(page.get_node_or_null(^"Column/Problems") != null)
-	assert(page.get_node_or_null(^"Column/Status") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Summary") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/BackendRow/BackendOption") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/BackendRow/Saveitssettings") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/BackendRow/Testit") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/RunRow/Handovereverythingwaiting") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Rows") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Disagreements") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Problems") != null)
+	assert(page.get_node_or_null(^"Scroll/Column/Status") != null)
 	assert(page.title == "What has been handed to a ledger")
 	page.free()
 
 
-func test_nothing_on_the_page_takes_the_keyboard() -> void:
+func test_the_page_builds_its_buttons_without_a_keyboard_of_their_own() -> void:
 	var desk := _desk()
 	desk.queue_invoice(_invoice())
 	var page := _page(desk)
@@ -84,10 +91,31 @@ func test_nothing_on_the_page_takes_the_keyboard() -> void:
 	page.free()
 
 
+## A row the page builds **while it is open** is reachable too. The shared show gave the page its
+## keyboard when it was opened, before any row existed, so the rebuild is what gives the new controls
+## theirs - and the page does that only while it is up, because for a page that is down the show is the
+## one place that decides it.
+func test_a_row_built_while_the_page_is_open_is_reachable() -> void:
+	var desk := _desk()
+	var page := _page(desk)
+	add_child(page)
+	page.show()
+	desk.queue_invoice(_invoice("INV-2026-0001"))
+	page.refresh()
+	var row: Node = page.get_node(^"Scroll/Column/Rows").get_child(0)
+	var button: Button = row.get_node_or_null(^"Post")
+	assert(button != null, "the row was built with the button that posts it")
+	assert(button.focus_mode == Control.FOCUS_ALL, "and it can be reached with Tab")
+	page.free()
+
+
 func test_the_page_opens_saying_what_to_do_with_it() -> void:
 	var empty := _page(_desk())
-	assert(empty.status_text() == "Nothing has been handed to a ledger yet: an invoice raised on the "
-		+ "billing page can be.", empty.status_text())
+	assert(
+		empty.status_text()
+		== "Nothing has been handed to a ledger yet: an invoice raised on the " + "billing page can be.",
+		empty.status_text(),
+	)
 	empty.free()
 	var waiting: DeskScript = _desk()
 	waiting.queue_invoice(_invoice())
@@ -130,7 +158,6 @@ func test_a_page_with_no_ledger_is_empty_rather_than_broken() -> void:
 	assert(other.status_text() == "Pick the ledger documents should be handed to.", other.status_text())
 	other.free()
 
-
 # --- which ledger --------------------------------------------------------------------------------
 
 
@@ -138,7 +165,7 @@ func test_the_backend_picker_lists_the_desks_own_backends() -> void:
 	var desk := _desk()
 	desk.add_adapter(NinjaScript.new("https://ninja.example.test", "token"))
 	var page := _page(desk)
-	var picker: OptionButton = page.get_node(^"Column/BackendRow/BackendOption")
+	var picker: OptionButton = page.get_node(^"Scroll/Column/BackendRow/BackendOption")
 	assert(picker.item_count == 2)
 	assert(picker.get_item_text(0).begins_with("file"), picker.get_item_text(0))
 	assert(picker.get_item_text(1).begins_with("invoice_ninja"), picker.get_item_text(1))
@@ -151,7 +178,7 @@ func test_a_backend_that_needs_configuring_says_so_in_the_picker() -> void:
 	var desk := _desk()
 	desk.add_adapter(NinjaScript.new())
 	var page := _page(desk)
-	var picker: OptionButton = page.get_node(^"Column/BackendRow/BackendOption")
+	var picker: OptionButton = page.get_node(^"Scroll/Column/BackendRow/BackendOption")
 	assert(picker.get_item_text(1).ends_with("(needs configuring)"), picker.get_item_text(1))
 	page.free()
 
@@ -182,7 +209,6 @@ func test_the_page_says_what_the_backend_can_do() -> void:
 	assert(page.backend_text().contains("0 document(s) for it in the outbox"), page.backend_text())
 	page.free()
 
-
 # --- the outbox ----------------------------------------------------------------------------------
 
 
@@ -199,7 +225,7 @@ func test_the_rows_on_the_page_are_the_desks_own_rows() -> void:
 
 func test_an_empty_outbox_says_so_rather_than_showing_nothing_at_all() -> void:
 	var page := _page(_desk())
-	assert(page.get_node(^"Column/Rows/NoRows").text == "the outbox is empty")
+	assert(page.get_node(^"Scroll/Column/Rows/NoRows").text == "the outbox is empty")
 	assert(page.summary_text() == "nothing has been handed to a ledger")
 	page.free()
 
@@ -210,12 +236,12 @@ func test_a_row_carries_a_post_button_only_while_the_queue_can_send_it() -> void
 	var sent: Dictionary = desk.queue_invoice(_invoice("INV-2026-0002"))
 	desk.post(sent["push"].key)
 	var stuck: Dictionary = desk.queue_invoice(_invoice("INV-2026-0003"))
-	_answered(stuck["push"], 401, {"message": "token expired"})
+	_answered(stuck["push"], 401, { "message": "token expired" })
 	var page := _page(desk)
 	# Three documents, one button: the one that is delivered is not an action to repeat, and the one the
 	# queue has given up on is not fixed by pressing it again.
 	assert(page.post_count() == 1, str(page.post_count()))
-	assert(page.get_node(^"Column/Rows").get_child(2).has_node("Words"))
+	assert(page.get_node(^"Scroll/Column/Rows").get_child(2).has_node("Words"))
 	page.free()
 
 
@@ -239,10 +265,15 @@ func test_a_post_that_did_not_go_says_what_happened() -> void:
 	var desk := _desk()
 	# A request the file backend cannot carry out: its transport is the disk and it writes, so a POST is
 	# refused rather than silently ignored, which is what makes a failure visible at all.
-	var push: PushScript = PushScript.for_document("file", AdapterScript.INVOICE_KIND,
-		"INV-1", "INV-2026-0001", "key-1",
-		AdapterScript.make_request(&"POST", "%s/INV-2026-0001.json" % TEST_FOLDER, {}, {"kind": "invoice"}),
-		"2026-06-12")
+	var push: PushScript = PushScript.for_document(
+		"file",
+		AdapterScript.INVOICE_KIND,
+		"INV-1",
+		"INV-2026-0001",
+		"key-1",
+		AdapterScript.make_request(&"POST", "%s/INV-2026-0001.json" % TEST_FOLDER, { }, { "kind": "invoice" }),
+		"2026-06-12",
+	)
 	desk.pushes.append(push)
 	var page := _page(desk)
 	var posted: Dictionary = page.post_one("key-1")
@@ -278,19 +309,27 @@ func test_handing_over_everything_waiting_says_what_it_did() -> void:
 func test_a_run_says_how_many_did_not_go_and_why() -> void:
 	var desk := _desk()
 	desk.queue_invoice(_invoice("INV-2026-0001"))
-	var orphan: PushScript = PushScript.for_document("invoice_ninja", AdapterScript.INVOICE_KIND,
-		"INV-9", "INV-2026-0009", "key-9",
-		AdapterScript.make_request(&"POST", "https://ninja.example.test/api/v1/invoices", {},
-			{"number": "INV-2026-0009"}),
-		"2026-06-12")
+	var orphan: PushScript = PushScript.for_document(
+		"invoice_ninja",
+		AdapterScript.INVOICE_KIND,
+		"INV-9",
+		"INV-2026-0009",
+		"key-9",
+		AdapterScript.make_request(
+			&"POST",
+			"https://ninja.example.test/api/v1/invoices",
+			{ },
+			{ "number": "INV-2026-0009" },
+		),
+		"2026-06-12",
+	)
 	desk.pushes.append(orphan)
 	var page := _page(desk)
 	var run: Dictionary = page.post_all()
 	assert(not bool(run["ok"]))
 	assert(page.status_text().contains("handed over 1 document"), page.status_text())
 	assert(page.status_text().contains("1 document did not go"), page.status_text())
-	assert(page.status_text().contains("no ledger called 'invoice_ninja' is registered here"),
-		page.status_text())
+	assert(page.status_text().contains("no ledger called 'invoice_ninja' is registered here"), page.status_text())
 	assert(page.status_text().contains("1 document still waiting"), page.status_text())
 	page.free()
 
@@ -319,13 +358,12 @@ func test_the_post_button_belongs_to_the_row_it_is_in() -> void:
 	var second: Dictionary = desk.queue_invoice(_invoice("INV-2026-0002"))
 	var page := _page(desk)
 	# Rows are newest first, and each button knows which document it is about.
-	var top: Node = page.get_node(^"Column/Rows").get_child(0)
+	var top: Node = page.get_node(^"Scroll/Column/Rows").get_child(0)
 	assert(top.get_node("Words").text.contains("INV-2026-0002"), top.get_node("Words").text)
 	var button: Button = top.get_node("Post")
 	assert(String(button.get_meta("key", "")) == second["push"].key)
 	assert(page.post_count() == 2)
 	page.free()
-
 
 # --- the settings --------------------------------------------------------------------------------
 
@@ -426,13 +464,12 @@ func test_the_buttons_that_cannot_do_anything_are_dead() -> void:
 	var page := _page(desk)
 	# The file backend's one setting is still a setting, so its save button lives; with an empty outbox
 	# there is nothing to hand over, so the run button does not.
-	assert(not page.get_node(^"Column/BackendRow/Saveitssettings").disabled)
+	assert(not page.get_node(^"Scroll/Column/BackendRow/Saveitssettings").disabled)
 	assert(page.run_button_disabled())
 	desk.queue_invoice(_invoice())
 	page.refresh()
 	assert(not page.run_button_disabled())
 	page.free()
-
 
 # --- the backend's own answers -------------------------------------------------------------------
 
@@ -458,7 +495,6 @@ func test_the_test_button_does_not_pretend_a_hosted_ledger_was_reached() -> void
 	assert(page.status_text().contains("no transport yet"), page.status_text())
 	page.free()
 
-
 # --- what does not agree ------------------------------------------------------------------------
 
 
@@ -470,7 +506,7 @@ func test_the_disagreements_the_page_shows_are_the_desks_own() -> void:
 	var page := _page(desk)
 	assert(page.disagreement_texts() == desk.reconcile_words(), str(page.disagreement_texts()))
 	assert(page.disagreement_text().contains("has been issued and not handed to"), page.disagreement_text())
-	var label: Label = page.get_node(^"Column/Disagreements")
+	var label: Label = page.get_node(^"Scroll/Column/Disagreements")
 	assert(label.text == page.disagreement_text())
 	page.free()
 
@@ -489,16 +525,15 @@ func test_a_page_with_nothing_out_of_place_says_so_plainly() -> void:
 func test_the_problems_the_page_shows_are_the_desks_own() -> void:
 	var desk := _desk()
 	var queued: Dictionary = desk.queue_invoice(_invoice())
-	_answered(queued["push"], 401, {"message": "token expired"})
+	_answered(queued["push"], 401, { "message": "token expired" })
 	var page := _page(desk)
 	assert(page.problem_texts() == desk.problems(), str(page.problem_texts()))
 	assert(page.problem_texts().size() == 1)
 	assert(page.problem_texts()[0].contains("will not be retried"), page.problem_texts()[0])
-	var list: ItemList = page.get_node(^"Column/Problems")
+	var list: ItemList = page.get_node(^"Scroll/Column/Problems")
 	assert(list.item_count == 1)
 	assert(list.is_item_disabled(0))
 	page.free()
-
 
 # --- telling whoever is listening -----------------------------------------------------------------
 
@@ -508,7 +543,10 @@ func test_a_post_announces_itself_so_the_menu_line_is_not_stale() -> void:
 	var queued: Dictionary = desk.queue_invoice(_invoice())
 	var page := _page(desk)
 	var heard: Array = []
-	page.ledger_changed.connect(func() -> void: heard.append(true))
+	page.ledger_changed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	assert(bool(page.post_one(queued["push"].key)["ok"]))
 	assert(heard.size() == 1, str(heard))
 	page.free()
@@ -520,7 +558,10 @@ func test_saving_a_setting_announces_itself_too() -> void:
 	desk.choose("invoice_ninja")
 	var page := _page(desk)
 	var heard: Array = []
-	page.ledger_changed.connect(func() -> void: heard.append(true))
+	page.ledger_changed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	assert(page.setting_keys().size() == 2)
 	page.set_setting_field(&"token", "a-token")
 	assert(bool(page.save_settings()["ok"]))
@@ -534,7 +575,10 @@ func test_saving_a_setting_announces_itself_too() -> void:
 func test_closing_the_page_says_so() -> void:
 	var page := _page(_desk())
 	var heard: Array = []
-	page.closed.connect(func() -> void: heard.append(true))
+	page.closed.connect(
+		func() -> void:
+			heard.append(true),
+	)
 	page.close_requested.emit()
 	assert(not page.visible)
 	assert(heard.size() == 1)

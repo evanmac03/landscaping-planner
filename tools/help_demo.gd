@@ -12,7 +12,7 @@ extends Node2D
 ## click does, and reads the titles and bodies off the **real controls**, awaiting real frames so what it
 ## prints is what a running editor would be showing.
 ##
-## Run `res://scenes/help_demo.tscn`.
+## Run `res://tools/help_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const HelpDocScript := preload("res://scripts/help_doc.gd")

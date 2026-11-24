@@ -21,7 +21,6 @@ const EPS := 1.0e-9
 ## Tolerance for angles, in radians.
 const ANGLE_EPS := 1.0e-9
 
-
 # --- segments and lines -------------------------------------------------------------
 
 
@@ -40,11 +39,11 @@ static func segment_segment(a0: Vector2, a1: Vector2, b0: Vector2, b1: Vector2) 
 	var denominator := rx * sy - ry * sx
 	if absf(denominator) <= EPS:
 		var collinear := absf(qx * ry - qy * rx) <= EPS
-		return {"hit": false, "parallel": true, "collinear": collinear}
+		return { "hit": false, "parallel": true, "collinear": collinear }
 	var t := (qx * sy - qy * sx) / denominator
 	var u := (qx * ry - qy * rx) / denominator
 	if t < -EPS or t > 1.0 + EPS or u < -EPS or u > 1.0 + EPS:
-		return {"hit": false, "parallel": false, "collinear": false, "t": t, "u": u}
+		return { "hit": false, "parallel": false, "collinear": false, "t": t, "u": u }
 	var tc := clampf(t, 0.0, 1.0)
 	return {
 		"hit": true,
@@ -89,7 +88,7 @@ static func segment_circle(a0: Vector2, a1: Vector2, centre: Vector2, radius: fl
 		return out
 	for point: Vector2 in line_circle(a0, direction, centre, radius):
 		var t := (float(point.x) - float(a0.x)) * float(direction.x) \
-			+ (float(point.y) - float(a0.y)) * float(direction.y)
+				+ (float(point.y) - float(a0.y)) * float(direction.y)
 		t /= length_squared
 		if t >= -EPS and t <= 1.0 + EPS:
 			out.append(point)
@@ -109,11 +108,11 @@ static func circle_circle(c0: Vector2, r0: float, c1: Vector2, r1: float) -> Pac
 	var distance_squared := dx * dx + dy * dy
 	var distance := sqrt(distance_squared)
 	if distance <= EPS:
-		return out                                   # concentric: no unique answer
+		return out # concentric: no unique answer
 	if distance > float(r0) + float(r1) + EPS:
-		return out                                   # separate
+		return out # separate
 	if distance < absf(float(r0) - float(r1)) - EPS:
-		return out                                   # one inside the other
+		return out # one inside the other
 	var a := (distance_squared + float(r0) * float(r0) - float(r1) * float(r1)) / (2.0 * distance)
 	var h := sqrt(maxf(float(r0) * float(r0) - a * a, 0.0))
 	var mid := Vector2(float(c0.x) + a * dx / distance, float(c0.y) + a * dy / distance)
@@ -127,8 +126,12 @@ static func circle_circle(c0: Vector2, r0: float, c1: Vector2, r1: float) -> Pac
 
 ## Where a segment meets a circle, keeping only hits whose angle lies on the arc.
 static func segment_arc(
-	a0: Vector2, a1: Vector2, centre: Vector2, radius: float,
-	start: float, sweep: float
+	a0: Vector2,
+	a1: Vector2,
+	centre: Vector2,
+	radius: float,
+	start: float,
+	sweep: float,
 ) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	for point: Vector2 in segment_circle(a0, a1, centre, radius):
@@ -139,13 +142,19 @@ static func segment_arc(
 
 ## Intersect two arcs, keeping only hits on both sweeps.
 static func arc_arc(
-	c0: Vector2, r0: float, s0: float, w0: float,
-	c1: Vector2, r1: float, s1: float, w1: float
+	c0: Vector2,
+	r0: float,
+	s0: float,
+	w0: float,
+	c1: Vector2,
+	r1: float,
+	s1: float,
+	w1: float,
 ) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	for point: Vector2 in circle_circle(c0, r0, c1, r1):
 		if angle_in_sweep(angle_of(point - c0), s0, w0) \
-			and angle_in_sweep(angle_of(point - c1), s1, w1):
+				and angle_in_sweep(angle_of(point - c1), s1, w1):
 			out.append(point)
 	return out
 
@@ -185,7 +194,6 @@ static func foot_of_perpendicular(point: Vector2, a: Vector2, b: Vector2) -> Vec
 	var t := ((float(point.x) - float(a.x)) * dx + (float(point.y) - float(a.y)) * dy) / length_squared
 	return Vector2(float(a.x) + dx * t, float(a.y) + dy * t)
 
-
 # --- arcs and circles ---------------------------------------------------------------
 
 
@@ -209,34 +217,25 @@ static func angle_in_sweep(angle: float, start: float, sweep: float) -> bool:
 ## Point at parameter `t` in [0, 1] along the arc.
 static func arc_point(centre: Vector2, radius: float, start: float, sweep: float, t: float) -> Vector2:
 	var angle := start + sweep * t
-	return Vector2(
-		float(centre.x) + float(radius) * cos(angle),
-		float(centre.y) + float(radius) * sin(angle)
-	)
+	return Vector2(float(centre.x) + float(radius) * cos(angle), float(centre.y) + float(radius) * sin(angle))
 
 
 ## The two endpoints of an arc.
 static func arc_ends(centre: Vector2, radius: float, start: float, sweep: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		arc_point(centre, radius, start, sweep, 0.0),
-		arc_point(centre, radius, start, sweep, 1.0),
-	])
+	return PackedVector2Array(
+		[arc_point(centre, radius, start, sweep, 0.0), arc_point(centre, radius, start, sweep, 1.0)]
+	)
 
 
 ## Closest point on an arc to `point`, falling back to the nearer endpoint when
 ## the projected angle is off the sweep.
-static func closest_point_on_arc(
-	point: Vector2, centre: Vector2, radius: float, start: float, sweep: float
-) -> Vector2:
+static func closest_point_on_arc(point: Vector2, centre: Vector2, radius: float, start: float, sweep: float) -> Vector2:
 	var offset := point - centre
 	if offset.length_squared() <= EPS:
 		return arc_point(centre, radius, start, sweep, 0.0)
 	var angle := angle_of(offset)
 	if angle_in_sweep(angle, start, sweep):
-		return Vector2(
-			float(centre.x) + float(radius) * cos(angle),
-			float(centre.y) + float(radius) * sin(angle)
-		)
+		return Vector2(float(centre.x) + float(radius) * cos(angle), float(centre.y) + float(radius) * sin(angle))
 	var ends := arc_ends(centre, radius, start, sweep)
 	return ends[0] if point.distance_squared_to(ends[0]) <= point.distance_squared_to(ends[1]) else ends[1]
 
@@ -266,7 +265,11 @@ static func arc_segment_count(radius: float, sweep: float, tolerance: float) -> 
 
 ## Sample an arc into a polyline within a chord tolerance.
 static func arc_points(
-	centre: Vector2, radius: float, start: float, sweep: float, tolerance: float
+	centre: Vector2,
+	radius: float,
+	start: float,
+	sweep: float,
+	tolerance: float,
 ) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	var count := arc_segment_count(radius, sweep, tolerance)
@@ -291,7 +294,7 @@ static func arc_from_bulge(a: Vector2, b: Vector2, bulge: float) -> Dictionary:
 	var chord := b - a
 	var chord_length := chord.length()
 	if absf(float(bulge)) <= EPS or chord_length <= EPS:
-		return {"ok": false}
+		return { "ok": false }
 	var sweep := sweep_from_bulge(bulge)
 	var radius := chord_length / (2.0 * absf(sin(sweep * 0.5)))
 	# The centre lies on the perpendicular bisector, at (chord / 2) * cot(sweep / 2)
@@ -306,8 +309,7 @@ static func arc_from_bulge(a: Vector2, b: Vector2, bulge: float) -> Dictionary:
 	var offset := (chord_length * 0.5) / tan(sweep * 0.5)
 	var centre := mid + normal * offset
 	var start := angle_of(a - centre)
-	return {"ok": true, "centre": centre, "radius": radius, "start": start, "sweep": sweep}
-
+	return { "ok": true, "centre": centre, "radius": radius, "start": start, "sweep": sweep }
 
 # --- polygons -----------------------------------------------------------------------
 
@@ -396,7 +398,6 @@ static func polygon_is_simple(points: PackedVector2Array) -> bool:
 static func point_in_polygon(point: Vector2, polygon: PackedVector2Array) -> bool:
 	return Geometry2D.is_point_in_polygon(point, polygon)
 
-
 # --- simplification -----------------------------------------------------------------
 
 
@@ -480,7 +481,6 @@ static func _simplify_open(points: PackedVector2Array, tolerance: float) -> Pack
 			out.append(points[index])
 	return out
 
-
 # --- offsetting ---------------------------------------------------------------------
 
 
@@ -488,11 +488,7 @@ static func _simplify_open(points: PackedVector2Array, tolerance: float) -> Pack
 ## offset past a local width splits into several regions, and dropping the extra
 ## rings silently would lose geometry.
 static func offset_polygon(polygon: PackedVector2Array, distance: float, round_joins: bool = true) -> Array:
-	return Geometry2D.offset_polygon(
-		polygon,
-		distance,
-		Geometry2D.JOIN_ROUND if round_joins else Geometry2D.JOIN_MITER
-	)
+	return Geometry2D.offset_polygon(polygon, distance, Geometry2D.JOIN_ROUND if round_joins else Geometry2D.JOIN_MITER)
 
 
 ## Offset an open polyline. This is also how a thick stroke becomes geometry with
@@ -501,9 +497,8 @@ static func offset_polyline(polyline: PackedVector2Array, distance: float, round
 	return Geometry2D.offset_polyline(
 		polyline,
 		distance,
-		Geometry2D.JOIN_ROUND if round_joins else Geometry2D.JOIN_MITER
+		Geometry2D.JOIN_ROUND if round_joins else Geometry2D.JOIN_MITER,
 	)
-
 
 # --- hatching -----------------------------------------------------------------------
 
@@ -515,7 +510,9 @@ static func offset_polyline(polyline: PackedVector2Array, distance: float, round
 ## so hatch lines become horizontal, each scanline's crossings with the ring edges
 ## are sorted and paired, and the pairs are rotated back.
 static func hatch_lines(
-	rings: Array[PackedVector2Array], spacing: float, angle_rad: float
+	rings: Array[PackedVector2Array],
+	spacing: float,
+	angle_rad: float,
 ) -> Array[PackedVector2Array]:
 	var out: Array[PackedVector2Array] = []
 	if spacing <= EPS:
@@ -560,10 +557,7 @@ static func hatch_lines(
 			var x0 := crossings[index]
 			var x1 := crossings[index + 1]
 			if x1 - x0 > EPS:
-				out.append(PackedVector2Array([
-					from_pattern * Vector2(x0, y),
-					from_pattern * Vector2(x1, y),
-				]))
+				out.append(PackedVector2Array([from_pattern * Vector2(x0, y), from_pattern * Vector2(x1, y)]))
 			index += 2
 		y += spacing
 		guard += 1
@@ -572,7 +566,11 @@ static func hatch_lines(
 
 ## Positions for a symbol fill on the hatch grid, keeping only those inside the
 ## region (REQ 4.6.3).
-static func fill_grid(polygon: PackedVector2Array, spacing: float, origin: Vector2 = Vector2.ZERO) -> PackedVector2Array:
+static func fill_grid(
+	polygon: PackedVector2Array,
+	spacing: float,
+	origin: Vector2 = Vector2.ZERO,
+) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if spacing <= EPS or polygon.size() < 3:
 		return out
@@ -591,7 +589,6 @@ static func fill_grid(polygon: PackedVector2Array, spacing: float, origin: Vecto
 		y += spacing
 		guard += 1
 	return out
-
 
 # --- bounds -------------------------------------------------------------------------
 
@@ -637,7 +634,6 @@ static func arc_parameter(angle: float, start: float, sweep: float) -> float:
 ## Bounding box of a stitched vertex list, arc segments included.
 static func polyline_aabb(points: PackedVector2Array, _closed: bool = false) -> Rect2:
 	return points_aabb(points)
-
 
 # --- formatting helpers -------------------------------------------------------------
 

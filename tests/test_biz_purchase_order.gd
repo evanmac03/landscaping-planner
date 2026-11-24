@@ -26,7 +26,6 @@ func _issued() -> OrderScript:
 	order.issue("2026-06-01")
 	return order
 
-
 # --- ordering --------------------------------------------------------------------------------
 
 
@@ -68,7 +67,6 @@ func test_an_issued_order_commits_what_was_ordered_and_costs_nothing_yet() -> vo
 	assert(order.state_name() == "issued, nothing has arrived")
 	assert(order.committed().format() == "125.00", order.committed().format())
 	assert(order.actual().format() == "0.00", "nothing has arrived")
-
 
 # --- receiving ---------------------------------------------------------------------------------
 
@@ -142,7 +140,6 @@ func test_a_delivery_is_recorded_once_so_the_line_and_the_receipts_cannot_disagr
 	assert(order.received_milli_total() == 6000, "the line and the receipts are one number")
 	assert(order.received_total().format() == "75.00")
 
-
 # --- closing ----------------------------------------------------------------------------------
 
 
@@ -165,7 +162,6 @@ func test_closing_an_order_that_never_was_issued_is_refused() -> void:
 	var draft := _order()
 	assert(not draft.mark_closed("2026-07-01"))
 
-
 # --- what is wrong with it ------------------------------------------------------------------
 
 
@@ -179,7 +175,7 @@ func test_a_receipt_dated_before_the_order_is_a_fault() -> void:
 
 func test_an_order_with_a_receipt_and_no_issue_date_is_a_fault() -> void:
 	var order := _order()
-	order.receipts.append({"at": "2026-06-05", "line": 0, "quantity_milli": 1000})
+	order.receipts.append({ "at": "2026-06-05", "line": 0, "quantity_milli": 1000 })
 	assert(order.problems()[0].contains("was never issued"), str(order.problems()))
 
 
@@ -197,8 +193,12 @@ func test_an_order_with_no_id_is_a_fault() -> void:
 
 func test_describe_reads_as_a_purchase_order() -> void:
 	var order := _issued()
-	assert(order.describe() == "PO-2026-001 to Greenline Nursery, issued, nothing has arrived, "
-		+ "ordered $125.00, committed $125.00 (PLANTING)", order.describe())
+	assert(
+		order.describe()
+		== "PO-2026-001 to Greenline Nursery, issued, nothing has arrived, "
+		+ "ordered $125.00, committed $125.00 (PLANTING)",
+		order.describe(),
+	)
 	order.receive("2026-06-05", 0, 4000)
 	assert(order.describe().contains("arrived $50.00"), order.describe())
 	assert(order.describe().contains("committed $75.00"), order.describe())
@@ -215,7 +215,6 @@ func test_line_rows_read_the_way_a_receiver_reads_them() -> void:
 	assert(int(row["variance_milli"]) == -6000)
 	assert((row["ordered"] as MoneyScript).format() == "125.00")
 	assert((row["received"] as MoneyScript).format() == "50.00")
-
 
 # --- the file -----------------------------------------------------------------------------------
 
@@ -241,25 +240,26 @@ func test_an_order_survives_the_file() -> void:
 
 
 func test_a_record_with_no_id_and_a_receipt_for_no_line_are_dropped() -> void:
-	assert(OrderScript.from_dict({}) == null)
-	var read: OrderScript = OrderScript.from_dict({
-		"id": "PO9",
-		"lines": [{"description": "Mulch", "ordered_milli": 3000, "unit_cost": MoneyScript.of(4800).to_dict()}],
-		"receipts": [
-			{"at": "2026-06-05", "line": 4, "quantity_milli": 1000},
-			{"at": "2026-06-06", "line": 0, "quantity_milli": 1000},
-			{"at": "2026-06-07", "line": 0, "quantity_milli": 0},
-		],
-	})
+	assert(OrderScript.from_dict({ }) == null)
+	var read: OrderScript = OrderScript.from_dict(
+		{
+			"id": "PO9",
+			"lines": [{ "description": "Mulch", "ordered_milli": 3000, "unit_cost": MoneyScript.of(4800).to_dict() }],
+			"receipts": [
+				{ "at": "2026-06-05", "line": 4, "quantity_milli": 1000 },
+				{ "at": "2026-06-06", "line": 0, "quantity_milli": 1000 },
+				{ "at": "2026-06-07", "line": 0, "quantity_milli": 0 },
+			],
+		}
+	)
 	assert(read.line_count() == 1)
 	assert(read.receipts.size() == 1, "a receipt that names no line is not a receipt")
 	assert(read.received_milli(0) == 1000)
 
 
 func test_an_unreadable_rate_poisons_the_totals_rather_than_reading_as_free() -> void:
-	var order: OrderScript = OrderScript.from_dict({
-		"id": "PO9",
-		"lines": [{"description": "Mulch", "ordered_milli": 3000}],
-	})
+	var order: OrderScript = OrderScript.from_dict(
+		{ "id": "PO9", "lines": [{ "description": "Mulch", "ordered_milli": 3000 }] }
+	)
 	assert(not order.ordered_total().is_valid(), "a line with no rate is not a line at nothing")
 	assert(not order.is_sound())

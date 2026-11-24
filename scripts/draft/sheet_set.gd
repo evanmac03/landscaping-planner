@@ -65,13 +65,12 @@ var date: String = ""
 func _init() -> void:
 	add(DEFAULT_TITLE)
 
-
 # --- a sheet ------------------------------------------------------------------------
 
 
 ## A new sheet: the paper the drawing is already plotted at, because the second sheet of a drawing is
 ## usually the same paper as the first, and the key on.
-static func make_sheet(title: String, number: String, over: Dictionary = {}) -> Dictionary:
+static func make_sheet(title: String, number: String, over: Dictionary = { }) -> Dictionary:
 	var row: Dictionary = {
 		"title": title.strip_edges() if not title.strip_edges().is_empty() else DEFAULT_TITLE,
 		"number": number,
@@ -99,7 +98,6 @@ static func _coerce(field: String, value: Variant) -> Variant:
 		_:
 			return String(value)
 
-
 # --- the set ------------------------------------------------------------------------
 
 
@@ -123,7 +121,7 @@ func current() -> Dictionary:
 ## says so through `set_field`, which is where a typo in a field name is caught.
 func sheet(index: int) -> Dictionary:
 	if not is_valid(index):
-		return {}
+		return { }
 	return _sheets[index]
 
 
@@ -162,7 +160,7 @@ func next_number() -> String:
 
 ## Add a sheet and make it the current one. Returns its index, or the current index when the set is
 ## full: a set that silently grew without bound would be a list nobody could reach the bottom of.
-func add(title: String = DEFAULT_TITLE, over: Dictionary = {}) -> int:
+func add(title: String = DEFAULT_TITLE, over: Dictionary = { }) -> int:
 	if _sheets.size() >= LIMIT:
 		return _current
 	_sheets.append(make_sheet(title, next_number(), over))
@@ -234,18 +232,23 @@ func describe(index: int) -> String:
 	if bool(row["portrait"]):
 		size += " portrait"
 	var revision := String(row["revision"]).strip_edges()
-	var words := "%s  %s  %s on %s" % [
-		String(row["number"]), String(row["title"]), PlotScaleScript.metric_label(float(row["scale"])), size
+	# Three spaces between the fields, the gap this program sets grouped things apart with: two is the
+	# run GuiWords reads as a typing accident, and this line is a listing a person reads a set off.
+	var words := "%s   %s   %s on %s" % [
+		String(row["number"]),
+		String(row["title"]),
+		PlotScaleScript.metric_label(float(row["scale"])),
+		size,
 	]
 	if not revision.is_empty():
-		words += "  rev " + revision
+		words += "   rev " + revision
 	return words
 
 
 ## Everything the plotter needs for one sheet of the set, laid over the options the caller already
 ## builds. This is the whole of what plotting a sheet is: the set says what the sheet is, and the
 ## plotter does the rest.
-func options_for(index: int, base: Dictionary = {}) -> Dictionary:
+func options_for(index: int, base: Dictionary = { }) -> Dictionary:
 	var out: Dictionary = base.duplicate(true)
 	if not is_valid(index):
 		return out
@@ -265,18 +268,17 @@ func options_for(index: int, base: Dictionary = {}) -> Dictionary:
 		out["date"] = date
 	return out
 
-
 # --- what a file keeps --------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var rows: Array = []
 	for row: Dictionary in _sheets:
-		var kept: Dictionary = {}
+		var kept: Dictionary = { }
 		for field: String in FIELDS:
 			kept[field] = row[field]
 		rows.append(kept)
-	return {"current": _current, "project": project, "date": date, "sheets": rows}
+	return { "current": _current, "project": project, "date": date, "sheets": rows }
 
 
 ## Read a set back. Anything it cannot understand becomes the default set rather than an error: a set

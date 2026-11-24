@@ -18,7 +18,7 @@ func test_match_distance_is_inverse_of_view_height() -> void:
 	var distance: float = ViewMath.match_distance(26.0, 30.0)
 	assert(
 		absf(ViewMath.perspective_view_height(distance, 30.0) - 26.0) < TOLERANCE,
-		"match_distance must frame exactly the orthographic size"
+		"match_distance must frame exactly the orthographic size",
 	)
 
 
@@ -26,7 +26,7 @@ func test_match_fov_is_inverse_of_view_height() -> void:
 	var fov: float = ViewMath.match_fov(26.0, 60.0)
 	assert(
 		absf(ViewMath.perspective_view_height(60.0, fov) - 26.0) < TOLERANCE,
-		"match_fov must frame exactly the orthographic size at that distance"
+		"match_fov must frame exactly the orthographic size at that distance",
 	)
 
 
@@ -38,7 +38,7 @@ func test_matched_framing_survives_the_projection_swap() -> void:
 	assert(fov > 0.0 and fov < 90.0, "matched fov should be a sane angle")
 	assert(
 		absf(ViewMath.perspective_view_height(altitude, fov) - ortho_size) < TOLERANCE,
-		"plan framing must be identical before and after the projection swap"
+		"plan framing must be identical before and after the projection swap",
 	)
 
 

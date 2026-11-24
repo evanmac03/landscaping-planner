@@ -21,9 +21,7 @@ func _controller():
 	controller.document = Document.new()
 	controller.snap = SnapScript.new()
 	controller.tool = Tool.new()
-	controller.document.add(
-		Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED
-	)
+	controller.document.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED)
 	return controller
 
 
@@ -41,7 +39,6 @@ func _sheet_text(path: String) -> String:
 	var text := file.get_buffer(file.get_length()).get_string_from_utf8()
 	file.close()
 	return text
-
 
 # --- the set the drawing owns ---------------------------------------------------------
 
@@ -129,7 +126,6 @@ func test_the_last_sheet_cannot_be_taken_away() -> void:
 	assert(controller.sheet_set().current()["sheet"] == "A3", "the sheet left is the one in hand")
 	controller.free()
 
-
 # --- plotting -------------------------------------------------------------------------
 
 
@@ -214,7 +210,6 @@ func test_an_empty_drawing_plots_nothing_however_many_sheets_it_has() -> void:
 	assert(controller.plot_set().is_empty())
 	assert(controller.last_message == "nothing to plot", controller.last_message)
 	controller.free()
-
 
 # --- the sheets travel in the file ----------------------------------------------------
 

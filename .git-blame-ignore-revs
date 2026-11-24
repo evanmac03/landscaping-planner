@@ -1,0 +1,6 @@
+# Revisions that changed only layout, which `git blame` should step over.
+# GitHub honours this file automatically; locally, run:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# The GDQuest formatter sweep over 529 scripts (120-column budget).
+13a325c8b5c43ab048db66f8e50c22c1a569199b

@@ -7,7 +7,7 @@ extends Node2D
 ## reading a script, and because "every page the HUD holds is on the list" is a claim about the scene
 ## the program really builds rather than about the list itself.
 ##
-## Run `res://scenes/page_escape_demo.tscn`.
+## Run `res://tools/page_escape_demo.tscn`.
 ##
 ## The first version of this pass was a probe: it put one node inside a page and one beside the HUD and
 ## pressed the key once. The node inside saw it; the node beside the HUD saw nothing; and the page
@@ -56,10 +56,21 @@ func _ready() -> void:
 	var held: Array[Window] = _every_window(_hud)
 	var listed: Array[Window] = _hud.pages_in_windows()
 	for page: Window in held:
-		print("  ", page.name, ": on the list ", listed.has(page),
-			", has a closer inside it ", page.get_node_or_null(^"PageEscape") != null)
-	print("  the HUD holds ", held.size(), " windows and names ", listed.size(),
-		" of them; every one that is held must be named, or Escape silently stops working on it")
+		print(
+			"  ",
+			page.name,
+			": on the list ",
+			listed.has(page),
+			", has a closer inside it ",
+			page.get_node_or_null(^"PageEscape") != null,
+		)
+	print(
+		"  the HUD holds ",
+		held.size(),
+		" windows and names ",
+		listed.size(),
+		" of them; every one that is held must be named, or Escape silently stops working on it",
+	)
 
 	print("--- one real Escape at each page ---")
 	for pair: Array in PAGES:
@@ -92,9 +103,22 @@ func _page_away(title: String, opener: String) -> void:
 	var once: bool = page.visible
 	if page.visible:
 		await _press_escape()
-	print("  ", title, ": up -> Escape -> up: ", once, " after one, ", page.visible, " after two",
-		"   (", page.name, ", its own focus: ", focused != null, ", the window is focused: ",
-		page.has_focus(), ")")
+	print(
+		"  ",
+		title,
+		": up -> Escape -> up: ",
+		once,
+		" after one, ",
+		page.visible,
+		" after two",
+		"   (",
+		page.name,
+		", its own focus: ",
+		focused != null,
+		", the window is focused: ",
+		page.has_focus(),
+		")",
+	)
 
 
 ## A page with a text field in it: the field has the keyboard, and the question is whether the key still

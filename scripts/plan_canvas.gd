@@ -21,11 +21,12 @@ const DraftEntityScript := preload("res://scripts/draft/draft_entity.gd")
 const DraftRenderScript := preload("res://scripts/draft/draft_render.gd")
 const DraftDimensionScript := preload("res://scripts/draft/dimension.gd")
 const RasterUnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
+const SnapScript := preload("res://scripts/draft/snap_engine.gd")
 
 ## The pictures this canvas has already read, by path. The plan repaints every frame, and a picture
 ## under it is read from the disk **once**: an entry of `null` is a file that could not be read, kept
 ## so the disk is not asked for it again either.
-var _underlay_textures: Dictionary[String, Texture2D] = {}
+var _underlay_textures: Dictionary[String, Texture2D] = { }
 
 ## The shapes a selection band caught, by id, handed over by the drafting controller.
 var _selected: Array[int] = []
@@ -88,22 +89,30 @@ var _has_fence: bool = false
 
 ## The drafting document, if one is bound. Its linework draws on top of the yard,
 ## which is the right way round: the design sits over what was already there.
-var document = null
+var document: DraftDocument = null
+## Whether the site the plan stands on is drawn: the flat shapes read off the yard's own meshes, and its
+## fence. True on the drawing board, false on a blank page - a new drawing is paper and the designer's own
+## linework, with the garden put away (see `SiteScenery`). The ground stays visible in the 3D views, which
+## is why this is a flag here rather than only the yard's node visibility: a blank *page* and an empty
+## *floor* are two different things.
+var site_shown: bool = true
 ## The plot scale the on-screen linework imitates. Weights are authored in paper
 ## millimetres, so they only become pixels once a sheet scale is chosen.
 var display_scale: float = 100.0
 ## The shape being drawn, ghosted: {"entity": …, "layer": …}.
-var ghost: Dictionary = {}
+var ghost: Dictionary = { }
 ## Where the plant being placed would go, and what the plan's own conditions say about that spot:
 ## `{point, radius, colour, label, verdict, species}`. Empty when nothing is being planted.
 ##
 ## The colour is the whole feature - green where the plant suits the ground, red where it does not -
 ## and it is computed by the ViewController, which is where the species, the document and the cursor
 ## already are. This node is told a point, a size and a colour, and draws them.
-var plant_ghost: Dictionary = {}
+var plant_ghost: Dictionary = { }
 ## Where the cursor snapped to, from the drafting controller.
-var snap: Dictionary = {}
-## What the drafting tools are waiting for, drawn on the plan itself.
+var snap: Dictionary = { }
+## What the drawing says about itself, drawn on the plan itself: a length being typed, and the last thing
+## the drawing said. What the tool in hand is *waiting for* is not here - that line, with the keys that
+## answer it, is at the foot of the screen, because the palette panel sits over this corner of the plan.
 var status_text: String = ""
 
 
@@ -123,17 +132,22 @@ func rebind(yard: Node3D) -> void:
 	_has_fence = false
 	if yard != null:
 		_collect(yard)
-		if yard.has_method("get_bounds"):
+		# The fence line is the property boundary, which the yard reports as a rectangle rather than as
+		# nodes - so it is gated on the fence node rather than read off one. Put the fence away (the
+		# scenery toggle does) and the boundary goes with it.
+		var fence: Node3D = yard.get_node_or_null(^"Fence") as Node3D
+		if yard.has_method("get_bounds") and (fence == null or fence.visible):
 			_fence = yard.get_bounds()
 			_has_fence = true
 	# Big shapes first, so small ones sit on top of them the way a plan drawing
 	# layers its elements.
 	_context.sort_custom(
-		func(a: Dictionary, b: Dictionary) -> bool: return a["extent"] > b["extent"]
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return a["extent"] > b["extent"],
 	)
 	_placeables.sort_custom(
 		func(a: Node3D, b: Node3D) -> bool:
-			return PlanStyle.footprint_radius(a) > PlanStyle.footprint_radius(b)
+			return PlanStyle.footprint_radius(a) > PlanStyle.footprint_radius(b),
 	)
 	queue_redraw()
 
@@ -151,6 +165,16 @@ func apply_view(new_focus: Vector2, new_plan_size: float, viewport_size: Vector2
 	queue_redraw()
 
 
+## Show or put away the site the plan stands on. The yard's own nodes are hidden by whatever owns them
+## (the `ViewController`), and this is told the same fact so the *ground* - kept standing in the 3D views
+## - is left off a blank page too.
+func set_site_shown(shown: bool) -> void:
+	if site_shown == shown:
+		return
+	site_shown = shown
+	queue_redraw()
+
+
 ## World position to screen pixels. Screen +x is world +x (east) and screen +y is
 ## world +z (south), which is exactly how the 3D overhead camera is oriented, so
 ## the two views line up pixel for pixel.
@@ -162,7 +186,6 @@ func world_to_screen(world: Vector3) -> Vector2:
 func screen_to_world(screen: Vector2) -> Vector2:
 	return (screen - position) / pixels_per_metre
 
-
 # --- construction -----------------------------------------------------------------
 
 
@@ -171,10 +194,17 @@ func _collect(node: Node) -> void:
 		var child_name := String(child.name)
 		if IGNORED.has(child_name):
 			continue
+		# A part of the yard that has been put away is not on the plan either: the scenery toggle hides
+		# nodes rather than telling this canvas what to skip, so what is drawn is what is standing. A
+		# plant the designer puts down later is visible, and so is drawn even with the site put away.
+		var spatial: Node3D = child as Node3D
+		if spatial != null and not spatial.visible:
+			continue
 		if child_name == PLANTS:
 			for plant in child.get_children():
-				if plant is Node3D:
-					_placeables.append(plant)
+				var prop: Node3D = plant as Node3D
+				if prop != null and prop.visible:
+					_placeables.append(prop)
 			continue
 		if child is MeshInstance3D:
 			_add_mesh(child)
@@ -199,14 +229,15 @@ func _add_mesh(mesh_instance: MeshInstance3D) -> void:
 	var size: Vector2 = high - low
 	if size.x <= 0.001 or size.y <= 0.001:
 		return
-	_context.append({
-		"centre": (low + high) * 0.5,
-		"size": size,
-		"round": mesh_instance.mesh is CylinderMesh or mesh_instance.mesh is SphereMesh,
-		"colour": PlanStyle.colour_for(mesh_instance),
-		"extent": maxf(size.x, size.y),
-	})
-
+	_context.append(
+		{
+			"centre": (low + high) * 0.5,
+			"size": size,
+			"round": mesh_instance.mesh is CylinderMesh or mesh_instance.mesh is SphereMesh,
+			"colour": PlanStyle.colour_for(mesh_instance),
+			"extent": maxf(size.x, size.y),
+		}
+	)
 
 # --- drawing ----------------------------------------------------------------------
 
@@ -216,9 +247,13 @@ func _draw() -> void:
 		return
 	_draw_paper()
 	_draw_grid()
-	for shape: Dictionary in _context:
-		_draw_context_shape(shape)
-	_draw_fence()
+	# The site: the yard's own flat shapes and its boundary. A blank page is paper and the designer's
+	# linework, so with the site put away none of this is drawn - and the ground, which is still standing
+	# in the 3D views, is not drawn on the page either.
+	if site_shown:
+		for shape: Dictionary in _context:
+			_draw_context_shape(shape)
+		_draw_fence()
 	# The pictures lie **over the ground and under everything else**: the yard's own lawn, house and
 	# paving are scenery read off the 3D meshes and drawn flat, and a tracing aid has to be visible
 	# over them or there is nothing to trace; every plant standing on the ground and every line the
@@ -289,12 +324,11 @@ func _draw_placeable(node: Node3D) -> void:
 	_draw_symbol(
 		Vector2(node.global_position.x, node.global_position.z),
 		PlanStyle.footprint_size(node),
-		PlanStyle.symbol_of(node)
+		PlanStyle.symbol_of(node),
 	)
 
 
 # --- plant symbols -------------------------------------------------------------------
-
 
 ## Every symbol is drawn from one figure (see `PlantSymbols`), which is what keeps the plan and the
 ## swatch in a plant list from disagreeing about what a plant looks like. The inks are the plan's own:
@@ -307,25 +341,25 @@ const PEN_PIXELS := 1.6
 const PEN_REFERENCE := 0.07
 
 const SYMBOL_INKS := {
-	&"canopy": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
-	&"conifer": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK},
-	&"shrub": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"grass": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
-	&"groundcover": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"vine": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE},
-	&"fern": {"fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY},
-	&"bed": {"fill": BED_SOIL, "edge": BED_EDGE, "mark": BED_BLOOM},
+	&"canopy": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK },
+	&"conifer": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": TRUNK },
+	&"shrub": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"grass": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY },
+	&"groundcover": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"vine": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY_LINE },
+	&"fern": { "fill": CANOPY, "edge": CANOPY_LINE, "mark": CANOPY },
+	&"bed": { "fill": BED_SOIL, "edge": BED_EDGE, "mark": BED_BLOOM },
 }
 
 ## The marker's inks, and the answer for a symbol nobody has: the colour a prop the tables do not
 ## describe is drawn in, brought down for its own line. Built once at run time rather than written out
 ## as a constant, because a constant cannot be made by calling `darkened`.
-static var _fallback_inks: Dictionary = {}
+static var _fallback_inks: Dictionary = { }
 
 
 static func fallback_inks() -> Dictionary:
 	if _fallback_inks.is_empty():
-		_fallback_inks = {"fill": GENERIC, "edge": GENERIC.darkened(0.4), "mark": GENERIC.darkened(0.4)}
+		_fallback_inks = { "fill": GENERIC, "edge": GENERIC.darkened(0.4), "mark": GENERIC.darkened(0.4) }
 	return _fallback_inks
 
 
@@ -342,9 +376,7 @@ func _draw_symbol(centre: Vector2, size: Vector2, symbol: StringName) -> void:
 	# The offset shrinks with the plant. It is authored for the 1.5 m shrub it grew up on, and at that
 	# size it is a shadow; under a 30 cm groundcover the same 0.3 m puts the shadow in the next bed
 	# along, where it reads as a second plant. `SHADOW_REFERENCE` is the size it is written for.
-	var step: Vector2 = SHADOW_OFFSET * clampf(
-		minf(size.x, size.y) / SHADOW_REFERENCE, 0.0, 1.0
-	)
+	var step: Vector2 = SHADOW_OFFSET * clampf(minf(size.x, size.y) / SHADOW_REFERENCE, 0.0, 1.0)
 	for part: Dictionary in parts:
 		if StringName(part["ink"]) == PlantSymbols.INK_FILL:
 			_fill_part(part, centre + step, half, SHADOW)
@@ -376,9 +408,7 @@ func _edge_part(part: Dictionary, centre: Vector2, half: Vector2, colour: Color)
 		&"rect":
 			draw_rect(_box(part["half"], centre, half), colour, false, width)
 		_:
-			draw_polyline(
-				_placed_all(part["points"], centre, half), colour, width, bool(part["closed"])
-			)
+			draw_polyline(_placed_all(part["points"], centre, half), colour, width, bool(part["closed"]))
 
 
 ## One normalised point, as a position on the plan.
@@ -402,11 +432,7 @@ func _box(part_half: Vector2, centre: Vector2, half: Vector2) -> Rect2:
 func _draw_selection(node: Node3D, active: bool) -> void:
 	var centre := Vector2(node.global_position.x, node.global_position.z)
 	var radius: float = PlanStyle.footprint_radius(node) + 0.45
-	draw_arc(
-		centre, radius, 0.0, TAU, 48,
-		GRAB if active else HOVER,
-		(3.0 if active else 2.0) / pixels_per_metre
-	)
+	draw_arc(centre, radius, 0.0, TAU, 48, GRAB if active else HOVER, (3.0 if active else 2.0) / pixels_per_metre)
 
 
 ## The plant about to be placed, ringed in the colour of what the plan says about the spot.
@@ -436,9 +462,7 @@ func _draw_plant_ghost() -> void:
 	var label: String = String(plant_ghost.get("label", ""))
 	if not label.is_empty():
 		var screen: Vector2 = position + point * pixels_per_metre
-		_draw_screen_text(
-			screen + Vector2(radius * pixels_per_metre + 8.0, 4.0), label, 13, colour.darkened(0.3)
-		)
+		_draw_screen_text(screen + Vector2(radius * pixels_per_metre + 8.0, 4.0), label, 13, colour.darkened(0.3))
 
 
 ## Points around a circle whose radius wobbles, so a shrub looks like foliage
@@ -457,14 +481,13 @@ func _blob(centre: Vector2, radius: float) -> PackedVector2Array:
 func _screen_to_local(screen: Vector2) -> Vector2:
 	return (screen - position) / pixels_per_metre
 
-
 # --- the drafted document ---------------------------------------------------------
 
 
 ## Point the canvas at a drafting document. From here on its linework is part of
 ## the plan, and it is the same document the 3D overlay and the sheet exporter
 ## read, so all three show one design.
-func bind_document(doc) -> void:
+func bind_document(doc: DraftDocument) -> void:
 	document = doc
 	# A new drawing has its own pictures: whatever the last one had read stays cached only as long as
 	# the drawing that referred to it is the one on screen. Never a correctness problem - the cache is
@@ -553,10 +576,14 @@ func selected_ids() -> Array[int]:
 
 ## A selected shape, traced over itself in the highlight colour and a little wider,
 ## so a thin line on a busy plan still says it has been picked.
-func _draw_marked(entity, layer) -> void:
+func _draw_marked(entity: DraftEntity, layer: DraftLayer) -> void:
 	var colour: Color = SELECTION_COLOUR
 	var parts: Dictionary = DraftRenderScript.layout(
-		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+		entity,
+		layer,
+		display_scale,
+		_units(),
+		DraftDimensionScript.style_for(entity, document),
 	)
 	var style = parts["style"]
 	var width: float = style.width_pixels(display_scale, pixels_per_metre) / pixels_per_metre
@@ -575,11 +602,15 @@ func _draw_marked(entity, layer) -> void:
 
 ## One entity, in its layer's colour and at its layer's weight, drawn from the
 ## shared layout so a dimension arrives here exactly as it will on the sheet.
-func _draw_entity(entity, layer, alpha: float) -> void:
+func _draw_entity(entity: DraftEntity, layer: DraftLayer, alpha: float) -> void:
 	var colour: Color = DraftRenderScript.screen_colour(layer)
 	colour.a *= alpha
 	var parts: Dictionary = DraftRenderScript.layout(
-		entity, layer, display_scale, _units(), DraftDimensionScript.style_for(entity, document)
+		entity,
+		layer,
+		display_scale,
+		_units(),
+		DraftDimensionScript.style_for(entity, document),
 	)
 	var style = parts["style"]
 	# Godot's draw widths are in the canvas item's own units, which here are
@@ -595,10 +626,8 @@ func _draw_entity(entity, layer, alpha: float) -> void:
 	for mark: Dictionary in parts["marks"]:
 		if mark["kind"] == &"arrow":
 			draw_colored_polygon(
-				DraftDimensionScript.arrow_triangle(
-					mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
-				),
-				colour
+				DraftDimensionScript.arrow_triangle(mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]),
+				colour,
 			)
 		elif mark["kind"] == &"dot":
 			draw_circle(Vector2(mark["at"]), float(mark["size"]) * 0.5, colour)
@@ -623,7 +652,7 @@ func _draw_labels(labels: Array, colour: Color) -> void:
 
 ## The document's units, so a dimension reads in the same system the plan was
 ## drawn in. Absent a document, a measurement falls back to plain metres.
-func _units():
+func _units() -> DraftUnits:
 	return document.units if document != null else null
 
 
@@ -632,10 +661,13 @@ func _draw_snap_marker() -> void:
 		return
 	var point: Vector2 = snap["point"]
 	var half: float = 6.0 / pixels_per_metre
-	draw_rect(
-		Rect2(point - Vector2(half, half), Vector2(half, half) * 2.0),
-		SNAP, false, 1.6 / pixels_per_metre
-	)
+	var width: float = 1.6 / pixels_per_metre
+	var mode: int = int(snap.get("mode", SnapScript.Mode.NONE))
+	for stroke: PackedVector2Array in marker_strokes(mode, half):
+		var placed := PackedVector2Array()
+		for vertex: Vector2 in stroke:
+			placed.append(point + vertex)
+		draw_polyline(placed, SNAP, width, true)
 	var label: String = String(snap.get("label", ""))
 	if label == "":
 		return
@@ -643,19 +675,97 @@ func _draw_snap_marker() -> void:
 	_draw_screen_text(screen + Vector2(11.0, -11.0), label, 12, SNAP_TEXT)
 
 
+## The marker drawn at the cursor for a kind of snap: a shape per mode, as strokes centred on the
+## point and reaching `half` either side of it.
+##
+## A shape rather than a character, on purpose. The snap engine carries a table of characters for its
+## modes and **the shipped font has none of them** - every one of the nine is missing from Open Sans
+## SemiBold - so a marker drawn from that table would be nine boxes of tofu. Drafting programs draw
+## these as shapes for the same reason, and a square, a triangle, a circle and a diamond are read at a
+## glance beside the name that says the same thing in words.
+##
+## Static and pure, so the vocabulary can be read and tested with no canvas in sight.
+static func marker_strokes(mode: int, half: float) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	match mode:
+		SnapScript.Mode.ENDPOINT, SnapScript.Mode.NEAREST:
+			# A catch-all snaps to a point on an outline, which is the endpoint's answer too - and
+			# the engine's own table gives those two the same character as well.
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(-half, -half),
+						Vector2(half, -half),
+						Vector2(half, half),
+						Vector2(-half, half),
+						Vector2(-half, -half),
+					]
+				)
+			)
+		SnapScript.Mode.MIDPOINT:
+			out.append(
+				PackedVector2Array(
+					[Vector2(0.0, -half), Vector2(half, half), Vector2(-half, half), Vector2(0.0, -half)]
+				)
+			)
+		SnapScript.Mode.CENTRE:
+			var ring := PackedVector2Array()
+			for step in 12:
+				var angle: float = TAU * float(step) / 12.0
+				ring.append(Vector2(cos(angle), sin(angle)) * half)
+			ring.append(ring[0])
+			out.append(ring)
+		SnapScript.Mode.QUADRANT:
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(0.0, -half),
+						Vector2(half, 0.0),
+						Vector2(0.0, half),
+						Vector2(-half, 0.0),
+						Vector2(0.0, -half),
+					]
+				)
+			)
+		SnapScript.Mode.INTERSECTION:
+			out.append(PackedVector2Array([Vector2(-half, -half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, -half)]))
+		SnapScript.Mode.PERPENDICULAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.TANGENT:
+			var arc := PackedVector2Array()
+			for step in 9:
+				var angle: float = PI + PI * float(step) / 8.0
+				arc.append(Vector2(cos(angle), sin(angle)) * half)
+			out.append(arc)
+		SnapScript.Mode.GRID:
+			out.append(
+				PackedVector2Array(
+					[
+						Vector2(-half, -half),
+						Vector2(half, -half),
+						Vector2(half, half),
+						Vector2(-half, half),
+						Vector2(-half, -half),
+					]
+				)
+			)
+			out.append(PackedVector2Array([Vector2(-half, 0.0), Vector2(half, 0.0)]))
+			out.append(PackedVector2Array([Vector2(0.0, -half), Vector2(0.0, half)]))
+		SnapScript.Mode.POLAR:
+			out.append(PackedVector2Array([Vector2(-half, half), Vector2(half, half)]))
+			out.append(PackedVector2Array([Vector2(half, half), Vector2(half, -half)]))
+	return out
+
+
 func _draw_screen_text(screen: Vector2, text: String, size: int, colour: Color) -> void:
 	const DARK := Color(0.98, 0.98, 0.96, 0.9)
 	_begin_screen_space()
 	# A light halo behind the glyphs, because a snap label can land on top of
 	# dark planting and become unreadable exactly when it matters most.
-	draw_string(
-		ThemeDB.fallback_font, screen + Vector2(1.0, 1.0), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, DARK
-	)
-	draw_string(
-		ThemeDB.fallback_font, screen, text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour
-	)
+	draw_string(ThemeDB.fallback_font, screen + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, DARK)
+	draw_string(ThemeDB.fallback_font, screen, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour)
 	_end_screen_space()
 
 
@@ -675,11 +785,7 @@ func _end_screen_space() -> void:
 
 ## This node's own transform, which is exactly pan plus zoom and no rotation.
 func _node_transform() -> Transform2D:
-	return Transform2D(
-		Vector2(pixels_per_metre, 0.0),
-		Vector2(0.0, pixels_per_metre),
-		position
-	)
+	return Transform2D(Vector2(pixels_per_metre, 0.0), Vector2(0.0, pixels_per_metre), position)
 
 
 ## The drafting status, on the drawing surface rather than in the HUD: what the
@@ -688,14 +794,16 @@ func _draw_status() -> void:
 	if status_text == "":
 		return
 	draw_set_transform_matrix(_node_transform().affine_inverse())
-	var size: Vector2 = ThemeDB.fallback_font.get_string_size(
-		status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13
-	)
+	var size: Vector2 = ThemeDB.fallback_font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
 	var origin := Vector2(14.0, 74.0)
-	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)),
-		Color(0.99, 0.98, 0.95, 0.9), true)
+	draw_rect(Rect2(origin - Vector2(8.0, 4.0), size + Vector2(16.0, 12.0)), Color(0.99, 0.98, 0.95, 0.9), true)
 	draw_string(
-		ThemeDB.fallback_font, origin + Vector2(0.0, 13.0), status_text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.12, 0.13, 0.15, 0.95)
+		ThemeDB.fallback_font,
+		origin + Vector2(0.0, 13.0),
+		status_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		13,
+		Color(0.12, 0.13, 0.15, 0.95),
 	)
 	draw_set_transform_matrix(Transform2D.IDENTITY)

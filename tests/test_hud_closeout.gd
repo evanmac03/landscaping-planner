@@ -22,13 +22,13 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## An estimate with one priced line, so a job can be made of it: 10 x 15.00 of PLANTING.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith"}
+	estimate.customer = { "name": "Smith" }
 	var line: LineScript = LineScript.new()
 	line.description = "Buxus, 2 gal"
 	line.cost_code = &"PLANTING"
@@ -39,7 +39,6 @@ func _estimate() -> EstimateScript:
 	line.unit_price = MoneyScript.of(1500)
 	estimate.lines.append(line)
 	return estimate
-
 
 # --- the way in ------------------------------------------------------------------------------
 
@@ -88,7 +87,6 @@ func test_it_is_a_page_the_escape_pass_has_to_reach() -> void:
 	hud._build_closeout_window()
 	assert(hud.pages_in_windows().has(hud._closeout_window), "the escape pass must be able to close it")
 	_done(hud)
-
 
 # --- what the desk's words make the menu say --------------------------------------------------
 

@@ -10,14 +10,13 @@ const Fill := preload("res://scripts/draft/hatch_fill.gd")
 
 
 func _row(id: int, name: String, area: float) -> Dictionary:
-	return {"entity_id": id, "key": "bed#%d" % id, "name": name, "area_m2": area, "layer": &"400-NEW-BED"}
+	return { "entity_id": id, "key": "bed#%d" % id, "name": name, "area_m2": area, "layer": &"400-NEW-BED" }
 
 
 func _panel():
 	var panel = HatchPanelScript.new()
 	panel.build()
 	return panel
-
 
 # --- the region list ------------------------------------------------------------------
 
@@ -46,7 +45,6 @@ func test_a_new_list_keeps_the_choice_when_it_is_still_there() -> void:
 	assert(panel.selected_region_key() == "bed#1", "a bed drawn elsewhere does not move the choice")
 	panel.free()
 
-
 # --- what a fill asks for -------------------------------------------------------------
 
 
@@ -55,7 +53,9 @@ func test_choosing_a_region_and_filling_asks_for_it_by_signal() -> void:
 	panel.set_regions([_row(7, "bed 7", 12.0)])
 	var asked: Array = []
 	panel.fill_requested.connect(
-		func(id: int, options: Dictionary) -> void: asked.append([id, options]))
+		func(id: int, options: Dictionary) -> void:
+			asked.append([id, options]),
+	)
 	assert(panel.fill_selected())
 	assert(asked.size() == 1)
 	assert(int(asked[0][0]) == 7)
@@ -103,7 +103,6 @@ func test_a_said_line_reports_what_last_happened() -> void:
 	assert(panel.status_text() == "filled the region: Crosshatch, 40 lines")
 	assert(panel.said() != "")
 	panel.free()
-
 
 # --- the one rule ---------------------------------------------------------------------
 

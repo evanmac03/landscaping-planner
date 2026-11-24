@@ -32,21 +32,28 @@ const MAX_MARKUP_PPM := 5000000
 ## well-formed v4 if anything downstream ever validates the shape.
 static var _serial: int = 0
 
+
 static func new_id() -> String:
 	_serial += 1
 	var context: HashingContext = HashingContext.new()
 	context.start(HashingContext.HASH_SHA256)
 	var seed_text: String = "%d|%d|%s" % [
-		Time.get_ticks_usec(), _serial, Time.get_datetime_string_from_system(true, true)
+		Time.get_ticks_usec(),
+		_serial,
+		Time.get_datetime_string_from_system(true, true),
 	]
 	context.update(seed_text.to_utf8_buffer())
 	var digest: PackedByteArray = context.finish()
 	var bytes: PackedByteArray = digest.slice(0, 16)
-	bytes[6] = (bytes[6] & 0x0f) | 0x40        # version 4
-	bytes[8] = (bytes[8] & 0x3f) | 0x80        # variant 1
+	bytes[6] = (bytes[6] & 0x0f) | 0x40 # version 4
+	bytes[8] = (bytes[8] & 0x3f) | 0x80 # variant 1
 	var hex: String = bytes.hex_encode()
 	return "%s-%s-%s-%s-%s" % [
-		hex.substr(0, 8), hex.substr(8, 4), hex.substr(12, 4), hex.substr(16, 4), hex.substr(20, 12)
+		hex.substr(0, 8),
+		hex.substr(8, 4),
+		hex.substr(12, 4),
+		hex.substr(16, 4),
+		hex.substr(20, 12),
 	]
 
 
@@ -74,7 +81,7 @@ var unit_price: Money = null
 var waste_ppm: int = 0
 var tax_code: StringName = &""
 ## The drawing lineage: `{entities, measure, value}`, or empty for a number somebody typed (§2.4).
-var takeoff: Dictionary = {}
+var takeoff: Dictionary = { }
 ## The cost book version these prices came from (REQ-B6).
 var book_version: int = 1
 var note: String = ""
@@ -92,7 +99,7 @@ static func make(
 	units_milli: int,
 	line_unit: StringName = &"",
 	price: Money = null,
-	line_id: String = ""
+	line_id: String = "",
 ) -> EstimateLine:
 	var line: EstimateLine = (load("res://scripts/biz/estimate_line.gd") as GDScript).new(line_id)
 	line.cost_item = item.id
@@ -106,7 +113,6 @@ static func make(
 	line.waste_ppm = item.waste_ppm
 	line.tax_code = item.tax_code
 	return line
-
 
 # --- the arithmetic ---------------------------------------------------------------------
 
@@ -127,16 +133,12 @@ func is_material() -> bool:
 func quantity_with_waste() -> int:
 	if not is_material() or waste_ppm == 0:
 		return quantity_milli
-	return MoneyScript.rounded_div(
-		quantity_milli * (1000000 + waste_ppm), 1000000
-	)
+	return MoneyScript.rounded_div(quantity_milli * (1000000 + waste_ppm), 1000000)
 
 
 ## What the work costs, in minor units: the waste-inflated quantity at the frozen unit cost.
 func cost() -> Money:
-	return MoneyScript.round_div(
-		unit_cost.cents * quantity_with_waste(), 1000, unit_cost.currency
-	)
+	return MoneyScript.round_div(unit_cost.cents * quantity_with_waste(), 1000, unit_cost.currency)
 
 
 ## The line's extended price, in minor units (§5.1).
@@ -145,9 +147,7 @@ func cost() -> Money:
 ## frozen unit price in exact integers, and the **single** rounding happens here - half away from zero,
 ## so a credit reverses the charge it reverses to the cent.
 func extension() -> Money:
-	return MoneyScript.round_div(
-		unit_price.cents * quantity_with_waste(), 1000, unit_price.currency
-	)
+	return MoneyScript.round_div(unit_price.cents * quantity_with_waste(), 1000, unit_price.currency)
 
 
 ## The quantity in some other unit of the same dimension, or a refusal naming both.
@@ -156,10 +156,9 @@ func extension() -> Money:
 ## an exact ratio of integers (§6), not the rounded constant a supplier's spreadsheet carries.
 func quantity_in(target_unit: StringName) -> Dictionary:
 	if target_unit == unit:
-		return {"ok": true, "quantity_milli": quantity_with_waste(), "reason": ""}
+		return { "ok": true, "quantity_milli": quantity_with_waste(), "reason": "" }
 	var converted: Dictionary = WorkUnitScript.convert(quantity_with_waste(), unit, target_unit)
 	return converted
-
 
 # --- what is wrong with it ----------------------------------------------------------------
 
@@ -183,12 +182,12 @@ func problem(exempt: bool = false) -> String:
 		return "estimate line %s has no readable unit price" % id
 	if unit_cost.currency != unit_price.currency:
 		return "estimate line %s costs in %s and prices in %s" % [
-			id, String(unit_cost.currency), String(unit_price.currency)
+			id,
+			String(unit_cost.currency),
+			String(unit_price.currency),
 		]
 	if waste_ppm < 0 or waste_ppm > MAX_WASTE_PPM:
-		return "estimate line %s carries %d ppm of waste, which is outside 0..%d" % [
-			id, waste_ppm, MAX_WASTE_PPM
-		]
+		return "estimate line %s carries %d ppm of waste, which is outside 0..%d" % [id, waste_ppm, MAX_WASTE_PPM]
 	if not ItemScript.KINDS.has(kind):
 		return "estimate line %s has kind %d, which is not a kind of thing" % [id, kind]
 	# REQ-B9, AC-B10: a unit's dimension is checked against the measurement's dimension. `measure` is
@@ -199,7 +198,9 @@ func problem(exempt: bool = false) -> String:
 		var measured: StringName = StringName(takeoff.get("measure", ""))
 		if not measured.is_empty() and measured != WorkUnitScript.dimension(unit):
 			return "estimate line %s was measured in %s and is priced in %s" % [
-				id, String(measured), WorkUnitScript.name_of(unit)
+				id,
+				String(measured),
+				WorkUnitScript.name_of(unit),
 			]
 	# A **missing** code is refused, and a zero-rated one is not: `NONE` and `EXEMPT` are real codes
 	# that charge nothing, which is the distinction the tax table already makes ("exempt is a zero
@@ -238,8 +239,12 @@ func line_text() -> String:
 	if is_material() and waste_ppm > 0:
 		waste = " +%.1f%% waste" % (float(waste_ppm) / 10000.0)
 	return "%s %s%s  %s @ %s = %s" % [
-		quantity, WorkUnitScript.name_of(unit), waste, description,
-		unit_price.format_with_currency(), extension().format_with_currency(),
+		quantity,
+		WorkUnitScript.name_of(unit),
+		waste,
+		description,
+		unit_price.format_with_currency(),
+		extension().format_with_currency(),
 	]
 
 
@@ -268,9 +273,7 @@ func to_dict() -> Dictionary:
 
 ## Read one back. Numbers come out of JSON as floats, so every integer field is coerced (§2.1a).
 static func from_dict(data: Dictionary) -> EstimateLine:
-	var line: EstimateLine = (load("res://scripts/biz/estimate_line.gd") as GDScript).new(
-		String(data.get("id", ""))
-	)
+	var line: EstimateLine = (load("res://scripts/biz/estimate_line.gd") as GDScript).new(String(data.get("id", "")))
 	line.cost_item = StringName(data.get("cost_item", ""))
 	line.description = String(data.get("description", ""))
 	line.quantity_milli = int(data.get("quantity_milli", 0))
@@ -279,14 +282,14 @@ static func from_dict(data: Dictionary) -> EstimateLine:
 	line.kind = int(data.get("kind", ItemScript.MATERIAL))
 	var cost_data: Variant = data.get("unit_cost", null)
 	line.unit_cost = MoneyScript.from_dict(cost_data) if cost_data is Dictionary \
-		else MoneyScript.invalid()
+			else MoneyScript.invalid()
 	var price_data: Variant = data.get("unit_price", null)
 	line.unit_price = MoneyScript.from_dict(price_data) if price_data is Dictionary \
-		else MoneyScript.invalid()
+			else MoneyScript.invalid()
 	line.waste_ppm = int(data.get("waste_ppm", 0))
 	line.tax_code = StringName(data.get("tax_code", ""))
-	var recorded: Variant = data.get("takeoff", {})
-	line.takeoff = (recorded as Dictionary).duplicate(true) if recorded is Dictionary else {}
+	var recorded: Variant = data.get("takeoff", { })
+	line.takeoff = (recorded as Dictionary).duplicate(true) if recorded is Dictionary else { }
 	line.book_version = int(data.get("book_version", 1))
 	line.note = String(data.get("note", ""))
 	return line

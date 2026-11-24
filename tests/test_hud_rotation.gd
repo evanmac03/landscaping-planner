@@ -15,7 +15,7 @@ const HudScript := preload("res://scripts/hud.gd")
 const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const CropRotationScript := preload("res://scripts/crop_rotation.gd")
 
 
@@ -33,16 +33,13 @@ func _hud_with_drawing(controller: DraftController) -> Node:
 
 ## A four-metre square bed, which is all a zone needs to be a place.
 func _bed() -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)
-	])
-
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)])
 
 # --- the menu -----------------------------------------------------------------------------
 
 
 func test_the_plant_menu_offers_it_with_no_key_and_needs_a_drawing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.plant_items():
 		if StringName(candidate.get("id", &"")) == &"plant.rotation":
 			entry = candidate
@@ -53,7 +50,7 @@ func test_the_plant_menu_offers_it_with_no_key_and_needs_a_drawing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_DRAFT,
-		"it needs the drawing, because the beds are the plan's ground"
+		"it needs the drawing, because the beds are the plan's ground",
 	)
 
 
@@ -62,7 +59,6 @@ func test_every_menu_entry_still_names_a_method_this_hud_has() -> void:
 	var hud: HudScript = HudScript.new()
 	assert(hud.has_method(&"_menu_rotation_window"), "the menu's door is a real one")
 	hud.free()
-
 
 # --- the page -----------------------------------------------------------------------------
 
@@ -90,7 +86,6 @@ func test_it_is_a_page_the_escape_pass_has_to_reach() -> void:
 	assert(hud._rotation_window.get_node_or_null(^"PageEscape") != null, "and it can be escaped from")
 	hud.free()
 
-
 # --- the beds are the drawing's -----------------------------------------------------------------
 
 
@@ -112,7 +107,6 @@ func test_the_beds_are_the_ground_maps_own() -> void:
 	assert(String(places[1]["name"]) == "the north bed", String(places[1]["name"]))
 	hud.free()
 	controller.free()
-
 
 # --- the join -----------------------------------------------------------------------------
 
@@ -138,14 +132,12 @@ func test_the_page_keeps_up_with_the_ground_and_keeps_what_was_stated() -> void:
 	assert(hud._rotation_window.place_count() == 1, "with no zones there is only the site")
 	assert(hud._rotation_window.choose_previous_family(CropRotationScript.BRASSICA), "state a history")
 	hud._rotation_window.visible = true
-	controller.document.environment.add_zone(
-		"a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
-	)
+	controller.document.environment.add_zone("a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE))
 	hud._tick_rotation_window()
 	assert(hud._rotation_window.place_count() == 2, "the bed stated while the page was up was picked up")
 	assert(
 		StringName(hud._rotation_window.previous_family()) == CropRotationScript.BRASSICA,
-		"and the history a person stated was not thrown away"
+		"and the history a person stated was not thrown away",
 	)
 	hud._rotation_window.visible = false
 	hud.free()
@@ -157,9 +149,7 @@ func test_the_refresh_is_harmless_while_the_page_is_away() -> void:
 	var controller: DraftController = _drawing()
 	var hud: HudScript = _hud_with_drawing(controller)
 	hud._build_rotation_window()
-	controller.document.environment.add_zone(
-		"a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
-	)
+	controller.document.environment.add_zone("a bed", _bed(), ProfileScript.of("sun", SpeciesScript.FULL_SHADE))
 	hud._tick_rotation_window()
 	assert(hud._rotation_window.place_count() == 0, "a page that is not up was not written")
 	hud.free()

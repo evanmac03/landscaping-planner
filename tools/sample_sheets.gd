@@ -46,29 +46,18 @@ const OUT_DIR := "user://"
 
 ## The design the samples are drawn from: a 20 × 12 m lot with a house, a patio, a path,
 ## a bed with five plants in it, an irrigation run, a setback line and five dimensions.
-static func make_document() -> Variant:
-	var document = Document.new()
+static func make_document() -> Document:
+	var document: Document = Document.new()
 	# The lot, the house that already stands on it, and the front setback that constrains
 	# what can be built: three facts about the site before anything is proposed.
-	document.add(
-		Entity.make_rectangle(Vector2(10, 6), Vector2(20, 12)), LayerSet.SURVEY_PROPERTY
-	)
+	document.add(Entity.make_rectangle(Vector2(10, 6), Vector2(20, 12)), LayerSet.SURVEY_PROPERTY)
 	document.add(Entity.make_line(Vector2(3, 0), Vector2(3, 12)), LayerSet.SETBACK_EASEMENT)
-	document.add(
-		Entity.make_rectangle(Vector2(5, 2.5), Vector2(8, 5)), LayerSet.EXISTING_STRUCTURE
-	)
+	document.add(Entity.make_rectangle(Vector2(5, 2.5), Vector2(8, 5)), LayerSet.EXISTING_STRUCTURE)
 	# Proposed: a patio and the path to it, a planting bed, five plants, and irrigation
 	# under the bed.
-	document.add(
-		Entity.make_rectangle(Vector2(14.5, 3.5), Vector2(6, 5)), LayerSet.NEW_HARDSCAPE
-	)
-	document.add(
-		Entity.make_polyline(PackedVector2Array([Vector2(9, 3), Vector2(11.5, 3)])),
-		LayerSet.NEW_HARDSCAPE
-	)
-	document.add(
-		Entity.make_rectangle(Vector2(14, 9), Vector2(8, 3)), LayerSet.NEW_BED
-	)
+	document.add(Entity.make_rectangle(Vector2(14.5, 3.5), Vector2(6, 5)), LayerSet.NEW_HARDSCAPE)
+	document.add(Entity.make_polyline(PackedVector2Array([Vector2(9, 3), Vector2(11.5, 3)])), LayerSet.NEW_HARDSCAPE)
+	document.add(Entity.make_rectangle(Vector2(14, 9), Vector2(8, 3)), LayerSet.NEW_BED)
 	# Two trees and three shrubs. The biggest canopy is dimensioned by radius, so it is
 	# the one at the right-hand end of the bed, where its leader and its measurement have
 	# the bed to themselves: a dimension that reads over another symbol is unreadable, and
@@ -78,34 +67,21 @@ static func make_document() -> Variant:
 	document.add(Entity.make_circle(Vector2(13.0, 7.7), 0.5), LayerSet.NEW_PLANTING)
 	document.add(Entity.make_circle(Vector2(14.2, 9.3), 0.5), LayerSet.NEW_PLANTING)
 	document.add(Entity.make_circle(Vector2(13.9, 8.4), 0.5), LayerSet.NEW_PLANTING)
-	document.add(
-		Entity.make_polyline(PackedVector2Array([Vector2(11, 7.6), Vector2(17.5, 7.6)])),
-		LayerSet.IRRIGATION
-	)
+	document.add(Entity.make_polyline(PackedVector2Array([Vector2(11, 7.6), Vector2(17.5, 7.6)])), LayerSet.IRRIGATION)
 	# Five dimensions, one of each command: the lot's width and depth, the patio's width,
 	# an aligned measurement from the house's corner to the patio's, and the big tree's
 	# radius. The aligned one crosses empty ground on purpose, which is the only kind of
 	# dimension that is easy to misread.
+	document.add(Entity.make_dimension(Vector2(0, 12), Vector2(20, 12), 1.2), LayerSet.DIMENSION)
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(0, 12), -1.2), LayerSet.DIMENSION)
+	document.add(Entity.make_dimension(Vector2(11.5, 1), Vector2(17.5, 1), -1.2), LayerSet.DIMENSION)
 	document.add(
-		Entity.make_dimension(Vector2(0, 12), Vector2(20, 12), 1.2), LayerSet.DIMENSION
+		Entity.make_dimension(Vector2(9, 5), Vector2(11.5, 1), 0.6, Entity.DimensionKind.ALIGNED),
+		LayerSet.DIMENSION,
 	)
 	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(0, 12), -1.2), LayerSet.DIMENSION
-	)
-	document.add(
-		Entity.make_dimension(Vector2(11.5, 1), Vector2(17.5, 1), -1.2), LayerSet.DIMENSION
-	)
-	document.add(
-		Entity.make_dimension(
-			Vector2(9, 5), Vector2(11.5, 1), 0.6, Entity.DimensionKind.ALIGNED
-		),
-		LayerSet.DIMENSION
-	)
-	document.add(
-		Entity.make_dimension(
-			Vector2(16.5, 8.5), Vector2(18, 8.5), 0.0, Entity.DimensionKind.RADIUS
-		),
-		LayerSet.DIMENSION
+		Entity.make_dimension(Vector2(16.5, 8.5), Vector2(18, 8.5), 0.0, Entity.DimensionKind.RADIUS),
+		LayerSet.DIMENSION,
 	)
 	# A note, inside the patio and clear of the dimension that measures it.
 	document.add(Entity.make_text(Vector2(14.5, 4.5), "PATIO (NEW)"), LayerSet.TEXT)
@@ -132,24 +108,24 @@ static func turned_options() -> Dictionary:
 	options["sheet"] = "A2"
 	options["drawing"] = "Planting Plan, turned"
 	options["scale"] = 100.0
-	options["viewport"] = {"rotation_degrees": 90.0}
+	options["viewport"] = { "rotation_degrees": 90.0 }
 	return options
 
 
 ## Writes both sheets. Returns the paths it wrote, so a caller reports rather than assumes.
 static func write_sheets() -> Array[String]:
 	var written: Array[String] = []
-	var plan = make_document()
+	var plan: Document = make_document()
 	written.append(_write(plan, "sample-sheet.pdf", sheet_options()))
 	# The engineering standard on the turned sheet, set on the document because the
 	# standard is a property of the drawing rather than of the export.
-	var turned = make_document()
+	var turned: Document = make_document()
 	turned.dimension_style = DimensionStyle.engineering()
 	written.append(_write(turned, "sample-sheet-turned.pdf", turned_options()))
 	return written
 
 
-static func _write(document, file_name: String, options: Dictionary) -> String:
+static func _write(document: Document, file_name: String, options: Dictionary) -> String:
 	var path := OUT_DIR + file_name
 	var bytes: PackedByteArray = Exporter.export_pdf(document, options)
 	if bytes.is_empty():

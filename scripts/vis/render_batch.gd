@@ -26,9 +26,7 @@ const MAX_JOBS := 64
 ## The views this project can render, for the "render everything" button. A view whose
 ## renderer does not exist yet is refused by the executor in words rather than produced
 ## as a blank image (§11.3's spirit: name the thing to fix).
-const DEFAULT_VIEWS: Array[String] = [
-	"Working plan", "Painted plan", "3D presentation", "Sun study",
-]
+const DEFAULT_VIEWS: Array[String] = ["Working plan", "Painted plan", "3D presentation", "Sun study"]
 
 var _jobs: Array[Dictionary] = []
 var _results: Array[Dictionary] = []
@@ -39,13 +37,7 @@ var _results: Array[Dictionary] = []
 func add(name: String, preset, view: String = "3D presentation", flatten: bool = true, note: String = "") -> bool:
 	if reason_against(name) != "":
 		return false
-	_jobs.append({
-		"name": name,
-		"preset": StringName(preset),
-		"view": view,
-		"flatten": flatten,
-		"note": note,
-	})
+	_jobs.append({ "name": name, "preset": StringName(preset), "view": view, "flatten": flatten, "note": note })
 	return true
 
 
@@ -101,7 +93,7 @@ func next_job() -> Dictionary:
 	for job: Dictionary in _jobs:
 		if not _has_result(String(job["name"])):
 			return job
-	return {}
+	return { }
 
 
 ## File the outcome of a job: `path` is "" when it could not be rendered. The job's own
@@ -111,7 +103,7 @@ func record(name: String, path: String) -> bool:
 		return false
 	if _has_result(name):
 		return false
-	_results.append({"name": name, "path": path, "ok": path != ""})
+	_results.append({ "name": name, "path": path, "ok": path != "" })
 	return true
 
 
@@ -197,7 +189,7 @@ func run(executor: Callable) -> Dictionary:
 			break
 		var path: String = String(executor.call(job))
 		record(String(job["name"]), path)
-	return {"ok": is_done(), "succeeded": succeeded(), "failed": failed(), "waiting": waiting()}
+	return { "ok": is_done(), "succeeded": succeeded(), "failed": failed(), "waiting": waiting() }
 
 
 ## Forget the jobs and the outcomes: a batch is a thing a person makes once.
@@ -221,4 +213,4 @@ func _result_for(name: String) -> Dictionary:
 	for entry: Dictionary in _results:
 		if String(entry["name"]) == name:
 			return entry
-	return {}
+	return { }

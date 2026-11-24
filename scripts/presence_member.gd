@@ -17,9 +17,11 @@ const MEMBER_PREFIX := "member_"
 ## disagree about what presence is.
 const REPLICATED: Array[StringName] = [&"peer_name", &"drawing", &"cursor"]
 
+
 ## The node name a peer's member gets.
 static func node_name_for(peer_id: int) -> String:
 	return "%s%d" % [MEMBER_PREFIX, peer_id]
+
 
 ## The peer id a member's node name stands for, or 0 when it is not one of ours.
 static func peer_of(node_name: String) -> int:

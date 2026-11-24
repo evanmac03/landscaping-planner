@@ -65,8 +65,10 @@ func describe() -> String:
 			return "already as simple as it goes"
 		return "no shape can be simplified; %d left alone" % refusals.size()
 	var text := "%d shape%s simplified, %d point%s removed" % [
-		changed_count(), "" if changed_count() == 1 else "s",
-		removed_count(), "" if removed_count() == 1 else "s",
+		changed_count(),
+		"" if changed_count() == 1 else "s",
+		removed_count(),
+		"" if removed_count() == 1 else "s",
 	]
 	if not refusals.is_empty():
 		text += "; %d left alone" % refusals.size()
@@ -78,15 +80,13 @@ func describe() -> String:
 func to_dict() -> Dictionary:
 	var rows: Array = []
 	for entry in entries:
-		rows.append({
-			"id": int(entry["id"]),
-			"layer": String(entry["layer"]),
-			"before": int(entry["before"]),
-			"after": int(entry["after"]),
-			"removed": int(entry["removed"]),
-		})
-	return {
-		"tolerance": tolerance,
-		"entries": rows,
-		"refused": refusals.duplicate(true),
-	}
+		rows.append(
+			{
+				"id": int(entry["id"]),
+				"layer": String(entry["layer"]),
+				"before": int(entry["before"]),
+				"after": int(entry["after"]),
+				"removed": int(entry["removed"]),
+			}
+		)
+	return { "tolerance": tolerance, "entries": rows, "refused": refusals.duplicate(true) }

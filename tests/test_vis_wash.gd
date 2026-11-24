@@ -23,7 +23,6 @@ const PaintedPlanScript := preload("res://scripts/vis/painted_plan.gd")
 func _document() -> Variant:
 	return Document.new()
 
-
 # --- the wash table -------------------------------------------------------------------
 
 
@@ -47,16 +46,10 @@ func test_the_wash_pigment_is_the_plan_palette() -> void:
 	for key in WashTableScript.WASHES:
 		var wash: Dictionary = WashTableScript.WASHES[key]
 		var material: String = wash["material"]
-		assert(
-			PlanStyle.COLOURS.has(material),
-			"%s names %s, which the plan palette does not have" % [key, material]
-		)
+		assert(PlanStyle.COLOURS.has(material), "%s names %s, which the plan palette does not have" % [key, material])
 		var pigment: Color = wash["colour"]
 		var palette: Color = PlanStyle.COLOURS[material]
-		assert(
-			pigment.is_equal_approx(palette),
-			"%s washes %s but the palette says %s" % [key, pigment, palette]
-		)
+		assert(pigment.is_equal_approx(palette), "%s washes %s but the palette says %s" % [key, pigment, palette])
 
 
 func test_a_layer_with_no_wash_entry_produces_no_wash() -> void:
@@ -87,10 +80,7 @@ func test_every_layer_that_does_not_wash_says_why() -> void:
 		if WashTableScript.washes(name):
 			continue
 		unwashed += 1
-		assert(
-			WashTableScript.reason_against(name) != "",
-			"%s does not wash and gives no reason" % name
-		)
+		assert(WashTableScript.reason_against(name) != "", "%s does not wash and gives no reason" % name)
 	assert(unwashed > 0, "this test would pass vacuously if every layer washed")
 
 
@@ -100,10 +90,7 @@ func test_a_non_plotting_layer_never_washes() -> void:
 	for entry: Dictionary in LayerSet.PRESETS:
 		if bool(entry["plots"]):
 			continue
-		assert(
-			not WashTableScript.washes(entry["name"]),
-			"%s does not plot but washes anyway" % entry["name"]
-		)
+		assert(not WashTableScript.washes(entry["name"]), "%s does not plot but washes anyway" % entry["name"])
 
 
 func test_water_and_mulch_differ_from_planting_in_how_they_behave() -> void:
@@ -119,30 +106,20 @@ func test_water_and_mulch_differ_from_planting_in_how_they_behave() -> void:
 	assert(float(bed["mottle"]) > float(mass["mottle"]))
 	assert(float(mass["bleed_mm"]) > float(bed["bleed_mm"]))
 
-
 # --- which regions wash ---------------------------------------------------------------
 
 
 func test_a_bed_washes_and_a_dimension_does_not() -> void:
 	# AC-V4: a wash region for every area entity, and for no annotation.
 	var document = _document()
-	var bed: int = document.add(
-		Entity.make_rectangle(Vector2.ZERO, Vector2(6.0, 4.0)), LayerSet.NEW_BED
-	)
-	var paving: int = document.add(
-		Entity.make_circle(Vector2(9.0, 0.0), 2.5), LayerSet.NEW_HARDSCAPE
-	)
-	document.add(
-		Entity.make_dimension(Vector2(0.0, 0.0), Vector2(6.0, 0.0), 1.0, 0),
-		LayerSet.DIMENSION
-	)
+	var bed: int = document.add(Entity.make_rectangle(Vector2.ZERO, Vector2(6.0, 4.0)), LayerSet.NEW_BED)
+	var paving: int = document.add(Entity.make_circle(Vector2(9.0, 0.0), 2.5), LayerSet.NEW_HARDSCAPE)
+	document.add(Entity.make_dimension(Vector2(0.0, 0.0), Vector2(6.0, 0.0), 1.0, 0), LayerSet.DIMENSION)
 	document.add(Entity.make_text(Vector2(1.0, 1.0), "BED"), LayerSet.TEXT)
 	# An open shape encloses no ground until the drawer closes it.
 	document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(3.0, 0.0), Vector2(3.0, 1.0),
-		]), false),
-		LayerSet.NEW_TURF
+		Entity.make_polyline(PackedVector2Array([Vector2(0.0, 0.0), Vector2(3.0, 0.0), Vector2(3.0, 1.0)]), false),
+		LayerSet.NEW_TURF,
 	)
 	var painter := WashPainterScript.new(document, 100.0)
 	var seeds: Array[int] = []
@@ -159,9 +136,7 @@ func test_only_area_kinds_have_outlines() -> void:
 		Entity.make_rectangle(Vector2.ZERO, Vector2(2.0, 2.0)),
 		Entity.make_circle(Vector2.ZERO, 2.0),
 		Entity.make_regular_polygon(Vector2.ZERO, 2.0, 6),
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(2.0, 0.0), Vector2(2.0, 2.0),
-		]), true),
+		Entity.make_polyline(PackedVector2Array([Vector2(0.0, 0.0), Vector2(2.0, 0.0), Vector2(2.0, 2.0)]), true),
 	]
 	for entity in areas:
 		assert(CadSolidScript.is_area(entity), "kind %d should be an area" % entity.kind)
@@ -169,9 +144,7 @@ func test_only_area_kinds_have_outlines() -> void:
 	var lines: Array = [
 		Entity.make_line(Vector2.ZERO, Vector2(2.0, 0.0)),
 		Entity.make_arc(Vector2.ZERO, 2.0, 0.0, PI),
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(2.0, 0.0), Vector2(2.0, 2.0),
-		]), false),
+		Entity.make_polyline(PackedVector2Array([Vector2(0.0, 0.0), Vector2(2.0, 0.0), Vector2(2.0, 2.0)]), false),
 		Entity.make_dimension(Vector2.ZERO, Vector2(2.0, 0.0), 1.0, 0),
 		Entity.make_text(Vector2.ZERO, "NOTE"),
 	]
@@ -192,9 +165,7 @@ func test_an_outline_is_a_ring_that_closes_itself_once() -> void:
 
 
 func test_a_backwards_ring_is_turned_the_right_way_round() -> void:
-	var clockwise := PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(0.0, 4.0), Vector2(6.0, 4.0), Vector2(6.0, 0.0),
-	])
+	var clockwise := PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.0, 4.0), Vector2(6.0, 4.0), Vector2(6.0, 0.0)])
 	assert(Geom.polygon_signed_area(clockwise) < 0.0)
 	var ring: PackedVector2Array = CadSolidScript.ring(clockwise)
 	assert(Geom.polygon_signed_area(ring) > 0.0)
@@ -205,29 +176,23 @@ func test_a_backwards_ring_is_turned_the_right_way_round() -> void:
 func test_a_ring_that_crosses_itself_is_refused_with_a_reason() -> void:
 	# AC-V9, in the shape the wash needs it: a bow tie has an inside that cannot be
 	# filled, and saying so is better than filling one of its halves.
-	var bow := PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(4.0, 4.0), Vector2(4.0, 0.0), Vector2(0.0, 4.0),
-	])
+	var bow := PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 4.0), Vector2(4.0, 0.0), Vector2(0.0, 4.0)])
 	assert(not CadSolidScript.is_fillable(bow))
 	assert(CadSolidScript.refusal_for(bow) != "")
 	# A square, by contrast, is fillable and gives no reason against it.
-	var square := PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0),
-	])
+	var square := PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)])
 	assert(CadSolidScript.is_fillable(square))
 	assert(CadSolidScript.refusal_for(square) == "")
 
 
 func test_two_points_are_not_an_area() -> void:
-	var thin: PackedVector2Array = CadSolidScript.ring(
-		PackedVector2Array([Vector2(0.0, 0.0), Vector2(2.0, 0.0)])
-	)
+	var thin: PackedVector2Array = CadSolidScript.ring(PackedVector2Array([Vector2(0.0, 0.0), Vector2(2.0, 0.0)]))
 	assert(thin.is_empty())
 	assert(CadSolidScript.refusal_for(thin) != "")
 	assert(is_equal_approx(CadSolidScript.area_m2(thin), 0.0))
 
-
 # --- planting ------------------------------------------------------------------------
+
 
 ## A prop of a known species, placed the way the yard places one.
 ##
@@ -245,12 +210,8 @@ func _prop(scene_path: String, at: Vector2) -> Node3D:
 func test_a_plant_washes_in_its_species_colour() -> void:
 	# AC-V23's rule, on the species this project has: the wash colour is the plan
 	# palette's colour for the plant's own material.
-	assert(PlanStyle.FOLIAGE_WASH.is_equal_approx(
-		PlanStyle.COLOURS["res://resources/materials/foliage.tres"]
-	))
-	assert(PlanStyle.BLOOM_WASH.is_equal_approx(
-		PlanStyle.COLOURS["res://resources/materials/flower_pink.tres"]
-	))
+	assert(PlanStyle.FOLIAGE_WASH.is_equal_approx(PlanStyle.COLOURS["res://resources/materials/foliage.tres"]))
+	assert(PlanStyle.BLOOM_WASH.is_equal_approx(PlanStyle.COLOURS["res://resources/materials/flower_pink.tres"]))
 	# And the real props agree: the tree and the shrub are foliage green because the
 	# foliage material is what they are made of, and the flower bed is in bloom.
 	var tree := _prop("res://scenes/props/tree.tscn", Vector2.ZERO)
@@ -325,9 +286,7 @@ func test_a_region_carries_the_seed_of_the_entity_it_came_from() -> void:
 	# entity's id: the same drawing must wobble the same way every frame and every
 	# render (REQ-V3.1), and a seed from the frame number would not.
 	var document = _document()
-	var id: int = document.add(
-		Entity.make_rectangle(Vector2.ZERO, Vector2(4.0, 3.0)), LayerSet.NEW_BED
-	)
+	var id: int = document.add(Entity.make_rectangle(Vector2.ZERO, Vector2(4.0, 3.0)), LayerSet.NEW_BED)
 	var first_painter := WashPainterScript.new(document, 100.0)
 	var second_painter := WashPainterScript.new(document, 100.0)
 	var first: Array[Dictionary] = first_painter.regions()
@@ -340,7 +299,6 @@ func test_a_region_carries_the_seed_of_the_entity_it_came_from() -> void:
 	# the engine reports at exit rather than a test that fails where it happened.
 	first_painter.free()
 	second_painter.free()
-
 
 # --- the sheet and the framing --------------------------------------------------------
 
@@ -355,9 +313,7 @@ func test_the_bake_size_is_the_paper_at_the_bake_resolution() -> void:
 
 func test_the_framing_centres_the_drawing_on_the_paper() -> void:
 	var bounds := Rect2(Vector2(100.0, 50.0), Vector2(20.0, 10.0))
-	var transform: Transform2D = SketchBakerScript.paper_transform(
-		bounds, 100.0, SketchBakerScript.PAPER_A3
-	)
+	var transform: Transform2D = SketchBakerScript.paper_transform(bounds, 100.0, SketchBakerScript.PAPER_A3)
 	var centre: Vector2 = transform * bounds.get_center()
 	assert(centre.is_equal_approx(SketchBakerScript.PAPER_A3 * 0.5))
 	# Ten metres at 1:100 is a hundred millimetres, which is the whole point of the
@@ -400,7 +356,6 @@ func test_a_wash_painter_can_be_asked_for_nothing() -> void:
 	assert(painter.canopies().is_empty())
 	assert(WashTableScript.wash_for(LayerSet.NEW_BED).is_empty() == false)
 	painter.free()
-
 
 # --- the plan that is painted ---------------------------------------------------------
 

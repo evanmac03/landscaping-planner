@@ -27,11 +27,7 @@ const ISSUED := 1
 const VOID := 2
 
 ## String keys: a StringName literal as a const Dictionary key fails the constant-expression check.
-const STATE_NAMES := {
-	"DRAFT": "draft",
-	"ISSUED": "issued",
-	"VOID": "void",
-}
+const STATE_NAMES := { "DRAFT": "draft", "ISSUED": "issued", "VOID": "void" }
 
 ## Its own prefix, so a credit note can never be mistaken in a ledger for an invoice.
 const NUMBER_PREFIX := "CN"
@@ -40,7 +36,7 @@ var id: String = ""
 ## Empty until it is issued, because a draft has no number (§9.4).
 var number: String = ""
 var job: String = ""
-var customer: Dictionary = {}
+var customer: Dictionary = { }
 var currency: StringName = &"CAD"
 var issued_at: String = ""
 var amount: Money = null
@@ -72,7 +68,6 @@ func is_void() -> bool:
 
 func is_editable() -> bool:
 	return not is_issued() and not is_void()
-
 
 # --- stating it, before it goes out --------------------------------------------------------------
 
@@ -125,7 +120,6 @@ static func mirror_of(invoice: Invoice, at: String, note_number: String, why: St
 		return null
 	return credit
 
-
 # --- what it comes to ---------------------------------------------------------------------------
 
 
@@ -141,8 +135,7 @@ func state() -> int:
 
 ## Everything the page and the window print, named once.
 func totals() -> Dictionary:
-	return {"amount": amount if amount != null else MoneyScript.zero(currency)}
-
+	return { "amount": amount if amount != null else MoneyScript.zero(currency) }
 
 # --- issuing and voiding ------------------------------------------------------------------------
 
@@ -151,22 +144,25 @@ func totals() -> Dictionary:
 ## amount, no invoice it credits - and for a number or a date nobody could have written.
 func issue(at: String, note_number: String) -> Dictionary:
 	if is_void():
-		return {"ok": false, "reason": "a voided credit note is never reissued - a fresh one is"}
+		return { "ok": false, "reason": "a voided credit note is never reissued - a fresh one is" }
 	if is_issued():
-		return {"ok": false, "reason": "a credit note is never edited after issue: %s went out on %s" % [number, issued_at]}
+		return {
+			"ok": false,
+			"reason": "a credit note is never edited after issue: %s went out on %s" % [number, issued_at],
+		}
 	if amount == null or not amount.is_valid() or amount.cents <= 0:
-		return {"ok": false, "reason": "a credit note with no amount on it"}
+		return { "ok": false, "reason": "a credit note with no amount on it" }
 	if against.strip_edges().is_empty():
-		return {"ok": false, "reason": "a credit note that credits no invoice"}
+		return { "ok": false, "reason": "a credit note that credits no invoice" }
 	if reason.strip_edges().is_empty():
-		return {"ok": false, "reason": "a credit note nobody explained"}
+		return { "ok": false, "reason": "a credit note nobody explained" }
 	if note_number.strip_edges().is_empty():
-		return {"ok": false, "reason": "a credit note with no number"}
+		return { "ok": false, "reason": "a credit note with no number" }
 	if not RateScript.is_date(at):
-		return {"ok": false, "reason": "an issue date that is not a date: '%s'" % at}
+		return { "ok": false, "reason": "an issue date that is not a date: '%s'" % at }
 	issued_at = at
 	number = note_number.strip_edges()
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Void it: keep the number, say when and why. A **draft is not voided** - it has no number to keep
@@ -187,7 +183,6 @@ func voided_text() -> String:
 	if not is_void():
 		return ""
 	return "voided on %s: %s" % [voided_at, voided_why]
-
 
 # --- numbering, by the same rule an invoice uses -------------------------------------------------
 
@@ -233,7 +228,6 @@ static func year_of(text: String) -> int:
 		return 0
 	return parts[1].to_int()
 
-
 # --- soundness ----------------------------------------------------------------------------------
 
 
@@ -274,7 +268,6 @@ func describe() -> String:
 		parts.append(issued_at)
 	return ", ".join(parts)
 
-
 # --- persistence --------------------------------------------------------------------------------
 
 
@@ -307,11 +300,11 @@ static func from_dict(data: Dictionary) -> CreditNote:
 		return null
 	credit.number = String(data.get("number", ""))
 	credit.job = String(data.get("job", ""))
-	var customer_in: Variant = data.get("customer", {})
-	credit.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else {}
+	var customer_in: Variant = data.get("customer", { })
+	credit.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else { }
 	credit.currency = StringName(data.get("currency", "CAD"))
 	credit.issued_at = String(data.get("issued_at", ""))
-	credit.amount = MoneyScript.from_dict(data.get("amount", {}))
+	credit.amount = MoneyScript.from_dict(data.get("amount", { }))
 	credit.against = String(data.get("against", ""))
 	credit.reason = String(data.get("reason", ""))
 	credit.note = String(data.get("note", ""))

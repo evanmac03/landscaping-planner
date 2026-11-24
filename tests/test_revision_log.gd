@@ -16,13 +16,10 @@ const LayerSet := preload("res://scripts/draft/layer_set.gd")
 func _state(extra: bool = false) -> Dictionary:
 	var document: DraftDocument = Document.new()
 	document.add(Entity.make_line(Vector2(0.0, 0.0), Vector2(4.0, 0.0)), LayerSet.NEW_HARDSCAPE)
-	document.add(
-		Entity.make_rectangle(Vector2(0.0, 2.0), Vector2(3.0, 3.0)), LayerSet.NEW_BED
-	)
+	document.add(Entity.make_rectangle(Vector2(0.0, 2.0), Vector2(3.0, 3.0)), LayerSet.NEW_BED)
 	if extra:
 		document.add(Entity.make_line(Vector2(0.0, 6.0), Vector2(4.0, 6.0)), LayerSet.NEW_TURF)
 	return document.to_dict()
-
 
 # --- keeping a revision -----------------------------------------------------------------
 
@@ -56,7 +53,7 @@ func test_the_snapshot_handed_out_is_a_copy() -> void:
 	var log: DraftRevisionLog = LogScript.make()
 	log.capture(_state(), "first")
 	var state: Dictionary = log.snapshot(0)
-	state["entities"] = {}
+	state["entities"] = { }
 	assert(log.record_at(0)["shapes"] == 2, "changing what was handed out cannot change the revision")
 
 
@@ -74,12 +71,9 @@ func test_a_log_survives_the_file_format() -> void:
 	log.capture(_state(), "sent to the client", "evan")
 	log.capture(_state(true), "client asked for more lawn")
 	log.dropped = 2
-	var back: DraftRevisionLog = LogScript.from_dict(
-		JSON.parse_string(JSON.stringify(log.to_dict()))
-	)
+	var back: DraftRevisionLog = LogScript.from_dict(JSON.parse_string(JSON.stringify(log.to_dict())))
 	assert(back.count() == 2)
-	assert(back.messages() == ["sent to the client", "client asked for more lawn"],
-		str(back.messages()))
+	assert(back.messages() == ["sent to the client", "client asked for more lawn"], str(back.messages()))
 	assert(back.dropped == 2)
 	assert(back.record_at(0)["author"] == "evan", "who made it survives")
 	assert(back.record_at(1)["shapes"] == 3, "and so does the drawing itself")
@@ -89,19 +83,20 @@ func test_a_log_survives_the_file_format() -> void:
 
 
 func test_a_damaged_history_keeps_the_revisions_it_can_read() -> void:
-	for junk: Variant in [null, {}, "not a log", {"records": "no"}, {"records": []}]:
+	for junk: Variant in [null, { }, "not a log", { "records": "no" }, { "records": [] }]:
 		var log: DraftRevisionLog = LogScript.from_dict(junk)
 		assert(log.count() == 0, "nothing to read is an empty history: %s" % str(junk))
-	var partly: DraftRevisionLog = LogScript.from_dict({
-		"records": [
-			{"message": "kept", "snapshot": {"entities": {"1": {"kind": "line"}}}},
-			"rubbish",
-			{"message": "no snapshot at all"},
-		],
-	})
+	var partly: DraftRevisionLog = LogScript.from_dict(
+		{
+			"records": [
+				{ "message": "kept", "snapshot": { "entities": { "1": { "kind": "line" } } } },
+				"rubbish",
+				{ "message": "no snapshot at all" },
+			],
+		}
+	)
 	assert(partly.count() == 1, "a record with no drawing in it is dropped: %d" % partly.count())
 	assert(partly.messages() == ["kept"])
-
 
 # --- the difference between two of them -------------------------------------------------
 
@@ -109,15 +104,15 @@ func test_a_damaged_history_keeps_the_revisions_it_can_read() -> void:
 func test_the_difference_is_by_id_which_is_what_makes_it_possible() -> void:
 	var before := {
 		"entities": {
-			"1": {"kind": "line", "points": [[0.0, 0.0], [4.0, 0.0]]},
-			"2": {"kind": "rectangle", "points": [[0.0, 2.0], [3.0, 3.0]]},
+			"1": { "kind": "line", "points": [[0.0, 0.0], [4.0, 0.0]] },
+			"2": { "kind": "rectangle", "points": [[0.0, 2.0], [3.0, 3.0]] },
 		},
 	}
 	var after := {
 		"entities": {
 			# The same shape, widened: same id, different geometry.
-			"2": {"kind": "rectangle", "points": [[0.0, 2.0], [5.0, 3.0]]},
-			"3": {"kind": "circle", "centre": [1.0, 1.0], "radius": 2.0},
+			"2": { "kind": "rectangle", "points": [[0.0, 2.0], [5.0, 3.0]] },
+			"3": { "kind": "circle", "centre": [1.0, 1.0], "radius": 2.0 },
 		},
 	}
 	var changes: Dictionary = LogScript.compare(before, after)
@@ -126,8 +121,10 @@ func test_the_difference_is_by_id_which_is_what_makes_it_possible() -> void:
 	assert(changes["changed"] == [2], "a widened bed is the same bed: %s" % str(changes["changed"]))
 	assert(changes["removed"] == [1], str(changes["removed"]))
 	assert(not bool(changes["same"]))
-	assert(LogScript.describe_diff(changes).begins_with("1 added, 1 changed, 1 removed"),
-		LogScript.describe_diff(changes))
+	assert(
+		LogScript.describe_diff(changes).begins_with("1 added, 1 changed, 1 removed"),
+		LogScript.describe_diff(changes),
+	)
 	assert(LogScript.describe_diff(changes).contains("#2"), "and the shapes are named")
 
 
@@ -137,8 +134,10 @@ func test_two_identical_revisions_say_they_are_identical() -> void:
 	log.capture(_state(), "second")
 	var changes: Dictionary = log.diff(0, 1)
 	assert(bool(changes["same"]), LogScript.describe_diff(changes))
-	assert(LogScript.describe_diff(changes) == "the drawing is the same in both revisions",
-		LogScript.describe_diff(changes))
+	assert(
+		LogScript.describe_diff(changes) == "the drawing is the same in both revisions",
+		LogScript.describe_diff(changes),
+	)
 
 
 ## A revision kept in memory has integer keys and integer lengths; the same revision read back from a
@@ -147,16 +146,16 @@ func test_two_identical_revisions_say_they_are_identical() -> void:
 func test_a_revision_is_not_different_from_itself_after_a_file() -> void:
 	var log: DraftRevisionLog = LogScript.make()
 	log.capture(_state(), "sent")
-	var back: DraftRevisionLog = LogScript.from_dict(
-		JSON.parse_string(JSON.stringify(log.to_dict()))
-	)
+	var back: DraftRevisionLog = LogScript.from_dict(JSON.parse_string(JSON.stringify(log.to_dict())))
 	assert(bool(back.diff(0, 0)["same"]), "a revision is never a change from itself")
 	var recorded: DraftRevisionLog = LogScript.make()
 	recorded.capture(_state(), "a copy of the same drawing")
 	assert(bool(back.diff(0, 0)["same"]))
 	# And a snapshot taken in memory compares equal to the same snapshot read back.
-	assert(bool(LogScript.compare(recorded.snapshot(0), back.snapshot(0))["same"]),
-		"a drawing from memory and the same drawing from a file are the same drawing")
+	assert(
+		bool(LogScript.compare(recorded.snapshot(0), back.snapshot(0))["same"]),
+		"a drawing from memory and the same drawing from a file are the same drawing",
+	)
 
 
 func test_two_revisions_of_a_real_drawing_report_what_changed() -> void:
@@ -176,8 +175,7 @@ func test_a_difference_that_cannot_be_asked_for_says_so() -> void:
 	var changes: Dictionary = log.diff(0, 4)
 	assert(not bool(changes["ok"]))
 	assert(LogScript.describe_diff(changes) == "there is no such revision", LogScript.describe_diff(changes))
-	assert(LogScript.describe_diff({}) == "the two revisions cannot be compared")
-
+	assert(LogScript.describe_diff({ }) == "the two revisions cannot be compared")
 
 # --- the gestures a revision is counted from ------------------------------------------
 
@@ -209,7 +207,7 @@ func test_a_history_written_before_gestures_were_counted_says_it_does_not_know()
 	# And the same for a file written before the field existed: it reads, and it says it does not know.
 	var rows: Array = log.to_dict()["records"]
 	(rows[0] as Dictionary).erase("serial")
-	var back: DraftRevisionLog = LogScript.from_dict({"version": 1, "records": rows})
+	var back: DraftRevisionLog = LogScript.from_dict({ "version": 1, "records": rows })
 	assert(back.count() == 1, "the history still reads")
 	assert(int(back.record_at(0).get("serial", 0)) == 0, "with its gesture unknown rather than zero")
 	assert(back.gestures_since(0, 40) == 0)

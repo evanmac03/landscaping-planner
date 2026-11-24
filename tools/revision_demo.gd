@@ -14,7 +14,7 @@ extends Node2D
 ## shipped ones. It prints every step, and the screenshot at the end is the window with the history in it
 ## and the drawing put back.
 ##
-## Run `res://scenes/revision_demo.tscn`.
+## Run `res://tools/revision_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const HudScript := preload("res://scripts/hud.gd")
@@ -35,15 +35,17 @@ func _ready() -> void:
 	print("--- a drawing, as a designer would have it before sending it ---")
 	var bed := EntityScript.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0))
 	controller.document.add(bed, LayerSetScript.NEW_BED)
-	controller.document.add(
-		EntityScript.make_line(Vector2(0.0, 8.0), Vector2(12.0, 8.0)), LayerSetScript.NEW_HARDSCAPE
-	)
+	controller.document.add(EntityScript.make_line(Vector2(0.0, 8.0), Vector2(12.0, 8.0)), LayerSetScript.NEW_HARDSCAPE)
 	var seen: int = controller.document.count()
 	print("the drawing has ", seen, " shapes in it")
 
 	print("--- the Edit menu's way in ---")
-	print("the entry is there: ", not _entry("edit.revisions").is_empty(),
-		" and it is called ", _entry("edit.revisions").get("label", ""))
+	print(
+		"the entry is there: ",
+		not _entry("edit.revisions").is_empty(),
+		" and it is called ",
+		_entry("edit.revisions").get("label", ""),
+	)
 	hud.open_revision_window()
 	var window: RevisionWindow = hud.get(&"_revision_window")
 	print("the window is up: ", hud.is_revision_window_open())
@@ -60,18 +62,27 @@ func _ready() -> void:
 	print("the history now: ", window.list_texts())
 	print("status: ", hud.revision_status_text())
 	var first: Dictionary = controller.revision_rows()[0]
-	print("kept for the file: message ", first["message"], ", by ", first["author"],
-		", when ", first["when"], ", ", first["shapes"], " shapes")
+	print(
+		"kept for the file: message ",
+		first["message"],
+		", by ",
+		first["author"],
+		", when ",
+		first["when"],
+		", ",
+		first["shapes"],
+		" shapes",
+	)
 	print("and it is on disk beside the drawings: ", _history_exists(controller))
 
 	print("--- what happened after the client saw it ---")
+	controller.document.add(EntityScript.make_circle(Vector2(3.0, 5.0), 2.0), LayerSetScript.NEW_PLANTING)
 	controller.document.add(
-		EntityScript.make_circle(Vector2(3.0, 5.0), 2.0), LayerSetScript.NEW_PLANTING
-	)
-	controller.document.add(
-		EntityScript.make_polyline(PackedVector2Array([
-			Vector2(14.0, 0.0), Vector2(20.0, 0.0), Vector2(17.0, 5.0),
-		]), true), LayerSetScript.NEW_TURF
+		EntityScript.make_polyline(
+			PackedVector2Array([Vector2(14.0, 0.0), Vector2(20.0, 0.0), Vector2(17.0, 5.0)]),
+			true,
+		),
+		LayerSetScript.NEW_TURF,
 	)
 	print("the drawing has ", controller.document.count(), " shapes now")
 	window.type_message("client asked for more lawn")
@@ -86,8 +97,12 @@ func _ready() -> void:
 	print("which has nothing before it to differ from: '", window.change_text(), "'")
 	# What the "Put this revision back" button's press is connected to.
 	print("putting it back: ", window.restore())
-	print("the drawing has ", controller.document.count(), " shapes, as revision 1 had: ",
-		controller.document.count() == seen)
+	print(
+		"the drawing has ",
+		controller.document.count(),
+		" shapes, as revision 1 had: ",
+		controller.document.count() == seen,
+	)
 	print("status: ", hud.revision_status_text())
 	print("and it is a change like any other, so it can be undone: ", controller.document.undo_last())
 	print("after the undo the drawing has ", controller.document.count(), " shapes again")
@@ -100,7 +115,7 @@ static func _entry(id: StringName) -> Dictionary:
 	for entry: Dictionary in HudScript.menu_entries():
 		if StringName(entry.get("id", &"")) == id:
 			return entry
-	return {}
+	return { }
 
 
 func _history_exists(controller: Node) -> bool:

@@ -20,7 +20,6 @@ func _dimension():
 func _text(layout: Dictionary) -> String:
 	return String(layout["labels"][0]["text"])
 
-
 # --- the mark at each end -----------------------------------------------------------
 
 
@@ -35,9 +34,7 @@ func test_the_default_style_is_the_architectural_one() -> void:
 ## A tick is linework rather than a solid, so it joins the lines: a view that
 ## cannot fill anything still draws an engineering dimension correctly.
 func test_a_tick_style_draws_crosswise_strokes_instead_of_arrows() -> void:
-	var layout: Dictionary = Dimension.layout(
-		_dimension(), 100.0, null, DimensionStyle.engineering()
-	)
+	var layout: Dictionary = Dimension.layout(_dimension(), 100.0, null, DimensionStyle.engineering())
 	# Two extension lines, the dimension line, and a tick at each end.
 	assert(layout["lines"].size() == 5)
 	assert(layout["marks"].is_empty())
@@ -51,16 +48,10 @@ func test_a_tick_style_draws_crosswise_strokes_instead_of_arrows() -> void:
 ## arrow, so they lean the same way instead of mirroring. Mirroring is the kind of
 ## mistake that looks deliberate.
 func test_both_ticks_lean_the_same_way() -> void:
-	var layout: Dictionary = Dimension.layout(
-		_dimension(), 100.0, null, DimensionStyle.engineering()
-	)
+	var layout: Dictionary = Dimension.layout(_dimension(), 100.0, null, DimensionStyle.engineering())
 	var first: PackedVector2Array = layout["lines"][3]
 	var second: PackedVector2Array = layout["lines"][4]
-	assert(
-		(first[1] - first[0]).normalized().is_equal_approx(
-			(second[1] - second[0]).normalized()
-		)
-	)
+	assert((first[1] - first[0]).normalized().is_equal_approx((second[1] - second[0]).normalized()))
 
 
 func test_a_dot_style_marks_the_ends_with_discs() -> void:
@@ -93,10 +84,7 @@ func test_extension_lines_can_be_switched_off_on_their_own() -> void:
 func test_the_mark_size_comes_from_the_style() -> void:
 	var style := DimensionStyle.architectural()
 	style.mark_size_mm = 4.0
-	assert(is_equal_approx(
-		float(Dimension.layout(_dimension(), 100.0, null, style)["marks"][0]["size"]), 0.4
-	))
-
+	assert(is_equal_approx(float(Dimension.layout(_dimension(), 100.0, null, style)["marks"][0]["size"]), 0.4))
 
 # --- the text -----------------------------------------------------------------------
 
@@ -104,10 +92,12 @@ func test_the_mark_size_comes_from_the_style() -> void:
 func test_the_text_height_comes_from_the_style() -> void:
 	var style := DimensionStyle.architectural()
 	style.text_height_mm = 3.5
-	assert(is_equal_approx(
-		float(Dimension.layout(_dimension(), 100.0, null, style)["labels"][0]["height"]),
-		3.5 * 100.0 / 1000.0
-	))
+	assert(
+		is_equal_approx(
+			float(Dimension.layout(_dimension(), 100.0, null, style)["labels"][0]["height"]),
+			3.5 * 100.0 / 1000.0,
+		)
+	)
 
 
 ## The dimension line sits at y = 1 with the measured points at y = 0, so there
@@ -176,7 +166,6 @@ func test_an_imperial_document_ignores_the_decimal_count() -> void:
 	assert(text == units.format_length(10.0))
 	assert(text.contains("'"))
 
-
 # --- persistence --------------------------------------------------------------------
 
 
@@ -199,9 +188,9 @@ func test_a_style_round_trips_through_persistence() -> void:
 ## A file written by an older version, or hand-edited, has to load with usable
 ## values rather than refuse.
 func test_reading_a_broken_style_gives_a_usable_one() -> void:
-	var nonsense := DimensionStyle.from_dict({"mark": 99})
+	var nonsense := DimensionStyle.from_dict({ "mark": 99 })
 	assert(nonsense.mark == DimensionStyle.Mark.ARROW)
-	var empty := DimensionStyle.from_dict({})
+	var empty := DimensionStyle.from_dict({ })
 	assert(empty.mark == DimensionStyle.Mark.ARROW)
 	assert(empty.extension_lines)
 	assert(empty.text_height_mm > 0.0)
@@ -236,7 +225,6 @@ func test_a_file_from_before_styles_existed_still_loads() -> void:
 	assert(back.dimension_style.mark == DimensionStyle.Mark.ARROW)
 	assert(back.count() == 1)
 
-
 # --- which style applies ------------------------------------------------------------
 
 
@@ -260,7 +248,6 @@ func test_an_entity_override_beats_the_document_standard() -> void:
 func test_an_entity_with_no_document_gets_the_shipped_standard() -> void:
 	assert(Dimension.style_for(_dimension()).mark == DimensionStyle.Mark.ARROW)
 
-
 # --- reaching the sheet -------------------------------------------------------------
 
 
@@ -272,12 +259,10 @@ func test_a_tick_style_plots_ticks_rather_than_arrowheads() -> void:
 	document.dimension_style = DimensionStyle.engineering()
 	var entity = _dimension()
 	document.add(entity, LayerSet.DIMENSION)
-	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
-	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
-		.get_string_from_utf8()
-	var ticks: Dictionary = Dimension.layout(
-		entity, 100.0, null, DimensionStyle.engineering()
-	)
+	var plan := Exporter.plan_sheet(document, { "sheet": "A3", "scale": 100.0 })
+	var text := Exporter.export_pdf(document, { "sheet": "A3", "scale": 100.0 }) \
+			.get_string_from_utf8()
+	var ticks: Dictionary = Dimension.layout(entity, 100.0, null, DimensionStyle.engineering())
 	var tick: PackedVector2Array = ticks["lines"][3]
 	for point in tick:
 		assert(_has_point(text, Exporter.model_to_paper(point, plan)))
@@ -286,7 +271,9 @@ func test_a_tick_style_plots_ticks_rather_than_arrowheads() -> void:
 	# line and only an arrowhead has them.
 	var arrows: Dictionary = Dimension.layout(entity, 100.0)
 	var triangle := Dimension.arrow_triangle(
-		arrows["marks"][0]["tip"], arrows["marks"][0]["direction"], arrows["marks"][0]["size"]
+		arrows["marks"][0]["tip"],
+		arrows["marks"][0]["direction"],
+		arrows["marks"][0]["size"],
 	)
 	for corner in [triangle[1], triangle[2]]:
 		assert(not _has_point(text, Exporter.model_to_paper(corner, plan)))
@@ -296,7 +283,10 @@ func _has_point(text: String, target: Vector2) -> bool:
 	var numbers := [String.num(target.x, 4), String.num(target.y, 4)]
 	for line in text.split("\n"):
 		var parts := line.strip_edges().split(" ", false)
-		if parts.size() == 3 and parts[2] in ["m", "l"] \
-				and parts[0] == numbers[0] and parts[1] == numbers[1]:
+		if (
+			parts.size() == 3 and parts[2] in ["m", "l"] \
+					and parts[0] == numbers[0]
+			and parts[1] == numbers[1]
+		):
 			return true
 	return false

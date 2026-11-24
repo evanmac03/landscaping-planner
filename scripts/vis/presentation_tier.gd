@@ -17,27 +17,50 @@ const WORKING := 0
 const PRESENTATION := 1
 const STILL := 2
 
+## The sizes a still can be asked for. Not every size for every job: these are the
+## four a proposal actually wants, and each is a name a person recognises.
+const STILL_SIZES: Array = [
+	["Web 1920 x 1080", Vector2i(1920, 1080)],
+	["QHD 2560 x 1440", Vector2i(2560, 1440)],
+	["4K 3840 x 2160", Vector2i(3840, 2160)],
+]
+
 ## The budgets.
 ##
 ## `supersample` is the render scale the still path uses; it is 1 for the
 ## interactive tiers because the screen is the screen.
 const LOOKS := {
 	WORKING: {
-		"shadow_max_distance": 90.0, "shadow_blur": 0.0,
-		"ssao": false, "ssao_radius": 1.2, "ssao_intensity": 1.6,
-		"textured": false, "supersample": 1, "stylised": false,
+		"shadow_max_distance": 90.0,
+		"shadow_blur": 0.0,
+		"ssao": false,
+		"ssao_radius": 1.2,
+		"ssao_intensity": 1.6,
+		"textured": false,
+		"supersample": 1,
+		"stylised": false,
 	},
 	PRESENTATION: {
-		"shadow_max_distance": 45.0, "shadow_blur": 1.2,
-		"ssao": true, "ssao_radius": 1.2, "ssao_intensity": 1.6,
-		"textured": true, "supersample": 1, "stylised": false,
+		"shadow_max_distance": 45.0,
+		"shadow_blur": 1.2,
+		"ssao": true,
+		"ssao_radius": 1.2,
+		"ssao_intensity": 1.6,
+		"textured": true,
+		"supersample": 1,
+		"stylised": false,
 	},
 	STILL: {
 		# A still is allowed to be slow: it is rendered once and looked at for
 		# months, so this is where every budget is spent.
-		"shadow_max_distance": 30.0, "shadow_blur": 1.4,
-		"ssao": true, "ssao_radius": 1.0, "ssao_intensity": 2.0,
-		"textured": true, "supersample": 2, "stylised": true,
+		"shadow_max_distance": 30.0,
+		"shadow_blur": 1.4,
+		"ssao": true,
+		"ssao_radius": 1.0,
+		"ssao_intensity": 2.0,
+		"textured": true,
+		"supersample": 2,
+		"stylised": true,
 	},
 }
 

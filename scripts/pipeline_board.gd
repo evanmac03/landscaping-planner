@@ -35,8 +35,15 @@ const COLUMN_CARDS := 8
 
 ## The columns, in the order a lead moves through them, with the three terminal states on the right.
 const BOARD_STAGES: Array[int] = [
-	LeadScript.LEAD, LeadScript.QUALIFIED, LeadScript.VISIT, LeadScript.ESTIMATING,
-	LeadScript.PROPOSED, LeadScript.WON, LeadScript.LOST, LeadScript.WITHDRAWN, LeadScript.DORMANT,
+	LeadScript.LEAD,
+	LeadScript.QUALIFIED,
+	LeadScript.VISIT,
+	LeadScript.ESTIMATING,
+	LeadScript.PROPOSED,
+	LeadScript.WON,
+	LeadScript.LOST,
+	LeadScript.WITHDRAWN,
+	LeadScript.DORMANT,
 ]
 
 var pipeline: PipelineScript = null
@@ -66,7 +73,6 @@ func _ready() -> void:
 	if _row == null:
 		build()
 
-
 # --- building ------------------------------------------------------------------------------
 
 
@@ -78,16 +84,10 @@ func build() -> void:
 	if pipeline == null:
 		pipeline = PipelineScript.new()
 		pipeline.currency = currency
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	_funnel = Label.new()
+	_funnel = PageChrome.text()
 	_funnel.name = "Funnel"
-	_funnel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_funnel.custom_minimum_size = Vector2(0, 34)
 	column.add_child(_funnel)
 
 	var scroll := ScrollContainer.new()
@@ -115,7 +115,7 @@ func build() -> void:
 	_reason_row.add_theme_constant_override("separation", 6)
 	_reason_row.visible = false
 	column.add_child(_reason_row)
-	_reason_label = Label.new()
+	_reason_label = PageChrome.text()
 	_reason_label.name = "ReasonLabel"
 	_reason_row.add_child(_reason_label)
 	_reason = LineEdit.new()
@@ -148,24 +148,20 @@ func build() -> void:
 	add_button.name = "AddLead"
 	add_row.add_child(add_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 34)
+	_status = PageChrome.status()
 	column.add_child(_status)
 	refresh()
 
 
+## A button on this board, from the shared chrome and named by the board's own rule: a caption with its
+## spaces taken out. The board's typed fields are the only controls it builds with a keyboard, because a
+## field is where somebody types; what the *open* board does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	# HUD controls are focus-free so the drawing keeps the keyboard; the board's typed fields are
-	# the exception, and they are the only ones.
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(Callable(self, method))
 	return button
-
 
 # --- showing what is there ---------------------------------------------------------------------
 
@@ -191,6 +187,10 @@ func refresh() -> void:
 		_reason_row.visible = _pending_stage == LeadScript.LOST
 		if is_asking_for_a_reason():
 			_reason_label.text = "%s is being closed as lost. Why?" % _name_of(_pending_id)
+	# The cards just built are new controls, and the shared show that gave this board its keyboard ran
+	# when it was *opened* - before any of them existed. So a board that is up gives them the keyboard
+	# here. Nothing is done while it is down: the show is what decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## Rebuild every column's cards from the pipeline. Cheap at this size - a column is a handful of
@@ -235,7 +235,6 @@ func _card(lead: LeadScript) -> Card:
 	card.pressed.connect(_on_card_pressed.bind(lead.id))
 	return card
 
-
 # --- moving a lead -------------------------------------------------------------------------
 
 
@@ -247,16 +246,19 @@ func _card(lead: LeadScript) -> Card:
 ## Returns the move's own `{ok, reason, ...}`.
 func move_lead(lead_id: String, to_stage: int) -> Dictionary:
 	if pipeline == null:
-		return {"ok": false, "reason": "the board has no pipeline", "event": {}}
+		return { "ok": false, "reason": "the board has no pipeline", "event": { } }
 	var lead: LeadScript = pipeline.find(lead_id)
 	if lead == null:
-		return {"ok": false, "reason": "that lead is not on the board", "event": {}}
+		return { "ok": false, "reason": "that lead is not on the board", "event": { } }
 	if to_stage == LeadScript.LOST and lead.lost_reason == &"":
 		_pending_id = lead_id
 		_pending_stage = to_stage
 		refresh()
-		return {"ok": false, "reason": "a lead closed as lost says why, and this one has no lost reason",
-			"event": {}}
+		return {
+			"ok": false,
+			"reason": "a lead closed as lost says why, and this one has no lost reason",
+			"event": { },
+		}
 	var result := lead.move_to(to_stage, _now(), "office")
 	if result["ok"]:
 		_clear_pending()
@@ -268,12 +270,12 @@ func move_lead(lead_id: String, to_stage: int) -> Dictionary:
 ## The reason a held drop was waiting for. Sets it and finishes the move it was holding.
 func confirm_move(reason: String) -> Dictionary:
 	if not is_asking_for_a_reason():
-		return {"ok": false, "reason": "nothing is being closed as lost", "event": {}}
+		return { "ok": false, "reason": "nothing is being closed as lost", "event": { } }
 	var lead: LeadScript = pipeline.find(_pending_id)
 	if lead == null:
 		_clear_pending()
 		refresh()
-		return {"ok": false, "reason": "that lead is not on the board", "event": {}}
+		return { "ok": false, "reason": "that lead is not on the board", "event": { } }
 	lead.set_lost_reason(StringName(reason.strip_edges()))
 	var target := _pending_stage
 	_clear_pending()
@@ -310,7 +312,7 @@ func add_lead(lead_name: String, cents: int, source: StringName = &"other", expe
 		build()
 	var clean := lead_name.strip_edges()
 	if clean.is_empty():
-		return {"ok": false, "reason": "a lead needs a name", "id": ""}
+		return { "ok": false, "reason": "a lead needs a name", "id": "" }
 	var lead := LeadScript.new(_new_id(), clean)
 	lead.value_estimate = MoneyScript.of(cents, currency)
 	lead.source = source if LeadScript.SOURCES.has(source) else &"other"
@@ -323,8 +325,7 @@ func add_lead(lead_name: String, cents: int, source: StringName = &"other", expe
 	pipeline.add(lead)
 	refresh()
 	pipeline_changed.emit()
-	return {"ok": true, "reason": "", "id": lead.id}
-
+	return { "ok": true, "reason": "", "id": lead.id }
 
 # --- what the board says -------------------------------------------------------------------
 
@@ -364,10 +365,7 @@ func funnel_texts() -> Array[String]:
 	if pipeline == null:
 		return out
 	for row in pipeline.funnel():
-		out.append("%s %d - %s" % [
-			String(row["name"]), int(row["count"]),
-			MoneyScript.of(int(row["value_cents"]), currency).format(),
-		])
+		out.append("%s %d - %s" % [String(row["name"]), int(row["count"]), MoneyScript.of(int(row["value_cents"]), currency).format()])
 	return out
 
 
@@ -402,8 +400,9 @@ func is_reason_row_visible() -> bool:
 	return _reason_row != null and _reason_row.visible
 
 
-## The controls that must not take the keyboard: every button on the board. The typed fields are the
-## only things here allowed focus, so this returns the buttons and nothing else.
+## The controls that are *built* without a keyboard: every button on the board. The typed fields are the
+## only things here allowed focus at build time, so this returns the buttons and nothing else - and what a
+## board that is *shown* does with the keyboard is decided once, in `PageChrome.takes_the_keyboard`.
 func buttons_are_focus_free() -> bool:
 	if _row == null:
 		return false
@@ -427,7 +426,6 @@ func _name_of(lead_id: String) -> String:
 		return lead_id
 	var lead: LeadScript = pipeline.find(lead_id)
 	return lead.name if lead != null else lead_id
-
 
 # --- the small arithmetic the board needs --------------------------------------------------
 
@@ -465,7 +463,6 @@ func _new_id() -> String:
 func _now() -> String:
 	return Time.get_datetime_string_from_system(true) + "Z"
 
-
 # --- the buttons ----------------------------------------------------------------------------
 
 
@@ -473,9 +470,7 @@ func _on_card_pressed(lead_id: String) -> void:
 	if _status != null:
 		var lead: LeadScript = pipeline.find(lead_id) if pipeline != null else null
 		if lead != null:
-			_status.text = "%s: %s, %s" % [
-				LeadScript.stage_name(lead.stage), lead.name, lead.value().format(),
-			]
+			_status.text = "%s: %s, %s" % [LeadScript.stage_name(lead.stage), lead.name, lead.value().format()]
 
 
 func _on_confirm_lost() -> void:
@@ -509,7 +504,6 @@ func _on_close_requested() -> void:
 	hide()
 	closed.emit()
 
-
 # --- dragging a card between columns ---------------------------------------------------------
 
 
@@ -517,6 +511,7 @@ func _on_close_requested() -> void:
 class Card extends Button:
 	var lead_id: String = ""
 	var board: PipelineBoard = null
+
 
 	func _get_drag_data(_at: Vector2) -> Variant:
 		if board == null or lead_id.is_empty():
@@ -527,7 +522,7 @@ class Card extends Button:
 			var preview := Label.new()
 			preview.text = text
 			set_drag_preview(preview)
-		return {"lead": lead_id}
+		return { "lead": lead_id }
 
 
 ## A column: a drop target that knows which stage it is.
@@ -535,10 +530,12 @@ class Column extends VBoxContainer:
 	var stage: int = -1
 	var board: PipelineBoard = null
 
+
 	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
 		if board == null or not (data is Dictionary):
 			return false
 		return (data as Dictionary).has("lead")
+
 
 	func _drop_data(_at: Vector2, data: Variant) -> void:
 		if board == null or not (data is Dictionary):

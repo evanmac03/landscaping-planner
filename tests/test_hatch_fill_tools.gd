@@ -23,13 +23,14 @@ func _controller():
 
 
 func _polygon(size: float = 10.0):
-	return Entity.make_polyline(PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size)]), true)
+	return Entity.make_polyline(
+		PackedVector2Array([Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size)]),
+		true,
+	)
 
 
 func _hatch_options(pattern: StringName = Fill.HATCH) -> Dictionary:
-	return {"pattern": pattern, "spacing_mm": 2.0, "angle_deg": 0.0, "symbol": Fill.SYMBOL_DOT}
-
+	return { "pattern": pattern, "spacing_mm": 2.0, "angle_deg": 0.0, "symbol": Fill.SYMBOL_DOT }
 
 # --- the fill -------------------------------------------------------------------------
 
@@ -89,25 +90,19 @@ func test_a_stipple_fill_writes_symbol_marks() -> void:
 func test_a_solid_fill_ignores_the_spacing_it_was_offered() -> void:
 	var controller = _controller()
 	var id: int = controller.document.add(_polygon(), LayerSet.NEW_BED)
-	var solid: Dictionary = controller.fill_entity(id, {
-		"pattern": Fill.SOLID, "spacing_mm": 5.0, "angle_deg": 0.0,
-	})
+	var solid: Dictionary = controller.fill_entity(id, { "pattern": Fill.SOLID, "spacing_mm": 5.0, "angle_deg": 0.0 })
 	assert(bool(solid["ok"]), String(solid["reason"]))
 	# Solid's density is fixed on paper, so it is not the sparse 5 mm a line hatch would be.
-	var sparse: Dictionary = controller.fill_entity(id, {
-		"pattern": Fill.HATCH, "spacing_mm": 5.0, "angle_deg": 0.0,
-	})
+	var sparse: Dictionary = controller.fill_entity(id, { "pattern": Fill.HATCH, "spacing_mm": 5.0, "angle_deg": 0.0 })
 	assert(int(solid["count"]) > int(sparse["count"]))
 	controller.free()
-
 
 # --- refusing -------------------------------------------------------------------------
 
 
 func test_a_shape_that_encloses_nothing_cannot_be_filled() -> void:
 	var controller = _controller()
-	var id: int = controller.document.add(
-		Entity.make_line(Vector2(0.0, 0.0), Vector2(5.0, 5.0)), LayerSet.NEW_BED)
+	var id: int = controller.document.add(Entity.make_line(Vector2(0.0, 0.0), Vector2(5.0, 5.0)), LayerSet.NEW_BED)
 	var filled: Dictionary = controller.fill_entity(id, _hatch_options())
 	assert(not bool(filled["ok"]))
 	assert(String(filled["reason"]).contains("does not enclose an area"))
@@ -125,12 +120,11 @@ func test_a_region_that_has_gone_is_refused() -> void:
 func test_a_pattern_nobody_has_is_refused_rather_than_guessed() -> void:
 	var controller = _controller()
 	var id: int = controller.document.add(_polygon(), LayerSet.NEW_BED)
-	var filled: Dictionary = controller.fill_entity(id, {"pattern": &"plaid"})
+	var filled: Dictionary = controller.fill_entity(id, { "pattern": &"plaid" })
 	assert(not bool(filled["ok"]))
 	assert(String(filled["reason"]).contains("no such fill pattern"))
 	assert(controller.document.count() == 1, "and nothing was drawn")
 	controller.free()
-
 
 # --- the regions the drawing offers ---------------------------------------------------
 
@@ -139,8 +133,7 @@ func test_the_regions_offered_are_the_drawings_own_closed_areas() -> void:
 	var controller = _controller()
 	controller.document.add(_polygon(), LayerSet.NEW_BED)
 	# A line on the same layer encloses nothing, so it is not a region.
-	controller.document.add(
-		Entity.make_line(Vector2(20.0, 20.0), Vector2(30.0, 30.0)), LayerSet.NEW_BED)
+	controller.document.add(Entity.make_line(Vector2(20.0, 20.0), Vector2(30.0, 30.0)), LayerSet.NEW_BED)
 	var rows: Array[Dictionary] = controller.hatch_regions()
 	assert(rows.size() == 1, "one closed area")
 	assert(String(rows[0]["name"]).begins_with("bed "))

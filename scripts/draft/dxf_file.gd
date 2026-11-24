@@ -95,7 +95,6 @@ const INSUNITS_VAR := "$INSUNITS"
 ## The entity types this reader draws. `POLYLINE` is completed by its `VERTEX` records.
 const SUPPORTED := ["LINE", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ARC", "TEXT"]
 
-
 # --- reading --------------------------------------------------------------------------
 
 
@@ -111,7 +110,7 @@ const SUPPORTED := ["LINE", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ARC", "TEXT"]
 ## Returns a dictionary rather than an object, as `SurveyFile` does: what comes out of it is a table
 ## of shapes and a table of things to say about them, and a class would only be a second set of names
 ## for the same two tables.
-static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
+static func read_text(source: String, options: Dictionary = { }) -> Dictionary:
 	if source.strip_edges().is_empty():
 		return _refused("the file is empty")
 	var pairs := _pairs(source)
@@ -131,11 +130,17 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 		return _refused(String(stated["reason"]))
 
 	var plan := {
-		"ok": true, "reason": "", "source": "",
-		"units": String(stated["name"]), "unit_factor": float(stated["factor"]),
-		"units_from": String(stated["source"]), "insunits": int(found["insunits"]),
-		"layer_names": found["layers"], "counts": found["counts"],
-		"unsupported": found["unsupported"], "blocks": int(found["blocks"]),
+		"ok": true,
+		"reason": "",
+		"source": "",
+		"units": String(stated["name"]),
+		"unit_factor": float(stated["factor"]),
+		"units_from": String(stated["source"]),
+		"insunits": int(found["insunits"]),
+		"layer_names": found["layers"],
+		"counts": found["counts"],
+		"unsupported": found["unsupported"],
+		"blocks": int(found["blocks"]),
 		"bad_numbers": int(found["bad_numbers"]),
 		"missing_layer": int(found["missing_layer"]),
 		"underlay": bool(options.get("underlay", true)),
@@ -150,7 +155,7 @@ static func read_text(source: String, options: Dictionary = {}) -> Dictionary:
 
 ## Read a DXF from disk. A missing or unreadable file is refused with a reason rather than raising,
 ## because it is a path a person typed.
-static func of_file(path: String, options: Dictionary = {}) -> Dictionary:
+static func of_file(path: String, options: Dictionary = { }) -> Dictionary:
 	if path.is_empty():
 		return _refused("no file was named")
 	if not FileAccess.file_exists(path):
@@ -194,9 +199,16 @@ static func _pairs(source: String) -> Array:
 ## unscaled and then rescaled.
 static func _walk(codes: PackedInt32Array, values: PackedStringArray) -> Dictionary:
 	var out := {
-		"ok": true, "reason": "", "insunits": 0, "layers": [] as Array[String],
-		"raw": [] as Array[Dictionary], "counts": {},
-		"unsupported": [] as Array[String], "blocks": 0, "bad_numbers": 0, "missing_layer": 0,
+		"ok": true,
+		"reason": "",
+		"insunits": 0,
+		"layers": [] as Array[String],
+		"raw": [] as Array[Dictionary],
+		"counts": { },
+		"unsupported": [] as Array[String],
+		"blocks": 0,
+		"bad_numbers": 0,
+		"missing_layer": 0,
 	}
 	var section := ""
 	var header_var := ""
@@ -252,7 +264,7 @@ static func _walk(codes: PackedInt32Array, values: PackedStringArray) -> Diction
 			index += 1
 			continue
 		# Not a record: a value inside one. The only values this reader wants are the header's, and
-	# everything else is somebody else's business.
+		# everything else is somebody else's business.
 		if section == "HEADER":
 			if code == 9:
 				header_var = value
@@ -284,7 +296,12 @@ static func _record_value(codes: PackedInt32Array, values: PackedStringArray, in
 
 
 ## Every value of one code inside the record that starts at `index`.
-static func _record_values(codes: PackedInt32Array, values: PackedStringArray, index: int, code: int) -> PackedStringArray:
+static func _record_values(
+	codes: PackedInt32Array,
+	values: PackedStringArray,
+	index: int,
+	code: int,
+) -> PackedStringArray:
 	var out := PackedStringArray()
 	var at := index + 1
 	while at < codes.size() and codes[at] != 0:
@@ -306,7 +323,7 @@ static func _next_record(codes: PackedInt32Array, index: int) -> int:
 ## record means in the model is decided once, in `_finish`.
 static func _entity(codes: PackedInt32Array, values: PackedStringArray, index: int) -> Dictionary:
 	var kind := values[index].strip_edges().to_upper()
-	var out := {"kind": kind, "reason": "", "next": _next_record(codes, index)}
+	var out := { "kind": kind, "reason": "", "next": _next_record(codes, index) }
 	var layer := _record_value(codes, values, index, 8)
 	var closed := (int(_record_value(codes, values, index, 70).to_int()) & 1) == 1
 	var points := PackedVector2Array()
@@ -376,8 +393,12 @@ static func _entity(codes: PackedInt32Array, values: PackedStringArray, index: i
 		_:
 			out["reason"] = ""
 	var shape := {
-		"kind": kind, "dxf_layer": layer, "closed": closed,
-		"points": points, "bulges": bulges, "words": String(out.get("words", "")),
+		"kind": kind,
+		"dxf_layer": layer,
+		"closed": closed,
+		"points": points,
+		"bulges": bulges,
+		"words": String(out.get("words", "")),
 		"dxf_arc": out.get("dxf_arc", Vector2.ZERO),
 		"dxf_height": float(out.get("dxf_height", 0.0)),
 	}
@@ -413,7 +434,6 @@ static func _numbers(codes: PackedInt32Array, values: PackedStringArray, index: 
 		out.append(raw.to_float() if raw.is_valid_float() else NAN)
 	return out
 
-
 # --- units ----------------------------------------------------------------------------
 
 
@@ -424,25 +444,27 @@ static func _numbers(codes: PackedInt32Array, values: PackedStringArray, index: 
 static func units_for(insunits: int, asked: String = "") -> Dictionary:
 	if insunits != 0 and UNITS.has(insunits):
 		return {
-			"name": String(UNITS[insunits][0]), "factor": float(UNITS[insunits][1]),
-			"source": "the file's own $INSUNITS", "reason": "",
+			"name": String(UNITS[insunits][0]),
+			"factor": float(UNITS[insunits][1]),
+			"source": "the file's own $INSUNITS",
+			"reason": "",
 		}
 	var wanted := asked.strip_edges().to_lower()
 	if not wanted.is_empty() and UNIT_NAMES.has(wanted):
-		return {
-			"name": wanted, "factor": float(UNIT_NAMES[wanted]),
-			"source": "what was asked for", "reason": "",
-		}
+		return { "name": wanted, "factor": float(UNIT_NAMES[wanted]), "source": "what was asked for", "reason": "" }
 	if insunits != 0:
 		return {
-			"name": "", "factor": 0.0, "source": "",
+			"name": "",
+			"factor": 0.0,
+			"source": "",
 			"reason": "the file says its units are code %d, which is not a unit this reads" % insunits,
 		}
 	return {
-		"name": "", "factor": 0.0, "source": "",
+		"name": "",
+		"factor": 0.0,
+		"source": "",
 		"reason": "the file does not say whether it is in metres or feet, so it has to be asked about",
 	}
-
 
 # --- what the geometry becomes --------------------------------------------------------
 
@@ -511,8 +533,7 @@ static func _finish(plan: Dictionary, raw: Array) -> void:
 		warnings.append(words)
 	if int(plan["bad_numbers"]) > 0:
 		warnings.append(
-			"%d shape(s) carried a number that could not be read and were left out"
-			% int(plan["bad_numbers"])
+			"%d shape(s) carried a number that could not be read and were left out" % int(plan["bad_numbers"])
 		)
 	if int(plan["blocks"]) > 0:
 		warnings.append(
@@ -529,12 +550,12 @@ static func _finish(plan: Dictionary, raw: Array) -> void:
 ## **with a warning** rather than to a layer that plots by accident (REQ 6.7.4).
 static func layer_for(dxf_layer: String, underlay: bool = true) -> Dictionary:
 	if underlay:
-		return {"layer": LayerSetScript.UNDERLAY, "warning": ""}
+		return { "layer": LayerSetScript.UNDERLAY, "warning": "" }
 	var upper := dxf_layer.strip_edges().to_upper()
 	for rule: Array in LAYER_RULES:
 		for word: String in (rule[0] as Array):
 			if upper.contains(word):
-				return {"layer": rule[1], "warning": ""}
+				return { "layer": rule[1], "warning": "" }
 	return {
 		"layer": LayerSetScript.SURVEY_PROPERTY,
 		"warning": "layer \"%s\" is not one this recognises, so it went to the survey layer" % dxf_layer,
@@ -543,13 +564,25 @@ static func layer_for(dxf_layer: String, underlay: bool = true) -> Dictionary:
 
 static func _refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "source": "", "shapes": [] as Array[Dictionary],
-		"units": "", "unit_factor": 0.0, "units_from": "", "insunits": 0,
-		"layer_names": [] as Array[String], "counts": {}, "unsupported": [] as Array[String],
-		"blocks": 0, "bad_numbers": 0, "missing_layer": 0, "warnings": [] as Array[String],
-		"underlay": true, "offset": Vector2.ZERO, "rotation": 0.0,
+		"ok": false,
+		"reason": reason,
+		"source": "",
+		"shapes": [] as Array[Dictionary],
+		"units": "",
+		"unit_factor": 0.0,
+		"units_from": "",
+		"insunits": 0,
+		"layer_names": [] as Array[String],
+		"counts": { },
+		"unsupported": [] as Array[String],
+		"blocks": 0,
+		"bad_numbers": 0,
+		"missing_layer": 0,
+		"warnings": [] as Array[String],
+		"underlay": true,
+		"offset": Vector2.ZERO,
+		"rotation": 0.0,
 	}
-
 
 # --- saying what was read -------------------------------------------------------------
 
@@ -559,9 +592,7 @@ static func describe(plan: Dictionary) -> String:
 	if not bool(plan.get("ok", false)):
 		return String(plan.get("reason", "the file could not be read"))
 	var shapes: Array = plan.get("shapes", [])
-	var words := "%d shape%s in %s" % [
-		shapes.size(), "" if shapes.size() == 1 else "s", String(plan["units"])
-	]
+	var words := "%d shape%s in %s" % [shapes.size(), "" if shapes.size() == 1 else "s", String(plan["units"])]
 	if String(plan["units_from"]) == "what was asked for":
 		words += ", because the file does not say"
 	return words
@@ -579,9 +610,9 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 	if not bool(plan.get("ok", false)):
 		lines.append(String(plan.get("reason", "the file could not be read")))
 		return lines
-	lines.append("%s, read as %s (x%s)" % [
-		describe(plan), String(plan["units_from"]), String.num(float(plan["unit_factor"]), 6)
-	])
+	lines.append(
+		"%s, read as %s (x%s)" % [describe(plan), String(plan["units_from"]), String.num(float(plan["unit_factor"]), 6)]
+	)
 	var counts: Dictionary = plan["counts"]
 	if counts.is_empty():
 		lines.append("there are no entity records in it")
@@ -598,7 +629,7 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 			named.append(String(kind))
 		lines.append("not read: " + ", ".join(named))
 	# Where each layer's geometry went, which is the thing a person cannot see from the drawing.
-	var where := {}
+	var where := { }
 	for shape: Dictionary in (plan["shapes"] as Array):
 		var from := String(shape["dxf_layer"])
 		if from.is_empty():
@@ -608,10 +639,14 @@ static func report_lines(plan: Dictionary) -> Array[String]:
 	names.sort()
 	for from: Variant in names:
 		lines.append("  %s -> %s" % [String(from), String(where[from])])
-	lines.append("placed at the origin, at scale" if Vector2(plan["offset"]) == Vector2.ZERO
-		else "placed %.2f m east and %.2f m north of the origin" % [
-			Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y
-		])
+	lines.append(
+		(
+			"placed at the origin, at scale"
+			if Vector2(plan["offset"]) == Vector2.ZERO
+			else "placed %.2f m east and %.2f m north of the origin"
+			% [Vector2(plan["offset"]).x, -Vector2(plan["offset"]).y]
+		)
+	)
 	if not is_zero_approx(float(plan["rotation"])):
 		lines.append("turned %.1f degrees" % float(plan["rotation"]))
 	for words: String in (plan["warnings"] as Array):

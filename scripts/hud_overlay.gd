@@ -1,3 +1,4 @@
+@tool
 class_name HudOverlay
 extends Control
 ## Drawing layer for the planner's on-screen drafting aids.
@@ -6,6 +7,15 @@ extends Control
 ## as a landscape plan: a metre scale bar and a north arrow. In the ground view it
 ## draws a crosshair instead. Both are suppressed during a camera flight, when
 ## neither view is really active.
+##
+## **`@tool`, so that a workspace and the same scene run with F6 show the same thing.** Every other pane of the
+## HUD is made by a script that only runs in a game - that is the whole reason `tools/touch_hud_workspace.gd`
+## exists, and why it builds the phone's furniture itself. This pane is different in two ways: it is drawn rather
+## than built, in `_draw`, and **it reaches outside itself for nothing** - `mode`, `pixels_per_metre` and
+## `transitioning` all have stated defaults, and the HUD is what changes them. So the editor draws the aids at
+## those defaults and the running program draws them at the view's own zoom, and the two look alike. A pane that
+## read the drawing, or the camera, or the HUD's state, could not be `@tool` and would have to be built by a view
+## instead - which is the rule: **a script that only runs in a game cannot be edited against.**
 
 ## Lengths a scale bar is allowed to show, in metres.
 const NICE_METRES: Array[float] = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
@@ -16,6 +26,13 @@ const BAR_MAX_PIXELS: float = 220.0
 var mode: ViewController.ViewMode = ViewController.ViewMode.OVERHEAD_3D
 var pixels_per_metre: float = 20.0
 var transitioning: bool = false
+
+## **How much of the foot of the screen something else is standing in**, in this pane's own pixels. The two aids
+## are anchored to the bottom-right, so this one figure is the whole of what they need to know: `0.0` is a desk,
+## where nothing stands there, and the dock on a phone occupies the ~285 px that had both aids drawn *over* its own
+## `More` tab. **The HUD is what changes it**, for the reason this file is `@tool`: it reaches outside itself for
+## nothing, and a pane that read the dock's rectangle could not be edited against.
+var clear_of_the_foot: float = 0.0
 
 
 func set_mode(new_mode: ViewController.ViewMode) -> void:
@@ -42,6 +59,15 @@ func set_pixels_per_metre(value: float) -> void:
 		queue_redraw()
 
 
+## Stand both aids clear of whatever the HUD has at the foot of the screen - the dock on a phone, a page, or
+## nothing at all on a desk.
+func set_clear_of_the_foot(value: float) -> void:
+	if is_equal_approx(clear_of_the_foot, value):
+		return
+	clear_of_the_foot = value
+	queue_redraw()
+
+
 func _draw() -> void:
 	if transitioning:
 		return
@@ -61,40 +87,36 @@ func _draw_scale_bar() -> void:
 	var bar_pixels: float = metres * pixels_per_metre
 	var screen: Vector2 = size
 	var left: float = screen.x - 44.0 - bar_pixels
-	var top: float = screen.y - 52.0
+	var top: float = screen.y - 52.0 - clear_of_the_foot
 	var bar_height: float = 10.0
 
 	# A dark backing plate so the bar stays legible over grass or pale paving.
-	draw_rect(
-		Rect2(left - 12.0, top - 30.0, bar_pixels + 24.0, bar_height + 42.0),
-		Color(0.06, 0.08, 0.09, 0.62)
-	)
+	draw_rect(Rect2(left - 12.0, top - 30.0, bar_pixels + 24.0, bar_height + 42.0), Color(0.06, 0.08, 0.09, 0.62))
 	# Alternating halves, the way a printed map scale bar is drawn.
 	draw_rect(Rect2(left, top, bar_pixels * 0.5, bar_height), Color(0.08, 0.08, 0.08, 0.95))
-	draw_rect(
-		Rect2(left + bar_pixels * 0.5, top, bar_pixels * 0.5, bar_height),
-		Color(0.96, 0.96, 0.94, 0.95)
-	)
+	draw_rect(Rect2(left + bar_pixels * 0.5, top, bar_pixels * 0.5, bar_height), Color(0.96, 0.96, 0.94, 0.95))
 	draw_rect(Rect2(left, top, bar_pixels, bar_height), Color(1, 1, 1, 0.5), false, 1.0)
 
 	var font: Font = get_theme_default_font()
 	if font == null:
 		return
 	var label_colour := Color(0.96, 0.97, 0.94, 0.92)
+	draw_string(font, Vector2(left, top - 8.0), "0", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, label_colour)
 	draw_string(
-		font, Vector2(left, top - 8.0), "0",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, label_colour
-	)
-	draw_string(
-		font, Vector2(left + bar_pixels - 44.0, top - 8.0), "%d m" % int(metres),
-		HORIZONTAL_ALIGNMENT_RIGHT, 44.0, 14, label_colour
+		font,
+		Vector2(left + bar_pixels - 44.0, top - 8.0),
+		"%d m" % int(metres),
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		44.0,
+		14,
+		label_colour,
 	)
 
 
 func _draw_north_arrow() -> void:
 	# World -Z is "up" the plan view, so north is straight up on screen.
 	var screen: Vector2 = size
-	var tip := Vector2(screen.x - 62.0, screen.y - 168.0)
+	var tip := Vector2(screen.x - 62.0, screen.y - 168.0 - clear_of_the_foot)
 	var half_width: float = 13.0
 	var height: float = 40.0
 	var waist := tip.y + height * 0.68
@@ -103,28 +125,25 @@ func _draw_north_arrow() -> void:
 	# Two triangles rather than one concave polygon, given a light and a dark half
 	# so the arrow reads as folded.
 	draw_colored_polygon(
-		PackedVector2Array([
-			tip,
-			Vector2(tip.x - half_width, tip.y + height),
-			Vector2(tip.x, waist),
-		]),
-		Color(0.96, 0.96, 0.94, 0.95)
+		PackedVector2Array([tip, Vector2(tip.x - half_width, tip.y + height), Vector2(tip.x, waist)]),
+		Color(0.96, 0.96, 0.94, 0.95),
 	)
 	draw_colored_polygon(
-		PackedVector2Array([
-			tip,
-			Vector2(tip.x, waist),
-			Vector2(tip.x + half_width, tip.y + height),
-		]),
-		Color(0.62, 0.64, 0.62, 0.95)
+		PackedVector2Array([tip, Vector2(tip.x, waist), Vector2(tip.x + half_width, tip.y + height)]),
+		Color(0.62, 0.64, 0.62, 0.95),
 	)
 
 	var font: Font = get_theme_default_font()
 	if font == null:
 		return
 	draw_string(
-		font, Vector2(tip.x - 20.0, tip.y - 12.0), "N",
-		HORIZONTAL_ALIGNMENT_CENTER, 40.0, 18, Color(0.96, 0.97, 0.94, 0.92)
+		font,
+		Vector2(tip.x - 20.0, tip.y - 12.0),
+		"N",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		40.0,
+		18,
+		Color(0.96, 0.97, 0.94, 0.92),
 	)
 
 
@@ -132,19 +151,14 @@ func _draw_crosshair() -> void:
 	var centre: Vector2 = size * 0.5
 	var inner: float = 5.0
 	var outer: float = 13.0
-	var arms: Array[Vector2] = [
-		Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP
-	]
+	var arms: Array[Vector2] = [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]
 	# Dark pass first so the crosshair survives on pale ground.
 	for arm: Vector2 in arms:
 		draw_line(
 			centre + arm * inner + Vector2.ONE,
 			centre + arm * outer + Vector2.ONE,
-			Color(0.0, 0.0, 0.0, 0.35), 3.0
+			Color(0.0, 0.0, 0.0, 0.35),
+			3.0,
 		)
 	for arm: Vector2 in arms:
-		draw_line(
-			centre + arm * inner,
-			centre + arm * outer,
-			Color(1.0, 1.0, 1.0, 0.8), 1.5
-		)
+		draw_line(centre + arm * inner, centre + arm * outer, Color(1.0, 1.0, 1.0, 0.8), 1.5)

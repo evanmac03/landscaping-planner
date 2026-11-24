@@ -23,7 +23,7 @@ extends Window
 ## verdict vocabulary either. A crop that cannot be worked out is **reported apart**, naming which of the
 ## two facts is missing, rather than called good or wrong.
 
-const YieldScript := preload("res://scripts/plant_yield.gd")
+const YieldScript := preload("res://scripts/plants/plant_yield.gd")
 
 ## The page was closed by its own close button.
 signal closed
@@ -33,19 +33,25 @@ signal closed
 signal order_requested(rows: Array)
 
 ## Big enough for the two fields, the list and the sentence underneath without anything falling off the
-## bottom edge.
-const SIZE := Vector2i(920, 680)
+## bottom edge: measured, they want 696 px, so 700.
+const SIZE := Vector2i(920, 700)
 
-const EXPLANATION := ("Work out how much to plant from how many you are feeding. A crop that records "
+const EXPLANATION := (
+	"Work out how much to plant from how many you are feeding. A crop that records "
 	+ "both how much one plant gives in a season and how much of it one person eats can be turned into "
 	+ "a number of plants; a spare is added on top, because no garden brings every plant in whole. A "
-	+ "crop the list says nothing about is counted apart rather than given a number nobody stated.")
+	+ "crop the list says nothing about is counted apart rather than given a number nobody stated."
+)
 
 const NO_CROPS := "this plant list has no food in it yet"
-const NO_FACTS := ("none of these crops records both how much one plant gives and how much a person "
-	+ "eats, so there is no number to work out")
-const ANSWER_HINT := ("set how many you are feeding and how much spare to allow; every crop below is "
-	+ "then worked out into a number of plants, and the button turns them into a nursery order")
+const NO_FACTS := (
+	"none of these crops records both how much one plant gives and how much a person "
+	+ "eats, so there is no number to work out"
+)
+const ANSWER_HINT := (
+	"set how many you are feeding and how much spare to allow; every crop below is "
+	+ "then worked out into a number of plants, and the button turns them into a nursery order"
+)
 const ORDER_BUTTON := "Order these plants..."
 const NO_ORDER := "nothing on this list can be worked out into a count, so there is no order to write"
 
@@ -67,7 +73,6 @@ var _close_button: Button = null
 var _order_button: Button = null
 var _status_label: Label = null
 
-
 # --- building -----------------------------------------------------------------------------
 
 
@@ -84,15 +89,7 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
 	_heading = Label.new()
 	_heading.name = "Heading"
@@ -112,8 +109,13 @@ func build() -> void:
 	people_caption.text = "Feeding"
 	people_caption.custom_minimum_size = Vector2(120.0, 0.0)
 	people_row.add_child(people_caption)
-	_people_box = _number_box("PeopleBox", YieldScript.DEFAULT_PEOPLE, YieldScript.MIN_PEOPLE,
-		YieldScript.MAX_PEOPLE, "How many people the garden is feeding.")
+	_people_box = _number_box(
+		"PeopleBox",
+		YieldScript.DEFAULT_PEOPLE,
+		YieldScript.MIN_PEOPLE,
+		YieldScript.MAX_PEOPLE,
+		"How many people the garden is feeding.",
+	)
 	people_row.add_child(_people_box)
 	var people_units := Label.new()
 	people_units.name = "PeopleUnits"
@@ -128,8 +130,13 @@ func build() -> void:
 	spare_caption.text = "More for losses"
 	spare_caption.custom_minimum_size = Vector2(120.0, 0.0)
 	spare_row.add_child(spare_caption)
-	_spare_box = _number_box("SpareBox", YieldScript.DEFAULT_SPARE, YieldScript.MIN_SPARE,
-		YieldScript.MAX_SPARE, "A percentage more than the bare number, for the plants that do not come in.")
+	_spare_box = _number_box(
+		"SpareBox",
+		YieldScript.DEFAULT_SPARE,
+		YieldScript.MIN_SPARE,
+		YieldScript.MAX_SPARE,
+		"A percentage more than the bare number, for the plants that do not come in.",
+	)
 	spare_row.add_child(_spare_box)
 	var spare_units := Label.new()
 	spare_units.name = "SpareUnits"
@@ -203,7 +210,6 @@ func _number_box(node_name: String, start: int, low: int, high: int, tip: String
 	box.value_changed.connect(_on_field_changed)
 	return box
 
-
 # --- binding ------------------------------------------------------------------------------
 
 
@@ -219,7 +225,6 @@ func set_catalogue(new_catalogue: PlantCatalogue) -> void:
 	catalogue = new_catalogue
 	_refresh()
 
-
 # --- the two numbers -----------------------------------------------------------------------
 
 
@@ -230,9 +235,7 @@ func people() -> int:
 
 func set_people(count: int) -> void:
 	if _people_box != null:
-		_people_box.set_value_no_signal(
-			clampi(count, YieldScript.MIN_PEOPLE, YieldScript.MAX_PEOPLE)
-		)
+		_people_box.set_value_no_signal(clampi(count, YieldScript.MIN_PEOPLE, YieldScript.MAX_PEOPLE))
 	_refresh()
 
 
@@ -243,11 +246,8 @@ func spare() -> int:
 
 func set_spare(percent: int) -> void:
 	if _spare_box != null:
-		_spare_box.set_value_no_signal(
-			clampi(percent, YieldScript.MIN_SPARE, YieldScript.MAX_SPARE)
-		)
+		_spare_box.set_value_no_signal(clampi(percent, YieldScript.MIN_SPARE, YieldScript.MAX_SPARE))
 	_refresh()
-
 
 # --- the hand-off to a nursery order -------------------------------------------------------
 
@@ -277,7 +277,6 @@ func _on_order() -> void:
 		return
 	order_requested.emit(order_rows())
 
-
 # --- what the plan comes to ----------------------------------------------------------------
 
 
@@ -296,9 +295,7 @@ func row_count() -> int:
 func feed_line() -> String:
 	if catalogue == null:
 		return NO_CROPS
-	return YieldScript.feed_text(
-		YieldScript.plan(catalogue, people(), spare()), people(), spare()
-	)
+	return YieldScript.feed_text(YieldScript.plan(catalogue, people(), spare()), people(), spare())
 
 
 ## How much of the list could and could not be worked out.
@@ -316,7 +313,6 @@ func hint() -> String:
 	if int(YieldScript.counts(YieldScript.plan(catalogue, people(), spare()))["worked"]) == 0:
 		return NO_FACTS
 	return ANSWER_HINT
-
 
 # --- what it says -------------------------------------------------------------------------
 
@@ -348,7 +344,6 @@ func request_close() -> void:
 
 func _on_close_requested() -> void:
 	request_close()
-
 
 # --- the refresh --------------------------------------------------------------------------
 

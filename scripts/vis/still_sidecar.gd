@@ -10,8 +10,17 @@ extends RefCounted
 ## The keys every record carries. A test asserts them, because a field that
 ## quietly stops being written is worse than a field that was never promised.
 const KEYS: Array[String] = [
-	"app", "view", "rendered", "output_px", "supersample", "tier",
-	"sun", "plot_scale", "camera", "document", "godot",
+	"app",
+	"view",
+	"rendered",
+	"output_px",
+	"supersample",
+	"tier",
+	"sun",
+	"plot_scale",
+	"camera",
+	"document",
+	"godot",
 ]
 
 
@@ -28,7 +37,7 @@ static func record(
 	sun: Dictionary,
 	camera: Dictionary,
 	plot_scale: float,
-	entity_count: int
+	entity_count: int,
 ) -> Dictionary:
 	return {
 		"app": ProjectSettings.get_setting("application/config/name", "Backyard Design"),
@@ -40,7 +49,7 @@ static func record(
 		"sun": sun,
 		"plot_scale": plot_scale,
 		"camera": camera,
-		"document": {"entities": entity_count},
+		"document": { "entities": entity_count },
 		# A renderer change is the one thing that silently changes a picture, so
 		# the version that drew it is part of the record.
 		"godot": Engine.get_version_info()["string"],
@@ -52,9 +61,7 @@ static func write(png_path: String, record_data: Dictionary) -> String:
 	var sidecar_path: String = png_path.get_basename() + ".json"
 	var file := FileAccess.open(sidecar_path, FileAccess.WRITE)
 	if file == null:
-		push_error("StillSidecar: could not write %s (%d)" % [
-			sidecar_path, FileAccess.get_open_error(),
-		])
+		push_error("StillSidecar: could not write %s (%d)" % [sidecar_path, FileAccess.get_open_error()])
 		return ""
 	# Indented, because this file is meant to be read by a person trying to work
 	# out how a picture was made.
@@ -68,10 +75,10 @@ static func write(png_path: String, record_data: Dictionary) -> String:
 static func read(png_path: String) -> Dictionary:
 	var sidecar_path: String = png_path.get_basename() + ".json"
 	if not FileAccess.file_exists(sidecar_path):
-		return {}
+		return { }
 	var file := FileAccess.open(sidecar_path, FileAccess.READ)
 	if file == null:
-		return {}
+		return { }
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
-	return parsed if parsed is Dictionary else {}
+	return parsed if parsed is Dictionary else { }

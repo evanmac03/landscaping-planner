@@ -35,9 +35,9 @@ extends RefCounted
 ## walks the model's meshes and `run()` prints what it found, and `tests/test_plant_packs.gd` measures
 ## the files on disk against the table every time the suite runs.
 
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const SymbolsScript := preload("res://scripts/plant_symbols.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const SymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
 const ModelsScript := preload("res://tools/plant_models.gd")
 const ExpansionScript := preload("res://tools/plant_expansion.gd")
@@ -72,13 +72,7 @@ const SHAPE_MODELS := {
 ## The shapes no kit sells as a single plant, and the model this project **built** for each, by its id
 ## in `tools/plant_models.gd`. A bed is an oblong planting, a fern a rosette of fronds, and a vine
 ## climbs: none of them is a shape a low-poly kit has, so these are modelled here rather than pulled.
-const SHAPE_BUILT := {
-	&"conifer": "conifer",
-	&"fern": "fern",
-	&"vine": "vine",
-	&"bed": "perennial",
-}
-
+const SHAPE_BUILT := { &"conifer": "conifer", &"fern": "fern", &"vine": "vine", &"bed": "perennial" }
 
 # --- the models -------------------------------------------------------------------------------
 
@@ -143,7 +137,6 @@ static func model_for(species: SpeciesScript, index: int) -> String:
 		return ""
 	return paths[index % paths.size()]
 
-
 # --- measuring a model ------------------------------------------------------------------------
 
 
@@ -201,10 +194,17 @@ static func measurement_of(id: String) -> Dictionary:
 
 static func _failed(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "width_m": 0.0, "depth_m": 0.0, "height_m": 0.0,
-		"footprint_m": 0.0, "base_y": 0.0, "offset_x": 0.0, "offset_z": 0.0, "tris": 0,
+		"ok": false,
+		"reason": reason,
+		"width_m": 0.0,
+		"depth_m": 0.0,
+		"height_m": 0.0,
+		"footprint_m": 0.0,
+		"base_y": 0.0,
+		"offset_x": 0.0,
+		"offset_z": 0.0,
+		"tris": 0,
 	}
-
 
 # --- which species gets which model ------------------------------------------------------------
 
@@ -225,14 +225,16 @@ static func genus_of(species: SpeciesScript) -> String:
 ## plant changes one plant's model and nothing else's.
 static func assignment(catalogue: CatalogueScript) -> Dictionary:
 	var ids: Array[StringName] = catalogue.ids()
-	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
-		return String(a) < String(b))
-	var genera: Dictionary = {}
+	ids.sort_custom(
+		func(a: StringName, b: StringName) -> bool:
+			return String(a) < String(b),
+	)
+	var genera: Dictionary = { }
 	for id: StringName in ids:
 		var shape: StringName = symbol_of_species(catalogue.get_species(id))
 		var genus: String = genus_of(catalogue.get_species(id))
 		genera["%s|%s" % [shape, genus]] = true
-	var ranked: Dictionary = {}
+	var ranked: Dictionary = { }
 	for shape: StringName in SHAPE_MODELS:
 		var mine: Array[String] = []
 		for key: String in genera:
@@ -242,7 +244,7 @@ static func assignment(catalogue: CatalogueScript) -> Dictionary:
 		mine.sort()
 		for i: int in range(mine.size()):
 			ranked["%s|%s" % [shape, mine[i]]] = i
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for id: StringName in ids:
 		var species: SpeciesScript = catalogue.get_species(id)
 		var shape: StringName = symbol_of_species(species)
@@ -277,15 +279,11 @@ static func apply() -> Dictionary:
 	var saved: Dictionary = catalogue.save_to(SHIPPED)
 	if not bool(saved["ok"]):
 		return _apply_failed("the list was not written: %s" % String(saved["reason"]))
-	return {
-		"ok": true, "reason": "", "shaped": shaped, "built": built, "formed": formed,
-		"total": catalogue.count(),
-	}
+	return { "ok": true, "reason": "", "shaped": shaped, "built": built, "formed": formed, "total": catalogue.count() }
 
 
 static func _apply_failed(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "shaped": 0, "built": 0, "formed": 0, "total": 0}
-
+	return { "ok": false, "reason": reason, "shaped": 0, "built": 0, "formed": 0, "total": 0 }
 
 # --- the report ----------------------------------------------------------------------------------
 
@@ -300,14 +298,16 @@ static func run() -> Array[Dictionary]:
 	for id: String in ids():
 		var path: String = path_for(id)
 		var found: Dictionary = measure(path)
-		out.append({
-			"id": id,
-			"path": path,
-			"shape": String(shape_of(id)),
-			"symbol": String(symbol_of(id)),
-			"size": Vector2(found["footprint_m"], found["footprint_m"]),
-			"measured": found,
-		})
+		out.append(
+			{
+				"id": id,
+				"path": path,
+				"shape": String(shape_of(id)),
+				"symbol": String(symbol_of(id)),
+				"size": Vector2(found["footprint_m"], found["footprint_m"]),
+				"measured": found,
+			}
+		)
 	return out
 
 
@@ -324,7 +324,9 @@ static func symbol_source() -> String:
 			lines.append("\t# %s: %s" % [row["id"], String(found["reason"])])
 			continue
 		lines.append("\t\"%s\": {" % row["path"])
-		lines.append("\t\t\"symbol\": &\"%s\", \"size\": Vector2(%.2f, %.2f), \"wash\": FOLIAGE_WASH," % [
-			row["symbol"], found["footprint_m"], found["footprint_m"]])
+		lines.append(
+			"\t\t\"symbol\": &\"%s\", \"size\": Vector2(%.2f, %.2f), \"wash\": FOLIAGE_WASH,"
+			% [row["symbol"], found["footprint_m"], found["footprint_m"]]
+		)
 		lines.append("\t},")
 	return "\n".join(lines)

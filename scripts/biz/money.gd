@@ -22,12 +22,12 @@ extends RefCounted
 
 ## Minor units per major unit. A currency that appears here with the wrong exponent is a
 ## rounding bug in every invoice that prints it.
-const EXPONENTS := {"CAD": 2, "USD": 2, "EUR": 2, "GBP": 2, "AUD": 2, "JPY": 0, "KRW": 0}
+const EXPONENTS := { "CAD": 2, "USD": 2, "EUR": 2, "GBP": 2, "AUD": 2, "JPY": 0, "KRW": 0 }
 
 ## Symbols for printing on a document with a company address above it. CAD, USD and AUD all
 ## print as "$", which is why anything that travels - JSON, an API body, a filename - carries
 ## the ISO code instead (`format_iso`).
-const SYMBOLS := {"CAD": "$", "USD": "$", "EUR": "€", "GBP": "£", "AUD": "$", "JPY": "¥", "KRW": "₩"}
+const SYMBOLS := { "CAD": "$", "USD": "$", "EUR": "€", "GBP": "£", "AUD": "$", "JPY": "¥", "KRW": "₩" }
 
 ## The invalid amount: what an unreadable price becomes. It is **contagious**, like a NaN, so a
 ## bad line poisons the total it feeds and the estimate refuses to foot - rather than quietly
@@ -79,7 +79,6 @@ static func _unit(code: StringName) -> int:
 
 static func exponent_of(code: StringName) -> int:
 	return int(EXPONENTS.get(String(code), 2))
-
 
 # --- reading and writing ---------------------------------------------------------------
 
@@ -203,7 +202,6 @@ static func _grouping_ok(text: String) -> bool:
 			return false
 	return true
 
-
 # --- asking about it -------------------------------------------------------------------
 
 
@@ -231,12 +229,11 @@ func copy() -> Money:
 
 
 func to_dict() -> Dictionary:
-	return {"cents": cents, "currency": String(currency)}
+	return { "cents": cents, "currency": String(currency) }
 
 
 static func from_dict(data: Dictionary) -> Money:
 	return of(int(data.get("cents", 0)), StringName(data.get("currency", "CAD")))
-
 
 # --- arithmetic ------------------------------------------------------------------------
 

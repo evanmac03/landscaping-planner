@@ -33,15 +33,24 @@ const NO_WINDOW := -1
 ## `matrix` is an optional drive-time matrix keyed `"a|b"` where `a`/`b` are stop indices and `-1` is
 ## the crew's start: supply it and the route is computed on it rather than on the speed estimate.
 ## Every key it does not hold falls back to the straight-line estimate, so a partial matrix is fine.
-static func plan(home: Vector2, stops: Array, speed_kmh: float = DEFAULT_SPEED_KMH,
-		matrix: Dictionary = {}, start_minute: int = 0) -> Dictionary:
+static func plan(
+	home: Vector2,
+	stops: Array,
+	speed_kmh: float = DEFAULT_SPEED_KMH,
+	matrix: Dictionary = { },
+	start_minute: int = 0,
+) -> Dictionary:
 	var note := _note_for(speed_kmh, matrix)
 	var order: Array[int] = []
 	var legs: Array[Dictionary] = []
 	if stops.is_empty():
 		return {
-			"order": order, "legs": legs, "late": [], "total_drive_minutes": 0.0,
-			"finish_minute": start_minute, "note": note,
+			"order": order,
+			"legs": legs,
+			"late": [],
+			"total_drive_minutes": 0.0,
+			"finish_minute": start_minute,
+			"note": note,
 		}
 
 	order = _nearest_neighbour(home, stops, speed_kmh, matrix)
@@ -56,21 +65,21 @@ static func plan(home: Vector2, stops: Array, speed_kmh: float = DEFAULT_SPEED_K
 		var drive := _leg_minutes(home, stops, speed_kmh, matrix, previous, index)
 		total += drive
 		clock += int(round(drive))
-		legs.append({"from": previous, "to": index, "drive_minutes": drive})
+		legs.append({ "from": previous, "to": index, "drive_minutes": drive })
 		var stop: Dictionary = stops[index]
 		var window_start := int(stop.get("window_start", NO_WINDOW))
 		var window_end := int(stop.get("window_end", NO_WINDOW))
 		if window_start != NO_WINDOW and clock < window_start:
 			clock = window_start
 		if window_end != NO_WINDOW and clock > window_end:
-			late.append({"index": index, "by_minutes": clock - window_end})
+			late.append({ "index": index, "by_minutes": clock - window_end })
 		clock += int(stop.get("service_minutes", 0))
 		previous = index
 	# And the drive home, which is part of the day even though it is not a stop.
 	var home_leg := _leg_minutes(home, stops, speed_kmh, matrix, previous, -1)
 	total += home_leg
 	clock += int(round(home_leg))
-	legs.append({"from": previous, "to": -1, "drive_minutes": home_leg})
+	legs.append({ "from": previous, "to": -1, "drive_minutes": home_leg })
 
 	return {
 		"order": order,
@@ -84,22 +93,24 @@ static func plan(home: Vector2, stops: Array, speed_kmh: float = DEFAULT_SPEED_K
 
 ## The order of stop indices a day would be worked in, without the clock. A convenience for a caller
 ## that only wants the sequence.
-static func order_for(home: Vector2, stops: Array, speed_kmh: float = DEFAULT_SPEED_KMH,
-		matrix: Dictionary = {}) -> Array[int]:
+static func order_for(
+	home: Vector2,
+	stops: Array,
+	speed_kmh: float = DEFAULT_SPEED_KMH,
+	matrix: Dictionary = { },
+) -> Array[int]:
 	if stops.is_empty():
 		return []
 	var order := _nearest_neighbour(home, stops, speed_kmh, matrix)
 	_two_opt(order, home, stops, speed_kmh, matrix)
 	return order
 
-
 # --- the heuristic ---------------------------------------------------------------------------
 
 
 ## Nearest neighbour from the crew's position: repeatedly go to the closest stop not yet visited.
 ## A tie is broken by the lower index, which is what makes the same stops give the same order.
-static func _nearest_neighbour(home: Vector2, stops: Array, speed_kmh: float,
-		matrix: Dictionary) -> Array[int]:
+static func _nearest_neighbour(home: Vector2, stops: Array, speed_kmh: float, matrix: Dictionary) -> Array[int]:
 	var order: Array[int] = []
 	var remaining: Array[int] = []
 	for index in stops.size():
@@ -123,8 +134,7 @@ static func _nearest_neighbour(home: Vector2, stops: Array, speed_kmh: float,
 
 ## 2-opt: reverse any run of stops that shortens the round trip, until none does. Deterministic -
 ## the loops run in index order and the improvement test is strict, so it always settles the same way.
-static func _two_opt(order: Array[int], home: Vector2, stops: Array, speed_kmh: float,
-		matrix: Dictionary) -> void:
+static func _two_opt(order: Array[int], home: Vector2, stops: Array, speed_kmh: float, matrix: Dictionary) -> void:
 	var count := order.size()
 	if count < 3:
 		return
@@ -139,7 +149,7 @@ static func _two_opt(order: Array[int], home: Vector2, stops: Array, speed_kmh: 
 				if after < before - 1e-9:
 					improved = true
 				else:
-					_reverse_slice(order, i, j)  # not an improvement: put it back
+					_reverse_slice(order, i, j) # not an improvement: put it back
 	# Nothing to return: `order` was edited in place.
 
 
@@ -155,8 +165,13 @@ static func _reverse_slice(order: Array[int], from_index: int, to_index: int) ->
 
 
 ## The drive time of a whole tour: home, each stop in order, and home again.
-static func _tour_minutes(order: Array[int], home: Vector2, stops: Array, speed_kmh: float,
-		matrix: Dictionary) -> float:
+static func _tour_minutes(
+	order: Array[int],
+	home: Vector2,
+	stops: Array,
+	speed_kmh: float,
+	matrix: Dictionary,
+) -> float:
 	var total := 0.0
 	var previous := -1
 	for index in order:
@@ -166,8 +181,14 @@ static func _tour_minutes(order: Array[int], home: Vector2, stops: Array, speed_
 	return total
 
 
-static func _leg_minutes(home: Vector2, stops: Array, speed_kmh: float, matrix: Dictionary,
-		from_index: int, to_index: int) -> float:
+static func _leg_minutes(
+	home: Vector2,
+	stops: Array,
+	speed_kmh: float,
+	matrix: Dictionary,
+	from_index: int,
+	to_index: int,
+) -> float:
 	var key := "%d|%d" % [from_index, to_index]
 	if matrix.has(key):
 		return float(matrix[key])
@@ -198,4 +219,6 @@ static func _point_of(home: Vector2, stops: Array, index: int) -> Vector2:
 static func _note_for(speed_kmh: float, matrix: Dictionary) -> String:
 	if matrix.is_empty():
 		return "nearest-neighbour plus 2-opt over a straight-line estimate at %s km/h" % str(speed_kmh)
-	return "nearest-neighbour plus 2-opt over the supplied drive-time matrix, with %s km/h for legs it does not hold" % str(speed_kmh)
+	return "nearest-neighbour plus 2-opt over the supplied drive-time matrix, with %s km/h for legs it does not hold" % str(
+		speed_kmh
+	)

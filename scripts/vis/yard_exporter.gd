@@ -102,7 +102,6 @@ const ROOT_NAME := "Garden"
 ## would write the garden as it was authored rather than as it is being looked at.
 const COPY_FLAGS := Node.DUPLICATE_SIGNALS | Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS
 
-
 # --- what the design is ---------------------------------------------------------------
 
 
@@ -142,7 +141,6 @@ static func format_for(path: String) -> String:
 		return GLTF
 	return ""
 
-
 # --- writing ---------------------------------------------------------------------------
 
 
@@ -171,9 +169,7 @@ static func export_scene(from: Node, path: String) -> Dictionary:
 static func export_roots(roots: Array[Node], path: String) -> Dictionary:
 	var format := format_for(path)
 	if format.is_empty():
-		return _refused(
-			"a model is written as .%s or .%s, and \"%s\" is neither" % [GLB, GLTF, path.get_file()]
-		)
+		return _refused("a model is written as .%s or .%s, and \"%s\" is neither" % [GLB, GLTF, path.get_file()])
 	var survey := _survey(roots)
 	if int(survey["meshes"]) == 0:
 		return _refused("there is no geometry standing in the yard yet, so there is no model to write")
@@ -293,7 +289,7 @@ static func _add_material(material: Material, into: Array[Material]) -> void:
 static func _material_pictures(material: Material) -> Dictionary:
 	var standard := material as StandardMaterial3D
 	if standard == null:
-		return {"pictures": 0, "undrawn": 0}
+		return { "pictures": 0, "undrawn": 0 }
 	var written := 0
 	var waiting := 0
 	for field: String in ["albedo_texture", "normal_texture", "orm_texture"]:
@@ -304,7 +300,7 @@ static func _material_pictures(material: Material) -> Dictionary:
 			written += 1
 		else:
 			waiting += 1
-	return {"pictures": written, "undrawn": waiting}
+	return { "pictures": written, "undrawn": waiting }
 
 
 ## What is in the roots: how much geometry, how many materials, and how many pictures between them.
@@ -338,11 +334,7 @@ static func _survey(roots: Array[Node]) -> Dictionary:
 		var counted := _material_pictures(material)
 		pictures += int(counted["pictures"])
 		undrawn += int(counted["undrawn"])
-	return {
-		"meshes": meshes, "materials": materials.size(),
-		"pictures": pictures, "undrawn": undrawn,
-	}
-
+	return { "meshes": meshes, "materials": materials.size(), "pictures": pictures, "undrawn": undrawn }
 
 # --- saying what was written ----------------------------------------------------------
 
@@ -360,10 +352,13 @@ static func describe(report: Dictionary) -> String:
 	var files: Array = report.get("files", [])
 	var words := "the yard went out as a .%s: %d mesh%s, %d material%s, %s in %d file%s" % [
 		String(report.get("format", GLB)),
-		meshes, "" if meshes == 1 else "es",
-		materials, "" if materials == 1 else "s",
+		meshes,
+		"" if meshes == 1 else "es",
+		materials,
+		"" if materials == 1 else "s",
 		String.humanize_size(int(report.get("bytes", 0))),
-		files.size(), "" if files.size() == 1 else "s",
+		files.size(),
+		"" if files.size() == 1 else "s",
 	]
 	var left: Array = report.get("left_out", [])
 	if not left.is_empty():
@@ -384,16 +379,15 @@ static func report_lines(report: Dictionary) -> Array[String]:
 		lines.append("files: " + ", ".join(_as_strings(files)))
 	var meshes := int(report.get("meshes", 0))
 	var materials := int(report.get("materials", 0))
-	lines.append("what is in it: %d mesh%s and %d material%s" % [
-		meshes, "" if meshes == 1 else "es",
-		materials, "" if materials == 1 else "s",
-	])
+	lines.append(
+		"what is in it: %d mesh%s and %d material%s"
+		% [meshes, "" if meshes == 1 else "es", materials, "" if materials == 1 else "s"]
+	)
 	# Said on every export rather than only when something is wrong, because it is not a fault: it is
 	# what the garden is. A model of a garden has no sun in it, and a person who opened it and found
 	# it dark should have been told that here.
 	lines.append(
-		"a model carries the garden and none of the program: no camera and no sun, so whatever "
-		+ "opens it lights it"
+		"a model carries the garden and none of the program: no camera and no sun, so whatever " + "opens it lights it"
 	)
 	return lines
 
@@ -412,10 +406,8 @@ static func _left_out(report: Dictionary) -> Array[String]:
 	var undrawn := int(report.get("undrawn", 0))
 	if undrawn > 0:
 		out.append(
-			"%d picture%s not drawn yet, so %s went out as plain colour" % [
-				undrawn, "" if undrawn == 1 else "s",
-				"it" if undrawn == 1 else "they",
-			]
+			"%d picture%s not drawn yet, so %s went out as plain colour"
+			% [undrawn, "" if undrawn == 1 else "s", "it" if undrawn == 1 else "they"]
 		)
 	var pictures := int(report.get("pictures", 0))
 	if String(report.get("format", GLB)) == GLTF and pictures > 0:
@@ -426,7 +418,6 @@ static func _left_out(report: Dictionary) -> Array[String]:
 		)
 	return out
 
-
 # --- the folder the file went into ----------------------------------------------------
 
 
@@ -434,7 +425,7 @@ static func _left_out(report: Dictionary) -> Array[String]:
 ## dictionary rather than a failure: the sweep is how the report names what was made, and not being
 ## able to look is not a reason to refuse to write.
 static func _listing(folder: String) -> Dictionary:
-	var out := {}
+	var out := { }
 	if folder.strip_edges().is_empty():
 		return out
 	var dir := DirAccess.open(folder)
@@ -546,8 +537,16 @@ static func _as_strings(values: Array) -> Array[String]:
 
 static func _refused(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "path": "", "format": "",
-		"roots": [] as Array[String], "files": [] as Array[String], "bytes": 0,
-		"meshes": 0, "materials": 0, "pictures": 0, "undrawn": 0,
+		"ok": false,
+		"reason": reason,
+		"path": "",
+		"format": "",
+		"roots": [] as Array[String],
+		"files": [] as Array[String],
+		"bytes": 0,
+		"meshes": 0,
+		"materials": 0,
+		"pictures": 0,
+		"undrawn": 0,
 		"left_out": [] as Array[String],
 	}

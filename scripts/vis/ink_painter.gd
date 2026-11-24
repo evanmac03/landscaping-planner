@@ -22,7 +22,7 @@ const SketchStyleScript := preload("res://scripts/vis/sketch_style.gd")
 ## smudge, and a smudge in a proposal is worse than a note that is quietly missing.
 const MIN_TEXT_PIXELS := 6.0
 
-var _document = null
+var _document: DraftDocument = null
 var _plot_scale: float = 100.0
 var _style: SketchStyleScript = null
 var _texels_per_mm: float = 6.0
@@ -32,11 +32,11 @@ var _props: Array[Node3D] = []
 
 
 func _init(
-	document,
+	document: DraftDocument,
 	plot_scale: float,
 	style: SketchStyleScript,
 	texels_per_mm: float = 6.0,
-	props: Array[Node3D] = []
+	props: Array[Node3D] = [],
 ) -> void:
 	_document = document
 	_plot_scale = plot_scale
@@ -71,26 +71,34 @@ func parts(wobble: bool = true) -> Array[Dictionary]:
 	if _document == null:
 		return out
 	for entity in _document.plotting_entities():
-		var layer = _document.layers.get_layer(entity.layer)
+		var layer := _document.layers.get_layer(entity.layer)
 		var laid: Dictionary = RenderScript.layout(
-			entity, layer, _plot_scale, _document.units,
-			DimScript.style_for(entity, _document)
+			entity,
+			layer,
+			_plot_scale,
+			_document.units,
+			DimScript.style_for(entity, _document),
 		)
 		var lines: Array[PackedVector2Array] = []
 		for line: PackedVector2Array in laid["lines"]:
 			lines.append(line)
 		if wobble:
 			lines = SketchStrokeScript.wobble_strokes(
-				lines, int(entity.id), _plot_scale,
-				_style.wobble_mm, _style.segment_mm
+				lines,
+				int(entity.id),
+				_plot_scale,
+				_style.wobble_mm,
+				_style.segment_mm,
 			)
-		out.append({
-			"what": String(entity.layer),
-			"style": laid["style"],
-			"strokes": lines,
-			"marks": laid["marks"],
-			"labels": laid["labels"],
-		})
+		out.append(
+			{
+				"what": String(entity.layer),
+				"style": laid["style"],
+				"strokes": lines,
+				"marks": laid["marks"],
+				"labels": laid["labels"],
+			}
+		)
 	# The plant symbols, whose outline is the rim of the same ring the wash filled.
 	for entry: Dictionary in symbol_parts(wobble):
 		out.append(entry)
@@ -106,7 +114,7 @@ func parts(wobble: bool = true) -> Array[Dictionary]:
 func symbol_parts(wobble: bool = true) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var weight: float = LineStyleScript.new().plot_weight_mm
-	var planting_layer = null
+	var planting_layer: DraftLayer = null
 	if _document != null:
 		planting_layer = _document.layers.get_layer(LayerSetScript.NEW_PLANTING)
 		if planting_layer != null:
@@ -127,20 +135,17 @@ func symbol_parts(wobble: bool = true) -> Array[Dictionary]:
 		strokes.append(closed)
 		if wobble:
 			strokes = SketchStrokeScript.wobble_strokes(
-				strokes, hash(node.name), _plot_scale,
-				_style.wobble_mm, _style.segment_mm
+				strokes,
+				hash(node.name),
+				_plot_scale,
+				_style.wobble_mm,
+				_style.segment_mm,
 			)
 		var style := LineStyleScript.new()
 		style.plot_weight_mm = weight
 		style.screen_colour = colour.darkened(0.55)
 		style.plot_colour = colour.darkened(0.55)
-		out.append({
-			"what": String(node.name),
-			"style": style,
-			"strokes": strokes,
-			"marks": [],
-			"labels": [],
-		})
+		out.append({ "what": String(node.name), "style": style, "strokes": strokes, "marks": [], "labels": [] })
 	return out
 
 
@@ -168,10 +173,8 @@ func _draw_marks(item: Dictionary) -> void:
 	for mark: Dictionary in item["marks"]:
 		if mark["kind"] == &"arrow":
 			draw_colored_polygon(
-				DimScript.arrow_triangle(
-					mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]
-				),
-				ink
+				DimScript.arrow_triangle(mark["tip"], mark["direction"], mark["size"], mark["width_ratio"]),
+				ink,
 			)
 		elif mark["kind"] == &"dot":
 			draw_circle(Vector2(mark["at"]), float(mark["size"]) * 0.5, ink)
@@ -194,17 +197,11 @@ func _draw_labels(item: Dictionary) -> void:
 			continue
 		# The height arrives in model metres, because that is the unit the rest of the
 		# layout is in; as pixels it is the same paper millimetres at a texel density.
-		var height_px: float = maxf(
-			MIN_TEXT_PIXELS,
-			float(label["height"]) * 1000.0 / _plot_scale * _texels_per_mm
-		)
+		var height_px: float = maxf(MIN_TEXT_PIXELS, float(label["height"]) * 1000.0 / _plot_scale * _texels_per_mm)
 		var at: Vector2 = to_pixels * Vector2(label["position"])
 		var angle: float = float(label["angle"])
 		draw_set_transform_matrix(from_pixels * Transform2D(angle, at))
-		draw_string(
-			ThemeDB.fallback_font, Vector2.ZERO, text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, int(height_px), ink
-		)
+		draw_string(ThemeDB.fallback_font, Vector2.ZERO, text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(height_px), ink)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 

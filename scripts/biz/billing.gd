@@ -32,10 +32,7 @@ const MilestoneScript := preload("res://scripts/biz/milestone.gd")
 ## two different claims that happen to have the same two answers.
 const BY_COST_INCURRED := 0
 const BY_PHASE_COMPLETION := 1
-const BASIS_NAMES := {
-	BY_COST_INCURRED: "by cost incurred",
-	BY_PHASE_COMPLETION: "by phase completion",
-}
+const BASIS_NAMES := { BY_COST_INCURRED: "by cost incurred", BY_PHASE_COMPLETION: "by phase completion" }
 
 var job: String = ""
 var method: int = JobScript.FIXED
@@ -77,7 +74,6 @@ func method_name() -> String:
 
 func currency() -> StringName:
 	return billed_to_date.currency if billed_to_date != null else &"CAD"
-
 
 # --- the schedule of steps ----------------------------------------------------------------------
 
@@ -138,7 +134,6 @@ func next_pending() -> Milestone:
 			return held
 	return null
 
-
 # --- what can be billed now ---------------------------------------------------------------------
 
 
@@ -170,14 +165,13 @@ func target_billed(contract_sum: Money) -> Money:
 ## Returns `{ok, reason, amount, milestone}`. `ok` with an amount of nothing is a **real answer** -
 ## there is nothing left to bill - and comes with the reason in words, because a zero that explains
 ## itself is worth more than a refusal that makes the office wonder.
-func amount_due(contract_sum: Money, period_amount: Money = null, materials: Money = null,
-		milestone_name: String = "") -> Dictionary:
-	var refused := {
-		"ok": false,
-		"reason": "",
-		"amount": MoneyScript.invalid(currency()),
-		"milestone": "",
-	}
+func amount_due(
+	contract_sum: Money,
+	period_amount: Money = null,
+	materials: Money = null,
+	milestone_name: String = "",
+) -> Dictionary:
+	var refused := { "ok": false, "reason": "", "amount": MoneyScript.invalid(currency()), "milestone": "" }
 	if contract_sum == null or not contract_sum.is_valid():
 		refused["reason"] = "the contract sum is not a readable number"
 		return refused
@@ -199,7 +193,12 @@ func amount_due(contract_sum: Money, period_amount: Money = null, materials: Mon
 func _fixed_due(contract_sum: Money) -> Dictionary:
 	var left: Money = contract_sum.sub(billed_to_date)
 	if not left.is_valid():
-		return {"ok": false, "reason": "what has been billed is not a readable number", "amount": left, "milestone": ""}
+		return {
+			"ok": false,
+			"reason": "what has been billed is not a readable number",
+			"amount": left,
+			"milestone": "",
+		}
 	if left.is_negative() or left.is_zero():
 		return {
 			"ok": true,
@@ -207,7 +206,7 @@ func _fixed_due(contract_sum: Money) -> Dictionary:
 			"amount": MoneyScript.zero(contract_sum.currency),
 			"milestone": "",
 		}
-	return {"ok": true, "reason": "the rest of the contract", "amount": left, "milestone": ""}
+	return { "ok": true, "reason": "the rest of the contract", "amount": left, "milestone": "" }
 
 
 func _milestone_due(contract_sum: Money, milestone_name: String) -> Dictionary:
@@ -271,21 +270,15 @@ func _percentage_due(contract_sum: Money) -> Dictionary:
 	if left.is_negative() or left.is_zero():
 		return {
 			"ok": true,
-			"reason": "%s is already billed: %s of a target of %s" % [
-				claim,
-				billed_to_date.format_with_currency(),
-				target.format_with_currency(),
-			],
+			"reason": "%s is already billed: %s of a target of %s"
+			% [claim, billed_to_date.format_with_currency(), target.format_with_currency()],
 			"amount": MoneyScript.zero(contract_sum.currency),
 			"milestone": "",
 		}
 	return {
 		"ok": true,
-		"reason": "%s of %s, less %s already billed" % [
-			claim,
-			target.format_with_currency(),
-			billed_to_date.format_with_currency(),
-		],
+		"reason": "%s of %s, less %s already billed"
+		% [claim, target.format_with_currency(), billed_to_date.format_with_currency()],
 		"amount": left,
 		"milestone": "",
 	}
@@ -306,14 +299,11 @@ func _time_and_materials_due(labour: Money, materials: Money) -> Dictionary:
 		}
 	var amount: Money = time_and_materials_amount(labour, stated_materials, markup_ppm)
 	if amount.is_negative():
-		return {"ok": true, "reason": "the period comes to a credit", "amount": amount, "milestone": ""}
+		return { "ok": true, "reason": "the period comes to a credit", "amount": amount, "milestone": "" }
 	return {
 		"ok": true,
-		"reason": "the period's labour of %s and materials of %s at %s" % [
-			labour.format_with_currency(),
-			stated_materials.format_with_currency(),
-			RateScript.percent_text(markup_ppm),
-		],
+		"reason": "the period's labour of %s and materials of %s at %s"
+		% [labour.format_with_currency(), stated_materials.format_with_currency(), RateScript.percent_text(markup_ppm)],
 		"amount": amount,
 		"milestone": "",
 	}
@@ -330,13 +320,11 @@ func _cost_plus_due(cost: Money) -> Dictionary:
 		}
 	var amount: Money = cost_plus_amount(cost, fee_ppm)
 	if amount.is_negative():
-		return {"ok": true, "reason": "the period comes to a credit", "amount": amount, "milestone": ""}
+		return { "ok": true, "reason": "the period comes to a credit", "amount": amount, "milestone": "" }
 	return {
 		"ok": true,
-		"reason": "the period's cost of %s plus a fee of %s" % [
-			cost.format_with_currency(),
-			RateScript.percent_text(fee_ppm),
-		],
+		"reason": "the period's cost of %s plus a fee of %s"
+		% [cost.format_with_currency(), RateScript.percent_text(fee_ppm)],
 		"amount": amount,
 		"milestone": "",
 	}
@@ -353,7 +341,6 @@ func retainage_due(contract_sum: Money, amount: Money, milestone_name: String = 
 		return step.retainage_for(contract_sum)
 	return amount.scale_ppm(retainage_ppm) if retainage_ppm > 0 else MoneyScript.zero(code)
 
-
 # --- recording what happened --------------------------------------------------------------------
 
 
@@ -364,31 +351,36 @@ func retainage_due(contract_sum: Money, amount: Money, milestone_name: String = 
 ## that is already billed, or one the schedule does not have - is refused rather than quietly treated
 ## as a step-less billing, because a schedule and a set of invoices that disagree about what has been
 ## billed is the one thing this module is here to prevent.
-func record_billed(contract_sum: Money, amount: Money, at: String, invoice_number: String,
-		milestone_name: String = "") -> Dictionary:
+func record_billed(
+	contract_sum: Money,
+	amount: Money,
+	at: String,
+	invoice_number: String,
+	milestone_name: String = "",
+) -> Dictionary:
 	if amount == null or not amount.is_valid():
-		return {"ok": false, "reason": "the amount is not a readable number"}
+		return { "ok": false, "reason": "the amount is not a readable number" }
 	if amount.is_negative():
-		return {"ok": false, "reason": "a negative invoice is a credit note and not a billing"}
+		return { "ok": false, "reason": "a negative invoice is a credit note and not a billing" }
 	if at.strip_edges().is_empty() or invoice_number.strip_edges().is_empty():
-		return {"ok": false, "reason": "a billing with no moment or no invoice number"}
+		return { "ok": false, "reason": "a billing with no moment or no invoice number" }
 	var step: Milestone = null
 	if not milestone_name.strip_edges().is_empty():
 		step = milestone(milestone_name)
 		if step == null:
-			return {"ok": false, "reason": "this schedule has no step called '%s'" % milestone_name}
+			return { "ok": false, "reason": "this schedule has no step called '%s'" % milestone_name }
 		if not step.mark_billed(at, invoice_number):
-			return {"ok": false, "reason": "'%s' was already billed on %s" % [step.name, step.invoice_number]}
+			return { "ok": false, "reason": "'%s' was already billed on %s" % [step.name, step.invoice_number] }
 	var moved: Money = billed_to_date.add(amount)
 	if not moved.is_valid():
-		return {"ok": false, "reason": "what has been billed is in another currency"}
+		return { "ok": false, "reason": "what has been billed is in another currency" }
 	billed_to_date = moved
 	if step != null:
 		var held: Money = retainage_held.add(step.retainage_for(contract_sum))
 		if not held.is_valid():
-			return {"ok": false, "reason": "the retainage held is in another currency"}
+			return { "ok": false, "reason": "the retainage held is in another currency" }
 		retainage_held = held
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Release everything withheld, at closeout. An explicit act: nothing here releases it by itself.
@@ -407,7 +399,6 @@ func release_retainage(at: String) -> Money:
 	retainage_held = MoneyScript.zero(released.currency)
 	retainage_released_at = at
 	return released
-
 
 # --- the arithmetic of the two methods with no schedule -----------------------------------------
 
@@ -432,7 +423,6 @@ static func cost_plus_amount(cost: Money, rate_ppm: int) -> Money:
 	if cost == null or not cost.is_valid():
 		return MoneyScript.invalid(&"CAD")
 	return cost.add(cost.scale_ppm(rate_ppm))
-
 
 # --- soundness ----------------------------------------------------------------------------------
 
@@ -491,7 +481,6 @@ func describe() -> String:
 		parts.append("retainage released %s" % retainage_released_at)
 	return ", ".join(parts)
 
-
 # --- persistence --------------------------------------------------------------------------------
 
 
@@ -526,8 +515,8 @@ static func from_dict(data: Dictionary) -> Billing:
 		for entry in (steps_in as Array):
 			if entry is Dictionary:
 				schedule.milestones.append(MilestoneScript.from_dict(entry))
-	schedule.billed_to_date = MoneyScript.from_dict(data.get("billed_to_date", {}))
-	schedule.retainage_held = MoneyScript.from_dict(data.get("retainage_held", {}))
+	schedule.billed_to_date = MoneyScript.from_dict(data.get("billed_to_date", { }))
+	schedule.retainage_held = MoneyScript.from_dict(data.get("retainage_held", { }))
 	schedule.retainage_released_at = String(data.get("retainage_released_at", ""))
 	schedule.complete_ppm = int(data.get("complete_ppm", RateScript.INVALID))
 	schedule.percent_basis = int(data.get("percent_basis", RateScript.INVALID))
@@ -540,10 +529,14 @@ static func from_dict(data: Dictionary) -> Billing:
 
 static func _method_key(method_key: int) -> String:
 	match method_key:
-		JobScript.MILESTONE: return "MILESTONE"
-		JobScript.PERCENTAGE_COMPLETE: return "PERCENTAGE_COMPLETE"
-		JobScript.TIME_AND_MATERIALS: return "TIME_AND_MATERIALS"
-		JobScript.COST_PLUS: return "COST_PLUS"
+		JobScript.MILESTONE:
+			return "MILESTONE"
+		JobScript.PERCENTAGE_COMPLETE:
+			return "PERCENTAGE_COMPLETE"
+		JobScript.TIME_AND_MATERIALS:
+			return "TIME_AND_MATERIALS"
+		JobScript.COST_PLUS:
+			return "COST_PLUS"
 	return "FIXED"
 
 

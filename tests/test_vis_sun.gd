@@ -23,15 +23,10 @@ func test_the_julian_day_of_a_known_instant() -> void:
 
 
 func test_the_julian_day_carries_the_hour_and_the_day() -> void:
-	assert(is_equal_approx(
-		SunStudyScript.julian_day(2025, 6, 21, 18.0)
-		- SunStudyScript.julian_day(2025, 6, 21, 6.0),
-		0.5
-	))
-	assert(is_equal_approx(
-		SunStudyScript.julian_day(2025, 6, 22) - SunStudyScript.julian_day(2025, 6, 21),
-		1.0
-	))
+	assert(
+		is_equal_approx(SunStudyScript.julian_day(2025, 6, 21, 18.0) - SunStudyScript.julian_day(2025, 6, 21, 6.0), 0.5)
+	)
+	assert(is_equal_approx(SunStudyScript.julian_day(2025, 6, 22) - SunStudyScript.julian_day(2025, 6, 21), 1.0))
 
 
 func test_a_day_of_the_year_names_a_date_and_back_again() -> void:
@@ -57,7 +52,6 @@ func test_a_leap_year_has_a_twenty_ninth_of_february() -> void:
 func test_the_instant_of_a_day_and_an_hour_is_the_epoch_year() -> void:
 	var noon: float = SunStudyScript.jd_of_day(172, 12.0)
 	assert(is_equal_approx(noon, SunStudyScript.julian_day(SunStudyScript.EPOCH_YEAR, 6, 21, 12.0)))
-
 
 # --- the tilt, and where the sun stands ----------------------------------------------
 
@@ -94,7 +88,6 @@ func test_the_sun_never_stands_further_from_the_equator_than_the_tilt() -> void:
 		var jd: float = SunStudyScript.jd_of_day(day)
 		assert(absf(SunStudyScript.declination_at(jd)) <= SunStudyScript.obliquity(jd) + 0.0001)
 
-
 # --- the equation of time -------------------------------------------------------------
 
 
@@ -103,13 +96,12 @@ func test_the_equation_of_time_is_the_sundials_error() -> void:
 	for day in [105, 164, 244, 359]:
 		assert(
 			absf(SunStudyScript.equation_of_time_on(day)) < 0.5,
-			"the equation of time is within half a minute of zero on day %d" % day
+			"the equation of time is within half a minute of zero on day %d" % day,
 		)
 	# And its extremes: about +16.4 minutes in early November, -14.2 in mid-February. A
 	# sundial runs up to sixteen minutes fast, which is a quarter of a degree of shadow.
 	assert(SunStudyScript.equation_of_time_on(307) > 16.3)
 	assert(SunStudyScript.equation_of_time_on(42) < -14.0)
-
 
 # --- refraction ------------------------------------------------------------------------
 
@@ -144,11 +136,12 @@ func test_the_horizon_refraction_is_the_thirty_four_arcminutes_it_is_named_for()
 	assert(absf(SunStudyScript.refraction(-named) - named) < 0.01)
 	# And the convention itself: sunrise is when the upper limb appears, not when the
 	# centre's altitude passes zero.
-	assert(is_equal_approx(
-		SunStudyScript.SUNRISE_ALTITUDE_DEG,
-		-(SunStudyScript.SEMIDIAMETER_DEG + SunStudyScript.REFRACTION_AT_HORIZON_DEG)
-	))
-
+	assert(
+		is_equal_approx(
+			SunStudyScript.SUNRISE_ALTITUDE_DEG,
+			-(SunStudyScript.SEMIDIAMETER_DEG + SunStudyScript.REFRACTION_AT_HORIZON_DEG),
+		)
+	)
 
 # --- the sun in the sky ----------------------------------------------------------------
 
@@ -161,10 +154,7 @@ func test_a_midsummer_noon_stands_at_the_latitude_and_the_tilt() -> void:
 	for latitude in [45.0, 60.0]:
 		var sun: Dictionary = SunStudyScript.position(latitude, 172, 12.0)
 		var expected: float = 90.0 - absf(latitude - float(sun["declination_deg"]))
-		assert(
-			absf(float(sun["altitude_deg"]) - expected) < 0.05,
-			"noon altitude at %.0f degrees north" % latitude
-		)
+		assert(absf(float(sun["altitude_deg"]) - expected) < 0.05, "noon altitude at %.0f degrees north" % latitude)
 		# Due south, because the observer is north of the parallel the solstice sun stands on.
 		assert(absf(float(sun["azimuth_deg"]) - 180.0) < 0.01)
 	# Over the equator the sun has crossed to the far side of the zenith on this day, so the
@@ -194,10 +184,12 @@ func test_the_sun_is_up_before_its_centre_clears_the_horizon() -> void:
 
 func test_the_apparent_altitude_is_the_true_one_lifted_by_refraction() -> void:
 	var sun: Dictionary = SunStudyScript.position(45.0, 79, 12.0)
-	assert(is_equal_approx(
-		float(sun["apparent_altitude_deg"]),
-		float(sun["altitude_deg"]) + SunStudyScript.refraction(float(sun["altitude_deg"]))
-	))
+	assert(
+		is_equal_approx(
+			float(sun["apparent_altitude_deg"]),
+			float(sun["altitude_deg"]) + SunStudyScript.refraction(float(sun["altitude_deg"])),
+		)
+	)
 	# Overhead there is nothing to lift, so the two agree.
 	var high: Dictionary = SunStudyScript.position(0.0, 79, 12.0)
 	assert(absf(float(high["apparent_altitude_deg"]) - float(high["altitude_deg"])) < 0.01)
@@ -205,10 +197,12 @@ func test_the_apparent_altitude_is_the_true_one_lifted_by_refraction() -> void:
 
 func test_the_same_moment_gives_the_same_sun() -> void:
 	var first: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(200, 15.25)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(200, 15.25),
 	)
 	var second: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(200, 15.25)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(200, 15.25),
 	)
 	assert(first == second)
 
@@ -227,7 +221,6 @@ func test_a_solar_time_and_a_clock_time_are_not_the_same_number() -> void:
 	assert(absf(float(by_site["altitude_deg"]) - float(by_solar["altitude_deg"])) < 0.001)
 	assert(absf(float(by_site["azimuth_deg"]) - float(by_solar["azimuth_deg"])) < 0.001)
 
-
 # --- a site on the clock ---------------------------------------------------------------
 
 
@@ -241,10 +234,12 @@ func test_fifteen_degrees_of_longitude_is_an_hour_of_clock() -> void:
 	# And the sun itself knows it: two hours apart in solar time is two hours apart in the
 	# sky, which at 45 degrees north is a different day's worth of shadow direction.
 	var west_sun: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, -15.0, 0.0), SunStudyScript.moment(200, 16.0)
+		SunStudyScript.site(45.0, -15.0, 0.0),
+		SunStudyScript.moment(200, 16.0),
 	)
 	var east_sun: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, 15.0, 0.0), SunStudyScript.moment(200, 16.0)
+		SunStudyScript.site(45.0, 15.0, 0.0),
+		SunStudyScript.moment(200, 16.0),
 	)
 	assert(float(west_sun["azimuth_deg"]) > 180.0)
 	assert(float(east_sun["azimuth_deg"]) > 180.0)
@@ -256,10 +251,12 @@ func test_a_zone_offset_moves_the_clock_and_not_the_sky() -> void:
 	# The same place on standard time and on summer time, each read at the hour its own
 	# clock calls noon: one instant, one sun. Only the labels differ.
 	var standard: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(200, 12.0)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(200, 12.0),
 	)
 	var summer: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(45.0, -75.0, -4.0), SunStudyScript.moment(200, 13.0)
+		SunStudyScript.site(45.0, -75.0, -4.0),
+		SunStudyScript.moment(200, 13.0),
 	)
 	assert(is_equal_approx(float(standard["altitude_deg"]), float(summer["altitude_deg"])))
 	assert(is_equal_approx(float(standard["azimuth_deg"]), float(summer["azimuth_deg"])))
@@ -272,7 +269,6 @@ func test_the_clock_time_and_the_solar_time_are_inverses() -> void:
 	var moment: Dictionary = SunStudyScript.moment(300, 7.25)
 	var solar: float = SunStudyScript.solar_time(site, moment)
 	assert(absf(SunStudyScript.clock_time(site, moment, solar) - 7.25) < 0.000001)
-
 
 # --- day and night ---------------------------------------------------------------------
 
@@ -292,9 +288,9 @@ func test_an_equinox_day_is_a_little_over_twelve_hours() -> void:
 func test_the_standard_sunrise_altitude_makes_the_day_longer_than_the_geometry_would() -> void:
 	var latitude: float = 45.0
 	var declination: float = SunStudyScript.declination(79)
-	var geometric_half: float = rad_to_deg(acos(clampf(
-		-tan(deg_to_rad(latitude)) * tan(deg_to_rad(declination)), -1.0, 1.0
-	))) / 15.0
+	var geometric_half: float = rad_to_deg(
+		acos(clampf(-tan(deg_to_rad(latitude)) * tan(deg_to_rad(declination)), -1.0, 1.0))
+	) / 15.0
 	var reported: float = float(SunStudyScript.daylight(latitude, 79)["day_length_hours"])
 	assert(reported > geometric_half * 2.0 + 0.05, "refraction and the sun's radius add minutes")
 
@@ -309,10 +305,13 @@ func test_the_day_grows_longer_as_you_go_north() -> void:
 func test_sunrise_and_sunset_are_symmetric_about_solar_noon() -> void:
 	for latitude in [0.0, 30.0, 60.0]:
 		var hours: Dictionary = SunStudyScript.daylight(latitude, 200)
-		assert(absf(
-			float(hours["sunrise_hour"]) - (24.0 - float(hours["sunset_hour"]))
-		) < 0.000001)
-		assert(is_equal_approx(float(hours["day_length_hours"]), float(hours["sunset_hour"]) - float(hours["sunrise_hour"])))
+		assert(absf(float(hours["sunrise_hour"]) - (24.0 - float(hours["sunset_hour"]))) < 0.000001)
+		assert(
+			is_equal_approx(
+				float(hours["day_length_hours"]),
+				float(hours["sunset_hour"]) - float(hours["sunrise_hour"]),
+			)
+		)
 
 
 func test_the_arctic_gets_a_day_with_no_sunrise_to_report() -> void:
@@ -331,18 +330,18 @@ func test_the_arctic_gets_a_day_with_no_sunrise_to_report() -> void:
 
 func test_daylight_reads_the_sites_own_clock() -> void:
 	var standard: Dictionary = SunStudyScript.daylight_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(79, 12.0)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(79, 12.0),
 	)
 	var summer: Dictionary = SunStudyScript.daylight_for(
-		SunStudyScript.site(45.0, -75.0, -4.0), SunStudyScript.moment(79, 12.0)
+		SunStudyScript.site(45.0, -75.0, -4.0),
+		SunStudyScript.moment(79, 12.0),
 	)
 	# At one longitude, turning the clock forward an hour moves every solar event an hour
-# later on the dial: the same sun, read off a different clock. This is the fact that makes
-# summer time worth modelling at all - it is the difference between the client's sunrise
-# and the sun's.
-	assert(absf(
-		float(summer["sunrise_clock_hour"]) - (float(standard["sunrise_clock_hour"]) + 1.0)
-	) < 0.000001)
+	# later on the dial: the same sun, read off a different clock. This is the fact that makes
+	# summer time worth modelling at all - it is the difference between the client's sunrise
+	# and the sun's.
+	assert(absf(float(summer["sunrise_clock_hour"]) - (float(standard["sunrise_clock_hour"]) + 1.0)) < 0.000001)
 	assert(absf(float(standard["sunrise_clock_hour"]) - 6.03) < 0.15)
 	assert(absf(float(standard["sunset_clock_hour"]) - 18.20) < 0.15)
 
@@ -354,16 +353,17 @@ func test_a_summer_morning_in_ottawa_is_where_the_almanac_puts_it() -> void:
 	# the calendar, the longitude, the zone, the equation of time, the refraction, the tilt
 	# and the trigonometry all have to be right together for it to come out.
 	var ottawa: Dictionary = SunStudyScript.daylight_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(172, 12.0)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(172, 12.0),
 	)
 	assert(absf(float(ottawa["sunrise_clock_hour"]) - 4.23) < 0.15)
 	assert(absf(float(ottawa["sunset_clock_hour"]) - 19.90) < 0.15)
 	# And the winter solstice, which is the other end of the same fact: under nine hours.
 	var winter: Dictionary = SunStudyScript.daylight_for(
-		SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(355, 12.0)
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(355, 12.0),
 	)
 	assert(float(winter["day_length_hours"]) > 8.5 and float(winter["day_length_hours"]) < 9.0)
-
 
 # --- aiming a light --------------------------------------------------------------------
 
@@ -372,7 +372,11 @@ func test_aiming_the_sun_for_a_site_needs_the_sun_to_be_up() -> void:
 	var light := DirectionalLight3D.new()
 	add_child(light)
 	var before: Transform3D = light.transform
-	var night: bool = SunStudyScript.apply_for(light, SunStudyScript.site(45.0, -75.0, -5.0), SunStudyScript.moment(355, 2.0))
+	var night: bool = SunStudyScript.apply_for(
+		light,
+		SunStudyScript.site(45.0, -75.0, -5.0),
+		SunStudyScript.moment(355, 2.0),
+	)
 	assert(not night)
 	# Not "moved somewhere harmless": not moved.
 	assert(light.transform == before)
@@ -394,15 +398,12 @@ func test_aiming_the_sun_for_a_site_puts_it_on_the_side_the_clock_says() -> void
 	assert(SunStudyScript.apply_for(light, site, SunStudyScript.moment(172, 13.0)))
 	var altitude: float = deg_to_rad(float(afternoon["altitude_deg"]))
 	var azimuth: float = deg_to_rad(float(afternoon["azimuth_deg"]))
-	var expected := Vector3(
-		sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude)
-	) * SunStudyScript.DISTANCE_M
+	var expected := Vector3(sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude)) * SunStudyScript.DISTANCE_M
 	assert(light.position.distance_to(expected) < 0.001)
 	# West is -X in this project's model space (north is -Z), so an afternoon sun in the
 	# northern hemisphere lights the garden from over there.
 	assert(light.position.x < 0.0)
 	light.queue_free()
-
 
 # --- saying it in words ----------------------------------------------------------------
 
@@ -431,11 +432,11 @@ func test_describe_for_says_when_the_sun_rises_and_sets() -> void:
 	# A latitude where the sun genuinely does not set says that rather than inventing a
 	# time it does not have.
 	var arctic: String = SunStudyScript.describe_for(
-		SunStudyScript.site(80.0, -75.0, -5.0), SunStudyScript.moment(172, 12.0)
+		SunStudyScript.site(80.0, -75.0, -5.0),
+		SunStudyScript.moment(172, 12.0),
 	)
 	assert(arctic.contains("does not set"))
 	assert(arctic.contains("80°N"))
-
 
 # --- what a study has to carry to be evidence --------------------------------------------
 
@@ -447,9 +448,7 @@ func test_the_site_and_the_moment_carry_the_keys_the_study_reads() -> void:
 	assert(moment.has("day_of_year") and moment.has("clock_hour") and moment.has("year"))
 	# A hand-built dictionary with the same keys is the same thing, which is what lets the
 	# drawing hold a site without importing the study.
-	var handwritten: Dictionary = {
-		"latitude": 45.0, "longitude": -75.0, "utc_offset_hours": -5.0,
-	}
+	var handwritten: Dictionary = { "latitude": 45.0, "longitude": -75.0, "utc_offset_hours": -5.0 }
 	assert(SunStudyScript.position_for(handwritten, moment) == SunStudyScript.position_for(site, moment))
 
 
@@ -462,10 +461,8 @@ func test_a_recorded_sun_carries_enough_to_reproduce_it() -> void:
 	for key in ["latitude_deg", "longitude_deg", "utc_offset_hours", "day_of_year", "clock_hour", "year"]:
 		assert(sun.has(key), key)
 	var rebuilt: Dictionary = SunStudyScript.position_for(
-		SunStudyScript.site(
-			float(sun["latitude_deg"]), float(sun["longitude_deg"]), float(sun["utc_offset_hours"])
-		),
-		SunStudyScript.moment(int(sun["day_of_year"]), float(sun["clock_hour"]), int(sun["year"]))
+		SunStudyScript.site(float(sun["latitude_deg"]), float(sun["longitude_deg"]), float(sun["utc_offset_hours"])),
+		SunStudyScript.moment(int(sun["day_of_year"]), float(sun["clock_hour"]), int(sun["year"])),
 	)
 	assert(is_equal_approx(float(rebuilt["altitude_deg"]), float(sun["altitude_deg"])))
 	assert(is_equal_approx(float(rebuilt["azimuth_deg"]), float(sun["azimuth_deg"])))
@@ -480,8 +477,6 @@ func test_a_drawings_site_is_the_shape_the_study_takes() -> void:
 	# Moving the drawing fifteen degrees west makes the sun an hour later there, which is
 	# the whole reason the site lives with the plan.
 	var before: float = float(sun["azimuth_deg"])
-	document.set_site(
-		document.site_latitude, document.site_longitude - 15.0, document.site_utc_offset_hours
-	)
+	document.set_site(document.site_latitude, document.site_longitude - 15.0, document.site_utc_offset_hours)
 	var after: Dictionary = SunStudyScript.position_for(document.site(), SunStudyScript.moment(200, 12.0))
 	assert(float(after["azimuth_deg"]) < before, "an hour earlier in the day is further east")

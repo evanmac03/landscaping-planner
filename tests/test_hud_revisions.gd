@@ -22,9 +22,7 @@ func _hud():
 	controller.document = DocumentScript.new()
 	hud._draft = controller
 	hud._build_revision_window()
-	hud._draft.document.add(
-		Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED
-	)
+	hud._draft.document.add(Entity.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSet.NEW_BED)
 	return hud
 
 
@@ -49,8 +47,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
-
+	return { }
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -81,7 +78,6 @@ func test_a_window_with_no_drawing_opens_nothing() -> void:
 	assert(not hud.is_revision_window_open())
 	_done(hud)
 
-
 # --- what the window's signals do -----------------------------------------------------
 
 
@@ -96,8 +92,10 @@ func test_recording_records_the_drawing_and_says_where_it_went() -> void:
 	assert(String(hud._revision_window.selected_row()["message"]) == "sent to the client")
 	assert(hud.revision_status_text().begins_with("recorded rev 1"), hud.revision_status_text())
 	# The person's own name is on it, from the only place this app can know it.
-	assert(String(hud._revision_window.selected_row()["author"]).is_empty() == false,
-		"a history that cannot say who is a list of timestamps")
+	assert(
+		String(hud._revision_window.selected_row()["author"]).is_empty() == false,
+		"a history that cannot say who is a list of timestamps",
+	)
 	_done(hud)
 	_clean()
 
@@ -118,14 +116,11 @@ func test_restoring_puts_a_revision_back_on_the_drawing() -> void:
 	assert(bool(hud._draft.save_drawing(SCRATCH)["ok"]))
 	hud._on_revision_recorded("sent to the client")
 	var seen: int = hud._draft.document.count()
-	hud._draft.document.add(
-		Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING
-	)
+	hud._draft.document.add(Entity.make_circle(Vector2(2.0, 3.0), 1.5), LayerSet.NEW_PLANTING)
 	hud._on_revision_recorded("a tree added off the cuff")
 	assert(hud._draft.document.count() == seen + 1)
 	assert(hud._revision_window.row_count() == 2)
-	assert(hud._revision_window.change_text().begins_with("1 added"),
-		hud._revision_window.change_text())
+	assert(hud._revision_window.change_text().begins_with("1 added"), hud._revision_window.change_text())
 
 	assert(hud._revision_window.select(0))
 	hud._revision_window.restore()
@@ -138,8 +133,10 @@ func test_restoring_puts_a_revision_back_on_the_drawing() -> void:
 func test_the_window_reports_the_life_of_the_history() -> void:
 	_clean()
 	var hud = _hud()
-	assert(hud.revision_status_text() == "nothing has been recorded against this drawing yet",
-		hud.revision_status_text())
+	assert(
+		hud.revision_status_text() == "nothing has been recorded against this drawing yet",
+		hud.revision_status_text(),
+	)
 	hud._on_revision_recorded("the first idea")
 	# While a revision has just been recorded the window is reporting *that*, which is the line the
 	# person needs - where it went. Clearing it, as closing the window does, leaves the count.
@@ -160,14 +157,14 @@ func test_an_open_history_keeps_up_with_the_drawing_it_is_about() -> void:
 	# A gesture is what the controller makes of one act - a drawn line, an erase, a lock - and it is
 	# recorded here the way the controller records it, so nothing in this test is a private path.
 	controller.document.begin_gesture("drawing a new line")
-	controller.document.add(
-		Entity.make_line(Vector2(0.0, 8.0), Vector2(12.0, 8.0)), LayerSet.NEW_HARDSCAPE
-	)
+	controller.document.add(Entity.make_line(Vector2(0.0, 8.0), Vector2(12.0, 8.0)), LayerSet.NEW_HARDSCAPE)
 	hud._on_revision_recorded("sent to the client")
 	assert(int(controller.revisions.record_at(0)["serial"]) == 1, "the revision kept the gesture")
 	hud._revision_window.select(0)
-	assert(hud._revision_window.since_text() == "nothing has been done to the drawing since",
-		hud._revision_window.since_text())
+	assert(
+		hud._revision_window.since_text() == "nothing has been done to the drawing since",
+		hud._revision_window.since_text(),
+	)
 
 	controller.document.begin_gesture("erasing")
 	controller.document.begin_gesture("locking 300-NEW-HARD")
@@ -180,8 +177,10 @@ func test_an_open_history_keeps_up_with_the_drawing_it_is_about() -> void:
 	# revision sent in between really did go out before both of those acts.
 	assert(controller.document.undo_last())
 	hud._refresh_revision_window()
-	assert(hud._revision_window.since_text() == "2 gestures since",
-		"the count stands: what happened to this drawing does not unhappen, and the revision went out before both of those acts")
+	assert(
+		hud._revision_window.since_text() == "2 gestures since",
+		"the count stands: what happened to this drawing does not unhappen, and the revision went out before both of those acts",
+	)
 
 	# A revision recorded before gestures were counted says it does not know rather than claiming nobody
 	# has touched the drawing - which is the difference between "not known" and "none".
@@ -189,7 +188,9 @@ func test_an_open_history_keeps_up_with_the_drawing_it_is_about() -> void:
 	hud.set(&"_revision_state", "")
 	hud._refresh_revision_window()
 	hud._revision_window.select(1)
-	assert(hud._revision_window.since_text() == "recorded before gestures were counted",
-		hud._revision_window.since_text())
+	assert(
+		hud._revision_window.since_text() == "recorded before gestures were counted",
+		hud._revision_window.since_text(),
+	)
 	_done(hud)
 	_clean()

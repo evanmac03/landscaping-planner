@@ -84,5 +84,9 @@ func copy() -> SketchStyle:
 ## The look in one line, for a caption or a status bar.
 func describe() -> String:
 	return "wobble %.2f mm, grain %.2f, wet edge %.2f, %d texels/mm at %dx" % [
-		wobble_mm, grain, edge_darkening, int(texels_per_mm), supersample,
+		wobble_mm,
+		grain,
+		edge_darkening,
+		int(texels_per_mm),
+		supersample,
 	]

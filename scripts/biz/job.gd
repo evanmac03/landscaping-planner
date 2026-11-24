@@ -31,13 +31,13 @@ const BILLING_NAMES := {
 ## what the business pays for it.
 const PRICE := 0
 const COST := 1
-const BASIS_NAMES := {PRICE: "price", COST: "cost"}
-const BASIS_IDS := {"PRICE": PRICE, "COST": COST}
+const BASIS_NAMES := { PRICE: "price", COST: "cost" }
+const BASIS_IDS := { "PRICE": PRICE, "COST": COST }
 
 var id: String = ""
 var number: String = ""
 var name: String = ""
-var customer: Dictionary = {}
+var customer: Dictionary = { }
 ## The estimate revision this job was contracted from, so the budget has a lineage (§4.10).
 var estimate_revision: int = 0
 ## What the customer agreed to pay, before tax.
@@ -81,7 +81,6 @@ func set_contract_sum(amount: Money) -> bool:
 	contract_sum = amount
 	return true
 
-
 # --- phases, taken from the estimate -----------------------------------------------------
 
 
@@ -105,7 +104,7 @@ static func from_estimate(estimate: Estimate, basis: int = PRICE) -> Job:
 
 ## One row per cost code the estimate prices, in code order: `{cost_code, budget, basis}`.
 static func phase_budgets(estimate: Estimate, basis: int = PRICE) -> Array[Dictionary]:
-	var running: Dictionary = {}
+	var running: Dictionary = { }
 	var order: Array[String] = []
 	if estimate != null:
 		for line in estimate.lines:
@@ -120,7 +119,7 @@ static func phase_budgets(estimate: Estimate, basis: int = PRICE) -> Array[Dicti
 	order.sort()
 	var out: Array[Dictionary] = []
 	for code in order:
-		out.append({"cost_code": code, "budget": running[code], "basis": basis})
+		out.append({ "cost_code": code, "budget": running[code], "basis": basis })
 	return out
 
 
@@ -128,7 +127,7 @@ func phase(cost_code: String) -> Dictionary:
 	for held in phases:
 		if String(held["cost_code"]) == cost_code:
 			return held
-	return {}
+	return { }
 
 
 func phase_codes() -> Array[String]:
@@ -141,11 +140,7 @@ func phase_codes() -> Array[String]:
 func phase_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in phases:
-		out.append({
-			"cost_code": String(held["cost_code"]),
-			"budget": held["budget"],
-			"basis": int(held["basis"]),
-		})
+		out.append({ "cost_code": String(held["cost_code"]), "budget": held["budget"], "basis": int(held["basis"]) })
 	return out
 
 
@@ -171,11 +166,9 @@ func assign_crew(member: StringName) -> bool:
 func to_dict() -> Dictionary:
 	var phase_list: Array = []
 	for held in phases:
-		phase_list.append({
-			"cost_code": String(held["cost_code"]),
-			"budget": held["budget"].to_dict(),
-			"basis": int(held["basis"]),
-		})
+		phase_list.append(
+			{ "cost_code": String(held["cost_code"]), "budget": held["budget"].to_dict(), "basis": int(held["basis"]) }
+		)
 	var crew_list: Array = []
 	for member in crew:
 		crew_list.append(String(member))
@@ -206,20 +199,22 @@ static func from_dict(data: Dictionary) -> Job:
 		return null
 	job.number = String(data.get("number", ""))
 	job.name = String(data.get("name", ""))
-	var customer_in = data.get("customer", {})
-	job.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else {}
+	var customer_in = data.get("customer", { })
+	job.customer = (customer_in as Dictionary).duplicate(true) if customer_in is Dictionary else { }
 	job.estimate_revision = int(data.get("estimate_revision", 0))
-	job.contract_sum = MoneyScript.from_dict(data.get("contract_sum", {}))
+	job.contract_sum = MoneyScript.from_dict(data.get("contract_sum", { }))
 	job.billing_method = _method_from(String(data.get("billing_method", "FIXED")))
 	var phases_in = data.get("phases", [])
 	if phases_in is Array:
 		for entry in (phases_in as Array):
 			if entry is Dictionary:
-				job.phases.append({
-					"cost_code": String(entry.get("cost_code", "")),
-					"budget": MoneyScript.from_dict(entry.get("budget", {})),
-					"basis": int(entry.get("basis", PRICE)),
-				})
+				job.phases.append(
+					{
+						"cost_code": String(entry.get("cost_code", "")),
+						"budget": MoneyScript.from_dict(entry.get("budget", { })),
+						"basis": int(entry.get("basis", PRICE)),
+					}
+				)
 	var schedule_in = data.get("schedule", [])
 	if schedule_in is Array:
 		for entry in (schedule_in as Array):
@@ -238,20 +233,29 @@ static func from_dict(data: Dictionary) -> Job:
 
 static func _billing_key(method: int) -> String:
 	match method:
-		FIXED: return "FIXED"
-		MILESTONE: return "MILESTONE"
-		PERCENTAGE_COMPLETE: return "PERCENTAGE_COMPLETE"
-		TIME_AND_MATERIALS: return "TIME_AND_MATERIALS"
-		COST_PLUS: return "COST_PLUS"
+		FIXED:
+			return "FIXED"
+		MILESTONE:
+			return "MILESTONE"
+		PERCENTAGE_COMPLETE:
+			return "PERCENTAGE_COMPLETE"
+		TIME_AND_MATERIALS:
+			return "TIME_AND_MATERIALS"
+		COST_PLUS:
+			return "COST_PLUS"
 	return "FIXED"
 
 
 static func _method_from(key: String) -> int:
 	match key:
-		"MILESTONE": return MILESTONE
-		"PERCENTAGE_COMPLETE": return PERCENTAGE_COMPLETE
-		"TIME_AND_MATERIALS": return TIME_AND_MATERIALS
-		"COST_PLUS": return COST_PLUS
+		"MILESTONE":
+			return MILESTONE
+		"PERCENTAGE_COMPLETE":
+			return PERCENTAGE_COMPLETE
+		"TIME_AND_MATERIALS":
+			return TIME_AND_MATERIALS
+		"COST_PLUS":
+			return COST_PLUS
 	return FIXED
 
 

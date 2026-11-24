@@ -58,11 +58,7 @@ const CAPABILITY_NAMES := {
 const INVOICE_KIND := &"invoice"
 const PAYMENT_KIND := &"payment"
 const CREDIT_KIND := &"credit"
-const KIND_NAMES := {
-	"invoice": "invoice",
-	"payment": "payment",
-	"credit": "credit note",
-}
+const KIND_NAMES := { "invoice": "invoice", "payment": "payment", "credit": "credit note" }
 
 ## The header a backend that de-duplicates reads. Carried on every request whether or not the backend
 ## reads it: a header nobody reads costs nothing, and a missing one costs a duplicate posting.
@@ -78,7 +74,6 @@ const RETRYABLE := [408, 425, 429, 500, 502, 503, 504]
 
 ## The fields a response message is usually under, in the order they are looked for.
 const MESSAGE_FIELDS := ["message", "error", "detail", "errors"]
-
 
 # --- what this backend is -----------------------------------------------------------------------
 
@@ -112,7 +107,7 @@ func set_setting(_key: StringName, _value: String) -> bool:
 
 ## What this backend can do (§9.6). Every capability is present and defaults to false.
 func capabilities() -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = { }
 	for key: String in CAPABILITY_NAMES.keys():
 		out[key] = false
 	return out
@@ -160,7 +155,6 @@ func secret_headers() -> Array[String]:
 func authorise(request: Dictionary) -> Dictionary:
 	return request
 
-
 # --- the idempotency key (one place, and it reads no clock) --------------------------------------
 
 
@@ -168,31 +162,36 @@ func authorise(request: Dictionary) -> Dictionary:
 ## timeout must produce the same key, so the backend can collapse it onto the first attempt. `marker`
 ## is whatever identifies the *version* being posted - a number and a total - so a void and reissue is
 ## a different push rather than a duplicate of the first (REQ-B14, AC-B15).
-static func idempotency_key_for(adapter: StringName, kind: StringName, document_id: String,
-		marker: String) -> String:
+static func idempotency_key_for(adapter: StringName, kind: StringName, document_id: String, marker: String) -> String:
 	return "%s:%s:%s:%s" % [String(adapter), String(kind), document_id, marker]
 
 
 func key_for_invoice(invoice: Invoice) -> String:
 	if invoice == null:
 		return ""
-	return idempotency_key_for(name(), INVOICE_KIND, invoice.id,
-		"%s@%s" % [invoice.number, invoice.total().format_iso()])
+	return idempotency_key_for(
+		name(),
+		INVOICE_KIND,
+		invoice.id,
+		"%s@%s" % [invoice.number, invoice.total().format_iso()],
+	)
 
 
 func key_for_payment(payment: Payment, invoice: Invoice) -> String:
 	if payment == null or invoice == null:
 		return ""
-	return idempotency_key_for(name(), PAYMENT_KIND, payment.id,
-		"%s@%s" % [payment.amount.format_iso(), payment.received_at])
+	return idempotency_key_for(
+		name(),
+		PAYMENT_KIND,
+		payment.id,
+		"%s@%s" % [payment.amount.format_iso(), payment.received_at],
+	)
 
 
 func key_for_credit(credit: CreditNote) -> String:
 	if credit == null:
 		return ""
-	return idempotency_key_for(name(), CREDIT_KIND, credit.id,
-		"%s@%s" % [credit.number, credit.amount.format_iso()])
-
+	return idempotency_key_for(name(), CREDIT_KIND, credit.id, "%s@%s" % [credit.number, credit.amount.format_iso()])
 
 # --- building a push (pure: it builds, it does not send) ------------------------------------------
 
@@ -215,8 +214,12 @@ func build_invoice_push(invoice: Invoice, idempotency_key: String) -> Dictionary
 ## `external_invoice_id` is the invoice's id **in the backend being posted to** - the mapping the
 ## office established when the invoice was first pushed - and a backend that needs it refuses when it
 ## is empty, rather than posting a payment against an invoice the ledger cannot identify.
-func build_payment_push(payment: Payment, invoice: Invoice, idempotency_key: String,
-		external_invoice_id: String = "") -> Dictionary:
+func build_payment_push(
+	payment: Payment,
+	invoice: Invoice,
+	idempotency_key: String,
+	external_invoice_id: String = "",
+) -> Dictionary:
 	if not can(PAYMENTS):
 		return refused(cannot_text(PAYMENTS))
 	if payment == null or invoice == null:
@@ -246,14 +249,17 @@ func invoice_request(_invoice: Invoice, _idempotency_key: String) -> Dictionary:
 	return refused("%s has no invoice path" % describe())
 
 
-func payment_request(_payment: Payment, _invoice: Invoice, _idempotency_key: String,
-		_external_invoice_id: String = "") -> Dictionary:
+func payment_request(
+	_payment: Payment,
+	_invoice: Invoice,
+	_idempotency_key: String,
+	_external_invoice_id: String = "",
+) -> Dictionary:
 	return refused("%s has no payment path" % describe())
 
 
 func credit_request(_credit: CreditNote, _idempotency_key: String) -> Dictionary:
 	return refused("%s has no credit path" % describe())
-
 
 # --- the API-neutral document the body is made of -------------------------------------------------
 
@@ -277,17 +283,21 @@ func invoice_body(invoice: Invoice, idempotency_key: String) -> Dictionary:
 func totals_body(invoice: Invoice) -> Dictionary:
 	var tax_rows: Array = []
 	for entry in invoice.tax_lines():
-		tax_rows.append({
-			"tax_code": String(entry["tax_code"]),
-			"taxable": (entry["taxable"] as Money).to_dict(),
-			"tax": (entry["tax"] as Money).to_dict(),
-			"ok": bool(entry["ok"]),
-			"reason": String(entry["reason"]),
-		})
+		tax_rows.append(
+			{
+				"tax_code": String(entry["tax_code"]),
+				"taxable": (entry["taxable"] as Money).to_dict(),
+				"tax": (entry["tax"] as Money).to_dict(),
+				"ok": bool(entry["ok"]),
+				"reason": String(entry["reason"]),
+			}
+		)
 	return {
 		"subtotal": invoice.subtotal().to_dict(),
 		"tax": invoice.tax().to_dict(),
-		"retainage_total": (invoice.retainage if invoice.retainage != null else MoneyScript.zero(invoice.currency)).to_dict(),
+		"retainage_total": (
+			invoice.retainage if invoice.retainage != null else MoneyScript.zero(invoice.currency)
+		).to_dict(),
 		"total": invoice.total().to_dict(),
 		"applied": invoice.applied().to_dict(),
 		"balance": invoice.balance().to_dict(),
@@ -316,7 +326,6 @@ func credit_body(credit: CreditNote, idempotency_key: String) -> Dictionary:
 	body["currency_iso"] = String(credit.currency)
 	return body
 
-
 # --- reading the document every backend is built from -------------------------------------------
 
 
@@ -329,7 +338,7 @@ static func document_refusal(document: Dictionary) -> String:
 		for entry in (rows as Array):
 			if entry is Dictionary and not bool(entry.get("ok", true)):
 				return String(entry.get("reason", "the invoice's tax does not read"))
-	if not MoneyScript.from_dict(document.get("total", {})).is_valid():
+	if not MoneyScript.from_dict(document.get("total", { })).is_valid():
 		return "the invoice's total cannot be read"
 	return ""
 
@@ -348,7 +357,7 @@ static func lines_of(document: Dictionary) -> Array:
 
 ## The customer's name, which every backend needs and none of them should guess at.
 static func customer_name_of(document: Dictionary) -> String:
-	var customer_in: Variant = document.get("customer", {})
+	var customer_in: Variant = document.get("customer", { })
 	if not customer_in is Dictionary:
 		return ""
 	var customer: Dictionary = customer_in
@@ -364,7 +373,7 @@ static func customer_name_of(document: Dictionary) -> String:
 ## block under `external_id`. A backend that cannot find one refuses the push rather than posting
 ## against a customer this program invented (AC-B14's rule, applied to a mapping).
 static func party_id_of(document: Dictionary, field: StringName = &"external_id") -> String:
-	var customer_in: Variant = document.get("customer", {})
+	var customer_in: Variant = document.get("customer", { })
 	if not customer_in is Dictionary:
 		return ""
 	return String((customer_in as Dictionary).get(String(field), "")).strip_edges()
@@ -438,7 +447,6 @@ static func _un_grouped(amount: Money) -> String:
 		text += "." + str(fraction).lpad(MoneyScript.exponent_of(amount.currency), "0")
 	return ("-" if amount.cents < 0 else "") + text
 
-
 # --- reading what came back ---------------------------------------------------------------------
 
 
@@ -459,8 +467,8 @@ func parse_credit_response(response: Dictionary) -> Dictionary:
 func parse_common(response: Dictionary) -> Dictionary:
 	var status: int = int(response.get("status", 0))
 	var error_text: String = String(response.get("error", ""))
-	var raw: Variant = response.get("body", {})
-	var body: Dictionary = {}
+	var raw: Variant = response.get("body", { })
+	var body: Dictionary = { }
 	if raw is Dictionary:
 		body = raw
 	if status == 0:
@@ -470,44 +478,37 @@ func parse_common(response: Dictionary) -> Dictionary:
 		return _result(false, _is_retryable(status), _status_reason(status, body, raw), status, body)
 	return _result(true, false, "", status, body)
 
-
 # --- the pieces every adapter needs -------------------------------------------------------------
 
 
 ## The request that posts a document. `make_request` is the one place a request is shaped, and `url`
 ## is a URL for an HTTP backend and a path for the file backend - because what `send` understands is
 ## the backend's own business, which is why `send` is overridden rather than assumed.
-static func make_request(method: StringName, url: String, headers: Dictionary,
-		body: Dictionary) -> Dictionary:
-	return {
-		"method": String(method),
-		"url": url,
-		"headers": headers.duplicate(true),
-		"body": body,
-	}
+static func make_request(method: StringName, url: String, headers: Dictionary, body: Dictionary) -> Dictionary:
+	return { "method": String(method), "url": url, "headers": headers.duplicate(true), "body": body }
 
 
 ## Actually send a request. **The base has no transport of its own**: phase 10's sync does HTTP, and
 ## the file backend writes its own files. A backend that cannot send says so rather than pretending, so
 ## a push against it fails visibly instead of quietly doing nothing.
 func send(_request: Dictionary) -> Dictionary:
-	return {"status": 0, "error": "%s has no transport of its own" % describe(), "body": {}}
+	return { "status": 0, "error": "%s has no transport of its own" % describe(), "body": { } }
 
 
 ## The adapter's "test" button: prove this backend is reachable and will take a document, without
 ## posting anything that matters. The base cannot, and says so.
 func self_test() -> Dictionary:
-	return {"ok": false, "reason": "%s cannot test itself" % describe()}
+	return { "ok": false, "reason": "%s cannot test itself" % describe() }
 
 
 ## A refusal, in the shape every `build_*_push` returns.
 static func refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "kind": &"", "request": {}}
+	return { "ok": false, "reason": reason, "kind": &"", "request": { } }
 
 
 ## An accepted build, in the same shape.
 static func asked(kind: StringName, request: Dictionary) -> Dictionary:
-	return {"ok": true, "reason": "", "kind": kind, "request": request}
+	return { "ok": true, "reason": "", "kind": kind, "request": request }
 
 
 func _parse_document(response: Dictionary, id_field: String, number_field: String) -> Dictionary:
@@ -519,8 +520,15 @@ func _parse_document(response: Dictionary, id_field: String, number_field: Strin
 	return common
 
 
-static func _result(ok: bool, retry: bool, reason: String, status: int, body: Dictionary,
-		external_id: String = "", external_number: String = "") -> Dictionary:
+static func _result(
+	ok: bool,
+	retry: bool,
+	reason: String,
+	status: int,
+	body: Dictionary,
+	external_id: String = "",
+	external_number: String = "",
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"retry": retry,

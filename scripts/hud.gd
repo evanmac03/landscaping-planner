@@ -1,13 +1,37 @@
 class_name PlannerHud
 extends CanvasLayer
-## The planner's heads-up display: which view you are in, what the controls do,
-## the drawing palette, and the drafting aids on the overlay layer.
+## The planner's heads-up display: the menu bar, which view you are in and the controls that change it,
+## the drawing palette, the panels that are always on screen, and the drafting aids on the overlay layer.
+##
+## The chrome here is not the same shape on every device. A row of controls, a palette and a window are laid
+## out for a desk, where the room is wide and a fingertip is a cursor; a device answered with a finger is
+## given the row a thumb has to hit in and the size a thumb has to read, so what a desk draws exactly as the
+## scene did can be a different arrangement there. `PhoneHud` holds the arithmetic and the door,
+## `size_for_a_finger` is where this HUD asks for it, and `_put_away_what_the_top_bar_cannot_hold` is the one
+## part of the top bar that a room too narrow for it gives up.
 
 const DraftToolScript := preload("res://scripts/draft/draft_tool.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const DraftControllerScript := preload("res://scripts/draft/draft_controller.gd")
 const SimplifyReportScript := preload("res://scripts/draft/simplify_report.gd")
 const PresenceScript := preload("res://scripts/presence.gd")
+const StartChoicesScript := preload("res://scripts/start_choices.gd")
+const StartWindowScript := preload("res://scripts/start_window.gd")
+const StartDrawingScript := preload("res://scripts/start_drawing.gd")
+const StartDrawingWindowScript := preload("res://scripts/start_drawing_window.gd")
+## What is on the screen, said out loud, on a build that may be driven from another computer: the figures a
+## driver would otherwise have to read off a screenshot.
+const HudProbeScript := preload("res://scripts/hud_probe.gd")
+const ChromeStyleScript := preload("res://scripts/chrome_style.gd")
+const BoardPanelScript := preload("res://scripts/board_panel.gd")
+const CameraWindowScript := preload("res://scripts/camera_window.gd")
+const OrientationChoiceScript := preload("res://scripts/orientation_choice.gd")
+## The reader's own choice of how big the words are drawn, where the platform states none.
+const ReadingSizeScript := preload("res://scripts/reading_size.gd")
+
+## How much space sits between two parts of a hint line, so a line reads as groups of words rather than
+## as one run of them.
+const HINT_GAP := "     "
 
 const EDIT_HINTS := "Left-drag: move a plant     "
 ## The key that swaps the two overhead views is written as a token and filled in
@@ -18,29 +42,30 @@ const VIEW_KEY_TOKEN := "%VIEW%"
 const HINTS_2D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     %VIEW%: 3D view     G: ground"
 const HINTS_3D := EDIT_HINTS + "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     %VIEW%: 2D plan     G: ground"
 const HINTS_GROUND := "W A S D: walk     Shift: run     Mouse: look     Arrows: look     Esc: free cursor     G: back to overhead"
+## The ground view's line on a device answered with a finger: **the two gestures that really drive it**,
+## because there is no keyboard there and no captured mouse, and a phone told "Mouse: look" has been told
+## nothing at all. Chosen by `shows_touch_controls()` - the same reading that decides whether the thumb pad
+## is built - so the line and the controls it names arrive and leave together.
+const HINTS_GROUND_ON_A_FINGER := "Left thumb: walk     Right thumb: drag"
+## The overhead views' line on a device answered with a finger. There is no wheel to turn there and no W A S D
+## to press, and a phone told "Wheel: zoom" has been told nothing at all; what a finger really drives is the
+## pair `ViewController.touch_command` reads - a pinch, which is a zoom about the fingers, and two fingers
+## dragged together, which is a pan - together with the tool in hand, which is the same words a desk gets.
+## Fitting the garden is a tap on the menu bar's own Fit button and is not named here, because the bar is one
+## thumb's width from this line and a key is not. Chosen by `shows_touch_controls()`, the same reading that
+## decides whether the thumb pad is built and whether the ground view's line is swapped, so every line a
+## device is shown arrives and leaves with the controls it names.
+const HINTS_OVERHEAD_ON_A_FINGER := EDIT_HINTS + "Two fingers: pan     Pinch: zoom"
 
-## The drawing tools, in the order the number keys select them: the action that
-## selects one, the wording it is introduced by, and the tool it puts in your hand.
-##
-## One table serves both the key legend and the palette, so a tool cannot appear in
-## one and be missing from the other, and neither can describe a different tool from
-## the one the key selects.
-##
-## The *key* is read from the input map rather than written here, which is the half
-## that can be derived - and a legend naming a key that is not bound sends the reader
-## to a key that does nothing, so that half is the half worth deriving.
-const DRAFTING_TOOLS: Array = [
-	[&"draft_line", "line", DraftToolScript.Kind.LINE],
-	[&"draft_polyline", "polyline", DraftToolScript.Kind.POLYLINE],
-	[&"draft_rect", "rectangle", DraftToolScript.Kind.RECTANGLE],
-	[&"draft_circle", "circle", DraftToolScript.Kind.CIRCLE],
-	[&"draft_arc", "arc", DraftToolScript.Kind.ARC],
-	[&"draft_measure", "measure", DraftToolScript.Kind.MEASURE],
-	[&"draft_dimension", "aligned dim", DraftToolScript.Kind.DIMENSION],
-	[&"draft_dimension_linear", "linear dim", DraftToolScript.Kind.DIMENSION_LINEAR],
-	[&"draft_dimension_radius", "radial dim", DraftToolScript.Kind.DIMENSION_RADIUS],
-	[&"draft_dimension_angular", "angular dim", DraftToolScript.Kind.DIMENSION_ANGULAR],
-]
+## Where this program's own offers are written, and the files they live in: the drawing tools
+## beside the tool that draws them, the editing commands beside the controller that runs them, and
+## the sizes a still can be asked for beside the quality tiers. These three names are the same
+## arrays rather than copies of them, so the legend, the palette, the menu and the help all read
+## one table and none of them can describe a different tool from the one the key selects.
+const DRAFTING_TOOLS: Array = DraftToolScript.DRAFTING_TOOLS
+const EDIT_TOOLS: Array = DraftControllerScript.EDIT_TOOLS
+const STILL_SIZES: Array = TierScript.STILL_SIZES
+
 
 ## The keys that are not a tool, in the order a hand meets them: what to do when
 ## the shape is right, and what to do when it is not.
@@ -55,36 +80,28 @@ const DRAFTING_COMMANDS: Array = [
 	[&"draft_dimension_style", "dimension standard"],
 ]
 
+## How each of those keys reads beside the tool it answers: on the line at the foot of the screen, and in
+## the box beside the plan. Shorter than the reference's wording for the same action, because these share a
+## line with the tool's own prompt - "cancel / close page" is the reference's, where there is a row to
+## itself.
+##
+## The *action* is the same action, and the key itself is read from the binding in both places, so the two
+## cannot disagree about which key does it.
+const HAND_KEY_WORDS := {
+	&"draft_finish": "finish",
+	&"draft_close": "close",
+	&"draft_undo_point": "drop a point",
+	&"draft_cancel": "cancel",
+	&"draft_undo": "undo",
+	&"draft_redo": "redo",
+}
+
 ## Key names worth shortening so a legend line stays a line.
 ##
 ## `Period` is here because the angular dimension is bound to that key and Godot reads it back as the
 ## word rather than as the character: a legend row saying "Period angular dim" is both wider and harder
 ## to read than the key a person actually presses, which is a full stop.
-const SHORT_KEY_NAMES := {"Escape": "Esc", "Return": "Enter", "Period": "."}
-
-## The editing commands: what is done to geometry that already exists.
-##
-## A second table rather than an extension of `DRAFTING_TOOLS`, because the drawing
-## tools are the nine number keys and the edits are their own set of letters - a
-## table that tried to be both would have to lie about one of them.
-const EDIT_TOOLS: Array = [
-	[&"edit_offset", "offset", DraftControllerScript.EditKind.OFFSET,
-		"Draw a new shape a fixed distance out from the one you pick"],
-	[&"edit_trim", "trim", DraftControllerScript.EditKind.TRIM,
-		"Cut the picked piece of a line away at what crosses it"],
-	[&"edit_extend", "extend", DraftControllerScript.EditKind.EXTEND,
-		"Grow the picked end of a line out to the next shape"],
-	[&"edit_fillet", "fillet", DraftControllerScript.EditKind.FILLET,
-		"Round the corner where two lines meet"],
-	[&"edit_erase", "erase", DraftControllerScript.EditKind.ERASE,
-		"Take the picked shape off the drawing"],
-	[&"edit_rotate", "rotate", DraftControllerScript.EditKind.ROTATE,
-		"Turn the picked shape about a point you pick, to the direction you click"],
-	[&"edit_move", "move", DraftControllerScript.EditKind.MOVE,
-		"Move the picked shape: pick a point on it, then click where it should go"],
-	[&"edit_copy", "copy", DraftControllerScript.EditKind.COPY,
-		"Copy the picked shape: pick a point on it, then click where the copy should go"],
-]
+const SHORT_KEY_NAMES := { "Escape": "Esc", "Return": "Enter", "Period": "." }
 
 ## How many entries share a line before the legend wraps.
 const DRAFTING_TOOLS_PER_ROW := 5
@@ -102,27 +119,17 @@ const DRAFTING_ROW_GAP := "    "
 ##
 ## They are in the reference and not in the corner legend, and the reason is room rather than rank: the
 ## legend has six lines and is full, while the reference is the page a person opens to look a key up.
-## Three across, so the five of them are two lines there.
+## Three across, so the six of them are two lines there.
 const ELSEWHERE_KEYS: Array = [
 	[&"plant_order", "order the plants"],
 	[&"present_sun_study", "the sun and the shadows"],
 	[&"grade_spot", "spot a level"],
 	[&"grade_contour", "draw a contour"],
 	[&"grade_slope", "draw a slope arrow"],
+	[&"page_help", "what this page is about"],
 ]
 const ELSEWHERE_PER_ROW := 3
 
-## The palette: three tools across, which is what makes it a palette rather than a
-## list of nine, and a cell wide enough for the longest tool name on one line with
-## its key underneath.
-const PALETTE_COLUMNS := 3
-const PALETTE_CELL_WIDTH := 86.0
-## The editing commands share one row: they have one-word names, and the palette has
-## to fit the whole column without widening the palette - which is centre-anchored, so
-## growing it would walk the plant list out from under the clicks a person has learned.
-## Six across at 50 keeps the column inside the width the panel already had.
-const PALETTE_EDIT_COLUMNS := 6
-const PALETTE_EDIT_CELL_WIDTH := 50.0
 
 ## The client presentation: the budgets it can be shown at, and the sizes a proposal
 ## still is rendered at. Both are read from the tables that act on them rather than
@@ -138,20 +145,18 @@ const SunStudyScript := preload("res://scripts/vis/sun_study.gd")
 ## `SunReport` says what a *list* of moments and a stated height come to. The page is a screen.
 const SunReportScript := preload("res://scripts/vis/sun_report.gd")
 const SunWindowScript := preload("res://scripts/sun_window.gd")
+const WalkWindowScript := preload("res://scripts/walk_window.gd")
+const SnapWindowScript := preload("res://scripts/snap_window.gd")
 const StatusWindowScript := preload("res://scripts/status_window.gd")
+const PageChromeScript := preload("res://scripts/page_chrome.gd")
+const PageLayoutScript := preload("res://scripts/page_layout.gd")
+const DrawnSurfacesScript := preload("res://scripts/drawn_surfaces.gd")
+const PageHelpScript := preload("res://scripts/page_help.gd")
 const PlotScaleScript := preload("res://scripts/draft/plot_scale.gd")
 const StoreScript := preload("res://scripts/draft/drawing_store.gd")
 const SiteReportScript := preload("res://scripts/site_report.gd")
 const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
-const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
-
-## The sizes a still can be asked for. Not every size for every job: these are the
-## four a proposal actually wants, and each is a name a person recognises.
-const STILL_SIZES: Array = [
-	["Web 1920 x 1080", Vector2i(1920, 1080)],
-	["QHD 2560 x 1440", Vector2i(2560, 1440)],
-	["4K 3840 x 2160", Vector2i(3840, 2160)],
-]
+const PlantLabelsScript := preload("res://scripts/plants/plant_labels.gd")
 
 @export var view_controller: ViewController
 ## The presentation director. Absent in a scene that has no presentation, in which
@@ -162,6 +167,12 @@ const STILL_SIZES: Array = [
 @export var painted_plan: PaintedPlanScript
 
 @onready var mode_label: Label = %ModeLabel
+## The bar's own decoration: the program's name, and the rule that was there only to divide it from the
+## view's name. Two of the three things in the top bar that are there to look at rather than to use, and so
+## two of the three the row gives up when the room cannot hold it - the third is the view's name, put away
+## with these under `_put_away_what_the_top_bar_cannot_hold`.
+@onready var app_label: Label = %AppLabel
+@onready var bar_separator: VSeparator = %Sep
 @onready var toggle_button: Button = %ToggleButton
 @onready var ground_button: Button = %GroundButton
 @onready var fit_button: Button = %FitButton
@@ -170,7 +181,10 @@ const STILL_SIZES: Array = [
 @onready var draft_hints: PanelContainer = %DraftHints
 @onready var draft_hints_label: Label = %DraftHintsLabel
 @onready var palette: PanelContainer = %Palette
-@onready var palette_column: VBoxContainer = %PaletteColumn
+## The drawing palette's own controls, built by `_build_palette` out of the drawing and the keys. It is one
+## member and it is the scene's node: a second name standing beside it, left null, is how this HUD came to
+## build no palette at all while every check still passed.
+@onready var palette_column: PalettePanelScript = %PaletteColumn
 @onready var presentation_panel: PanelContainer = %Presentation
 @onready var presentation_column: VBoxContainer = %PresentationColumn
 @onready var painted_sheet: Control = %PaintedSheet
@@ -185,29 +199,49 @@ const STILL_SIZES: Array = [
 ## decision; its menus are built in code from `menu_plan()`, because what is in them is derived
 ## from the tables that already describe those commands.
 @onready var menu_bar: MenuBar = %MenuBar
+## The furniture a finger gets and a desk does not: the row of controls that stands inside the top bar where
+## the fourteen menus stand, and the dock along the foot of the screen. Both are in the scene and hidden, so a
+## desk draws exactly what it always drew; `get_node_or_null` rather than `%` because a HUD built from a scene
+## that has not been through this file's own scene file still has to load.
+@onready var touch_row: HBoxContainer = get_node_or_null(^"Root/TopBar/Row/TouchRow") as HBoxContainer
+@onready var touch_dock: PanelContainer = get_node_or_null(^"Root/TouchDock") as PanelContainer
+@onready var touch_strip: PanelContainer = get_node_or_null(^"Root/TouchDock/Column/ToolStrip") as PanelContainer
+@onready var touch_strip_row: HBoxContainer = get_node_or_null(^"Root/TouchDock/Column/ToolStrip/StripScroll/Strip") as HBoxContainer
+@onready var touch_tabs: HBoxContainer = get_node_or_null(^"Root/TouchDock/Column/Tabs") as HBoxContainer
+## The sheet a finger opens instead of a full page: the plant picker standing over the board rather than
+## replacing it. A page is a `Window` the whole screen wide; a sheet is a plate the drawing stays visible
+## around, which is what a person choosing a plant wants - the bed they are planting is still on the screen.
+@onready var touch_sheet: PanelContainer = get_node_or_null(^"Root/TouchSheet") as PanelContainer
+@onready var touch_sheet_title: Label = get_node_or_null(^"Root/TouchSheet/Column/Header/Title") as Label
+@onready var touch_sheet_close: Button = get_node_or_null(^"Root/TouchSheet/Column/Header/Close") as Button
+@onready var touch_sheet_body: VBoxContainer = get_node_or_null(^"Root/TouchSheet/Column/Body") as VBoxContainer
 
 ## The drafting controller, when the scene has one. Held because the palette drives
 ## it and the legend reports on it.
 var _draft: DraftControllerScript = null
-## The controls built by _build_palette, kept so the refresh can set them.
-var _arm_button: CheckButton = null
-var _tool_buttons: Array[Button] = []
-var _edit_buttons: Array[Button] = []
-var _layer_option: OptionButton = null
-## The lock for the layer in hand. A check box rather than a key, because it is a state rather
-## than a command: locked means "leave this layer alone", and it is the state the drawing, the
-## selection band and every editing command read.
-var _lock_button: CheckButton = null
-var _layer_names: Array[StringName] = []
-var _style_button: Button = null
-## The undo and redo buttons, kept so their tooltips can say *which* gesture they would act on. Their
-## text stays "Undo" and "Redo": a button that grew to "Undo drawing a new polyline" would walk the
-## palette out from under the plant list, and the palette's width is something a hand learns.
-var _undo_button: Button = null
-var _redo_button: Button = null
-## What the palette was last drawn to match, so a check every frame does not
-## restate state that has not moved.
-var _palette_state: String = ""
+## The thumb controls a phone walks and looks with, built behind everything else. Null until they are
+## built, which a scene with no `Root` never does.
+var _touch_pad: TouchPad = null
+## Whether this machine has a touchscreen, read once: asking the display server every frame would be a
+## question whose answer cannot change while the program runs.
+var _touch_screen: bool = false
+## Set to offer the thumb controls on a machine that has none, so a demo tool can prove them on a desktop.
+var _touch_forced: bool = false
+## The two buttons the gesture demo asks this HUD for by name. Doors onto `PalettePanel` rather
+## than copies of it, so there is one undo button on the screen and this is it - computed rather
+## than kept, because the panel holds it and the two may not be allowed to drift apart.
+##
+## Nothing in this file reads them: the reader is the gesture demo, which is out in `tools/` where the
+## compiler cannot see it. Said out loud rather than left for a reader to wonder whether they are dead.
+@warning_ignore("unused_private_class_variable")
+var _undo_button: Button:
+	get:
+		return null if palette_column == null else palette_column.undo_button()
+## And the same door for the other one.
+@warning_ignore("unused_private_class_variable")
+var _redo_button: Button:
+	get:
+		return null if palette_column == null else palette_column.redo_button()
 
 ## The controls built by _build_presentation_panel, kept so the refresh can set them.
 var _present_toggle: CheckButton = null
@@ -224,6 +258,15 @@ var _presentation_state: String = ""
 ## Whether a client presentation is running. Held here because the HUD is what
 ## decides which of its own furniture belongs in a presentation.
 var _presenting: bool = false
+## Whether the presentation panel is wanted on the screen. Held here rather than read from the node
+## because a person can put it away, and the panel is otherwise on whenever the scene has a director.
+## On a phone it is over a third of the width and its last rows fall off the bottom of the screen, so it
+## **starts put away** there - it is the one place latitude, longitude and the zone are edited, and the
+## Present menu's own row is what brings it back, which is why it may start out of the way at all.
+var _presentation_panel_wanted: bool = true
+## Whether the panel's start has already been decided for the device this HUD is on. It is settled where
+## the chrome is first sized and never again, so that a person who brings the panel back keeps it back.
+var _presentation_panel_started: bool = false
 
 ## The painted plan on screen, held rather than rendered again when it is saved:
 ## looking at the picture and filing it are two decisions, and the second one should
@@ -235,11 +278,34 @@ var _painted_save: Button = null
 
 ## The menu bar's entries, per popup, in the order they were added. A PopupMenu item's id is its
 ## index, so this is the way back from a press to the entry that describes it.
-var _menu_items: Dictionary[PopupMenu, Array] = {}
+var _menu_items: Dictionary[PopupMenu, Array] = { }
 ## What the menu was last drawn to match, so a check every frame does not restate state that has
 ## not moved.
 var _menu_state: String = ""
-## The key reference, built by `_build_keys_panel`: the wrapper that centres the page, held so the
+## The room the bar was last folded for, so the check that runs every frame rebuilds the bar only when
+## the room actually changes rather than on every frame. Zero means no room has been worked out yet.
+var _menu_room: float = 0.0
+## The titles the bar is built from, so a fold that would not change them is not worth a rebuild.
+var _menu_titles: Array[String] = []
+## The offsets the scene drew the top bar with, remembered the first time the chrome is sized for a device.
+## Infinity until then, which is a value no offset can hold.
+##
+## **Kept because the pass that uses it runs again on every turn.** Lifting the bar clear of a phone's own
+## furniture writes the bar's offsets, so a second pass that read them back and lifted again would walk the bar
+## down the screen one rotation at a time. What the lift adds to is what the scene drew.
+var _bar_offsets_as_drawn: Vector2 = Vector2(INF, INF)
+## The **left and right** offsets the scene drew the top bar with, kept as a second pair rather than a wider first
+## one, and for a reason of its own: the pair above is read as the bar's top and its foot - a height - and a
+## horizontal number put into it would be the same fact in two spaces. Remembered on the same first pass, because
+## a phone held sideways keeps its camera on one *side* of the screen and the pass that gives the row ground there
+## runs again on every turn, so a second pass reading its own output would walk the row across the screen.
+var _bar_sides_as_drawn: Vector2 = Vector2(INF, INF)
+## The offsets the scene drew the palette with, remembered the first time the left column is placed for a
+## device, and for the same reason: that pass runs again on every change of the room's shape, so a placement
+## measured from its own output would walk the palette up the screen one turn at a time. Infinity until then,
+## which is a value no offset can hold.
+var _palette_offsets_as_drawn: Vector2 = Vector2(INF, INF)
+## The key reference, built by `_build_keys_panel`: the wrapper that places the page, held so the
 ## one place that decides whether it is up is the panel's own `visible`.
 var _keys_panel: Control = null
 ## The manual: what this program is and everything it does, in one page with a search box. A window
@@ -256,7 +322,7 @@ var _site_report_panel: Control = null
 ## The survey import page, built by `_build_survey_panel`. A survey is read and *shown* before it
 ## is put on the drawing, so the page holds the survey that is waiting for an answer.
 var _survey_panel: Control = null
-var _pending_survey: Dictionary = {}
+var _pending_survey: Dictionary = { }
 ## The survey file chooser. A survey is a file somebody else sent, so it is read wherever it
 ## lives rather than out of the app's own folder.
 var _survey_dialog: FileDialog = null
@@ -284,7 +350,7 @@ var _pending_simplify: SimplifyReportScript = null
 var _recovery_dialog: ConfirmationDialog = null
 ## The copy that is waiting, read off disk when something changes rather than on every frame: the menu
 ## world is built every frame and a directory listing is not something a frame may do.
-var _pending_recovery: Dictionary = {}
+var _pending_recovery: Dictionary = { }
 ## How long the drawing has been worked on since the last copy was kept, in seconds.
 var _autosave_clock: float = 0.0
 ## What to do once the unsaved-changes question has been answered. Held as an id rather than as a
@@ -301,13 +367,17 @@ var _recent_filled: String = ""
 ## The plant list: JSON under `user://plants`, seeded on the first run from the list the project
 ## ships with, for the same reason the cost book is JSON - a catalogue is four thousand entries a
 ## nursery mails you as a spreadsheet, not four thousand `.tres` files (spec §2.3).
-const PlantCatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlantBrowserScript := preload("res://scripts/plant_browser.gd")
-const PlantPanelScript := preload("res://scripts/plant_panel.gd")
-const PlantSuitabilityScript := preload("res://scripts/plant_suitability.gd")
+const PlantCatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlantBrowserScript := preload("res://scripts/plants/plant_browser.gd")
+const PlantPanelScript := preload("res://scripts/plants/plant_panel.gd")
+const ToolPaletteScript := preload("res://scripts/tool_palette.gd")
+const PalettePanelScript = preload("res://scripts/palette_panel.gd")
+const PlantSuitabilityScript := preload("res://scripts/plants/plant_suitability.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 const GroundWindowScript := preload("res://scripts/ground_window.gd")
+const NearbyWindowScript := preload("res://scripts/nearby_window.gd")
+const NearbyWorkScript := preload("res://scripts/plants/nearby_work.gd")
 const SheetWindowScript := preload("res://scripts/sheet_window.gd")
 const RevisionWindowScript := preload("res://scripts/revision_window.gd")
 const HelpDocScript := preload("res://scripts/help_doc.gd")
@@ -333,7 +403,14 @@ const LightingScript := preload("res://scripts/draft/lighting.gd")
 ## short because this is a drop-down. One list rather than one per reader: the question is the same
 ## question and the answer is the same word, and two lists of the same words is how they drift.
 const IMPORT_UNIT_CHOICES: Array[String] = [
-	"", "metres", "feet", "inches", "millimetres", "centimetres", "yards", "US survey feet",
+	"",
+	"metres",
+	"feet",
+	"inches",
+	"millimetres",
+	"centimetres",
+	"yards",
+	"US survey feet",
 ]
 const EstimateWindowScript := preload("res://scripts/estimate_window.gd")
 const PipelineBoardScript := preload("res://scripts/pipeline_board.gd")
@@ -344,24 +421,44 @@ const BillingDeskScript := preload("res://scripts/biz/billing_desk.gd")
 const BillingWindowScript := preload("res://scripts/billing_window.gd")
 const LedgerDeskScript := preload("res://scripts/biz/ledger_desk.gd")
 const LedgerWindowScript := preload("res://scripts/ledger_window.gd")
+const AkauntingLedgerScript := preload("res://scripts/biz/akaunting.gd")
+const InvoiceNinjaLedgerScript := preload("res://scripts/biz/invoice_ninja.gd")
 const CloseoutDeskScript := preload("res://scripts/biz/closeout_desk.gd")
+const LayerWindowScript := preload("res://scripts/layer_window.gd")
+const SyncWindowScript := preload("res://scripts/sync_window.gd")
+const BizStoreScript := preload("res://scripts/biz/store.gd")
+const BizSyncScript := preload("res://scripts/biz/sync.gd")
+const BizHttpTransportScript := preload("res://scripts/biz/http_transport.gd")
 const CloseoutWindowScript := preload("res://scripts/closeout_window.gd")
 const AnalyticsScript := preload("res://scripts/biz/analytics.gd")
 const AnalyticsWindowScript := preload("res://scripts/analytics_window.gd")
-const PlantPlacementScript := preload("res://scripts/plant_placement.gd")
-const PlantSpacingScript := preload("res://scripts/plant_spacing.gd")
+const PlantPlacementScript := preload("res://scripts/plants/plant_placement.gd")
+const PlantSpacingScript := preload("res://scripts/plants/plant_spacing.gd")
 ## The nursery order: the drawing's planting list and the price list turned into what to buy, and from
 ## whom. The arithmetic is business arithmetic, so the module lives with the business modules; the page
 ## is a screen, so it does not.
 const PlantOrderScript := preload("res://scripts/biz/plant_order.gd")
-const PlantOrderWindowScript := preload("res://scripts/plant_order_window.gd")
+const PlantOrderWindowScript := preload("res://scripts/plants/plant_order_window.gd")
 const FoodWindowScript := preload("res://scripts/food_window.gd")
 const RotationWindowScript := preload("res://scripts/rotation_window.gd")
 const HarvestWindowScript := preload("res://scripts/harvest_window.gd")
 const GrowingSeasonScript := preload("res://scripts/growing_season.gd")
 const SeasonWindowScript := preload("res://scripts/season_window.gd")
+const FieldCaptureWindowScript := preload("res://scripts/field_window.gd")
+const PlantKeyWindowScript := preload("res://scripts/plants/plant_key_window.gd")
 const SowingWindowScript := preload("res://scripts/sowing_window.gd")
 const YieldWindowScript := preload("res://scripts/yield_window.gd")
+const PhoneFilesScript := preload("res://scripts/phone_files.gd")
+const PhoneHudScript := preload("res://scripts/phone_hud.gd")
+## Which way up this window's own shape is, which is the one part of a fold's posture that can be read: see
+## the file, and `_say_the_screen` below, which reports it beside the device.
+const WindowPostureScript := preload("res://scripts/window_posture.gd")
+## What a control a finger presses looks like in each state, and what one that cannot be pressed looks like:
+## see the file. Worn by this HUD's own `Root` control here, and by every page where `PageChrome` lands it.
+const TouchStyleScript := preload("res://scripts/touch_style.gd")
+## What the desk's own words are drawn in: the title, the body lines, the three dimmed kinds. Worn by this
+## HUD's own `Root` control here, beside the style above, and by every page where `PageChrome` lands it.
+const DeskStyleScript := preload("res://scripts/desk_style.gd")
 const STARTER_PLANT_LIST := "res://data/plants/nursery_list.json"
 
 ## The plant list once it has been read, held because it is a file: a menu that read four thousand
@@ -385,6 +482,18 @@ var _plant_export_dialog: FileDialog = null
 ## The ground: one window, because the site's conditions and the conditions of every area of the plan
 ## are one subject, and a menu cannot hold an area.
 var _ground_window: GroundWindow = null
+## What is around me: the things the drawing puts nearest where a person is standing. A window, because the
+## answer is a list somebody reads while they point at the plan behind it.
+var _nearby_window: NearbyWindow = null
+## The drawing's layers: every layer, what it is for, and the two things done to one from it - lock it
+## or make it current. A window because it has a search box to type into.
+var _layer_window: LayerWindowScript = null
+## The business records' store and the engine that syncs them with the office's service. The store is
+## where a field change is written; the engine holds the queue and the conflicts, and the page shows
+## what it says. The one service this build offers is the HTTP transport, configured on the page.
+var _sync_store: BizStoreScript = null
+var _sync_engine: BizSyncScript = null
+var _sync_window: SyncWindowScript = null
 ## The sheet setup: what this drawing goes out on, and the set of sheets it goes out as. A window
 ## because it is the one surface here that takes typed text - a drawing number, a title, a revision.
 var _sheet_window: SheetWindow = null
@@ -404,7 +513,7 @@ var _dxf_panel: Control = null
 var _dxf_text: String = ""
 var _dxf_name: String = ""
 var _dxf_units: String = ""
-var _pending_dxf: Dictionary = {}
+var _pending_dxf: Dictionary = { }
 ## Where the drawing goes out as a DXF. A dialog of its own rather than the import's, because the two
 ## commands are opposites - reading a file in and writing the drawing out - and a person who reached
 ## for the wrong one should not have to work it out from the file mode.
@@ -421,7 +530,7 @@ var _landxml_panel: Control = null
 var _landxml_text: String = ""
 var _landxml_name: String = ""
 var _landxml_units: String = ""
-var _pending_landxml: Dictionary = {}
+var _pending_landxml: Dictionary = { }
 ## The OpenStreetMap import: the chooser for a saved extract, the window that holds the site's
 ## coordinates and the radius, and the reader that can reach the network. The map is somebody else's
 ## data over a network, so the reading and the asking are two modules rather than one, and this is
@@ -429,14 +538,14 @@ var _pending_landxml: Dictionary = {}
 var _osm_dialog: FileDialog = null
 var _osm_window: OsmWindow = null
 var _osm_fetch: OsmFetch = null
-var _pending_osm: Dictionary = {}
+var _pending_osm: Dictionary = { }
 ## A picture under the drawing: the chooser for the file itself, the page that says how far it lies
 ## across the ground, and the record in hand of a picture that has been read and kept but is not yet
 ## under the drawing. The counterpart of the DXF, map and LandXML readers, for the file that has no
 ## linework in it to read - a scan, an aerial photograph, a rendered concept.
 var _underlay_dialog: FileDialog = null
 var _underlay_window: UnderlayWindow = null
-var _pending_picture: Dictionary = {}
+var _pending_picture: Dictionary = { }
 ## Why the file in hand was not read. Kept apart from the record because a refusal has no record, and
 ## the page has to be able to say what was wrong with what somebody chose.
 var _picture_refusal: String = ""
@@ -449,6 +558,20 @@ var _grading_window: GradingWindowScript = null
 ## through an undo - which does not go past this HUD - would otherwise be showing records that are no
 ## longer on the drawing.
 var _grading_state: String = ""
+## The front door: the sheet the two doorway pages stand on, the door itself, and the begin-a-drawing page
+## that replaces it once the drawing board is chosen. Built once and kept, like every other page here.
+var _front_door_backdrop: ColorRect = null
+var _start_window: StartWindow = null
+var _start_drawing_window: StartDrawingWindow = null
+## The camera, opened *over* the door rather than instead of it.
+var _camera_window: CameraWindow = null
+## Which way up the *board* asks the window to be. The doorway does not use it: while one of the two
+## doorway pages is up the window follows the phone, which `OrientationChoice.DOORWAY` is. Read from disk
+## at launch, and set here rather than read in a test that only wants to hold the doorway's decision.
+var _orientation: StringName = OrientationChoiceScript.DEFAULT
+## How big the words are drawn, as the reader asked for it. Read from disk where the program starts, and held
+## here rather than read in a test that only wants to hold the menu's own state.
+var _reading_size: StringName = ReadingSizeScript.DEFAULT
 ## The plants to buy: the drawing's planting list priced from the price list and written as draft
 ## purchase orders on the job desk. A window, because the nursery is typed.
 var _plant_order_window: PlantOrderWindowScript = null
@@ -457,7 +580,7 @@ var _plant_order_window: PlantOrderWindowScript = null
 var _plant_order_state: String = ""
 ## When the yield page hands its household's count over, this is the plan the order page is about instead
 ## of the drawing's planting. Empty means the order is the drawing's own planting.
-var _plant_order_plan_override: Dictionary = {}
+var _plant_order_plan_override: Dictionary = { }
 ## The food garden: what will crop in a bed, and which beds suit which crops. A window, because the
 ## question is what a *bed* and a *crop* come to together and a menu can hold neither.
 var _food_window: FoodWindow = null
@@ -480,6 +603,14 @@ var _harvest_state: String = ""
 var _season_window: SeasonWindow = null
 ## What the last refresh of that page was drawn from: which drawing is open and the season it states.
 var _season_state: String = ""
+## Recording what is standing on site: the one page here that writes to the survey file rather than
+## reading the drawing. It is the person's door - a phone's manifest is the other one - and it is the
+## reason a garden somebody walked round can be put on the plan with no phone involved at all.
+var _capture_window: FieldCaptureWindowScript = null
+## Naming a plant by answering questions about it: the other door onto a name, beside the photograph a
+## phone can read. It reaches the catalogue rather than the drawing, like the field page, and it ends by
+## arming the plant the way the library does - so naming a plant is never a third way of choosing one.
+var _plant_key_window: PlantKeyWindowScript = null
 ## When to sow and how to keep it coming: the growing season read as a sowing calendar - a day to sow, a
 ## crop to sow, and the succession that repeats it. A window, because the day and the interval are
 ## typed; it reads the drawing's season but writes nothing, so it is the season page's reading half.
@@ -495,6 +626,12 @@ var _yield_state: String = ""
 ## The study of the sun: a list of moments, and what the height in hand casts at each. A window,
 ## because the height is typed and the study is built out of the fields.
 var _sun_window: SunWindowScript = null
+## The walk-through: the places a client is shown, and the clock that walks the presentation camera
+## through them. A window, because the walk is played from it and the camera belongs to the scene.
+var _walk_window: WalkWindowScript = null
+## The snapping settings: what the cursor may snap to, and the constraints that hold it straight.
+## A window, because it is a page of switches rather than a line of the legend, which is full.
+var _snap_window: SnapWindowScript = null
 ## What the last refresh of that page was drawn from: the site the study is of, and the size of the
 ## study. The page holds the list, so a refresh that rebound it every frame would be the page arguing
 ## with the hand that is building it.
@@ -580,17 +717,58 @@ func _ready() -> void:
 	# there is documented not to cooperate with the editor, and there is nothing to catch.
 	if not Engine.is_embedded_in_editor():
 		get_tree().auto_accept_quit = false
+	# What a press looks like, and what a control that cannot be pressed looks like - the two things a thumb
+	# has no other way of being told, since a finger has no hover to light a control up before it lands.
+	#
+	# It goes on this HUD's own `Root` control, which is the one carrier the board has. A theme lookup walks
+	# up the tree from each control and settles on the first theme it meets, but a `CanvasLayer` **stops that
+	# walk** - measured, and it is where this was first put: `get_tree().root` reaches nothing inside this
+	# layer. The pages are the other carrier, and they are not this function's business: a page is a `Window`
+	# beside `Root`, and `PageChrome` hands it the same style where the page lands.
+	TouchStyleScript.apply_to(get_node_or_null(^"Root"))
+	# And the desk's own words, merged into that same theme: the two state different things about different
+	# kinds, and one control can wear one theme. `merge_with` leaves each file's own answer alone.
+	DeskStyleScript.apply_to(get_node_or_null(^"Root"))
+	# Whether the thumb controls are worth offering is the same question the layout is sized by, asked the
+	# same way: a finger *and* a density that says the row a desk was drawn with is too small to hit.
+	# `DisplayServer.is_touchscreen_available()` alone was the wrong signal - a touchscreen laptop wants its
+	# desk-sized controls, and the density is the thing that tells the two apart.
+	# This answer is an early best guess and no more: a window that has not laid out yet does not answer for
+	# the device it will be drawn on, so `_size_the_chrome_for_the_device` asks the same question again where
+	# the chrome is really sized. On a computer the two answers agree, and nothing is touched either way.
+	_touch_screen = PhoneHudScript.on_a_finger_here()
 	view_controller.view_mode_changed.connect(_on_view_mode_changed)
+	# A page is a position, not an anchor, so a page that is up through a change of the room's shape has to
+	# be put back where it belongs: on a phone that is a turn, on a desk a resize or the editor's own pane.
+	# The change watched is the viewport's, because that is the room a page is placed in.
+	get_viewport().size_changed.connect(_the_canvas_changed_shape)
 	view_controller.transition_started.connect(_on_transition_started)
 	view_controller.transition_finished.connect(_on_transition_finished)
 	toggle_button.pressed.connect(view_controller.toggle_overhead)
 	ground_button.pressed.connect(view_controller.toggle_ground)
 	fit_button.pressed.connect(view_controller.fit_plan_to_yard)
-	draft_hints_label.text = drafting_hints()
+	# The box beside the plan is written by `_refresh_hints` with the line at the foot of it, from the tool
+	# in hand: one writer for both, so arming a tool cannot leave the box describing the tool before it.
 	_build_palette()
+	_build_touch_pad()
+	# The other half of the touch furniture: the row that stands where the menus stand and the dock along the
+	# foot. Built after the palette, because every control the dock offers is a control the palette already made.
+	_build_touch_furniture()
 	_build_plant_panel()
 	_build_presentation_panel()
 	_build_painted_actions()
+	# This HUD's own chrome is fitted to the device once everything it is made of exists - the menu bar, the
+	# panels, the hint lines, the scale bar - and deferred for the same reason the palette is: a control built
+	# during `_ready` is measured before the window has laid out, and the scale read then is not the scale the
+	# finished window draws at. It runs after the palette's own pass, which is queued inside `_build_palette`,
+	# so the palette is already at its size by the time this walks over it and the two agree rather than
+	# taking turns.
+	#
+	# The device question is asked *there* rather than handed in here, and that is the whole of the method:
+	# `call_deferred` reads its arguments where it is written, so passing the `_touch_screen` read a few lines
+	# above would carry a reading taken before the window laid out into a pass whose entire point is to run
+	# after it has.
+	_size_the_chrome_for_the_device.call_deferred()
 	# A session is a sibling of this HUD in the planner scene and absent everywhere else. Found
 	# here rather than exported so no test scene has to remember to provide one.
 	_presence = get_node_or_null(^"../Presence") as PresenceScript
@@ -604,6 +782,8 @@ func _ready() -> void:
 	_build_recovery_dialog()
 	_build_plant_library()
 	_build_ground_window()
+	_build_nearby_window()
+	_build_layer_window()
 	_build_site_report_panel()
 	_build_survey_panel()
 	_build_hatch_panel()
@@ -634,12 +814,18 @@ func _ready() -> void:
 	_build_billing_window()
 	_build_ledger_desk()
 	_build_ledger_window()
+	_build_sync_engine()
+	_build_sync_window()
 	_build_closeout_desk()
 	_build_closeout_window()
 	_build_analytics_report()
 	_build_analytics_window()
 	# The sun's study: a window, because the height it reports about is typed into it.
 	_build_sun_window()
+	# The walk-through: a window, because the walk is played from it and it holds the clock.
+	_build_walk_window()
+	# Snapping: a window, because the settings are switches and the legend has no room for them.
+	_build_snap_window()
 	# What the drawing has said: read-only, and built here so the page is in `pages_in_windows()`
 	# before the Escape pass runs over it.
 	_build_status_window()
@@ -660,12 +846,324 @@ func _ready() -> void:
 	# built as well as the ones in the scene: a button that holds the keyboard takes
 	# the drawing keys with it.
 	release_keyboard_focus(self)
+	# The front door, built last so its sheet stands over every button the palette and the panels just
+	# made. It stands only when there is nothing behind it - a launch with a drawing already open is not
+	# asked, and neither is one that opens onto recovered work.
+	_orientation = OrientationChoiceScript.stored()
+	# The reader's own choice of how big the words are. Read here, and handed to the one place that works a
+	# size out, so that a question about the size of a word never becomes a question about a file. It is read
+	# before anything is fitted, which is why it sits here: every fitting pass below is deferred past `_ready`.
+	_reading_size = ReadingSizeScript.load_kept()
+	PhoneHudScript.use_reading_scale(ReadingSizeScript.factor())
+	_build_start_window()
+	if _draft != null and StartChoicesScript.should_show(_draft.drawing_path, _draft.dirty):
+		open_the_front_door()
+	# What is on the screen, said out loud, for anything driving this program from another computer. A debug build
+	# only. The launch block is said here, once the door and every other page have been built; every block after it
+	# is asked for by `_notice_the_pages_changing`, on the frame rather than by a signal.
+	_the_screen_said()
+
+
+# --- what is on the screen, for anything driving this from another computer -------------------------
+
+## Set to keep a second report from stacking up behind a first.
+var _saying_the_screen: bool = false
+
+## The pages that were up when the screen was last said, and whether anything has been said at all. This is what
+## asks for a new block, and it is written **when a block is said** rather than when a change is noticed, so a
+## change arriving while a block is being taken is said by a later frame rather than lost.
+var _screen_as_said: PackedStringArray = PackedStringArray()
+var _has_said_the_screen: bool = false
+
+## How long the top bar is given to stop folding before the probe reads the screen. The fold runs on every
+## frame and takes about twenty of them to settle (measured on the phone: 14 titles, 10, 9, while its room went
+## 927, 920, 871), so this is a ceiling on the wait rather than a delay - the wait ends the moment the fold has
+## nothing left to rebuild.
+const MENU_BAR_SETTLING_FRAMES := 60
+
+
+## What the pages standing on the screen look like now: each one's name and the rectangle it is drawn in - and only
+## the ones that are *up*, since a page hidden behind the board is not on the screen and must not be said.
+func _the_pages_up() -> PackedStringArray:
+	var up := PackedStringArray()
+	# **A HUD that is not in a tree has no screen to walk.** The guard is here rather than at each caller because this
+	# is the state a block is compared against: one caller is the launch block, taken while the door is still being
+	# built, and a test holds the rule about the view without a scene at all.
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return up
+	for window: Window in viewport.get_embedded_subwindows():
+		if not window.visible:
+			continue
+		# The page's rectangle through the probe's own reader, which is the one the block's `page` line is written
+		# with: the state watched here and the rectangle said there cannot then be two different readings.
+		up.append("%s %s" % [PageLayoutScript.page_name(window), str(HudProbeScript.window_rect(window))])
+	return up
+
+
+## The view the screen is in now, in the program's own words: the top bar's mode label, which is the very label the
+## block's `row` line publishes and the very words `HudProbe.read_view_line` reads back.
+##
+## **A view change published no block until this was added**, and that cost a diagnosis. Measured on the A16W on
+## 2026-11-17: the newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and a tool that
+## trusted the block pressed the view toggle the wrong way and turned the board into what it had just left. The
+## label is read rather than the controller's own mode, deliberately: what a person is shown and what a reader reads
+## back are then the same words, so a second naming of the view cannot appear between them.
+func _the_view_up() -> String:
+	if mode_label == null:
+		return ""
+	return mode_label.text
+
+
+## **Everything the screen's own block is about**: the pages standing on it, and the view it is in. One reading, taken
+## both by the ask below and by the record in `_the_screen_said`, so what is watched and what is written cannot be
+## two different things.
+## The room a page lands in, as this HUD asks its own viewport for it - **one expression, one owner**, because the
+## block and the state a block is compared against must not be able to read two different rooms.
+func _the_room() -> Vector2i:
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return Vector2i.ZERO
+	return Vector2i(viewport.get_visible_rect().size)
+
+
+## **Everything the screen's own block is about**: the pages standing on it, the view it is in, and the room they are
+## all in. One reading, taken both by the ask above and by the record in `_the_screen_said`, so what is watched and
+## what is written cannot be two different things.
+##
+## **The room belongs in it because a turn changes nothing else.** A rotation publishes no page event and no view
+## change, so without this a phone turned on its side left the newest block describing the way up it used to be - and
+## every instrument that judges a rectangle against the band a device keeps would then be comparing a lying screen
+## with a standing band. Measured on the A16W on 2026-11-17, the device's own setting is not the answer either:
+## `settings get system user_rotation` read **0** with auto-rotate **on** while the program reported `shape=lying`.
+func _the_screen_now() -> PackedStringArray:
+	var now: PackedStringArray = _the_pages_up()
+	now.append("view %s" % _the_view_up())
+	now.append("room %s" % str(_the_room()))
+	return now
+
+
+## Say what is on the screen when the screen differs from the screen the last block was about - a debug build only.
+##
+## **One rule, asked of the screen rather than told by the pages**, and the reason is a fault measured on the A16W
+## on 2026-11-14. The block used to be published from signals connected in `_ready` to the pages that existed
+## *then*: a page built later - the begin-a-drawing page, the camera's - was never connected, so **its leaving was
+## invisible**. A BACK that the glass plainly showed had put the page away printed nothing to logcat at all, while
+## the door's own hide (its page built in `_ready`) did print one - so a driver reading the newest block was still
+## told a page was standing in front of the board, and there is no way to tell that from a BACK that failed.
+##
+## A rule that watches the *screen* cannot miss a page however it was built, and it says a page arriving and a page
+## being put away as the single thing they are: the screen changed. It also asks one question rather than three
+## signals, so a press that puts one page away and opens another says one block and not two.
+##
+## **And the view is part of what the screen is, not of what the pages are.** A view change moves no page, so it
+## published no block at all until it was added here - and a block's own `ModeLabel` words could then be several turns
+## old: measured on the A16W, the newest block said `3D OVERHEAD` while the glass plainly showed the 2D plan, and a
+## tool that trusted it pressed the view toggle the wrong way. What is compared is `_the_screen_now`: the pages up,
+## and the view's own words.
+func _notice_the_pages_changing() -> void:
+	if not HudProbeScript.on():
+		return
+	var now: PackedStringArray = _the_screen_now()
+	if _has_said_the_screen and now == _screen_as_said:
+		return
+	_the_screen_said()
+
+
+## Say what is on the screen, once the layout has settled rather than the moment a page lands.
+##
+## The settling figure is `PageLayout`'s own, and for its own reason: a container resizes its children on the
+## frame after its own size changes, and a wrapped line re-wraps on the frame after that, so a control's
+## rectangle is only true two frames on. Frames are *awaited* rather than deferred, because a deferred call
+## runs before the layout does and would report a page where it used to be.
+##
+## **And once the top bar has stopped folding.** The fold runs on every frame and takes about twenty of them to
+## settle - measured on the phone, the bar went from fourteen titles to ten to nine while its room went 927, 920,
+## 871 and what it needed 1375, 920, 781 - so a reading taken two frames after a page appears catches the bar
+## mid-rebuild. That is not a small error: it reported the bar **19 px past the edge of a screen it was about to
+## fit**, and the fault was in the reading rather than in the bar. Waiting for the fold to say it has nothing left
+## to do costs a few frames once, and it is the difference between naming a defect and naming a moment.
+func _the_screen_said() -> void:
+	if not HudProbeScript.on() or _saying_the_screen or not is_inside_tree():
+		return
+	_saying_the_screen = true
+	for i: int in PageLayoutScript.SETTLING_FRAMES:
+		await get_tree().process_frame
+	# **Whether the fold still wants to rebuild, not whether the room has stopped changing.** The fold runs on
+	# every frame and the two numbers feed each other - the bar's own minimum is part of the room the fold is
+	# given - so the room can hold still for two frames in the middle of a fold that is not finished, which is
+	# exactly what it did: a reading taken by watching the room caught the bar at ten titles and reported it
+	# asking for 1052 px of a 349 px room, while the fold went on to two titles and 272 px and fitted. What is
+	# asked here is the fold's own question - would the plan for this room put different titles up than the ones
+	# standing - and the wait ends the moment it would not.
+	for i: int in MENU_BAR_SETTLING_FRAMES:
+		await get_tree().process_frame
+		if _the_fold_has_settled():
+			break
+	_saying_the_screen = false
+	# Recorded before the block is built, so what is remembered as said is the screen this block is about. A change
+	# arriving while the block is being built is therefore still a change on the next frame.
+	_screen_as_said = _the_screen_now()
+	_has_said_the_screen = true
+	_say_the_screen()
+
+
+## Every surface that is drawn on the screen, for the one comparison this HUD could not make before: a page -
+## or the title bar hanging above one - standing in the same rows as the HUD's own furniture.
+##
+## It measures nothing itself. The words are the probe's own walk of this HUD's tree, the top bar stands in for
+## the menu titles (Godot's `MenuBar` draws those itself and no node carries them), and every page that is up
+## arrives as itself and its own bar through the probe - which is also where the pixels are composed, so all of
+## them are in the one space a screenshot is counted in.
+func drawn_surfaces() -> Array:
+	var board: Control = get_node_or_null(^"Root") as Control
+	var surfaces: Array = HudProbeScript.all_in(board)
+	# **And what is drawn across it, which is the fault no instrument named.** A plate - a panel's own rectangle - over
+	# a control a finger must press takes the press away from the person; over words it takes half a sentence away.
+	# Measured, `Presentation` stood at `1276,70 .. 1588,88`, inside the top bar's plate and straight across
+	# `Ground view`, and the probe reported `nothing meets anything it may not` for that very block.
+	#
+	# **A first attempt at this was withdrawn because this check measured it and said no**: `targets_in` alone
+	# produced six meetings of which five were false - a `SpinBox`'s own text against the `SpinBox`, four times -
+	# because a surface is named by the caption it draws and the ancestry walk was writing node names. Both are named
+	# now, and `plates_in` is here so that a plate is a surface at all, which it was not before: all six of those
+	# lines were target against words, and the ghost was in none of them.
+	if top_bar != null:
+		surfaces.append(DrawnSurfacesScript.top_bar("the top bar", Rect2i(HudProbeScript.screen_rect(top_bar))))
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			surfaces.append_array(HudProbeScript.page_surfaces(window))
+	return surfaces
+
+
+## The block itself: where this device was answered from, the room, the two lines a person reads at the foot
+## of the screen, the board's own controls, and every page that is up - in that order, because a driver has
+## to be able to tell which of them is standing over which.
+func _say_the_screen() -> void:
+	var lines := PackedStringArray()
+	# The room, read once: it is the viewport's own visible rectangle, which is both what a page lands in and
+	# what this window's shape is worked out from.
+	var room: Vector2i = _the_room()
+	lines.append_array(
+		HudProbeScript.device_lines(
+			shows_touch_controls(),
+			PhoneHudScript.zooming_here(),
+			PhoneHudScript.dpi(),
+			PhoneHudScript.canvas_scale(get_window()),
+			room,
+			# The strip no page may be placed in, handed on as the module that states it now has it: this is
+			# the figure a phone is read by, and it is worth printing beside the room because the two ways up
+			# a phone can be held disagree about it by a factor of five.
+			PageChromeScript.reserved_above,
+			# **The stated display, not a second reading of the desk's.** `native` is the figure a person compares
+			# the room against, and `PhoneHud.screen_here` is the one place a screen is read: a phone-shaped
+			# window on a desk is a 1080 by 2340 glass whatever monitor is showing it (measured 2026-11-18, where
+			# this line still said 2560 by 1600 beside a room of the A16W's own size).
+			PhoneHudScript.screen_here(),
+			DisplayServer.is_touchscreen_available(),
+			WindowPostureScript.of(room),
+			hints_label.text if hints_label != null else "",
+			draft_hints_label.text if draft_hints_label != null else "",
+		)
+	)
+	lines.append_array(HudProbeScript.row_lines(menu_bar.get_parent() as Control, "the top bar", menu_bar_room()))
+	# **A tap line carries the control's number in this block**, counted from one and carried across the parts: the
+	# board's controls are numbered here and a page's carry on from the board's count where the pages are walked,
+	# near the foot of this function. The count is threaded rather than worked out twice - a second walk of the
+	# controls could number a control the lines do not name.
+	var number: int = 1
+	var board_taps: PackedStringArray = HudProbeScript.tap_lines(self, "the board", number)
+	lines.append_array(board_taps)
+	number += HudProbeScript.taps_in(board_taps)
+	# Then the two questions nothing here could answer until now. Every other figure in this block measures a
+	# control against *another control*; neither of these did. One asks whether a control is drawn past the edge
+	# of the screen - which nothing can be done about from inside the program, and the phone's own view buttons
+	# were drawn wholly off it - and the other asks whether a tap on a button would reach it, which is what a
+	# driver wants to know when a click does nothing.
+	lines.append_array(HudProbeScript.offscreen_lines(get_node_or_null(^"Root"), "the board"))
+	lines.append_array(
+		HudProbeScript.reach_lines(get_node_or_null(^"Root"), get_viewport().get_embedded_subwindows(), "the board")
+	)
+	# Then the two the phone needs and the desk does not. What a finger would be asked to hit is only a question
+	# while a finger is the thing being served - the desk's own 31 px buttons are right for a mouse - and a whole
+	# page placed past the edge of the room is the class the phone's camera page belonged to, which no check on
+	# the controls inside a page can reach.
+	if shows_touch_controls():
+		var finger_scale: float = PhoneHudScript.canvas_scale(get_window())
+		var finger_density: float = PhoneHudScript.dpi()
+		# The floor the device itself states for a target, rather than this project's desk-sized one: a phone
+		# at 450 dpi wants a 5.5 mm row, about 107 px of the layout. **The probe states it, not the HUD**,
+		# because a floor has to be in the same space as the rectangles it judges and only the probe knows
+		# which space that is: handed over in layout pixels it compared 107 with 97 and called every button
+		# on the screen ten pixels short.
+		var finger_least: int = HudProbeScript.finger_floor(get_node_or_null(^"Root"))
+		lines.append_array(HudProbeScript.small_lines(get_node_or_null(^"Root"), "the board", finger_least))
+		lines.append_array(HudProbeScript.close_lines(get_node_or_null(^"Root"), "the board"))
+		lines.append_array(HudProbeScript.unsafe_lines(get_node_or_null(^"Root"), "the board"))
+		lines.append_array(HudProbeScript.middle_lines(get_node_or_null(^"Root"), "the board"))
+		lines.append_array(
+			HudProbeScript.tiny_lines(get_node_or_null(^"Root"), "the board", finger_scale, finger_density)
+		)
+		for window: Window in get_viewport().get_embedded_subwindows():
+			if window.visible:
+				var finger_page: String = PageLayoutScript.page_name(window)
+				lines.append_array(HudProbeScript.small_lines(window, finger_page, finger_least))
+				lines.append_array(HudProbeScript.close_lines(window, finger_page))
+				lines.append_array(HudProbeScript.unsafe_lines(window, finger_page))
+				lines.append_array(HudProbeScript.middle_lines(window, finger_page))
+				lines.append_array(HudProbeScript.tiny_lines(window, finger_page, finger_scale, finger_density))
+	lines.append_array(HudProbeScript.page_edge_lines(get_viewport().get_embedded_subwindows()))
+	# Then the one thing a rectangle cannot say: whether a box is being *scrolled*, and whether the room to
+	# have made it bigger was there all along. A picture cannot tell a box that scrolls from one that clipped
+	# - both look like a box - and only the control's own bar knows which of the two it is.
+	lines.append_array(HudProbeScript.crowded_lines(get_node_or_null(^"Root"), "the board"))
+	# And what the words themselves say wrong: a note to the author, a message a compiler would write, a
+	# sentence where a name belongs. A rectangle is honest about its size and says nothing at all about the
+	# text in it, and this is the half of "is it showing right" that no measurement reaches.
+	lines.append_array(HudProbeScript.words_lines(get_node_or_null(^"Root"), "the board"))
+	# And whether the words fit the box they are drawn in, which is the half of "is it showing right" that a
+	# rectangle cannot reach: the phone's own foot line showed "Pinch: zoo" where the program wrote "Pinch:
+	# zoom", and a box too short for its caption looks exactly like a box that fits it.
+	lines.append_array(HudProbeScript.clipped_lines(get_node_or_null(^"Root"), "the board"))
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			var a_pages_own: PackedStringArray = HudProbeScript.page_lines(window, number)
+			lines.append_array(a_pages_own)
+			number += HudProbeScript.taps_in(a_pages_own)
+			lines.append_array(HudProbeScript.crowded_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.offscreen_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.words_lines(window, PageLayoutScript.page_name(window)))
+			lines.append_array(HudProbeScript.clipped_lines(window, PageLayoutScript.page_name(window)))
+	# What the glass says about the one rectangle no layout knows: a page's title bar is drawn by Godot above
+	# the page and a phone draws it taller than the theme says, so it is read here and printed beside the
+	# theme's own answer. Only where there is a screen to read it off: a headless run has no framebuffer - the
+	# dummy renderer has no texture to copy and asking for one logs an engine error, which is enough to fail a
+	# test run - and a drawing is no less true for the lack of a picture of it. `HudProbe._a_real_screen` is the
+	# one place that answers whether there is a screen, and it is the same answer the probe's own absolute-pixel
+	# lines need. The framebuffer is read once and shared, because a debug build can afford one copy of the
+	# screen and not one per page.
+	var glass: Image = null
+	if HudProbeScript._a_real_screen():
+		glass = get_viewport().get_texture().get_image()
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			lines.append_array(HudProbeScript.drawn_bar_lines(window, glass))
+	# Last, and the reason this block is read at all: what is *drawn* against what may not share rows with it.
+	# Neither the HUD layout check nor the page measurement could see a page's own title bar over the menu
+	# titles, and both were green while a person could see it - this is that comparison, from rectangles three
+	# other measurements already produced.
+	lines.append_array(HudProbeScript.meeting_lines(drawn_surfaces()))
+	HudProbeScript.publish(lines)
 
 
 func _process(delta: float) -> void:
 	# Ahead of the guard, because keeping a copy is about the drawing rather than about the view: a
 	# scene with no view controller still has work in it that is worth not losing.
 	_tick_autosave(delta)
+	# **Whether the pages up have changed, which is what asks for a probe block.** Asked on the frame rather than
+	# told by a signal, and asked here rather than further down because everything below can return early: a reading
+	# that only happens while some other question is being asked is a reading that goes missing.
+	_notice_the_pages_changing()
 	# Likewise ahead of the guard: the ground's heights belong to the drawing, not to the view, and a
 	# page that is open while the drawing changes under it has to keep up.
 	_tick_grading_window()
@@ -695,13 +1193,14 @@ func _process(delta: float) -> void:
 	# And the same for what has been said: the page is a view of the drawing's own history, and it says
 	# it is showing the newest answer, so it has to be showing it.
 	_tick_status_window()
+	# And the same for what is around me: where a person stands moves as they point at the plan behind that page, and
+	# what the drawing holds moves as they plant, so both are read again while it is up.
+	_tick_nearby_window()
 	if view_controller == null:
 		return
 	var viewport_height: float = get_viewport().get_visible_rect().size.y
 	# Both overhead views share one zoom, so one conversion serves them both.
-	overlay.set_pixels_per_metre(
-		ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size)
-	)
+	overlay.set_pixels_per_metre(ViewMath.pixels_per_metre(viewport_height, view_controller.plan_size))
 	# Arming the tools happens on a key press inside the view controller, which has
 	# no signal for it, and it is one bool: reading it is cheaper than routing it.
 	# The legend and the palette both go away on the ground, where the tools do
@@ -713,17 +1212,34 @@ func _process(delta: float) -> void:
 	var painted: bool = painted_sheet != null and painted_sheet.visible
 	var working: bool = not _presenting and not painted
 	draft_hints.visible = working and overhead and view_controller.is_drafting()
+	# The thumb controls belong to the ground view alone: in the overhead views the mouse is the pointer,
+	# and a stick on the glass there would be a second way to move a view that already has a better one.
+	if _touch_pad != null:
+		_touch_pad.visible = working and not overhead and shows_touch_controls()
+	# **On a device answered with a finger the two columns a desk draws give way to the two bars a thumb
+	# reaches.** The vertical palette beside the plan and the fourteen menus across the top are both the shape a
+	# mouse and a wide room make; a phone gets the dock along its foot and four controls where the menus stood.
+	# `_show_the_touch_furniture` is the one place that says which of the two arrangements is up, so the answer
+	# is stated once rather than worked out again by everything that draws near it.
+	var on_a_finger: bool = shows_touch_controls()
 	if palette.get_child_count() > 0:
-		palette.visible = working and overhead
+		palette.visible = working and overhead and not on_a_finger
 		_refresh_palette()
 		_refresh_plant_panel()
 	if top_bar != null:
 		top_bar.visible = working
+	_show_the_touch_furniture(working and overhead)
 	if overlay != null:
 		overlay.visible = working
-	if presentation_panel != null:
-		presentation_panel.visible = presentation != null and not painted
+	# The panel is the one piece of this furniture a *person* owns as well as the view: the Present menu puts
+	# it away. So the frame asks the one owner rather than working the answer out again - the line that stood
+	# here read `presentation != null and not painted`, never looked at the flag, and re-showed the panel on the
+	# frame after the menu row had put it away. That is how a row with its own test came to do nothing at all.
+	_refresh_presentation_panel()
 	_apply_hints_visibility()
+	# The line at the foot of the screen follows what is in hand, which changes on a key press the HUD
+	# does not hear about, so it is written here rather than only when the view changes.
+	_refresh_hints()
 	# A presentation is a view of the garden rather than of the drawing, so the
 	# painted sheet goes away with the rest of the drawing's furniture.
 	if _presenting and painted_sheet.visible:
@@ -759,23 +1275,224 @@ func _on_view_mode_changed(new_mode: ViewController.ViewMode) -> void:
 	else:
 		mode_label.text = "GROUND VIEW"
 		mode_label.add_theme_color_override("font_color", Color(0.85, 0.78, 0.5))
-	var switch_key := _key_label(&"toggle_view")
-	toggle_button.text = "3D view  (%s)" % switch_key if flat else "2D plan  (%s)" % switch_key
+	var words: Array[String] = _view_button_words(new_mode, _key_label(&"toggle_view"), shows_touch_controls())
+	toggle_button.text = words[0]
 	toggle_button.visible = overhead
 	fit_button.visible = overhead
-	ground_button.text = "Ground view  (G)" if overhead else "Back to overhead  (G)"
-	hints_label.text = _hints_for(new_mode)
+	ground_button.text = words[1]
+	_refresh_hints()
 	overlay.set_mode(new_mode)
+
+
+## What the top bar's two view controls say, in the one place either of them is worded.
+##
+## **A key hint is a desk's business, and on a phone it is a small lie.** There is no keyboard to press there, so
+## a button reading "2D plan  (Q)" names a key that does not exist - the same thing the foot line's own
+## `HINTS_OVERHEAD_ON_A_FINGER` was written to stop, and the same reading decides both, so a button and the line
+## beneath it cannot come to disagree about what this device has.
+##
+## **And it was the room the bar was missing.** Measured on the A16W standing, the bar's row wanted 1289 px of a
+## 1185 px room, and these two hints were **119 of it**: a thumb's own floor holds every control at 107 px
+## square, so the words are the only place a narrower bar can come from. Nothing is lost with them: the key they
+## named was never one a thumb could press.
+##
+## **The name itself is shortened too, where the room is still short.** With the hints gone the row wanted
+## 1170 px of the same room, so the bar's own plate ran 7 px past the glass - every control inside it and the
+## plate over. "Ground view" is 284 of those pixels and "Ground" is the same name with its second word off,
+## which is how the phone's own foot line already words the views (`HINTS_GROUND_ON_A_FINGER`). The way *out* of
+## the ground view keeps its whole sentence: the other two controls are hidden there, so there is room for it.
+static func _view_button_words(mode: int, switch_key: String, on_a_finger: bool) -> Array[String]:
+	var flat: bool = mode == ViewController.ViewMode.PLAN_2D
+	var overhead: bool = mode != ViewController.ViewMode.GROUND
+	var toggle: String = "3D view" if flat else "2D plan"
+	var ground: String = "Ground view" if overhead else "Back to overhead"
+	if on_a_finger:
+		ground = "Ground" if overhead else "Back to overhead"
+	else:
+		toggle += "  (%s)" % switch_key
+		ground += "  (G)"
+	var words: Array[String] = []
+	words.append(toggle)
+	words.append(ground)
+	return words
+
+
+## Word the bar's two view controls from the view it is in now.
+##
+## **A phone needs this at launch, and not only when the view moves.** Nothing emits `view_mode_changed` as the
+## program starts - `ViewController._ready` sets the camera up and says nothing - so a bar left to the scene
+## keeps the words a desk's scene was written with, which is how the A16W's own block came to read
+## `2D plan  (Q)` on a glass carrying no key at all. Asked here, where the room first becomes known, and again by
+## `_on_view_mode_changed` whenever the view changes, so the two callers cannot word one button two ways.
+func _word_the_view_buttons() -> void:
+	if toggle_button == null or ground_button == null:
+		return
+	var mode: int = ViewController.ViewMode.OVERHEAD_3D if view_controller == null else view_controller.mode
+	var words: Array[String] = _view_button_words(mode, _key_label(&"toggle_view"), shows_touch_controls())
+	toggle_button.text = words[0]
+	ground_button.text = words[1]
 
 
 ## The control hints for a view, with the key that swaps the overhead views filled
 ## in from the input map.
-static func _hints_for(view_mode: int) -> String:
+static func _hints_for(view_mode: int, on_a_finger: bool = false) -> String:
 	if view_mode == ViewController.ViewMode.GROUND:
-		return HINTS_GROUND
+		return HINTS_GROUND_ON_A_FINGER if on_a_finger else HINTS_GROUND
+	# The two overhead views are told apart on a desk by the key that swaps them, and a finger has no key: what
+	# is left there is the tool in hand and the two gestures, which are the same in both views.
+	if on_a_finger:
+		return HINTS_OVERHEAD_ON_A_FINGER
 	var template := HINTS_2D \
-		if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
+			if view_mode == ViewController.ViewMode.PLAN_2D else HINTS_3D
 	return template.replace(VIEW_KEY_TOKEN, _key_label(&"toggle_view"))
+
+
+## The keys that answer the tool in hand, each read from the binding it really is.
+##
+## Only the keys the tool in hand **honours** are offered. A line takes two picks and is finished by the
+## second of them: it has no last point to drop and no shape to close, so offering it those keys would be
+## the legend-that-lies defect in miniature - and this is the line a person reads with their hand already
+## busy, which is the worst place to be told about a key that does nothing.
+##
+## `DraftTool.is_ring` is the tool's own answer to "does this collect points until it is told to stop" -
+## the polyline, and the contour, which is a polyline that lands on a grading layer - and it is what makes
+## finishing, closing and dropping a point mean anything at all. A measurement is the other tool that
+## finishes by key rather than by a pick, because its answer is the pair it has already taken.
+static func hand_keys(tool_kind: int, editing: bool) -> String:
+	var keys: Array[String] = []
+	if not editing and DraftToolScript.is_ring(tool_kind):
+		keys.append(_hand_key(&"draft_finish"))
+		keys.append(_hand_key(&"draft_close"))
+		keys.append(_hand_key(&"draft_undo_point"))
+	elif not editing and tool_kind == DraftToolScript.Kind.MEASURE:
+		keys.append(_hand_key(&"draft_finish"))
+	keys.append(_hand_key(&"draft_cancel"))
+	var words := PackedStringArray()
+	for key: String in keys:
+		if key != "":
+			words.append(key)
+	return HINT_GAP.join(words)
+
+
+## One key of that row: the binding that is really on it, and the word for what it does. An action bound
+## to nothing is left out rather than printed with a blank key, which is how the legend does it too.
+static func _hand_key(action: StringName) -> String:
+	var key := _key_label(action)
+	if key == "":
+		return ""
+	return "%s: %s" % [key, HAND_KEY_WORDS.get(action, "")]
+
+
+## The line at the foot of the screen while the drawing tools are in hand: what the tool is waiting for,
+## and the keys that answer it.
+static func hand_hints(prompt: String, keys: String) -> String:
+	return prompt if keys == "" else "%s%s%s" % [prompt, HINT_GAP, keys]
+
+
+## The longest line the foot of the screen can be asked to carry, for the check that measures the panel
+## against it.
+##
+## The prompt is asked of a tool driven through every point count it can be in, so a tool that grows a
+## wordier prompt is measured the day it does rather than the day somebody notices the line running past
+## the edge of its panel. An editing command cannot beat this: every one of them answers to Escape alone,
+## where a polyline carries three keys, and the longest of their prompts is shorter than this one.
+static func worst_hint_line() -> String:
+	var worst := ""
+	for pair: Array in DRAFTING_TOOLS:
+		var kind: int = pair[2]
+		for steps: int in 5:
+			var tool: DraftToolScript = DraftToolScript.new()
+			tool.begin(kind)
+			for i: int in steps:
+				tool.click(Vector2(float(i), 0.0))
+			var line := hand_hints(
+				"%s  ·  %s" % [DraftToolScript.label_for(kind), tool.status()],
+				hand_keys(kind, false),
+			)
+			if line.length() > worst.length():
+				worst = line
+	return worst
+
+
+## The plate's own height at the moment the left column was last placed. Held so that a plate which has grown -
+## a line that wrapped, a font a device asked for, a turn of the phone - is noticed and the column placed again.
+## It starts at `INF`, which no rectangle ever equals, so the first frame places it.
+var _plate_height_as_placed: float = INF
+
+## Write the line at the foot of the screen and the box beside the plan: what the tool in hand is waiting
+## for with the keys that answer it, while the drawing tools are in hand - and the controls of the view when
+## none is, with the box saying nothing at all.
+##
+## One writer for both, called from the view change and from the frame, so a tool being armed, an edit
+## landing and a view being switched cannot leave two different answers on the screen. Each text is assigned
+## only when it has changed, because writing to a `Label` re-computes what it needs and the frame offers
+## sixty chances a second to do it for nothing.
+
+
+func _refresh_hints() -> void:
+	if hints_label == null or view_controller == null:
+		return
+	var wanted: String = _hints_for(view_controller.mode, shows_touch_controls())
+	var box := ""
+	# The tools do nothing on the ground, where the corner line is the way back out of it.
+	if _draft != null and _draft.drawing and view_controller.mode != ViewController.ViewMode.GROUND:
+		wanted = hand_hints(_draft.prompt(), hand_keys(_draft.current_tool(), _draft.is_editing()))
+		box = _draft_box_text()
+	if hints_label.text != wanted:
+		hints_label.text = wanted
+	if draft_hints_label != null and draft_hints_label.text != box:
+		draft_hints_label.text = box
+	# **The palette's foot is taken from the plate's own top, so the column is placed again whenever the plate's
+	# height changes - whatever changed it.** Anything that makes the line wrap does it: a wordier prompt, a
+	# device's rows, a turn of the phone.
+	#
+	# It is **not** enough to ask when the *text* changes, which is what this first did. The words are assigned
+	# before the plate has been laid out again, so a placement asked for at that moment reads the height the
+	# plate is about to leave, and the palette stays where the shorter line had put it - measured on the A16W,
+	# where the foot line wrapped from one row onto three and the palette's own box came to stand over the
+	# plate's words, drawing `Layer` and the list's group headers across them.
+	#
+	# The height is read here because this runs every frame, and the deferred placement lands after the layout
+	# that changed it, so what it reads is the plate as it will be drawn.
+	if _the_plate_moved(hints.size.y):
+		place_the_left_column_for_a_device.call_deferred()
+
+
+## Whether the plate at the foot has moved since the left column was last placed, and take its new height in. The
+## placement is asked for on the frames this answers `true` and no others, so the sixty frames a second that find
+## the same line in hand cost one comparison each.
+##
+## Being a question about the plate's *height* rather than about its words is the point of the rule: the plate
+## stands where it stands because of what a device asked for, how the text wrapped and which view is up as well as
+## the prompt, and every one of those moves it. Asked on the height, one rule answers for all of them.
+func _the_plate_moved(plate_height: float) -> bool:
+	var moved := not is_equal_approx(plate_height, _plate_height_as_placed)
+	_plate_height_as_placed = plate_height
+	return moved
+
+
+## The box beside the plan for the thing in hand: the tool, or the editing command, whichever it is.
+##
+## The editing command comes first because a command in hand is not a tool in hand - a trim is one gesture
+## measured against everything else on the sheet, and its own sentence is the controller's to write.
+func _draft_box_text() -> String:
+	if _draft == null:
+		return ""
+	if _draft.is_editing():
+		var edit: int = _draft.current_edit()
+		return tool_box_text(
+			DraftControllerScript.edit_label(edit),
+			_arming_key(edit, true),
+			DraftControllerScript.edit_description(edit),
+			hand_keys(DraftToolScript.Kind.SELECT, true),
+		)
+	var kind: int = _draft.current_tool()
+	return tool_box_text(
+		DraftToolScript.label_for(kind),
+		_arming_key(kind, false),
+		DraftToolScript.description(kind),
+		hand_keys(kind, false),
+	)
 
 
 func _on_transition_started(_to_ground: bool) -> void:
@@ -788,10 +1505,124 @@ func _on_transition_finished(_to_ground: bool) -> void:
 
 # --- the drafting legend --------------------------------------------------------------
 
+## How many rows the box beside the plan may have, which is what the panel beside the drawing has room for.
+## Four is what it takes: the tool's name, what it is for, the keys that answer it, and the two that take a
+## drawing act back. A tool that needs a fifth has outgrown the panel rather than the box, and the check
+## that measures the panel against the worst box is where that is noticed.
+const DRAFT_BOX_ROWS := 4
 
-## The legend, line by line. Kept as lines rather than as one string so that a test
-## can check every entry against the binding it claims, which is the only way a
-## legend stays true.
+
+## The box beside the plan while a tool is in hand, as rows rather than as one string so that a test can
+## hold each half of it to the table it came from.
+##
+## **This box used to hold the whole key reference**, and the reason it does not any more is the correction
+## this project keeps making: every entry it listed - ten tools, eight editing commands, the plot key, the
+## standard key - was a button in the palette standing beside it, wearing the same key. A box that repeats
+## the palette is a second copy of a list, and a second copy is what the program spends its effort
+## avoiding. What a person cannot get anywhere else is what the tool in hand is *for*, so that is what the
+## box says: the tool's name and the key that armed it, one sentence about what it does, the keys that
+## answer it, and the two that take a drawing act back.
+##
+## The full reference has not gone anywhere. It is the Keys page, `drafting_rows` below, which is where a
+## list of every key belongs - and it is where the coverage test looks for every bound key, so a key cannot
+## quietly stop being described by moving out of this box.
+static func tool_box_rows(tool_name: String, key: String, description: String, keys: String) -> Array[String]:
+	var rows: Array[String] = []
+	rows.append(tool_name if key == "" else "%s   (%s)" % [tool_name, key])
+	if description != "":
+		rows.append(description)
+	if keys != "":
+		rows.append(keys)
+	var back := undo_redo_keys()
+	if back != "":
+		rows.append(back)
+	return rows
+
+
+## The same, as one block of text for a label.
+static func tool_box_text(tool_name: String, key: String, description: String, keys: String) -> String:
+	return "\n".join(PackedStringArray(tool_box_rows(tool_name, key, description, keys)))
+
+
+## The two keys that take a drawing act back, read from their bindings like every other key on the screen.
+##
+## They are in the box rather than in the palette's reach alone because the palette has them as *buttons*,
+## and a person who has learned to undo from the keyboard is not looking for a button.
+static func undo_redo_keys() -> String:
+	var words := PackedStringArray()
+	for action: StringName in [&"draft_undo", &"draft_redo"]:
+		var key := _key_label(action)
+		if key != "":
+			words.append("%s %s" % [key, HAND_KEY_WORDS.get(action, "")])
+	return DRAFTING_ROW_GAP.join(words)
+
+
+## The worst the box can be: the box with the widest row of any tool or editing command, for the check that
+## measures the panel against it.
+##
+## The check has to measure the *worst* case rather than what happens to be on the screen. The box is empty
+## until a tool is in hand, and a box measured while nothing is armed would pass on the day the longest tool
+## grew a wordier sentence. Every kind is asked, the three grading tools and the select tool included, and
+## the widest single *row* is what decides - a row is the thing that runs past the edge of a panel.
+static func worst_tool_box() -> String:
+	var worst := ""
+	var widest := 0
+	for value: int in DraftToolScript.Kind.values():
+		var kind: int = value
+		var box := tool_box_text(
+			DraftToolScript.label_for(kind),
+			_arming_key(kind, false),
+			DraftToolScript.description(kind),
+			hand_keys(kind, false),
+		)
+		var width := _widest_row(box)
+		if width > widest:
+			widest = width
+			worst = box
+	for value: int in DraftControllerScript.EditKind.values():
+		var edit: int = value
+		if edit == DraftControllerScript.EditKind.NONE:
+			continue
+		var edit_box := tool_box_text(
+			DraftControllerScript.edit_label(edit),
+			_arming_key(edit, true),
+			DraftControllerScript.edit_description(edit),
+			hand_keys(DraftToolScript.Kind.SELECT, true),
+		)
+		var edit_width := _widest_row(edit_box)
+		if edit_width > widest:
+			widest = edit_width
+			worst = edit_box
+	return worst
+
+
+## How wide the widest row of a box is, which is what a panel has to have room for.
+static func _widest_row(box: String) -> int:
+	var widest := 0
+	for row: String in box.split("\n"):
+		widest = maxi(widest, row.length())
+	return widest
+
+
+## The key that arms a tool or an editing command, found by the *kind* it puts in hand rather than by
+## matching a name against a name. A tool nothing arms a key for - the select tool - reads as its name
+## alone rather than with a blank pair of brackets beside it.
+static func _arming_key(kind: int, editing: bool) -> String:
+	if editing:
+		for pair: Array in EDIT_TOOLS:
+			if int(pair[2]) == kind:
+				return _key_label(pair[0])
+		return ""
+	return _key_label(DraftToolScript.arming_action(kind))
+
+
+## The key reference, line by line: every tool, every editing command and every other key the drawing
+## needs, for the Keys page. Kept as lines rather than as one string so that a test can check every entry
+## against the binding it claims, which is the only way a reference stays true.
+##
+## It is deliberately not what the box beside the plan shows any more. A reference is a page a person opens
+## to look a key up, and a box in the middle of the drawing is not that: it is read at a glance, with a hand
+## already busy, which is the place for the tool in hand rather than for all of them.
 static func drafting_rows() -> Array[String]:
 	var rows: Array[String] = []
 	rows.append("%s leaves the drawing tools" % _key_label(&"draft_mode"))
@@ -822,9 +1653,7 @@ static func _entries(pairs: Array) -> Array[String]:
 static func _wrap(entries: Array[String], per_row: int) -> Array[String]:
 	var rows: Array[String] = []
 	for start in range(0, entries.size(), per_row):
-		rows.append(DRAFTING_ROW_GAP.join(PackedStringArray(
-			entries.slice(start, start + per_row)
-		)))
+		rows.append(DRAFTING_ROW_GAP.join(PackedStringArray(entries.slice(start, start + per_row))))
 	return rows
 
 
@@ -854,192 +1683,959 @@ static func _key_label(action: StringName) -> String:
 		return ("Ctrl+" + shortened) if key.ctrl_pressed else shortened
 	return ""
 
-
 # --- the drawing palette --------------------------------------------------------------
 
 
-## Build the palette's controls in code rather than in the scene.
+## Whether the thumb controls are offered at all: on a device with a touchscreen, or when something has
+## forced them on so that a desktop can look at them.
+func shows_touch_controls() -> bool:
+	return _touch_screen or _touch_forced
+
+
+## Offer the thumb controls on a machine without a touchscreen. For the demo tool and for seeing the ground
+## view's controls without a phone in hand; nothing in the program calls it.
+func force_touch_controls(on: bool) -> void:
+	_touch_forced = on
+
+
+## The thumb controls, built in code and put behind everything else the HUD draws.
 ##
-## They are nine near-identical buttons and a handful of rows, every one of them
-## derived from the tables the legend already uses, so a scene file would be a third
-## copy of that list to keep in step. Built here, the palette is described once and
-## its buttons exist because the tools do.
+## Behind is the whole trick: every panel keeps its own touches, so a button that is on screen still works
+## and only the empty part of the screen - most of it, at ground level - belongs to the pad.
+func _build_touch_pad() -> void:
+	var root := get_node_or_null(^"Root")
+	if root == null or _touch_pad != null:
+		return
+	_touch_pad = TouchPad.new()
+	_touch_pad.name = "TouchPad"
+	_touch_pad.view_controller = view_controller
+	root.add_child(_touch_pad)
+	root.move_child(_touch_pad, 0)
+
+
+## Build the palette, hand it the drawing and the keys, and fit it to the device.
+##
+## The controls themselves are `PalettePanel`'s: they are nine near-identical buttons and a handful of
+## rows, every one of them derived from the tables the legend already uses, so a scene file would be a
+## third copy of that list to keep in step. Built there, the palette is described once and its buttons
+## exist because the tools do.
+##
+## What is left here is the two things that are this HUD's business rather than a panel's: handing over
+## the drawing the palette reports on and the words this program writes for the keys, and asking the
+## device whether the palette has to be fitted for a finger at all.
+##
+## The fit is deferred for the reason its own door keeps: these buttons are made during this HUD's
+## `_ready` and the window has not been laid out at that moment, so a size asked for then is not the
+## size the finished window draws at.
 func _build_palette() -> void:
 	_draft = view_controller.draft_controller()
 	if _draft == null or palette_column == null:
 		return
-
-	_arm_button = CheckButton.new()
-	_arm_button.name = "ArmButton"
-	_arm_button.text = "Drawing (%s)" % _key_label(&"draft_mode")
-	_arm_button.tooltip_text = "Arm the drawing tools, and put them away again"
-	_arm_button.toggled.connect(_on_arm_toggled)
-	palette_column.add_child(_arm_button)
-
-	var grid := GridContainer.new()
-	grid.name = "Tools"
-	grid.columns = PALETTE_COLUMNS
-	palette_column.add_child(grid)
-	for pair: Array in DRAFTING_TOOLS:
-		var kind: int = pair[2]
-		var button := Button.new()
-		# Named after the action it stands for, so the node tree says what each
-		# button does rather than "Button17".
-		button.name = String(pair[0])
-		button.text = palette_label(pair)
-		button.tooltip_text = "Draw a %s" % String(pair[1])
-		button.toggle_mode = true
-		button.custom_minimum_size = Vector2(PALETTE_CELL_WIDTH, 0.0)
-		button.pressed.connect(_on_tool_pressed.bind(kind))
-		grid.add_child(button)
-		_tool_buttons.append(button)
-
-	var edit_grid := GridContainer.new()
-	edit_grid.name = "EditTools"
-	edit_grid.columns = PALETTE_EDIT_COLUMNS
-	palette_column.add_child(edit_grid)
-	for pair: Array in EDIT_TOOLS:
-		var edit_button := Button.new()
-		edit_button.name = String(pair[0])
-		edit_button.text = edit_palette_label(pair)
-		edit_button.tooltip_text = String(pair[3])
-		edit_button.toggle_mode = true
-		edit_button.custom_minimum_size = Vector2(PALETTE_EDIT_CELL_WIDTH, 0.0)
-		edit_button.pressed.connect(_on_edit_pressed.bind(int(pair[2])))
-		edit_grid.add_child(edit_button)
-		_edit_buttons.append(edit_button)
-
-	palette_column.add_child(HSeparator.new())
-
-	var layer_row := HBoxContainer.new()
-	layer_row.name = "LayerRow"
-	var layer_caption := Label.new()
-	layer_caption.text = "Layer"
-	layer_row.add_child(layer_caption)
-	_layer_option = OptionButton.new()
-	_layer_option.name = "LayerOption"
-	_layer_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_layer_option.tooltip_text = "The layer the next shape is drawn on"
-	for choice: Dictionary in _draft.layer_choices():
-		_layer_names.append(choice["name"])
-		_layer_option.add_item(String(choice["name"]))
-		_layer_option.set_item_tooltip(
-			_layer_option.item_count - 1, String(choice["purpose"])
-		)
-	_layer_option.item_selected.connect(_on_layer_selected)
-	layer_row.add_child(_layer_option)
-	# The lock sits on the layer's own row because it is a property of that layer rather than a
-	# tool. Focus-free so a HUD check box cannot swallow Tab or Enter before the drawing sees it.
-	_lock_button = CheckButton.new()
-	_lock_button.name = "LockButton"
-	_lock_button.text = "Lock"
-	_lock_button.focus_mode = Control.FOCUS_NONE
-	_lock_button.tooltip_text = "Lock this layer: its shapes stay on the sheet but cannot be picked, selected or drawn on"
-	_lock_button.pressed.connect(_on_lock_pressed)
-	layer_row.add_child(_lock_button)
-	palette_column.add_child(layer_row)
-
-	# What to do with the shape in hand, then what to do with the drawing.
-	var shape_row := HBoxContainer.new()
-	shape_row.name = "ShapeRow"
-	palette_column.add_child(shape_row)
-	_command_button(shape_row, &"draft_finish", "Finish", _draft.finish)
-	_command_button(shape_row, &"draft_close", "Close", _draft.finish_closed)
-	_command_button(shape_row, &"draft_cancel", "Cancel", _draft.cancel)
-
-	var edit_row := HBoxContainer.new()
-	edit_row.name = "EditRow"
-	palette_column.add_child(edit_row)
-	_undo_button = _command_button(edit_row, &"draft_undo", "Undo", _draft.undo)
-	_redo_button = _command_button(edit_row, &"draft_redo", "Redo", _draft.redo)
-	_command_button(edit_row, &"draft_undo_point", "Drop", _draft.undo_point)
-
-	var plot_row := HBoxContainer.new()
-	plot_row.name = "SheetRow"
-	palette_column.add_child(plot_row)
-	_command_button(plot_row, &"draft_plot", "Plot a sheet", _plot_sheet)
-	# Next to plotting, because it is the other way the drawing leaves the application:
-	# the sheet is the drawing, the painted plan is the drawing coloured.
-	_command_button(plot_row, &"vis_painted", "Painted plan", open_painted)
-
-	var style_row := HBoxContainer.new()
-	style_row.name = "StyleRow"
-	palette_column.add_child(style_row)
-	_style_button = _command_button(
-		style_row, &"draft_dimension_style", "Standard", _draft.cycle_dimension_style
-	)
-
+	# Every choice the panel reports is this HUD's to act on, and is connected here rather than inside
+	# the panel, because what a tool *does* is the drawing's business and the panel owns none of it.
+	palette_column.armed.connect(_on_arm_toggled)
+	palette_column.tool_chosen.connect(_on_tool_pressed)
+	palette_column.edit_chosen.connect(_on_edit_pressed)
+	palette_column.command_chosen.connect(_on_palette_command)
+	palette_column.layer_chosen.connect(_on_layer_chosen)
+	palette_column.lock_chosen.connect(_on_lock_chosen)
+	palette_column.build(_draft, _palette_keys())
 	_refresh_palette()
+	_size_palette_for_a_finger.call_deferred()
 
 
-## A palette button for one of the drafting commands. The key goes in the tooltip
-## rather than on the button: the nine tools are worth learning by number, and the
-## row of small buttons would be a wall of brackets if every one carried its key.
-func _command_button(
-	row: HBoxContainer, action: StringName, wording: String, handler: Callable
-) -> Button:
-	var button := Button.new()
-	button.name = String(action)
-	button.text = wording
-	var key := _key_label(action)
-	if key != "":
-		button.tooltip_text = "%s (%s)" % [wording, key]
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(handler)
-	row.add_child(button)
-	return button
+## The words this program writes for the keys the palette's buttons name, gathered once as it is built.
+##
+## Read from the bar's own table rather than listed a second time: every action the menu holds is looked
+## up, and an action nothing is bound to comes back empty, which is what its button then says. That is
+## the honest answer rather than a key this file invented.
+func _palette_keys() -> Dictionary:
+	var keys: Dictionary = { }
+	keys[&"draft_mode"] = _key_label(&"draft_mode")
+	for entry: Dictionary in menu_entries():
+		var action: StringName = StringName(entry.get("action", &""))
+		if action != &"":
+			keys[action] = _key_label(action)
+	return keys
+
+
+## Run one of the palette's commands through the menu entry it stands for.
+##
+## A palette button reports the *action* it stands for and never a `Callable`, so a command cannot come
+## to mean one thing in the bar and another in the palette beside the drawing. This is the join: the
+## bar's own table is asked which entry owns that action, and `run_entry` runs it - the same door the
+## menu and the command palette already share.
+func run_the_action(action: StringName) -> bool:
+	for entry: Dictionary in menu_entries():
+		if StringName(entry.get("action", &"")) == action:
+			return run_entry(entry)
+	return false
+
+
+## One of the drawing palette's commands, reported by the action the menu bar knows it by. The command
+## palette has a handler of its own: that one takes a row off the list it filled, and this one takes an
+## action, which is what lets a button beside the drawing run the bar's own entry rather than a copy of it.
+func _on_palette_command(action: StringName) -> void:
+	run_the_action(action)
+
+
+## Fit this HUD's own chrome to the device, and leave a computer's exactly as the scene drew it.
+##
+## The palette is fitted by its own pass below, because the palette also has to re-flow its rows around the
+## words it draws; this is everything else this HUD draws for itself - the menu bar and its menus, the
+## panels, the hint lines, the scale bar. A page is left alone: a page answers for its own controls in the
+## one place a page is shown, and `PageChrome` is that place.
+##
+## `draw_up` is the device answer taken as an argument rather than read here, the same door
+## `PhoneHud.apply_if` keeps, so that a test can hold what a desk would be given. On a computer nothing is
+## touched - not reset to the size a desk has, *left exactly as it was*.
+## Fit this HUD's own chrome to the device, reading the device *now*.
+##
+## The reading is taken here rather than in `_ready` for the reason this whole pass is deferred: a window
+## that has not laid out yet does not answer for the device it will be drawn on. Measured on the phone - the
+## one instrument for this - the palette came out thumb-sized while the foot of the screen told that same
+## thumb about a mouse wheel and W A S D, because `_size_palette_for_a_finger` asks the device where it draws
+## and `_touch_screen` had been read a moment earlier, in `_ready`. The answer is kept on `_touch_screen`
+## because `shows_touch_controls()` is the single question everything else asks - the hint lines, the thumb
+## pad, the doors a demonstration opens - and the foot is written again here so that the two cannot disagree.
+func _size_the_chrome_for_the_device() -> void:
+	_touch_screen = PhoneHudScript.on_a_finger_here()
+	size_for_a_finger(_touch_screen)
+	# **Everything worked out from the room is stated in the one door below**, and that door is also the one a
+	# turn goes through - which is the whole point of it. The bar's lift clear of the device's own band, the
+	# strip no page may use, and the palette's own ground are all readings of the room, and stating them here
+	# alone left a phone turned after launch keeping the chrome the room before the turn had asked for.
+	# Measured on the A16W: the block taken lying down asks for nothing and the one taken standing shows the
+	# three view buttons **81 px inside the band the camera keeps**, their middles inside it - the very fault
+	# `lift_the_top_bar_by` exists to stop, on the one shape that was never re-asked. The order is that door's,
+	# and it matters: the bar is lifted before the strip is read off its foot, and both before a page is placed
+	# by them.
+	_the_canvas_changed_shape()
+	# The palette's two ends are held between the bar above it and the hint plate below it, on the frame after
+	# this one: the fonts were changed a moment ago, so neither the bar's foot nor the plate's top stands where
+	# the finished layout will put it, and a control asked for a size it has not laid out yet answers the size
+	# it had before. The desk's own numbers are the floor, so a desk keeps exactly the rectangle it drew.
+	place_the_left_column_for_a_device.call_deferred()
+	# The dock is placed from the room and the band the device keeps along its foot, so it is read here where
+	# the room is really known, and again on the frame after - a panel asked for its size before it has laid out
+	# answers the size it had before, which is the same reason the palette's own placement is deferred.
+	_place_the_touch_dock.call_deferred()
+	# The six panels that stand over the board are moved by the same reading and put back by it too, so a desk
+	# that was shown a finger's arrangement - which the layout check does, and then lets go of - is left exactly
+	# as the scene drew it rather than holding a phone's panels.
+	#
+	# **Asked for again after it was withdrawn, because the reading could not yet name the fault.** Anchoring a
+	# wrapper to a band and putting the child *in* the band are two different acts, and a report that has only
+	# the child's rectangle cannot say which of them failed - `hud_layout_check` now prints the wrapper's band
+	# beside the panel inside it, so the next reading decides it. If the wrapper is a band and the child is not in
+	# it, the child needs a container that places its children, which is `BoardPanel` and nothing the engine
+	# ships; if the wrapper was never banded at all, the fault is in `settle_a_panel_on_the_foot`.
+	_place_the_overlay_panels.call_deferred()
+	start_the_presentation_panel_for(_touch_screen)
+	_refresh_hints()
+
+
+## State the foot of this HUD's own top bar - the strip no page may be placed in - from the bar's own
+## rectangle, and answer whether that foot has moved.
+##
+## **This is asked every frame, and asking it once was a fault measured on a phone.** The bar is not the size
+## it is fitted at when the moment arrives: it is built and folded over the first dozen frames, so its foot moves
+## under a page that was placed before it settled. Measured on the SM-A166W, the foot reads **357** on the block
+## taken as this HUD starts and **247** on every block taken afterwards - the same 247 upright and lying, because
+## it is the bar's own height and not the room's. The front door is shown as this HUD starts, so it was placed by
+## the 357; and in landscape the begin-a-drawing page drew its own title bar straight over the menu titles.
+##
+## The room is what decides when a page is placed, so the two have to move together: this says when the bar's
+## foot moved, and `_refresh_menus` puts the pages up back by the door a change of the room's shape already
+## uses. The bar's *rectangle* is read rather than the offset the scene gives it, for the reason stated where
+## the strip is first asked: a phone's bar is taller than a desk's and the scene's number is only the desk's.
+func _state_the_strip_the_pages_may_not_use() -> bool:
+	if top_bar == null:
+		return false
+	var foot: int = maxi(roundi(top_bar.get_global_rect().end.y), 0)
+	if foot == PageChromeScript.reserved_above:
+		return false
+	PageChromeScript.reserved_above = foot
+	return true
+
+
+## Lift the top bar clear of whatever the device keeps for itself around the screen - the status bar, the camera
+## cutout, a rounded corner - and put it back exactly where the scene drew it where there is nothing to clear.
+##
+## **The whole reading is taken, not the top alone, because a phone held sideways keeps its camera on a side.**
+## `PhoneHud.cutout_here` answers the device's own band as (left, top, right, bottom) in the room's own pixels, and
+## measured on the A16W lying down the bar's controls stood at x 28 while the device kept the room's first 62 px -
+## so `Menu` reached 55 px into that band and a thumb aimed at it was answered by the system rather than by the
+## program. The palette had already been given that ground; the bar, the one plate standing over the band's own
+## edge, never asked. What the device keeps along the **foot** is not this pass's business: the plates down there
+## are given their ground by `give_the_foot_line_clear_of_the_device`.
+##
+## The palette's own **left and right** offsets, remembered for the same reason `_palette_offsets_as_drawn` is, and
+## kept as a second pair rather than a wider first one: that one is handed to `offsets_for_the_left_column`, whose
+## answer is about the column's *height*, so widening it would put a horizontal number into an argument about a
+## vertical one. Declared here, beside the one function that reads it.
+var _palette_sides_as_drawn: Vector2 = Vector2(INF, INF)
+
+
+## **This was the last thing on the screen standing in that band.** Measured on the A16W held upright, the three
+## view buttons and the menus sat 81 px inside the strip the device keeps, with their middles at y 67, so a tap on
+## `Fit` was answered by the system instead of by the program. Everything else had already learned it: a page's
+## contents are lifted by `PageChrome.content_room_in`, a page is placed inside the insets, and a page's title bar
+## is kept below this bar - the bar itself was the one thing that never asked.
+##
+## **Where a band is kept, or a corner rounded, the plate runs to the screen's own edge and only its row is
+## lifted**, which the measuring door below does for each of the three sides a device may keep a band on. A computer
+## never moves at all, because `PhoneHud.cutout_here` and `PhoneHud.rounded_corner` both answer zero for a screen
+## with no safe area, for a screen nobody has measured, and for anything not served a finger.
+func lift_the_top_bar_clear_of_the_device() -> void:
+	var viewport: Viewport = get_viewport()
+	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
+	lift_the_top_bar_by(PhoneHudScript.cutout_here(room), PhoneHudScript.rounded_corner(room))
+
+
+## The measuring half, with the band stated rather than read, so a test can hold what a phone would be told
+## without being one - the same door `fit_the_chrome_for_a_finger` is.
+##
+## The band is `cutout_here`'s own answer - (left, top, right, bottom) in the layout's own pixels, which is the
+## space the bar's offsets are in, because the room that was asked for it is the viewport's. Three of the four are
+## used and the foot is deliberately not, for the reason stated above the reader: what a device keeps along the
+## bottom belongs to the plates down there.
+##
+## **The second figure is stated beside it, and it is not a band: the corner the display rounds.** Where the glass
+## itself takes the corner away - the A16W rounds 118 px of its 1080 by 2340 display, which is 42 dp - the plate must
+## run to the screen's own edges on **both sides of that corner** and wear the glass's own radius there, or the corner
+## shows bare board where the bar should be and the bar reads as a plate floating inside a curved screen. Measured on
+## the glass lying down, 2026-11-24: the plate stopped 19 px below the screen's top and 19 px short of its right edge,
+## so the top rows of the room above the bar, and the whole right-hand column outside it, were board - which is what a
+## person reports as "the menu bar doesn't follow the screen curve". **The row is not moved for it**: a corner is not
+## something a thumb can press into, so it needs no ground from it, and a row that shifted every time a glass rounded
+## a corner would be a bar drawn in the wrong place.
+func lift_the_top_bar_by(band: Vector4i, corner: int = 0) -> void:
+	if top_bar == null:
+		return
+	if _bar_offsets_as_drawn.x == INF:
+		_bar_offsets_as_drawn = Vector2(top_bar.offset_top, top_bar.offset_bottom)
+	if _bar_sides_as_drawn.x == INF:
+		_bar_sides_as_drawn = Vector2(top_bar.offset_left, top_bar.offset_right)
+	# **The plate the scene drew is remembered whole**, not only its margin: the plate that replaces it is derived
+	# from it, so its paper, its corners and its insets are read off the one statement of them - and after the
+	# override is set `get_theme_stylebox` answers the new plate rather than the scene's, which is why it is kept.
+	if not top_bar.has_meta(&"plate_as_drawn"):
+		top_bar.set_meta(&"plate_as_drawn", top_bar.get_theme_stylebox(&"panel"))
+	var plate_as_drawn: StyleBox = top_bar.get_meta(&"plate_as_drawn")
+	var down: float = float(maxi(band.y, 0))
+	var from_the_left: float = float(maxi(band.x, 0))
+	var from_the_right: float = float(maxi(band.z, 0))
+	var rounded: bool = corner > 0
+	# **The plate runs to the screen's own edge on every side it meets the glass at, and only its row is lifted.**
+	# Measured on the A16W, lifting the plate as well left 212 px of bare sheet above the first button, which is what
+	# a person sees as a bar that is not at the top. Where the device keeps a band - a phone's camera cutout, along the
+	# top or down a side - the plate's own edge is the screen's own edge, so the band is covered by the bar rather than
+	# by bare board and the row inside is pushed clear of it. **A corner is the same demand on both of its sides** and
+	# takes nothing from the row: a display that rounds its corner has taken that glass away, so a plate stopping short
+	# of either edge leaves bare board in a corner the bar is meant to cover. The scene's offsets are the floor on
+	# every side, so a desk, and a side the device keeps nothing on and rounds nothing at, are given exactly what was
+	# drawn.
+	var to_the_top: bool = down > 0.0 or rounded
+	var to_the_left: bool = from_the_left > 0.0 or rounded
+	var to_the_right: bool = from_the_right > 0.0 or rounded
+	var reached: bool = to_the_top or to_the_left or to_the_right
+	top_bar.offset_top = 0.0 if to_the_top else _bar_offsets_as_drawn.x
+	top_bar.offset_bottom = _bar_offsets_as_drawn.y + down
+	top_bar.offset_left = 0.0 if to_the_left else _bar_sides_as_drawn.x
+	top_bar.offset_right = 0.0 if to_the_right else _bar_sides_as_drawn.y
+	# The row is moved by the plate's own **content margin**, not by an offset: a `PanelContainer` lays its child
+	# out itself, so an offset set on the child is overwritten by the next layout. The distance is the scene's own
+	# margin, plus the distance the plate's own edge moved, plus what the device keeps - one side at a time, and
+	# `_the_row_moved_by` is the one statement of that sum. **The distance the edge moved is handed in as a zero where
+	# it did not move**, which is what keeps a desk's row, and the row of a side the device keeps nothing on, exactly
+	# where the scene drew it.
+	if reached:
+		top_bar.add_theme_stylebox_override(
+			&"panel",
+			ChromeStyleScript.bar_plate(
+				plate_as_drawn,
+				plate_as_drawn.content_margin_top
+				+ _the_row_moved_by(down, _bar_offsets_as_drawn.x if to_the_top else 0.0),
+				plate_as_drawn.content_margin_left
+				+ _the_row_moved_by(from_the_left, _bar_sides_as_drawn.x if to_the_left else 0.0),
+				plate_as_drawn.content_margin_right
+				+ _the_row_moved_by(from_the_right, -_bar_sides_as_drawn.y if to_the_right else 0.0),
+				corner,
+			),
+		)
+		top_bar.set_meta(&"row_lifted", true)
+	elif top_bar.has_meta(&"row_lifted"):
+		# **Nothing to clear, so the scene's own plate is handed back rather than left replaced** - a desk, or a
+		# device that has stopped keeping a band: the override this pass put there is taken away, which is the whole
+		# of what it did, and the bar is the bar the scene drew again.
+		top_bar.remove_theme_stylebox_override(&"panel")
+		top_bar.remove_meta(&"row_lifted")
+
+
+## How far the row inside the bar is moved along **one axis**: the band the device keeps on that side, plus the
+## distance the plate's own edge moved on it.
+##
+## **Two figures, and the second is handed in as a zero when the plate has not moved** - which is why nothing at all
+## is the answer for a desk, rather than the scene's own inset. The plate's own edge moves for either of two reasons:
+## a band along that side, or a glass that rounds its corner at it, where the plate runs to the screen's own edge and
+## a row left where the plate's new edge put it would ride up or across with the plate. Both are the caller's reading,
+## so both are the caller's arguments: `Hud` hands the distance it actually moved the edge by, and a side it moved
+## nothing on is handed a zero. Written once because three sides of the same lift ask it and a fourth answer that
+## rounded the other way would be one fact in two places.
+static func _the_row_moved_by(band: float, the_plate_moved: float) -> float:
+	return band + the_plate_moved
+
+
+## Give the plates at the foot of the screen the ground the device keeps there, and put them back exactly where the
+## scene drew them where there is nothing to clear.
+##
+## **This is the one band the program is told rather than reads.** Godot's safe area is the display cutout and
+## nothing more, so `screen_get_usable_rect` answers the whole screen over the A16W's **42 px** of nav bar - a band
+## the phone's own report names (`overrideNonDecorFrame=[0,100][1080,2298]`) and the program cannot ask it for.
+## `PhoneHud` states it for the devices this project has measured and answers zero for every other, so a desk and a
+## phone nobody has put on this desk are both left exactly as the scene drew them.
+func give_the_foot_line_clear_of_the_device() -> void:
+	var viewport: Viewport = get_viewport()
+	var room: Vector2i = Vector2i(viewport.get_visible_rect().size) if viewport != null else Vector2i.ZERO
+	give_the_foot_line(PhoneHudScript.kept_foot(room))
+
+
+## The measuring half, with the band stated rather than read, so a test can hold what a phone would be told
+## without being one - the same door `lift_the_top_bar_by` is.
+##
+## **Both plates move, because both are the foot line**: `Hints` is what a working board reads and `DraftHints`
+## what a tool in hand reads, and the two trade places in the same rows. **The scene's own offset is remembered and
+## the band taken off it**, rather than a new offset written, because the desk's own numbers are the floor - which
+## is what lets the band be handed back to the pixel on a device that turns out to keep nothing. Nothing here is
+## styled, so unlike the bar there is no plate to hand back as well.
+func give_the_foot_line(band: int) -> void:
+	if hints == null and draft_hints == null:
+		return
+	var up: float = float(maxi(band, 0))
+	for plate: PanelContainer in [hints, draft_hints]:
+		if plate == null:
+			continue
+		if not plate.has_meta(&"foot_as_drawn"):
+			plate.set_meta(&"foot_as_drawn", plate.offset_bottom)
+		plate.offset_bottom = float(plate.get_meta(&"foot_as_drawn")) - up
+
+
+## The gap the scene already keeps between the top bar's foot and the palette, and between the palette's foot
+## and the hint plate: the bar's offsets end at 62 and the palette's begin at 70, the palette's end at 838 and
+## the plate's begins at 846. Stated once, because the pass below has to keep the same gap when it moves
+## either end, and only the scene's own numbers may say how big it is.
+const PALETTE_GAP := 8.0
+
+
+## The palette's top and bottom offsets, from the room above it and the room below it.
+##
+## Pure, and the whole of the placement: `place_the_left_column_for_a_device` reads the four numbers off the
+## things themselves and this decides what to do with them, so what a phone would be told can be held by a
+## test without being one - the split `PhoneHud.cutout_here` and `lift_the_top_bar_by` already keep.
+##
+## Both ends are **floors rather than assignments**. The top may only come down from where the scene drew it
+## and the foot may only come up, so a desk - whose bar and plate both still agree with the scene's own
+## numbers - is given exactly the offsets it was drawn with, to the pixel. The last line keeps one row of the
+## palette standing even where the bar and the plate leave less room than that, because a palette squeezed to
+## nothing is not a thing anyone can use, and the plate meeting it is the lesser of the two faults.
+static func offsets_for_the_left_column(
+	bar_foot: float,
+	plate_top: float,
+	drawn: Vector2,
+	room: float,
+	least: float,
+) -> Vector2:
+	var top: float = maxf(drawn.x, bar_foot + PALETTE_GAP)
+	var foot: float = minf(drawn.y, plate_top - PALETTE_GAP - room)
+	return Vector2(top, maxf(foot, top + least - room))
+
+
+## Hold the palette between the two things it may not be drawn over: the top bar above it and the hint plate
+## below it.
+##
+## The scene draws the palette's top at 70 and its foot 62 px above the canvas's foot, and both numbers are
+## right for a desk - where the bar's foot is 62 and the plate is one line 42 px tall. **Both grow on a
+## phone**, and neither was read back: the bar's buttons are a finger tall, so its foot is far below 70, and
+## the plate's words wrap onto three lines at the phone's type, so its top is far above the palette's foot.
+## Measured on the A16W held upright, the palette was drawn *over* the menu bar's own titles - so `File` and
+## `View` could not be pressed at all - and the wrapped plate was drawn over the palette's last rows. **No
+## instrument named either one**: a HUD plate meeting another has no candidate in `DrawnSurfaces`, and
+## `hud_layout_check` measures a desk's type, where both numbers still agree.
+##
+## Each end is read off the thing itself rather than restated - the bar's foot from its own rectangle, after
+## the lift that clears the device's own band, and the plate's top from its own, after its label has wrapped.
+## The offsets the scene drew are **remembered once**, for the reason `_bar_offsets_as_drawn` is: this runs
+## again on every change of the room's shape, and a placement measured from its own output would walk the
+## palette up the screen one turn at a time.
+##
+## Called by the frame after that pass, because the fonts were changed a moment before it.
+func place_the_left_column_for_a_device() -> void:
+	if palette == null or top_bar == null or hints == null:
+		return
+	if _palette_offsets_as_drawn.x == INF:
+		_palette_offsets_as_drawn = Vector2(palette.offset_top, palette.offset_bottom)
+	# **The ground the device keeps at the left**, which this column was never given: a phone held sideways puts its
+	# camera on the left, and measured on the A16W lying down the palette stood at x=16 while the device keeps the
+	# first 100 px of the screen - so six of its controls each reached 55 px into that band and a thumb aimed at a
+	# tool met the system instead. Read off `cutout_here`, the one reader of the band, and kept in its own pair for
+	# the reason above. A desk's insets are all zero, so the scene's offsets come back to the pixel.
+	if _palette_sides_as_drawn.x == INF:
+		_palette_sides_as_drawn = Vector2(palette.offset_left, palette.offset_right)
+	var band: Vector4i = PhoneHudScript.cutout_here(Vector2i(palette.get_parent_area_size()))
+	var across: float = float(maxi(band.x, 0))
+	palette.offset_left = _palette_sides_as_drawn.x + across
+	palette.offset_right = _palette_sides_as_drawn.y + across
+	# All three are siblings under `Root`, so a neighbour's own rectangle is already in the space the
+	# palette's offsets are measured in, and the palette's parent area is the room they are measured against.
+	var bar_foot: float = top_bar.position.y + top_bar.size.y
+	var plate_top: float = hints.position.y
+	var room: float = palette.get_parent_area_size().y
+	var least: float = PhoneHudScript.row_height(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	var placed: Vector2 = offsets_for_the_left_column(bar_foot, plate_top, _palette_offsets_as_drawn, room, least)
+	palette.offset_top = placed.x
+	palette.offset_bottom = placed.y
+
+
+# --- the furniture a finger gets instead of a desk's -----------------------------------------------------
+
+## The tabs a phone's dock carries, left to right.
+##
+## **Every one of them is a door to something that already exists**, which is what keeps a dock from becoming a
+## second place a tool is offered. `Draw` and `Dim` are the one `DraftTool.DRAFTING_TOOLS` list split where that
+## list already splits - the six shapes and the measure first, the four dimensions after - `Edit` is
+## `DraftController.EDIT_TOOLS`, `Plants` opens the library that already stands beside the palette, and `More`
+## opens the drawer. `More` is not a menu of its own: a bar too narrow for fourteen menus already gathers the
+## tail of them under a `More`, and this is that same gathering reached from the thumb's end of the screen.
+## The phone's furniture's own three tables. Each is an **alias to the one value** `TouchFurniture` holds and not
+## a copy of it, and they are named here because callers read them off *this* script by name: `test_touch_hud.gd`
+## through `HudScript.TOUCH_TABS`, and `tools/console.gd` through this file's own constant map. No type is stated
+## on them, because a constant given one cannot take its value from another script's constant.
+const TouchFurnitureScript := preload("res://scripts/touch_furniture.gd")
+const TOUCH_TABS = TouchFurnitureScript.TOUCH_TABS
+const DIMENSION_KINDS = TouchFurnitureScript.DIMENSION_KINDS
+const SHEET_OF_THE_ROOM = TouchFurnitureScript.SHEET_OF_THE_ROOM
+
+## The tab in hand, by its name in `TOUCH_TABS`. Empty until one is pressed.
+var _touch_tab: String = ""
+## The drawer: the whole plan as one popup of one submenu per menu, made the first time somebody asks for it.
+var _touch_drawer: PopupMenu = null
+
+
+## Build the two pieces of furniture a finger gets and a desk does not: the row of controls that stands inside
+## the top bar where the fourteen menus stand, and the dock along the foot of the screen.
+##
+## It builds nothing on a computer, and the two plates it wears are the scene's own look drawn again by
+## `ChromeStyle` - a colour and a corner radius written here would be the drift that file exists to prevent.
+## The furniture's own builders, as doors onto the module that now owns them.
+##
+## This file hands over the nodes it already holds and the doors a press reaches, and words none of it itself:
+## every size, every look and every name comes from `TouchFurniture`. It is a **door rather than a move**, because
+## `tools/touch_hud_workspace.gd` names `_build_touch_furniture` and `_apply_the_touch_plates` from outside, and a
+## development view has to keep working.
+func _furniture() -> TouchFurnitureScript:
+	var furniture: TouchFurnitureScript = TouchFurnitureScript.new()
+	furniture.row = touch_row
+	furniture.dock = touch_dock
+	furniture.strip = touch_strip
+	furniture.strip_row = touch_strip_row
+	furniture.tabs = touch_tabs
+	furniture.sheet = touch_sheet
+	furniture.sheet_close = touch_sheet_close
+	furniture.top_bar = top_bar
+	furniture.hints = hints
+	furniture.menu_bar = menu_bar
+	# **The aids pane, so the aids can be stood clear of the dock.** Both are anchored to the bottom-right corner
+	# at fixed offsets and know nothing about what stands there; on the A16W's own specs that put the north arrow
+	# over the dock's own `More` tab. Where the dock ended up is the furniture's business, not the pane's.
+	furniture.overlay = overlay
+	furniture.palette_column = palette_column
+	furniture.sheet_title = touch_sheet_title
+	furniture.tab_in_hand = _touch_tab
+	# The plant sheet, the palette's own tool list and the handing back of a borrowed panel are all this HUD's
+	# business rather than the furniture's, so each arrives as a door.
+	furniture.plant_sheet_door = _open_the_plant_sheet
+	furniture.tools_for_door = _touch_tools_for
+	furniture.hand_back_door = _return_what_the_sheet_borrowed
+	# The finger question and the palette's own gap, both handed over as values: the module asks no device and
+	# states no number, and a view with no HUD can say `true` and still stand the furniture up.
+	furniture.on_a_finger = shows_touch_controls()
+	furniture.palette_gap = PALETTE_GAP
+	furniture.app_window = get_window()
+	furniture.drawer_door = _show_the_touch_drawer
+	furniture.layer_door = _show_the_layer_choices
+	furniture.view_door = _turn_the_view
+	furniture.find_door = toggle_command_palette
+	furniture.tab_door = _press_a_touch_tab
+	furniture.close_door = _close_the_touch_sheet
+	return furniture
+
+
+func _build_touch_furniture() -> void:
+	_furniture().build()
+
+
+func _build_the_touch_row() -> void:
+	_furniture().build_the_row()
+
+
+func _build_the_touch_tabs() -> void:
+	_furniture().build_the_tabs()
+
+
+func _apply_the_touch_plates() -> void:
+	_furniture().apply_the_plates()
+
+
+func _a_dock_plate() -> StyleBox:
+	return _furniture().a_dock_plate()
+
+
+## A row's height on this device, kept as a door for the placement code below, which asks this question in four
+## places and states no size of its own. The answer is the furniture's, and it is asked of the furniture.
+func _touch_row_height() -> float:
+	return _furniture().row_height()
+
+
+## What a tab opens, in words - also read from outside, by `tests/test_touch_hud.gd`, which asks this script for
+## it rather than reaching for the module.
+func _touch_tab_tooltip(tab: String) -> String:
+	return _furniture().tab_tooltip(tab)
+
+
+## Say which of the two arrangements is up: the dock and the row of controls, or the palette and the menus.
+##
+## `working` is the question the frame has already asked - whether the drawing's own furniture belongs on the
+## screen at all - so a presentation and a painted sheet put this away with everything else.
+func _show_the_touch_furniture(working: bool) -> void:
+	_furniture().show_the_furniture(working)
+
+
+func _place_the_touch_dock() -> void:
+	_furniture().place_the_dock()
+
+
+func _the_top_of_the_foot_line() -> float:
+	return _furniture().top_of_the_foot_line()
+
+
+## Stand the sheet above the dock's own row rather than over it, so the tabs stay reachable while it is open -
+## a sheet that covered its own door would be a panel with no way back to the board.
+##
+## **The dock's height is its own contents', so it is read rather than assumed**, and this is asked on the frame
+## after the dock was placed for the reason every fitting here is deferred: a control asked for its size before
+## it has laid out answers the size it had before. A sheet placed from a guess would either cover the tabs or
+## leave a gap the width of a row.
+##
+## Its own height is a share of the room and not its contents' minimum: a sheet is the board with a panel over
+## part of it, so it is *sized* to the room - a sheet that grew to its contents would cover the drawing it
+## exists to leave visible.
+func _place_the_touch_sheet() -> void:
+	_furniture().place_the_sheet()
+
+
+## The plate a panel wears on a finger: the dock's own look, drawn by the one place that states it.
+##
+## A sheet anchored to the foot has no visible foot edge, so it is round where a person sees it against the board
+## and square where it runs off the glass, with its rule along the top edge alone. Every panel that stands there
+## wears this, and it is `ChromeStyle`'s plate rather than a second one written here.
+## The six panels that stand over the board, as the wrappers the HUD itself built.
+##
+## **Named by the HUD's own members rather than by a path.** A list of node paths would go stale the moment one
+## was renamed, and a panel that was never built - the ones that need a drawing, in a HUD with none - is simply
+## skipped rather than being a missing node to work around.
+func _the_overlay_panels() -> Array[Control]:
+	var out: Array[Control] = []
+	for wrapper: Control in [_keys_panel, _site_report_panel, _dxf_panel, _hatch_page, _water_page, _light_page]:
+		if wrapper != null:
+			out.append(wrapper)
+	return out
+
+
+## One panel's wrapper anchored as a band along the foot of the screen, from the room's height and the three
+## numbers the caller has read. Pure, and the whole of the placement: `_place_the_overlay_panels` reads the room
+## and the device's own figures off the things themselves and this decides what to do with them, so what a phone
+## would be told can be held by a test without being one - the same split `offsets_for_the_left_column` keeps.
+##
+## The wrapper is a `BoardPanel`, which puts the page in the band at the page's own size rather than stretching it
+## to the room,
+## which is what keeps a short panel short and a tall one from running past the top of the screen.
+static func settle_a_panel_on_the_foot(wrapper: Control, margin: float, clear_of_the_foot: float, tall: float) -> void:
+	if wrapper == null:
+		return
+	# The preset first and the offsets after, because a preset is allowed to move the offsets it is applied to
+	# and numbers written before it would be overwritten.
+	wrapper.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	wrapper.offset_left = margin
+	wrapper.offset_right = -margin
+	wrapper.offset_bottom = -clear_of_the_foot
+	wrapper.offset_top = -(clear_of_the_foot + tall)
+	# **And the child has to be asked to lay itself out again, or the band holds nothing.** Moving the anchors
+	# resizes the wrapper, and a container that has not been told sorts nothing - so the band came out exactly
+	# where it was meant to be and the panel inside it stayed where the *desk* had put it: measured, a weak
+	# `205..610` band with its 257 px page at `603..870`, 398 px down it, which is 398 px down a 405 px band and
+	# its desk position to the pixel. **A container the engine ships centres its child and carries no lever to be
+	# asked harder** - `queue_sort` was tried and changed nothing - so the child is put in the band by
+	# `BoardPanel`, which is this project's own node and does the placing on a rectangle it works out itself.
+	var board: BoardPanel = wrapper as BoardPanel
+	if board != null:
+		board.along_the_foot = true
+		board.place_the_page()
+
+
+## Stand the six panels along the foot of the screen on a finger, where a desk centres them over the board.
+##
+## **It is called from `_size_the_chrome_for_the_device` and it works: the band holds its panel.** Two readings
+## took it there, and both are worth keeping because the fault moved. The band itself was right from the first
+## attempt - `SiteReportPanel`'s wrapper stood at `205..610` - and its 257 px page stayed at `603..870`, which is
+## 398 px down a 405 px band and the panel's *desk* position to the pixel. Asking the wrapper's own container to
+## sort itself again (`queue_sort`) said the same, and the reason is that the node was a `CenterContainer`: it
+## centres a child in whatever room it has and carries no alignment to ask for anything else, **and no container
+## the engine ships places a child where it is told**. So the wrapper is now `BoardPanel`, which computes the
+## rectangle itself - and the same reading then gave `SiteReportPanel` its page at `343..610` and `DxfPanel` at
+## `241..610`: a foot on the band's own foot, which is what a sheet along the foot means.
+##
+## **The four long panels are still refused the band.** They want 4189, 1518, 1518 and 941 px of a 405 px band at
+## a finger's type, and what they need is the scroller `PageChrome` already gives an over-tall page - the same
+## answer this program has for anything taller than the room it stands in. That is a piece of work of its own and
+## they keep the desk's own placement until it is done.
+##
+## **The board stays visible, which is the whole point of the change.** A desk's room is wide, and a panel 520 px
+## across leaves plenty of drawing either side of it; a phone's room is a hand's width, so the same panel centred
+## lands squarely over the middle of the work - the one place a person is looking. Anchored to the foot it takes
+## the strip at the bottom of the screen instead, which a thumb covers anyway.
+##
+## Nothing new has to be pressed to put one away: **every one of these six was already built with its own Close
+## button**, so the header a sheet needs is the header it has. This states where they stand and what they wear,
+## not how they are worked.
+##
+## **A panel too tall for the band is refused the band by name and left where the desk draws it.** Four of the six
+## are longer than the screen at a finger's type, and a `CenterContainer` centres its child - so a taller-than-band
+## panel would be centred *in the band* and land off the top of the screen, worse than the middle of the board it
+## sits over now. Those four still want the scroller every over-tall page already gets from `PageChrome`.
+##
+## A desk is put back exactly as the scene left it - the full-rect wrapper and the plate the scene's own bar
+## carries - because a tool that states a finger and then releases it (the layout check does) must not leave the
+## desk holding a phone's arrangement.
+func _place_the_overlay_panels() -> void:
+	var on_a_finger: bool = shows_touch_controls()
+	for wrapper: Control in _the_overlay_panels():
+		var page: Control = wrapper.get_node_or_null(^"Page") as Control
+		if on_a_finger:
+			var room: Vector2i = Vector2i(wrapper.get_parent_area_size())
+			var margin: float = float(
+				PhoneHudScript.edge_margin(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+			)
+			var foot: float = float(PhoneHudScript.kept_foot(room))
+			if touch_dock != null:
+				# Above the dock rather than above the room's own foot: a panel opened from the dock that stood
+				# over the dock's tabs would take away the one control that opened it.
+				foot = absf(touch_dock.offset_bottom) + maxf(touch_dock.size.y, _touch_row_height())
+			var tall: float = maxf(float(room.y) * SHEET_OF_THE_ROOM, 2.0 * _touch_row_height())
+			# **Whether a panel can be a sheet is asked of the module that owns the question**, not worked out
+			# here: `PageLayout.wanted_contents` is how tall the contents of a page's column come to, with the
+			# gaps between them and any hidden row left out - the very figure `hud_layout_check` prints when it
+			# says a column wants so many pixels in the box it has. A number worked out a second time here could
+			# disagree with the line a person reads in the audit.
+			#
+			# **Only a panel that fits the band is given it.** Four of these six are far taller than the screen at
+			# a finger's type - the keys reference and the water and light panels are lists - and `BoardPanel`
+			# stands its page at the page's own size, so a taller-than-band panel would have its top pushed off
+			# the band and land off the top of the screen. Measured at this desk room on a finger: `KeysPanel`
+			# wants 4189 px against a 405 px band, `WaterPanel` and `LightPanel` 1518, and `HatchPanel` 941 -
+			# while `SiteReportPanel` and `DxfPanel` fit, and are banded.
+			#
+			# A panel that cannot be a sheet is left exactly as the desk draws it, and what it still wants is the
+			# scroller every over-tall *page* already gets from `PageChrome` - the same answer this program has
+			# for anything taller than the room it stands in.
+			var column: Control = null
+			if page != null:
+				column = page.get_node_or_null(PageChromeScript.COLUMN_NAME) as Control
+			var wants: float = PageLayoutScript.wanted_contents(column).y if column != null else INF
+			if wants <= tall:
+				settle_a_panel_on_the_foot(wrapper, margin, foot + PALETTE_GAP, tall)
+				var plate: StyleBox = _a_dock_plate()
+				if plate != null:
+					page.add_theme_stylebox_override(&"panel", plate)
+			else:
+				wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+				# The desk's own arrangement, laid out again for the reason the band is: what was moved has to be
+				# told, or the panel keeps the place the finger's band gave it after the desk has taken it back.
+				var off_the_band: BoardPanel = wrapper as BoardPanel
+				if off_the_band != null:
+					off_the_band.along_the_foot = false
+					off_the_band.place_the_page()
+		else:
+			wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
+			if page != null and top_bar != null:
+				page.add_theme_stylebox_override(&"panel", top_bar.get_theme_stylebox(&"panel"))
+
+
+## One tab was pressed.
+##
+## **Two of the five tabs are doors rather than groups**, and they are opened without touching the strip: the
+## plant picker opens as a sheet over the board, and `More` is the drawer. The three that are groups **put the
+## palette's own buttons back before taking the ones they want**, so a tool is one button in one place at a time
+## and switching tabs cannot leave a group stranded in the strip.
+##
+## **A second press on the tab in hand puts the strip away.** A group is a thing a thumb opens and closes, and
+## the room above the dock belongs to the board whenever nothing is being chosen - which is most of the time.
+func _press_a_touch_tab(tab: String) -> void:
+	_furniture().press_a_tab(tab)
+
+
+func _mark_the_touch_tab() -> void:
+	_furniture().mark_the_tab()
+
+
+## The buttons one group tab shows: the palette's own, filtered - never a second list of tools.
+func _touch_tools_for(tab: String) -> Array[Button]:
+	var out: Array[Button] = []
+	if palette_column == null:
+		return out
+	var tools: Array[Button] = palette_column.tool_buttons()
+	if tab == "Edit":
+		return palette_column.edit_buttons()
+	# Which of them a tab wants is the dimension split, and it is stated once in the furniture's own module:
+	# asked for the indices, so the buttons stay this file's to name.
+	for index: int in TouchFurnitureScript.tool_indices_for_a_tab(tab):
+		out.append(tools[index])
+	return out
+
+
+## Open the sheet: a plate over the board's foot, titled and closable, holding whatever a tab put in it.
+##
+## **A sheet rather than a page.** A page is a `Window` the width of the screen, and it is where a person goes to
+## do something; a sheet stands over part of the board, which is what choosing a plant wants - the bed being
+## planted stays on the screen while the picker is in hand. Opening one puts the strip away, because the two
+## share the room above the dock and a strip left standing under a sheet is furniture with nothing to do.
+func _open_the_touch_sheet(title: String) -> void:
+	_furniture().open_the_sheet(title)
+
+
+## Close the sheet and hand back whatever it borrowed.
+func _close_the_touch_sheet() -> void:
+	_furniture().close_the_sheet()
+
+
+## **The sheet borrows; it does not copy.** The plant picker is `PalettePanel`'s own panel - the very one a desk
+## has standing beside the plan - moved in for as long as the sheet is up and handed back when it closes.
+##
+## A second picker built for a phone would be a second catalogue to keep in step with the first, which is the
+## fault this project works hardest to avoid, and a plant chosen from one would reach the drawing by a different
+## door than a plant chosen from the other. What the sheet adds is a place to stand, not a thing to press.
+func _open_the_plant_sheet() -> void:
+	_open_the_touch_sheet("Plants")
+	if _plant_panel == null or touch_sheet_body == null:
+		return
+	if _plant_panel.get_parent() == touch_sheet_body:
+		return
+	_plant_panel.reparent(touch_sheet_body, false)
+
+
+## Hand a borrowed panel back to the column it was built in, so a desk - and the next opening of the palette -
+## finds it exactly where it belongs.
+func _return_what_the_sheet_borrowed() -> void:
+	if _plant_panel == null or palette_column == null:
+		return
+	if _plant_panel.get_parent() != palette_column:
+		_plant_panel.reparent(palette_column, false)
+
+
+## Return every button standing in the strip to the column it was built in.
+func _put_the_touch_tools_back() -> void:
+	_furniture().put_the_tools_back()
+
+
+func _fit_the_touch_strip() -> void:
+	_furniture().fit_the_strip()
+
+
+## Show the drawer: the whole plan gathered as one popup of one submenu per menu.
+##
+## **It is the plan through the bar's own renderer**, not a second menu written for a phone. `_build_menu` fills
+## the popups and keeps the entries, so an entry added to the plan arrives here and in the bar in one edit, an
+## entry whose need this scene cannot meet is shown switched off by the same rule, and its tick is set by the
+## same pass that sets the bar's own. What is built here is one level of nesting, which is a *gathering* of the
+## plan rather than another statement of it.
+func _show_the_touch_drawer() -> void:
+	if _touch_drawer == null:
+		_touch_drawer = _a_drawer()
+		add_child(_touch_drawer)
+	_where_the_drawer_stands(_touch_drawer)
+	_touch_drawer.popup()
+
+
+## The drawer's popup, built from the plan itself.
+func _a_drawer() -> PopupMenu:
+	var drawer := PopupMenu.new()
+	drawer.name = "TouchDrawer"
+	_build_menu(drawer, touch_drawer_plan(menu_plan()))
+	return drawer
+
+
+## The plan gathered for the drawer: **one submenu per menu**, named by the menu's own title and holding the
+## menu's own items.
+##
+## Static and pure, so what the drawer offers can be held against what the bar offers without a popup, a scene
+## or a device - which is the question that matters about it. Nothing here words a command, names a method or
+## decides a need: it is a *gathering*, and every one of those things is still read off the plan by the bar's
+## own renderer when the popup is filled.
+## The menu plan gathered as the drawer's own submenus - a **door** onto the furniture module, kept under this
+## name because `tests/test_touch_hud.gd` reaches for it here and reads it off this script.
+static func touch_drawer_plan(plan: Array[Dictionary]) -> Array[Dictionary]:
+	return TouchFurnitureScript.drawer_plan(plan)
+
+
+## Put the drawer under the button that opened it, and fit its words to the finger that will press them - the
+## bar's own menus keep the same fitting for the same reason.
+func _where_the_drawer_stands(drawer: PopupMenu) -> void:
+	_furniture().where_the_drawer_stands(drawer)
+
+
+## The layers the next shape can be drawn on, offered as a popup.
+##
+## The names are the palette's own list and the choice goes to **the same door the palette's own signal
+## reaches**, so a layer chosen from here and one chosen from the column are one act and not two.
+func _show_the_layer_choices() -> void:
+	if palette_column == null:
+		return
+	var names: Array[StringName] = palette_column.layer_names()
+	if names.is_empty():
+		return
+	var chooser := PopupMenu.new()
+	chooser.name = "TouchLayers"
+	for layer_name: StringName in names:
+		chooser.add_item(String(layer_name))
+	chooser.id_pressed.connect(_choose_a_layer_from.bind(chooser, names))
+	chooser.close_requested.connect(chooser.queue_free)
+	add_child(chooser)
+	_where_the_drawer_stands(chooser)
+	chooser.popup()
+
+
+## A layer was chosen, by the index of the name in the list the popup was filled from.
+func _choose_a_layer_from(index: int, chooser: PopupMenu, names: Array[StringName]) -> void:
+	chooser.queue_free()
+	if index >= 0 and index < names.size():
+		_on_layer_chosen(names[index])
+
+
+## The one view control the top bar carries on a finger: the same door the desk's own button presses.
+func _turn_the_view() -> void:
+	if view_controller != null:
+		view_controller.toggle_overhead()
+
+
+func size_for_a_finger(draw_up: bool) -> int:
+	if not draw_up:
+		return 0
+	var fitted: int = fit_the_chrome_for_a_finger(PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	_put_away_what_the_top_bar_cannot_hold()
+	# And the same pass words the two view controls: a phone's bar carries no key for them to name, and nothing
+	# emits a view change as the program starts, so the scene's desk words are what a launch would otherwise show.
+	_word_the_view_buttons()
+	return fitted
+
+
+## The measuring half of `size_for_a_finger`, with the scale and the density stated rather than read, so a
+## test can hold what a phone would be told without being one.
+func fit_the_chrome_for_a_finger(drawn_at: float, density: float) -> int:
+	return PhoneHudScript.fit_the_chrome_for_a_finger(self, drawn_at, density)
+
+
+## Put away what the top bar holds that is not a door, which is what a room too narrow for the bar has to be
+## able to do.
+##
+## The bar is one row: the menu bar, the program's name, a rule, the view's name, and the three view controls.
+## At a phone's legible size that row is far wider than the screen, and an `HBoxContainer` does not shrink any
+## of them to fit - it lays them out at their own minimums and lets the row run off the edge. **Measured on
+## the phone, the three view buttons came out at x = 1860 on a 1080-wide screen**: drawn where nothing can
+## reach them, and on a device with no keyboard they are the *only* way to the 2D, 3D and ground views.
+##
+## So the row gives up what a bar can afford to lose, and the rule it follows is which of its parts are
+## **doors**: the menus, which fold into one `More`; the three view controls; and nothing else. The program's
+## name is not a door - the launcher, the doorway and the sheet's own title block all say it already - and
+## neither is the rule that existed only to divide it, nor the view's name, which the view controls say
+## themselves: the button reads "2D plan (Q)" from the 3D view, "3D view (Q)" from the plan, and "Back to
+## overhead (G)" from the ground. Those three are what this puts away.
+##
+## Measured twice, because the first version of this was nearly right and not right: with only the name and
+## the rule gone, the row still came to **1294 px of a 1161 px room**, and the last button's frame ran 133 px
+## past the edge - reachable by its centre, which is not the same as drawn. A phone is the instrument for that
+## second reading, and the probe above is how it was taken.
+##
+## The bar then folds as it was always meant to: with the decoration gone the room formula in `menu_bar_room`
+## has a figure it can work with, where before everything else in the row was wider than the screen, the room
+## came out zero, and `menu_fold_point` read zero as "no room was worked out" and switched the fold off - all
+## fourteen titles were drawn and the buttons were pushed off the edge behind them.
+##
+## A computer is not touched, and is not restored either: this runs only under `size_for_a_finger(true)`, so
+## the row a desk draws is the row the scene drew.
+func _put_away_what_the_top_bar_cannot_hold() -> void:
+	if app_label != null:
+		app_label.visible = false
+	if bar_separator != null:
+		bar_separator.visible = false
+	if mode_label != null:
+		mode_label.visible = false
+
+
+## Fit the palette to the device and re-flow its rows around the words it draws.
+##
+## Deferred rather than done where the buttons are built, because a button is made during this HUD's
+## `_ready` and the window has not been laid out at that moment: asked then, it reported a scale of
+## 3.6 where the finished window uses 1.35, which would have made every row *smaller* than the
+## desk's own. A frame later the window can answer - and on a computer every answer is "leave it
+## as it is", because `on_a_finger_here()` below is what decides whether any of this runs.
+##
+## Whether to fit is this HUD's business and is asked here; what the fitting *is* belongs to
+## `ToolPalette`, which is handed the panel, the column and the device's own scale and density.
+##
+## The two re-flows follow by a frame, for the reason `ToolPalette.reflow_the_tool_row` keeps: a
+## control asked for a size it has not laid out yet answers the size it had before, and the fonts
+## were changed a moment ago. Measured in one pass they were all a frame behind, and the panel came
+## out 180 px too narrow.
+func _size_palette_for_a_finger() -> void:
+	if palette_column == null:
+		return
+	if not PhoneHudScript.on_a_finger_here():
+		return
+	ToolPaletteScript.fit(palette_column, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	_reflow_the_tool_row.call_deferred()
+	_reflow_the_edit_row.call_deferred()
+
+
+func _reflow_the_tool_row() -> void:
+	ToolPaletteScript.reflow_the_tool_row(palette, palette_column, palette_column.tool_buttons())
+
+
+func _reflow_the_edit_row() -> void:
+	ToolPaletteScript.reflow_the_edit_row(palette, palette_column, palette_column.edit_buttons())
+	_grow_palette_to_its_contents.call_deferred()
+
+
+## Widen the panel to hold the column it carries, on the frame after the re-flow that made it wider.
+func _grow_palette_to_its_contents() -> void:
+	ToolPaletteScript.grow_to_its_contents(palette, palette_column)
 
 
 ## Match the palette to the controller.
 ##
-## Driven by state rather than by signals because the controller is changed from
-## several places - a key, a click, a palette button - and a signature cannot miss
-## one the way a forgotten connection would.
+## The panel decides what to draw from the drawing it reads and a signature it keeps; what is worked
+## out here is the two facts that are this HUD's rather than a palette's - whether the layer in hand is
+## locked, and what the undo and redo buttons would act on, which is a sentence about the drawing.
+##
+## This is called every frame, and the panel does nothing at all when its signature has not moved.
 func _refresh_palette() -> void:
-	if _draft == null or _arm_button == null:
+	if palette_column == null:
 		return
-	# The two gesture labels are part of the signature because they are what the undo and redo tooltips
-	# say: without them a tooltip would keep naming the gesture that was in hand when the palette last
-	# redrew, which is exactly the confusion the labels exist to remove.
-	var state := "%s|%d|%s|%s|%d|%s|%s|%s" % [
-		_draft.drawing, int(_draft.current_tool()), String(_draft.current_layer()),
-		String(_draft.dimension_style_name), int(_draft.current_edit()),
-		_is_layer_locked(), _undo_label(), _redo_label(),
-	]
-	if state == _palette_state:
-		return
-	_palette_state = state
-	# By the silent setter, because setting a button the ordinary way fires the
-	# handler: the palette would then be driving the controller it is reporting on.
-	_arm_button.set_pressed_no_signal(_draft.drawing)
-	var armed: bool = _draft.drawing
-	var kind: int = int(_draft.current_tool())
-	var edit: int = int(_draft.current_edit())
-	for index in _tool_buttons.size():
-		var button: Button = _tool_buttons[index]
-		# Only a tool actually in your hand is shown as chosen. A palette
-		# highlighting a tool while the tools are put away would be describing a
-		# mode that is not on, and an editing command in hand is not a drawing tool.
-		button.button_pressed = armed and edit == 0 and int(DRAFTING_TOOLS[index][2]) == kind
-	for index in _edit_buttons.size():
-		var edit_button: Button = _edit_buttons[index]
-		edit_button.button_pressed = armed and int(EDIT_TOOLS[index][2]) == edit
-	var selected := _layer_names.find(_draft.current_layer())
-	if selected >= 0:
-		_layer_option.selected = selected
-	# By the silent setter for the same reason the arm button uses it: setting a toggle the
-	# ordinary way fires its handler, and the refresh would then be driving the layer it reports on.
-	_lock_button.set_pressed_no_signal(_is_layer_locked())
-	_style_button.text = "Standard: %s" % String(_draft.dimension_style_name)
-	_style_button.tooltip_text = "%s (%s)" % [
-		_draft.document.dimension_style.describe(), _key_label(&"draft_dimension_style"),
-	]
-	# What the two buttons would act on, by name. A button that says only "Undo" leaves a person to
-	# guess whether it will put back the line they have just trimmed or a survey overlaid two hours ago.
-	if _undo_button != null:
-		_undo_button.tooltip_text = _gesture_tooltip("Undo", _undo_label(), &"draft_undo")
-	if _redo_button != null:
-		_redo_button.tooltip_text = _gesture_tooltip("Redo", _redo_label(), &"draft_redo")
+	# The two gesture labels are part of what the panel's signature holds because they are what those
+	# tooltips say: without them a tooltip would keep naming the gesture that was in hand when the
+	# palette last redrew, which is exactly the confusion the labels exist to remove.
+	var undo: String = _gesture_tooltip("Undo", _undo_label(), &"draft_undo")
+	var redo: String = _gesture_tooltip("Redo", _redo_label(), &"draft_redo")
+	palette_column.refresh(_is_layer_locked(), undo, redo)
 
 
 ## The gesture an undo would undo, in words, or empty when there is none - or when there is no drawing
@@ -1079,10 +2675,11 @@ func _on_edit_pressed(kind: int) -> void:
 	arm_edit_command(kind)
 
 
-func _on_layer_selected(index: int) -> void:
-	if _draft == null or index < 0 or index >= _layer_names.size():
-		return
-	_draft.set_layer(_layer_names[index])
+## The layer the panel reports, by name. The name is the panel's: it built its drop-down from the
+## drawing's own layer choices, so this turns nothing back into anything.
+func _on_layer_chosen(layer_name: StringName) -> void:
+	if _draft != null:
+		_draft.set_layer(layer_name)
 
 
 ## Whether the layer the drawing is on is locked. False with nothing to draw on, so a HUD with
@@ -1111,30 +2708,22 @@ func set_layer_locked(locked: bool) -> void:
 	_draft.document.changed.emit()
 
 
-## The button's own handler. It reads the button rather than taking `toggled`'s argument, because
-## the refresh writes the button's state: reading the argument would let a refresh that arrived
-## mid-click report a lock it had just drawn, which is the bug the silent setter exists to avoid.
-func _on_lock_pressed() -> void:
-	if _lock_button == null:
-		return
-	set_layer_locked(_lock_button.button_pressed)
+## The lock the panel reports. The panel reads its own button rather than the signal's argument, for
+## the reason it gives: the refresh writes that box, and reading the argument would let a refresh
+## arriving mid-click report a lock it had just drawn - the bug the silent setter exists to avoid.
+func _on_lock_chosen(locked: bool) -> void:
+	set_layer_locked(locked)
 
 
 ## What one tool button says: the tool on the first line, the key that does the same
 ## thing on the second, so the palette teaches the shortcut while it is being used.
 static func palette_label(pair: Array) -> String:
-	var words := String(pair[1])
-	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
-	var key := _key_label(pair[0])
-	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+	return PalettePanelScript.label(pair, _key_label(pair[0]))
 
 
 ## The same, for one of the editing commands.
 static func edit_palette_label(pair: Array) -> String:
-	var words := String(pair[1])
-	var capitalised := words.substr(0, 1).to_upper() + words.substr(1)
-	var key := _key_label(pair[0])
-	return capitalised if key == "" else "%s\n%s" % [capitalised, key]
+	return PalettePanelScript.label(pair, _key_label(pair[0]))
 
 
 ## Keep the HUD out of the keyboard focus chain.
@@ -1164,7 +2753,6 @@ static func _inside_window(node: Node) -> bool:
 		walk = walk.get_parent()
 	return false
 
-
 # --- the client presentation ----------------------------------------------------------
 
 
@@ -1180,8 +2768,10 @@ static func _inside_window(node: Node) -> bool:
 ## buttons: this is the one GUI in the project that may legitimately not exist.
 func _build_presentation_panel() -> void:
 	if presentation == null or presentation_column == null:
-		if presentation_panel != null:
-			presentation_panel.visible = false
+		# A scene with no director gets no panel at all. The one owner of the panel's visibility is asked
+		# here rather than a second assignment written: with no presentation it answers `false` for exactly
+		# the reason the owner already states, and there is then nowhere a stale answer can be hiding.
+		_refresh_presentation_panel()
 		return
 
 	var heading := Label.new()
@@ -1227,17 +2817,44 @@ func _build_presentation_panel() -> void:
 	# A tenth of a degree of latitude, so the site's own latitude survives being put in
 	# the box: at half a degree the panel would silently move the garden 5 km north. Half a
 	# degree of longitude is two minutes of solar time, which is fine for a longitude.
-	_sun_hour = _spin("SunHour", 0.0, 24.0, 0.5, " h", 16.0,
-		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.")
-	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0,
-		"Day of the year. 172 is the solstice.")
-	_sun_latitude = _spin("SunLatitude", -90.0, 90.0, 0.1, "°", 45.0,
-		"Degrees north, so negative is south. The number that makes a shadow study mean anything.")
-	_sun_longitude = _spin("SunLongitude", -180.0, 180.0, 0.5, "°", -75.0,
-		"Degrees east, so negative is west. Four minutes of solar time to a degree: this is what makes a clock time the site's sky rather than the sky at Greenwich.")
+	_sun_hour = _spin(
+		"SunHour",
+		0.0,
+		24.0,
+		0.5,
+		" h",
+		16.0,
+		"Clock time at the site. The sun's own noon is up to sixteen minutes off the clock's.",
+	)
+	_sun_day = _spin("SunDay", 1.0, 366.0, 1.0, " d", 172.0, "Day of the year. 172 is the solstice.")
+	_sun_latitude = _spin(
+		"SunLatitude",
+		-90.0,
+		90.0,
+		0.1,
+		"°",
+		45.0,
+		"Degrees north, so negative is south. The number that makes a shadow study mean anything.",
+	)
+	_sun_longitude = _spin(
+		"SunLongitude",
+		-180.0,
+		180.0,
+		0.5,
+		"°",
+		-75.0,
+		"Degrees east, so negative is west. Four minutes of solar time to a degree: this is what makes a clock time the site's sky rather than the sky at Greenwich.",
+	)
 	# A quarter hour, because the world's zones are not all whole hours apart.
-	_sun_utc_offset = _spin("SunUtcOffset", -12.0, 14.0, 0.25, " h", -5.0,
-		"Hours from UTC in force at the site. Daylight saving belongs here rather than in a rule, since a rule is right in one country and wrong in the next: in summer this is an hour ahead of standard time, which is why every sunrise reads an hour later.")
+	_sun_utc_offset = _spin(
+		"SunUtcOffset",
+		-12.0,
+		14.0,
+		0.25,
+		" h",
+		-5.0,
+		"Hours from UTC in force at the site. Daylight saving belongs here rather than in a rule, since a rule is right in one country and wrong in the next: in summer this is an hour ahead of standard time, which is why every sunrise reads an hour later.",
+	)
 	_add_sun_field(sun_grid, "Hour", _sun_hour)
 	_add_sun_field(sun_grid, "Day", _sun_day)
 	_add_sun_field(sun_grid, "Latitude", _sun_latitude)
@@ -1320,8 +2937,13 @@ func _build_presentation_panel() -> void:
 ## because a helper that both made a control and parented it would have two owners for
 ## one child.
 func _spin(
-	node_name: String, low: float, high: float, step: float,
-	suffix: String, initial: float, tip: String
+	node_name: String,
+	low: float,
+	high: float,
+	step: float,
+	suffix: String,
+	initial: float,
+	tip: String,
 ) -> SpinBox:
 	var box := SpinBox.new()
 	box.name = node_name
@@ -1362,9 +2984,13 @@ func _refresh_presentation() -> void:
 	# showing a default the scene does not use, and *Apply* would then push that default
 	# back over the site's own latitude, longitude and offset.
 	var state := "%s|%d|%.2f|%.2f|%.2f|%d|%.2f" % [
-		str(presentation.is_active()), presentation.tier,
-		presentation.latitude, presentation.longitude, presentation.utc_offset_hours,
-		presentation.day_of_year, presentation.hour,
+		str(presentation.is_active()),
+		presentation.tier,
+		presentation.latitude,
+		presentation.longitude,
+		presentation.utc_offset_hours,
+		presentation.day_of_year,
+		presentation.hour,
 	]
 	if state == _presentation_state:
 		return
@@ -1443,12 +3069,8 @@ func _on_apply_sun() -> void:
 	# The site and the moment, together: the presenter turns the clock time into the
 	# site's own sky, which is where the longitude and the offset earn their place.
 	presentation.apply_sun(
-		SunStudyScript.site(
-			float(_sun_latitude.value),
-			float(_sun_longitude.value),
-			float(_sun_utc_offset.value)
-		),
-		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value))
+		SunStudyScript.site(float(_sun_latitude.value), float(_sun_longitude.value), float(_sun_utc_offset.value)),
+		SunStudyScript.moment(int(_sun_day.value), float(_sun_hour.value)),
 	)
 
 
@@ -1507,7 +3129,6 @@ func _on_still_failed(reason: String) -> void:
 	# rendering, and the walk's own sentence counts what it could not do.
 	if _sun_render_waiting:
 		_sun_still_landed(false)
-
 
 # --- the painted plan -----------------------------------------------------------------
 
@@ -1610,9 +3231,13 @@ static func painted_caption_text(report: Dictionary) -> String:
 	var pixels: Array = report.get("pixels", [0, 0])
 	var mm: Array = report.get("mm", [0.0, 0.0])
 	return "Painted plan   %.0f x %.0f mm at 1:%s   %d x %d px   %d washed areas, %d planted" % [
-		float(mm[0]), float(mm[1]), String.num(float(report.get("plot_scale", 100.0)), 4),
-		int(pixels[0]), int(pixels[1]),
-		int(report.get("regions", 0)), int(report.get("props", 0)),
+		float(mm[0]),
+		float(mm[1]),
+		String.num(float(report.get("plot_scale", 100.0)), 4),
+		int(pixels[0]),
+		int(pixels[1]),
+		int(report.get("regions", 0)),
+		int(report.get("props", 0)),
 	]
 
 
@@ -1635,15 +3260,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Ctrl+S behind an open Save dialog would open another one.
 	if not _file_dialog_open():
 		if event.is_action_pressed(&"file_new"):
-			_menu_new_drawing({})
+			_menu_new_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"file_open"):
-			_menu_open_drawing({})
+			_menu_open_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"file_save"):
-			_menu_save_drawing({})
+			_menu_save_drawing({ })
 			get_viewport().set_input_as_handled()
 			return
 		# The palette, on the same footing as the file commands and behind the same guard: it is a
@@ -1662,27 +3287,34 @@ func _unhandled_input(event: InputEvent) -> void:
 				open_plant_browser()
 			get_viewport().set_input_as_handled()
 			return
+		# The manual, about the page in front of you, on the same footing: the question "what is this page
+		# asking me" is asked *while looking at the page*, so the answer is one key away rather than a
+		# search away in a list of thirty-two headings.
+		if event.is_action_pressed(&"page_help"):
+			open_page_help()
+			get_viewport().set_input_as_handled()
+			return
 		# The commands that had no key: the nursery order, the sun and the shadows, and the ground's
 		# three tools. Each one runs the menu entry that advertises it, so the key, the menu line and
 		# the page's own button are one act rather than three.
 		if event.is_action_pressed(&"plant_order"):
-			_menu_plant_order_window({})
+			_menu_plant_order_window({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"present_sun_study"):
-			_menu_sun_window({})
+			_menu_sun_window({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_spot"):
-			_menu_grade_spot({})
+			_menu_grade_spot({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_contour"):
-			_menu_grade_contour({})
+			_menu_grade_contour({ })
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"grade_slope"):
-			_menu_grade_slope({})
+			_menu_grade_slope({ })
 			get_viewport().set_input_as_handled()
 			return
 	if painted_plan == null:
@@ -1740,6 +3372,8 @@ func pages_in_windows() -> Array[Window]:
 		_plant_window,
 		_command_palette,
 		_ground_window,
+		_nearby_window,
+		_layer_window,
 		_sheet_window,
 		_revision_window,
 		_osm_window,
@@ -1750,9 +3384,13 @@ func pages_in_windows() -> Array[Window]:
 		_rotation_window,
 		_harvest_window,
 		_season_window,
+		_capture_window,
+		_plant_key_window,
 		_sowing_window,
 		_yield_window,
 		_sun_window,
+		_walk_window,
+		_snap_window,
 		_status_window,
 		_estimate_window,
 		_pipeline_board,
@@ -1760,6 +3398,7 @@ func pages_in_windows() -> Array[Window]:
 		_cost_window,
 		_billing_window,
 		_ledger_window,
+		_sync_window,
 		_closeout_window,
 		_analytics_window,
 	]
@@ -1772,10 +3411,16 @@ func pages_in_windows() -> Array[Window]:
 ## `tools/page_escape_demo.gd`, where a real Escape reached a node put inside the page and reached a
 ## node beside this HUD not at all. So the key has to be answered from inside each page, and the only
 ## thing that can be put there is a node - one per page, made once, whether or not the page is up.
+##
+## The doorway's pages are walked here beside the rest, and for the same reason: a door is a page in a
+## `Window`, and a door left standing after Escape is a page the key cannot put away. That was the state
+## of the front door - measured on the desk, a real Escape on a launch with the door up left it standing,
+## because the only list it was not on was this one. The three doorway pages are built when they are first
+## opened rather than at launch, so each `_build_*` door calls this again once its page exists; `attach` is
+## idempotent, so the later pass over a page adds nothing to it.
 func _let_escape_close_pages() -> void:
-	for page: Window in pages_in_windows():
+	for page: Window in _pages_that_can_be_up():
 		PageEscapeScript.attach(page)
-
 
 # --- the menu bar ---------------------------------------------------------------------
 #
@@ -1785,579 +3430,125 @@ func _let_escape_close_pages() -> void:
 # Every entry does something, and the ones that stand for a key say which key. The keys come from
 # the input map rather than from a table here, so a rebinding moves the menu with the legend.
 
-
-## What an entry needs from the scene before it means anything. `NEEDS_NOTHING` is the common
-## case: the command works in any scene this HUD is in.
-const NEEDS_NOTHING := &""
-const NEEDS_DRAFT := &"draft"
-const NEEDS_PRESENTATION := &"presentation"
-const NEEDS_PRESENCE := &"presence"
-const KNOWN_NEEDS: Array[StringName] = [NEEDS_NOTHING, NEEDS_DRAFT, NEEDS_PRESENTATION, NEEDS_PRESENCE]
+const MenuBarPlanScript := preload("res://scripts/menu_bar_plan.gd")
 
 
-## One entry that runs a command.
-static func _command(
-	id: String, label: String, action: StringName, method: StringName,
-	needs: StringName = NEEDS_NOTHING, enabled_when: StringName = &""
-) -> Dictionary:
-	return {
-		"kind": &"command", "id": id, "label": label, "action": action,
-		"method": method, "needs": needs, "enabled_when": enabled_when, "value": null,
-	}
+## The doors onto the bar's own table, which lives in `menu_bar_plan.gd`: what the bar is made
+## of is one thing, and it is written once. These hand back the table's own answers rather than a
+## second copy of them, so a menu exists in exactly one place and nothing outside this file has had
+## to move. What stays here is how the bar is measured, how each entry is drawn, and which entry is
+## on in the scene this HUD is in.
+const NEEDS_NOTHING := MenuBarPlanScript.NEEDS_NOTHING
+const NEEDS_DRAFT := MenuBarPlanScript.NEEDS_DRAFT
+const NEEDS_PRESENTATION := MenuBarPlanScript.NEEDS_PRESENTATION
+const NEEDS_PRESENCE := MenuBarPlanScript.NEEDS_PRESENCE
+const NEEDS_CAN_TURN := MenuBarPlanScript.NEEDS_CAN_TURN
+const NEEDS_A_FINGER := MenuBarPlanScript.NEEDS_A_FINGER
+const KNOWN_NEEDS: Array[StringName] = MenuBarPlanScript.KNOWN_NEEDS
 
 
-## One entry of a set: choosing it chooses that value, and exactly one of the set is shown as on.
-## `state` names what it is checked against, and `value` is the value it stands for.
-static func _radio(
-	id: String, label: String, action: StringName, method: StringName,
-	state: StringName, value: Variant, needs: StringName = NEEDS_NOTHING
-) -> Dictionary:
-	return {
-		"kind": &"radio", "id": id, "label": label, "action": action, "method": method,
-		"state": state, "value": value, "needs": needs,
-	}
-
-
-## One entry that is on or off, and means the state it names. It carries a null value so that
-## every checkable entry has the same shape, and a reader of the plan does not have to know which
-## kind it is before asking what it stands for.
-static func _check(
-	id: String, label: String, action: StringName, method: StringName, state: StringName
-) -> Dictionary:
-	return {
-		"kind": &"check", "id": id, "label": label, "action": action, "method": method,
-		"state": state, "value": null, "needs": NEEDS_NOTHING,
-	}
-
-
-## A menu inside a menu, for the sets that would otherwise be ten entries long.
-static func _submenu(id: String, label: String, items: Array[Dictionary]) -> Dictionary:
-	return {"kind": &"submenu", "id": id, "label": label, "items": items, "action": &"", "needs": NEEDS_NOTHING}
-
-
-static func _separator() -> Dictionary:
-	return {"kind": &"separator", "id": "", "action": &"", "needs": NEEDS_NOTHING}
-
-
-## A line that says something rather than doing something: shown switched off, because a menu
-## entry that looks pressable and is not is the thing this whole file is trying not to build.
-static func _info(id: String, label: String) -> Dictionary:
-	return {
-		"kind": &"info", "id": id, "label": label, "action": &"", "needs": NEEDS_NOTHING,
-		"value": null,
-	}
-
-
-## The whole bar, menu by menu.
 static func menu_plan() -> Array[Dictionary]:
-	var menus: Array[Dictionary] = []
-	menus.append({"title": "File", "items": file_items()})
-	menus.append({"title": "Edit", "items": edit_items()})
-	menus.append({"title": "View", "items": view_items()})
-	menus.append({"title": "Draft", "items": draft_items()})
-	menus.append({"title": "Site", "items": site_items()})
-	menus.append({"title": "Plant", "items": plant_items()})
-	menus.append({"title": "Water", "items": water_items()})
-	menus.append({"title": "Light", "items": light_items()})
-	menus.append({"title": "Pipeline", "items": pipeline_items()})
-	menus.append({"title": "Jobs", "items": jobs_items()})
-	menus.append({"title": "Estimate", "items": estimate_items()})
-	menus.append({"title": "Present", "items": present_items()})
-	menus.append({"title": "Team", "items": team_items()})
-	menus.append({"title": "Help", "items": help_items()})
-	return menus
+	return MenuBarPlanScript.menu_plan()
 
 
-## Everything the drawing can be sent to: the sheet it is plotted on, the picture of it at the
-## chosen size, and how the sheet itself is set up.
 static func file_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	# The drawing is named at the top of the menu, where a person looks to find out what is open.
-	# A menu is also the last place something silent should live, so whether the screen and the
-	# file agree is stated rather than implied by a greyed-out Save.
-	items.append(_info(&"file.info", "no drawing"))
-	items.append(_separator())
-	items.append(_command(&"file.new", "New drawing", &"file_new", &"_menu_new_drawing", NEEDS_DRAFT))
-	items.append(_command(&"file.open", "Open drawing...", &"file_open", &"_menu_open_drawing", NEEDS_DRAFT))
-	items.append(_submenu(&"file.recent", "Open recent", []))
-	# A way of getting a drawing, so it stands with New and Open rather than with Save. It is *shown*
-	# switched off in the ordinary case rather than hidden, for the same reason the bar greys out what
-	# the scene cannot do: an entry that comes and goes cannot teach anybody that it exists.
-	items.append(_command(
-		&"file.recover", "Recover unsaved work...", &"", &"_menu_recover_unsaved", NEEDS_DRAFT, &"recovery"
-	))
-	items.append(_command(&"file.survey", "Import a survey...", &"", &"_menu_import_survey", NEEDS_DRAFT))
-	items.append(_command(&"file.dxf", "Import a DXF underlay...", &"", &"_menu_import_dxf", NEEDS_DRAFT))
-	items.append(_command(&"file.osm", "Import a site map (OpenStreetMap)...", &"", &"_menu_import_osm", NEEDS_DRAFT))
-	items.append(_command(&"file.landxml", "Import a LandXML plat...", &"", &"_menu_import_landxml", NEEDS_DRAFT))
-	# The fourth import, and the only one that is not a file of linework: a raster picture, which is
-	# kept beside the drawing and laid under everything rather than read into entities.
-	items.append(_command(
-		&"file.picture", "Put a picture under the drawing...", &"", &"_menu_import_picture", NEEDS_DRAFT
-	))
-	# And the way out. It stands with the imports rather than beside Save, because what it produces is
-	# an interchange file for somebody else's program and not this drawing's own saved form.
-	items.append(_command(
-		&"file.dxf_out", "Save the drawing as a DXF...", &"", &"_menu_save_dxf", NEEDS_DRAFT
-	))
-	# And the other way out, and the one that leaves the drawing behind: a DXF is the design in two
-	# dimensions for another drafting program, and a model is the garden in three for a person who
-	# wants to build from it or light it. It needs nothing of the drawing to exist - the yard stands
-	# whatever is on the plan - but it stands *next to* the DXF, because they are the same act.
-	items.append(_command(
-		&"file.model_out", "Save the yard as a 3D model...", &"", &"_menu_save_model"
-	))
-	items.append(_separator())
-	items.append(_command(
-		&"file.save", "Save", &"file_save", &"_menu_save_drawing", NEEDS_DRAFT, &"dirty"
-	))
-	items.append(_command(&"file.save_as", "Save as...", &"", &"_menu_save_drawing_as", NEEDS_DRAFT))
-	items.append(_separator())
-	items.append(_command(&"file.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot", NEEDS_DRAFT))
-	items.append(_command(&"file.still", "Render a proposal still", &"", &"_menu_render_still", NEEDS_PRESENTATION))
-	items.append(_separator())
-	# The set stands above the two submenus that set the *current* sheet, because that is the order the
-	# subject goes in: the set is what the drawing goes out as, and the size and the scale are what this
-	# sheet of it is drawn on.
-	items.append(_command(&"file.sheet_setup", "Sheet setup...", &"", &"_menu_sheet_setup", NEEDS_DRAFT))
-	items.append(_submenu(&"file.sheet", "Sheet size", sheet_items()))
-	items.append(_submenu(&"file.scale", "Plot scale", scale_items()))
-	items.append(_separator())
-	items.append(_command(&"file.quit", "Quit", &"", &"_menu_quit"))
-	return items
+	return MenuBarPlanScript.file_items()
 
 
-## Every sheet the plotter knows, from the table that measures them.
 static func sheet_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	# Not `name`: this is a CanvasLayer, and `name` is the node's own.
-	for sheet_name in PlotScaleScript.sheet_names():
-		items.append(_radio(
-			"file.sheet." + String(sheet_name), String(sheet_name), &"", &"_menu_set_sheet",
-			&"sheet", sheet_name, NEEDS_DRAFT
-		))
-	return items
+	return MenuBarPlanScript.sheet_items()
 
 
-## Every scale on the metric ladder. Ten entries, which is why they are behind a submenu: a menu
-## that is a list of numbers reads as a table rather than as commands.
 static func scale_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	# Not `scale`: this is a CanvasLayer, and `scale` is a property of it.
-	for ratio: float in PlotScaleScript.METRIC_LADDER:
-		items.append(_radio(
-			"file.scale.%d" % int(ratio), PlotScaleScript.metric_label(ratio), &"",
-			&"_menu_set_scale", &"scale", ratio, NEEDS_DRAFT
-		))
-	return items
+	return MenuBarPlanScript.scale_items()
 
 
-## What can be done to the drawing: its history, the shape in hand, and how it is measured.
 static func edit_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_command(&"edit.undo", "Undo", &"draft_undo", &"_menu_undo"))
-	items.append(_command(&"edit.redo", "Redo", &"draft_redo", &"_menu_redo"))
-	items.append(_separator())
-	items.append(_command(&"edit.drop_point", "Drop the last point", &"draft_undo_point", &"_menu_drop_point"))
-	items.append(_command(&"edit.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
-	# Simplify takes no key: it is a whole-drawing pass run once in a while, not something a hand
-	# reaches for mid-stroke, and a stray keypress that rewrote every shape would be the worst
-	# kind of surprise.
-	items.append(_command(&"edit.simplify", "Simplify...", &"", &"_menu_simplify"))
-	items.append(_separator())
-	items.append(_submenu(&"edit.dimension_style", "Dimension standard", dimension_style_items()))
-	items.append(_separator())
-	for pair: Array in EDIT_TOOLS:
-		items.append(_radio(
-			"edit.tool." + String(pair[0]), edit_tool_label(pair), pair[0],
-			&"_menu_arm_edit", &"edit", pair[2]
-		))
-	# Selecting is not editing: it is how a person says *which* shapes before saying
-	# what to do with them, and the two modes are the whole of it. They get no key
-	# because the select tool has none - it is the one tool with no palette button,
-	# since a band needs no settling in the hand.
-	items.append(_separator())
-	items.append(_radio(
-		&"edit.select_window", "Window selection", &"", &"_menu_select_mode",
-		&"select_mode", SelectScript.MODE_WINDOW
-	))
-	items.append(_radio(
-		&"edit.select_crossing", "Crossing selection", &"", &"_menu_select_mode",
-		&"select_mode", SelectScript.MODE_CROSSING
-	))
-	# The history goes at the foot of Edit, under the selection bands and away from the commands: it is
-	# not an edit, it is what the drawing was when it was sent, and a person looks for it when they are
-	# thinking about the job rather than about the shape under the cursor. It takes no key, as the bands
-	# take none: a history is opened to be read, and a stray keypress on the drawing must not open a
-	# window that takes the keyboard.
-	items.append(_separator())
-	items.append(_command(&"edit.revisions", "Revisions...", &"", &"_menu_revisions"))
-	# And under that, what the drawing has *said*: the status line under the plan writes over itself, and
-	# this is the same answers kept. No key, for the same reason the history takes none - it is opened to
-	# be read, and it is the drawing's keys that must not be stolen by a stray press.
-	items.append(_command(&"edit.said", "What just happened...", &"", &"_menu_said"))
-	return items
+	return MenuBarPlanScript.edit_items()
 
 
-## What one editing command is called in the menu: the one word the status line and
-## the palette use, capitalised.
-static func edit_tool_label(pair: Array) -> String:
-	var words := String(pair[1])
-	return words.substr(0, 1).to_upper() + words.substr(1)
-
-
-## The dimension standards the controller offers, from its own table.
 static func dimension_style_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	for style: StringName in DraftControllerScript.DIMENSION_STYLES:
-		var words := String(style)
-		items.append(_radio(
-			"edit.dimension_style." + words, words.substr(0, 1).to_upper() + words.substr(1),
-			&"draft_dimension_style", &"_menu_set_dimension_style", &"dimension_style", style
-		))
-	return items
+	return MenuBarPlanScript.dimension_style_items()
 
 
-## Where you can be and what you can look at.
-##
-## The three views are a set rather than a toggle: the key swaps two of them because that is what
-## one key can do, and a menu lists all three because that is what a menu is for.
 static func view_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_radio(
-		&"view.plan", "2D plan", &"toggle_view", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.PLAN_2D
-	))
-	items.append(_radio(
-		&"view.overhead", "3D overhead", &"toggle_view", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.OVERHEAD_3D
-	))
-	items.append(_radio(
-		&"view.ground", "Ground view", &"toggle_ground", &"_menu_show_mode",
-		&"mode", ViewController.ViewMode.GROUND
-	))
-	items.append(_separator())
-	items.append(_command(&"view.fit", "Fit the design to the screen", &"fit_view", &"_menu_fit"))
-	items.append(_separator())
-	items.append(_command(&"view.painted", "Painted plan", &"vis_painted", &"_menu_painted"))
-	items.append(_check(&"view.hints", "Control hints", &"", &"_menu_toggle_hints", &"hints"))
-	return items
+	return MenuBarPlanScript.view_items()
 
 
-## The drawing tools, and what is done with the shape in hand.
-##
-## The tools come from `DRAFTING_TOOLS` - the same table the legend and the palette are built
-## from - so a tool cannot be in the legend and missing from the menu, or in the menu and
-## pointing at a different tool from the one the key arms.
+static func orientation_items() -> Array[Dictionary]:
+	return MenuBarPlanScript.orientation_items()
+
+
+static func reading_size_items() -> Array[Dictionary]:
+	return MenuBarPlanScript.reading_size_items()
+
+
 static func draft_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_check(&"draft.armed", "Drawing tools", &"draft_mode", &"_menu_toggle_drawing", &"drawing"))
-	items.append(_separator())
-	for pair: Array in DRAFTING_TOOLS:
-		items.append(_radio(
-			"draft.tool." + String(pair[0]), tool_label(pair), pair[0], &"_menu_arm_tool",
-			&"tool", pair[2]
-		))
-	items.append(_separator())
-	items.append(_command(&"draft.finish", "Finish the shape", &"draft_finish", &"_menu_finish"))
-	items.append(_command(&"draft.close", "Close the shape", &"draft_close", &"_menu_close_shape"))
-	items.append(_command(&"draft.drop_point", "Drop the last point", &"draft_undo_point", &"_menu_drop_point"))
-	items.append(_command(&"draft.cancel", "Cancel the shape", &"draft_cancel", &"_menu_cancel_shape"))
-	items.append(_separator())
-	items.append(_command(&"draft.plot", "Plot a sheet...", &"draft_plot", &"_menu_plot"))
-	items.append(_command(
-		&"draft.style", "Next dimension standard", &"draft_dimension_style", &"_menu_cycle_dimension_style"
-	))
-	items.append(_separator())
-	items.append(_command(&"draft.hatch", "Hatch a region...", &"", &"_menu_hatch_region"))
-	return items
+	return MenuBarPlanScript.draft_items()
 
 
-## A tool as one line of a menu: the word the palette uses, on one line rather than two, because a
-## menu row has the key beside the name rather than under it.
-static func tool_label(pair: Array) -> String:
-	var words := String(pair[1])
-	return words.substr(0, 1).to_upper() + words.substr(1)
-
-
-## The client presentation: what it is rendered at, how the garden is framed, and the sun.
 static func present_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_check(&"present.running", "Client presentation", &"", &"_menu_toggle_presentation", &"presenting"))
-	items.append(_separator())
-	items.append(_submenu(&"present.quality", "Quality", tier_items()))
-	items.append(_command(&"present.frame", "Frame the garden", &"", &"_menu_frame_yard"))
-	items.append(_separator())
-	items.append(_submenu(&"present.still_size", "Still size", still_size_items()))
-	items.append(_command(&"present.still", "Render a still", &"", &"_menu_render_still"))
-	items.append(_command(
-		&"present.sun_study", "Sun and shadow study...", &"present_sun_study", &"_menu_sun_window", NEEDS_PRESENTATION
-	))
-	items.append(_separator())
-	items.append(_info(&"present.sun_info", "the sun"))
-	items.append(_separator())
-	items.append(_command(&"present.save_site", "Save the site to the drawing", &"", &"_menu_save_site"))
-	return items
+	return MenuBarPlanScript.present_items()
 
 
-## The rendering budgets, from the table that acts on them.
 static func tier_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	for tier: int in TierScript.CHOICES:
-		items.append(_radio(
-			"present.quality.%d" % tier, TierScript.name_of(tier), &"", &"_menu_set_tier",
-			&"tier", tier
-		))
-	return items
+	return MenuBarPlanScript.tier_items()
 
 
-## The sizes a proposal still can be, from the table the render button is built from.
 static func still_size_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	for index in STILL_SIZES.size():
-		items.append(_radio(
-			"present.still_size.%d" % index, String(STILL_SIZES[index][0]), &"",
-			&"_menu_set_still_size", &"still_size", index
-		))
-	return items
+	return MenuBarPlanScript.still_size_items()
 
 
-## What the ground is like here: the facts about the place rather than the things drawn on it.
-##
-## This menu is where the green and red rings around a plant being placed come from. The ring is the
-## answer; these entries are the question - the site's light, moisture, soil and hardiness - plus the
-## report on the planting that is already in the ground.
-##
-## Half of it is a set of radios rather than a dialog, because that is what these are: four facts with
-## a handful of values each, stated once for the site. A dialog would be a window with a dropdown in
-## it to choose between "full sun" and "part shade", and a window is the one thing this HUD may not
-## open casually. Each set starts with "not stated", because the truth about a plan nobody has
-## described is that nobody has described it, and the way back to that has to exist.
 static func site_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"site.ground", "the plan does not say what the ground is like"))
-	items.append(_separator())
-	items.append(_command(&"site.window", "What the ground is like...", &"", &"_menu_ground_window"))
-	items.append(_command(&"site.zone", "Draw a ground zone...", &"", &"_menu_draw_ground_zone"))
-	items.append(_command(&"site.read", "Read the ground from the drawing", &"", &"_menu_read_ground"))
-	# The growing season: two frost dates that no drawing can supply, stated once for the site and kept
-	# with it. Every food crop's "days to maturity" is measured against the season they bound, so this
-	# is the one site fact the kitchen garden rests on.
-	items.append(_info(&"site.season", "the growing season is not stated"))
-	items.append(_command(
-		&"site.season.window", "How long the season is...", &"", &"_menu_season_window", NEEDS_DRAFT
-	))
-	items.append(_separator())
-	# The ground's own heights. Apart from the conditions above, because a level is a fact about the
-	# shape of the land while a condition is a fact about what will grow on it - and a plan can be
-	# levelled without anybody having said what the soil is like.
-	items.append(_info(&"site.grading", "nothing on this drawing is graded"))
-	items.append(_command(
-		&"site.grade", "The ground's heights: levels, contours, slopes...", &"", &"_menu_grading_window",
-		NEEDS_DRAFT
-	))
-	# The three tools the page above holds, on their own lines: each is one key away and each is the
-	# same act as the button of that name on the page, so a level can be stamped without opening a page
-	# and then choosing a tool in it. The keys - Z, B and M - are the three free ones that read as a
-	# group, and `_unhandled_input` runs exactly these methods.
-	items.append(_command(
-		&"site.grade.spot", "Spot level here", &"grade_spot", &"_menu_grade_spot", NEEDS_DRAFT
-	))
-	items.append(_command(
-		&"site.grade.contour", "Draw a contour", &"grade_contour", &"_menu_grade_contour", NEEDS_DRAFT
-	))
-	items.append(_command(
-		&"site.grade.slope", "Draw a slope arrow", &"grade_slope", &"_menu_grade_slope", NEEDS_DRAFT
-	))
-	items.append(_command(&"site.grade.check", "Check the grading", &"", &"_menu_check_grading", NEEDS_DRAFT))
-	items.append(_separator())
-	items.append(_command(&"site.check", "Check the planting", &"", &"_menu_check_planting"))
-	items.append(_separator())
-	items.append(_command(&"site.report", "Site statistics", &"", &"_menu_site_report"))
-	return items
+	return MenuBarPlanScript.site_items()
 
 
-## The sales pipeline: the leads, and the board they move across.
-##
-## A lead is not a drawing, so this menu is here whatever scene is open - it reaches a board of cards
-## rather than anything on the plan. The line at the top is the open pipeline's own words, and the one
-## entry opens the board.
 static func pipeline_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"pipeline.info", "no open leads"))
-	items.append(_separator())
-	items.append(_command(&"pipeline.board", "Open the pipeline board...", &"", &"_menu_pipeline_board"))
-	return items
+	return MenuBarPlanScript.pipeline_items()
 
 
-## The jobs and the crews: who works when, what clashes, and what it has cost.
-##
-## Like the pipeline this is business data rather than drawing data, so the menu is here whatever
-## scene is open. The line at the top is the desk's own words - including a count of the clashes and
-## what the orders have committed, because a board with something wrong on it should say so without
-## being opened. The two entries are the two questions about a job: when is it being built, and what
-## has it cost.
 static func jobs_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"jobs.info", "no crews and no jobs yet"))
-	items.append(_separator())
-	items.append(_command(&"jobs.board", "Open the schedule board...", &"", &"_menu_schedule_board"))
-	items.append(_command(&"jobs.cost", "What the job has cost...", &"", &"_menu_cost_window"))
-	items.append(_command(&"jobs.billing", "What has been billed...", &"", &"_menu_billing_window"))
-	items.append(_command(&"jobs.outbox", "What has been handed to a ledger...", &"", &"_menu_ledger_window"))
-	items.append(_command(&"jobs.analytics", "The figures: what the business is doing...", &"", &"_menu_analytics_window"))
-	# Finishing the job: the punch list walked at the end, the day the garden was handed over, and the
-	# warranty that runs from it. Business data like the rest of this menu, so it needs no drawing.
-	items.append(_command(&"jobs.closeout", "Finishing the job...", &"", &"_menu_closeout_window"))
-	return items
+	return MenuBarPlanScript.jobs_items()
 
 
-## The takeoff and the estimate: what the plan measures, and what that costs.
-##
-## The four business engines were built and tested before anything could reach them, so this menu is
-## the reach. The line at the top says where the job stands, and the entries are the two things that
-## are true whenever a drawing is open: measure it, and check the arithmetic. Everything else about a
-## proposal - the prices, the tax, who it goes to - is in the window, because a proposal is a document
-## and a menu is a list of commands.
 static func estimate_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"estimate.info", "nothing has been taken off the plan yet"))
-	items.append(_separator())
-	items.append(_command(
-		&"estimate.window", "Takeoff and estimate...", &"", &"_menu_estimate_window", NEEDS_DRAFT
-	))
-	items.append(_command(&"estimate.take_off", "Take off the plan", &"", &"_menu_take_off", NEEDS_DRAFT))
-	items.append(_command(&"estimate.check", "Check the numbers", &"", &"_menu_check_numbers", NEEDS_DRAFT))
-	return items
+	return MenuBarPlanScript.estimate_items()
 
 
-## The plant list, and the one thing a plant list is for.
-##
-## Every entry here reaches the catalogue rather than the scene, so this is the same menu in a scene
-## with no yard: a plant list is data, and where a plant goes is the plan's business. None of them
-## advertises a key, because none of them is done often enough to deserve one.
 static func plant_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"plant.info", "no plant list"))
-	items.append(_separator())
-	items.append(_command(&"plant.library", "Plant library...", &"plant_library", &"_menu_plant_library"))
-	items.append(_command(&"plant.place", "Place the chosen plant", &"", &"_menu_plant_place"))
-	items.append(_command(&"plant.stop", "Stop planting", &"", &"_menu_stop_planting"))
-	items.append(_separator())
-	items.append(_command(&"plant.label", "Label the planting", &"", &"_menu_label_plants"))
-	# The nursery order: the one thing a planting list is for besides being read. It needs the drawing
-	# because the plants are in the yard, which is a fact about the plan and not about the list.
-	items.append(_command(&"plant.order", "Order the plants for this drawing...", &"plant_order",
-		&"_menu_plant_order_window", NEEDS_DRAFT))
-	# The food garden: the same drawing and the same list, asked the other question a garden is for -
-	# where the food will actually crop. It needs the drawing because a bed's light is stated on the
-	# plan, and a crop's hours are checked against the bed rather than against the list.
-	items.append(_command(&"plant.food", "What will crop here...", &"", &"_menu_food_window",
-		NEEDS_DRAFT))
-	# What to grow here next: the kitchen gardener's other question - what should follow what, and what
-	# grows well together. It needs the drawing for the bed names, and states the bed's history itself,
-	# because no drawing was ever told what grew there last season.
-	items.append(_command(&"plant.rotation", "What to grow here next...", &"",
-		&"_menu_rotation_window", NEEDS_DRAFT))
-	# What is ready when: the same plant list read as a calendar - pick a month and see every crop
-	# recorded as ready then. It needs nothing but the list, so it needs no drawing; the entry sits here
-	# among its food neighbours rather than in a menu of its own.
-	items.append(_command(&"plant.harvest", "What's ready when...", &"",
-		&"_menu_harvest_window", NEEDS_NOTHING))
-	# When to sow: the season read as a sowing calendar - a day to sow on and how long a crop can be kept
-	# coming. It needs the drawing because the season lives there, and the list because a crop's days to
-	# maturity do; what it does not do is write either.
-	items.append(_command(&"plant.sow", "When to sow...", &"", &"_menu_sowing_window", NEEDS_DRAFT))
-	# How much to plant: the same list asked a household's question - how many plants it takes to feed a
-	# given number of people. It needs nothing but the list, so it needs no drawing, and the entry sits
-	# here among its food neighbours rather than in a menu of its own.
-	items.append(_command(&"plant.yield", "How much to plant...", &"", &"_menu_yield_window",
-		NEEDS_NOTHING))
-	items.append(_separator())
-	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
-	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))
-	return items
+	return MenuBarPlanScript.plant_items()
 
 
-## What the drawing is watered by: the supply, the zones, and the page that lays a new one out. A
-## menu of its own rather than a corner of Site, because irrigation is a subsystem with its own
-## vocabulary - a valve, a zone, a head - and burying it under the ground would put a pump among the
-## soil types.
 static func water_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"water.info", "nothing on this drawing is watered yet"))
-	items.append(_separator())
-	items.append(_command(&"water.panel", "Water an area...", &"", &"_menu_water_panel", NEEDS_DRAFT))
-	return items
+	return MenuBarPlanScript.water_items()
 
 
-## What the drawing is lit by: the transformer, the circuits, and the page that lays a new one out. A
-## menu of its own beside Water, because lighting is the sibling subsystem - a transformer, a circuit,
-## a fixture - and its vocabulary is as different from water's as water's is from the soil's.
 static func light_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"light.info", "nothing on this drawing is lit yet"))
-	items.append(_separator())
-	items.append(_command(&"light.panel", "Light an area...", &"", &"_menu_light_panel", NEEDS_DRAFT))
-	return items
+	return MenuBarPlanScript.light_items()
 
 
-## The two ways of answering "how do I do this here": the manual, in prose, and the palette, which is
-## the commands themselves. They belong together for that reason, and Help is the one menu that is
-## there in every scene, which is what a command palette has to be.
-##
-## The key reference is the third thing the menu can offer that the on-screen hints cannot, because
-## the hints are three lines in three corners.
 static func help_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_command(
-		&"help.palette", "Command palette...", &"command_palette", &"_menu_command_palette"
-	))
-	items.append(_command(&"help.manual", "Landscaping Planner help...", &"", &"_menu_help"))
-	items.append(_check(&"help.keys", "Drawing keys", &"", &"_menu_keys", &"keys_panel"))
-	return items
+	return MenuBarPlanScript.help_items()
 
 
-## The shared session. Sharing is started on purpose and the line says who is in the room, so a
-## designer can see who is around without turning anything on - and nothing is opened, or billed,
-## until Share is chosen.
 static func team_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	items.append(_info(&"team.info", "no session"))
-	items.append(_command(
-		&"team.start", "Share this drawing...", &"", &"_menu_start_session", NEEDS_PRESENCE
-	))
-	items.append(_command(
-		&"team.leave", "Leave the session", &"", &"_menu_leave_session", NEEDS_PRESENCE, &"session_on"
-	))
-	return items
+	return MenuBarPlanScript.team_items()
 
 
-## Every entry in the bar, flattened, each with the menu it sits under. What a test reads.
-static func menu_entries() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	for menu: Dictionary in menu_plan():
-		_collect_entries(String(menu["title"]), menu["items"], out)
-	return out
-
-
-static func _collect_entries(path: String, items: Array, out: Array[Dictionary]) -> void:
-	for item: Dictionary in items:
-		var entry: Dictionary = item
-		entry["menu"] = path
-		out.append(entry)
-		if StringName(entry.get("kind", &"")) == &"submenu":
-			_collect_entries(path + " > " + String(entry["label"]), entry["items"], out)
-
-
-## The entries of one menu, for a test that wants to talk about the Draft menu.
 static func items_for(title: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	for menu: Dictionary in menu_plan():
-		if String(menu["title"]) == title:
-			var items: Array[Dictionary] = menu["items"]
-			out = items
-	return out
+	return MenuBarPlanScript.items_for(title)
+
+
+static func menu_entries() -> Array[Dictionary]:
+	return MenuBarPlanScript.menu_entries()
+
+
+static func tool_label(pair: Array) -> String:
+	return MenuBarPlanScript.tool_label(pair)
+
+
+static func edit_tool_label(pair: Array) -> String:
+	return MenuBarPlanScript.edit_tool_label(pair)
 
 
 ## What an entry says: its label, and the key that does the same thing when there is one.
@@ -2386,7 +3577,7 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			# palette follows: a menu highlighting a tool while the tools are put away would be
 			# describing a mode that is not on. An editing command in hand is not a drawing tool.
 			return bool(world.get("drawing", false)) and int(world.get("edit", 0)) == 0 \
-				and int(world.get("tool", -1)) == int(value)
+					and int(world.get("tool", -1)) == int(value)
 		&"edit":
 			# Likewise, an editing command is only shown as in hand while the tools are out and
 			# nothing else is drawing.
@@ -2398,8 +3589,8 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			# a drawing tool is only shown as chosen while the tools are out: a menu claiming a
 			# band is in hand when nothing is would be describing a mode that is not on.
 			return bool(world.get("drawing", false)) \
-				and int(world.get("tool", -1)) == int(DraftToolScript.Kind.SELECT) \
-				and StringName(world.get("select_mode", &"")) == StringName(value)
+					and int(world.get("tool", -1)) == int(DraftToolScript.Kind.SELECT) \
+					and StringName(world.get("select_mode", &"")) == StringName(value)
 		&"sheet":
 			return String(world.get("sheet", "")) == String(value)
 		&"scale":
@@ -2412,8 +3603,17 @@ static func is_checked(state: StringName, value: Variant, world: Dictionary) -> 
 			return int(world.get("still_size", -1)) == int(value)
 		&"keys_panel":
 			return bool(world.get("keys_panel", false))
+		&"presentation_panel":
+			# On unless it has been put away: the panel is on whenever the scene has a director.
+			return bool(world.get("presentation_panel", true))
 		&"hints":
 			return bool(world.get("hints", true))
+		&"site":
+			return bool(world.get("site", false))
+		&"orientation":
+			return StringName(world.get("orientation", &"")) == StringName(value)
+		&"reading_size":
+			return StringName(world.get("reading_size", &"")) == StringName(value)
 	return false
 
 
@@ -2433,7 +3633,17 @@ func menu_world() -> Dictionary:
 		"tier": int(presentation.tier) if presentation != null else -1,
 		"still_size": int(_still_size_option.selected) if _still_size_option != null else -1,
 		"keys_panel": is_keys_open(),
+		"presentation_panel": _presentation_panel_wanted,
 		"hints": _show_hints,
+		# Whether the garden the program ships with is standing under the drawing - the tick beside "Show
+		# the site". On the signature because the whole bar is rebuilt when it changes, so showing the
+		# site moves the tick without the menu knowing the site exists.
+		"site": view_controller != null and view_controller.is_site_shown(),
+		# The board's own kept answer, which the tick beside each orientation choice reads - and on the
+		# signature because it changes the moment a choice is made.
+		"orientation": _orientation,
+		# The reader's own word size, which the tick beside each of the three reading sizes reads.
+		"reading_size": _reading_size,
 		# What the File menu reports on: which drawing is open, whether it has been saved, and
 		# what was open before. The recent list is in here so that the signature notices when it
 		# changes - the one thing about the bar that is entries rather than ticks.
@@ -2560,6 +3770,12 @@ func _light_budget_text() -> String:
 	return "transformer: %s" % LightingScript.transformer_words(transformer)
 
 
+## The name the folded menus are gathered under.
+const MORE_TITLE := "More"
+## How many menus have to be folded away before folding is worth doing at all. A fold that leaves one or
+## two behind the More menu saves a few pixels and costs a person the hunt for a menu they knew the place
+## of, so the bar stays tight instead.
+const MIN_FOLDED_MENUS := 3
 
 
 ## Build the menus from the plan.
@@ -2572,14 +3788,279 @@ func _build_menu_bar() -> void:
 		return
 	# A menu bar holds the keyboard like any other Control, and the keys belong to the drawing.
 	menu_bar.focus_mode = Control.FOCUS_NONE
-	for menu: Dictionary in menu_plan():
+	_menu_room = menu_bar_room()
+	_fill_menu_bar(menu_bar_plan(_menu_room))
+
+
+## One bar's worth of menus from a plan. Separate from `_build_menu_bar` because the bar can be built more
+## than once: a window that shrinks past what fourteen menus want rebuilds it with the tail folded.
+func _fill_menu_bar(plan: Array[Dictionary]) -> void:
+	_menu_titles.clear()
+	for menu: Dictionary in plan:
 		var popup := PopupMenu.new()
 		popup.name = String(menu["title"])
 		popup.title = String(menu["title"])
 		menu_bar.add_child(popup)
 		_build_menu(popup, menu["items"])
+		_menu_titles.append(String(menu["title"]))
 	_hide_unavailable_menus()
 	_refresh_menus()
+
+
+## Rebuild the bar when the room it has no longer draws the same menus, and do nothing at all otherwise -
+## this is called on every frame, so the cheap comparison comes first.
+func _fold_menu_bar_to_fit() -> void:
+	if menu_bar == null:
+		return
+	# **A drawer does not fold.** On a device answered with a finger the menus are not drawn at all - the four
+	# controls of `TouchRow` stand in their place and the plan is reached through the drawer - so the fold has
+	# nothing to fit and nothing to say. Left running it would fold a bar nobody sees, for a room it does not
+	# stand in, and print a `MENUBAR` line about it: a reading, published, of furniture that is not on the
+	# screen. That is worse than a missing reading, because the tools that read this line would believe it.
+	if shows_touch_controls():
+		return
+	var room: float = menu_bar_room()
+	if is_equal_approx(room, _menu_room):
+		return
+	# What the phone needs to say out loud, because the numbers on a 1080-wide screen cannot be worked out
+	# from a desk: the room the bar was given, what the bar itself says it needs, the row it sits in, and
+	# how many titles are on it. A debug build may say this; a release build says nothing.
+	if OS.is_debug_build():
+		# The line's own shape is the table's, not this file's, so that the reader a tool uses and the writer here
+		# can never disagree about it - the round trip is held down by a test beside the fold's arithmetic.
+		print(
+			MenuBarPlanScript.menubar_line(
+				room,
+				menu_bar.get_combined_minimum_size().x,
+				(menu_bar.get_parent() as Control).size.x,
+				get_viewport().get_visible_rect().size.x if get_viewport() != null else -1.0,
+				_menu_titles.size(),
+			)
+		)
+	# The room is remembered *before* the bar is rebuilt: the rebuild ends by asking for a refresh, and a
+	# refresh that found the room still unrecorded would rebuild the bar again and again.
+	_menu_room = room
+	if _the_fold_has_settled():
+		return
+	_rebuild_menu_bar(menu_bar_plan(room))
+
+
+## Take the bar down and put it back up from a new plan. The popups are the HUD's own children, so they
+## are freed outright rather than left for the frame's end: the rebuild is about to make new ones under
+## the same names, and two menus of one name is a bug waiting for the first lookup.
+func _rebuild_menu_bar(plan: Array[Dictionary]) -> void:
+	for child: Node in menu_bar.get_children():
+		menu_bar.remove_child(child)
+		child.free()
+	_menu_items.clear()
+	# The recent-drawings popup is the one child kept by reference - it is the set whose entries change
+	# rather than only their ticks - so the held one is dropped here rather than left pointing at a freed
+	# node the next save to the store would write into.
+	_recent_popup = null
+	_recent_filled = ""
+	_fill_menu_bar(plan)
+	# The popups this has just made are new, and new popups are a desk's size: see the one place that fits
+	# the bar's own menus.
+	_fit_the_menu_bars_words()
+
+
+## Fit the bar's own menus to the finger that will open them, after a rebuild has made new ones.
+##
+## **The second writer of one fact, and the one that was winning.** `size_for_a_finger` fits this HUD's whole
+## chrome once - the menus a `MenuBar` owns among them, because that walk reads internal children - but the
+## fold that decides how many titles fit runs on **every frame**, and a change in the room takes the bar down
+## and puts it back up with **new** popups. Those arrive at the size a desk draws them, and nothing fitted
+## them a second time.
+##
+## Measured on the SM-A166W, opening File and Edit on the board: the rows came out **44.5 px, 2.51 mm**,
+## against this program's 5.5 mm thumb floor, with words about two thirds the size of the rest of the bar's
+## own text. The room changes after the fitting pass as a matter of course - the bar settles from fourteen
+## titles down to two while its row is being measured, and the *turn* from the portrait door to the landscape
+## board changes the room again - so a rebuild always landed after the fit.
+##
+## On a computer this is nothing at all: `shows_touch_controls()` is false, so the bar a desk draws is the bar
+## the scene drew, and no popup is ever given an override it could lose.
+func _fit_the_menu_bars_words() -> void:
+	if menu_bar == null or not shows_touch_controls():
+		return
+	PhoneHudScript.fit_the_chrome_for_a_finger(
+		menu_bar,
+		PhoneHudScript.canvas_scale(get_window()),
+		PhoneHudScript.dpi(),
+	)
+
+
+## The room the bar has to work with, which is what is left of the row it sits in once everything else in
+## that row has taken the minimum it needs - the view and presentation controls are in the same row as
+## the menus, so the row's own width is not the bar's.
+##
+## Before the first layout the row has no width yet, so the viewport is asked instead: the row spans the
+## bar it is in. Zero means neither is known, and a bar with no known room is not folded - no room worked
+## out is not the same as no room.
+func menu_bar_room() -> float:
+	if menu_bar == null:
+		return 0.0
+	var row: Control = menu_bar.get_parent() as Control
+	if row == null:
+		return 0.0
+	var others: float = row.get_combined_minimum_size().x - menu_bar.get_combined_minimum_size().x
+	var across: float = row.size.x
+	var shown: float = 0.0
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		shown = viewport.get_visible_rect().size.x
+	return bar_room(across, others, shown)
+
+
+## The room a bar has, from the row it sits in, what the rest of that row needs, and what the screen
+## shows - the arithmetic of `menu_bar_room` on its own so it can be held to the numbers.
+##
+## Two clamps, and the phone is why both are here. **`others` is never negative**: a row whose own minimum
+## comes out smaller than the bar's would otherwise subtract a negative and hand the bar more room than
+## the row has, so nothing folded and fourteen menus were drawn clipped at both ends on a 1080-wide
+## screen. And **the answer is never wider than the screen**: a row can be laid out wider than the canvas
+## it is drawn in, and the room the bar has is what a person can actually see.
+##
+## Nothing changes on a desk, where both numbers are already inside these bounds.
+static func bar_room(across: float, others: float, shown: float) -> float:
+	if across <= 0.0 or (shown > 0.0 and across > shown):
+		across = shown
+	if across <= 0.0:
+		return 0.0
+	return maxf(0.0, across - maxf(0.0, others))
+
+
+## The bar's view of the plan: the whole plan when the room takes it, and the tail of it gathered under
+## one More menu when it does not.
+##
+## The plan itself is never changed. It is what the palette lists and what `items_for` answers with, so a
+## folded bar is a *view* of it - the commands are all still there, in one place, however the bar draws
+## them.
+## The titles the top bar would carry in a room this wide, in the order it would draw them.
+##
+## The one place that turns a plan into titles, so that "what the bar would put up" and "what the bar has up" can
+## be compared without either side wording the plan a second way.
+func _wanted_menu_titles(available: float) -> Array[String]:
+	var titles: Array[String] = []
+	for menu: Dictionary in menu_bar_plan(available):
+		titles.append(String(menu["title"]))
+	return titles
+
+
+## Whether the top bar has finished folding: the plan for the room it has now would put up the same titles as the
+## ones already standing.
+##
+## **This is the fold's own question, and it is asked in one place.** The fold runs on every frame and the bar is
+## rebuilt only when the answer changes, so this is both the early return that keeps the rebuild off every frame
+## and the signal `_the_screen_said` waits on before the probe reads the screen. Asking it by watching the room
+## instead does not work, and that is measured: the room and the bar's own minimum feed each other - the bar's
+## minimum is part of the room the fold is given - so the room sits still for two frames in the middle of a fold
+## that is not finished. A reading taken that way caught the bar at ten titles and reported it asking for 1052 px
+## of a 349 px room, while the fold went on to two titles and 272 px and fitted. The fault was in the reading.
+func _the_fold_has_settled() -> bool:
+	return _wanted_menu_titles(menu_bar_room()) == _menu_titles
+
+
+func menu_bar_plan(available: float) -> Array[Dictionary]:
+	var plan: Array[Dictionary] = menu_plan()
+	var fold: int = menu_fold_count(plan, available)
+	if fold >= plan.size():
+		return plan
+	var out: Array[Dictionary] = []
+	for i: int in fold:
+		out.append(plan[i])
+	var more: Array[Dictionary] = []
+	for i: int in range(fold, plan.size()):
+		var menu: Dictionary = plan[i]
+		# The menu's name becomes a titled separator, so a command under More still says which menu it
+		# lives in rather than arriving with no place at all.
+		more.append({ "kind": &"separator", "id": "more.%d" % i, "label": String(menu["title"]) })
+		for item: Dictionary in Array(menu.get("items", [])):
+			more.append(item)
+	out.append({ "title": MORE_TITLE, "items": more })
+	return out
+
+
+## How many menus the bar can show before the rest have to fold. The whole plan is the answer when it all
+## fits, and when it cannot be worked out at all - a bar with nothing to measure with is left exactly as
+## it is rather than folded on a guess.
+func menu_fold_count(plan: Array[Dictionary], available: float) -> int:
+	if available <= 0.0:
+		return plan.size()
+	var words: Array[String] = []
+	for menu: Dictionary in plan:
+		words.append(String(menu["title"]))
+	words.append(MORE_TITLE)
+	var widths: Array[float] = menu_title_widths(words)
+	if widths.size() != words.size():
+		return plan.size()
+	var titles: Array[float] = widths.slice(0, plan.size())
+	return menu_fold_point(titles, available, widths[widths.size() - 1])
+
+
+## How much room each title wants, measured on the font the bar draws its titles with - plus the button
+## that will be drawn around it, which is not nothing.
+##
+## **A menu is a button around a title, not the title alone.** The button's own padding and the bar's
+## separation between children are room the fold has to pay for, and measuring the glyphs alone is what
+## made a phone declare that fourteen menus fitted in the 661 px it had when the bar they made needed 757:
+## nothing folded, and the row was drawn wider than the 1444 px screen and clipped at both ends. The
+## measurement prints its own numbers from a debug build (`MENUBAR room=... bar_min=... shown=...`).
+##
+## An empty result is a refusal, not a row of zeroes: a bar whose titles cannot be measured must not be
+## folded, because every title measuring nothing would fold every menu into the More menu. A wrong theme
+## name therefore costs the fold, which is a tight bar rather than a bar with no menus in it.
+func menu_title_widths(words: Array[String]) -> Array[float]:
+	var widths: Array[float] = []
+	var bar: MenuBar = menu_bar
+	var borrowed := false
+	if bar == null:
+		bar = MenuBar.new()
+		borrowed = true
+	var font: Font = bar.get_theme_font("font")
+	var point_size: int = bar.get_theme_font_size("font_size")
+	if font != null and point_size > 0:
+		var around: float = menu_button_chrome(bar)
+		for title: String in words:
+			widths.append(around + font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, point_size).x)
+	if borrowed:
+		bar.free()
+	return widths
+
+
+## What one menu costs beyond the letters of its title: the style box the button draws, and the space the
+## bar puts between two of them. Asked of a real `MenuBar` rather than written down as a number, so a
+## theme that changes its padding changes this too.
+static func menu_button_chrome(bar: Control) -> float:
+	if bar == null:
+		return 0.0
+	var around: float = 0.0
+	var style: StyleBox = bar.get_theme_stylebox("normal")
+	if style != null:
+		around += style.get_minimum_size().x
+	around += float(bar.get_theme_constant("h_separation"))
+	return around
+
+
+## How many of a row of titles fit in the room, once the More menu's own title has been paid for.
+##
+## The menus keep the order a person learned them in, so it is the **tail** that folds rather than
+## whichever titles happen to be widest - the bar reads the same way at every width, with fewer names on
+## the right-hand end.
+static func menu_fold_point(widths: Array[float], available: float, more_width: float) -> int:
+	var total: float = 0.0
+	for width: float in widths:
+		total += width
+	if available <= 0.0 or total <= available:
+		return widths.size()
+	var kept: int = 0
+	var running: float = more_width
+	while kept < widths.size() and running + widths[kept] <= available:
+		running += widths[kept]
+		kept += 1
+	if widths.size() - kept < MIN_FOLDED_MENUS:
+		return widths.size()
+	return kept
 
 
 ## One menu's items, including any submenus, filling `_menu_items` as it goes: an item's id is its
@@ -2590,7 +4071,9 @@ func _build_menu(popup: PopupMenu, items: Array) -> void:
 		var entry: Dictionary = raw
 		var kind: StringName = entry.get("kind", &"command")
 		if kind == &"separator":
-			popup.add_separator()
+			# A separator may carry the name of the menu it divides, which is what the folded bar's single
+			# More menu uses to say where each group of commands came from.
+			popup.add_separator(String(entry.get("label", "")))
 		elif kind == &"submenu":
 			var child := PopupMenu.new()
 			child.name = String(entry["id"]).replace(".", "_") + "Menu"
@@ -2672,6 +4155,15 @@ func _hide_unavailable_menus() -> void:
 func _refresh_menus() -> void:
 	if menu_bar == null or _menu_items.is_empty():
 		return
+	# The bar can be narrower than fourteen menus want, and this is where that is noticed: this function
+	# is already called every frame, with its own state guard underneath so that the common case costs a
+	# string comparison and nothing else. `_fold_menu_bar_to_fit` does the same for the room.
+	_fold_menu_bar_to_fit()
+	# The bar has just been folded for this room, so its foot is where the fold has left it: a page placed by
+	# the foot it had before that is a page drawn over the menu titles. Stating it here and putting the pages
+	# up back by the same door keeps "every page lands below the bar" true of the bar as it now stands.
+	if _state_the_strip_the_pages_may_not_use():
+		_the_canvas_changed_shape()
 	var world: Dictionary = menu_world()
 	var state: String = str(world)
 	if state == _menu_state:
@@ -2685,7 +4177,7 @@ func _refresh_menus() -> void:
 			if kind == &"radio" or kind == &"check":
 				popup.set_item_checked(
 					index,
-					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world)
+					is_checked(StringName(entry.get("state", &"")), entry.get("value", null), world),
 				)
 			# An entry that only means something in some states says which, and is shown switched
 			# off rather than doing nothing when the state is not on: Save with nothing to save.
@@ -2712,7 +4204,6 @@ func _on_menu_item_pressed(id: int, popup: PopupMenu) -> void:
 	if id < 0 or id >= entries.size():
 		return
 	run_entry(entries[id])
-
 
 # --- what each entry does -------------------------------------------------------------
 
@@ -2750,7 +4241,62 @@ func quit_requested() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		quit_requested()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		back_puts_away()
 
+
+## How long after one Back press another notification is still the same press.
+##
+## **Measured, on the SM-A166W (Android 16): 354 ms between the two notifications of a single press** - not the
+## one to fifteen milliseconds `godotengine/godot#123454` reports on other hardware, which is why the first
+## version of this guard was too narrow and let the second notification through. So the window is a second:
+## wider than any gap the engine has been seen to leave, and shorter than the time it takes a person to see a
+## page close and decide to press Back again - which is the same cadence Android's own "press back again to
+## exit" uses. It is stated rather than measured so a test can hold the rule.
+const BACK_REPEAT_GAP_MS := 1000
+
+## When the last Back press was answered, so the engine's own repeat of it can be told from a second press.
+var _last_back_ms: int = -BACK_REPEAT_GAP_MS
+
+
+## Whether a Back notification arriving now is the engine saying the same press a second time.
+static func is_a_repeat_of_the_last_back(now_ms: int, last_ms: int) -> bool:
+	return now_ms - last_ms < BACK_REPEAT_GAP_MS
+
+
+## What the phone's Back gesture means: out of whatever is in front, and only then out of the program.
+##
+## It is Escape's ladder with one thing put in front of it. A page in a `Window` takes the keyboard into
+## its own viewport, so the ladder beside it can never answer for one - but a Back gesture arrives as a
+## notification rather than as a key, and a notification reaches this node whatever holds the focus. The
+## page is closed by emitting `close_requested`, which is the door its own frame and its own Close button
+## already use, so Back and the cross cannot drift apart.
+##
+## Nothing in front means the ladder, and nothing left to put away means leaving - through
+## `quit_requested`, so a drawing with unsaved work is asked about rather than thrown away by a brushed
+## thumb. That is also why the program's own `quit_on_go_back` is lowered: left to the operating system,
+## Back is a quit nobody is asked about.
+##
+## **One press is one act, and on this platform the engine says otherwise.** Godot 4.7.2 at `targetSdk 36`
+## delivers `NOTIFICATION_WM_GO_BACK_REQUEST` **twice** for a single press: measured on the SM-A166W (Android
+## 16), two notifications a few milliseconds apart, which is `godotengine/godot#123454` - for API 36 the engine
+## intercepts Back through Android's `OnBackInvokedCallback`, and two senders report the same event. A ladder
+## that takes one thing off per press therefore took two: with the front door up, the first put the door away
+## and the second found nothing in front and left the program. The ladder was measured doing exactly that
+## (`back now=9798 front=StartWindow`, then `back now=10152 front=<null>` 354 ms later). A notification
+## arriving within `BACK_REPEAT_GAP_MS` of the last one is that same press, and is not answered again.
+func back_puts_away() -> void:
+	var now: int = Time.get_ticks_msec()
+	if is_a_repeat_of_the_last_back(now, _last_back_ms):
+		return
+	_last_back_ms = now
+	var page: Window = page_in_front()
+	if page != null:
+		page.close_requested.emit()
+		return
+	if escape_puts_away():
+		return
+	quit_requested()
 
 # --- the drawing on disk --------------------------------------------------------------
 
@@ -2769,6 +4315,16 @@ static func is_enabled(state: StringName, world: Dictionary) -> bool:
 			return bool(world.get("recovery", false))
 		&"session_on":
 			return bool(world.get("session_on", false))
+		&"can_turn":
+			# A desktop's window cannot be asked which way up to be, so the three orientation choices are
+			# shown switched off there. Asked once here rather than by each entry, because it is one fact
+			# about the machine.
+			return OrientationChoiceScript.can_turn_here()
+		&"finger":
+			# A reading size multiplies the fitting done on a device answered with a finger, and a computer
+			# is never fitted at all: its panels are the ones this program was drawn for. Asked once here,
+			# for the same reason `can_turn` is.
+			return PhoneHudScript.on_a_finger_here()
 	return true
 
 
@@ -2848,10 +4404,12 @@ func _build_file_dialogs() -> void:
 	_model_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_model_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	_model_export_dialog.current_file = "yard.glb"
-	_model_export_dialog.filters = PackedStringArray([
-		"*.glb ; Binary glTF, one file with its pictures inside it",
-		"*.gltf ; glTF text, with its pictures named rather than carried",
-	])
+	_model_export_dialog.filters = PackedStringArray(
+		[
+			"*.glb ; Binary glTF, one file with its pictures inside it",
+			"*.gltf ; glTF text, with its pictures named rather than carried",
+		]
+	)
 	_model_export_dialog.file_selected.connect(_on_model_export_chosen)
 	add_child(_model_export_dialog)
 
@@ -2891,6 +4449,23 @@ func _build_file_dialogs() -> void:
 	_underlay_dialog.file_selected.connect(_on_underlay_chosen)
 	add_child(_underlay_dialog)
 
+	# Every door above that reaches files the person owns is handed to the phone's own picker where the
+	# device has one, and `prepare()` decides that and nothing else: on a computer it returns without
+	# touching a thing. Android gives a program permission to one document at a time and the picker is
+	# how a document is handed over, so a door that reaches outside is the picker's business. The two
+	# dialogs that stay inside `user://` are deliberately not in this list - a drawing is written to a
+	# temporary file and renamed into place, and a hand-over cannot rename anything.
+	for door: FileDialog in [
+		_survey_dialog,
+		_dxf_dialog,
+		_dxf_export_dialog,
+		_model_export_dialog,
+		_landxml_dialog,
+		_osm_dialog,
+		_underlay_dialog,
+	]:
+		PhoneFilesScript.prepare(door)
+
 	_discard_dialog = ConfirmationDialog.new()
 	_discard_dialog.name = "DiscardChanges"
 	_discard_dialog.title = "Unsaved changes"
@@ -2919,10 +4494,10 @@ func _build_file_dialogs() -> void:
 
 func _file_dialog_open() -> bool:
 	return (_open_dialog != null and _open_dialog.visible) \
-		or (_save_dialog != null and _save_dialog.visible) \
-		or (_discard_dialog != null and _discard_dialog.visible) \
-		or (_recovery_dialog != null and _recovery_dialog.visible) \
-		or (_underlay_dialog != null and _underlay_dialog.visible)
+			or (_save_dialog != null and _save_dialog.visible) \
+			or (_discard_dialog != null and _discard_dialog.visible) \
+			or (_recovery_dialog != null and _recovery_dialog.visible) \
+			or (_underlay_dialog != null and _underlay_dialog.visible)
 
 
 ## Ask before throwing work away, then do what was asked for.
@@ -2935,7 +4510,55 @@ func _guard_unsaved(next: StringName) -> void:
 		return
 	_pending_action = next
 	_discard_dialog.dialog_text = "%s\n\nDiscard the changes?" % _draft.drawing_state_text()
-	_discard_dialog.popup_centered()
+	_ask(_discard_dialog)
+
+
+## Show one of the program's own questions so that a finger can read it and press it.
+##
+## A `ConfirmationDialog` is a `Window`, and no pass touched it: `PhoneHud.fit_the_chrome_for_a_finger` fits the
+## chrome and a `PopupMenu` and nothing else that is a window, and a *page* is fitted by `PageChrome` when it is
+## shown, which a question never goes through. Measured on the A16W, the unsaved-changes question was drawn at
+## the desk's 16 px with its buttons 50 px tall while everything around it was a finger's - five `tiny`/`small`
+## lines, on the one screen whose whole job is to be read before anything is thrown away - and it was placed at
+## whatever size its own contents happened to want rather than inside the room.
+##
+## So a question is fitted through the one walk that fits a window's controls - its `dialog_text` and its two
+## buttons, which is every word the probe could name - and then placed by `popup_centered_clamped`, the door the
+## command palette places itself by, which centres it and keeps it on the screen. The walk answers zero on a
+## computer, so a desk is neither touched nor restored.
+##
+## **Its title bar is deliberately left as the theme drew it.** A page's title is grown and is *meant* to hang
+## above the page's own panel, onto the sheet one of the doorway pages stands on; a question has no sheet behind
+## it, so growing the bar pushed its title out of the filled band it had been legible in and onto the bright
+## board, where the theme's own light ink could not be read - measured on the glass beside the page's, which
+## reads only because the sheet is dark. The theme's own bar keeps the title inside the fill, and there a person
+## can read it.
+func _ask(question: ConfirmationDialog) -> void:
+	if question == null:
+		return
+	# **A question is fitted before it is shown, and its row is asked for through the frame rather than through
+	# a minimum.** A `ConfirmationDialog`'s own two buttons are the engine's, and it takes their
+	# `custom_minimum_size` away the moment the dialog is shown: measured on the desk with the phone's own
+	# numbers handed in, `(107.078, 107.078)` before `popup_centered_clamped()` and `(0, 0)` after it, with the
+	# font override surviving. Measured on the A16W held upright, the probe named what that leaves -
+	# `Button "Keep editing" is 254 x 64, 33 px short of the 97 a finger wants` - a fault the landscape-only
+	# measurement never showed, because the row is the same 97 px of screen either way up while being 60 layout
+	# px lying down against 107 upright. So the row is given where the engine cannot take it back, through the
+	# button's own frame (`PhoneHud.give_a_dialogs_own_button_the_row`).
+	#
+	# **The fit stays before the popup, and it has to.** A dialog is placed by the size its contents ask for, so
+	# placing it first sizes it for buttons that have not grown yet and squeezes them back down; asking it to
+	# take its size again afterwards was tried and is worse - `reset_size` walks the window into the room's
+	# corner, and the A16W measured the `Discard` button standing 95 px into the band the device keeps.
+	if shows_touch_controls():
+		fit_a_question_for_a_finger(question, PhoneHudScript.canvas_scale(get_window()), PhoneHudScript.dpi())
+	question.popup_centered_clamped()
+
+
+## The measuring half of `_ask`, with the device stated rather than read, so that a test can hold what a phone
+## would be told without being one - the same door `fit_the_chrome_for_a_finger` is for the chrome.
+func fit_a_question_for_a_finger(question: ConfirmationDialog, drawn_at: float, density: float) -> int:
+	return PhoneHudScript.fit_the_chrome_for_a_finger(question, drawn_at, density)
 
 
 func _on_discard_confirmed() -> void:
@@ -2959,7 +4582,7 @@ func _menu_simplify(_entry: Dictionary) -> void:
 		return
 	_pending_simplify = _draft.plan_simplify()
 	_simplify_dialog.dialog_text = _pending_simplify.describe()
-	_simplify_dialog.popup_centered()
+	_ask(_simplify_dialog)
 
 
 func _on_simplify_confirmed() -> void:
@@ -3077,7 +4700,6 @@ func _menu_save_drawing(_entry: Dictionary) -> void:
 func _menu_save_drawing_as(_entry: Dictionary) -> void:
 	save_drawing_dialog()
 
-
 # --- a copy kept in case the program stops --------------------------------------------
 
 
@@ -3128,7 +4750,7 @@ func _tick_autosave(delta: float) -> void:
 ## thrown away, and the question being answered - and never from `menu_world`, which is built on the
 ## way to *every* menu refresh: a directory listing is not something a frame may do.
 func _refresh_pending_recovery() -> void:
-	_pending_recovery = _draft.pending_recovery() if _draft != null else {}
+	_pending_recovery = _draft.pending_recovery() if _draft != null else { }
 
 
 ## The one line the File menu adds when a session that ended without saving left work behind. Empty in
@@ -3159,7 +4781,7 @@ func _menu_recover_unsaved(_entry: Dictionary) -> void:
 		"A copy of a drawing was kept by a session that ended without saving it.\n\n%s\n\nPut it back?"
 		% AutosaveScript.describe(_pending_recovery)
 	)
-	_recovery_dialog.popup_centered()
+	_ask(_recovery_dialog)
 
 
 func _on_recovery_confirmed() -> void:
@@ -3227,20 +4849,32 @@ func _fill_recent_menu() -> void:
 	if paths.is_empty():
 		_recent_popup.add_item("nothing yet")
 		_recent_popup.set_item_disabled(0, true)
-		entries.append({
-			"kind": &"info", "id": &"file.recent.none", "label": "nothing yet",
-			"action": &"", "needs": NEEDS_NOTHING, "value": null,
-		})
+		entries.append(
+			{
+				"kind": &"info",
+				"id": &"file.recent.none",
+				"label": "nothing yet",
+				"action": &"",
+				"needs": NEEDS_NOTHING,
+				"value": null,
+			}
+		)
 	else:
 		for path in paths:
 			# Not `name`: this is a CanvasLayer, and `name` is the node's own.
 			var file_name := StoreScript.display_name(path)
 			_recent_popup.add_item(file_name)
-			entries.append({
-				"kind": &"command", "id": StringName("file.recent." + file_name),
-				"label": file_name, "action": &"", "method": &"_menu_open_recent",
-				"needs": NEEDS_DRAFT, "value": path,
-			})
+			entries.append(
+				{
+					"kind": &"command",
+					"id": StringName("file.recent." + file_name),
+					"label": file_name,
+					"action": &"",
+					"method": &"_menu_open_recent",
+					"needs": NEEDS_DRAFT,
+					"value": path,
+				}
+			)
 	_menu_items[_recent_popup] = entries
 
 
@@ -3339,6 +4973,14 @@ func _menu_select_mode(entry: Dictionary) -> void:
 	_draft.arm_select(StringName(entry["value"]))
 
 
+## Bring the flat 2D plan forward. A drawing that has just been started - new, opened, or the example -
+## is read as the empty sheet it is rather than as the furnished overhead view that stood behind the
+## doorway, which is the difference between "a new drawing" and "an example somebody loaded".
+func _show_the_plan() -> void:
+	if view_controller != null:
+		view_controller.show_mode(ViewController.ViewMode.PLAN_2D)
+
+
 func _menu_show_mode(entry: Dictionary) -> void:
 	if view_controller != null:
 		@warning_ignore("int_as_enum_without_cast")
@@ -3354,9 +4996,65 @@ func _menu_painted(_entry: Dictionary) -> void:
 	open_painted()
 
 
+## Show or put away the garden the program ships with, under the drawing on the page.
+func _menu_toggle_site(_entry: Dictionary) -> void:
+	if view_controller != null:
+		view_controller.set_site_shown(not view_controller.is_site_shown())
+
+
+## Lay the example garden out on the sheet, and bring its site forward with it: the example *is* the
+## shipped garden, so drawing it without the site would be showing half of what was asked for.
+func _menu_example_garden(_entry: Dictionary) -> void:
+	draw_the_example()
+	_show_the_plan()
+
+
+## The camera, from inside the drawing.
+func _menu_take_a_photograph(_entry: Dictionary) -> void:
+	open_camera_window()
+
+
 func _menu_toggle_hints(_entry: Dictionary) -> void:
 	_show_hints = not _show_hints
 	_apply_hints_visibility()
+
+
+## Choose which way up the board is asked to stand. What the window is actually asked for goes through
+## `the_shape_for_the_window`, so a choice made while a doorway page is up does not pin the door: the door
+## follows the phone until a drawing begins, and that is the one rule the two halves share. The answer is
+## kept, so the next run opens the way this one was left.
+func _menu_set_orientation(entry: Dictionary) -> void:
+	var choice: StringName = StringName(entry.get("value", OrientationChoiceScript.DEFAULT))
+	if choice == _orientation:
+		return
+	_orientation = choice
+	OrientationChoiceScript.remember(choice)
+	# A choice is the one moment the window is asked for something a person has just said, so it is said out
+	# loud too - the reading beside the hold, which is exactly where the 4-versus-6 fault hides.
+	var shape: StringName = the_shape_for_the_window()
+	_say_what_the_window_was_asked_for(&"chosen", shape)
+	OrientationChoiceScript.apply(shape)
+
+
+## Take a reading size: the sizes the program draws at are `PhoneHud`'s, so the answer is handed to it and
+## everything is fitted again rather than each control being resized where the choice was made.
+##
+## The board is fitted at once. A page that is open is fitted with it, and fitting a page twice is drawing the
+## same page bigger rather than growing it twice - a page's own words are grown from the size the page laid
+## them out at, which is remembered on the control. On a computer nothing happens at all: a desk is never
+## fitted, and the menu does not offer these three there.
+func _menu_set_reading_size(entry: Dictionary) -> void:
+	var choice: StringName = StringName(entry.get("value", ReadingSizeScript.DEFAULT))
+	if choice == _reading_size:
+		return
+	_reading_size = choice
+	ReadingSizeScript.choose(choice)
+	PhoneHudScript.use_reading_scale(ReadingSizeScript.factor())
+	_size_palette_for_a_finger.call_deferred()
+	_size_the_chrome_for_the_device.call_deferred()
+	for window: Window in get_viewport().get_embedded_subwindows():
+		if window.visible:
+			PageChrome.size_for_a_finger(window)
 
 
 func _menu_toggle_presentation(_entry: Dictionary) -> void:
@@ -3404,6 +5102,78 @@ func _menu_help(_entry: Dictionary) -> void:
 	open_help_window()
 
 
+## The manual, opened at what the page in front of you is asking. `_menu_help` opens it at the top, which
+## is the right thing for someone who wants to browse; this is the right thing for someone who has a page
+## open and does not know what it wants from them, which is the question a manual is actually asked.
+func _menu_page_help(_entry: Dictionary) -> void:
+	open_page_help()
+
+
+## The page a person is looking at: the last one the HUD has up.
+##
+## `_pages_that_can_be_up` is the list a change of the window's shape already walks, so a page added to the
+## HUD is answerable here without being added to a second list - and a second list is exactly the thing that
+## would fall behind. It is deliberately wider than `pages_in_windows`, and that width is the whole point:
+## the doorway's pages are the ones a person meets first, so a launch that has just stood the front door up
+## has that door as the page in front of everything. Leaving them out was not harmless - the phone's Back
+## gesture asks this question, and finding nothing it went on to leave the program rather than put the door
+## away (measured on the SM-A166W, and the fault this fixes).
+func page_in_front() -> Window:
+	var pages: Array[Window] = _pages_that_can_be_up()
+	for i: int in range(pages.size() - 1, -1, -1):
+		var page: Window = pages[i]
+		if page != null and page.visible:
+			return page
+	return null
+
+
+## The manual subject that answers what the page in front of you is asking, or an empty string when there
+## is none - in which case `page_help_refusal` says why, in the words a person reads.
+func page_help_subject() -> String:
+	var page: Window = page_in_front()
+	if page == null:
+		return ""
+	return PageHelpScript.subject_for(PageLayoutScript.page_name(page))
+
+
+## Why there is nothing to show, or an empty string when there is. The two functions answer the question
+## between them, and neither has to be checked for the other's answer.
+##
+## The refusals are worth reading: a page the manual has not reached says *what that page is about*, so
+## the person holding the gap can see what is missing rather than only that something is.
+func page_help_refusal() -> String:
+	var page: Window = page_in_front()
+	if page == null:
+		return "no page is open: this asks the manual about the page in front of you"
+	var asked: String = PageLayoutScript.page_name(page)
+	if PageHelpScript.has_a_way_to_the_manual(asked):
+		return ""
+	if PageHelpScript.WITHOUT_NEED.has(asked):
+		return String(PageHelpScript.WITHOUT_NEED[asked])
+	if PageHelpScript.NOT_YET_WRITTEN.has(asked):
+		return "the manual has not reached \"%s\" yet: %s" % [asked, String(PageHelpScript.NOT_YET_WRITTEN[asked])]
+	return "the manual has nothing about \"%s\"" % asked
+
+
+## Show the manual at what the page in front of you is asking. Returns whether it opened, and says why
+## when it did not - the drawing's status line is where this HUD says things, so it goes there.
+func open_page_help() -> bool:
+	var subject: String = page_help_subject()
+	if subject.is_empty():
+		if _draft != null:
+			_draft.last_message = page_help_refusal()
+		return false
+	open_help_window()
+	if _help_window == null:
+		return false
+	if not _help_window.select_topic(subject):
+		if _draft != null:
+			_draft.last_message = "the manual has no subject called \"%s\"" % subject
+		return false
+	if _draft != null:
+		_draft.last_message = "the manual, on \"%s\"" % subject
+	return true
+
 # --- the key reference ----------------------------------------------------------------
 
 
@@ -3417,7 +5187,7 @@ func _build_keys_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "KeysPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# The wrapper is only a placement; the panel inside it takes the clicks, so the drawing
@@ -3432,9 +5202,16 @@ func _build_keys_panel() -> void:
 		# The same furniture as every other box on the screen, borrowed rather than copied: one
 		# panel style, so a change to it changes all of them.
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: a finger's page is clamped to the room and this panel is longer than one. The reasoning, the
+	# measurements and the choice of the palette's own wrapper are written out at `_build_site_report_panel`.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -3469,8 +5246,17 @@ func keys_text() -> String:
 	var rows: Array[String] = []
 	rows.append("Top-down and overhead")
 	rows.append("    " + _hints_for(ViewController.ViewMode.PLAN_2D))
+	# The overhead views on a touchscreen, quoted from the constant the foot of the screen uses, for the same
+	# reason the ground view's is quoted rather than restated: the reference and the phone cannot drift apart.
+	rows.append("Top-down and overhead, on a touchscreen")
+	rows.append("    " + HINTS_OVERHEAD_ON_A_FINGER)
 	rows.append("Ground view")
 	rows.append("    " + HINTS_GROUND)
+	# The same view on a touchscreen, quoted from the constant the foot of the screen uses, so the reference
+	# and the phone cannot drift apart - and a person reading the keys on a desk still learns what a thumb
+	# would be offered.
+	rows.append("Ground view, on a touchscreen")
+	rows.append("    " + HINTS_GROUND_ON_A_FINGER)
 	rows.append("Drawing")
 	rows.append_array(drafting_rows())
 	rows.append("Elsewhere")
@@ -3509,7 +5295,6 @@ func close_keys() -> void:
 # which is the same string the key reference shows, so the manual cannot name a key that does nothing
 # - the half worth deriving is derived, and there is no fourth copy of the bindings to drift.
 
-
 ## The subject the keys live under, appended to the manual's own topics.
 const KEYS_TOPIC := "Keys"
 ## The heading the keys are listed under. The manual's own sections come from `HelpDoc`; this one is
@@ -3536,7 +5321,7 @@ func help_topics() -> Array[Dictionary]:
 	var topics: Array[Dictionary] = HelpDocScript.topics()
 	# Filed under its own heading: the keys are the one subject the manual does not carry as prose, and
 	# left unsectioned they would sit under the last section of the manual and read as part of it.
-	topics.append({"title": KEYS_TOPIC, "body": keys_text(), "section": KEYS_SECTION})
+	topics.append({ "title": KEYS_TOPIC, "body": keys_text(), "section": KEYS_SECTION })
 	return topics
 
 
@@ -3552,8 +5337,11 @@ func open_help_window() -> void:
 	if _help_window == null:
 		return
 	_fill_help_window()
-	# Opening is the page's own business: it fits its floor to the screen it lands on and puts the
-	# keyboard in the search box, so a word can be typed without reaching for the box first.
+	# Opening is the page's own business, and the page's own business is `PageChrome`: the page hands itself
+	# to that one door, which fits its floor to the room it lands in, sizes its controls for a finger, grows
+	# its words for the screen and puts the keyboard in the search box. Until 2026-11-14 this page worked its
+	# own floor out and popped itself up instead, which is why the manual was the one page a phone drew in the
+	# desk's 16 px type - five lines at 16 px where the screen needs 30, found by `tools/phone_touch_sweep.gd`.
 	_help_window.open()
 	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
 	# the drawing keys belong to the drawing again.
@@ -3567,7 +5355,6 @@ func close_help_window() -> void:
 
 func is_help_window_open() -> bool:
 	return _help_window != null and _help_window.visible
-
 
 # --- the command palette --------------------------------------------------------------
 #
@@ -3749,14 +5536,13 @@ func _fill_command_palette() -> void:
 ## up: a command that moved the drawing leaves the ticks and the lines that describe the drawing
 ## describing the drawing before it.
 func _on_command_chosen(row: Dictionary) -> void:
-	var entry: Dictionary = row.get("entry", {})
+	var entry: Dictionary = row.get("entry", { })
 	if run_entry(entry):
 		_refresh_menus()
 
 
 func _menu_command_palette(_entry: Dictionary) -> void:
 	open_command_palette()
-
 
 # --- the site report ------------------------------------------------------------------
 
@@ -3770,7 +5556,7 @@ func _build_site_report_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "SiteReportPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3781,9 +5567,19 @@ func _build_site_report_panel() -> void:
 	panel.custom_minimum_size = Vector2(620.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# **The column scrolls, because a finger's page is capped at the room and a site report is longer than one.**
+	# This is the palette's own wrapper rather than a second kind of scroller: the length scrolls and the width does
+	# not, because a row too wide is a fault a person can see and leaving it scrollable would only hide it, and
+	# `follow_focus` brings a button below the fold into view when Tab reaches it. Measured before this: with the
+	# page clamped, `CloseReport` stood 129 px past the foot of a 1185x666 room - the panel's only way out.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -3814,14 +5610,14 @@ func is_site_report_open() -> bool:
 func site_report_text() -> String:
 	if _draft == null:
 		return "there is no drawing open"
-	var report = SiteReportScript.of_plan(_draft.document, _planting_rows())
+	var report := SiteReportScript.of_plan(_draft.document, _planting_rows())
 	return report.text()
 
 
 func open_site_report() -> void:
 	if _site_report_panel == null:
 		return
-	var body := _site_report_panel.get_node_or_null(^"Page/Column/ReportText")
+	var body := _site_report_panel.get_node_or_null(^"Page/Scroll/Column/ReportText")
 	if body is Label:
 		(body as Label).text = site_report_text()
 	_site_report_panel.visible = true
@@ -3830,7 +5626,6 @@ func open_site_report() -> void:
 func close_site_report() -> void:
 	if _site_report_panel != null:
 		_site_report_panel.visible = false
-
 
 # --- importing a survey ---------------------------------------------------------------
 
@@ -3843,7 +5638,7 @@ func _build_survey_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "SurveyPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3854,9 +5649,15 @@ func _build_survey_panel() -> void:
 	panel.custom_minimum_size = Vector2(640.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -3913,14 +5714,21 @@ func survey_import_enabled() -> bool:
 	return SurveyFileScript.is_sound(_pending_survey)
 
 
-func open_survey_panel(parsed: Dictionary) -> void:
+## **The survey the reader was given is optional, so the door can be asked with nothing at all.** The one caller
+## in the program is the FileDialog's read, which always hands something in; a different caller - a sweep opening
+## every door a person can reach (`tools/gui_sweep.gd`) - has no file to have read, and without a default this was
+## the single door in the whole program no instrument could ask. Nothing is invented by the default: with no survey
+## the page opens on `survey_report_text`'s own refusal, "no survey has been read", and the button that would put
+## one on the drawing is dead, because `survey_import_enabled` asks `SurveyFile` whether there is a sound survey
+## rather than whether the caller meant well.
+func open_survey_panel(parsed: Dictionary = { }) -> void:
 	if _survey_panel == null:
 		return
 	_pending_survey = parsed
-	var body := _survey_panel.get_node_or_null(^"Page/Column/SurveyText")
+	var body := _survey_panel.get_node_or_null(^"Page/Scroll/Column/SurveyText")
 	if body is Label:
 		(body as Label).text = survey_report_text()
-	var answer := _survey_panel.get_node_or_null(^"Page/Column/Buttons/ImportSurvey")
+	var answer := _survey_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportSurvey")
 	if answer is Button:
 		(answer as Button).disabled = not survey_import_enabled()
 	_survey_panel.visible = true
@@ -3929,7 +5737,7 @@ func open_survey_panel(parsed: Dictionary) -> void:
 func close_survey_panel() -> void:
 	if _survey_panel != null:
 		_survey_panel.visible = false
-	_pending_survey = {}
+	_pending_survey = { }
 
 
 ## Put the survey that was read on the drawing. The page stays up until the drawing has taken it,
@@ -3940,7 +5748,6 @@ func confirm_survey_import() -> void:
 	var taken: Dictionary = _draft.import_survey(_pending_survey)
 	if bool(taken.get("ok", false)):
 		close_survey_panel()
-
 
 ## The survey file chooser. It starts in the app's own surveys folder when there is one - the
 ## place a survey that was dropped in for this drawing lives - and anywhere on the disk otherwise,
@@ -3954,7 +5761,7 @@ func _build_dxf_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "DxfPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3965,9 +5772,15 @@ func _build_dxf_panel() -> void:
 	panel.custom_minimum_size = Vector2(680.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -3993,8 +5806,9 @@ func _build_dxf_panel() -> void:
 	for unit_name: String in IMPORT_UNIT_CHOICES:
 		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
 		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
-	units_choice.item_selected.connect(func(index: int) -> void:
-		choose_dxf_units(String(units_choice.get_item_metadata(index)))
+	units_choice.item_selected.connect(
+		func(index: int) -> void:
+			choose_dxf_units(String(units_choice.get_item_metadata(index))),
 	)
 	units_row.add_child(units_choice)
 	column.add_child(units_row)
@@ -4045,7 +5859,7 @@ func dxf_import_enabled() -> bool:
 ## Read the file in hand again, with the units a person chose. Called on open and whenever the choice
 ## changes: the answer is part of reading the file, not a second step after it.
 func _read_pending_dxf() -> Dictionary:
-	var options := {"underlay": true}
+	var options := { "underlay": true }
 	if not _dxf_units.is_empty():
 		options["units"] = _dxf_units
 	var plan := DxfFileScript.read_text(_dxf_text, options)
@@ -4058,19 +5872,20 @@ func open_dxf_panel() -> void:
 	_pending_dxf = _read_pending_dxf()
 	if _dxf_panel == null:
 		return
-	var body := _dxf_panel.get_node_or_null(^"Page/Column/DxfText")
+	var body := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/DxfText")
 	if body is Label:
 		(body as Label).text = dxf_report_text()
 	# The units row is live only while the file's own answer is missing, which is the only time an
 	# answer from a person is what the file needs.
-	var choice := _dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits")
+	var choice := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits")
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		var needed := int(_pending_dxf.get("insunits", 0)) == 0
 		option.disabled = not needed
-		option.tooltip_text = ("this file does not say what its units are" if needed
+		option.tooltip_text = ("this file does not say what its units are"
+			if needed
 			else "the file states its own units")
-	var answer := _dxf_panel.get_node_or_null(^"Page/Column/Buttons/ImportDxf")
+	var answer := _dxf_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportDxf")
 	if answer is Button:
 		(answer as Button).disabled = not dxf_import_enabled()
 	_dxf_panel.visible = true
@@ -4079,7 +5894,7 @@ func open_dxf_panel() -> void:
 func close_dxf_panel() -> void:
 	if _dxf_panel != null:
 		_dxf_panel.visible = false
-	_pending_dxf = {}
+	_pending_dxf = { }
 	_dxf_text = ""
 	_dxf_name = ""
 	_dxf_units = ""
@@ -4092,7 +5907,7 @@ func close_dxf_panel() -> void:
 ## `item_selected`, so this cannot come back round.
 func choose_dxf_units(units: String) -> void:
 	_dxf_units = units
-	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		for index in option.item_count:
@@ -4105,7 +5920,7 @@ func choose_dxf_units(units: String) -> void:
 ## What the units drop-down is currently showing, for a run that wants to see that it agrees with what
 ## the file was read as.
 func dxf_units_text() -> String:
-	var choice := (_dxf_panel.get_node_or_null(^"Page/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
+	var choice := (_dxf_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/DxfUnits") if _dxf_panel != null else null)
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		if option.item_count > 0:
@@ -4200,7 +6015,6 @@ func _on_model_export_chosen(path: String) -> void:
 		_draft.last_message = YardExporterScript.describe(report)
 	release_keyboard_focus(self)
 
-
 # --- the LandXML plat ------------------------------------------------------------------
 
 
@@ -4214,7 +6028,7 @@ func _build_landxml_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "LandXmlPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4225,9 +6039,15 @@ func _build_landxml_panel() -> void:
 	panel.custom_minimum_size = Vector2(680.0, 0.0)
 	if top_bar != null:
 		panel.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	panel.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -4251,8 +6071,9 @@ func _build_landxml_panel() -> void:
 	for unit_name: String in IMPORT_UNIT_CHOICES:
 		units_choice.add_item(unit_name if not unit_name.is_empty() else "as the file says")
 		units_choice.set_item_metadata(units_choice.item_count - 1, unit_name)
-	units_choice.item_selected.connect(func(index: int) -> void:
-		choose_landxml_units(String(units_choice.get_item_metadata(index)))
+	units_choice.item_selected.connect(
+		func(index: int) -> void:
+			choose_landxml_units(String(units_choice.get_item_metadata(index))),
 	)
 	units_row.add_child(units_choice)
 	column.add_child(units_row)
@@ -4297,16 +6118,13 @@ func landxml_report_text() -> String:
 ## Whether what was read may go on the drawing. A refused file is *shown* rather than hidden, because
 ## the usual reason is the one question it can still answer.
 func landxml_import_enabled() -> bool:
-	return (
-		_draft != null and _draft.document != null
-		and LandXmlFileScript.is_usable(_pending_landxml)
-	)
+	return (_draft != null and _draft.document != null and LandXmlFileScript.is_usable(_pending_landxml))
 
 
 ## Read the plat in hand again, with the units a person chose. Called on open and whenever the choice
 ## changes: the answer is part of reading the file, not a second step after it.
 func _read_pending_landxml() -> Dictionary:
-	var options := {"underlay": true}
+	var options := { "underlay": true }
 	if not _landxml_units.is_empty():
 		options["units"] = _landxml_units
 	var plan := LandXmlFileScript.read_text(_landxml_text, options)
@@ -4319,20 +6137,21 @@ func open_landxml_panel() -> void:
 	_pending_landxml = _read_pending_landxml()
 	if _landxml_panel == null:
 		return
-	var body := _landxml_panel.get_node_or_null(^"Page/Column/LandXmlText")
+	var body := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/LandXmlText")
 	if body is Label:
 		(body as Label).text = landxml_report_text()
 	# The units row is live only while the file's own answer is missing. A plat that names its linear
 	# unit is not asked about, for the reason the DXF page gives: answering for a file that already
 	# answered is how a drawing gets halved by accident.
-	var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+	var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 	if choice is OptionButton:
 		var option := choice as OptionButton
 		var needed := String(_pending_landxml.get("declared_unit", "")).is_empty()
 		option.disabled = not needed
-		option.tooltip_text = ("this plat does not say what its units are" if needed
+		option.tooltip_text = ("this plat does not say what its units are"
+			if needed
 			else "the file states its own units")
-	var answer := _landxml_panel.get_node_or_null(^"Page/Column/Buttons/ImportLandXml")
+	var answer := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/Buttons/ImportLandXml")
 	if answer is Button:
 		(answer as Button).disabled = not landxml_import_enabled()
 	_landxml_panel.visible = true
@@ -4341,7 +6160,7 @@ func open_landxml_panel() -> void:
 func close_landxml_panel() -> void:
 	if _landxml_panel != null:
 		_landxml_panel.visible = false
-	_pending_landxml = {}
+	_pending_landxml = { }
 	_landxml_text = ""
 	_landxml_name = ""
 	_landxml_units = ""
@@ -4353,7 +6172,7 @@ func close_landxml_panel() -> void:
 func choose_landxml_units(units: String) -> void:
 	_landxml_units = units
 	if _landxml_panel != null:
-		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 		if choice is OptionButton:
 			var option := choice as OptionButton
 			for index in option.item_count:
@@ -4367,7 +6186,7 @@ func choose_landxml_units(units: String) -> void:
 ## the file was read as.
 func landxml_units_text() -> String:
 	if _landxml_panel != null:
-		var choice := _landxml_panel.get_node_or_null(^"Page/Column/UnitsRow/LandXmlUnits")
+		var choice := _landxml_panel.get_node_or_null(^"Page/Scroll/Column/UnitsRow/LandXmlUnits")
 		if choice is OptionButton:
 			var option := choice as OptionButton
 			if option.item_count > 0:
@@ -4408,7 +6227,6 @@ func _on_landxml_chosen(path: String) -> void:
 func _menu_import_landxml(_entry: Dictionary) -> void:
 	open_landxml_dialog()
 
-
 # --- the site map from OpenStreetMap -------------------------------------------------
 
 
@@ -4442,7 +6260,7 @@ func open_osm_window() -> void:
 	if _osm_window == null:
 		return
 	_fill_osm_window()
-	_osm_window.popup_centered()
+	PageChromeScript.show_centred(_osm_window)
 
 
 ## Point the window at the drawing's own site and show whatever is in hand. Kept apart from showing
@@ -4463,7 +6281,7 @@ func _fill_osm_window() -> void:
 func close_osm_window() -> void:
 	if _osm_window != null and _osm_window.visible:
 		_osm_window.hide()
-	_pending_osm = {}
+	_pending_osm = { }
 
 
 func is_osm_window_open() -> bool:
@@ -4477,7 +6295,7 @@ func _osm_centre() -> Dictionary:
 		return _osm_window.centre()
 	if _draft != null and _draft.document != null:
 		return _draft.document.site()
-	return {}
+	return { }
 
 
 func _osm_radius() -> float:
@@ -4521,10 +6339,9 @@ func _on_osm_fetch(centre: Dictionary, radius_m: float) -> void:
 		return
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
-	_osm_window.say(
-		"the map was not read" if not bool(plan.get("ok", false))
-		else OsmFileScript.describe(plan)
-	)
+	_osm_window.say(("the map was not read"
+			if not bool(plan.get("ok", false))
+			else OsmFileScript.describe(plan)))
 
 
 ## The chooser for a map already saved on disk. Anywhere on the disk, because it is a file somebody
@@ -4544,8 +6361,9 @@ func _on_osm_chosen(path: String) -> void:
 	_osm_window.show_report(osm_report_text())
 	_osm_window.set_import_enabled(osm_import_enabled())
 	_osm_window.say(
-		"the map was not read" if not bool(_pending_osm.get("ok", false))
-		else OsmFileScript.describe(_pending_osm)
+		("the map was not read"
+			if not bool(_pending_osm.get("ok", false))
+			else OsmFileScript.describe(_pending_osm))
 	)
 
 
@@ -4561,7 +6379,6 @@ func confirm_osm_import() -> void:
 
 func _menu_import_osm(_entry: Dictionary) -> void:
 	open_osm_window()
-
 
 # --- a picture under the drawing -------------------------------------------------------
 
@@ -4592,7 +6409,7 @@ func open_underlay_window() -> void:
 	if _underlay_window == null:
 		return
 	_fill_underlay_window()
-	_underlay_window.popup_centered()
+	PageChromeScript.show_centred(_underlay_window)
 
 
 ## Close it and forget the picture in hand, the way the DXF page and the map window do: a page that has
@@ -4600,7 +6417,7 @@ func open_underlay_window() -> void:
 func close_underlay_window() -> void:
 	if _underlay_window != null and _underlay_window.visible:
 		_underlay_window.hide()
-	_pending_picture = {}
+	_pending_picture = { }
 	_picture_refusal = ""
 
 
@@ -4705,7 +6522,7 @@ func _on_underlay_chosen(path: String) -> void:
 		return
 	var kept: Dictionary = RasterUnderlayScript.keep(path)
 	if not bool(kept.get("ok", false)):
-		_pending_picture = {}
+		_pending_picture = { }
 		_picture_refusal = String(kept.get("reason", "the picture could not be read"))
 		_refresh_underlay_window()
 		return
@@ -4715,8 +6532,11 @@ func _on_underlay_chosen(path: String) -> void:
 		_picture_refusal = "the picture could not be measured, so it cannot be laid at a size"
 	_refresh_underlay_window()
 	_underlay_window.say(
-		"the picture was not read" if not _picture_refusal.is_empty()
-		else RasterUnderlayScript.describe(_pending_picture, _drawing_units())
+		(
+			"the picture was not read"
+			if not _picture_refusal.is_empty()
+			else RasterUnderlayScript.describe(_pending_picture, _drawing_units())
+		)
 	)
 
 
@@ -4725,15 +6545,18 @@ func _on_underlay_chosen(path: String) -> void:
 func place_the_picture() -> void:
 	if _draft == null or _underlay_window == null or _pending_picture.is_empty():
 		return
-	var taken: Dictionary = _draft.take_on_picture(_pending_picture, {
-		"width_m": _underlay_window.width_m(),
-		"rotation_deg": _underlay_window.rotation_deg(),
-		"opacity": _underlay_window.opacity(),
-	})
+	var taken: Dictionary = _draft.take_on_picture(
+		_pending_picture,
+		{
+			"width_m": _underlay_window.width_m(),
+			"rotation_deg": _underlay_window.rotation_deg(),
+			"opacity": _underlay_window.opacity(),
+		},
+	)
 	if not bool(taken.get("ok", false)):
 		_underlay_window.say(String(taken.get("reason", "the picture could not be taken on")))
 		return
-	_pending_picture = {}
+	_pending_picture = { }
 	_underlay_window.set_suggested_width(_picture_suggested_width())
 	_refresh_underlay_window()
 	_underlay_window.say(_draft.last_message)
@@ -4746,18 +6569,22 @@ func apply_to_the_picture() -> void:
 	var id := _underlay_window.chosen_id()
 	if id == 0:
 		return
-	var changed: Dictionary = _draft.change_underlay(id, {
-		"width_m": _underlay_window.width_m(),
-		"rotation_deg": _underlay_window.rotation_deg(),
-		"opacity": _underlay_window.opacity(),
-	})
+	var changed: Dictionary = _draft.change_underlay(
+		id,
+		{
+			"width_m": _underlay_window.width_m(),
+			"rotation_deg": _underlay_window.rotation_deg(),
+			"opacity": _underlay_window.opacity(),
+		},
+	)
 	if not bool(changed.get("ok", false)):
 		_underlay_window.say(String(changed.get("reason", "the picture could not be changed")))
 		return
 	_refresh_underlay_window()
 	_underlay_window.say(
-		_draft.last_message if bool(changed.get("changed", false))
-		else "the picture already lies like that"
+		(_draft.last_message
+			if bool(changed.get("changed", false))
+			else "the picture already lies like that")
 	)
 
 
@@ -4777,7 +6604,6 @@ func take_the_picture_off() -> void:
 
 func _menu_import_picture(_entry: Dictionary) -> void:
 	open_underlay_window()
-
 
 # --- the ground's own heights ----------------------------------------------------------
 #
@@ -4811,7 +6637,7 @@ func open_grading_window() -> void:
 	if _grading_window == null:
 		return
 	_fill_grading_window()
-	_grading_window.popup_centered()
+	PageChromeScript.show_centred(_grading_window)
 	# A window holds the keyboard while it is up, which is what a field to type into needs; the moment
 	# it closes the drawing keys belong to the drawing again.
 	release_keyboard_focus(self)
@@ -4871,7 +6697,6 @@ func _grading_rows() -> Array[Dictionary]:
 		return none
 	return _draft.grading_rows()
 
-
 # --- what the page's own controls asked for ---------------------------------------------
 
 
@@ -4898,7 +6723,7 @@ func arm_grading_tool(kind: String) -> void:
 		return
 	# A scene with no drawing still gets an answer rather than silence: a button that cannot do anything
 	# explains itself, here as much as anywhere else.
-	var armed: Dictionary = {"ok": false, "reason": "there is no drawing to grade"}
+	var armed: Dictionary = { "ok": false, "reason": "there is no drawing to grade" }
 	if _draft != null:
 		armed = _draft.begin_grading(kind)
 	if not bool(armed.get("ok", false)):
@@ -4998,8 +6823,8 @@ func _on_survey_chosen(path: String) -> void:
 ## by the reader's own default.
 func _survey_read_options() -> Dictionary:
 	if _draft == null or _draft.document == null:
-		return {}
-	return {"display_units": _draft.document.units}
+		return { }
+	return { "display_units": _draft.document.units }
 
 
 ## Show the line of hints or not, remembering that a presentation and the painted sheet take them away
@@ -5008,7 +6833,6 @@ func _apply_hints_visibility() -> void:
 	if hints != null:
 		var painted: bool = painted_sheet != null and painted_sheet.visible
 		hints.visible = _show_hints and not _presenting and not painted
-
 
 # --- the sun and the shadows --------------------------------------------------------------
 #
@@ -5040,7 +6864,7 @@ func open_sun_window() -> void:
 	if _sun_window == null:
 		return
 	_fill_sun_window()
-	_sun_window.popup_centered()
+	PageChromeScript.show_centred(_sun_window)
 	# A page with a height to type into holds the keyboard while it is up, the way the grading page
 	# does; the drawing keys belong to the drawing again the moment it closes.
 	release_keyboard_focus(self)
@@ -5080,7 +6904,7 @@ func _fill_sun_window() -> void:
 ## rather than studying a latitude nobody stated.
 func _sun_site() -> Dictionary:
 	if presentation == null:
-		return {}
+		return { }
 	return presentation.current_site()
 
 
@@ -5144,14 +6968,14 @@ func render_sun_study(moments: Array) -> Dictionary:
 	_sun_render_refused = 0
 	_sun_render_waiting = false
 	_render_next_sun_still()
-	return {"ok": true, "reason": "", "names": _sun_render_names}
+	return { "ok": true, "reason": "", "names": _sun_render_names }
 
 
 func _refuse_sun_render(reason: String) -> Dictionary:
 	if _sun_window != null:
 		_sun_window.say(reason)
 	var none: Array[String] = []
-	return {"ok": false, "reason": reason, "names": none}
+	return { "ok": false, "reason": reason, "names": none }
 
 
 ## The next still of the walk, or the end of it. A moment whose sun cannot be aimed - which the page's
@@ -5201,7 +7025,7 @@ func _finish_sun_render() -> void:
 	var words := "%d still%s written" % [_sun_render_written, "" if _sun_render_written == 1 else "s"]
 	if _sun_render_refused > 0:
 		words += ", %d moment%s could not be rendered" \
-			% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
+				% [_sun_render_refused, "" if _sun_render_refused == 1 else "s"]
 	_sun_window.say(words)
 
 
@@ -5217,7 +7041,7 @@ func _sun_text() -> String:
 		return "%s: no moments chosen yet" % site
 	var up: int = _sun_window.renderable_moments().size()
 	return "%s: %d moment%s, %d with the sun up" \
-		% [site, count, "" if count == 1 else "s", up]
+			% [site, count, "" if count == 1 else "s", up]
 
 
 func _refresh_present_menu() -> void:
@@ -5227,6 +7051,50 @@ func _refresh_present_menu() -> void:
 		popup.set_item_text(int(info[1]), _sun_text())
 
 
+## The presentation panel's own doors, and the menu row that uses them. Public because a test presses
+## what the menu row presses, the same way `open_keys` and `close_keys` are.
+func is_presentation_panel_wanted() -> bool:
+	return _presentation_panel_wanted
+
+
+func set_presentation_panel_wanted(wanted: bool) -> void:
+	_presentation_panel_wanted = wanted
+	_refresh_presentation_panel()
+
+
+## Whether the panel belongs on the screen: a scene with a director has one, unless the person has put
+## it away or the painted sheet is covering everything. The one place that decides, so the frame's
+## refresh and the menu row cannot come to disagree about it.
+func _refresh_presentation_panel() -> void:
+	if presentation_panel == null:
+		return
+	presentation_panel.visible = presentation != null and _presentation_panel_wanted \
+			and not (painted_sheet != null and painted_sheet.visible)
+
+
+func _menu_presentation_panel(_entry: Dictionary) -> void:
+	set_presentation_panel_wanted(not _presentation_panel_wanted)
+
+
+## What the panel's own door starts as on the device this HUD was answered as: put away on a phone, and
+## exactly as the scene drew it on a computer.
+##
+## A **start**, never a settlement. A person who brings the panel back on a phone keeps it back, which is
+## why this runs where the chrome is first sized and refuses to run a second time: the pass that sizes the
+## chrome can be asked again, and a pass that put the panel away every time would take it out of the hands
+## of whoever had just opened it.
+##
+## The device is taken as an argument for the reason `PhoneHud.apply_if` takes it - so that a test can hold
+## what a desk and what a phone would be given without being either - and the reading itself stays in the
+## one place it is made, `_size_the_chrome_for_the_device`.
+func start_the_presentation_panel_for(finger: bool) -> void:
+	if _presentation_panel_started:
+		return
+	_presentation_panel_started = true
+	if finger:
+		set_presentation_panel_wanted(false)
+
+
 func _menu_sun_window(_entry: Dictionary) -> void:
 	open_sun_window()
 
@@ -5234,6 +7102,111 @@ func _menu_sun_window(_entry: Dictionary) -> void:
 func _on_sun_window_closed() -> void:
 	_refresh_menus()
 
+# --- the walk-through -----------------------------------------------------------------------
+
+
+func _menu_walk_window(_entry: Dictionary) -> void:
+	open_walk_window()
+
+
+func _on_walk_window_closed() -> void:
+	_refresh_menus()
+
+
+## Build the page and wire what it asks for. The walk moves the presentation camera, so the page is
+## only useful where there is a presentation - which is what `NEEDS_PRESENTATION` says of the menu
+## entry that reaches it.
+func _build_walk_window() -> void:
+	if _walk_window != null:
+		return
+	_walk_window = WalkWindowScript.new()
+	_walk_window.name = "WalkWindow"
+	_walk_window.closed.connect(_on_walk_window_closed)
+	_walk_window.walk_changed.connect(_refresh_menus)
+	add_child(_walk_window)
+	_walk_window.build()
+	_walk_window.hide()
+
+
+func open_walk_window() -> void:
+	_build_walk_window()
+	if _walk_window == null:
+		return
+	_fill_walk_window()
+	PageChromeScript.show_centred(_walk_window)
+	# The walk is played from the page, so it holds the drawing's keys while it is up, the way the
+	# grading page does; the drawing keys belong to the drawing again the moment it closes.
+	release_keyboard_focus(self)
+
+
+func close_walk_window() -> void:
+	if _walk_window != null and _walk_window.visible:
+		_walk_window.hide()
+
+
+func is_walk_window_open() -> bool:
+	return _walk_window != null and _walk_window.visible
+
+
+## Point the page at the presentation, so the walk takes that camera over the garden on the drawing.
+func _fill_walk_window() -> void:
+	_build_walk_window()
+	if _walk_window == null:
+		return
+	_walk_window.bind(presentation)
+	_refresh_menus()
+
+# --- snapping -----------------------------------------------------------------------
+
+
+func _menu_snap_window(_entry: Dictionary) -> void:
+	open_snap_window()
+
+
+func _on_snap_window_closed() -> void:
+	_refresh_menus()
+
+
+## Build the page. The settings live on the drafting controller, so the page is only useful where
+## there is one - which is what the Draft menu's own presence already says.
+func _build_snap_window() -> void:
+	if _snap_window != null:
+		return
+	_snap_window = SnapWindowScript.new()
+	_snap_window.name = "SnapWindow"
+	_snap_window.closed.connect(_on_snap_window_closed)
+	add_child(_snap_window)
+	_snap_window.build()
+	_snap_window.hide()
+
+
+func open_snap_window() -> void:
+	_build_snap_window()
+	if _snap_window == null:
+		return
+	_fill_snap_window()
+	PageChromeScript.show_centred(_snap_window)
+	# The page's switches take the drawing's keys while it is up, the way the grading page does.
+	release_keyboard_focus(self)
+
+
+func close_snap_window() -> void:
+	if _snap_window != null and _snap_window.visible:
+		_snap_window.hide()
+
+
+func is_snap_window_open() -> bool:
+	return _snap_window != null and _snap_window.visible
+
+
+## Point the page at the drawing's own controller, so its switches are the drawing's settings rather
+## than a copy the page would have to keep in step.
+func _fill_snap_window() -> void:
+	_build_snap_window()
+	if _snap_window == null:
+		return
+	_snap_window.bind(_draft)
+	_refresh_menus()
 
 # --- what the drawing has said --------------------------------------------------------------
 #
@@ -5260,7 +7233,7 @@ func open_status_window() -> void:
 	if _status_window == null:
 		return
 	_fill_status_window()
-	_status_window.popup_centered()
+	PageChromeScript.show_centred(_status_window)
 	release_keyboard_focus(self)
 
 
@@ -5307,7 +7280,6 @@ func _on_status_window_closed() -> void:
 func _menu_said(_entry: Dictionary) -> void:
 	open_status_window()
 
-
 # --- hatching a region ---------------------------------------------------------------------
 
 
@@ -5318,7 +7290,7 @@ func _build_hatch_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "HatchPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5329,9 +7301,15 @@ func _build_hatch_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5397,7 +7375,6 @@ func _on_hatch_fill(entity_id: int, options: Dictionary) -> void:
 func _menu_hatch_region(_entry: Dictionary) -> void:
 	open_hatch_panel()
 
-
 # --- watering an area ----------------------------------------------------------------------
 
 
@@ -5408,7 +7385,7 @@ func _build_irrigation_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "WaterPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5419,9 +7396,15 @@ func _build_irrigation_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5520,7 +7503,6 @@ func _on_water_remove(number: int) -> void:
 func _menu_water_panel(_entry: Dictionary) -> void:
 	open_water_panel()
 
-
 # --- lighting an area ----------------------------------------------------------------------
 
 
@@ -5531,7 +7513,7 @@ func _build_lighting_panel() -> void:
 	var root := get_node_or_null(^"Root")
 	if root == null:
 		return
-	var wrapper := CenterContainer.new()
+	var wrapper := BoardPanelScript.new()
 	wrapper.name = "LightPanel"
 	wrapper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5542,9 +7524,15 @@ func _build_lighting_panel() -> void:
 	page.custom_minimum_size = Vector2(520.0, 0.0)
 	if top_bar != null:
 		page.add_theme_stylebox_override("panel", top_bar.get_theme_stylebox("panel"))
+	# Scrolls: see `_build_site_report_panel` for the reasoning and the measurement.
+	var scroll := ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	page.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	page.add_child(column)
+	scroll.add_child(column)
 
 	var heading := Label.new()
 	heading.name = "Heading"
@@ -5643,7 +7631,6 @@ func _on_light_remove(number: int) -> void:
 func _menu_light_panel(_entry: Dictionary) -> void:
 	open_light_panel()
 
-
 # --- the plant list -----------------------------------------------------------------------
 
 
@@ -5658,7 +7645,12 @@ func _build_plant_library() -> void:
 	_plant_window.name = "PlantLibrary"
 	_plant_window.title = "Plant library"
 	_plant_window.exclusive = false
-	_plant_window.min_size = Vector2i(760, 460)
+	# **The size it declares for itself**, which is the floor `PageChrome.show_centred` starts a page from - not a
+	# `popup_centered` argument, which was what this door used and is why the plant library was the one page a
+	# finger was never fitted. Measured by `tools/phone_touch_sweep.gd` at a phone's own 450 dpi, 2026-11-14: every
+	# control on this page 41 px where a finger wants 97, 84 pairs of them 6-7 px apart, and 74 lines drawn at 16 px
+	# where the screen needs 30 - the desk's numbers, whole, on a phone.
+	_plant_window.min_size = Vector2i(1080, 680)
 	_plant_window.close_requested.connect(close_plant_browser)
 	add_child(_plant_window)
 
@@ -5681,6 +7673,7 @@ func _build_plant_library() -> void:
 	_plant_import_dialog.filters = PackedStringArray(["*.json ; Plant lists"])
 	_plant_import_dialog.file_selected.connect(_on_plant_import_chosen)
 	add_child(_plant_import_dialog)
+	PhoneFilesScript.prepare(_plant_import_dialog)
 
 	_plant_export_dialog = FileDialog.new()
 	_plant_export_dialog.name = "ExportPlantList"
@@ -5733,7 +7726,6 @@ func _on_plant_panel_stop() -> void:
 	if view_controller != null:
 		view_controller.stop_planting()
 
-
 # --- filling a bed ---------------------------------------------------------------------------
 
 
@@ -5762,7 +7754,7 @@ func _on_plant_fill_bed(bed_key: String, spacing: float, arrangement: String) ->
 	if species_id.is_empty():
 		_plant_panel.say("Choose a plant to fill a bed with")
 		return
-	var bed: Dictionary = {}
+	var bed: Dictionary = { }
 	for row: Dictionary in _planting_beds():
 		if String(row.get("key", "")) == bed_key:
 			bed = row
@@ -5773,8 +7765,11 @@ func _on_plant_fill_bed(bed_key: String, spacing: float, arrangement: String) ->
 		return
 	var yard: Node = view_controller.yard if view_controller != null else null
 	var report: Dictionary = PlantSpacingScript.fill(
-		plant_list(), yard, species_id, bed["outline"],
-		{"spacing": spacing, "arrangement": arrangement}
+		plant_list(),
+		yard,
+		species_id,
+		bed["outline"],
+		{ "spacing": spacing, "arrangement": arrangement },
 	)
 	_plant_panel.say(PlantSpacingScript.report_words(report))
 	if not bool(report["ok"]):
@@ -5851,7 +7846,14 @@ func open_plant_browser() -> void:
 	if _plant_window == null:
 		return
 	_refresh_plant_browser()
-	_plant_window.popup_centered(Vector2i(1080, 680))
+	# **Through the one door a page is shown by**, and not `popup_centered` as this did until 2026-11-14. The door
+	# does four things to a page that a bare pop-up does not: it sizes the buttons for a finger, grows the page's
+	# words for the screen, insets its contents so a thumb has room, and lands it clear of its own title bar and a
+	# phone's cutout. This was one of three doors that skipped all four, so on a phone the plant library was a page
+	# of 41 px controls in 16 px type - 67 short, 84 close and 74 tiny, read by `tools/phone_touch_sweep.gd` at a
+	# phone's own 450 dpi. The size above is unchanged: 1080 by 680 is what it declared here, and it is what the
+	# door places it at.
+	PageChromeScript.show_centred(_plant_window)
 	if _plant_browser != null:
 		_plant_browser.focus_search()
 
@@ -5890,7 +7892,7 @@ func open_plant_order_window() -> void:
 
 ## Forget a plan a household handed over, so the order page is about the drawing's planting again.
 func _forget_handed_plan() -> void:
-	_plant_order_plan_override = {}
+	_plant_order_plan_override = { }
 
 
 ## Show the order page on the plan it is pointed at, whether that is the drawing's planting or a count a
@@ -5900,7 +7902,7 @@ func _show_plant_order_window() -> void:
 	if _plant_order_window == null:
 		return
 	_fill_plant_order_window()
-	_plant_order_window.popup_centered()
+	PageChromeScript.show_centred(_plant_order_window)
 	release_keyboard_focus(self)
 
 
@@ -5984,9 +7986,7 @@ func _plant_order_book() -> CostBook:
 func write_plant_order(job_id: String, supplier: String) -> Dictionary:
 	if _job_desk == null:
 		_build_job_desk()
-	var written: Dictionary = PlantOrderScript.write_orders(
-		_job_desk, job_id, plant_order_plan(), supplier
-	)
+	var written: Dictionary = PlantOrderScript.write_orders(_job_desk, job_id, plant_order_plan(), supplier)
 	if bool(written["ok"]):
 		_plant_order_state = _plant_order_signature()
 		# What the job has committed has moved, so the cost page and the menu lines are stale.
@@ -6000,8 +8000,9 @@ func _on_plant_order_requested(job_id: String, supplier: String) -> void:
 	if _plant_order_window == null:
 		return
 	if bool(written["ok"]):
-		_plant_order_window.say("written, and waiting to be issued: %s"
-			% PlantOrderScript.orders_words(written["orders"]))
+		_plant_order_window.say(
+			"written, and waiting to be issued: %s" % PlantOrderScript.orders_words(written["orders"])
+		)
 	else:
 		_plant_order_window.say(String(written["reason"]))
 
@@ -6016,11 +8017,10 @@ func _menu_plant_order_window(_entry: Dictionary) -> void:
 func _on_yield_order_requested(rows: Array) -> void:
 	_show_yield_order(rows)
 	if _plant_order_window != null:
-		_plant_order_window.popup_centered()
+		PageChromeScript.show_centred(_plant_order_window)
 	release_keyboard_focus(self)
 	if _yield_window != null:
-		_yield_window.say("handed %d kind%s to the nursery order"
-			% [rows.size(), "" if rows.size() == 1 else "s"])
+		_yield_window.say("handed %d kind%s to the nursery order" % [rows.size(), "" if rows.size() == 1 else "s"])
 
 
 ## Point the order page at the rows a household's count comes to, priced, and fill it - without showing
@@ -6029,7 +8029,6 @@ func _show_yield_order(rows: Array) -> Dictionary:
 	_plant_order_plan_override = PlantOrderScript.plan(rows, _plant_order_book())
 	_fill_plant_order_window()
 	return _plant_order_plan_override
-
 
 # --- the food garden -------------------------------------------------------------------------
 #
@@ -6056,7 +8055,7 @@ func open_food_window() -> void:
 	if _food_window == null:
 		return
 	_fill_food_window()
-	_food_window.popup_centered()
+	PageChromeScript.show_centred(_food_window)
 	release_keyboard_focus(self)
 
 
@@ -6093,20 +8092,12 @@ func food_places() -> Array:
 	var map: ZoneMapScript = _ground_map()
 	if map == null:
 		return places
-	places.append({
-		"name": "the whole site",
-		"profile": map.base.copy(),
-		"summary": map.base.describe(),
-	})
+	places.append({ "name": "the whole site", "profile": map.base.copy(), "summary": map.base.describe() })
 	for raw: Variant in map.zones:
 		var zone: Variant = raw
 		var stated: TerrainProfile = zone.profile
 		var profile: TerrainProfile = stated.merged_over(map.base)
-		places.append({
-			"name": String(zone.name),
-			"profile": profile,
-			"summary": profile.describe(),
-		})
+		places.append({ "name": String(zone.name), "profile": profile, "summary": profile.describe() })
 	return places
 
 
@@ -6142,7 +8133,6 @@ func _menu_food_window(_entry: Dictionary) -> void:
 func _on_food_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- what to grow here next -------------------------------------------------------------------
 #
 # The kitchen gardener's other question, asked of the same beds: not what will crop, but what should
@@ -6168,7 +8158,7 @@ func open_rotation_window() -> void:
 	if _rotation_window == null:
 		return
 	_fill_rotation_window()
-	_rotation_window.popup_centered()
+	PageChromeScript.show_centred(_rotation_window)
 	release_keyboard_focus(self)
 
 
@@ -6201,11 +8191,11 @@ func rotation_places() -> Array:
 	var map: ZoneMapScript = _ground_map()
 	if map == null:
 		return places
-	places.append({"name": "the whole site", "summary": map.base.describe()})
+	places.append({ "name": "the whole site", "summary": map.base.describe() })
 	for raw: Variant in map.zones:
 		var zone: Variant = raw
 		var profile: TerrainProfile = zone.profile.merged_over(map.base)
-		places.append({"name": String(zone.name), "summary": profile.describe()})
+		places.append({ "name": String(zone.name), "summary": profile.describe() })
 	return places
 
 
@@ -6238,7 +8228,6 @@ func _menu_rotation_window(_entry: Dictionary) -> void:
 func _on_rotation_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- what is ready when -----------------------------------------------------------------------
 #
 # The third reading of the same kitchen garden, and the plainest: not where a crop will grow or what
@@ -6264,7 +8253,7 @@ func open_harvest_window() -> void:
 	if _harvest_window == null:
 		return
 	_fill_harvest_window()
-	_harvest_window.popup_centered()
+	PageChromeScript.show_centred(_harvest_window)
 	release_keyboard_focus(self)
 
 
@@ -6320,7 +8309,6 @@ func _menu_harvest_window(_entry: Dictionary) -> void:
 func _on_harvest_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- when to sow -------------------------------------------------------------------------------
 #
 # The growing season read as a calendar: a day to sow on, a crop to sow, and the succession of sowings
@@ -6347,7 +8335,7 @@ func open_sowing_window() -> void:
 	if _draft == null or _draft.document == null:
 		return
 	_fill_sowing_window()
-	_sowing_window.popup_centered()
+	PageChromeScript.show_centred(_sowing_window)
 	release_keyboard_focus(self)
 
 
@@ -6399,7 +8387,6 @@ func _menu_sowing_window(_entry: Dictionary) -> void:
 func _on_sowing_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- how much to plant -------------------------------------------------------------------------
 #
 # The kitchen garden's last reading: not where a crop will grow or when it ripens, but how many of it a
@@ -6427,7 +8414,7 @@ func open_yield_window() -> void:
 	if _yield_window == null:
 		return
 	_fill_yield_window()
-	_yield_window.popup_centered()
+	PageChromeScript.show_centred(_yield_window)
 	release_keyboard_focus(self)
 
 
@@ -6482,7 +8469,6 @@ func _menu_yield_window(_entry: Dictionary) -> void:
 func _on_yield_window_closed() -> void:
 	_refresh_menus()
 
-
 # --- the growing season -------------------------------------------------------------------------
 #
 # The site's own frost dates, and what they mean for the food list. Every other food page reads the
@@ -6510,7 +8496,7 @@ func open_season_window() -> void:
 	if _draft == null or _draft.document == null:
 		return
 	_fill_season_window()
-	_season_window.popup_centered()
+	PageChromeScript.show_centred(_season_window)
 	release_keyboard_focus(self)
 
 
@@ -6556,9 +8542,7 @@ func _season_signature() -> String:
 	if _draft == null or _draft.document == null:
 		return "no drawing"
 	var document: DraftDocument = _draft.document
-	return "%d:%d:%d" % [
-		document.get_instance_id(), document.season_last_frost, document.season_first_frost
-	]
+	return "%d:%d:%d" % [document.get_instance_id(), document.season_last_frost, document.season_first_frost]
 
 
 ## What the Site menu says about the season, in one line. Lower-cased at the front because a menu
@@ -6580,6 +8564,62 @@ func _menu_season_window(_entry: Dictionary) -> void:
 ## The season changed on the drawing: the Site menu's line about it is stale.
 func _on_season_changed() -> void:
 	_refresh_menus()
+
+# --- recording what is on site -------------------------------------------------------------------
+
+
+func _menu_capture_window(_entry: Dictionary) -> void:
+	open_capture_window()
+
+
+func _on_capture_window_closed() -> void:
+	_refresh_menus()
+
+
+## Build the page. Unlike the other Site pages it is not built *from* the drawing - it writes to the
+## survey file, not to the document - but it needs a drawing to be open at all, because a capture is a
+## plant at a place on this site and the drawing is what this site is.
+func _build_capture_window() -> void:
+	if _capture_window != null:
+		return
+	_capture_window = FieldCaptureWindowScript.new()
+	_capture_window.name = "CaptureWindow"
+	add_child(_capture_window)
+	_capture_window.build()
+	_capture_window.closed.connect(_on_capture_window_closed)
+	_capture_window.camera_changed.connect(_on_capture_camera_changed)
+	_capture_window.key_requested.connect(_on_capture_key_requested)
+	_capture_window.hide()
+
+
+func open_capture_window() -> void:
+	_build_capture_window()
+	if _capture_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_fill_capture_window()
+	PageChromeScript.show_centred(_capture_window)
+	release_keyboard_focus(self)
+
+
+func close_capture_window() -> void:
+	if _capture_window != null and _capture_window.visible:
+		_capture_window.request_close()
+
+
+## Hand the page the one plant list, so a capture is checked against the catalogue the browser shows,
+## and let it keep the survey path it already defaults to - the file `SurveyWatcher` watches.
+func _fill_capture_window() -> void:
+	_build_capture_window()
+	if _capture_window == null:
+		return
+	_capture_window.bind(plant_list())
+	_refresh_menus()
+
+
+func is_capture_window_open() -> bool:
+	return _capture_window != null and _capture_window.visible
 
 
 func _on_season_window_closed() -> void:
@@ -6613,7 +8653,7 @@ func open_estimate_window() -> void:
 	if _estimate_window == null or _draft == null or _draft.document == null:
 		return
 	_estimate_window.bind(_draft.document, _planting_rows())
-	_estimate_window.popup_centered()
+	PageChromeScript.show_centred(_estimate_window)
 	# A window holds the keyboard while it is up, which is what a window is for; the moment it closes
 	# the drawing keys belong to the drawing again.
 	release_keyboard_focus(self)
@@ -6686,7 +8726,7 @@ func open_pipeline_board() -> void:
 	if _pipeline_board == null:
 		return
 	_pipeline_board.refresh()
-	_pipeline_board.popup_centered()
+	PageChromeScript.show_centred(_pipeline_board)
 	# A window holds the keyboard while it is up; the moment it closes the drawing keys belong to the
 	# drawing again.
 	release_keyboard_focus(self)
@@ -6719,7 +8759,6 @@ func _refresh_pipeline_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _pipeline_text())
-
 
 # --- the jobs and the crews --------------------------------------------------------------------
 
@@ -6759,7 +8798,7 @@ func open_schedule_board() -> void:
 	if _schedule_board == null:
 		return
 	_schedule_board.bind(_job_desk)
-	_schedule_board.popup_centered()
+	PageChromeScript.show_centred(_schedule_board)
 	release_keyboard_focus(self)
 
 
@@ -6785,7 +8824,7 @@ func _jobs_text() -> String:
 	if _job_desk == null:
 		return "no crews and no jobs yet"
 	var line: String = _job_desk.describe()
-	if _billing_ledger != null and not (_billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0):
+	if (_billing_ledger != null and not (_billing_ledger.invoices.is_empty() and _billing_ledger.issues() == 0)):
 		line = "%s, %s" % [line, _billing_ledger.describe()]
 	if _ledger_desk != null and (_ledger_desk.count() > 0 or _ledger_desk.issues() > 0):
 		line = "%s, %s" % [line, _ledger_desk.describe()]
@@ -6842,7 +8881,7 @@ func open_cost_window() -> void:
 	if _cost_window == null:
 		return
 	_cost_window.bind(_job_desk)
-	_cost_window.popup_centered()
+	PageChromeScript.show_centred(_cost_window)
 	release_keyboard_focus(self)
 
 
@@ -6900,7 +8939,7 @@ func open_billing_window() -> void:
 	if _billing_window == null:
 		return
 	_billing_window.bind(_billing_ledger)
-	_billing_window.popup_centered()
+	PageChromeScript.show_centred(_billing_window)
 	release_keyboard_focus(self)
 
 
@@ -6935,8 +8974,10 @@ func _menu_billing_window(_entry: Dictionary) -> void:
 ## the other pages for the same reason - the outbox is pointed at the billing ledger this file already
 ## wired to the menus - and it needs no drawing, because where a document has got to is not on the plan.
 ##
-## The desk starts with the file backend and nothing else, because a hosted ledger's address and token
-## are the office's to state on the page rather than something this file should invent.
+## The file backend comes from the desk itself and always works. The two hosted ledgers are registered
+## here so the page can *offer* them and the office can state their address and token where the page
+## keeps settings - nothing is invented, because an unconfigured backend offers no address, and nothing
+## is posted to it until it is chosen.
 func _build_ledger_desk() -> void:
 	if _ledger_desk != null:
 		return
@@ -6944,6 +8985,8 @@ func _build_ledger_desk() -> void:
 		_build_billing_ledger()
 	_ledger_desk = LedgerDeskScript.new()
 	_ledger_desk.bind(_billing_ledger)
+	_ledger_desk.add_adapter(AkauntingLedgerScript.new())
+	_ledger_desk.add_adapter(InvoiceNinjaLedgerScript.new())
 
 
 func _build_ledger_window() -> void:
@@ -6966,7 +9009,7 @@ func open_ledger_window() -> void:
 	if _ledger_window == null:
 		return
 	_ledger_window.bind(_ledger_desk)
-	_ledger_window.popup_centered()
+	PageChromeScript.show_centred(_ledger_window)
 	release_keyboard_focus(self)
 
 
@@ -6988,6 +9031,10 @@ func _on_ledger_changed() -> void:
 
 func _menu_ledger_window(_entry: Dictionary) -> void:
 	open_ledger_window()
+
+
+func _menu_sync_window(_entry: Dictionary) -> void:
+	open_sync_window()
 
 
 ## Finishing the job: the punch list, the hand-over date and the warranty on one page. Built by hand
@@ -7022,7 +9069,7 @@ func open_closeout_window() -> void:
 	if _closeout_window == null:
 		return
 	_closeout_window.bind(_closeout_desk)
-	_closeout_window.popup_centered()
+	PageChromeScript.show_centred(_closeout_window)
 	release_keyboard_focus(self)
 
 
@@ -7063,9 +9110,7 @@ func _build_analytics_report() -> void:
 		_build_job_desk()
 	if _billing_ledger == null:
 		_build_billing_ledger()
-	_analytics_report = AnalyticsScript.new(
-		_pipeline_board.pipeline, _job_desk, _billing_ledger
-	)
+	_analytics_report = AnalyticsScript.new(_pipeline_board.pipeline, _job_desk, _billing_ledger)
 
 
 func _build_analytics_window() -> void:
@@ -7091,7 +9136,7 @@ func open_analytics_window() -> void:
 	if _analytics_window == null:
 		return
 	_analytics_window.bind(_analytics_report)
-	_analytics_window.popup_centered()
+	PageChromeScript.show_centred(_analytics_window)
 	release_keyboard_focus(self)
 
 
@@ -7131,7 +9176,7 @@ func queue_invoices_for_ledger() -> Dictionary:
 	if _ledger_desk == null:
 		_build_ledger_desk()
 	if _ledger_desk == null:
-		return {"ok": false, "reason": "there is no outbox", "queued": 0, "refused": 0}
+		return { "ok": false, "reason": "there is no outbox", "queued": 0, "refused": 0 }
 	var handed: Dictionary = _ledger_desk.queue_unhanded()
 	if int(handed["queued"]) > 0 or int(handed["refused"]) > 0:
 		_refresh_menus()
@@ -7147,7 +9192,6 @@ func _refresh_jobs_menu() -> void:
 	if not named.is_empty():
 		var popup: PopupMenu = named[0]
 		popup.set_item_text(int(named[1]), _jobs_text())
-
 
 # --- the shared session --------------------------------------------------------------
 
@@ -7220,7 +9264,7 @@ func open_ground_window() -> void:
 		return
 	_ground_window.document = _draft.document
 	_ground_window.refresh()
-	_ground_window.popup_centered()
+	PageChromeScript.show_centred(_ground_window)
 	# A window holds the keyboard while it is up, which is exactly what a window is for; the moment
 	# it closes the drawing keys belong to the drawing again.
 	release_keyboard_focus(self)
@@ -7231,6 +9275,176 @@ func close_ground_window() -> void:
 		_ground_window.hide()
 		_ground_window.say("")
 
+
+## What is around me: the things the drawing puts nearest where a person is standing, for somebody on site with the
+## plan in hand.
+##
+## A `Window` like the ground's, and deliberately a **small** one: the plan behind it is half the answer, so this
+## page keeps to a corner and leaves the board visible and usable around it. Built by hand rather than left to its
+## own `_ready`, so that the page a person opens is the page this file has already wired to the menu and the
+## drawing.
+func _build_nearby_window() -> void:
+	if _nearby_window != null:
+		return
+	_nearby_window = NearbyWindowScript.new()
+	_nearby_window.name = "NearbyWindow"
+	add_child(_nearby_window)
+	_nearby_window.closed.connect(_on_nearby_closed)
+	_nearby_window.hide()
+
+
+## Open it, standing where the drawing's cursor last was.
+func open_nearby_window() -> void:
+	if _nearby_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_stand_the_nearby_page()
+	PageChromeScript.show_centred(_nearby_window)
+	# A window holds the keyboard while it is up, which is exactly what a window is for; the moment it closes the
+	# drawing keys belong to the drawing again.
+	release_keyboard_focus(self)
+
+
+func close_nearby_window() -> void:
+	if _nearby_window != null:
+		_nearby_window.hide()
+		_nearby_window.say("")
+
+
+func is_nearby_window_open() -> bool:
+	return _nearby_window != null and _nearby_window.visible
+
+
+## Hand the page where the person stands and what the drawing holds.
+##
+## **The spot is the drawing's own `cursor_point` and not the live mouse**, for the reason
+## `ViewController.ground_at_cursor` gives: a person reaches this page from the menus, so by the time anything asks,
+## the pointer is over the menu bar - and the place they mean is the one it was over on its way there. The place is
+## in plan metres, the model's own space, so nothing is converted here.
+##
+## This is read on the frame while the page is up, because the answer changes as a person points at the plan behind
+## it. What is re-read is the HUD's one cached catalogue and a walk over the yard's own plants, so it is a handful
+## of meta values; **the page decides for itself whether the rows are worth rewriting.**
+func _stand_the_nearby_page() -> void:
+	if _nearby_window == null or _draft == null:
+		return
+	var yard: Node3D = view_controller.yard if view_controller != null else null
+	_nearby_window.stand_at(_draft.cursor_point, NearbyWorkScript.planted_things(plant_list(), yard))
+
+
+## The page while it is up, for the reasons `_stand_the_nearby_page` gives.
+func _tick_nearby_window() -> void:
+	if _nearby_window == null or not _nearby_window.visible:
+		return
+	_stand_the_nearby_page()
+
+
+## The page was put away. Nothing of the drawing's is stale, but the sentence it was showing is not a claim about
+## the drawing once nobody is reading it - so it is dropped, the same way the ground's is.
+func _on_nearby_closed() -> void:
+	if _nearby_window != null:
+		_nearby_window.say("")
+
+
+## The drawing's layers: every layer, what it is for, and the two things done to one here - lock it
+## against editing, or make it the layer new shapes are drawn on.
+##
+## A `Window` like the library and the ground window, for the same reason - it has a search box to type
+## into, and a `Window` owns its own input, so nothing here can take the drawing's keys. Built by hand
+## rather than left to its own `_ready`, so the window the designer opens is the one this file has
+## already wired to the menu and to the drawing.
+func _build_layer_window() -> void:
+	if _layer_window != null:
+		return
+	_layer_window = LayerWindowScript.new()
+	_layer_window.name = "LayerWindow"
+	add_child(_layer_window)
+	_layer_window.build()
+	_layer_window.layers_changed.connect(_on_layers_changed)
+	_layer_window.hide()
+
+
+## Open it, pointed at the drawing that is open now.
+func open_layer_window() -> void:
+	if _layer_window == null:
+		return
+	if _draft == null or _draft.document == null:
+		return
+	_layer_window.bind(_draft)
+	PageChromeScript.show_centred(_layer_window)
+	release_keyboard_focus(self)
+
+
+func close_layer_window() -> void:
+	if _layer_window != null:
+		_layer_window.hide()
+
+
+func is_layer_window_open() -> bool:
+	return _layer_window != null and _layer_window.visible
+
+
+## A layer was locked, unlocked or made current: the drawing is redrawn through the document the
+## dialog already changed, and whatever says which layer is current is now stale.
+func _on_layers_changed() -> void:
+	_refresh_menus()
+
+
+## The business records' store, and the engine that syncs them with the office's service. The store is
+## where a field change is written and the engine holds the queue and the conflicts; the page shows what
+## the engine says. The one service this build offers is the HTTP transport, which the page configures -
+## nothing is invented, and a device with no token has nowhere to sync to and says so.
+func _build_sync_engine() -> void:
+	if _sync_engine != null:
+		return
+	_sync_store = BizStoreScript.new()
+	_sync_engine = BizSyncScript.new(_sync_store)
+	_sync_engine.use_transport(BizHttpTransportScript.new())
+
+
+## The sync page: what is waiting to go out, what wants a person, and where the two copies disagree.
+##
+## A `Window` like the other pages, for the same reason - it has fields to type the service's address
+## and token into - and built by hand so the window the designer opens is the one this file has already
+## wired to the engine.
+func _build_sync_window() -> void:
+	if _sync_window != null:
+		return
+	if _sync_engine == null:
+		_build_sync_engine()
+	_sync_window = SyncWindowScript.new()
+	_sync_window.name = "SyncWindow"
+	add_child(_sync_window)
+	_sync_window.build()
+	_sync_window.bind(_sync_engine)
+	_sync_window.sync_changed.connect(_on_sync_changed)
+	_sync_window.hide()
+
+
+## Open it, pointed at the engine that is in hand.
+func open_sync_window() -> void:
+	if _sync_window == null:
+		_build_sync_window()
+	if _sync_window == null:
+		return
+	_sync_window.bind(_sync_engine)
+	PageChromeScript.show_centred(_sync_window)
+	release_keyboard_focus(self)
+
+
+func close_sync_window() -> void:
+	if _sync_window != null:
+		_sync_window.hide()
+
+
+func is_sync_window_open() -> bool:
+	return _sync_window != null and _sync_window.visible
+
+
+## A run, a settled conflict, or the service being configured: whatever reports on the queue is stale.
+func _on_sync_changed() -> void:
+	_refresh_menus()
 
 # --- the sheet setup ------------------------------------------------------------------------
 
@@ -7264,7 +9478,7 @@ func open_sheet_window() -> void:
 		return
 	_draft.save_sheet()
 	_refresh_sheet_window()
-	_sheet_window.popup_centered()
+	PageChromeScript.show_centred(_sheet_window)
 	release_keyboard_focus(self)
 
 
@@ -7368,7 +9582,6 @@ func _on_sheet_plot_set() -> void:
 func _menu_sheet_setup(_entry: Dictionary) -> void:
 	open_sheet_window()
 
-
 # --- the history of the drawing -------------------------------------------------------
 
 
@@ -7393,7 +9606,7 @@ func open_revision_window() -> void:
 	if _draft == null or _draft.document == null:
 		return
 	_refresh_revision_window()
-	_revision_window.popup_centered()
+	PageChromeScript.show_centred(_revision_window)
 	release_keyboard_focus(self)
 
 
@@ -7418,8 +9631,10 @@ func _refresh_revision_window() -> void:
 	if _revision_window == null or _draft == null:
 		return
 	var state := "%s|%d|%d|%d" % [
-		StoreScript.display_name(_draft.drawing_path), _draft.revisions.count(),
-		_draft.revisions.dropped, _draft.document.gesture_serial(),
+		StoreScript.display_name(_draft.drawing_path),
+		_draft.revisions.count(),
+		_draft.revisions.dropped,
+		_draft.document.gesture_serial(),
 	]
 	if state == _revision_state:
 		return
@@ -7467,7 +9682,7 @@ func _on_ground_changed() -> void:
 
 
 func _on_ground_check_requested() -> void:
-	_menu_check_planting({})
+	_menu_check_planting({ })
 
 
 ## Show the coverage report. It is a reading of the drawing, so it is opened rather than
@@ -7498,6 +9713,91 @@ func _refresh_plant_browser() -> void:
 func _menu_plant_library(_entry: Dictionary) -> void:
 	open_plant_browser()
 
+# --- naming a plant by answering questions --------------------------------------------------
+
+#
+# The page is the person's half of the question "what is this plant": it asks what they can see and
+# narrows the list until one is left. Everything about it that is not a page - which question, which
+# answers, and what an answer leaves - is `PlantKey`'s, and this file owns only the window and the one
+# thing a plant named this way has in common with a plant chosen from the library: it gets armed.
+
+
+func _menu_plant_key(_entry: Dictionary) -> void:
+	open_plant_key_window()
+
+
+## Build the page once, the first time somebody asks for it. It reaches the catalogue rather than the
+## scene, so there is nothing about the drawing to hand it and nothing to rebuild when the drawing
+## changes - which is why it is not in the refresh ladder the drawing's own pages are in.
+func _build_plant_key_window() -> void:
+	if _plant_key_window != null:
+		return
+	_plant_key_window = PlantKeyWindowScript.new()
+	_plant_key_window.name = "PlantKeyWindow"
+	add_child(_plant_key_window)
+	_plant_key_window.build()
+	_plant_key_window.closed.connect(_on_plant_key_window_closed)
+	_plant_key_window.species_chosen.connect(_on_plant_key_chosen)
+	_plant_key_window.hide()
+
+
+## Open it pointed at the one plant list, and at the bed the plant is going in.
+##
+## The bed is what the plan says the ground is like where the drawing's cursor last was, which is why the
+## key is site-aware here rather than merely a filter over the catalogue: a designer asking "what can I
+## plant in this bed" is asking a question the drawing can already partly answer. A scene with no drawing
+## answers an empty spot, and the page then says the key is not narrowed to anything.
+func open_plant_key_window() -> void:
+	_build_plant_key_window()
+	if _plant_key_window == null:
+		return
+	_plant_key_window.bind(plant_list())
+	_plant_key_window.suit_to(view_controller.ground_at_cursor() if view_controller != null else { })
+	PageChromeScript.show_centred(_plant_key_window)
+	release_keyboard_focus(self)
+
+
+## Settle which of the plants a photograph offered it is: the key, narrowed to just those.
+##
+## The capture page is put away first, because the key is opened over it and two pages up at once is a
+## keyboard nobody knows the owner of - and the photograph's own half of the work is finished, which is why
+## the invitation lived on that page.
+##
+## A reading that resolved to nothing leaves the key on the whole list rather than emptying it, and the
+## page's own line says so: `PlantKey.among` skips the ids this list does not have.
+func _on_capture_key_requested(ids: Array[StringName]) -> void:
+	close_capture_window()
+	open_plant_key_window()
+	if _plant_key_window != null:
+		_plant_key_window.from_a_shortlist(ids, "photograph")
+
+
+func close_plant_key_window() -> void:
+	if _plant_key_window != null and _plant_key_window.visible:
+		_plant_key_window.request_close()
+
+
+func is_plant_key_window_open() -> bool:
+	return _plant_key_window != null and _plant_key_window.visible
+
+
+func _on_plant_key_window_closed() -> void:
+	_refresh_menus()
+
+
+## A plant named by working through the key is armed exactly as one chosen from the library or the
+## palette is - `_arm_planting` is the one door onto that - so nothing downstream can tell which of the
+## three a plant came through.
+##
+## When there is nowhere to plant it the page has already closed, so this is the only place left that can
+## say so; a person told which plant it is and then left with nothing happening would think it had failed.
+func _on_plant_key_chosen(species_id: StringName) -> void:
+	if _arm_planting(species_id):
+		return
+	var species: PlantSpecies = plant_list().get_species(species_id)
+	var named: String = species.display_name() if species != null else String(species_id)
+	_plant_say("%s is named, but nothing here can be planted yet: open a drawing with a yard first." % named)
+
 
 ## Put the last chosen plant back in hand. With nothing chosen yet, the library is what is wanted,
 ## which is a better answer than a command that does nothing.
@@ -7523,17 +9823,19 @@ func _menu_stop_planting(_entry: Dictionary) -> void:
 func _menu_label_plants(_entry: Dictionary) -> void:
 	if _draft == null or view_controller == null:
 		return
-	var catalogue = plant_list()
+	var catalogue := plant_list()
 	var plants: Array = []
 	for node: Node3D in PlantPlacementScript.planted(view_controller.yard):
 		var species_id := PlantPlacementScript.species_of(node)
-		var species = null if catalogue == null else catalogue.get_species(species_id)
+		var species: PlantSpecies = null if catalogue == null else catalogue.get_species(species_id)
 		var printed := "" if species == null else species.display_name()
-		plants.append({
-			"species": species_id,
-			"name": printed,
-			"position": Vector2(node.global_position.x, node.global_position.z),
-		})
+		plants.append(
+			{
+				"species": species_id,
+				"name": printed,
+				"position": Vector2(node.global_position.x, node.global_position.z),
+			}
+		)
 	var wanted := PlantLabelsScript.labels_for(plants)
 	var reason := String(wanted.get("reason", ""))
 	if not reason.is_empty():
@@ -7541,13 +9843,21 @@ func _menu_label_plants(_entry: Dictionary) -> void:
 		return
 	_draft.label_planting(wanted["labels"])
 
-
 # --- what the ground is like, and what that means for the planting -----------------------
 
 
 ## Open the ground window: the site's conditions and one statement per area of the plan.
 func _menu_ground_window(_entry: Dictionary) -> void:
 	open_ground_window()
+
+
+## Open the page for somebody standing in the garden with the plan in hand.
+func _menu_nearby(_entry: Dictionary) -> void:
+	open_nearby_window()
+
+
+func _menu_layer_window(_entry: Dictionary) -> void:
+	open_layer_window()
 
 
 ## Draw a ground zone: ground nothing on the plan outlines - a frost pocket, a strip of shade, a wet
@@ -7572,9 +9882,7 @@ func _menu_read_ground(_entry: Dictionary) -> void:
 	var document: DraftDocument = _draft.document
 	var count: int = document.read_environment_from_drawing()
 	if count <= 0:
-		_plant_say(
-			"the drawing has no buildings or hard surfaces on it, so it says nothing about the ground"
-		)
+		_plant_say("the drawing has no buildings or hard surfaces on it, so it says nothing about the ground")
 		return
 	_plant_say("read %d area%s of ground from the drawing" % [count, "" if count == 1 else "s"])
 	_refresh_menus()
@@ -7612,11 +9920,11 @@ func _menu_plant_export(_entry: Dictionary) -> void:
 ## takes the entry that was pressed and a button has no such thing to pass, so the two doors are
 ## kept and the work stays in one place.
 func _on_plant_import_requested() -> void:
-	_menu_plant_import({})
+	_menu_plant_import({ })
 
 
 func _on_plant_export_requested() -> void:
-	_menu_plant_export({})
+	_menu_plant_export({ })
 
 
 ## Choosing a plant arms it and closes the library: the very next click is on the plan, which is
@@ -7730,6 +10038,345 @@ func _refresh_plant_menu() -> void:
 	var stop := _find_item(&"plant.stop")
 	if not stop.is_empty():
 		var stop_popup: PopupMenu = stop[0]
-		stop_popup.set_item_disabled(
-			int(stop[1]), view_controller == null or not view_controller.is_planting()
-		)
+		stop_popup.set_item_disabled(int(stop[1]), view_controller == null or not view_controller.is_planting())
+
+# --- the front door -------------------------------------------------------------------------------
+
+
+## Build the doorway and the pages the doorway owns.
+##
+## The sheet is a rectangle over everything the design suite owns - the furnished yard, the tool palette and
+## the panels - because a person who has not yet said what they came here to do should be looking at the
+## choice and not at a garden that looks like somebody else loaded it. The door and the begin-a-drawing page
+## are `Window`s like every other page here, so each owns its own keyboard and takes none of the drawing's.
+func _build_start_window() -> void:
+	if _start_window != null:
+		return
+	# The sheet is drawn only when there is a `Root` to hang it on: a bare HUD built off-tree - which is
+	# how the suite holds the doorway's decisions - has no canvas and no drawing board to hide.
+	var root: Control = get_node_or_null(^"Root") as Control
+	if root != null:
+		_build_door_screen(root)
+
+	_start_window = StartWindowScript.new()
+	_start_window.name = "StartWindow"
+	_start_window.chosen.connect(_on_start_chosen)
+	_start_window.closed.connect(_on_start_window_closed)
+	add_child(_start_window)
+	_start_window.build()
+	_start_window.hide()
+	# The door is built here, when it is first opened, rather than at launch - so the Escape pass has to be
+	# run again now that there is a page for it to put a closer inside.
+	_let_escape_close_pages()
+
+
+## The opaque sheet the two doorway pages stand on: a rectangle over everything the design suite owns, so
+## a person who has not yet said what they came here to do is looking at the choice rather than at a garden
+## that appears to have been loaded for them.
+func _build_door_screen(root: Control) -> void:
+	if _front_door_backdrop != null:
+		return
+	_front_door_backdrop = ColorRect.new()
+	_front_door_backdrop.name = "StartBackdrop"
+	_front_door_backdrop.color = StartChoicesScript.SCREEN
+	_front_door_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_front_door_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_front_door_backdrop.visible = false
+	root.add_child(_front_door_backdrop)
+
+
+## Stand the door, over its sheet. Used at a launch that has nothing behind it and by anything that wants
+## the doorway back - the camera being closed onto it, most of all.
+func open_the_front_door() -> void:
+	_build_start_window()
+	if _start_window == null:
+		return
+	PageChromeScript.show_centred(_start_window)
+	_sync_door_screen()
+	release_keyboard_focus(self)
+
+
+func is_front_door_open() -> bool:
+	return _start_window != null and _start_window.visible
+
+
+## A choice was taken on the door: the drawing board asks how the drawing begins, and the camera opens over
+## the door. Neither is a mode - each shows a page, and the drawing board is the same either way.
+func _on_start_chosen(id: StringName) -> void:
+	if id == StartChoicesScript.CAMERA:
+		open_camera_window()
+		return
+	if id == StartChoicesScript.DESIGN:
+		open_start_drawing_window()
+		return
+
+
+func _on_start_window_closed() -> void:
+	_sync_door_screen()
+	_refresh_menus()
+
+
+## The sheet stands exactly while one of the two doorway pages is up - the door or the begin page - so the
+## furnished board behind is hidden for the whole doorway and revealed the moment the last page goes.
+func _sync_door_screen() -> void:
+	if _front_door_backdrop != null:
+		_front_door_backdrop.visible = is_the_doorway_up()
+	# The window's shape is asked for again whenever the doorway comes or goes: the doorway follows the
+	# phone and the board keeps its own answer, so the two minutes either side of this call want two
+	# different things. On a desk nothing is asked, because nothing would happen.
+	var shape: StringName = the_shape_for_the_window()
+	_say_what_the_window_was_asked_for(&"doorway", shape)
+	OrientationChoiceScript.apply(shape)
+
+
+## Say what the window is being asked for, where a person driving the phone can read it:
+## `adb logcat -s godot | grep ORIENT`. The wording is `OrientationChoice.report_words`'s, so what is printed
+## and what a test holds cannot come apart; whether to say it at all is `HudProbe.on()`'s, which is the one
+## owner of the build question and has no switch of its own here.
+func _say_what_the_window_was_asked_for(why: StringName, shape: StringName) -> void:
+	if not HudProbeScript.on():
+		return
+	print(
+		OrientationChoiceScript.report_words(why, shape, is_the_doorway_up(), OrientationChoiceScript.can_turn_here())
+	)
+
+
+## Build the begin-a-drawing page: the four honest ways to start, offered once the board is chosen.
+func _build_start_drawing_window() -> void:
+	if _start_drawing_window != null:
+		return
+	_start_drawing_window = StartDrawingWindowScript.new()
+	_start_drawing_window.name = "StartDrawingWindow"
+	_start_drawing_window.chosen.connect(_on_start_drawing_chosen)
+	_start_drawing_window.recent_chosen.connect(_on_start_drawing_recent)
+	_start_drawing_window.closed.connect(_on_start_drawing_closed)
+	add_child(_start_drawing_window)
+	_start_drawing_window.build()
+	_start_drawing_window.hide()
+	# Built late like the front door, so the Escape pass runs again over the page there is now.
+	_let_escape_close_pages()
+
+
+func open_start_drawing_window() -> void:
+	_build_start_drawing_window()
+	if _start_drawing_window == null:
+		return
+	# **The recent list has to be built as the array it is declared to be.** A ternary whose arms are an untyped
+	# `[]` and a typed `Array[String]` gives an *untyped* `Array`, and assigning that to `Array[String]` fails at run
+	# time - the value stays empty and the page lists nothing. Found by `tools/phone_touch_sweep.gd`'s first run,
+	# 2026-11-14, as a runtime error beside the sweep's own report; it had been there since the door was built, and
+	# an error nobody can see in a page that simply looks empty is the quietest kind.
+	var paths: Array[String] = []
+	if _draft != null:
+		paths = _draft.recent_drawings()
+	_start_drawing_window.bind_recent(paths)
+	PageChromeScript.show_centred(_start_drawing_window)
+	_sync_door_screen()
+	release_keyboard_focus(self)
+
+
+func is_start_drawing_window_open() -> bool:
+	return _start_drawing_window != null and _start_drawing_window.visible
+
+
+## Whether **either** doorway page is standing over the board: the front door, or the begin-a-drawing page it
+## opens when the drawing board is chosen. One question, because they are one thing to anything outside - the
+## sheet behind them covers the same board either way - and the pair was written out twice before this.
+func is_the_doorway_up() -> bool:
+	return is_front_door_open() or is_start_drawing_window_open()
+
+
+## A way to begin was taken. Each runs the same handler its File menu entry runs, so New here and
+## File > New drawing are one action rather than two that can drift apart.
+func _on_start_drawing_chosen(id: StringName) -> void:
+	if id == StartDrawingScript.NEW:
+		_menu_new_drawing({ })
+	elif id == StartDrawingScript.OPEN:
+		_menu_open_drawing({ })
+	elif id == StartDrawingScript.EXAMPLE:
+		draw_the_example()
+	# Whichever way was taken, the flat plan comes forward: the board behind the doorway was the furnished
+	# overhead view, and a drawing just begun should be read as a sheet rather than as that.
+	_show_the_plan()
+	_sync_door_screen()
+
+
+## A remembered drawing was chosen by its path, which is the same door File > Open recent uses.
+func _on_start_drawing_recent(path: String) -> void:
+	_pending_path = path
+	_guard_unsaved(&"open")
+	_sync_door_screen()
+
+
+func _on_start_drawing_closed() -> void:
+	_sync_door_screen()
+	_refresh_menus()
+
+
+## Build the camera page. It stands over the door rather than replacing it, so a photograph taken from the
+## doorway can be closed and another taken, and the door is still there to lead into the drawing.
+func _build_camera_window() -> void:
+	if _camera_window != null:
+		return
+	_camera_window = CameraWindowScript.new()
+	_camera_window.name = "CameraWindow"
+	_camera_window.closed.connect(_on_camera_window_closed)
+	add_child(_camera_window)
+	_camera_window.build()
+	_camera_window.hide()
+	# Built late like the two doors, so the Escape pass runs again over the page there is now.
+	_let_escape_close_pages()
+
+
+func open_camera_window() -> void:
+	_build_camera_window()
+	if _camera_window == null:
+		return
+	# What is behind the camera is known before the page is shown, because the way out is named for it.
+	_camera_window.show_over(behind_the_camera())
+	_camera_window.open()
+	_place_the_camera()
+	_sync_door_screen()
+	release_keyboard_focus(self)
+
+
+## What the camera is standing over, so its way out names the thing a person goes back to. The doorway is
+## asked rather than a drawing being looked for: the camera opens from the door as well as from a drawing,
+## and the door is the one reading that already knows which of the two is standing.
+func behind_the_camera() -> StringName:
+	if the_doorway_is_up():
+		return CameraWindowScript.BEHIND_THE_DOOR
+	return CameraWindowScript.BEHIND_A_DRAWING
+
+
+## Put the camera page where it belongs: over the whole room on a phone, where the viewfinder is the thing
+## being aimed, and centred like every other page on a desk.
+##
+## One door for the placing, so that opening the camera and having the room change shape under it cannot put
+## it in two different places - which is how a page ends up half a title bar off the top of a phone.
+func _place_the_camera() -> void:
+	if _camera_window == null:
+		return
+	# The page's own door, rather than the answer worked out again here: how a camera wants to be placed is
+	# the camera's to say, and the capture page opens the same page through the same one.
+	CameraWindowScript.place(_camera_window)
+
+
+func close_camera_window() -> void:
+	if _camera_window != null and _camera_window.visible:
+		_camera_window.request_close()
+
+
+## Whether a camera is standing up, whichever of the two doors onto one opened it.
+##
+## There is one camera page and two doors onto it: the HUD's own, and the one the capture page keeps. The
+## window follows the phone while a camera is up, so this question has to be true of both. Asking it of one
+## instance is how a phone held upright over a wide board got a landscape viewfinder from the other door.
+func is_camera_window_open() -> bool:
+	if _camera_window != null and _camera_window.visible:
+		return true
+	return _capture_window != null and _capture_window.camera_is_open()
+
+
+func _on_camera_window_closed() -> void:
+	_sync_door_screen()
+	_refresh_menus()
+
+
+## The capture page's camera has come or gone, so what the window is asked for is asked again: the phone
+## follows itself while a camera is up, and the drawing's own answer is asked for again afterwards.
+func _on_capture_camera_changed(_open: bool) -> void:
+	_sync_door_screen()
+
+
+## Draw the example garden onto the drawing in hand, through the controller's own door onto it.
+func draw_the_example() -> void:
+	if _draft == null:
+		return
+	_draft.draw_the_example()
+	# The example *is* the shipped garden, so its site comes back with it - the one thing besides the
+	# View menu's own tick that shows the scenery.
+	if view_controller != null:
+		view_controller.set_site_shown(true)
+
+# --- which way up the window is ------------------------------------------------------------------
+
+
+## Whether a doorway page is up: the front door or the begin-a-drawing page it leads to. These are the two
+## pages that stand on the doorway sheet before there is a drawing, and the window follows the phone while
+## either is up rather than sitting on the board's own wide answer.
+func the_doorway_is_up() -> bool:
+	return is_front_door_open() or is_start_drawing_window_open()
+
+
+## What the window should be asked for: the hold of a page that is not a plan while one of those is up, and
+## the board's kept answer the rest of the time. The one answer is handed in, so a phone is asked for its
+## shape once rather than twice in the same breath.
+##
+## The camera counts with the doorway's two pages. None of the three is a plan drawn along a wide screen, and
+## the camera is the one where it shows most: a viewfinder held the way a wide board is held is a picture of a
+## plant lying on its side, which is what a phone held upright over a landscape board used to get.
+func the_shape_for_the_window() -> StringName:
+	return OrientationChoiceScript.for_the_window(the_doorway_is_up() or is_camera_window_open(), _orientation)
+
+
+## The pages a change of the window's shape has to put back where they belong: every page in a `Window`, and
+## the doorway's pages beside them - the front door answers its own Escape and so is not in
+## `pages_in_windows`, but it still stands on the same room and still has to be re-placed when it changes.
+func _pages_that_can_be_up() -> Array[Window]:
+	var pages: Array[Window] = pages_in_windows()
+	for door: Window in [_start_window, _start_drawing_window, _camera_window]:
+		if door != null:
+			pages.append(door)
+	return pages
+
+
+## Which of those pages are actually up, so a change of shape reaches only what is standing.
+func _pages_that_are_up() -> Array[Window]:
+	var up: Array[Window] = []
+	for page: Window in _pages_that_can_be_up():
+		if page != null and page.visible:
+			up.append(page)
+	return up
+
+
+## The room has changed shape: state the chrome that is worked out from it, then put every page still up back
+## where it belongs. `show_centred` is a position rather than an anchor, so without this a page that is up
+## through a turn (or a resize, or the editor's pane changing size) keeps the place it was given for the old
+## room. Only the place is asked for again - not a second keyboard, and not a second finger-sizing.
+##
+## **The chrome is sized from the room too, and this is the one door that says so - startup and a turn alike.**
+## The bar's lift clear of the device's own band is a reading of the room, and it used to be taken once, as this
+## HUD started: measured on the A16W, the block taken lying down asks for nothing and the one taken standing
+## shows the three view buttons **81 px inside the band the camera keeps**, their middles inside it - the very
+## fault `lift_the_top_bar_by` exists to stop, on the one shape that was never re-asked. The strip no page may
+## use and the palette's own ground both hang off the bar's foot, so they are re-stated here as well, in the one
+## order that cannot disagree with itself: the bar is lifted, the foot line is given the ground the device keeps
+## below it, the strip is read off the bar's new foot, and then the pages are placed by it. **The foot line comes
+## before the palette** because the column's foot is held off the plate's top: a plate moved after the column
+## was placed would leave the last of its rows standing in the band the plate had just cleared.
+##
+## The palette's left ground goes through its one door, deferred, because the placement must land *after* the
+## layout that changed. The band arrives when the phone turns or the layout is rebuilt rather than when the
+## foot plate moves, which is why calling that door only from the plate's own trigger missed it entirely
+## (measured 2026-11-18: the palette stood 55 px inside the camera band on a build that contained the fix).
+func _the_canvas_changed_shape() -> void:
+	lift_the_top_bar_clear_of_the_device()
+	give_the_foot_line_clear_of_the_device()
+	_state_the_strip_the_pages_may_not_use()
+	place_the_left_column_for_a_device.call_deferred()
+	for page: Window in _pages_that_are_up():
+		# The camera fills the room on a phone rather than sitting in the middle of it, so it is put back
+		# through its own door: a viewfinder re-placed as a centred page would shrink the moment the phone
+		# was turned under it.
+		if page == _camera_window:
+			_place_the_camera()
+			continue
+		if page == _capture_window and _capture_window.camera_is_open():
+			# The capture page's camera is not itself one of the pages walked here, because a camera that has
+			# to take the whole room hangs where the room is rather than inside a page - no walk of this HUD's
+			# children finds it. So the page is put back and its camera is placed through the same one door.
+			PageChromeScript.placed_again(page)
+			CameraWindowScript.place(_capture_window.camera_window())
+			continue
+		PageChromeScript.placed_again(page)

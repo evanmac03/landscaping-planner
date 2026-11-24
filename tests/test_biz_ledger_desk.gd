@@ -25,7 +25,6 @@ const MoneyScript := preload("res://scripts/biz/money.gd")
 const TEST_FOLDER := "user://test_ledger_desk"
 const CLIENT := "Wpmbk5ezJn"
 
-
 # --- fixtures -----------------------------------------------------------------------------------
 
 
@@ -52,9 +51,16 @@ func _wipe(folder: String) -> void:
 func _invoice(number: String = "INV-2026-0001", client: String = CLIENT) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV-%s" % number)
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "external_id": client}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(53550), &"HARDSCAPE", &"HST-ON")
+	invoice.customer = { "name": "Smith", "external_id": client }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(53550),
+		&"HARDSCAPE",
+		&"HST-ON",
+	)
 	assert(bool(invoice.issue("2026-06-10", 30, number)["ok"]))
 	return invoice
 
@@ -71,15 +77,14 @@ func _payment(invoice: InvoiceScript) -> PaymentScript:
 ## Make a queued push look as though a ledger answered it, without a network: the real parser reads the
 ## real response shape, so what the push records is what it would record.
 func _answered(push: PushScript, status: int, body: Dictionary, at: String = "2026-06-12") -> bool:
-	var response: Dictionary = {"status": status, "body": body}
+	var response: Dictionary = { "status": status, "body": body }
 	return push.record_response(response, AdapterScript.new().parse_common(response), at)
 
 
 func _key_for(desk: LedgerDeskScript, invoice: InvoiceScript, adapter_name: String = "") -> String:
 	var backend: AdapterScript = desk.adapter(adapter_name) if not adapter_name.is_empty() \
-		else desk.chosen_adapter()
+			else desk.chosen_adapter()
 	return backend.key_for_invoice(invoice)
-
 
 # --- the backends this desk can post to ---------------------------------------------------------
 
@@ -126,7 +131,6 @@ func test_choosing_a_backend_the_desk_does_not_have_is_refused() -> void:
 	assert(desk.adapter("file") != null)
 	assert(desk.adapter("nothing") == null)
 
-
 # --- what is queued -----------------------------------------------------------------------------
 
 
@@ -164,8 +168,7 @@ func test_a_draft_invoice_with_no_number_is_refused_in_the_backends_words() -> v
 	var desk := _desk()
 	var draft: InvoiceScript = InvoiceScript.new("INV-1")
 	draft.job = "J1"
-	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
+	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH", MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
 	assert(not draft.is_issued())
 	var queued: Dictionary = desk.queue_invoice(draft)
 	assert(not bool(queued["ok"]))
@@ -213,7 +216,7 @@ func test_a_payment_reads_the_invoices_id_in_the_ledger_off_its_own_push() -> vo
 	var queued: Dictionary = desk.queue_invoice(invoice, "invoice_ninja")
 	var push: PushScript = queued["push"]
 	# The ledger takes it and hands back its own id for the invoice.
-	var answered: Dictionary = {"status": 200, "body": {"data": {"id": "42", "number": "INV-2026-0001"}}}
+	var answered: Dictionary = { "status": 200, "body": { "data": { "id": "42", "number": "INV-2026-0001" } } }
 	assert(push.record_response(answered, ninja.parse_invoice_response(answered), "2026-06-11"))
 	assert(push.external_id == "42")
 	var paid: Dictionary = desk.queue_payment(_payment(invoice), invoice, "invoice_ninja")
@@ -228,8 +231,13 @@ func test_a_payment_names_an_id_the_office_states_when_the_invoice_has_not_been_
 	desk.add_adapter(NinjaScript.new("https://ninja.example.test", "token"))
 	var invoice := _invoice()
 	desk.queue_invoice(invoice, "invoice_ninja")
-	var paid: Dictionary = desk.queue_payment(_payment(invoice), invoice, "invoice_ninja",
-		"2026-06-20", "  the-id-the-office-wrote-down  ")
+	var paid: Dictionary = desk.queue_payment(
+		_payment(invoice),
+		invoice,
+		"invoice_ninja",
+		"2026-06-20",
+		"  the-id-the-office-wrote-down  ",
+	)
 	assert(bool(paid["ok"]), String(paid["reason"]))
 	assert(String(paid["push"].request["body"]["invoices"][0]["invoice_id"]) == "the-id-the-office-wrote-down")
 
@@ -255,7 +263,6 @@ func test_queueing_against_a_ledger_that_is_not_there_says_which() -> void:
 	assert(not bool(by_chosen["ok"]))
 	assert(String(by_chosen["reason"]).contains("no ledger is chosen"), String(by_chosen["reason"]))
 	assert(desk.count() == 0)
-
 
 # --- posting ------------------------------------------------------------------------------------
 
@@ -304,15 +311,27 @@ func test_a_push_whose_backend_is_not_registered_says_so_instead_of_posting_anyw
 	# A push built for a backend this session does not have: the request is kept as it stands, and the
 	# attempt is recorded, because sending it to whichever backend happens to be first would post the
 	# document to the wrong place.
-	var push: PushScript = PushScript.for_document("invoice_ninja", AdapterScript.INVOICE_KIND,
-		"INV-1", "INV-2026-0001", "key-1",
-		AdapterScript.make_request(&"POST", "https://ninja.example.test/api/v1/invoices", {}, {"number": "INV-2026-0001"}),
-		"2026-06-12")
+	var push: PushScript = PushScript.for_document(
+		"invoice_ninja",
+		AdapterScript.INVOICE_KIND,
+		"INV-1",
+		"INV-2026-0001",
+		"key-1",
+		AdapterScript.make_request(
+			&"POST",
+			"https://ninja.example.test/api/v1/invoices",
+			{ },
+			{ "number": "INV-2026-0001" },
+		),
+		"2026-06-12",
+	)
 	desk.pushes.append(push)
 	var posted: Dictionary = desk.post("key-1")
 	assert(not bool(posted["ok"]))
-	assert(String(posted["reason"]).contains("no ledger called 'invoice_ninja' is registered here"),
-		String(posted["reason"]))
+	assert(
+		String(posted["reason"]).contains("no ledger called 'invoice_ninja' is registered here"),
+		String(posted["reason"]),
+	)
 	assert(push.attempts == 1)
 	# Nothing reached a server, so this records as never arrived: the queue keeps it and will try it
 	# again, and five runs of that is what turns it into a person's job.
@@ -343,7 +362,7 @@ func test_the_loop_does_not_send_a_refusal_again() -> void:
 	var desk := _desk()
 	var queued: Dictionary = desk.queue_invoice(_invoice())
 	var push: PushScript = queued["push"]
-	assert(not _answered(push, 401, {"message": "token expired"}))
+	assert(not _answered(push, 401, { "message": "token expired" }))
 	assert(not push.can_retry())
 	assert(push.needs_a_person())
 	var run: Dictionary = desk.post_due()
@@ -355,7 +374,7 @@ func test_the_loop_tries_a_busy_server_again() -> void:
 	var desk := _desk()
 	var queued: Dictionary = desk.queue_invoice(_invoice())
 	var push: PushScript = queued["push"]
-	assert(not _answered(push, 503, {"error": "connection reset"}))
+	assert(not _answered(push, 503, { "error": "connection reset" }))
 	assert(push.can_retry())
 	assert(not push.needs_a_person())
 	# The backup is the queue's to try again, so it does - and this time the disk takes it.
@@ -370,7 +389,7 @@ func test_the_loop_stops_after_so_many_tries() -> void:
 	var queued: Dictionary = desk.queue_invoice(_invoice())
 	var push: PushScript = queued["push"]
 	for _try in PushScript.MAX_ATTEMPTS:
-		_answered(push, 503, {})
+		_answered(push, 503, { })
 	assert(push.attempts == PushScript.MAX_ATTEMPTS)
 	assert(not push.can_retry())
 	assert(push.needs_a_person())
@@ -393,11 +412,20 @@ func test_the_loop_says_what_stood_in_the_way() -> void:
 	var desk := _desk()
 	# One push this desk can deliver, and one built for a backend that is not registered here.
 	desk.queue_invoice(_invoice())
-	var orphan: PushScript = PushScript.for_document("invoice_ninja", AdapterScript.INVOICE_KIND,
-		"INV-9", "INV-2026-0009", "key-9",
-		AdapterScript.make_request(&"POST", "https://ninja.example.test/api/v1/invoices", {},
-			{"number": "INV-2026-0009"}),
-		"2026-06-12")
+	var orphan: PushScript = PushScript.for_document(
+		"invoice_ninja",
+		AdapterScript.INVOICE_KIND,
+		"INV-9",
+		"INV-2026-0009",
+		"key-9",
+		AdapterScript.make_request(
+			&"POST",
+			"https://ninja.example.test/api/v1/invoices",
+			{ },
+			{ "number": "INV-2026-0009" },
+		),
+		"2026-06-12",
+	)
 	desk.pushes.append(orphan)
 	var run: Dictionary = desk.post_due()
 	# The run is not a success and says which document stood in the way, in words a person can act on.
@@ -406,10 +434,8 @@ func test_the_loop_says_what_stood_in_the_way() -> void:
 	assert(int(run["taken"]) == 1)
 	assert(int(run["failed"]) == 1)
 	assert(int(run["waiting"]) == 1)
-	assert(String(run["reason"]).contains("no ledger called 'invoice_ninja' is registered here"),
-		String(run["reason"]))
+	assert(String(run["reason"]).contains("no ledger called 'invoice_ninja' is registered here"), String(run["reason"]))
 	assert(desk.delivered().size() == 1)
-
 
 # --- reading the outbox -------------------------------------------------------------------------
 
@@ -418,7 +444,7 @@ func test_what_the_queue_owns_and_what_it_has_given_up_on_are_two_lists() -> voi
 	var desk := _desk()
 	var one: Dictionary = desk.queue_invoice(_invoice("INV-2026-0001"))
 	var two: Dictionary = desk.queue_invoice(_invoice("INV-2026-0002"))
-	_answered(two["push"], 422, {"message": "the ledger would not accept it"})
+	_answered(two["push"], 422, { "message": "the ledger would not accept it" })
 	assert(desk.pending().size() == 1)
 	assert(desk.stranded().size() == 1)
 	assert(desk.delivered().is_empty())
@@ -469,11 +495,9 @@ func test_the_summary_counts_what_was_sent_what_waits_and_what_wants_a_person() 
 	desk.post(sent["push"].key)
 	desk.queue_invoice(_invoice("INV-2026-0002"))
 	var stuck: Dictionary = desk.queue_invoice(_invoice("INV-2026-0003"))
-	_answered(stuck["push"], 403, {})
-	assert(desk.summary_text() == "1 handed over, 1 waiting, 1 wanting a person",
-		desk.summary_text())
+	_answered(stuck["push"], 403, { })
+	assert(desk.summary_text() == "1 handed over, 1 waiting, 1 wanting a person", desk.summary_text())
 	assert(desk.issues() == 1)
-
 
 # --- what does not agree ------------------------------------------------------------------------
 
@@ -488,8 +512,7 @@ func test_an_issued_invoice_handed_to_nobody_is_found() -> void:
 	assert(found.size() == 1, str(found))
 	assert(String(found[0]["kind"]) == LedgerDeskScript.NOT_HANDED_OVER)
 	assert(String(found[0]["number"]) == "INV-2026-0001")
-	assert(String(found[0]["words"]).contains("has been issued and not handed to file"),
-		String(found[0]["words"]))
+	assert(String(found[0]["words"]).contains("has been issued and not handed to file"), String(found[0]["words"]))
 	assert(desk.reconcile_words().size() == 1)
 	# Queueing it settles the question without anything being sent.
 	desk.queue_invoice(billing.invoices[0])
@@ -510,8 +533,7 @@ func test_an_invoice_that_was_posted_and_then_called_back_is_found() -> void:
 	var found: Array[Dictionary] = desk.reconcile()
 	assert(found.size() == 1, str(found))
 	assert(String(found[0]["kind"]) == LedgerDeskScript.VOID_BUT_POSTED)
-	assert(String(found[0]["words"]).contains("only a credit note against it reverses it"),
-		String(found[0]["words"]))
+	assert(String(found[0]["words"]).contains("only a credit note against it reverses it"), String(found[0]["words"]))
 
 
 func test_a_void_invoice_that_was_never_handed_over_is_not_a_disagreement() -> void:
@@ -532,13 +554,12 @@ func test_a_document_the_ledger_numbered_differently_is_found() -> void:
 	var push: PushScript = queued["push"]
 	# The file backend keeps the office's number, but a hosted one may assign its own - and the two
 	# numbers must not be quoted at each other without somebody knowing.
-	var answered: Dictionary = {"status": 200, "body": {"id": "xYRdG7dDzO", "number": "0019"}}
+	var answered: Dictionary = { "status": 200, "body": { "id": "xYRdG7dDzO", "number": "0019" } }
 	assert(push.record_response(answered, desk.chosen_adapter().parse_invoice_response(answered), "2026-06-12"))
 	var found: Array[Dictionary] = desk.reconcile()
 	assert(found.size() == 1, str(found))
 	assert(String(found[0]["kind"]) == LedgerDeskScript.RENUMBERED)
-	assert(String(found[0]["words"]).contains("is INV-2026-0001 here and 0019 in file"),
-		String(found[0]["words"]))
+	assert(String(found[0]["words"]).contains("is INV-2026-0001 here and 0019 in file"), String(found[0]["words"]))
 
 
 func test_a_push_still_waiting_is_not_a_renumbering() -> void:
@@ -571,7 +592,7 @@ func test_problems_names_the_documents_the_queue_gave_up_on_and_the_disagreement
 	billing.invoices.append(_invoice("INV-2026-0009"))
 	desk.bind(billing)
 	var stuck: Dictionary = desk.queue_invoice(_invoice("INV-2026-0001"))
-	_answered(stuck["push"], 401, {"message": "token expired"})
+	_answered(stuck["push"], 401, { "message": "token expired" })
 	var found: Array[String] = desk.problems()
 	assert(found.size() == 2, str(found))
 	assert(found[0].contains("INV-2026-0001 will not be retried: "), found[0])
@@ -601,7 +622,6 @@ func test_a_desk_with_the_file_ledger_and_an_empty_outbox_is_sound() -> void:
 	assert(desk.problems().is_empty())
 	assert(desk.is_sound())
 	assert(desk.issues() == 0)
-
 
 # --- the outbox on disk -------------------------------------------------------------------------
 
@@ -638,13 +658,11 @@ func test_the_outbox_survives_a_file() -> void:
 	var built: Dictionary = desk.pushes[0].request
 	assert(String(stored["method"]) == String(built["method"]))
 	assert(stored["url"] == built["url"])
-	assert(String(stored["headers"][AdapterScript.KEY_HEADER])
-		== String(built["headers"][AdapterScript.KEY_HEADER]))
+	assert(String(stored["headers"][AdapterScript.KEY_HEADER]) == String(built["headers"][AdapterScript.KEY_HEADER]))
 	assert(String(stored["body"]["number"]) == String(built["body"]["number"]))
 	assert(String(stored["body"]["kind"]) == String(built["body"]["kind"]))
 	assert(float(stored["body"]["total"]["cents"]) == float(built["body"]["total"]["cents"]))
-	assert(float(stored["body"]["lines"][0]["amount"]["cents"])
-		== float(built["body"]["lines"][0]["amount"]["cents"]))
+	assert(float(stored["body"]["lines"][0]["amount"]["cents"]) == float(built["body"]["lines"][0]["amount"]["cents"]))
 
 
 func test_a_delivered_state_is_a_function_of_the_records_after_a_file_too() -> void:
@@ -703,22 +721,27 @@ func test_an_outbox_that_is_not_an_object_is_refused() -> void:
 func test_a_damaged_row_is_dropped_and_the_rest_reads() -> void:
 	var desk := _desk()
 	desk.queue_invoice(_invoice())
-	var second: PushScript = PushScript.for_document("file", AdapterScript.INVOICE_KIND,
-		"INV-2", "INV-2026-0004", "key-4",
-		AdapterScript.make_request(&"WRITE", "%s/INV-2026-0004.json" % TEST_FOLDER, {}, {"kind": "invoice"}),
-		"2026-06-12")
+	var second: PushScript = PushScript.for_document(
+		"file",
+		AdapterScript.INVOICE_KIND,
+		"INV-2",
+		"INV-2026-0004",
+		"key-4",
+		AdapterScript.make_request(&"WRITE", "%s/INV-2026-0004.json" % TEST_FOLDER, { }, { "kind": "invoice" }),
+		"2026-06-12",
+	)
 	var path: String = "%s/outbox.json" % TEST_FOLDER
 	var rows: Array = [
 		desk.pushes[0].to_dict(),
 		7,
-		{"no_key": true},
+		{ "no_key": true },
 		# Sound JSON with a key, and still not a push: there is no document and nothing to send, so it is
 		# dropped rather than kept as a hole in the outbox.
-		{"key": "k2", "adapter": "file"},
+		{ "key": "k2", "adapter": "file" },
 		second.to_dict(),
 	]
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"version": 1, "chosen": "file", "pushes": rows}, "  "))
+	file.store_string(JSON.stringify({ "version": 1, "chosen": "file", "pushes": rows }, "  "))
 	file.close()
 	var read_back: Dictionary = desk.read(path)
 	assert(bool(read_back["ok"]), String(read_back["reason"]))
@@ -733,9 +756,9 @@ func test_a_backend_that_is_gone_falls_back_rather_than_breaking_the_outbox() ->
 	desk.queue_invoice(_invoice())
 	var path: String = "%s/outbox.json" % TEST_FOLDER
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(JSON.stringify({
-		"version": 1, "chosen": "invoice_ninja", "pushes": [desk.pushes[0].to_dict()],
-	}, "  "))
+	file.store_string(
+		JSON.stringify({ "version": 1, "chosen": "invoice_ninja", "pushes": [desk.pushes[0].to_dict()] }, "  ")
+	)
 	file.close()
 	var reopened: LedgerDeskScript = LedgerDeskScript.new()
 	assert(bool(reopened.read(path)["ok"]))
@@ -829,7 +852,7 @@ func test_a_backend_that_authenticates_with_a_header_says_which_one() -> void:
 	# The file backend authenticates with nothing, which is why its requests go to disk as they stand.
 	assert(FileLedgerScript.new().secret_headers().is_empty())
 	# And a backend with nothing secret to put back hands the request straight back.
-	var request: Dictionary = {"method": "WRITE", "url": "user://x.json", "headers": {}, "body": {}}
+	var request: Dictionary = { "method": "WRITE", "url": "user://x.json", "headers": { }, "body": { } }
 	assert(FileLedgerScript.new().authorise(request) == request)
 
 
@@ -847,7 +870,6 @@ func test_a_password_is_not_written_into_the_outbox_either() -> void:
 	# Not even encoded: the whole Basic credential is blanked, not written out and hidden.
 	assert(not text.contains(Marshalls.utf8_to_base64("office@example.test:hunter2")))
 
-
 # --- keeping it to a size -----------------------------------------------------------------------
 
 
@@ -855,13 +877,21 @@ func test_a_full_outbox_drops_the_oldest_thing_it_has_already_delivered() -> voi
 	var desk := _desk()
 	for at in LedgerDeskScript.MAX_PUSHES + 1:
 		var push: PushScript = PushScript.for_document(
-			"file", AdapterScript.INVOICE_KIND, "INV-%d" % at, "INV-%04d" % at, "key-%d" % at,
-			AdapterScript.make_request(&"WRITE", "user://x.json", {}, {}), "2026-06-12"
+			"file",
+			AdapterScript.INVOICE_KIND,
+			"INV-%d" % at,
+			"INV-%04d" % at,
+			"key-%d" % at,
+			AdapterScript.make_request(&"WRITE", "user://x.json", { }, { }),
+			"2026-06-12",
 		)
 		if at == 0:
 			# The oldest is delivered, so it is the one that goes.
-			push.record_response({"status": 200, "body": {}},
-				AdapterScript.new().parse_common({"status": 200, "body": {}}), "2026-06-12")
+			push.record_response(
+				{ "status": 200, "body": { } },
+				AdapterScript.new().parse_common({ "status": 200, "body": { } }),
+				"2026-06-12",
+			)
 		desk.pushes.append(push)
 	desk._trim()
 	assert(desk.count() == LedgerDeskScript.MAX_PUSHES)
@@ -873,15 +903,21 @@ func test_a_full_outbox_drops_the_oldest_thing_it_has_already_delivered() -> voi
 func test_an_outbox_full_of_undelivered_documents_is_not_trimmed_at_all() -> void:
 	var desk := _desk()
 	for at in LedgerDeskScript.MAX_PUSHES + 5:
-		desk.pushes.append(PushScript.for_document(
-			"file", AdapterScript.INVOICE_KIND, "INV-%d" % at, "INV-%04d" % at, "key-%d" % at,
-			AdapterScript.make_request(&"WRITE", "user://x.json", {}, {}), "2026-06-12"
-		))
+		desk.pushes.append(
+			PushScript.for_document(
+				"file",
+				AdapterScript.INVOICE_KIND,
+				"INV-%d" % at,
+				"INV-%04d" % at,
+				"key-%d" % at,
+				AdapterScript.make_request(&"WRITE", "user://x.json", { }, { }),
+				"2026-06-12",
+			)
+		)
 	desk._trim()
 	# A document nobody has been told about is exactly the thing that must not be trimmed away, so the
 	# outbox is allowed to be over its cap rather than lose one.
 	assert(desk.count() == LedgerDeskScript.MAX_PUSHES + 5)
-
 
 # --- everything the office has issued and not yet handed over -----------------------------------
 
@@ -913,9 +949,8 @@ func test_an_invoice_that_was_never_issued_is_not_handed_over() -> void:
 	var desk := _desk()
 	var draft: InvoiceScript = InvoiceScript.new("INV-1")
 	draft.job = "J1"
-	draft.customer = {"name": "Smith", "external_id": CLIENT}
-	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
+	draft.customer = { "name": "Smith", "external_id": CLIENT }
+	draft.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH", MoneyScript.of(1000), &"HARDSCAPE", &"NONE")
 	desk.bind(_billing([draft, _invoice("INV-2026-0001")]))
 	# A draft has no number to post, so there is nothing to hand over.
 	assert(int(desk.queue_unhanded()["queued"]) == 1)
@@ -960,7 +995,7 @@ func test_a_refusal_is_forgotten_when_it_is_fixed() -> void:
 	assert(int(desk.queue_unhanded()["refused"]) == 1)
 	assert(desk.problems().size() == 1)
 	# The office records the id the ledger gave the customer, and hands it over again.
-	invoice.customer = {"name": "Smith", "external_id": CLIENT}
+	invoice.customer = { "name": "Smith", "external_id": CLIENT }
 	var again: Dictionary = desk.queue_unhanded()
 	assert(bool(again["ok"]), String(again["reason"]))
 	assert(int(again["queued"]) == 1)

@@ -5,8 +5,8 @@ extends Node
 ## no screen. A species is made through `PlantSpecies.make`, the way the catalogue makes one.
 
 const SeasonScript := preload("res://scripts/growing_season.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
 ## A temperate garden: last frost 20 May, first frost 7 October, so 140 days.
@@ -23,13 +23,12 @@ func _crop(species_id: StringName, name: String, days: int) -> PlantSpecies:
 
 func _catalogue() -> PlantCatalogue:
 	var catalogue: PlantCatalogue = CatalogueScript.make()
-	catalogue.add(_crop(&"quick", "Quick", 60))        # 80 days to spare
-	catalogue.add(_crop(&"thin", "Thin", 130))         # 10 days to spare -> tolerated
-	catalogue.add(_crop(&"slow", "Slow", 200))         # too slow for the season
-	catalogue.add(_crop(&"unstated", "Unstated", 0))   # no time to maturity recorded
+	catalogue.add(_crop(&"quick", "Quick", 60)) # 80 days to spare
+	catalogue.add(_crop(&"thin", "Thin", 130)) # 10 days to spare -> tolerated
+	catalogue.add(_crop(&"slow", "Slow", 200)) # too slow for the season
+	catalogue.add(_crop(&"unstated", "Unstated", 0)) # no time to maturity recorded
 	catalogue.add(SpeciesScript.make(&"boxwood", "Buxus sempervirens", "Box", 60, 60, SpeciesScript.SHRUB))
 	return catalogue
-
 
 # --- the pair -------------------------------------------------------------------------------
 
@@ -63,9 +62,8 @@ func test_the_season_reads_as_one_sentence() -> void:
 	assert(SeasonScript.season_text(0, 0) == SeasonScript.NO_SEASON, SeasonScript.season_text(0, 0))
 	assert(
 		SeasonScript.season_text(FIRST, LAST) == SeasonScript.NO_SEASON,
-		"a pair the wrong way round is not a season either"
+		"a pair the wrong way round is not a season either",
 	)
-
 
 # --- a crop against the season -------------------------------------------------------------
 
@@ -87,13 +85,9 @@ func test_a_crop_that_only_just_finishes_is_tolerated() -> void:
 
 func test_the_margin_is_a_fortnight() -> void:
 	# Exactly a fortnight to spare is the last day that is still tolerated; one day more is comfortable.
-	var exact: Dictionary = SeasonScript.check(
-		_crop(&"a", "A", 140 - SeasonScript.TIGHT_DAYS), LAST, FIRST
-	)
+	var exact: Dictionary = SeasonScript.check(_crop(&"a", "A", 140 - SeasonScript.TIGHT_DAYS), LAST, FIRST)
 	assert(int(exact["verdict"]) == SeasonScript.TOLERATED, SeasonScript.summary_of(exact))
-	var roomier: Dictionary = SeasonScript.check(
-		_crop(&"b", "B", 140 - SeasonScript.TIGHT_DAYS - 1), LAST, FIRST
-	)
+	var roomier: Dictionary = SeasonScript.check(_crop(&"b", "B", 140 - SeasonScript.TIGHT_DAYS - 1), LAST, FIRST)
 	assert(int(roomier["verdict"]) == SeasonScript.GOOD, SeasonScript.summary_of(roomier))
 
 
@@ -126,7 +120,6 @@ func test_a_null_crop_is_unknown_rather_than_a_crash() -> void:
 	assert(int(verdict["verdict"]) == SeasonScript.UNKNOWN)
 	assert(verdict["findings"].is_empty())
 
-
 # --- the crops of a season --------------------------------------------------------------------
 
 
@@ -144,10 +137,7 @@ func test_the_rows_come_to_a_sentence_and_an_empty_list_says_so() -> void:
 	assert(words.contains("1 only just fit"), words)
 	assert(words.contains("1 will not finish"), words)
 	assert(words.contains("1 cannot be checked"), words)
-	assert(
-		SeasonScript.describe_rows([]) == "no crops are recorded in this plant list",
-		SeasonScript.describe_rows([])
-	)
+	assert(SeasonScript.describe_rows([]) == "no crops are recorded in this plant list", SeasonScript.describe_rows([]))
 
 
 func test_a_null_catalogue_is_no_rows_rather_than_a_crash() -> void:
@@ -160,10 +150,9 @@ func test_the_check_borrows_the_suitability_words_and_colours() -> void:
 	var verdict: Dictionary = SeasonScript.check(_crop(&"slow", "Slow", 200), LAST, FIRST)
 	assert(
 		SeasonScript.verdict_name(int(verdict["verdict"])) == "wrong",
-		SeasonScript.verdict_name(int(verdict["verdict"]))
+		SeasonScript.verdict_name(int(verdict["verdict"])),
 	)
 	assert(SeasonScript.colour_from(verdict) != Color(0, 0, 0, 0), "and it carries a colour")
-
 
 # --- the drawing keeps it ----------------------------------------------------------------------
 

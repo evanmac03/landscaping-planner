@@ -6,7 +6,7 @@ extends Node2D
 ## what is being checked is the shipped input path rather than a method called by hand. It prints every
 ## step.
 ##
-## Run `res://scenes/quit_guard_demo.tscn`.
+## Run `res://tools/quit_guard_demo.tscn`.
 ##
 ## The last thing it does is press "Discard and quit" on the real question, which ends the program -
 ## which is the proof: the window's close button reaches the same question `File > Quit` does, and the
@@ -40,8 +40,7 @@ func _ready() -> void:
 		print("no HUD, or no drawing for it to put away")
 		return
 	await _settle()
-	print("the drawing starts with ", _hud._draft.document.count(), " entities in it, dirty: ",
-		_hud._draft.dirty)
+	print("the drawing starts with ", _hud._draft.document.count(), " entities in it, dirty: ", _hud._draft.dirty)
 
 	print("--- a page, and the real Escape key ---")
 	for pair: Array in PAGES:
@@ -55,24 +54,31 @@ func _ready() -> void:
 	print("--- the window's own close button ---")
 	# Something to lose: the drawing lives in memory until it is written, and the close button is the
 	# way out nobody gets a second chance at.
-	_hud._draft.document.add(
-		EntityScript.make_line(Vector2(0, 0), Vector2(4, 2)), LayerSetScript.NEW_HARDSCAPE
-	)
-	print("  a line is drawn: ", _hud._draft.document.count(), " entities, dirty: ",
-		_hud._draft.dirty)
+	_hud._draft.document.add(EntityScript.make_line(Vector2(0, 0), Vector2(4, 2)), LayerSetScript.NEW_HARDSCAPE)
+	print("  a line is drawn: ", _hud._draft.document.count(), " entities, dirty: ", _hud._draft.dirty)
 	_hud._notification(NOTIFICATION_WM_CLOSE_REQUEST)
 	await _settle()
-	print("  closing the window asks first: ", _hud._discard_dialog.visible,
-		", and the action held is \"", _hud._pending_action, "\"")
+	print(
+		"  closing the window asks first: ",
+		_hud._discard_dialog.visible,
+		", and the action held is \"",
+		_hud._pending_action,
+		"\"",
+	)
 	await _save_shot()
 
 	# The dialog's own buttons, not its signals: pressing "Keep editing" is what hides the question, and
 	# skipping that would report a dialog still up when a person would see it gone.
 	_hud._discard_dialog.get_cancel_button().pressed.emit()
 	await _settle()
-	print("  \"Keep editing\": the question is up: ", _hud._discard_dialog.visible,
-		", the work is still here: ", _hud._draft.document.count(),
-		" entities, and nothing is armed: ", _hud._pending_action == "")
+	print(
+		"  \"Keep editing\": the question is up: ",
+		_hud._discard_dialog.visible,
+		", the work is still here: ",
+		_hud._draft.document.count(),
+		" entities, and nothing is armed: ",
+		_hud._pending_action == "",
+	)
 
 	_hud._notification(NOTIFICATION_WM_CLOSE_REQUEST)
 	await _settle()
@@ -101,8 +107,7 @@ func _page_away(title: String, is_open: String, open: String) -> void:
 		print("  ", title, ": it did not come up, so there is nothing to test")
 		return
 	var left_up: bool = await _press_escape()
-	print("  ", title, ": up -> Escape -> up: ", left_up, " (so it is the page it took off: ",
-		not left_up, ")")
+	print("  ", title, ": up -> Escape -> up: ", left_up, " (so it is the page it took off: ", not left_up, ")")
 
 
 func _keys_away() -> void:
@@ -112,8 +117,7 @@ func _keys_away() -> void:
 		print("  key reference: it did not come up, so there is nothing to test")
 		return
 	var left_up: bool = await _press_escape()
-	print("  key reference: up -> Escape -> up: ", left_up, " (so it is the page it took off: ",
-		not left_up, ")")
+	print("  key reference: up -> Escape -> up: ", left_up, " (so it is the page it took off: ", not left_up, ")")
 
 
 func _sheet_away() -> void:

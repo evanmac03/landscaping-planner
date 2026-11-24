@@ -7,7 +7,7 @@ extends Node2D
 ## controller and the plan canvas are all the shipped ones, and it prints every step. What is left on
 ## screen is the plan with a picture over the ground and under the linework.
 ##
-## Run `res://scenes/underlay_demo.tscn`.
+## Run `res://tools/underlay_demo.tscn`.
 ##
 ## The picture is made here rather than shipped, and it is made to look like what it stands for - a
 ## photocopied site plan with a house, a lot line and a scale bar - because a demo of a tracing aid is
@@ -44,9 +44,12 @@ func _ready() -> void:
 		view_controller.show_mode(ViewScript.ViewMode.PLAN_2D)
 		for _frame in 90:
 			await get_tree().process_frame
-	print("the view is the flat plan: ",
+	print(
+		"the view is the flat plan: ",
 		view_controller != null and view_controller.mode == ViewScript.ViewMode.PLAN_2D,
-		", and the plan is on screen: ", canvas.is_visible_in_tree())
+		", and the plan is on screen: ",
+		canvas.is_visible_in_tree(),
+	)
 
 	print("--- a scan of a site plan ---")
 	_make_picture(PICTURE)
@@ -71,38 +74,54 @@ func _ready() -> void:
 	print("the drawing holds ", controller.underlays().size(), " picture(s)")
 	var picture: Dictionary = controller.underlays()[0]
 	print("  ", RasterUnderlayScript.describe(picture, controller.document.units))
-	print("  it lies ", snappedf(picture["x"], 0.01), ", ", snappedf(picture["z"], 0.01),
-		" - the middle of the drawing's own extent")
-	print("  across ", snappedf(picture["width_m"], 0.01), " m and deep ",
-		snappedf(RasterUnderlayScript.height_of(picture), 0.01), " m, from its own pixel proportion")
+	print(
+		"  it lies ",
+		snappedf(picture["x"], 0.01),
+		", ",
+		snappedf(picture["z"], 0.01),
+		" - the middle of the drawing's own extent",
+	)
+	print(
+		"  across ",
+		snappedf(picture["width_m"], 0.01),
+		" m and deep ",
+		snappedf(RasterUnderlayScript.height_of(picture), 0.01),
+		" m, from its own pixel proportion",
+	)
 
 	print("--- what the drawing thinks of it ---")
-	print("shapes on the drawing: ", controller.document.count(),
-		"  (a picture is not geometry)")
-	print("of which plotting: ", controller.document.plotting_entities().size(),
-		"  (a picture never plots)")
-	print("the drawing's own extent: ", controller.document.bounds(),
-		"  (a picture does not move it)")
+	print("shapes on the drawing: ", controller.document.count(), "  (a picture is not geometry)")
+	print("of which plotting: ", controller.document.plotting_entities().size(), "  (a picture never plots)")
+	print("the drawing's own extent: ", controller.document.bounds(), "  (a picture does not move it)")
 	print("what is under the drawing: ", controller.underlay_summary())
 
 	print("--- what the plan canvas will draw ---")
 	var texture: Texture2D = canvas._underlay_texture(String(picture["path"]))
-	print("the canvas read the picture: ", texture != null,
-		"  ", (str(texture.get_size()) if texture != null else ""))
+	print("the canvas read the picture: ", texture != null, "  ", (str(texture.get_size()) if texture != null else ""))
 	print("the plan shows it: ", canvas.document != null and canvas.document.visible_underlays().size() == 1)
 
 	print("--- and it can be changed and taken off again ---")
 	var id := int(picture["id"])
-	print("a quarter turn: ", controller.change_underlay(id, {"rotation_deg": 0.0, "opacity": 0.5}))
-	print("taking it off: ", controller.remove_underlay(id),
-		"  leaving ", controller.underlays().size(), " under the drawing")
-	print("and undo puts it back: ", controller.document.undo_last(),
-		"  ", controller.underlay_summary())
+	print("a quarter turn: ", controller.change_underlay(id, { "rotation_deg": 0.0, "opacity": 0.5 }))
+	print(
+		"taking it off: ",
+		controller.remove_underlay(id),
+		"  leaving ",
+		controller.underlays().size(),
+		" under the drawing",
+	)
+	print("and undo puts it back: ", controller.document.undo_last(), "  ", controller.underlay_summary())
 
 	print("--- what is left on screen ---")
-	print("the page is up: ", hud.is_underlay_window_open(),
-		", the drawing holds ", controller.underlays().size(), " picture(s) and ",
-		controller.document.count(), " shapes")
+	print(
+		"the page is up: ",
+		hud.is_underlay_window_open(),
+		", the drawing holds ",
+		controller.underlays().size(),
+		" picture(s) and ",
+		controller.document.count(),
+		" shapes",
+	)
 	# And the page is put away so the plan underneath it can be seen: a page left over the drawing
 	# hides the thing this pass was about.
 	hud.close_underlay_window()
@@ -147,9 +166,7 @@ func _ready() -> void:
 
 ## One pixel of a screen, with the edges held in so a corner of the picture cannot fall off it.
 func _pixel_at(screen: Image, at: Vector2) -> Color:
-	return screen.get_pixel(
-		clampi(int(at.x), 0, screen.get_width() - 1), clampi(int(at.y), 0, screen.get_height() - 1)
-	)
+	return screen.get_pixel(clampi(int(at.x), 0, screen.get_width() - 1), clampi(int(at.y), 0, screen.get_height() - 1))
 
 
 ## Every `Window` under a node, however deep, because the ones that matter here are built in code and
@@ -201,13 +218,9 @@ func _pixel(image: Image, x: int, y: int, size: int, colour: Color) -> void:
 
 func _rule(image: Image, rect: Rect2i, thickness: int, colour: Color) -> void:
 	image.fill_rect(Rect2i(rect.position.x, rect.position.y, rect.size.x, thickness), colour)
-	image.fill_rect(
-		Rect2i(rect.position.x, rect.position.y + rect.size.y - thickness, rect.size.x, thickness), colour
-	)
+	image.fill_rect(Rect2i(rect.position.x, rect.position.y + rect.size.y - thickness, rect.size.x, thickness), colour)
 	image.fill_rect(Rect2i(rect.position.x, rect.position.y, thickness, rect.size.y), colour)
-	image.fill_rect(
-		Rect2i(rect.position.x + rect.size.x - thickness, rect.position.y, thickness, rect.size.y), colour
-	)
+	image.fill_rect(Rect2i(rect.position.x + rect.size.x - thickness, rect.position.y, thickness, rect.size.y), colour)
 
 
 func _draw_a_small_design(controller: Node) -> void:
@@ -215,19 +228,17 @@ func _draw_a_small_design(controller: Node) -> void:
 	document.begin_gesture("laying out a pad")
 	document.add(
 		EntityScript.make_polyline(
-			PackedVector2Array([
-				Vector2(-6.0, -4.0), Vector2(3.0, -4.0), Vector2(3.0, 3.0), Vector2(-6.0, 3.0),
-			]),
-			true
+			PackedVector2Array([Vector2(-6.0, -4.0), Vector2(3.0, -4.0), Vector2(3.0, 3.0), Vector2(-6.0, 3.0)]),
+			true,
 		),
-		LayerSetScript.NEW_HARDSCAPE
+		LayerSetScript.NEW_HARDSCAPE,
 	)
 	document.add(
 		EntityScript.make_polyline(
 			PackedVector2Array([Vector2(0.0, 5.0), Vector2(10.0, 5.0), Vector2(10.0, 9.0), Vector2(0.0, 9.0)]),
-			true
+			true,
 		),
-		LayerSetScript.NEW_BED
+		LayerSetScript.NEW_BED,
 	)
 
 

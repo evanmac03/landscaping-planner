@@ -7,7 +7,7 @@ $alternateGit = Join-Path (Split-Path -Parent (Split-Path -Parent $git)) 'bin'
 if (Test-Path -LiteralPath (Join-Path $alternateGit 'git.exe')) { $env:PATH = "$alternateGit;$env:PATH" }
 $shell = (Get-Process -Id $PID).Path
 New-Item -ItemType Directory -Path (Join-Path $fixture 'tools') | Out-Null
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'editor-git.ps1') -Destination (Join-Path $fixture 'tools')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\addons\github_tools\tools\editor-git.ps1') -Destination (Join-Path $fixture 'tools')
 function Invoke-Request($data, [bool]$fail = $false) {
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($data | ConvertTo-Json -Depth 6 -Compress)))
     $previous = $ErrorActionPreference

@@ -103,7 +103,7 @@ func test_a_step_is_billed_once_and_the_moment_and_the_invoice_are_both_required
 
 
 func test_a_record_can_be_wrong_in_ways_the_setters_refuse() -> void:
-	var step: MilestoneScript = MilestoneScript.from_dict({"name": "Deposit", "percent_ppm": 1200000})
+	var step: MilestoneScript = MilestoneScript.from_dict({ "name": "Deposit", "percent_ppm": 1200000 })
 	assert(not step.is_sound())
 	assert(step.problem() == "'Deposit' claims 120% of the contract", step.problem())
 
@@ -112,19 +112,18 @@ func test_the_things_a_step_can_be_wrong_about_are_named() -> void:
 	var nameless := _step("")
 	assert(nameless.problem() == "a step with no name", nameless.problem())
 	var unpriced := _step("Deposit")
-	assert(unpriced.problem() == "'Deposit' is priced as neither a share of the contract nor a fixed amount",
-		unpriced.problem())
+	assert(
+		unpriced.problem() == "'Deposit' is priced as neither a share of the contract nor a fixed amount",
+		unpriced.problem(),
+	)
 	var undated := _step("Deposit")
 	undated.set_percent(250000)
 	undated.due_date = "June"
 	assert(undated.problem() == "'Deposit' is due on a date that is not a date: 'June'", undated.problem())
-	var both: MilestoneScript = MilestoneScript.from_dict({
-		"name": "Deposit",
-		"percent_ppm": 250000,
-		"fixed_amount": {"cents": 50000, "currency": "CAD"},
-	})
-	assert(both.problem() == "'Deposit' is priced as a share of the contract and as a fixed amount",
-		both.problem())
+	var both: MilestoneScript = MilestoneScript.from_dict(
+		{ "name": "Deposit", "percent_ppm": 250000, "fixed_amount": { "cents": 50000, "currency": "CAD" } }
+	)
+	assert(both.problem() == "'Deposit' is priced as a share of the contract and as a fixed amount", both.problem())
 	var triggerless := _step("Deposit")
 	triggerless.set_percent(250000)
 	triggerless.trigger = 9
@@ -132,12 +131,9 @@ func test_the_things_a_step_can_be_wrong_about_are_named() -> void:
 
 
 func test_a_step_that_says_it_was_billed_must_say_on_what() -> void:
-	var step: MilestoneScript = MilestoneScript.from_dict({
-		"name": "Deposit",
-		"percent_ppm": 250000,
-		"billed_at": "2026-06-01",
-		"invoice_number": "",
-	})
+	var step: MilestoneScript = MilestoneScript.from_dict(
+		{ "name": "Deposit", "percent_ppm": 250000, "billed_at": "2026-06-01", "invoice_number": "" }
+	)
 	assert(step.problem() == "'Deposit' says it was billed and cannot say on which invoice", step.problem())
 
 
@@ -174,5 +170,7 @@ func test_a_step_reads_as_the_row_a_schedule_shows() -> void:
 	var step := _step("Deposit")
 	assert(step.set_percent(250000))
 	step.retainage_ppm = 100000
-	assert(step.describe(_contract()) == "Deposit (25% of the contract, $2,500.00, on a date, 10% withheld, pending)",
-		step.describe(_contract()))
+	assert(
+		step.describe(_contract()) == "Deposit (25% of the contract, $2,500.00, on a date, 10% withheld, pending)",
+		step.describe(_contract()),
+	)

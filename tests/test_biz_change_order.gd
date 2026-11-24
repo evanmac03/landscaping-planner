@@ -43,7 +43,6 @@ func _approved() -> ChangeScript:
 	change.approve("Dana", "2026-07-01", "in-app")
 	return change
 
-
 # --- what it is worth ------------------------------------------------------------------------
 
 
@@ -84,7 +83,6 @@ func test_the_amount_is_signed_because_a_credit_is_a_change_too() -> void:
 	credit.add_line(_line(&"PLANTING", 2000, 100, -410))
 	assert(credit.amount_text() == "-$8.20", credit.amount_text())
 	assert(credit.cost().format() == "2.00", "a credit that costs money is a credit worth knowing about")
-
 
 # --- the reason, the state, the approval -------------------------------------------------------
 
@@ -135,8 +133,7 @@ func test_an_approval_records_who_when_and_how() -> void:
 	assert(change.state_name() == "approved")
 	assert(change.is_approved())
 	assert(change.approved_signature == "user://sig.png")
-	assert(change.approval_text() == "approved by Dana on 2026-07-01 (signed paper photo)",
-		change.approval_text())
+	assert(change.approval_text() == "approved by Dana on 2026-07-01 (signed paper photo)", change.approval_text())
 
 
 func test_nothing_to_approve_is_refused() -> void:
@@ -179,7 +176,6 @@ func test_an_approved_change_order_is_a_contract_document_and_cannot_be_voided()
 	assert(waiting.state_name() == "void")
 	assert(not bool(waiting.mark_void("2026-06-23", "again")["ok"]), "it is already void")
 
-
 # --- REQ-B18: only an approved one is money ---------------------------------------------------
 
 
@@ -217,25 +213,27 @@ func test_what_is_pending_is_a_proposed_or_a_sent_change_and_nothing_else() -> v
 	voided.mark_void("2026-06-22", "withdrawn")
 	assert(not voided.is_pending())
 
-
 # --- what is wrong with it ------------------------------------------------------------------
 
 
 func test_a_record_that_says_approved_with_no_approval_is_not_approved() -> void:
-	var hand_made: ChangeScript = ChangeScript.from_dict({
-		"id": "CO7", "reason": "SITE_CONDITION", "state": "APPROVED",
-		"estimate": _change().estimate.to_dict(),
-	})
+	var hand_made: ChangeScript = ChangeScript.from_dict(
+		{ "id": "CO7", "reason": "SITE_CONDITION", "state": "APPROVED", "estimate": _change().estimate.to_dict() }
+	)
 	assert(not hand_made.is_approved(), "an approval is the record of it, not a word in the file")
 	assert(not hand_made.enters_contract_sum(), "and it adds nothing to the contract sum")
 	assert(hand_made.is_pending(), "it is still waiting for an answer")
 
 
 func test_an_approval_with_no_record_of_who_agreed_is_a_fault() -> void:
-	var hand_made: ChangeScript = ChangeScript.from_dict({
-		"id": "CO7", "reason": "SITE_CONDITION", "approved_at": "2026-07-01",
-		"estimate": _change().estimate.to_dict(),
-	})
+	var hand_made: ChangeScript = ChangeScript.from_dict(
+		{
+			"id": "CO7",
+			"reason": "SITE_CONDITION",
+			"approved_at": "2026-07-01",
+			"estimate": _change().estimate.to_dict(),
+		}
+	)
 	assert(hand_made.is_approved(), "the date of an agreement is an agreement")
 	assert(hand_made.problems()[0].contains("no record of who agreed"), str(hand_made.problems()))
 
@@ -254,11 +252,12 @@ func test_a_change_order_with_no_id_is_a_fault() -> void:
 
 func test_describe_reads_as_a_change_order() -> void:
 	var change := _approved()
-	assert(change.describe() == "CO-1 site condition, +$150.00, approved by Dana on 2026-07-01 "
-		+ "(in-app) (E1)", change.describe())
+	assert(
+		change.describe() == "CO-1 site condition, +$150.00, approved by Dana on 2026-07-01 " + "(in-app) (E1)",
+		change.describe(),
+	)
 	var waiting := _change("CO2")
 	assert(waiting.describe().contains(", proposed (E1)"), waiting.describe())
-
 
 # --- the file -----------------------------------------------------------------------------------
 
@@ -284,10 +283,10 @@ func test_it_survives_the_file() -> void:
 
 
 func test_a_damaged_record_never_invents_an_agreement() -> void:
-	assert(ChangeScript.from_dict({}) == null, "a record with no id is dropped")
-	var read: ChangeScript = ChangeScript.from_dict({
-		"id": "CO8", "reason": "MAYBE", "state": "SIGNED_OFF", "affects_contract_sum": false,
-	})
+	assert(ChangeScript.from_dict({ }) == null, "a record with no id is dropped")
+	var read: ChangeScript = ChangeScript.from_dict(
+		{ "id": "CO8", "reason": "MAYBE", "state": "SIGNED_OFF", "affects_contract_sum": false }
+	)
 	assert(String(read.reason) == "OTHER", "a reason nobody has becomes other")
 	assert(read.state() == ChangeScript.PROPOSED, "a state nobody has is not an agreement")
 	assert(not read.affects_contract_sum)

@@ -65,7 +65,7 @@ var sheet: String = DEFAULT_SHEET
 var desk: JobDesk = null
 ## One billing schedule per job, keyed by job id. A job with no entry here has **not started being
 ## billed**, which is a different thing from a job that cannot bill anything yet.
-var billings: Dictionary = {}
+var billings: Dictionary = { }
 var invoices: Array[Invoice] = []
 ## Terms in days, and the month a fiscal year starts in. Both are properties of the business.
 var terms_days: int = DEFAULT_TERMS_DAYS
@@ -74,7 +74,6 @@ var fiscal_start_month: int = 1
 
 func _init() -> void:
 	desk = JobDeskScript.new()
-
 
 # --- the jobs -----------------------------------------------------------------------------------
 
@@ -122,7 +121,6 @@ func contract_sum_of(job_id: String) -> Money:
 		return MoneyScript.invalid(currency_of(job_id))
 	return held.contract_sum
 
-
 # --- the billing schedule -----------------------------------------------------------------------
 
 
@@ -168,41 +166,51 @@ func add_billing(schedule: Billing) -> bool:
 ## Add a step priced as a share of the contract. Refused for everything `Milestone.set_percent`
 ## refuses, and for a job with no schedule.
 ## Returns `{ok, reason}`.
-func add_milestone(job_id: String, step_name: String, ppm: int,
-		trigger: int = MilestoneScript.DATE, due_date: String = "",
-		retainage_ppm: int = 0) -> Dictionary:
+func add_milestone(
+	job_id: String,
+	step_name: String,
+	ppm: int,
+	trigger: int = MilestoneScript.DATE,
+	due_date: String = "",
+	retainage_ppm: int = 0,
+) -> Dictionary:
 	var schedule: Billing = billing_for(job_id)
 	if schedule == null:
-		return {"ok": false, "reason": "this job is not being billed yet"}
+		return { "ok": false, "reason": "this job is not being billed yet" }
 	var step: Milestone = MilestoneScript.new(step_name)
 	if not step.set_percent(ppm):
-		return {"ok": false, "reason": "a step is a share of the contract between 0 and 100 per cent"}
+		return { "ok": false, "reason": "a step is a share of the contract between 0 and 100 per cent" }
 	step.trigger = trigger if MilestoneScript.is_trigger(trigger) else MilestoneScript.DATE
 	step.due_date = due_date
 	step.retainage_ppm = maxi(0, retainage_ppm)
 	if not schedule.add_milestone(step):
-		return {"ok": false, "reason": "there is already a step called '%s', or it has no name" % step_name}
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": "there is already a step called '%s', or it has no name" % step_name }
+	return { "ok": true, "reason": "" }
 
 
 ## Add a step priced as a flat amount - a permit fee, a deposit. A step is priced **one of two ways
 ## and never both**, which is why this is a door of its own rather than a flag.
 ## Returns `{ok, reason}`.
-func add_fixed_milestone(job_id: String, step_name: String, amount: Money,
-		trigger: int = MilestoneScript.DATE, due_date: String = "",
-		retainage_ppm: int = 0) -> Dictionary:
+func add_fixed_milestone(
+	job_id: String,
+	step_name: String,
+	amount: Money,
+	trigger: int = MilestoneScript.DATE,
+	due_date: String = "",
+	retainage_ppm: int = 0,
+) -> Dictionary:
 	var schedule: Billing = billing_for(job_id)
 	if schedule == null:
-		return {"ok": false, "reason": "this job is not being billed yet"}
+		return { "ok": false, "reason": "this job is not being billed yet" }
 	var step: Milestone = MilestoneScript.new(step_name)
 	if not step.set_fixed_amount(amount):
-		return {"ok": false, "reason": "a flat step is an amount of money and not nothing"}
+		return { "ok": false, "reason": "a flat step is an amount of money and not nothing" }
 	step.trigger = trigger if MilestoneScript.is_trigger(trigger) else MilestoneScript.DATE
 	step.due_date = due_date
 	step.retainage_ppm = maxi(0, retainage_ppm)
 	if not schedule.add_milestone(step):
-		return {"ok": false, "reason": "there is already a step called '%s', or it has no name" % step_name}
-	return {"ok": true, "reason": ""}
+		return { "ok": false, "reason": "there is already a step called '%s', or it has no name" % step_name }
+	return { "ok": true, "reason": "" }
 
 
 ## The rate withheld from an invoice on a method that has no steps of its own.
@@ -256,18 +264,20 @@ func milestone_rows(job_id: String) -> Array[Dictionary]:
 		return out
 	var contract: Money = contract_sum_of(job_id)
 	for step in schedule.milestones:
-		out.append({
-			"name": step.name,
-			"state": step.state_name(),
-			"billed": step.is_billed(),
-			"amount": step.amount_for(contract),
-			"amount_text": step.amount_for(contract).format_with_currency(),
-			"trigger_name": MilestoneScript.trigger_name(step.trigger),
-			"retainage": step.retainage_for(contract),
-			"invoice_number": step.invoice_number,
-			"describe": step.describe(contract),
-			"problem": step.problem(),
-		})
+		out.append(
+			{
+				"name": step.name,
+				"state": step.state_name(),
+				"billed": step.is_billed(),
+				"amount": step.amount_for(contract),
+				"amount_text": step.amount_for(contract).format_with_currency(),
+				"trigger_name": MilestoneScript.trigger_name(step.trigger),
+				"retainage": step.retainage_for(contract),
+				"invoice_number": step.invoice_number,
+				"describe": step.describe(contract),
+				"problem": step.problem(),
+			}
+		)
 	return out
 
 
@@ -280,14 +290,17 @@ func billable_step(job_id: String) -> String:
 	var step: Milestone = schedule.next_pending()
 	return "" if step == null else step.name
 
-
 # --- what can be billed now ---------------------------------------------------------------------
 
 
 ## What the job can bill right now, by its own method, as `Billing.amount_due` answers.
 ## Returns `{ok, reason, amount, milestone}`.
-func amount_due(job_id: String, milestone_name: String = "", period_amount: Money = null,
-		materials: Money = null) -> Dictionary:
+func amount_due(
+	job_id: String,
+	milestone_name: String = "",
+	period_amount: Money = null,
+	materials: Money = null,
+) -> Dictionary:
 	var schedule: Billing = billing_for(job_id)
 	if schedule == null:
 		return {
@@ -310,7 +323,6 @@ func amount_due_text(job_id: String, milestone_name: String = "") -> String:
 		return String(asked["reason"])
 	return "%s: %s" % [amount.format_with_currency(), String(asked["reason"])]
 
-
 # --- raising an invoice -------------------------------------------------------------------------
 
 
@@ -327,9 +339,7 @@ func taken_numbers() -> Array[String]:
 ## The next number in the series for the fiscal year a moment falls in. **The highest taken plus one,
 ## never the count**, which `Invoice.next_number` owns.
 func next_invoice_number(at: String) -> String:
-	return InvoiceScript.next_number(
-		InvoiceScript.fiscal_year_of(at, fiscal_start_month), taken_numbers()
-	)
+	return InvoiceScript.next_number(InvoiceScript.fiscal_year_of(at, fiscal_start_month), taken_numbers())
 
 
 ## Write an invoice for what the job can bill right now, and issue it. One act, because the model's
@@ -344,11 +354,18 @@ func next_invoice_number(at: String) -> String:
 ## voided in place and the reason returned: a number that vanishes and a document that never existed
 ## are both worse than a visible void.
 ## Returns `{ok, reason, invoice}`.
-func raise_invoice(job_id: String, at: String, milestone_name: String = "",
-		period_start: String = "", period_end: String = "", tax_code: StringName = &"NONE",
-		cost_code: StringName = &"", period_amount: Money = null,
-		materials: Money = null) -> Dictionary:
-	var refused := {"ok": false, "reason": "", "invoice": null}
+func raise_invoice(
+	job_id: String,
+	at: String,
+	milestone_name: String = "",
+	period_start: String = "",
+	period_end: String = "",
+	tax_code: StringName = &"NONE",
+	cost_code: StringName = &"",
+	period_amount: Money = null,
+	materials: Money = null,
+) -> Dictionary:
+	var refused := { "ok": false, "reason": "", "invoice": null }
 	var held: Job = job_of(job_id)
 	if held == null:
 		refused["reason"] = "there is no job %s on the desk" % job_id
@@ -389,8 +406,13 @@ func raise_invoice(job_id: String, at: String, milestone_name: String = "",
 	if withheld != null and withheld.is_valid() and withheld.cents > 0:
 		invoice.set_retainage(withheld)
 	var step: String = String(asked["milestone"])
-	if not invoice.add_amount(_kind_for(schedule), _description_for(schedule, step, period_start, period_end),
-			amount, cost_code, tax_code):
+	if not invoice.add_amount(
+		_kind_for(schedule),
+		_description_for(schedule, step, period_start, period_end),
+		amount,
+		cost_code,
+		tax_code,
+	):
 		refused["reason"] = "the invoice line could not be written"
 		return refused
 	var issued: Dictionary = invoice.issue(at, terms_days, number)
@@ -403,32 +425,33 @@ func raise_invoice(job_id: String, at: String, milestone_name: String = "",
 		invoice.mark_void(at, "the billing schedule refused it: %s" % String(recorded["reason"]))
 		refused["reason"] = String(recorded["reason"])
 		return refused
-	return {"ok": true, "reason": "", "invoice": invoice}
+	return { "ok": true, "reason": "", "invoice": invoice }
 
 
 ## Which document a line is: the shape the invoice's own kinds describe, and each is a different
 ## document to a bookkeeper even when the money is the same.
 static func _kind_for(schedule: Billing) -> int:
 	match schedule.method:
-		JobScript.MILESTONE: return InvoiceScript.MILESTONE_LINE
-		JobScript.PERCENTAGE_COMPLETE: return InvoiceScript.PERCENTAGE_LINE
-		JobScript.TIME_AND_MATERIALS: return InvoiceScript.PERIOD_LINE
-		JobScript.COST_PLUS: return InvoiceScript.PERIOD_LINE
+		JobScript.MILESTONE:
+			return InvoiceScript.MILESTONE_LINE
+		JobScript.PERCENTAGE_COMPLETE:
+			return InvoiceScript.PERCENTAGE_LINE
+		JobScript.TIME_AND_MATERIALS:
+			return InvoiceScript.PERIOD_LINE
+		JobScript.COST_PLUS:
+			return InvoiceScript.PERIOD_LINE
 	return InvoiceScript.FIXED_LINE
 
 
 ## What the line says. A document describes itself: "the contract" and "progress claim at 40% by cost
 ## incurred" are the two lines a customer reads most often.
-static func _description_for(schedule: Billing, step: String, period_start: String,
-		period_end: String) -> String:
+static func _description_for(schedule: Billing, step: String, period_start: String, period_end: String) -> String:
 	if schedule.method == JobScript.MILESTONE:
 		if step.strip_edges().is_empty():
 			return "a milestone of the schedule"
 		return "'%s'" % step
 	if schedule.method == JobScript.PERCENTAGE_COMPLETE:
-		return "Progress claim at %s %s" % [
-			RateScript.percent_text(schedule.complete_ppm), schedule.basis_name(),
-		]
+		return "Progress claim at %s %s" % [RateScript.percent_text(schedule.complete_ppm), schedule.basis_name()]
 	if schedule.method == JobScript.TIME_AND_MATERIALS or schedule.method == JobScript.COST_PLUS:
 		if period_start.strip_edges().is_empty() and period_end.strip_edges().is_empty():
 			return "work done this period"
@@ -451,7 +474,7 @@ static func _job_reference(record: Job, label: String) -> String:
 ## What goes under JOB AND SITE on the page. The name is not said twice: when the document's own
 ## reference already reads as the job's name, the block carries the address and nothing else.
 static func _site_of(record: Job, label: String, job_reference: String) -> Dictionary:
-	var where: Dictionary = {}
+	var where: Dictionary = { }
 	if not label.strip_edges().is_empty() and label != job_reference:
 		where["name"] = label
 	var address: String = String(record.customer.get("address", "")).strip_edges()
@@ -472,7 +495,6 @@ func _has_invoice_id(candidate: String) -> bool:
 		if held.id == candidate:
 			return true
 	return false
-
 
 # --- the documents ------------------------------------------------------------------------------
 
@@ -524,21 +546,23 @@ func job_id_of_invoice(invoice: Invoice) -> String:
 func invoice_rows(job_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for held in invoices_for(job_id):
-		out.append({
-			"id": held.id,
-			"number": held.number,
-			"state": held.state(),
-			"state_name": held.state_name(),
-			"issued_at": held.issued_at,
-			"due_at": held.due_at,
-			"total": held.total(),
-			"applied": held.applied(),
-			"balance": held.balance(),
-			"retainage": held.retainage,
-			"payment_count": held.payment_count(),
-			"void": held.is_void(),
-			"describe": held.describe(),
-		})
+		out.append(
+			{
+				"id": held.id,
+				"number": held.number,
+				"state": held.state(),
+				"state_name": held.state_name(),
+				"issued_at": held.issued_at,
+				"due_at": held.due_at,
+				"total": held.total(),
+				"applied": held.applied(),
+				"balance": held.balance(),
+				"retainage": held.retainage,
+				"payment_count": held.payment_count(),
+				"void": held.is_void(),
+				"describe": held.describe(),
+			}
+		)
 	return out
 
 
@@ -603,18 +627,23 @@ func _scope_ids(job_id: String) -> Array[String]:
 		return one
 	return job_ids()
 
-
 # --- money arriving -----------------------------------------------------------------------------
 
 
 ## Record money the customer sent, against an invoice. The payment is built here and applied through
 ## the invoice's own door, so a payment larger than the balance is refused rather than clamped (§9.4).
 ## Returns `{ok, reason, payment}`.
-func record_payment(invoice_id: String, at: String, amount: Money, method: StringName = &"cheque",
-		bank_reference: String = "", note: String = "") -> Dictionary:
+func record_payment(
+	invoice_id: String,
+	at: String,
+	amount: Money,
+	method: StringName = &"cheque",
+	bank_reference: String = "",
+	note: String = "",
+) -> Dictionary:
 	var invoice: Invoice = invoice_for(invoice_id)
 	if invoice == null:
-		return {"ok": false, "reason": "there is no invoice %s on the desk" % invoice_id, "payment": null}
+		return { "ok": false, "reason": "there is no invoice %s on the desk" % invoice_id, "payment": null }
 	var payment: Payment = PaymentScript.new(_next_payment_id())
 	payment.invoice = invoice.id
 	payment.received_at = at
@@ -624,17 +653,17 @@ func record_payment(invoice_id: String, at: String, amount: Money, method: Strin
 	payment.note = note
 	var applied: Dictionary = invoice.apply_payment(payment)
 	if not bool(applied["ok"]):
-		return {"ok": false, "reason": String(applied["reason"]), "payment": null}
-	return {"ok": true, "reason": "", "payment": payment}
+		return { "ok": false, "reason": String(applied["reason"]), "payment": null }
+	return { "ok": true, "reason": "", "payment": payment }
 
 
 ## Apply a payment that was read from a file, through the invoice it names.
 func apply_payment(payment: Payment) -> Dictionary:
 	if payment == null:
-		return {"ok": false, "reason": "there is no payment to apply"}
+		return { "ok": false, "reason": "there is no payment to apply" }
 	var invoice: Invoice = invoice_for(payment.invoice)
 	if invoice == null:
-		return {"ok": false, "reason": "that payment names an invoice this desk does not have"}
+		return { "ok": false, "reason": "that payment names an invoice this desk does not have" }
 	return invoice.apply_payment(payment)
 
 
@@ -652,16 +681,18 @@ func payment_rows(invoice_id: String) -> Array[Dictionary]:
 	if invoice == null:
 		return out
 	for held in invoice.payments:
-		out.append({
-			"id": held.id,
-			"received_at": held.received_at,
-			"amount": held.amount,
-			"method": String(held.method),
-			"method_name": PaymentScript.method_name(held.method),
-			"reference": held.bank_reference,
-			"describe": held.describe(),
-			"problem": held.problem(),
-		})
+		out.append(
+			{
+				"id": held.id,
+				"received_at": held.received_at,
+				"amount": held.amount,
+				"method": String(held.method),
+				"method_name": PaymentScript.method_name(held.method),
+				"reference": held.bank_reference,
+				"describe": held.describe(),
+				"problem": held.problem(),
+			}
+		)
 	return out
 
 
@@ -683,7 +714,6 @@ func _next_payment_id() -> String:
 			taken.append(payment.id)
 	return JobDeskScript.next_number(PAYMENT_PREFIX, taken)
 
-
 # --- calling one back ---------------------------------------------------------------------------
 
 
@@ -694,15 +724,14 @@ func _next_payment_id() -> String:
 ## again. Refused, and nothing changed, when un-billing would take the schedule below what it has
 ## already recorded: that would mean the schedule and the invoices had already disagreed.
 ## Returns `{ok, reason}`.
-func void_invoice(invoice_id: String, at: String, why: String = "",
-		replacement: String = "") -> Dictionary:
+func void_invoice(invoice_id: String, at: String, why: String = "", replacement: String = "") -> Dictionary:
 	var invoice: Invoice = invoice_for(invoice_id)
 	if invoice == null:
-		return {"ok": false, "reason": "there is no invoice %s on the desk" % invoice_id}
+		return { "ok": false, "reason": "there is no invoice %s on the desk" % invoice_id }
 	if invoice.is_void():
-		return {"ok": false, "reason": "%s was already called back" % _number_label(invoice)}
+		return { "ok": false, "reason": "%s was already called back" % _number_label(invoice) }
 	if not invoice.is_issued():
-		return {"ok": false, "reason": "a draft is not voided: it has no number to keep"}
+		return { "ok": false, "reason": "a draft is not voided: it has no number to keep" }
 	var job_id := job_id_of_invoice(invoice)
 	var schedule: Billing = billing_for(job_id)
 	if schedule != null and schedule.billed_to_date != null and schedule.billed_to_date.is_valid():
@@ -710,12 +739,13 @@ func void_invoice(invoice_id: String, at: String, why: String = "",
 		if not left.is_valid() or left.is_negative():
 			return {
 				"ok": false,
-				"reason": "%s cannot be called back: the schedule has recorded less billed than it comes to" % _number_label(invoice),
+				"reason": "%s cannot be called back: the schedule has recorded less billed than it comes to"
+				% _number_label(invoice),
 			}
 	if not invoice.mark_void(at, why, replacement):
-		return {"ok": false, "reason": "a void says when and why, and '%s' is not a date" % at}
+		return { "ok": false, "reason": "a void says when and why, and '%s' is not a date" % at }
 	_unwind_billed(job_id, invoice)
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 ## Take a document's billing back off the schedule. `Billing.record_billed` is the only place
@@ -739,12 +769,11 @@ func _unwind_billed(job_id: String, invoice: Invoice) -> void:
 	if schedule.billed_to_date != null and schedule.billed_to_date.is_valid():
 		schedule.billed_to_date = schedule.billed_to_date.sub(invoice.subtotal())
 
-
 # --- the page -----------------------------------------------------------------------------------
 
 
 ## The invoice page, as bytes. `InvoiceSheet` draws it and this desk only says where it goes.
-func invoice_pdf(invoice_id: String, options: Dictionary = {}) -> PackedByteArray:
+func invoice_pdf(invoice_id: String, options: Dictionary = { }) -> PackedByteArray:
 	var invoice: Invoice = invoice_for(invoice_id)
 	if invoice == null:
 		return PackedByteArray()
@@ -753,21 +782,25 @@ func invoice_pdf(invoice_id: String, options: Dictionary = {}) -> PackedByteArra
 
 ## Write the page where the drawings and the proposals already go, and say where.
 ## Returns `{ok, path, reason}`.
-func write_invoice(invoice_id: String, options: Dictionary = {}) -> Dictionary:
+func write_invoice(invoice_id: String, options: Dictionary = { }) -> Dictionary:
 	var invoice: Invoice = invoice_for(invoice_id)
 	if invoice == null:
-		return {"ok": false, "path": "", "reason": "there is no invoice %s on the desk" % invoice_id}
+		return { "ok": false, "path": "", "reason": "there is no invoice %s on the desk" % invoice_id }
 	var bytes: PackedByteArray = SheetScript.export_pdf(invoice, _page_options(options))
 	if bytes.is_empty():
-		return {"ok": false, "path": "", "reason": "the page came out empty"}
+		return { "ok": false, "path": "", "reason": "the page came out empty" }
 	DirAccess.make_dir_recursive_absolute(INVOICE_FOLDER)
 	var path := "%s/%s.pdf" % [INVOICE_FOLDER, _safe_name(_number_label(invoice))]
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "path": "", "reason": "the file could not be opened: %s" % str(FileAccess.get_open_error())}
+		return {
+			"ok": false,
+			"path": "",
+			"reason": "the file could not be opened: %s" % str(FileAccess.get_open_error()),
+		}
 	file.store_buffer(bytes)
 	file.close()
-	return {"ok": true, "path": path, "reason": ""}
+	return { "ok": true, "path": path, "reason": "" }
 
 
 ## Take the company's picture: copy it somewhere the app keeps it and hold the copy's path.
@@ -781,9 +814,9 @@ func write_invoice(invoice_id: String, options: Dictionary = {}) -> Dictionary:
 func keep_logo(source: String, wanted_name: String = "logo") -> Dictionary:
 	var kept: Dictionary = UnderlayScript.keep(source, wanted_name)
 	if not bool(kept.get("ok", false)):
-		return {"ok": false, "reason": String(kept.get("reason", "")), "path": ""}
+		return { "ok": false, "reason": String(kept.get("reason", "")), "path": "" }
 	logo = String(kept.get("path", ""))
-	return {"ok": true, "reason": "", "path": logo}
+	return { "ok": true, "reason": "", "path": logo }
 
 
 ## The letterhead the desk holds, unless a caller brought its own.
@@ -805,7 +838,6 @@ static func _safe_name(text: String) -> String:
 	for bad in ["/", "\\", ":", "*", "?", "\"", "<", ">", "|"]:
 		out = out.replace(bad, "-")
 	return out if not out.is_empty() else "invoice"
-
 
 # --- what it says -------------------------------------------------------------------------------
 
@@ -850,9 +882,10 @@ func problems(job_id: String = "") -> Array[String]:
 		var billed: Money = MoneyScript.sum(documents, currency_of(held_id))
 		var recorded: Money = schedule.billed_to_date
 		if billed.is_valid() and recorded != null and recorded.is_valid() and not billed.equals(recorded):
-			out.append("the schedule of %s says %s has been billed and its invoices come to %s" % [
-				label, recorded.format_with_currency(), billed.format_with_currency(),
-			])
+			out.append(
+				"the schedule of %s says %s has been billed and its invoices come to %s"
+				% [label, recorded.format_with_currency(), billed.format_with_currency()]
+			)
 	for invoice in invoices:
 		if invoice.job.strip_edges().is_empty():
 			continue
@@ -874,8 +907,10 @@ func describe() -> String:
 	if billings.is_empty() and invoices.is_empty():
 		return "nothing has been billed yet"
 	var line := "%d schedule%s, %d invoice%s" % [
-		billings.size(), _plural(billings.size()),
-		invoices.size(), _plural(invoices.size()),
+		billings.size(),
+		_plural(billings.size()),
+		invoices.size(),
+		_plural(invoices.size()),
 	]
 	var billed: Money = invoiced_total()
 	var owed: Money = outstanding_total()
@@ -907,12 +942,11 @@ static func _number_label(invoice: Invoice) -> String:
 		return invoice.number
 	return invoice.id
 
-
 # --- the file -----------------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
-	var schedules: Dictionary = {}
+	var schedules: Dictionary = { }
 	for key in billings.keys():
 		var held: Billing = billing_for(String(key))
 		if held != null:
@@ -951,7 +985,7 @@ static func from_dict(data: Dictionary, job_desk: JobDesk = null) -> BillingDesk
 		ledger.company.append(entry)
 	for entry in _texts(data.get("contact", [])):
 		ledger.contact.append(entry)
-	var schedules = data.get("billings", {})
+	var schedules = data.get("billings", { })
 	if schedules is Dictionary:
 		for key in (schedules as Dictionary).keys():
 			var read = (schedules as Dictionary)[key]

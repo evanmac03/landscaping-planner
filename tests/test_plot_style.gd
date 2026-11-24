@@ -175,19 +175,19 @@ func test_persistence_round_trip() -> void:
 	assert(restored.size() == table.size())
 	for slot: int in table.slots():
 		assert(restored.has_entry(slot))
-		assert(is_equal_approx(
-			restored.entry(slot).plot_weight_mm, table.entry(slot).plot_weight_mm
-		))
+		assert(is_equal_approx(restored.entry(slot).plot_weight_mm, table.entry(slot).plot_weight_mm))
 		assert(restored.entry(slot).linetype == table.entry(slot).linetype)
 	assert(restored.entry(Style.SLOT_BLUE).plot_colour.is_equal_approx(Color.BLACK))
 
 
 func test_loading_a_table_ignores_impossible_slots() -> void:
-	var restored = Style.from_dict({
-		"name": "Damaged",
-		"enabled": false,
-		"pens": {"0": {"plot_weight_mm": 1.0}, "7": {"plot_weight_mm": 0.25}},
-	})
+	var restored = Style.from_dict(
+		{
+			"name": "Damaged",
+			"enabled": false,
+			"pens": { "0": { "plot_weight_mm": 1.0 }, "7": { "plot_weight_mm": 0.25 } },
+		}
+	)
 	assert(restored.size() == 1)
 	assert(restored.has_entry(Style.SLOT_WHITE))
 	assert(not restored.enabled)

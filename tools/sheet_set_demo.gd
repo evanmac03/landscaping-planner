@@ -13,7 +13,7 @@ extends Node2D
 ## the signals, the HUD's handlers, the controller and the plotter are all the shipped ones. It prints
 ## every step, and the screenshot at the end is the window with the set in it.
 ##
-## Run `res://scenes/sheet_set_demo.tscn`.
+## Run `res://tools/sheet_set_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
@@ -34,9 +34,7 @@ func _ready() -> void:
 
 	# Something on the drawing: a plot of an empty drawing is refused, and refusing is not what this
 	# tool is here to prove.
-	controller.document.add(
-		EntityScript.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSetScript.NEW_BED
-	)
+	controller.document.add(EntityScript.make_rectangle(Vector2(0.0, 0.0), Vector2(12.0, 8.0)), LayerSetScript.NEW_BED)
 
 	print("--- opening the sheet setup from the File menu ---")
 	hud.open_sheet_window()
@@ -53,23 +51,37 @@ func _ready() -> void:
 	print("numbers: ", controller.sheet_set().numbers())
 	# The form has to end up on the sheet that was just added, or the designer types into the sheet they
 	# were already on and the new one stays empty.
-	print("the form is on sheet ", window.selected_index() + 1,
-		", the set's current sheet is ", controller.sheet_set().current_index() + 1,
-		", they agree: ", window.selected_index() == controller.sheet_set().current_index())
+	print(
+		"the form is on sheet ",
+		window.selected_index() + 1,
+		", the set's current sheet is ",
+		controller.sheet_set().current_index() + 1,
+		", they agree: ",
+		window.selected_index() == controller.sheet_set().current_index(),
+	)
 
 	print("--- typing into the sheet in hand, as the form does ---")
 	print("typed: ", window.type_field("title", "Planting plan"))
 	print("chose 1:200: ", window.choose_scale(200.0))
 	print("turned it portrait: ", window.tick_flag("portrait", true))
 	print("and the drawing followed the sheet: ", controller.sheet == "A3", " at 1:%d" % int(controller.plot_scale))
-	print("project and date: ", window.type_identity("project", "Riverbend"), window.type_identity("date", "2026-05-04"))
+	print(
+		"project and date: ",
+		window.type_identity("project", "Riverbend"),
+		window.type_identity("date", "2026-05-04"),
+	)
 	print("the row says: ", window.selected_row().get("description", ""))
 
 	print("--- choosing the first sheet back ---")
 	window.select(0)
 	window.sheet_selected.emit(0)
-	print("the drawing is set up as sheet ", controller.sheet_set().current_index() + 1,
-		" on ", controller.sheet, " at 1:%d" % int(controller.plot_scale))
+	print(
+		"the drawing is set up as sheet ",
+		controller.sheet_set().current_index() + 1,
+		" on ",
+		controller.sheet,
+		" at 1:%d" % int(controller.plot_scale),
+	)
 
 	print("--- plotting the set ---")
 	window.plot_set_requested.emit()
@@ -78,16 +90,44 @@ func _ready() -> void:
 	print("files in ", ProjectSettings.globalize_path(SHEETS), ": ", written.size())
 	for file_name: String in written:
 		var text := _read("user://sheets/%s" % file_name)
-		print("  ", file_name, ": L1.1 on it? ", text.contains("L1.1"), ", L1.2? ", text.contains("L1.2"),
-			", Planting plan? ", text.contains("Planting plan"), ", Riverbend? ", text.contains("Riverbend"))
+		print(
+			"  ",
+			file_name,
+			": L1.1 on it? ",
+			text.contains("L1.1"),
+			", L1.2? ",
+			text.contains("L1.2"),
+			", Planting plan? ",
+			text.contains("Planting plan"),
+			", Riverbend? ",
+			text.contains("Riverbend"),
+		)
 	print("--- what the set holds now ---")
 	for row: Dictionary in controller.sheet_rows():
-		print("  ", row["number"], "  ", row["title"], "  ", row["sheet"], "  1:%d" % int(row["scale"]),
-			"  portrait: ", row["portrait"], "  current: ", row["current"])
+		print(
+			"  ",
+			row["number"],
+			"  ",
+			row["title"],
+			"  ",
+			row["sheet"],
+			"  1:%d" % int(row["scale"]),
+			"  portrait: ",
+			row["portrait"],
+			"  current: ",
+			row["current"],
+		)
 	# The HUD keeps the drawing's live paper fields in step with the current sheet, which is the one
 	# thing a person would notice if it drifted.
-	print("the drawing's own paper: ", controller.sheet, " 1:%d" % int(controller.plot_scale),
-		" title: ", controller.drawing_title, " project: ", controller.project_name)
+	print(
+		"the drawing's own paper: ",
+		controller.sheet,
+		" 1:%d" % int(controller.plot_scale),
+		" title: ",
+		controller.drawing_title,
+		" project: ",
+		controller.project_name,
+	)
 
 
 func _read(path: String) -> String:

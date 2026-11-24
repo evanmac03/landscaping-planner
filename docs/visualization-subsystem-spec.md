@@ -1388,6 +1388,12 @@ presentation's own `current_site()`; the site's one wording, `site_words`, is al
 presentation's own `site_text()` prints, so the panel and a study cannot describe one site two
 ways.
 
+**On a phone the panel starts put away**, because there it is over a third of the width with its
+last rows off the bottom of the screen. Only the *start* changes: the site is still edited in exactly
+one place, and the Present menu's own row brings the panel back, which is what lets it start aside at
+all. The start is settled where the HUD sizes its chrome for the device and never again, so a person
+who brings the panel back keeps it.
+
 **The height is stated on the page, and that is the whole of what a study claims.** An entity on
 the plan is a shape on the ground and carries no height above it, so a study reports what a
 *stated* height casts and never claims to know what is in the shade. `DEFAULT_HEIGHT_M` is 1.8 m,

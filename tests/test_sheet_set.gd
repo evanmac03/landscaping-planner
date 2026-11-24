@@ -23,7 +23,6 @@ const PlotScale := preload("res://scripts/draft/plot_scale.gd")
 static func _set_() -> DraftSheetSet:
 	return SheetSetScript.new()
 
-
 # --- a new set ------------------------------------------------------------------------
 
 
@@ -77,7 +76,6 @@ func test_a_set_is_capped_rather_than_growing_without_bound() -> void:
 		set.add("Sheet %d" % index)
 	assert(set.count() == SheetSetScript.LIMIT, str(set.count()))
 
-
 # --- editing a set --------------------------------------------------------------------
 
 
@@ -123,7 +121,6 @@ func test_a_portrait_sheet_says_so_in_its_own_line() -> void:
 	assert(set.set_field(0, "revision", "B"))
 	assert(set.describe(0).contains("rev B"), set.describe(0))
 
-
 # --- what a sheet plots with ----------------------------------------------------------
 
 
@@ -135,7 +132,7 @@ func test_one_sheet_lays_its_own_paper_over_the_drawing() -> void:
 	assert(set.set_field(1, "legend", false))
 	assert(set.set_field(1, "portrait", true))
 	assert(set.set_field(1, "revision", "C"))
-	var options: Dictionary = set.options_for(1, {"project": "Riverbend", "pen_table": null})
+	var options: Dictionary = set.options_for(1, { "project": "Riverbend", "pen_table": null })
 	assert(options["sheet"] == "A2", "the sheet's paper is what plots")
 	assert(options["scale"] == 200.0)
 	assert(options["legend"] == false)
@@ -149,28 +146,27 @@ func test_one_sheet_lays_its_own_paper_over_the_drawing() -> void:
 
 func test_a_project_and_a_date_are_the_whole_set_s_and_are_stated_or_absent() -> void:
 	var set: DraftSheetSet = _set_()
-	var bare: Dictionary = set.options_for(0, {})
+	var bare: Dictionary = set.options_for(0, { })
 	# Nothing stated is not an instruction to draw nothing: the plotter's own defaults stand.
 	assert(not bare.has("project"), "an unstated project is left out rather than blanked")
 	assert(not bare.has("date"), "and so is an unstated date, which means today")
 	set.project = "Riverbend"
 	set.date = "2026-05-04"
-	var stated: Dictionary = set.options_for(0, {})
+	var stated: Dictionary = set.options_for(0, { })
 	assert(stated["project"] == "Riverbend")
 	assert(stated["date"] == "2026-05-04")
 	set.add("Planting plan")
-	var second: Dictionary = set.options_for(1, {})
+	var second: Dictionary = set.options_for(1, { })
 	assert(second["project"] == "Riverbend", "every sheet of the set is the same job on one date")
 	assert(second["date"] == "2026-05-04", "and the same date: a set is one transmittal")
 
 
 func test_options_for_a_sheet_that_is_not_there_leaves_the_options_alone() -> void:
 	var set: DraftSheetSet = _set_()
-	var base := {"sheet": "A4", "scale": 50.0}
+	var base := { "sheet": "A4", "scale": 50.0 }
 	var options: Dictionary = set.options_for(9, base)
 	assert(options["sheet"] == "A4", "there is no such sheet, so nothing is laid over")
 	assert(options["scale"] == 50.0)
-
 
 # --- what a file keeps ----------------------------------------------------------------
 
@@ -198,17 +194,16 @@ func test_a_set_round_trips_through_the_drawing() -> void:
 func test_a_file_with_no_sheets_gets_one_rather_than_nothing() -> void:
 	# A drawing from before sets existed, and a file that has been damaged: both are one sheet at A3
 	# rather than a set of none, which is the drawing this app plotted before sets existed.
-	for junk: Variant in [null, {}, "not a set", {"sheets": []}, {"sheets": "no"}]:
+	for junk: Variant in [null, { }, "not a set", { "sheets": [] }, { "sheets": "no" }]:
 		var set: DraftSheetSet = SheetSetScript.from_dict(junk)
 		assert(set.count() == 1, "one sheet: %s" % str(junk))
 		assert(set.sheet(0)["sheet"] == "A3")
 
 
 func test_a_sheet_record_that_is_not_a_sheet_is_dropped_rather_than_invented() -> void:
-	var set: DraftSheetSet = SheetSetScript.from_dict({
-		"current": 5,
-		"sheets": [{"title": "Layout"}, "rubbish", {"title": "Planting", "scale": 200.0}],
-	})
+	var set: DraftSheetSet = SheetSetScript.from_dict(
+		{ "current": 5, "sheets": [{ "title": "Layout" }, "rubbish", { "title": "Planting", "scale": 200.0 }] }
+	)
 	# A record that is not an object cannot say what paper it is on, so it is dropped rather than turned
 	# into a sheet nobody named.
 	assert(set.count() == 2, "the rubbish record is not a sheet: %d" % set.count())
@@ -216,7 +211,6 @@ func test_a_sheet_record_that_is_not_a_sheet_is_dropped_rather_than_invented() -
 	assert(set.current_index() == 1, "a current sheet past the end lands on the last one")
 	assert(set.sheet(1)["scale"] == 200.0, "a scale that arrived from JSON as a number is still a number")
 	assert(set.sheet(0)["sheet"] == "A3", "and a record with no paper is on the default sheet")
-
 
 # --- paper ----------------------------------------------------------------------------
 
@@ -230,5 +224,7 @@ func test_a_portrait_sheet_is_the_same_sheet_turned() -> void:
 	var box: Vector2 = PlotScale.sheet_size_points("A3", true)
 	assert(is_equal_approx(box.x, PlotScale.points_from_mm(297.0)), str(box))
 	assert(is_equal_approx(box.y, PlotScale.points_from_mm(420.0)))
-	assert(PlotScale.printable_size_mm("A3", 15.0, true).x < PlotScale.printable_size_mm("A3").x,
-		"a turned sheet has its margin on the other edge")
+	assert(
+		PlotScale.printable_size_mm("A3", 15.0, true).x < PlotScale.printable_size_mm("A3").x,
+		"a turned sheet has its margin on the other edge",
+	)

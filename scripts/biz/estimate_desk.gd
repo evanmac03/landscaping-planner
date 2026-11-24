@@ -53,8 +53,7 @@ var plant_rows: Array = []
 var tax_code: StringName = DEFAULT_TAX
 ## The customer the estimate is for: `{name, address, email}`. A proposal with nobody on it is a
 ## draft, and `freeze` refuses one.
-var customer: Dictionary = {}
-
+var customer: Dictionary = { }
 
 # --- what it holds -------------------------------------------------------------------------
 
@@ -89,12 +88,7 @@ func load_book(path: String = "") -> Dictionary:
 		if bool(loaded["ok"]):
 			book = loaded["book"]
 			book_source = candidate
-			return {
-				"ok": true,
-				"reason": "",
-				"source": candidate,
-				"book": book,
-			}
+			return { "ok": true, "reason": "", "source": candidate, "book": book }
 		# A file that is there and will not load is the answer: it is what the office meant to use.
 		return {
 			"ok": false,
@@ -145,7 +139,6 @@ func set_tax_code(code: StringName) -> bool:
 	if takeoff != null:
 		take_off()
 	return true
-
 
 # --- measuring and pricing -------------------------------------------------------------------
 
@@ -201,10 +194,7 @@ func take_off() -> Dictionary:
 
 
 func _no_takeoff(reason: String) -> Dictionary:
-	return {
-		"ok": false, "reason": reason, "measured": 0, "priced": 0, "refused": 0,
-		"notes": 0, "problems": 0,
-	}
+	return { "ok": false, "reason": reason, "measured": 0, "priced": 0, "refused": 0, "notes": 0, "problems": 0 }
 
 
 ## What the takeoff left out on purpose, with the reason ("a contour is a line, and a grading volume
@@ -303,20 +293,20 @@ func check() -> Dictionary:
 ## hash records who it went to, and "sent to " is not an answer.
 func send(recipient: String) -> Dictionary:
 	if estimate == null:
-		return {"ok": false, "reason": "there is nothing to send yet"}
+		return { "ok": false, "reason": "there is nothing to send yet" }
 	if recipient.strip_edges().is_empty():
-		return {"ok": false, "reason": "a proposal needs somebody to go to"}
+		return { "ok": false, "reason": "a proposal needs somebody to go to" }
 	if not estimate.is_sound(book):
-		return {"ok": false, "reason": "it does not foot: %s" % "; ".join(estimate.problems(book))}
+		return { "ok": false, "reason": "it does not foot: %s" % "; ".join(estimate.problems(book)) }
 	if estimate.is_frozen():
-		return {"ok": false, "reason": "it has already gone"}
+		return { "ok": false, "reason": "it has already gone" }
 	# The person it goes to is the customer on it: a proposal that recorded who it was sent to but
 	# printed no name would be a document with a hidden field on it.
 	customer["name"] = recipient
 	estimate.customer = customer.duplicate(true)
 	if not estimate.freeze(recipient):
-		return {"ok": false, "reason": "the estimate would not freeze"}
-	return {"ok": true, "reason": "", "hash": String(estimate.frozen.get("hash", ""))}
+		return { "ok": false, "reason": "the estimate would not freeze" }
+	return { "ok": true, "reason": "", "hash": String(estimate.frozen.get("hash", "")) }
 
 
 ## Whether what was sent still describes what is here - the question that makes a hash worth having.
@@ -328,14 +318,13 @@ func freeze_holds() -> bool:
 ## edited.
 func revision() -> Dictionary:
 	if estimate == null:
-		return {"ok": false, "reason": "there is nothing to revise"}
+		return { "ok": false, "reason": "there is nothing to revise" }
 	if not estimate.is_frozen():
-		return {"ok": false, "reason": "it has not gone yet, so there is nothing to revise"}
+		return { "ok": false, "reason": "it has not gone yet, so there is nothing to revise" }
 	var next: EstimateScript = estimate.new_revision()
 	estimate = next
 	refused.clear()
-	return {"ok": true, "reason": "", "revision": next.revision}
-
+	return { "ok": true, "reason": "", "revision": next.revision }
 
 # --- what it says ---------------------------------------------------------------------------
 
@@ -389,7 +378,7 @@ func totals_text() -> String:
 	for pair: Array in pairs:
 		var amount: Variant = pair[1]
 		var words: String = (amount as MoneyScript).format_with_currency() if amount is MoneyScript \
-			else String(amount)
+				else String(amount)
 		lines.append("%-24s %s" % [String(pair[0]), words])
 	return "\n".join(lines)
 
@@ -420,7 +409,8 @@ func describe() -> String:
 		return "%s, and nothing taken off it yet" % book.describe()
 	return "%s: %d line%s, %s" % [
 		"revision %d" % estimate.revision if estimate.is_frozen() else "draft",
-		estimate.line_count(), "" if estimate.line_count() == 1 else "s",
+		estimate.line_count(),
+		"" if estimate.line_count() == 1 else "s",
 		estimate.total(book).format_with_currency(),
 	]
 
@@ -431,10 +421,10 @@ func describe() -> String:
 ## went to the customer, so it is a file, and it is named after the estimate it came from.
 func write_proposal() -> Dictionary:
 	if estimate == null:
-		return {"ok": false, "reason": "there is nothing to write yet", "path": ""}
+		return { "ok": false, "reason": "there is nothing to write yet", "path": "" }
 	var error: Error = DirAccess.make_dir_recursive_absolute(PROPOSAL_DIR)
 	if error != OK and error != ERR_ALREADY_EXISTS:
-		return {"ok": false, "reason": "the proposals folder would not open", "path": ""}
+		return { "ok": false, "reason": "the proposals folder would not open", "path": "" }
 	var name: String = estimate.number if not estimate.number.is_empty() else estimate.id
 	if name.is_empty():
 		name = "proposal"
@@ -442,10 +432,10 @@ func write_proposal() -> Dictionary:
 	var temp: String = path + ".writing"
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "reason": "the proposal would not open for writing", "path": ""}
+		return { "ok": false, "reason": "the proposal would not open for writing", "path": "" }
 	file.store_string(proposal_text())
 	file.close()
 	var dir: DirAccess = DirAccess.open(PROPOSAL_DIR)
 	if dir == null or dir.rename(temp.get_file(), path.get_file()) != OK:
-		return {"ok": false, "reason": "the proposal was written but would not be put in place", "path": temp}
-	return {"ok": true, "reason": "", "path": path}
+		return { "ok": false, "reason": "the proposal was written but would not be put in place", "path": temp }
+	return { "ok": true, "reason": "", "path": path }

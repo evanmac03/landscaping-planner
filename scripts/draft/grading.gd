@@ -47,11 +47,8 @@ const KINDS: Array[String] = [SPOT, CONTOUR, SLOPE]
 
 ## What each kind is called in a sentence, one place so a button, a menu line and a report cannot
 ## call the same thing three different names.
-const KIND_NAMES := {
-	SPOT: "spot level",
-	CONTOUR: "contour",
-	SLOPE: "slope arrow",
-}
+const KIND_NAMES := { SPOT: "spot level", CONTOUR: "contour", SLOPE: "slope arrow" }
+
 
 ## And which layer each kind lands on. A slope arrow has a layer of its own rather than sharing the
 ## contour layer, because the two are read for different things: a contour states a level and an arrow
@@ -65,6 +62,7 @@ static func layer_for(kind: String) -> StringName:
 	if kind == SLOPE:
 		return LayerSetScript.GRADING_SLOPE
 	return LayerSetScript.GRADING_CONTOUR
+
 
 ## The spot's mark and the arrow's head are drawn at a *paper* size, so a plan and its plot agree
 ## about how big a level mark is the same way a dimension's arrowheads do.
@@ -98,7 +96,6 @@ const MAX_RECORDS := 400
 const META_KIND := "grading_kind"
 const META_ID := "grading_id"
 
-
 # --- kinds ---------------------------------------------------------------------------
 
 
@@ -125,26 +122,24 @@ static func kind_for_name(shown: String) -> String:
 			return kind
 	return ""
 
-
 # --- the records ----------------------------------------------------------------------
 
 
 ## The whole record set, as the document holds it.
 static func empty_set() -> Dictionary:
-	return {"spots": [], "contours": [], "slopes": []}
+	return { "spots": [], "contours": [], "slopes": [] }
 
 
 static func make_spot(id: int, at: Vector2, level: float) -> Dictionary:
-	return {"id": id, "at": at, "level": level}
+	return { "id": id, "at": at, "level": level }
 
 
-static func make_contour(id: int, level: float, points: PackedVector2Array,
-		closed: bool = false) -> Dictionary:
-	return {"id": id, "level": level, "points": points, "closed": closed}
+static func make_contour(id: int, level: float, points: PackedVector2Array, closed: bool = false) -> Dictionary:
+	return { "id": id, "level": level, "points": points, "closed": closed }
 
 
 static func make_slope(id: int, a: Vector2, b: Vector2, percent: float) -> Dictionary:
-	return {"id": id, "a": a, "b": b, "percent": percent}
+	return { "id": id, "a": a, "b": b, "percent": percent }
 
 
 ## The records of one kind, as an Array of Dictionaries. The set always holds all three keys, so a
@@ -175,7 +170,7 @@ static func record_for(records: Dictionary, kind: String, id: int) -> Dictionary
 		var record: Dictionary = entry
 		if int(record.get("id", 0)) == id:
 			return record
-	return {}
+	return { }
 
 
 ## The id the next record of a kind gets: one past the highest in use, never the count. A record that
@@ -204,7 +199,6 @@ static func remove_record(records: Dictionary, kind: String, id: int) -> bool:
 			return true
 	return false
 
-
 # --- levels and falls -----------------------------------------------------------------
 
 
@@ -229,8 +223,7 @@ static func percent_words(percent: float) -> String:
 
 ## A fall with the run it happens over: "falling 2.5% (1 in 40) over 6.20 m".
 static func fall_words(percent: float, run: float, units: DraftUnits = null) -> String:
-	return "%s over %s" % [percent_words(percent),
-		DraftUnits.or_default(units).format_length(run)]
+	return "%s over %s" % [percent_words(percent), DraftUnits.or_default(units).format_length(run)]
 
 
 ## The level of the spot standing at a point, if one does.
@@ -239,7 +232,7 @@ static func fall_words(percent: float, run: float, units: DraftUnits = null) -> 
 ## `END_TOLERANCE_M` of the point *is* at that point, because that is how a designer sets one out - a
 ## marker at each end of the arrow, and no arithmetic about the middle.
 static func level_at(point: Vector2, spots: Array, tolerance: float = END_TOLERANCE_M) -> Dictionary:
-	var best := {}
+	var best := { }
 	var best_distance := tolerance
 	for entry in spots:
 		var spot: Dictionary = entry
@@ -249,12 +242,14 @@ static func level_at(point: Vector2, spots: Array, tolerance: float = END_TOLERA
 			best = spot
 			best_distance = distance
 	if best.is_empty():
-		return {"ok": false, "reason": "no spot level stands within %s of that point"
-			% DraftUnits.length_words(tolerance)}
+		return {
+			"ok": false,
+			"reason": "no spot level stands within %s of that point" % DraftUnits.length_words(tolerance),
+		}
 	var level := float(best.get("level", NAN))
 	if _bad_level(level):
-		return {"ok": false, "reason": "the spot level there is not a number"}
-	return {"ok": true, "reason": "", "level": level, "spot": best}
+		return { "ok": false, "reason": "the spot level there is not a number" }
+	return { "ok": true, "reason": "", "level": level, "spot": best }
 
 
 ## The fall from one point to another, worked out from the spot levels at them.
@@ -264,8 +259,9 @@ static func level_at(point: Vector2, spots: Array, tolerance: float = END_TOLERA
 static func fall_between(a: Vector2, b: Vector2, spots: Array) -> Dictionary:
 	var run := a.distance_to(b)
 	if run < MIN_RUN_M:
-		return _no_fall("two points closer than %s apart have no fall between them"
-			% DraftUnits.length_words(MIN_RUN_M))
+		return _no_fall(
+			"two points closer than %s apart have no fall between them" % DraftUnits.length_words(MIN_RUN_M)
+		)
 	var from := level_at(a, spots)
 	if not bool(from["ok"]):
 		return _no_fall("the level at %s: %s" % [_point_words(a), String(from["reason"])])
@@ -275,8 +271,13 @@ static func fall_between(a: Vector2, b: Vector2, spots: Array) -> Dictionary:
 	var rise := float(from["level"]) - float(to["level"])
 	var percent := rise / run * 100.0
 	return {
-		"ok": true, "reason": "", "run": run, "rise": rise, "percent": percent,
-		"from_level": float(from["level"]), "to_level": float(to["level"]),
+		"ok": true,
+		"reason": "",
+		"run": run,
+		"rise": rise,
+		"percent": percent,
+		"from_level": float(from["level"]),
+		"to_level": float(to["level"]),
 	}
 
 
@@ -301,12 +302,16 @@ static func high_low(spots: Array) -> Dictionary:
 			high = level
 			high_at = at
 	if stated == 0:
-		return {"ok": false, "reason": "no spot level on this drawing states a number",
-			"statements": 0}
+		return { "ok": false, "reason": "no spot level on this drawing states a number", "statements": 0 }
 	return {
-		"ok": true, "reason": "", "statements": stated,
-		"low": low, "high": high, "fall": high - low,
-		"low_at": low_at, "high_at": high_at,
+		"ok": true,
+		"reason": "",
+		"statements": stated,
+		"low": low,
+		"high": high,
+		"fall": high - low,
+		"low_at": low_at,
+		"high_at": high_at,
 	}
 
 
@@ -336,7 +341,6 @@ static func measurement(records: Dictionary, units: DraftUnits = null) -> Dictio
 		figures["fall_words"] = DraftUnits.or_default(units).format_length(float(levels["fall"]))
 	return figures
 
-
 # --- the check ------------------------------------------------------------------------
 
 
@@ -358,8 +362,9 @@ static func check(records: Dictionary, units: DraftUnits = null) -> Dictionary:
 	for entry in spots:
 		var spot: Dictionary = entry
 		if _bad_level(float(spot.get("level", NAN))):
-			findings.append("the spot level at %s is not a number"
-				% _point_words(Vector2(spot.get("at", Vector2.ZERO))))
+			findings.append(
+				"the spot level at %s is not a number" % _point_words(Vector2(spot.get("at", Vector2.ZERO)))
+			)
 
 	# Two contours at one level: a level is a line, and two of them are one line drawn twice.
 	for first in contours.size():
@@ -372,15 +377,15 @@ static func check(records: Dictionary, units: DraftUnits = null) -> Dictionary:
 				findings.append("a contour on this drawing states no level")
 				continue
 			if absf(a_level - b_level) <= LEVEL_TOLERANCE:
-				findings.append("two contours are both at %s: a level is one line"
-					% level_words(a_level, units))
+				findings.append("two contours are both at %s: a level is one line" % level_words(a_level, units))
 				continue
 			# Contours of different levels crossing cannot both be right.
 			var crossing := _crossing(a, b)
 			if crossing.is_finite():
-				findings.append("the %s and the %s contours cross each other at %s"
-					% [level_words(a_level, units), level_words(b_level, units),
-						_point_words(crossing)])
+				findings.append(
+					"the %s and the %s contours cross each other at %s"
+					% [level_words(a_level, units), level_words(b_level, units), _point_words(crossing)]
+				)
 
 	# A contour has to be a line, and a spot standing on one is expected to agree with it.
 	for entry in contours:
@@ -399,8 +404,10 @@ static func check(records: Dictionary, units: DraftUnits = null) -> Dictionary:
 			if _bad_level(spot_level) or not _stands_on(at, points):
 				continue
 			if absf(spot_level - level) > LEVEL_TOLERANCE:
-				findings.append("the spot at %s stands on the %s contour"
-					% [level_words(spot_level, units), level_words(level, units)])
+				findings.append(
+					"the spot at %s stands on the %s contour"
+					% [level_words(spot_level, units), level_words(level, units)]
+				)
 
 	# An arrow is checked against the levels at its own ends, and says so when there are none.
 	for entry in slopes:
@@ -410,34 +417,37 @@ static func check(records: Dictionary, units: DraftUnits = null) -> Dictionary:
 		var b := Vector2(slope.get("b", Vector2.ZERO))
 		var run := a.distance_to(b)
 		if run < MIN_RUN_M:
-			findings.append("a slope arrow at %s has no length, so it states no fall"
-				% _point_words(a))
+			findings.append("a slope arrow at %s has no length, so it states no fall" % _point_words(a))
 			continue
 		if _bad_level(stated):
 			findings.append("the slope arrow at %s states no fall" % _point_words(a))
 			continue
 		var measured := fall_between(a, b, spots)
 		if not bool(measured["ok"]):
-			notes.append("the arrow at %s is unchecked: %s"
-				% [_point_words(a), String(measured["reason"])])
+			notes.append("the arrow at %s is unchecked: %s" % [_point_words(a), String(measured["reason"])])
 			continue
 		if absf(float(measured["percent"]) - stated) > SLOPE_AGREEMENT_PERCENT:
-			findings.append("the arrow at %s says %s and the levels at its ends say %s"
-				% [_point_words(a), percent_words(stated), percent_words(float(measured["percent"]))])
+			findings.append(
+				"the arrow at %s says %s and the levels at its ends say %s"
+				% [_point_words(a), percent_words(stated), percent_words(float(measured["percent"]))]
+			)
 
 	var figures := measurement(records, units)
 	if bool(figures["ok"]):
-		notes.append("the levels run from %s to %s, %s apart" % [
-			String(figures["low_words"]), String(figures["high_words"]), String(figures["fall_words"])])
+		notes.append(
+			"the levels run from %s to %s, %s apart"
+			% [String(figures["low_words"]), String(figures["high_words"]), String(figures["fall_words"])]
+		)
 	else:
 		notes.append("no spot level on this drawing states a number")
 	var steepest: Dictionary = figures["steepest"]
 	if bool(steepest.get("ok", false)):
-		notes.append("the steepest fall between two spot levels is %s"
-			% fall_words(float(steepest["percent"]), float(steepest["run"]), units))
+		notes.append(
+			"the steepest fall between two spot levels is %s"
+			% fall_words(float(steepest["percent"]), float(steepest["run"]), units)
+		)
 
-	return {"ok": findings.is_empty(), "findings": findings, "notes": notes, "measurement": figures}
-
+	return { "ok": findings.is_empty(), "findings": findings, "notes": notes, "measurement": figures }
 
 # --- words and rows -------------------------------------------------------------------
 
@@ -471,35 +481,59 @@ static func schedule(records: Dictionary, units: DraftUnits = null) -> Array[Dic
 		var spot: Dictionary = entry
 		var level := float(spot.get("level", NAN))
 		var at := Vector2(spot.get("at", Vector2.ZERO))
-		rows.append({
-			"kind": SPOT, "kind_name": kind_name(SPOT), "id": int(spot.get("id", 0)),
-			"level": level, "level_words": level_words(level, units),
-			"at": at, "at_words": _point_words(at),
-			"text": "%s   %s" % [level_words(level, units), _point_words(at)],
-		})
+		rows.append(
+			{
+				"kind": SPOT,
+				"kind_name": kind_name(SPOT),
+				"id": int(spot.get("id", 0)),
+				"level": level,
+				"level_words": level_words(level, units),
+				"at": at,
+				"at_words": _point_words(at),
+				"text": "%s   %s" % [level_words(level, units), _point_words(at)],
+			}
+		)
 	for entry in contours_of(records):
 		var contour: Dictionary = entry
 		var level := float(contour.get("level", NAN))
 		var points: PackedVector2Array = _points_of(contour)
 		var length := Geom.polygon_perimeter(points, bool(contour.get("closed", false)))
-		rows.append({
-			"kind": CONTOUR, "kind_name": kind_name(CONTOUR), "id": int(contour.get("id", 0)),
-			"level": level, "level_words": level_words(level, units),
-			"length": length,
-			"text": "%s   %s   %s" % [level_words(level, units),
-				_count_words(points.size(), "point"), DraftUnits.or_default(units).format_length(length)],
-		})
+		rows.append(
+			{
+				"kind": CONTOUR,
+				"kind_name": kind_name(CONTOUR),
+				"id": int(contour.get("id", 0)),
+				"level": level,
+				"level_words": level_words(level, units),
+				"length": length,
+				"text": "%s   %s   %s"
+				% [
+					level_words(level, units),
+					_count_words(points.size(), "point"),
+					DraftUnits.or_default(units).format_length(length),
+				],
+			}
+		)
 	for entry in slopes_of(records):
 		var slope: Dictionary = entry
 		var a := Vector2(slope.get("a", Vector2.ZERO))
 		var b := Vector2(slope.get("b", Vector2.ZERO))
 		var percent := float(slope.get("percent", NAN))
-		rows.append({
-			"kind": SLOPE, "kind_name": kind_name(SLOPE), "id": int(slope.get("id", 0)),
-			"percent": percent, "run": a.distance_to(b),
-			"text": "%s   over %s   at %s" % [percent_words(percent),
-				DraftUnits.or_default(units).format_length(a.distance_to(b)), _point_words(a)],
-		})
+		rows.append(
+			{
+				"kind": SLOPE,
+				"kind_name": kind_name(SLOPE),
+				"id": int(slope.get("id", 0)),
+				"percent": percent,
+				"run": a.distance_to(b),
+				"text": "%s   over %s   at %s"
+				% [
+					percent_words(percent),
+					DraftUnits.or_default(units).format_length(a.distance_to(b)),
+					_point_words(a),
+				],
+			}
+		)
 	return rows
 
 
@@ -513,15 +547,22 @@ static func schedule_lines(records: Dictionary, units: DraftUnits = null) -> Arr
 ## One record in words, the way the list on the page reads it.
 static func record_words(kind: String, record: Dictionary, units: DraftUnits = null) -> String:
 	if kind == SPOT:
-		return "%s at %s" % [level_words(float(record.get("level", NAN)), units),
-			_point_words(Vector2(record.get("at", Vector2.ZERO)))]
+		return "%s at %s" % [
+			level_words(float(record.get("level", NAN)), units),
+			_point_words(Vector2(record.get("at", Vector2.ZERO))),
+		]
 	if kind == CONTOUR:
-		return "%s contour, %s" % [level_words(float(record.get("level", NAN)), units),
-			_count_words(_points_of(record).size(), "point")]
+		return "%s contour, %s" % [
+			level_words(float(record.get("level", NAN)), units),
+			_count_words(_points_of(record).size(), "point"),
+		]
 	var a := Vector2(record.get("a", Vector2.ZERO))
 	var b := Vector2(record.get("b", Vector2.ZERO))
-	return "%s %s over %s" % [kind_name(SLOPE), percent_words(float(record.get("percent", NAN))),
-		DraftUnits.or_default(units).format_length(a.distance_to(b))]
+	return "%s %s over %s" % [
+		kind_name(SLOPE),
+		percent_words(float(record.get("percent", NAN))),
+		DraftUnits.or_default(units).format_length(a.distance_to(b)),
+	]
 
 
 ## One line naming the drawing's grading, for a log or a demonstration.
@@ -530,14 +571,12 @@ static func describe(records: Dictionary, units: DraftUnits = null) -> String:
 		return "no grading"
 	return "%s: %s" % [summary(records, units), "; ".join(schedule_lines(records, units))]
 
-
 # --- the marks on the plan ------------------------------------------------------------
 
 
 ## Every entity a record puts on the drawing: the mark and its label. One list, so nothing that
 ## stamps a record can stamp half of one.
-static func entities_for(kind: String, record: Dictionary, plot_scale: float,
-		units: DraftUnits = null) -> Array:
+static func entities_for(kind: String, record: Dictionary, plot_scale: float, units: DraftUnits = null) -> Array:
 	if kind == SPOT:
 		return spot_entities(record, plot_scale, units)
 	if kind == CONTOUR:
@@ -559,8 +598,13 @@ static func spot_entities(spot: Dictionary, plot_scale: float, units: DraftUnits
 	_stamp(mark, SPOT, id)
 	out.append(mark)
 	var lift := _paper_metres(LABEL_MM, plot_scale)
-	var label := _label(at + Vector2(lift * 0.9, -lift * 0.5),
-		level_words(float(spot.get("level", NAN)), units), SPOT, id, plot_scale)
+	var label := _label(
+		at + Vector2(lift * 0.9, -lift * 0.5),
+		level_words(float(spot.get("level", NAN)), units),
+		SPOT,
+		id,
+		plot_scale,
+	)
 	out.append(label)
 	return out
 
@@ -577,8 +621,13 @@ static func contour_entities(contour: Dictionary, plot_scale: float, units: Draf
 	out.append(line)
 	var lift := _paper_metres(LABEL_MM, plot_scale)
 	var middle: Vector2 = Geom.point_along(points, 0.5)
-	var label := _label(middle + Vector2(lift * 0.4, -lift * 0.6),
-		level_words(float(contour.get("level", NAN)), units), CONTOUR, id, plot_scale)
+	var label := _label(
+		middle + Vector2(lift * 0.4, -lift * 0.6),
+		level_words(float(contour.get("level", NAN)), units),
+		CONTOUR,
+		id,
+		plot_scale,
+	)
 	out.append(label)
 	return out
 
@@ -603,23 +652,27 @@ static func slope_entities(slope: Dictionary, plot_scale: float, _units: DraftUn
 	out.append(barbs)
 	var lift := _paper_metres(LABEL_MM, plot_scale)
 	var middle := (a + b) * 0.5
-	var label := _label(middle + Vector2(lift * 0.5, -lift * 0.8),
-		percent_words(float(slope.get("percent", NAN))), SLOPE, id, plot_scale)
+	var label := _label(
+		middle + Vector2(lift * 0.5, -lift * 0.8),
+		percent_words(float(slope.get("percent", NAN))),
+		SLOPE,
+		id,
+		plot_scale,
+	)
 	out.append(label)
 	return out
 
 
-static func is_grading_entity(entity) -> bool:
+static func is_grading_entity(entity: DraftEntity) -> bool:
 	return entity != null and String(entity.meta.get(META_KIND, "")) != ""
 
 
-static func kind_of_entity(entity) -> String:
+static func kind_of_entity(entity: DraftEntity) -> String:
 	return String(entity.meta.get(META_KIND, "")) if entity != null else ""
 
 
-static func id_of_entity(entity) -> int:
+static func id_of_entity(entity: DraftEntity) -> int:
 	return int(entity.meta.get(META_ID, 0)) if entity != null else 0
-
 
 # --- persistence ----------------------------------------------------------------------
 
@@ -631,25 +684,32 @@ static func to_dict(records: Dictionary) -> Dictionary:
 	for entry in spots_of(records):
 		var spot: Dictionary = entry
 		var at := Vector2(spot.get("at", Vector2.ZERO))
-		spots.append({"id": int(spot.get("id", 0)), "at": [at.x, at.y],
-			"level": float(spot.get("level", NAN))})
+		spots.append({ "id": int(spot.get("id", 0)), "at": [at.x, at.y], "level": float(spot.get("level", NAN)) })
 	var contours: Array = []
 	for entry in contours_of(records):
 		var contour: Dictionary = entry
-		contours.append({
-			"id": int(contour.get("id", 0)),
-			"level": float(contour.get("level", NAN)),
-			"closed": bool(contour.get("closed", false)),
-			"points": _flat(_points_of(contour)),
-		})
+		contours.append(
+			{
+				"id": int(contour.get("id", 0)),
+				"level": float(contour.get("level", NAN)),
+				"closed": bool(contour.get("closed", false)),
+				"points": _flat(_points_of(contour)),
+			}
+		)
 	var slopes: Array = []
 	for entry in slopes_of(records):
 		var slope: Dictionary = entry
 		var a := Vector2(slope.get("a", Vector2.ZERO))
 		var b := Vector2(slope.get("b", Vector2.ZERO))
-		slopes.append({"id": int(slope.get("id", 0)), "a": [a.x, a.y], "b": [b.x, b.y],
-			"percent": float(slope.get("percent", NAN))})
-	return {"spots": spots, "contours": contours, "slopes": slopes}
+		slopes.append(
+			{
+				"id": int(slope.get("id", 0)),
+				"a": [a.x, a.y],
+				"b": [b.x, b.y],
+				"percent": float(slope.get("percent", NAN)),
+			}
+		)
+	return { "spots": spots, "contours": contours, "slopes": slopes }
 
 
 ## A set read back out of a file. A record that is not one is **dropped rather than invented**, like a
@@ -685,8 +745,9 @@ static func _spots_from(held) -> Array:
 		var record: Dictionary = entry
 		if not (record.get("id") is float or record.get("id") is int):
 			continue
-		out.append(make_spot(int(record["id"]), _vector(record.get("at", null)),
-			_level_from(record.get("level", null))))
+		out.append(
+			make_spot(int(record["id"]), _vector(record.get("at", null)), _level_from(record.get("level", null)))
+		)
 	return out
 
 
@@ -703,8 +764,14 @@ static func _contours_from(held) -> Array:
 		var points := _points_from(record.get("points", null))
 		if points.size() < MIN_CONTOUR_POINTS:
 			continue
-		out.append(make_contour(int(record["id"]), _level_from(record.get("level", null)),
-			points, bool(record.get("closed", false))))
+		out.append(
+			make_contour(
+				int(record["id"]),
+				_level_from(record.get("level", null)),
+				points,
+				bool(record.get("closed", false)),
+			)
+		)
 	return out
 
 
@@ -725,7 +792,6 @@ static func _slopes_from(held) -> Array:
 		out.append(make_slope(int(record["id"]), a, b, _level_from(record.get("percent", null))))
 	return out
 
-
 # --- private --------------------------------------------------------------------------
 
 
@@ -743,12 +809,12 @@ static func _bad_level(level: float) -> bool:
 
 
 static func _no_fall(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "run": 0.0, "rise": NAN, "percent": NAN}
+	return { "ok": false, "reason": reason, "run": 0.0, "rise": NAN, "percent": NAN }
 
 
 ## The steepest fall between any two spot levels, or an empty answer when there are fewer than two.
 static func _steepest(spots: Array) -> Dictionary:
-	var best := {}
+	var best := { }
 	for first in spots.size():
 		for second in range(first + 1, spots.size()):
 			var a := Vector2((spots[first] as Dictionary).get("at", Vector2.ZERO))
@@ -759,7 +825,7 @@ static func _steepest(spots: Array) -> Dictionary:
 			if best.is_empty() or absf(float(fall["percent"])) > absf(float(best["percent"])):
 				best = fall
 	if best.is_empty():
-		return {"ok": false, "reason": "there are not two spot levels to measure a fall between"}
+		return { "ok": false, "reason": "there are not two spot levels to measure a fall between" }
 	return best
 
 
@@ -802,11 +868,9 @@ static func _arrow_head(from: Vector2, tip: Vector2, size: float) -> PackedVecto
 	if back == Vector2.ZERO:
 		back = Vector2.LEFT
 	var sideways := Vector2(back.y, -back.x)
-	return PackedVector2Array([
-		tip + (back + sideways).normalized() * size,
-		tip,
-		tip + (back - sideways).normalized() * size,
-	])
+	return PackedVector2Array(
+		[tip + (back + sideways).normalized() * size, tip, tip + (back - sideways).normalized() * size]
+	)
 
 
 ## How many model metres one paper millimetre is at a plot scale. 1:100 means a paper millimetre is

@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://tools/workspace_reading.gd" id="1_reading"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
+
+[node name="WorkspaceReadingDemo" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Hud" parent="." instance=ExtResource("2_hud")]
+
+[node name="Reading" type="Node" parent="."]
+script = ExtResource("1_reading")
+caption_at = 0.62
+
+[node name="Overlapping" type="Control" parent="."]
+offset_left = 300.0
+offset_top = 300.0
+offset_right = 700.0
+offset_bottom = 500.0
+
+[node name="Left" type="Button" parent="Overlapping"]
+offset_left = 40.0
+offset_top = 60.0
+offset_right = 160.0
+offset_bottom = 150.0
+text = "Left"
+
+[node name="Right" type="Button" parent="Overlapping"]
+offset_left = 155.0
+offset_top = 60.0
+offset_right = 275.0
+offset_bottom = 150.0
+text = "Right"

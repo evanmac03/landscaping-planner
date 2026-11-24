@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/hud_overlay.gd" id="2_overlay"]
+[ext_resource type="Script" path="res://scripts/palette_panel.gd" id="3_palette"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 content_margin_left = 16.0
@@ -53,9 +54,16 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 layout_mode = 2
 theme_override_constants/separation = 14
 
+[node name="TouchRow" type="HBoxContainer" parent="Root/TopBar/Row"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
 [node name="MenuBar" type="MenuBar" parent="Root/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
 flat = true
@@ -63,18 +71,23 @@ prefer_global_menu = false
 switch_on_hover = true
 
 [node name="AppLabel" type="Label" parent="Root/TopBar/Row"]
+unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_colors/font_color = Color(0.93, 0.95, 0.92, 1)
 theme_override_font_sizes/font_size = 18
 text = "Backyard Design"
 
 [node name="Sep" type="VSeparator" parent="Root/TopBar/Row"]
+unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
 
 [node name="ModeLabel" type="Label" parent="Root/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_colors/font_color = Color(0.6, 0.85, 0.52, 1)
 theme_override_font_sizes/font_size = 15
@@ -84,12 +97,14 @@ text = "PLAN VIEW"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(228, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 text = "3D view  (Q)"
 
 [node name="FitButton" type="Button" parent="Root/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 tooltip_text = "Frame the whole design in the overhead view"
 text = "Fit"
@@ -98,6 +113,7 @@ text = "Fit"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(190, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 tooltip_text = "Drop to eye level and walk the design"
 text = "Ground view  (G)"
@@ -111,6 +127,7 @@ offset_left = 12.0
 offset_top = -54.0
 offset_right = 752.0
 offset_bottom = -12.0
+grow_vertical = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
@@ -118,6 +135,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
+autowrap_mode = 3
 theme_override_colors/font_color = Color(0.9, 0.92, 0.89, 1)
 theme_override_font_sizes/font_size = 14
 text = "Right-drag: pan     Wheel: zoom     W A S D: pan     F: fit     Q: 3D view     G: ground"
@@ -153,10 +171,11 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 1
 anchors_preset = 0
+anchor_bottom = 1.0
 offset_left = 12.0
 offset_top = 70.0
 offset_right = 404.0
-offset_bottom = 838.0
+offset_bottom = -62.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -170,6 +189,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
+script = ExtResource("3_palette")
 
 [node name="Presentation" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
@@ -189,6 +209,89 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5
+
+[node name="TouchSheet" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -420.0
+offset_right = -12.0
+offset_bottom = -212.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Column" type="VBoxContainer" parent="Root/TouchSheet"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Root/TouchSheet/Column"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/TouchSheet/Column/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Sheet"
+
+[node name="Close" type="Button" parent="Root/TouchSheet/Column/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="Body" type="VBoxContainer" parent="Root/TouchSheet/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="TouchDock" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Column" type="VBoxContainer" parent="Root/TouchDock"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ToolStrip" type="PanelContainer" parent="Root/TouchDock/Column"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="StripScroll" type="ScrollContainer" parent="Root/TouchDock/Column/ToolStrip"]
+layout_mode = 2
+vertical_scroll_mode = 0
+
+[node name="Strip" type="HBoxContainer" parent="Root/TouchDock/Column/ToolStrip/StripScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Tabs" type="HBoxContainer" parent="Root/TouchDock/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="PaintedSheet" type="Control" parent="Root"]
 unique_name_in_owner = true

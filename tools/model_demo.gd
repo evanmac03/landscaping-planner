@@ -12,7 +12,7 @@ extends Node2D
 ## what it does with the answer - add the extension, hand the path to the exporter, put the sentence on
 ## the status line - is what `tests/test_vis_yard_export.gd` checks.
 ##
-## Run `res://scenes/model_demo.tscn`.
+## Run `res://tools/model_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const Exporter := preload("res://scripts/vis/yard_exporter.gd")
@@ -44,10 +44,11 @@ func _ready() -> void:
 
 	print("--- a patio on the new-hard layer, so the model has a textured solid in it ---")
 	controller.document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(-6.0, -4.0), Vector2(-1.0, -4.0), Vector2(-1.0, 0.0), Vector2(-6.0, 0.0),
-		]), true),
-		LayerSet.NEW_HARDSCAPE
+		Entity.make_polyline(
+			PackedVector2Array([Vector2(-6.0, -4.0), Vector2(-1.0, -4.0), Vector2(-1.0, 0.0), Vector2(-6.0, 0.0)]),
+			true,
+		),
+		LayerSet.NEW_HARDSCAPE,
 	)
 	var frames := 0
 	while frames < SETTLE_FRAMES:

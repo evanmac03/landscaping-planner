@@ -33,25 +33,33 @@ const SETS := {
 		"albedo": "paver_granite_albedo.png",
 		"normal": "paver_granite_normal.png",
 		"orm": "paver_granite_orm.png",
-		"tile_m": 1.6, "roughness": 0.82, "metallic": 0.0,
+		"tile_m": 1.6,
+		"roughness": 0.82,
+		"metallic": 0.0,
 	},
 	"paver_sandstone": {
 		"albedo": "paver_sandstone_albedo.png",
 		"normal": "paver_sandstone_normal.png",
 		"orm": "paver_sandstone_orm.png",
-		"tile_m": 1.6, "roughness": 0.88, "metallic": 0.0,
+		"tile_m": 1.6,
+		"roughness": 0.88,
+		"metallic": 0.0,
 	},
 	"deck_timber": {
 		"albedo": "deck_timber_albedo.png",
 		"normal": "deck_timber_normal.png",
 		"orm": "deck_timber_orm.png",
-		"tile_m": 0.9, "roughness": 0.74, "metallic": 0.0,
+		"tile_m": 0.9,
+		"roughness": 0.74,
+		"metallic": 0.0,
 	},
 	"mulch_bark": {
 		"albedo": "mulch_bark_albedo.png",
 		"normal": "mulch_bark_normal.png",
 		"orm": "mulch_bark_orm.png",
-		"tile_m": 0.8, "roughness": 0.95, "metallic": 0.0,
+		"tile_m": 0.8,
+		"roughness": 0.95,
+		"metallic": 0.0,
 	},
 	# Render is the smoothest of the five and the only one on a vertical face at household
 	# scale, which is why its tile is the largest: stucco grain is finer than it looks.
@@ -59,7 +67,9 @@ const SETS := {
 		"albedo": "render_stucco_albedo.png",
 		"normal": "render_stucco_normal.png",
 		"orm": "render_stucco_orm.png",
-		"tile_m": 1.2, "roughness": 0.92, "metallic": 0.0,
+		"tile_m": 1.2,
+		"roughness": 0.92,
+		"metallic": 0.0,
 	},
 }
 
@@ -72,7 +82,7 @@ const TEXTURE_DIR := "res://resources/textures/hardscape/"
 ## and a caller that receives a default material cannot tell it apart from a set that
 ## happened to load.
 static func build(set_name: String, world_triplanar: bool = true) -> StandardMaterial3D:
-	var spec: Dictionary = SETS.get(set_name, {})
+	var spec: Dictionary = SETS.get(set_name, { })
 	if spec.is_empty():
 		push_error("HardscapeMaterial: no texture set named '%s'" % set_name)
 		return null
@@ -108,7 +118,7 @@ static func has_set(set_name: String) -> bool:
 ## The file names of one set, in load order.
 static func files_for(set_name: String) -> Array[String]:
 	var out: Array[String] = []
-	var spec: Dictionary = SETS.get(set_name, {})
+	var spec: Dictionary = SETS.get(set_name, { })
 	if spec.is_empty():
 		return out
 	for key: String in ["albedo", "normal", "orm"]:

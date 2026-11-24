@@ -6,8 +6,8 @@ extends Node
 
 const PageScript := preload("res://scripts/sowing_window.gd")
 const PlannerScript := preload("res://scripts/sowing_planner.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
 const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 
 ## A temperate garden: last frost 20 May, first frost 7 October, so 140 days.
@@ -42,7 +42,6 @@ func _page() -> SowingWindow:
 	page.build()
 	return page
 
-
 # --- the controls ---------------------------------------------------------------------------
 
 
@@ -65,7 +64,6 @@ func test_a_page_with_no_drawing_says_so_rather_than_failing() -> void:
 	assert(page.verdict_line() == PageScript.NO_CROPS, "and there is no crop to work out")
 	assert(page.sow() == PageScript.DEFAULT_SOW, "the day in hand starts on the temperate last frost")
 	page.free()
-
 
 # --- binding ------------------------------------------------------------------------------
 
@@ -90,7 +88,6 @@ func test_a_drawing_that_states_no_season_still_opens_on_a_starting_day() -> voi
 	assert(page.hint() == PageScript.NOT_STATED_HINT, page.hint())
 	page.free()
 
-
 # --- what the crop comes to ------------------------------------------------------------------
 
 
@@ -112,7 +109,7 @@ func test_moving_the_sowing_day_moves_the_verdict() -> void:
 	page.choose_crop(&"quick")
 	page.set_sow(LAST)
 	assert(page.verdict_line().contains("ready about"), page.verdict_line())
-	page.set_sow(260)   # too late for a 60-day crop
+	page.set_sow(260) # too late for a 60-day crop
 	assert(page.verdict_line().contains("would not finish"), page.verdict_line())
 	assert(not page.window_line().is_empty(), "and the window line still says something")
 	page.free()
@@ -146,7 +143,6 @@ func test_choosing_a_crop_the_list_does_not_hold_is_refused() -> void:
 	assert(page.selected_crop_id() == &"quick", "and the choice is unmoved")
 	page.free()
 
-
 # --- the list ------------------------------------------------------------------------------
 
 
@@ -169,14 +165,16 @@ func test_the_hint_is_guidance_rather_than_a_line_said_twice() -> void:
 	assert(not page.hint().contains("140 days"), page.hint())
 	page.free()
 
-
 # --- closing -------------------------------------------------------------------------------
 
 
 func test_closing_the_page_says_so_once() -> void:
 	var page: SowingWindow = _page()
 	var closed: Array = []
-	page.closed.connect(func() -> void: closed.append(1))
+	page.closed.connect(
+		func() -> void:
+			closed.append(1),
+	)
 	page.request_close()
 	assert(closed.size() == 1)
 	assert(not page.visible)

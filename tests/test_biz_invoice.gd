@@ -32,13 +32,14 @@ func _payment(payment_id: String, cents: int, invoice_id: String = "INV1") -> Pa
 	payment.amount = MoneyScript.of(cents)
 	return payment
 
-
 # --- lines and what they come to ---------------------------------------------------------------
 
 
 func test_a_line_is_a_quantity_at_a_rate_priced_by_the_one_rounding_rule() -> void:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
-	assert(invoice.add_line(InvoiceScript.PERIOD_LINE, "Sod", 3500, &"SQ_FT", MoneyScript.of(250), &"PLANTING", &"NONE"))
+	assert(
+		invoice.add_line(InvoiceScript.PERIOD_LINE, "Sod", 3500, &"SQ_FT", MoneyScript.of(250), &"PLANTING", &"NONE")
+	)
 	assert(invoice.subtotal().cents == 875, str(invoice.subtotal().cents))
 	assert(invoice.line_count() == 1)
 	assert(InvoiceScript.kind_name(InvoiceScript.PERIOD_LINE) == "a period of work")
@@ -96,7 +97,6 @@ func test_retainage_is_a_deduction_on_the_totals() -> void:
 	assert(not invoice.set_retainage(null))
 	assert(invoice.total().cents == 103000)
 
-
 # --- issuing -----------------------------------------------------------------------------------
 
 
@@ -141,20 +141,21 @@ func test_an_invoice_is_never_edited_after_issue() -> void:
 
 func test_an_invoice_whose_totals_do_not_read_does_not_go_out() -> void:
 	var invoice := _invoice()
-	invoice.lines.append({
-		"kind": InvoiceScript.MILESTONE_LINE,
-		"description": "Damaged",
-		"quantity_milli": 1000,
-		"unit": "EACH",
-		"rate": MoneyScript.invalid(),
-		"amount": MoneyScript.invalid(),
-		"cost_code": "",
-		"tax_code": "NONE",
-	})
+	invoice.lines.append(
+		{
+			"kind": InvoiceScript.MILESTONE_LINE,
+			"description": "Damaged",
+			"quantity_milli": 1000,
+			"unit": "EACH",
+			"rate": MoneyScript.invalid(),
+			"amount": MoneyScript.invalid(),
+			"cost_code": "",
+			"tax_code": "NONE",
+		}
+	)
 	var refused: Dictionary = invoice.issue("2026-06-01", 30, "INV-2026-0001")
 	assert(not bool(refused["ok"]))
 	assert(not invoice.is_issued())
-
 
 # --- numbering ---------------------------------------------------------------------------------
 
@@ -176,8 +177,10 @@ func test_the_next_number_is_the_highest_taken_and_never_the_count() -> void:
 	assert(InvoiceScript.next_number(2025, taken) == "INV-2025-0100")
 	assert(InvoiceScript.next_number(2027, taken) == "INV-2027-0001")
 	var emptied: Array = ["INV-2026-0001", "INV-2026-0002"]
-	assert(InvoiceScript.next_number(2026, emptied) == "INV-2026-0003",
-		"a deleted draft leaves no hole but a voided invoice keeps its number")
+	assert(
+		InvoiceScript.next_number(2026, emptied) == "INV-2026-0003",
+		"a deleted draft leaves no hole but a voided invoice keeps its number",
+	)
 
 
 func test_a_voided_invoice_keeps_its_number_so_the_year_stays_gapless() -> void:
@@ -200,7 +203,6 @@ func test_terms_are_counted_in_days_from_the_moment_it_went_out() -> void:
 	assert(InvoiceScript.add_days("2026-06-01", 30) == "2026-07-01")
 	assert(InvoiceScript.add_days("2026-01-31", 30) == "2026-03-02")
 	assert(InvoiceScript.add_days("June", 30) == "")
-
 
 # --- payments and the state --------------------------------------------------------------------
 
@@ -252,104 +254,125 @@ func test_a_voided_invoice_takes_no_payment_and_a_draft_is_not_voided() -> void:
 	assert(not invoice.mark_void("June", "wrong customer"))
 	assert(invoice.mark_void("2026-06-05", "the customer was changed", "INV-2026-0002"))
 	assert(not invoice.mark_void("2026-06-06", "again"))
-	assert(String(invoice.voided_text()) == "voided on 2026-06-05: the customer was changed (reissued as INV-2026-0002)",
-		invoice.voided_text())
+	assert(
+		String(invoice.voided_text()) == "voided on 2026-06-05: the customer was changed (reissued as INV-2026-0002)",
+		invoice.voided_text(),
+	)
 	assert(not bool(invoice.apply_payment(_payment("PAY1", 1000))["ok"]))
 
 
 func test_the_state_is_a_function_of_the_records_and_not_a_field() -> void:
-	var claimed: InvoiceScript = InvoiceScript.from_dict({
-		"id": "INV1",
-		"job": "J1",
-		"state": "PAID",
-		"lines": [{
-			"kind": "MILESTONE",
-			"description": "Deposit",
-			"quantity_milli": 1000,
-			"unit": "EACH",
-			"rate": {"cents": 100000, "currency": "CAD"},
-			"amount": {"cents": 100000, "currency": "CAD"},
-			"tax_code": "NONE",
-		}],
-	})
+	var claimed: InvoiceScript = InvoiceScript.from_dict(
+		{
+			"id": "INV1",
+			"job": "J1",
+			"state": "PAID",
+			"lines": [
+				{
+					"kind": "MILESTONE",
+					"description": "Deposit",
+					"quantity_milli": 1000,
+					"unit": "EACH",
+					"rate": { "cents": 100000, "currency": "CAD" },
+					"amount": { "cents": 100000, "currency": "CAD" },
+					"tax_code": "NONE",
+				}
+			],
+		}
+	)
 	assert(claimed.state_name() == "draft", "a damaged file cannot make a draft look issued")
-	var paid_claim: InvoiceScript = InvoiceScript.from_dict({
-		"id": "INV2",
-		"job": "J1",
-		"issued_at": "2026-06-01",
-		"number": "INV-2026-0001",
-		"state": "PAID",
-		"due_at": "2026-07-01",
-		"lines": [{
-			"kind": "MILESTONE",
-			"description": "Deposit",
-			"quantity_milli": 1000,
-			"unit": "EACH",
-			"rate": {"cents": 100000, "currency": "CAD"},
-			"amount": {"cents": 100000, "currency": "CAD"},
-			"tax_code": "NONE",
-		}],
-	})
+	var paid_claim: InvoiceScript = InvoiceScript.from_dict(
+		{
+			"id": "INV2",
+			"job": "J1",
+			"issued_at": "2026-06-01",
+			"number": "INV-2026-0001",
+			"state": "PAID",
+			"due_at": "2026-07-01",
+			"lines": [
+				{
+					"kind": "MILESTONE",
+					"description": "Deposit",
+					"quantity_milli": 1000,
+					"unit": "EACH",
+					"rate": { "cents": 100000, "currency": "CAD" },
+					"amount": { "cents": 100000, "currency": "CAD" },
+					"tax_code": "NONE",
+				}
+			],
+		}
+	)
 	assert(paid_claim.state_name() == "issued", "an unpaid invoice is not paid because a file says so")
-
 
 # --- soundness ----------------------------------------------------------------------------------
 
 
 func test_an_issued_invoice_that_cannot_say_its_number_or_its_due_date_is_not_sound() -> void:
-	var broken: InvoiceScript = InvoiceScript.from_dict({
-		"id": "INV1",
-		"job": "J1",
-		"issued_at": "2026-06-01",
-		"lines": [{
-			"kind": "MILESTONE",
-			"description": "Deposit",
-			"quantity_milli": 1000,
-			"unit": "EACH",
-			"rate": {"cents": 100000, "currency": "CAD"},
-			"amount": {"cents": 100000, "currency": "CAD"},
-			"tax_code": "NONE",
-		}],
-	})
+	var broken: InvoiceScript = InvoiceScript.from_dict(
+		{
+			"id": "INV1",
+			"job": "J1",
+			"issued_at": "2026-06-01",
+			"lines": [
+				{
+					"kind": "MILESTONE",
+					"description": "Deposit",
+					"quantity_milli": 1000,
+					"unit": "EACH",
+					"rate": { "cents": 100000, "currency": "CAD" },
+					"amount": { "cents": 100000, "currency": "CAD" },
+					"tax_code": "NONE",
+				}
+			],
+		}
+	)
 	assert(not broken.is_sound())
 	assert(broken.problems().has("an issued invoice with no number"), str(broken.problems()))
 	assert(broken.problems().has("an issued invoice due on a date that is not a date: ''"), str(broken.problems()))
 
 
 func test_a_void_with_no_reason_and_an_overpaid_invoice_are_both_named() -> void:
-	var invoice: InvoiceScript = InvoiceScript.from_dict({
-		"id": "INV1",
-		"job": "J1",
-		"issued_at": "2026-06-01",
-		"number": "INV-2026-0001",
-		"due_at": "2026-07-01",
-		"voided_at": "2026-06-05",
-		"lines": [{
-			"kind": "MILESTONE",
-			"description": "Deposit",
-			"quantity_milli": 1000,
-			"unit": "EACH",
-			"rate": {"cents": 100000, "currency": "CAD"},
-			"amount": {"cents": 100000, "currency": "CAD"},
-			"tax_code": "NONE",
-		}],
-		"payments": [{
-			"id": "PAY1",
-			"invoice": "INV1",
-			"received_at": "2026-06-10",
-			"amount": {"cents": 500000, "currency": "CAD"},
-			"method": "cheque",
-		}],
-	})
+	var invoice: InvoiceScript = InvoiceScript.from_dict(
+		{
+			"id": "INV1",
+			"job": "J1",
+			"issued_at": "2026-06-01",
+			"number": "INV-2026-0001",
+			"due_at": "2026-07-01",
+			"voided_at": "2026-06-05",
+			"lines": [
+				{
+					"kind": "MILESTONE",
+					"description": "Deposit",
+					"quantity_milli": 1000,
+					"unit": "EACH",
+					"rate": { "cents": 100000, "currency": "CAD" },
+					"amount": { "cents": 100000, "currency": "CAD" },
+					"tax_code": "NONE",
+				}
+			],
+			"payments": [
+				{
+					"id": "PAY1",
+					"invoice": "INV1",
+					"received_at": "2026-06-10",
+					"amount": { "cents": 500000, "currency": "CAD" },
+					"method": "cheque",
+				}
+			],
+		}
+	)
 	assert(invoice.problems().has("a void with no reason"), str(invoice.problems()))
 	assert(invoice.problems().has("$5,000.00 has been paid against a total of $1,000.00"), str(invoice.problems()))
 
 
 func test_an_invoice_reads_as_one_line() -> void:
 	var invoice := _issued()
-	assert(invoice.describe() == "INV-2026-0001, for job J1, 1 line(s), $1,000.00, + $130.00 tax, $1,130.00 due, issued, 2026-06-01 to 2026-07-01",
-		invoice.describe())
-
+	assert(
+		invoice.describe()
+		== "INV-2026-0001, for job J1, 1 line(s), $1,000.00, + $130.00 tax, $1,130.00 due, issued, 2026-06-01 to 2026-07-01",
+		invoice.describe(),
+	)
 
 # --- persistence --------------------------------------------------------------------------------
 
@@ -360,7 +383,7 @@ func test_an_invoice_survives_the_file_with_its_lines_its_tax_and_its_payments()
 	invoice.note = "progress claim 1"
 	invoice.period_start = "2026-05-01"
 	invoice.period_end = "2026-05-31"
-	invoice.customer = {"name": "Smith"}
+	invoice.customer = { "name": "Smith" }
 	var back: InvoiceScript = InvoiceScript.from_dict(invoice.to_dict())
 	assert(back.id == "INV1")
 	assert(back.job == "J1")
@@ -383,4 +406,4 @@ func test_an_invoice_survives_the_file_with_its_lines_its_tax_and_its_payments()
 
 
 func test_a_record_with_no_id_is_dropped_rather_than_invented() -> void:
-	assert(InvoiceScript.from_dict({"job": "J1"}) == null)
+	assert(InvoiceScript.from_dict({ "job": "J1" }) == null)

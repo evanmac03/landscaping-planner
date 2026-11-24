@@ -13,6 +13,7 @@ const BookScript := preload("res://scripts/biz/cost_book.gd")
 const ItemScript := preload("res://scripts/biz/cost_item.gd")
 const ImportScript := preload("res://scripts/biz/book_import.gd")
 
+
 ## Three items: a material bought by volume with waste, one priced in square feet, and labour.
 func _book() -> CostBook:
 	var book: CostBook = BookScript.make(3, "2026-01-01")
@@ -41,7 +42,6 @@ func _ids(entries: Array) -> Array:
 	for entry: Dictionary in entries:
 		out.append(String(entry["id"]))
 	return out
-
 
 # --- reading a supplier's file -------------------------------------------------------------------
 
@@ -106,7 +106,6 @@ func test_a_file_longer_than_the_cap_is_a_wrong_file_not_a_long_one() -> void:
 	assert(not read["ok"])
 	assert(String(read["reason"]).contains(str(ImportScript.MAX_ROWS)), String(read["reason"]))
 
-
 # --- a row that will not read is named, not dropped ----------------------------------------------
 
 
@@ -141,11 +140,12 @@ func test_a_row_naming_neither_an_id_nor_a_name_is_named() -> void:
 
 
 func test_a_row_that_cannot_be_read_is_still_counted_as_a_line_rather_than_lost() -> void:
-	var read: Dictionary = ImportScript.read_csv("id,name,unit,cost\nbed-mulch,Bark mulch,m3,sixty\npaver,Paving,each,4.00\n")
+	var read: Dictionary = ImportScript.read_csv(
+		"id,name,unit,cost\nbed-mulch,Bark mulch,m3,sixty\npaver,Paving,each,4.00\n"
+	)
 	assert((read["rows"] as Array).size() == 2, "every line is kept so the line numbers keep their meaning")
 	var good: Array = read["rows"]
 	assert((good[1]["cost"] as Money).cents == 400)
-
 
 # --- waste, as a supplier states it ---------------------------------------------------------------
 
@@ -164,7 +164,10 @@ func test_a_bare_number_in_the_waste_column_is_a_percentage() -> void:
 func test_a_waste_finer_than_a_hundredth_of_a_percent_is_refused() -> void:
 	var read: Dictionary = ImportScript.read_csv("id,name,unit,cost,waste\nx,Thing,m3,1.00,8.00005\n")
 	assert((read["problems"] as Array).size() == 1)
-	assert(String((read["problems"] as Array)[0]).contains("finer than a hundredth"), String((read["problems"] as Array)[0]))
+	assert(
+		String((read["problems"] as Array)[0]).contains("finer than a hundredth"),
+		String((read["problems"] as Array)[0]),
+	)
 
 
 func test_a_waste_past_the_caps_the_item_allows_is_refused_with_the_cap_named() -> void:
@@ -176,7 +179,6 @@ func test_a_waste_past_the_caps_the_item_allows_is_refused_with_the_cap_named() 
 func test_no_waste_column_at_all_is_no_waste() -> void:
 	var rows: Array = _rows("id,name,unit,cost\nbed-mulch,Bark mulch,m3,64.50\n")
 	assert(int(rows[0]["waste_ppm"]) == 0)
-
 
 # --- matching a row to an item -------------------------------------------------------------------
 
@@ -214,7 +216,9 @@ func test_an_item_the_book_does_not_have_is_unmatched_and_named() -> void:
 
 func test_an_item_the_book_does_not_have_is_created_only_when_that_is_asked_for() -> void:
 	var plan: Dictionary = ImportScript.plan(
-		_book(), _rows("id,name,unit,cost\nastroturf,Roll-out turf,SQ_FT,199.00\n"), true
+		_book(),
+		_rows("id,name,unit,cost\nastroturf,Roll-out turf,SQ_FT,199.00\n"),
+		true,
 	)
 	assert((plan["unmatched"] as Array).is_empty())
 	var created: Array = plan["created"]
@@ -225,9 +229,7 @@ func test_an_item_the_book_does_not_have_is_created_only_when_that_is_asked_for(
 
 
 func test_an_item_created_from_a_name_alone_is_filed_under_a_slug_of_it() -> void:
-	var plan: Dictionary = ImportScript.plan(
-		_book(), _rows("id,name,unit,cost\n,Roll-out turf,SQ_FT,199.00\n"), true
-	)
+	var plan: Dictionary = ImportScript.plan(_book(), _rows("id,name,unit,cost\n,Roll-out turf,SQ_FT,199.00\n"), true)
 	var created: Array = plan["created"]
 	assert(created.size() == 1)
 	assert(String(created[0]["id"]) == "roll-out-turf")
@@ -235,7 +237,8 @@ func test_an_item_created_from_a_name_alone_is_filed_under_a_slug_of_it() -> voi
 
 func test_two_rows_about_one_item_are_refused_rather_than_one_of_them_winning() -> void:
 	var plan: Dictionary = ImportScript.plan(
-		_book(), _rows("id,name,unit,cost\nbed-mulch,Bark mulch,m3,64.50\nbed-mulch,Bark mulch,m3,70.00\n")
+		_book(),
+		_rows("id,name,unit,cost\nbed-mulch,Bark mulch,m3,64.50\nbed-mulch,Bark mulch,m3,70.00\n"),
 	)
 	var problems: Array = plan["problems"]
 	assert(problems.size() == 1)
@@ -243,9 +246,10 @@ func test_two_rows_about_one_item_are_refused_rather_than_one_of_them_winning() 
 
 
 func test_a_row_that_agrees_with_the_book_is_unchanged_rather_than_a_change_of_nothing() -> void:
-	var plan: Dictionary = ImportScript.plan(_book(), _rows(
-		"id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,58.00,8%\n"
-	))
+	var plan: Dictionary = ImportScript.plan(
+		_book(),
+		_rows("id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,58.00,8%\n"),
+	)
 	assert((plan["changes"] as Array).is_empty())
 	assert((plan["unchanged"] as Array).size() == 1)
 
@@ -260,20 +264,25 @@ func test_a_row_costing_the_same_but_priced_in_another_unit_is_a_change() -> voi
 
 
 func test_a_row_that_changes_only_the_waste_is_a_change() -> void:
-	var plan: Dictionary = ImportScript.plan(_book(), _rows(
-		"id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,58.00,12%\n"
-	))
+	var plan: Dictionary = ImportScript.plan(
+		_book(),
+		_rows("id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,58.00,12%\n"),
+	)
 	assert((plan["changes"] as Array).size() == 1)
 	assert(bool((plan["changes"] as Array)[0]["waste_changed"]))
 
 
 func test_the_plan_counts_what_it_found_in_one_line() -> void:
-	var plan: Dictionary = ImportScript.plan(_book(), _rows(
-		"id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,64.50,8%\nhard-paver-60,Paving,SQ_FT,3.25,\nastroturf,Turf,each,199.00,\n"
-	))
-	assert(ImportScript.describe(plan) == "1 repriced, 1 unchanged, 0 new, 1 unmatched, 0 unreadable",
-		ImportScript.describe(plan))
-
+	var plan: Dictionary = ImportScript.plan(
+		_book(),
+		_rows(
+			"id,name,unit,cost,waste\nbed-mulch,Bark mulch,m3,64.50,8%\nhard-paver-60,Paving,SQ_FT,3.25,\nastroturf,Turf,each,199.00,\n"
+		),
+	)
+	assert(
+		ImportScript.describe(plan) == "1 repriced, 1 unchanged, 0 new, 1 unmatched, 0 unreadable",
+		ImportScript.describe(plan),
+	)
 
 # --- putting a plan into a new book --------------------------------------------------------------
 
@@ -336,7 +345,11 @@ func test_a_plan_priced_in_another_currency_is_refused_naming_both() -> void:
 func test_a_created_item_arrives_priced_measured_and_kinded() -> void:
 	var book: CostBook = _book()
 	var plan: Dictionary = ImportScript.plan(
-		book, _rows("id,name,unit,cost,waste,kind,supplier,cost code\nastroturf,Turf,SQ_FT,199.00,5%,Equipment,GreenCo,HARDSCAPE\n"), true
+		book,
+		_rows(
+			"id,name,unit,cost,waste,kind,supplier,cost code\nastroturf,Turf,SQ_FT,199.00,5%,Equipment,GreenCo,HARDSCAPE\n"
+		),
+		true,
 	)
 	var applied: Dictionary = ImportScript.apply(book, plan, "2026-11-01")
 	assert(applied["ok"], String(applied["reason"]))
@@ -353,7 +366,7 @@ func test_a_created_item_arrives_priced_measured_and_kinded() -> void:
 
 
 func test_a_plan_whose_ok_is_false_is_refused_rather_than_half_applied() -> void:
-	var applied: Dictionary = ImportScript.apply(_book(), {"ok": false, "reason": "nothing read"}, "2026-11-01")
+	var applied: Dictionary = ImportScript.apply(_book(), { "ok": false, "reason": "nothing read" }, "2026-11-01")
 	assert(not applied["ok"])
 	assert(String(applied["reason"]).contains("nothing read"), String(applied["reason"]))
 
@@ -371,9 +384,10 @@ func test_planning_with_no_book_is_refused_rather_than_read_as_no_changes() -> v
 
 
 func test_a_plan_reads_the_things_it_could_not_take_into_its_problems() -> void:
-	var plan: Dictionary = ImportScript.plan(_book(), _rows(
-		"id,name,unit,cost\nbed-mulch,Bark mulch,bushels,64.50\nhard-paver-60,Paving,SQ_FT,3.50\n"
-	))
+	var plan: Dictionary = ImportScript.plan(
+		_book(),
+		_rows("id,name,unit,cost\nbed-mulch,Bark mulch,bushels,64.50\nhard-paver-60,Paving,SQ_FT,3.50\n"),
+	)
 	var problems: Array = plan["problems"]
 	assert(problems.size() == 1)
 	assert(String(problems[0]).contains("bushels"), String(problems[0]))
@@ -383,9 +397,10 @@ func test_a_plan_reads_the_things_it_could_not_take_into_its_problems() -> void:
 
 func test_the_supplier_and_the_cost_code_a_list_carries_reach_the_new_book() -> void:
 	var book: CostBook = _book()
-	var plan: Dictionary = ImportScript.plan(book, _rows(
-		"id,name,unit,cost,supplier,cost code\nbed-mulch,Bark mulch,m3,64.50,NewCo,SOFT\n"
-	))
+	var plan: Dictionary = ImportScript.plan(
+		book,
+		_rows("id,name,unit,cost,supplier,cost code\nbed-mulch,Bark mulch,m3,64.50,NewCo,SOFT\n"),
+	)
 	var applied: Dictionary = ImportScript.apply(book, plan, "2026-11-01")
 	var next: CostBook = applied["book"]
 	assert(next.item(&"bed-mulch").supplier == &"NewCo")

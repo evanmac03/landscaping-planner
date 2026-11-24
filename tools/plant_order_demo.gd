@@ -7,7 +7,7 @@ extends Node2D
 ## desk, the price list and the planting all shipped the ones under test. It prints every step, and it
 ## reads the page off the framebuffer rather than assuming a window that exists on screen.
 ##
-## Run `res://scenes/plant_order_demo.tscn`.
+## Run `res://tools/plant_order_demo.tscn`.
 ##
 ## The nursery is put into the field by script rather than typed, because a demonstration cannot type.
 ## Everything else - opening the page, pressing the button, the write - goes through the same calls the
@@ -15,7 +15,7 @@ extends Node2D
 
 const MAIN := preload("res://scenes/main.tscn")
 const ViewScript := preload("res://scripts/view_controller.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const OrderScript := preload("res://scripts/biz/plant_order.gd")
 const DeskScript := preload("res://scripts/biz/job_desk.gd")
 const EstimateScript := preload("res://scripts/biz/estimate.gd")
@@ -46,21 +46,32 @@ func _ready() -> void:
 		view_controller.show_mode(ViewScript.ViewMode.PLAN_2D)
 		for _frame in 90:
 			await get_tree().process_frame
-	print("the view is the flat plan: ",
-		view_controller != null and view_controller.mode == ViewScript.ViewMode.PLAN_2D)
+	print(
+		"the view is the flat plan: ",
+		view_controller != null and view_controller.mode == ViewScript.ViewMode.PLAN_2D,
+	)
 
 	print("--- what the shipped yard plants ---")
 	var rows: Array = hud._planting_rows()
 	print("the yard holds ", rows.size(), " kind(s) of plant")
 	for row: Dictionary in rows:
-		print("  ", int(row["count"]), " x ", String(row["botanical_name"]), "  (",
-			String(row["category_name"]), ", ", int(row["spread_cm"]), " cm)")
+		print(
+			"  ",
+			int(row["count"]),
+			" x ",
+			String(row["botanical_name"]),
+			"  (",
+			String(row["category_name"]),
+			", ",
+			int(row["spread_cm"]),
+			" cm)",
+		)
 	# The props the yard was built with carry no species, and the list says so rather than guessing: a
 	# plant nobody can name is the one thing a planting list must not hide. So the demonstration puts
 	# down two it can name, the way the plant library puts one down.
 	print("--- two plants the list can name, put down as the library puts one down ---")
 	var yard: Node3D = view_controller.yard
-	var catalogue = hud.plant_list()
+	var catalogue: PlantCatalogue = hud.plant_list()
 	for placed: Dictionary in [
 		PlacementScript.place(catalogue, MAPLE, yard, Vector3(0.0, 0.0, 0.0)),
 		PlacementScript.place(catalogue, RUDBECKIA, yard, Vector3(3.0, 0.0, 0.0)),
@@ -90,8 +101,7 @@ func _ready() -> void:
 			if PlacementScript.species_of(node).is_empty():
 				node.free()
 				unnamed += 1
-		print("  ", unnamed, " props with nothing recorded came off; ",
-			hud._planting_rows().size(), " kinds are left")
+		print("  ", unnamed, " props with nothing recorded came off; ", hud._planting_rows().size(), " kinds are left")
 		# Taking something off the yard is a change to the yard like any other, and the picker's cache
 		# and the plan both hold the nodes that just went - so they are told, the same way planting
 		# tells them.
@@ -104,7 +114,7 @@ func _ready() -> void:
 	print("--- a job for the plants to be ordered against ---")
 	hud._build_job_desk()
 	var desk: DeskScript = hud._job_desk
-	var job = desk.make_job_from(_estimate())
+	var job: Job = desk.make_job_from(_estimate())
 	if job == null:
 		print("no job could be made from the estimate")
 		return
@@ -124,8 +134,7 @@ func _ready() -> void:
 	print("it says: ", window.summary_text())
 	print("the jobs it can order for: ", window.job_ids())
 	print("and before a nursery is named it says: ", window.order_hint())
-	print("the button is dead: ", not window.order_enabled(),
-		", and it reads \"", window.order_words(), "\"")
+	print("the button is dead: ", not window.order_enabled(), ", and it reads \"", window.order_words(), "\"")
 
 	print("--- naming the grower, and ordering ---")
 	window.set_supplier(NURSERY)
@@ -140,23 +149,45 @@ func _ready() -> void:
 	for held in desk.purchase_orders:
 		print("  ", held.number, " to ", held.supplier, ": ", held.state_name())
 		for row: Dictionary in held.line_rows():
-			print("    ", row["description"], "  ", int(row["ordered_milli"]), " thousandths at ",
-				(row["unit_cost"] as MoneyScript).format_with_currency())
-		print("    ordered total ", held.ordered_total().format_with_currency(),
-			", committed ", held.committed().format_with_currency())
-	print("what the job has committed: ",
+			print(
+				"    ",
+				row["description"],
+				"  ",
+				int(row["ordered_milli"]),
+				" thousandths at ",
+				(row["unit_cost"] as MoneyScript).format_with_currency(),
+			)
+		print(
+			"    ordered total ",
+			held.ordered_total().format_with_currency(),
+			", committed ",
+			held.committed().format_with_currency(),
+		)
+	print(
+		"what the job has committed: ",
 		(desk.cost_report(job_id).totals()["committed"] as MoneyScript).format_with_currency(),
-		" (a draft commits nothing until somebody issues it)")
+		" (a draft commits nothing until somebody issues it)",
+	)
 
 	print("--- and the page really is on the screen ---")
 	var after := _shot()
 	var middle := Vector2(window.position) + Vector2(window.size) * 0.5
-	var corner := Vector2(get_viewport().get_visible_rect().size.x - 60.0,
-		get_viewport().get_visible_rect().size.y - 40.0)
-	print("  the middle of the page at screen ", middle, " changed ",
-		_changed_pixels(before, after, middle), " pixels of the 625 around it")
-	print("  and a corner nowhere near it changed ",
-		_changed_pixels(before, after, corner), " pixels, so it is the page that appeared")
+	var corner := Vector2(
+		get_viewport().get_visible_rect().size.x - 60.0,
+		get_viewport().get_visible_rect().size.y - 40.0,
+	)
+	print(
+		"  the middle of the page at screen ",
+		middle,
+		" changed ",
+		_changed_pixels(before, after, middle),
+		" pixels of the 625 around it",
+	)
+	print(
+		"  and a corner nowhere near it changed ",
+		_changed_pixels(before, after, corner),
+		" pixels, so it is the page that appeared",
+	)
 	print("  the screen is ", after.get_size(), ", saved to res://preview/plant_order_demo.png")
 	for found: Node in _every_window(main):
 		var rect := Rect2i((found as Window).position, (found as Window).size)
@@ -168,7 +199,7 @@ func _ready() -> void:
 ## An estimate with a planting phase on it, so the job has a code the plants are bought against.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E-DEMO")
-	estimate.customer = {"name": "the shipped yard"}
+	estimate.customer = { "name": "the shipped yard" }
 	var line: LineScript = LineScript.new()
 	line.cost_code = OrderScript.PLANTING_CODE
 	line.kind = ItemScript.MATERIAL

@@ -5,8 +5,10 @@ extends Window
 ##
 ## The board is a `Window` like the pipeline board, the estimate and the ground window, for the same
 ## two reasons: it has fields to type into, and a `Window` owns its own input, so nothing here can take
-## the drawing's keys (spec §9's rule). Buttons are `FOCUS_NONE` for the same reason; the typed fields
-## are the only things allowed the keyboard.
+## the drawing's keys (spec §9's rule). Buttons are built without a keyboard of their own, like every
+## control the shared chrome makes; the typed fields are the only things that keep one, because a field
+## is where somebody types. What the *open* board does with the keyboard is decided once, by
+## `PageChrome.takes_the_keyboard`.
 ##
 ## It shows what `JobDesk` says and holds no arithmetic of its own. The conflicts below the days are
 ## the board's own rows, in the model's own order, and **nothing here ever moves a block to avoid
@@ -74,7 +76,6 @@ func _ready() -> void:
 	if _row == null:
 		build()
 
-
 # --- building ------------------------------------------------------------------------------
 
 
@@ -85,16 +86,10 @@ func build() -> void:
 		return
 	if desk == null:
 		desk = DeskScript.new()
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	_summary = Label.new()
+	_summary = PageChrome.text()
 	_summary.name = "Summary"
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_summary.custom_minimum_size = Vector2(0, 22)
 	column.add_child(_summary)
 
 	var scroll := ScrollContainer.new()
@@ -111,9 +106,8 @@ func build() -> void:
 	column.add_child(_build_book_row())
 	column.add_child(_build_crew_row())
 
-	var problems := Label.new()
+	var problems := PageChrome.subheading("clashes")
 	problems.name = "ConflictsLabel"
-	problems.text = "clashes"
 	column.add_child(problems)
 	_conflicts = ItemList.new()
 	_conflicts.name = "Conflicts"
@@ -121,10 +115,7 @@ func build() -> void:
 	_conflicts.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_conflicts)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.custom_minimum_size = Vector2(0, 40)
+	_status = PageChrome.status()
 	column.add_child(_status)
 	refresh()
 
@@ -190,14 +181,13 @@ func _field(field_name: String, placeholder: String, width: int) -> LineEdit:
 	return edit
 
 
+## A button on this board, from the shared chrome and named by the board's own rule: a caption with its
+## spaces taken out. `_build_crew_row` renames the one button whose name is not its caption.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(Callable(self, method))
 	return button
-
 
 # --- showing what is there ---------------------------------------------------------------------
 
@@ -231,6 +221,10 @@ func refresh() -> void:
 	# line is what to do with it - and what to do first when there is nothing on it yet.
 	if _status != null and _status.text.is_empty():
 		_set_status(_opening_words())
+	# The blocks just built are new controls, and the shared show that gave this board its keyboard ran
+	# when the board was *opened* - before any of them existed. So a board that is up gives the new ones
+	# theirs here. Nothing is done while it is down: the show decides it then, and it decides it once.
+	PageChrome.takes_the_keyboard_if_up(self)
 
 
 ## The line the board opens with: what to do, or why there is nothing to do yet.
@@ -331,21 +325,26 @@ func _fill_buttons() -> void:
 		_remove_button.disabled = _selected_index < 0
 		_remove_button.tooltip_text = "click a block first" if _selected_index < 0 else ""
 
-
 # --- booking, moving, taking off ---------------------------------------------------------------
 
 
 ## Book a crew onto a job. The times are read the way a person types them ("8:00", "16:00") and a time
 ## that cannot be read is **refused in words** rather than booked at midnight.
 ## Returns `{ok, reason, index}`.
-func book(job_id: String, member_id: StringName, date: String, from_text: String, to_text: String,
-		note: String = "") -> Dictionary:
+func book(
+	job_id: String,
+	member_id: StringName,
+	date: String,
+	from_text: String,
+	to_text: String,
+	note: String = "",
+) -> Dictionary:
 	var starts := parse_clock(from_text)
 	var ends := parse_clock(to_text)
 	if starts < 0 or ends < 0:
-		return {"ok": false, "reason": "the times read like 8:00 and 16:00", "index": -1}
+		return { "ok": false, "reason": "the times read like 8:00 and 16:00", "index": -1 }
 	if desk == null:
-		return {"ok": false, "reason": "the board has no desk", "index": -1}
+		return { "ok": false, "reason": "the board has no desk", "index": -1 }
 	return desk.book(job_id, member_id, date, starts, ends, note)
 
 
@@ -355,29 +354,33 @@ func book_selected() -> Dictionary:
 	var job_id := selected_job()
 	if job_id.is_empty():
 		_set_status("There is no job to book: a job is made from an estimate.")
-		return {"ok": false, "reason": "there is no job to book", "index": -1}
+		return { "ok": false, "reason": "there is no job to book", "index": -1 }
 	var member := selected_crew()
 	if member.is_empty():
 		_set_status("There is nobody on the crew yet: put somebody on it below.")
-		return {"ok": false, "reason": "there is nobody on the crew", "index": -1}
+		return { "ok": false, "reason": "there is nobody on the crew", "index": -1 }
 	var result := book(
-		job_id, StringName(member),
+		job_id,
+		StringName(member),
 		_date_field.text if _date_field != null else "",
 		_from_field.text if _from_field != null else "",
 		_to_field.text if _to_field != null else "",
-		_note_field.text if _note_field != null else ""
+		_note_field.text if _note_field != null else "",
 	)
 	if not bool(result["ok"]):
 		_set_status("Not booked: %s." % String(result["reason"]))
 		return result
 	var booked := desk.block_at(int(result["index"]))
 	refresh()
-	_set_status("Booked %s on %s, %s to %s." % [
-		desk.job_label(String(booked["job"])),
-		String(booked["date"]),
-		clock_words(int(booked["start_minute"])),
-		clock_words(int(booked["end_minute"])),
-	])
+	_set_status(
+		"Booked %s on %s, %s to %s."
+		% [
+			desk.job_label(String(booked["job"])),
+			String(booked["date"]),
+			clock_words(int(booked["start_minute"])),
+			clock_words(int(booked["end_minute"])),
+		]
+	)
 	schedule_changed.emit()
 	return result
 
@@ -402,9 +405,7 @@ func move_block(index: int, date: String, rebuild: bool = true) -> bool:
 		refresh()
 	else:
 		call_deferred("refresh")
-	_set_status("Moved to %s, still %s to %s." % [
-		date, clock_words(starts), clock_words(ends),
-	])
+	_set_status("Moved to %s, still %s to %s." % [date, clock_words(starts), clock_words(ends)])
 	schedule_changed.emit()
 	return true
 
@@ -440,7 +441,6 @@ func add_crew_from_fields() -> bool:
 	_set_status("%s is on the crew, as %s." % [person_name, CrewScript.role_name(role)])
 	schedule_changed.emit()
 	return true
-
 
 # --- what the board says -------------------------------------------------------------------
 
@@ -582,8 +582,9 @@ func day_texts() -> Array[String]:
 	return out
 
 
-## The controls that must not take the keyboard: every button on the board. The typed fields are the
-## only things here allowed focus, so this returns the buttons and nothing else.
+## The controls that are *built* without a keyboard: every button on the board. The typed fields are the
+## only things here allowed focus at build time, so this returns the buttons and nothing else - and what a
+## board that is *shown* does with the keyboard is decided once, in `PageChrome.takes_the_keyboard`.
 func buttons_are_focus_free() -> bool:
 	if _row == null:
 		return false
@@ -600,7 +601,6 @@ func _all_buttons(node: Node) -> Array[Button]:
 			out.append(child)
 		out.append_array(_all_buttons(child))
 	return out
-
 
 # --- the small joins ---------------------------------------------------------------------------
 
@@ -647,7 +647,6 @@ func _set_status(words: String) -> void:
 	if _status != null:
 		_status.text = words
 
-
 # --- the buttons -----------------------------------------------------------------------------
 
 
@@ -674,19 +673,21 @@ func _on_block_pressed(index: int) -> void:
 	var block := desk.block_at(index)
 	if block.is_empty():
 		return
-	_set_status("%s on %s, %s to %s, %s." % [
-		desk.job_label(String(block["job"])),
-		String(block["date"]),
-		clock_words(int(block["start_minute"])),
-		clock_words(int(block["end_minute"])),
-		desk.crew_label(StringName(block["crew"])),
-	])
+	_set_status(
+		"%s on %s, %s to %s, %s."
+		% [
+			desk.job_label(String(block["job"])),
+			String(block["date"]),
+			clock_words(int(block["start_minute"])),
+			clock_words(int(block["end_minute"])),
+			desk.crew_label(StringName(block["crew"])),
+		]
+	)
 
 
 func _on_close_requested() -> void:
 	hide()
 	closed.emit()
-
 
 # --- dragging a block to another day -----------------------------------------------------------
 
@@ -695,6 +696,7 @@ func _on_close_requested() -> void:
 class Block extends Button:
 	var block_index: int = -1
 	var board: ScheduleBoard = null
+
 
 	func _get_drag_data(_at: Vector2) -> Variant:
 		if board == null or block_index < 0:
@@ -705,7 +707,7 @@ class Block extends Button:
 			var preview := Label.new()
 			preview.text = text
 			set_drag_preview(preview)
-		return {"block": block_index}
+		return { "block": block_index }
 
 
 ## A day's column: a drop target that knows which date it is.
@@ -713,10 +715,12 @@ class Day extends VBoxContainer:
 	var day_date: String = ""
 	var board: ScheduleBoard = null
 
+
 	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
 		if board == null or not (data is Dictionary):
 			return false
 		return (data as Dictionary).has("block")
+
 
 	func _drop_data(_at: Vector2, data: Variant) -> void:
 		if board == null or not (data is Dictionary):

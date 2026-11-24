@@ -28,7 +28,6 @@ func _deviation(point: Vector2, polyline: PackedVector2Array) -> float:
 		best = minf(best, Geom.distance_to_segment(point, polyline[index], polyline[index + 1]))
 	return best
 
-
 # --- the pass itself -----------------------------------------------------------------
 
 
@@ -65,14 +64,12 @@ func test_a_point_inside_the_tolerance_is_dropped() -> void:
 ## The promise the whole pass is built on: no dropped vertex's true position lies further
 ## from the simplified line than the tolerance.
 func test_every_original_point_stays_within_the_tolerance() -> void:
-	var line := _poly([
-		[0.0, 0.0], [1.0, 0.02], [2.0, -0.03], [3.0, 0.0], [4.0, 1.0],
-		[5.0, 1.01], [6.0, 1.0], [7.0, 0.0],
-	])
+	var line := _poly(
+		[[0.0, 0.0], [1.0, 0.02], [2.0, -0.03], [3.0, 0.0], [4.0, 1.0], [5.0, 1.01], [6.0, 1.0], [7.0, 0.0]]
+	)
 	var out := Geom.simplify(line, TOL)
 	for point: Vector2 in line:
-		assert(_deviation(point, out) <= TOL + 1.0e-6,
-			"a dropped point %s moved further than the tolerance" % point)
+		assert(_deviation(point, out) <= TOL + 1.0e-6, "a dropped point %s moved further than the tolerance" % point)
 
 
 func test_the_same_input_simplifies_the_same_way_twice() -> void:
@@ -99,14 +96,14 @@ func test_a_closed_ring_keeps_its_shape() -> void:
 		ring.append(Vector2(cos(angle), sin(angle)) * 3.0)
 	var out := Geom.simplify(ring, TOL, true)
 	assert(out.size() >= 3, "a ring keeps at least a triangle")
-	assert(Geom.polygon_area(out) > Geom.polygon_area(ring) * 0.9,
-		"the ring's shape survives, not just its vertex count")
+	assert(
+		Geom.polygon_area(out) > Geom.polygon_area(ring) * 0.9,
+		"the ring's shape survives, not just its vertex count",
+	)
 
 
 func test_a_closed_ring_passes_through_its_original_vertices() -> void:
-	var ring := _poly([
-		[0.0, 0.0], [2.0, 0.01], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0],
-	])
+	var ring := _poly([[0.0, 0.0], [2.0, 0.01], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]])
 	var out := Geom.simplify(ring, TOL, true)
 	for point: Vector2 in ring:
 		var best := INF
@@ -116,20 +113,17 @@ func test_a_closed_ring_passes_through_its_original_vertices() -> void:
 			best = minf(best, Geom.distance_to_segment(point, a, b))
 		assert(best <= TOL + 1.0e-6, "a ring vertex %s strayed further than the tolerance" % point)
 
-
 # --- what the pass is run at ---------------------------------------------------------
 
 
 func test_the_default_tolerance_is_a_paper_length() -> void:
 	# 0.4 paper mm at 1:100 is 40 model mm.
 	assert(is_equal_approx(Simplify.default_tolerance(100.0), 0.04))
-	assert(is_equal_approx(Simplify.default_tolerance(50.0), 0.02),
-		"half the scale is half the model tolerance")
+	assert(is_equal_approx(Simplify.default_tolerance(50.0), 0.02), "half the scale is half the model tolerance")
 
 
 func test_a_zero_scale_still_gives_a_tolerance() -> void:
 	assert(Simplify.default_tolerance(0.0) > 0.0, "a scale of nothing is not a tolerance of nothing")
-
 
 # --- what the pass refuses -----------------------------------------------------------
 
@@ -148,15 +142,16 @@ func test_a_curved_polyline_is_refused_naming_the_arcs() -> void:
 	var curved := Entity.make_polyline(_poly([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]), true)
 	curved.bulges = PackedFloat64Array([0.4, 0.0, 0.0, 0.0])
 	assert(not Simplify.is_simplifiable(curved))
-	assert(Simplify.refusal_for(curved).contains("arcs"),
-		"the reason says the corners are arcs, not that the shape is arbitrary")
+	assert(
+		Simplify.refusal_for(curved).contains("arcs"),
+		"the reason says the corners are arcs, not that the shape is arbitrary",
+	)
 
 
 func test_a_plain_polygon_is_simplifiable() -> void:
 	var square := Entity.make_polyline(_poly([[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]]), true)
 	assert(Simplify.is_simplifiable(square))
 	assert(Simplify.refusal_for(square) == "")
-
 
 # --- the shared corner rule ----------------------------------------------------------
 
@@ -169,8 +164,10 @@ func test_a_shared_corner_that_would_move_refuses_the_shape() -> void:
 	var report := Simplify.plan([bed, wall], TOL)
 	assert(report.refusals.size() == 1, "the bed is refused")
 	assert(report.entries.is_empty(), "and its simplification is not offered")
-	assert(String(report.refusals[0]["reason"]).contains("shares"),
-		"the reason names the shared corner, not a generic failure")
+	assert(
+		String(report.refusals[0]["reason"]).contains("shares"),
+		"the reason names the shared corner, not a generic failure",
+	)
 
 
 ## A shared corner that survives the pass is no problem, even though other points go.
@@ -181,7 +178,6 @@ func test_a_shared_corner_that_survives_does_not_refuse() -> void:
 	assert(report.refusals.is_empty(), "a shared corner still on the line is not a detachment")
 	assert(report.changed_count() == 1, "and the bed is still simplified")
 	assert(int(report.entries[0]["after"]) == 2)
-
 
 # --- planning and applying -----------------------------------------------------------
 
@@ -228,15 +224,13 @@ func test_an_empty_plan_leaves_the_drawing_and_the_undo_stack_alone() -> void:
 	assert(Simplify.apply(document, report) == 0)
 	assert(not document.undo_last(), "nothing happened, so there is nothing to undo")
 
-
 # --- the report ----------------------------------------------------------------------
 
 
 func test_the_report_describes_what_it_did() -> void:
 	var bed := Entity.make_polyline(_poly([[0.0, 0.0], [2.5, 0.0], [5.0, 0.0]]))
 	var report := Simplify.plan([bed], TOL)
-	assert(report.describe() == "1 shape simplified, 1 point removed",
-		"the report says what it did, in words")
+	assert(report.describe() == "1 shape simplified, 1 point removed", "the report says what it did, in words")
 
 
 func test_a_report_with_nothing_to_do_says_so() -> void:

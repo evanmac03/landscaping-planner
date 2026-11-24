@@ -15,6 +15,8 @@ const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const SCRATCH := "user://drawings/test-scratch.json"
 const SCRATCH_RECENT := "user://drawings/test-recent.json"
 
+const ControllerScript := preload("res://scripts/draft/draft_controller.gd")
+
 
 ## A drawing with something in it, set up so that every part of the format is exercised: an
 ## entity, the units, the site and the dimension standard.
@@ -26,9 +28,7 @@ func _drawing() -> DraftDocument:
 	document.dimension_style.text_decimals = 2
 	# On a layer that really exists: a document given a layer name it does not know falls back to
 	# a default, and a test that did not know that would prove only that some layer round-trips.
-	document.add(
-		EntityScript.make_line(Vector2(1.0, 2.0), Vector2(4.5, 6.25)), LayerSetScript.NEW_HARDSCAPE
-	)
+	document.add(EntityScript.make_line(Vector2(1.0, 2.0), Vector2(4.5, 6.25)), LayerSetScript.NEW_HARDSCAPE)
 	document.add(EntityScript.make_circle(Vector2(9.0, 9.0), 2.5), LayerSetScript.NEW_TURF)
 	return document
 
@@ -259,10 +259,7 @@ func test_the_folder_is_made_before_it_is_written_to() -> void:
 	file.store_string("[]")
 	file.close()
 	assert(not StoreScript.list_drawings().has(legacy), "the recent list is not a drawing")
-	assert(
-		not FileAccess.file_exists(legacy),
-		"and does not stay in the folder a Save dialog opens on"
-	)
+	assert(not FileAccess.file_exists(legacy), "and does not stay in the folder a Save dialog opens on")
 	StoreScript.write(_drawing(), SCRATCH)
 	assert(StoreScript.list_drawings().has(SCRATCH), "a written drawing is listed")
 	DirAccess.remove_absolute(legacy)
@@ -281,6 +278,68 @@ func test_a_drawing_somebody_named_recent_is_a_drawing() -> void:
 	assert(StoreScript.list_drawings().has(path), "and is offered as one")
 	DirAccess.remove_absolute(path)
 	_clean()
+
+
+## **The list counts its own writes**, which is what lets a caller that runs on the frame ask whether it has moved
+## for the price of an integer. It is the number `DraftController.recent_drawings` holds its copy against: without
+## it the program opened and parsed this file once per frame, 0.53 ms of every frame, measured.
+func test_writing_the_recent_list_counts_a_version() -> void:
+	_clean()
+	assert(StoreScript.write_recent([SCRATCH_RECENT], SCRATCH_RECENT), "the list is written")
+	var counted: int = StoreScript.recent_version
+	assert(counted > 0, "and the count has moved: %d" % counted)
+	# **A write that cannot happen must not count.** A caller drops what it holds when the count moves, and it
+	# would then hold a list the file never got - so the count follows the file and not the attempt.
+	assert(
+		not StoreScript.write_recent([SCRATCH_RECENT], "user://no/such/folder/recent.json"),
+		"a write into a folder that is not there fails",
+	)
+	assert(StoreScript.recent_version == counted, "and the count holds still: %d" % StoreScript.recent_version)
+	_clean()
+
+
+## **The door that runs on the frame does not read the file on every frame.**
+##
+## **The list is saved as text and put back byte for byte**, because this door reads the file the *running
+## program* reads - the drawings a person actually opened - and a test may not change what the next launch offers.
+## The proof is in two halves: a counted write sends the door back to the file, and a write that was *not* counted
+## leaves it holding what it had.
+func test_the_recent_door_holds_what_it_read_until_the_store_says_it_moved() -> void:
+	var was: String = _text_of(StoreScript.RECENT_FILE)
+	var controller: Node = ControllerScript.new()
+	# One: a counted write - the same signal a person's own open or save sends - is read again.
+	assert(StoreScript.write_recent([SCRATCH], StoreScript.RECENT_FILE), "the list is written and counted")
+	assert(
+		controller.recent_drawings() == StoreScript.read_recent(),
+		"the door reads what the store holds: %s" % str(controller.recent_drawings()),
+	)
+	var held: Array[String] = controller.recent_drawings()
+	# Two: the file is changed by something that does *not* count a write, which is the shape of a file another
+	# program or another process has touched - and the door keeps what it read.
+	var out := FileAccess.open(StoreScript.RECENT_FILE, FileAccess.WRITE)
+	if out != null:
+		out.store_string(JSON.stringify([], "  "))
+		out.close()
+	assert(
+		controller.recent_drawings() == held,
+		"and holds it, because that write was never counted: %s" % str(controller.recent_drawings()),
+	)
+	# One more counted write, and it goes back to the file and finds the empty list there.
+	assert(StoreScript.write_recent([], StoreScript.RECENT_FILE), "a counted write of an empty list")
+	assert(
+		controller.recent_drawings().is_empty(),
+		"is enough for the door to read the file again: %s" % str(controller.recent_drawings()),
+	)
+	# Put back exactly what was found: the text, or no file at all if there was none.
+	if was.is_empty():
+		if FileAccess.file_exists(StoreScript.RECENT_FILE):
+			DirAccess.remove_absolute(StoreScript.RECENT_FILE)
+	else:
+		var restore := FileAccess.open(StoreScript.RECENT_FILE, FileAccess.WRITE)
+		if restore != null:
+			restore.store_string(was)
+			restore.close()
+	controller.free()
 
 
 func _text_of(path: String) -> String:

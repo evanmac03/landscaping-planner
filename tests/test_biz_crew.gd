@@ -52,10 +52,10 @@ func test_an_expired_ticket_is_not_a_ticket() -> void:
 
 func test_availability_is_a_day_off_and_a_vacation() -> void:
 	var member: CrewScript = CrewScript.new(&"C1", "Dana")
-	member.add_availability({"kind": "DAY_OFF", "weekday": 0})
+	member.add_availability({ "kind": "DAY_OFF", "weekday": 0 })
 	assert(not member.available_on("2026-06-07"), "a Sunday")
 	assert(member.available_on("2026-06-08"), "a Monday")
-	member.add_availability({"kind": "VACATION", "from": "2026-06-15", "to": "2026-06-22"})
+	member.add_availability({ "kind": "VACATION", "from": "2026-06-15", "to": "2026-06-22" })
 	assert(not member.available_on("2026-06-18"), "in the vacation")
 	assert(member.available_on("2026-06-25"), "after it")
 	assert(member.unavailability("2026-06-18").contains("vacation"))
@@ -74,7 +74,7 @@ func test_a_crew_member_round_trips_through_the_file() -> void:
 	member.home_base = Vector2(12.0, -3.5)
 	member.add_rate("2026-01-01", MoneyScript.of(4500))
 	member.add_certification("First aid", "2026-06-30")
-	member.add_availability({"kind": "DAY_OFF", "weekday": 0})
+	member.add_availability({ "kind": "DAY_OFF", "weekday": 0 })
 	var restored: CrewScript = CrewScript.from_dict(member.to_dict())
 	assert(String(restored.id) == "C1" and restored.name == "Dana")
 	assert(restored.role == &"FOREMAN")
@@ -85,6 +85,6 @@ func test_a_crew_member_round_trips_through_the_file() -> void:
 
 
 func test_a_record_with_no_id_is_dropped_and_a_bad_role_is_the_common_one() -> void:
-	assert(CrewScript.from_dict({"name": "nobody"}) == null)
-	var made: CrewScript = CrewScript.from_dict({"id": "C1", "role": "WIZARD"})
+	assert(CrewScript.from_dict({ "name": "nobody" }) == null)
+	var made: CrewScript = CrewScript.from_dict({ "id": "C1", "role": "WIZARD" })
 	assert(made.role == &"LABOURER", "a person has to be something, so the common case")

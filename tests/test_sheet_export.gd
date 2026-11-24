@@ -29,7 +29,6 @@ func _document():
 	document.add(Entity.make_text(Vector2(1, 1), "Patio (new)"), LayerSet.TEXT)
 	return document
 
-
 # --- reading the file back out ------------------------------------------------------
 
 
@@ -57,14 +56,13 @@ func _first_move(text: String) -> Vector2:
 	var moves := _moved_points(text)
 	return moves[0] if not moves.is_empty() else Vector2.ZERO
 
-
 # --- the thing that matters ---------------------------------------------------------
 
 
 func test_ten_metres_at_one_to_one_hundred_measures_one_hundred_millimetres() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var options := {"sheet": "A3", "scale": 100.0, "show_border": false}
+	var options := { "sheet": "A3", "scale": 100.0, "show_border": false }
 	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
 
 	var points := _moved_points(text)
@@ -78,27 +76,24 @@ func test_ten_metres_at_one_to_one_hundred_measures_one_hundred_millimetres() ->
 func test_the_layout_helper_agrees_with_the_file() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var options := {"sheet": "A3", "scale": 100.0, "show_border": false}
+	var options := { "sheet": "A3", "scale": 100.0, "show_border": false }
 	var plan := Exporter.plan_sheet(document, options)
 	var points := _moved_points(Exporter.export_pdf(document, options).get_string_from_utf8())
 	assert(points.size() == 2)
 	var from_plan := Exporter.model_to_paper(Vector2.ZERO, plan)
 	assert(from_plan.distance_to(points[0]) < 0.01)
-	assert(
-		Exporter.model_to_paper(Vector2(10, 0), plan).distance_to(points[1]) < 0.01
-	)
+	assert(Exporter.model_to_paper(Vector2(10, 0), plan).distance_to(points[1]) < 0.01)
 
 
 func test_a_typical_yard_is_suggested_at_one_to_one_hundred() -> void:
 	var document = Document.new()
 	document.add(Entity.make_rectangle(Vector2(14, 10), Vector2(28, 20)), LayerSet.NEW_HARDSCAPE)
-	var plan := Exporter.plan_sheet(document, {"sheet": "A3"})
+	var plan := Exporter.plan_sheet(document, { "sheet": "A3" })
 	assert(is_equal_approx(plan["scale"], 100.0))
-	var text := Exporter.export_pdf(document, {"sheet": "A3"}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "sheet": "A3" }).get_string_from_utf8()
 	# The scale is a field in the title block now, not a banner across the sheet.
 	assert(text.contains("(SCALE) Tj"))
 	assert(text.contains("(1:100) Tj"))
-
 
 # --- the sheet furniture -------------------------------------------------------------
 
@@ -110,10 +105,7 @@ func _rectangles(text: String) -> Array[Rect2]:
 	for line in text.split("\n"):
 		var parts := line.strip_edges().split(" ", false)
 		if parts.size() == 5 and parts[4] == "re":
-			out.append(Rect2(
-				Vector2(float(parts[0]), float(parts[1])),
-				Vector2(float(parts[2]), float(parts[3]))
-			))
+			out.append(Rect2(Vector2(float(parts[0]), float(parts[1])), Vector2(float(parts[2]), float(parts[3]))))
 	return out
 
 
@@ -126,17 +118,15 @@ func _has_point(points: Array[Vector2], target: Vector2) -> bool:
 
 func _title_block(plan: Dictionary) -> Rect2:
 	var area: Rect2 = plan["printable_pt"]
-	var size := Vector2(
-		Exporter.TITLE_BLOCK_WIDTH_MM, Exporter.TITLE_BLOCK_HEIGHT_MM
-	) * Exporter.POINTS_PER_MM
+	var size := Vector2(Exporter.TITLE_BLOCK_WIDTH_MM, Exporter.TITLE_BLOCK_HEIGHT_MM) * Exporter.POINTS_PER_MM
 	# The block lies along the foot of the sheet in its bottom-right corner. Paper y
 	# runs up the page, so the foot is the smaller y.
 	return Rect2(Vector2(area.end.x - size.x, area.position.y), size)
 
 
 func test_the_title_block_lands_in_the_corner_of_the_border() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	var block := _title_block(plan)
 	var area: Rect2 = plan["printable_pt"]
 	# Flush into the corner, so it reads as part of the border rather than as
@@ -171,11 +161,13 @@ func _drawn_text(text: String) -> Array[Dictionary]:
 		# BT /F1 <size> Tf <x> <y> Td (
 		if head.size() != 7:
 			continue
-		out.append({
-			"text": drawn.substr(open_paren + 1, drawn.length() - 7 - open_paren - 1),
-			"at": Vector2(float(head[4]), float(head[5])),
-			"size": float(head[2]),
-		})
+		out.append(
+			{
+				"text": drawn.substr(open_paren + 1, drawn.length() - 7 - open_paren - 1),
+				"at": Vector2(float(head[4]), float(head[5])),
+				"size": float(head[2]),
+			}
+		)
 	return out
 
 
@@ -193,7 +185,7 @@ func _band_of(y: float, bands: Array[Vector2]) -> int:
 ## mistake that quietly left the drawing's own row empty and put DRAWING in the
 ## numbering row beside SCALE.
 func test_the_title_block_reads_one_row_at_a_time() -> void:
-	var options := {"sheet": "A3", "project": "Riverbend", "drawing": "Planting Plan"}
+	var options := { "sheet": "A3", "project": "Riverbend", "drawing": "Planting Plan" }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var block := _title_block(plan)
 	var row := Exporter.TITLE_BLOCK_ROW_MM * Exporter.POINTS_PER_MM
@@ -206,7 +198,7 @@ func test_the_title_block_reads_one_row_at_a_time() -> void:
 	]
 
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
-	var where := {}
+	var where := { }
 	for entry: Dictionary in _drawn_text(text):
 		var at: Vector2 = entry["at"]
 		if at.x < block.position.x - 0.01 or at.x > block.end.x + 0.01:
@@ -265,8 +257,8 @@ func test_every_title_block_field_reaches_the_sheet() -> void:
 func test_the_choice_of_scale_respects_the_title_block() -> void:
 	var document = Document.new()
 	document.add(Entity.make_rectangle(Vector2(30, 30), Vector2(60, 60)), LayerSet.NEW_HARDSCAPE)
-	var bare := Exporter.plan_sheet(document, {"sheet": "A3", "show_border": false})
-	var bordered := Exporter.plan_sheet(document, {"sheet": "A3"})
+	var bare := Exporter.plan_sheet(document, { "sheet": "A3", "show_border": false })
+	var bordered := Exporter.plan_sheet(document, { "sheet": "A3" })
 	assert(bordered["scale"] > bare["scale"])
 	# Whatever scale comes out, the drawing fits the area the block leaves.
 	var content: Rect2 = bordered["content_pt"]
@@ -281,7 +273,7 @@ func test_the_choice_of_scale_respects_the_title_block() -> void:
 func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
 	var document = Document.new()
 	document.add(Entity.make_rectangle(Vector2(60, 55), Vector2(120, 110)), LayerSet.NEW_HARDSCAPE)
-	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
+	var plan := Exporter.plan_sheet(document, { "sheet": "A3", "scale": 100.0 })
 	var content: Rect2 = plan["content_pt"]
 	var drawn: Vector2 = plan["drawing_pt"]
 	assert(drawn.y > content.size.y)
@@ -295,8 +287,8 @@ func test_an_over_large_drawing_is_kept_off_the_title_block() -> void:
 
 
 func test_a_borderless_plot_has_no_title_block() -> void:
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "show_border": false}) \
-		.get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3", "show_border": false }) \
+			.get_string_from_utf8()
 	assert(not text.contains("(PROJECT) Tj"))
 	assert(not text.contains("(SCALE) Tj"))
 
@@ -304,7 +296,7 @@ func test_a_borderless_plot_has_no_title_block() -> void:
 ## The drawing is centred in what is left above the block, so the two cannot
 ## collide however large the design is.
 func test_the_drawing_is_centred_clear_of_the_title_block() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
 	var area: Rect2 = plan["printable_pt"]
 	var content: Rect2 = plan["content_pt"]
 	assert(content.size.y < area.size.y)
@@ -315,16 +307,13 @@ func test_the_drawing_is_centred_clear_of_the_title_block() -> void:
 	assert(content.end.y == area.end.y)
 
 	var extent: Rect2 = plan["extent"]
-	var centre := (
-		Exporter.model_to_paper(extent.position, plan)
-		+ Exporter.model_to_paper(extent.end, plan)
-	) * 0.5
+	var centre := (Exporter.model_to_paper(extent.position, plan) + Exporter.model_to_paper(extent.end, plan)) * 0.5
 	assert(centre.distance_to(content.get_center()) < 0.01)
 	assert(_title_block(plan).end.y < content.position.y)
 
 
 func test_the_north_point_carries_its_letter() -> void:
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	assert(text.contains("(N) Tj"))
 
 
@@ -332,12 +321,9 @@ func test_the_north_point_carries_its_letter() -> void:
 ## be checked against a ruler. It is drawn at the length the scale law gives for a
 ## round number of metres.
 func test_the_scale_bar_is_drawn_at_its_true_length() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
-	var strip := (
-		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
-		- Exporter.SCALE_BAR_INSET_MM * 2.0
-	) * Exporter.POINTS_PER_MM
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
+	var strip := (Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM - Exporter.SCALE_BAR_INSET_MM * 2.0) * Exporter.POINTS_PER_MM
 	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, false)
 	var bar := float(choice["metres"]) * float(plan["pt_per_metre"])
 	var step := bar / float(Exporter.SCALE_BAR_DIVISIONS)
@@ -363,34 +349,28 @@ func test_a_scale_bar_division_is_labelled_to_its_own_precision() -> void:
 
 
 func test_the_scale_bar_switches_to_feet() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "imperial": true})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "imperial": true}) \
-		.get_string_from_utf8()
-	var strip := (
-		Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM
-		- Exporter.SCALE_BAR_INSET_MM * 2.0
-	) * Exporter.POINTS_PER_MM
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3", "imperial": true })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3", "imperial": true }) \
+			.get_string_from_utf8()
+	var strip := (Exporter.TITLE_BLOCK_WIDTH_MM - Exporter.NORTH_CELL_MM - Exporter.SCALE_BAR_INSET_MM * 2.0) * Exporter.POINTS_PER_MM
 	var choice := PlotScale.scale_bar_length(plan["pt_per_metre"], strip * 0.62, true)
 	var step := float(choice["metres"]) * float(plan["pt_per_metre"]) \
-		/ float(Exporter.SCALE_BAR_DIVISIONS)
+			/ float(Exporter.SCALE_BAR_DIVISIONS)
 	assert(text.contains("(%s ft) Tj" % Exporter.scale_bar_label(float(choice["label_value"]), step)))
-
 
 # --- dimensions on the sheet --------------------------------------------------------
 
 
 func _dimension_document():
 	var document = Document.new()
-	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION
-	)
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION)
 	return document
 
 
 func test_a_dimension_plots_its_measurement() -> void:
 	var document = _dimension_document()
-	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
-		.get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "sheet": "A3", "scale": 100.0 }) \
+			.get_string_from_utf8()
 	# The drawing's own precision, which at 1:100 is hundredths of a metre: a
 	# dimension on a sheet can only be read as finely as it can be drawn.
 	assert(text.contains("(10.00 m) Tj"))
@@ -401,17 +381,15 @@ func test_a_dimension_plots_its_measurement() -> void:
 func test_a_dimension_plots_arrowheads_where_the_layout_puts_them() -> void:
 	var document = _dimension_document()
 	var entity = document.entities()[0]
-	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "scale": 100.0})
-	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
-		.get_string_from_utf8()
+	var plan := Exporter.plan_sheet(document, { "sheet": "A3", "scale": 100.0 })
+	var text := Exporter.export_pdf(document, { "sheet": "A3", "scale": 100.0 }) \
+			.get_string_from_utf8()
 	var points := _moved_points(text)
 	var layout: Dictionary = Dimension.layout(entity, 100.0)
 
 	# Both ends of the dimension line, then the three corners of each arrowhead.
 	for end: Dictionary in layout["marks"]:
-		var triangle := Dimension.arrow_triangle(
-			end["tip"], end["direction"], end["size"], end["width_ratio"]
-		)
+		var triangle := Dimension.arrow_triangle(end["tip"], end["direction"], end["size"], end["width_ratio"])
 		for corner in triangle:
 			assert(_has_point(points, Exporter.model_to_paper(corner, plan)))
 	# And the extension lines, which start off the measured point, not on it.
@@ -424,18 +402,16 @@ func test_a_dimension_plots_arrowheads_where_the_layout_puts_them() -> void:
 ## text matrix rather than a plain offset.
 func test_a_vertical_dimension_rotates_its_text() -> void:
 	var document = Document.new()
-	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(0, 6), 2.0), LayerSet.DIMENSION
-	)
-	var text := Exporter.export_pdf(document, {"sheet": "A3", "scale": 100.0}) \
-		.get_string_from_utf8()
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(0, 6), 2.0), LayerSet.DIMENSION)
+	var text := Exporter.export_pdf(document, { "sheet": "A3", "scale": 100.0 }) \
+			.get_string_from_utf8()
 	assert(text.contains("(6.00 m) Tj"))
 	assert(text.contains(" Tm "))
 
 
 func test_a_horizontal_dimension_needs_no_rotation() -> void:
-	var text := Exporter.export_pdf(_dimension_document(), {"sheet": "A3", "scale": 100.0}) \
-		.get_string_from_utf8()
+	var text := Exporter.export_pdf(_dimension_document(), { "sheet": "A3", "scale": 100.0 }) \
+			.get_string_from_utf8()
 	assert(not text.contains(" Tm "))
 
 
@@ -446,17 +422,14 @@ func test_a_horizontal_dimension_needs_no_rotation() -> void:
 func test_the_plot_extent_includes_a_dimensions_set_out_line() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var measured: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["extent"]
-	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), -3.0), LayerSet.DIMENSION
-	)
-	var laid_out: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["extent"]
+	var measured: Rect2 = Exporter.plan_sheet(document, { "sheet": "A3" })["extent"]
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), -3.0), LayerSet.DIMENSION)
+	var laid_out: Rect2 = Exporter.plan_sheet(document, { "sheet": "A3" })["extent"]
 	# The dimension line sits three metres north of the wall it measures. The
 	# tolerance is loose because the extent is measured with the paper-sized
 	# overshoots taken at 1:1, where an extension line runs 1.5 mm past its line.
 	assert(absf(laid_out.position.y - (measured.position.y - 3.0)) < 0.01)
 	assert(is_equal_approx(laid_out.size.x, measured.size.x))
-
 
 # --- the layer key ------------------------------------------------------------------
 
@@ -494,9 +467,7 @@ func test_a_layer_switched_off_plots_and_leaves_the_key() -> void:
 func test_the_key_counts_each_layer() -> void:
 	var document = Document.new()
 	for index in 3:
-		document.add(
-			Entity.make_circle(Vector2(index * 3, 0), 1.0), LayerSet.NEW_PLANTING
-		)
+		document.add(Entity.make_circle(Vector2(index * 3, 0), 1.0), LayerSet.NEW_PLANTING)
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(1, 1)), LayerSet.NEW_HARDSCAPE)
 	var rows := Exporter.legend_rows(document, null)
 	assert(rows.size() == 2)
@@ -511,7 +482,7 @@ func test_the_key_draws_its_sample_in_the_layer_pen() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
 	var table = PenStyle.default_table()
-	var options := {"sheet": "A3", "legend": true, "pen_table": table}
+	var options := { "sheet": "A3", "legend": true, "pen_table": table }
 	var plan := Exporter.plan_sheet(document, options)
 	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
 
@@ -520,42 +491,49 @@ func test_the_key_draws_its_sample_in_the_layer_pen() -> void:
 	# The key is read downwards from its top edge, so the first row's sample sits a
 	# row below the rule under the title.
 	var header := rect.end.y - Exporter.LEGEND_HEADER_MM * Exporter.POINTS_PER_MM
-	var baseline := (
-		header - row + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM * 0.5
-	)
+	var baseline := (header - row + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM * 0.5)
 	var sample_y := baseline + row * 0.35
-	assert(text.contains("%s %s m" % [
-		String.num(rect.position.x + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM, 4),
-		String.num(sample_y, 4),
-	]))
+	assert(
+		text.contains(
+			"%s %s m"
+			% [
+				String.num(rect.position.x + Exporter.LEGEND_PAD_MM * Exporter.POINTS_PER_MM, 4),
+				String.num(sample_y, 4),
+			]
+		)
+	)
 
 	var style = Exporter.layer_pen(document.layers.get_layer(LayerSet.NEW_HARDSCAPE), table)
-	assert(text.contains("%s %s %s RG" % [
-		String.num(style.plot_colour.r, 4), String.num(style.plot_colour.g, 4),
-		String.num(style.plot_colour.b, 4),
-	]))
+	assert(
+		text.contains(
+			"%s %s %s RG"
+			% [
+				String.num(style.plot_colour.r, 4),
+				String.num(style.plot_colour.g, 4),
+				String.num(style.plot_colour.b, 4),
+			]
+		)
+	)
 	assert(text.contains("(KEY) Tj"))
 	assert(text.contains("(300-NEW-HARD) Tj"))
 	assert(text.contains("(1) Tj"))
 
 
 func test_without_a_key_the_sheet_has_none() -> void:
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	assert(not text.contains("(KEY) Tj"))
 	assert(not text.contains("(300-NEW-HARD) Tj"))
 
 
 func test_the_key_can_be_retitled() -> void:
-	var text := Exporter.export_pdf(
-		_document(), {"sheet": "A3", "legend": true, "legend_title": "LEGEND"}
-	).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3", "legend": true, "legend_title": "LEGEND" }).get_string_from_utf8()
 	assert(text.contains("(LEGEND) Tj"))
 
 
 ## The key sits in the top-left corner of the border and grows downwards only, so
 ## it can never reach the title block however many layers the drawing uses.
 func test_the_key_stays_in_its_corner() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "legend": true})
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3", "legend": true })
 	var area: Rect2 = plan["printable_pt"]
 	var rect: Rect2 = plan["legend_pt"]
 	# Paper y runs up the page, so the top-left corner is the smaller x and the
@@ -570,8 +548,8 @@ func test_the_key_stays_in_its_corner() -> void:
 ## scale is chosen against that: the width gives way, the height does not.
 func test_the_key_narrows_the_area_the_scale_is_chosen_for() -> void:
 	var document = _document()
-	var without := Exporter.plan_sheet(document, {"sheet": "A3"})
-	var with_key := Exporter.plan_sheet(document, {"sheet": "A3", "legend": true})
+	var without := Exporter.plan_sheet(document, { "sheet": "A3" })
+	var with_key := Exporter.plan_sheet(document, { "sheet": "A3", "legend": true })
 	var bare: Rect2 = without["content_pt"]
 	var claimed: Rect2 = with_key["content_pt"]
 	assert(claimed.size.x < bare.size.x)
@@ -579,7 +557,6 @@ func test_the_key_narrows_the_area_the_scale_is_chosen_for() -> void:
 	var drawn: Vector2 = with_key["drawing_pt"]
 	assert(drawn.x <= claimed.size.x + 0.01)
 	assert(drawn.y <= claimed.size.y + 0.01)
-
 
 # --- the viewport -------------------------------------------------------------------
 
@@ -592,8 +569,8 @@ func _wide_document():
 	return document
 
 
-func _wide_options(extra: Dictionary = {}) -> Dictionary:
-	var options := {"sheet": "A3", "scale": 100.0}
+func _wide_options(extra: Dictionary = { }) -> Dictionary:
+	var options := { "sheet": "A3", "scale": 100.0 }
 	for key in extra:
 		options[key] = extra[key]
 	return options
@@ -601,22 +578,18 @@ func _wide_options(extra: Dictionary = {}) -> Dictionary:
 
 ## A viewport's own scale is a lock, which is the only reason for setting one.
 func test_a_viewport_locks_the_scale() -> void:
-	var locked := Exporter.plan_sheet(
-		_wide_document(), {"viewport": {"scale": 200.0}}
-	)
+	var locked := Exporter.plan_sheet(_wide_document(), { "viewport": { "scale": 200.0 } })
 	assert(is_equal_approx(locked["scale"], 200.0))
-	var suggested := Exporter.plan_sheet(_wide_document(), {})
+	var suggested := Exporter.plan_sheet(_wide_document(), { })
 	assert(not is_equal_approx(suggested["scale"], 200.0))
 
 
 func test_a_viewport_frames_the_drawing_where_it_says() -> void:
-	var frame := Rect2(
-		Vector2(100.0, 200.0) * Exporter.POINTS_PER_MM,
-		Vector2(120.0, 80.0) * Exporter.POINTS_PER_MM
+	var frame := Rect2(Vector2(100.0, 200.0) * Exporter.POINTS_PER_MM, Vector2(120.0, 80.0) * Exporter.POINTS_PER_MM)
+	var plan := Exporter.plan_sheet(
+		_wide_document(),
+		_wide_options({ "viewport": { "origin_mm": Vector2(100.0, 200.0), "size_mm": Vector2(120.0, 80.0) } }),
 	)
-	var plan := Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"origin_mm": Vector2(100.0, 200.0), "size_mm": Vector2(120.0, 80.0)},
-	}))
 	var claimed: Rect2 = plan["viewport_pt"]
 	assert(claimed.position.is_equal_approx(frame.position))
 	assert(claimed.size.is_equal_approx(frame.size))
@@ -628,9 +601,7 @@ func test_a_viewport_frames_the_drawing_where_it_says() -> void:
 ## that box which has to fit.
 func test_a_turned_drawing_takes_more_of_the_sheet() -> void:
 	var straight := Exporter.plan_sheet(_wide_document(), _wide_options())
-	var turned := Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"rotation_degrees": 90.0},
-	}))
+	var turned := Exporter.plan_sheet(_wide_document(), _wide_options({ "viewport": { "rotation_degrees": 90.0 } }))
 	assert(turned["drawing_pt"].x < straight["drawing_pt"].x)
 	assert(turned["drawing_pt"].y > straight["drawing_pt"].y)
 
@@ -641,9 +612,7 @@ func test_a_turned_drawing_takes_more_of_the_sheet() -> void:
 func test_a_known_length_still_measures_the_same_when_turned() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var plan := Exporter.plan_sheet(document, _wide_options({
-		"viewport": {"rotation_degrees": 90.0},
-	}))
+	var plan := Exporter.plan_sheet(document, _wide_options({ "viewport": { "rotation_degrees": 90.0 } }))
 	var from := Exporter.model_to_paper(Vector2(0, 0), plan)
 	var to := Exporter.model_to_paper(Vector2(10, 0), plan)
 	assert(absf(from.distance_to(to) - 100.0 * Exporter.POINTS_PER_MM) < 0.001)
@@ -655,14 +624,18 @@ func test_a_known_length_still_measures_the_same_when_turned() -> void:
 ## An arrow still pointing up the page on a turned drawing would be a lie about
 ## it, so north turns with the viewport.
 func test_north_turns_with_the_viewport() -> void:
-	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), {})) \
-		.is_equal_approx(Vector2(0, 1)))
-	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"rotation_degrees": 90.0},
-	}))).is_equal_approx(Vector2(-1, 0)))
-	assert(Exporter.north_direction(Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"rotation_degrees": 180.0},
-	}))).is_equal_approx(Vector2(0, -1)))
+	assert(
+		Exporter.north_direction(Exporter.plan_sheet(_wide_document(), { })) \
+				.is_equal_approx(Vector2(0, 1))
+	)
+	assert(Exporter.north_direction(Exporter.plan_sheet(
+			_wide_document(),
+			_wide_options({ "viewport": { "rotation_degrees": 90.0 } }),
+		)).is_equal_approx(Vector2(-1, 0)))
+	assert(Exporter.north_direction(Exporter.plan_sheet(
+			_wide_document(),
+			_wide_options({ "viewport": { "rotation_degrees": 180.0 } }),
+		)).is_equal_approx(Vector2(0, -1)))
 
 
 ## The scale is chosen for what the drawing will take on the paper, which a turned
@@ -670,13 +643,9 @@ func test_north_turns_with_the_viewport() -> void:
 ## leaving the sheet to hand off the border with an overflow flag nobody asked for.
 func test_a_turned_viewport_is_given_a_scale_that_accounts_for_the_turn() -> void:
 	var document = Document.new()
-	document.add(
-		Entity.make_rectangle(Vector2(22.5, 22.5), Vector2(45, 45)), LayerSet.NEW_HARDSCAPE
-	)
-	var straight := Exporter.plan_sheet(document, {"sheet": "A3"})
-	var turned := Exporter.plan_sheet(
-		document, {"sheet": "A3", "viewport": {"rotation_degrees": 45.0}}
-	)
+	document.add(Entity.make_rectangle(Vector2(22.5, 22.5), Vector2(45, 45)), LayerSet.NEW_HARDSCAPE)
+	var straight := Exporter.plan_sheet(document, { "sheet": "A3" })
+	var turned := Exporter.plan_sheet(document, { "sheet": "A3", "viewport": { "rotation_degrees": 45.0 } })
 	# A square turned 45 degrees needs half again as much room, which is a step on
 	# the scale ladder.
 	assert(straight["scale"] < turned["scale"])
@@ -690,13 +659,15 @@ func test_a_turned_viewport_is_given_a_scale_that_accounts_for_the_turn() -> voi
 ## A drawing too big for its viewport is reported rather than silently cropped or
 ## silently re-scaled: the caller asked for that scale and that frame.
 func test_a_drawing_that_does_not_fit_its_viewport_says_so() -> void:
-	var tight := Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"origin_mm": Vector2(50, 50), "size_mm": Vector2(60, 40)},
-	}))
+	var tight := Exporter.plan_sheet(
+		_wide_document(),
+		_wide_options({ "viewport": { "origin_mm": Vector2(50, 50), "size_mm": Vector2(60, 40) } }),
+	)
 	assert(tight["overflow"])
-	var roomy := Exporter.plan_sheet(_wide_document(), _wide_options({
-		"viewport": {"origin_mm": Vector2(50, 50), "size_mm": Vector2(400, 300)},
-	}))
+	var roomy := Exporter.plan_sheet(
+		_wide_document(),
+		_wide_options({ "viewport": { "origin_mm": Vector2(50, 50), "size_mm": Vector2(400, 300) } }),
+	)
 	assert(not roomy["overflow"])
 	assert(not Exporter.plan_sheet(_wide_document(), _wide_options())["overflow"])
 
@@ -705,10 +676,8 @@ func test_a_drawing_that_does_not_fit_its_viewport_says_so() -> void:
 ## reads along the line it measures rather than across it.
 func test_a_dimension_reads_along_its_line_when_the_viewport_is_turned() -> void:
 	var document = Document.new()
-	document.add(
-		Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION
-	)
-	var options := _wide_options({"viewport": {"rotation_degrees": 90.0}})
+	document.add(Entity.make_dimension(Vector2(0, 0), Vector2(10, 0), 1.0), LayerSet.DIMENSION)
+	var options := _wide_options({ "viewport": { "rotation_degrees": 90.0 } })
 	var plan := Exporter.plan_sheet(document, options)
 	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
 	# The dimension runs up the page, so its text carries a rotation.
@@ -719,12 +688,11 @@ func test_a_dimension_reads_along_its_line_when_the_viewport_is_turned() -> void
 	var to := Exporter.model_to_paper(Vector2(10, 0), plan)
 	assert(absf(from.distance_to(to) - 100.0 * Exporter.POINTS_PER_MM) < 0.001)
 
-
 # --- a file that opens --------------------------------------------------------------
 
 
 func test_the_page_box_is_a_real_a3_sheet() -> void:
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	var at := text.find("/MediaBox [")
 	assert(at > 0)
 	var body := text.substr(at + 11, text.find("]", at) - at - 11)
@@ -740,7 +708,7 @@ func test_the_page_box_is_a_real_a3_sheet() -> void:
 ## that is one byte out gives a file some readers open and others refuse, so it
 ## is worth checking every one rather than trusting the arithmetic.
 func test_the_cross_reference_table_points_at_the_objects() -> void:
-	var text := Exporter.export_pdf(_document(), {}).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { }).get_string_from_utf8()
 	var marker := text.find("\nxref\n")
 	assert(marker > 0)
 	var xref_at := marker + 1
@@ -765,7 +733,7 @@ func test_the_cross_reference_table_points_at_the_objects() -> void:
 
 
 func test_an_empty_document_still_plots_a_sheet() -> void:
-	var bytes := Exporter.export_pdf(Document.new(), {})
+	var bytes := Exporter.export_pdf(Document.new(), { })
 	assert(bytes.size() > 400)
 	var text := bytes.get_string_from_utf8()
 	assert(text.begins_with("%PDF-1.4\n"))
@@ -777,17 +745,23 @@ func test_an_empty_document_still_plots_a_sheet() -> void:
 
 
 func test_the_border_stays_inside_the_printable_area() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	var area: Rect2 = plan["printable_pt"]
 	# The border is drawn on the drawing area, so it cannot fall off the sheet.
-	assert(text.contains("%s %s %s %s re" % [
-		String.num(area.position.x, 4), String.num(area.position.y, 4),
-		String.num(area.size.x, 4), String.num(area.size.y, 4),
-	]))
+	assert(
+		text.contains(
+			"%s %s %s %s re"
+			% [
+				String.num(area.position.x, 4),
+				String.num(area.position.y, 4),
+				String.num(area.size.x, 4),
+				String.num(area.size.y, 4),
+			]
+		)
+	)
 	assert(area.position.x > 0.0)
 	assert(area.end.x < 420.0 * Exporter.POINTS_PER_MM)
-
 
 # --- orientation and placement ------------------------------------------------------
 
@@ -795,7 +769,7 @@ func test_the_border_stays_inside_the_printable_area() -> void:
 ## Getting this backwards mirrors the whole plan while still looking like a plan,
 ## which is exactly the kind of mistake that reaches a client.
 func test_north_is_up_on_the_sheet() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "show_border": false})
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3", "show_border": false })
 	# Model y runs south, so a smaller y is further north and must sit higher.
 	var north := Exporter.model_to_paper(Vector2(0, 0), plan)
 	var south := Exporter.model_to_paper(Vector2(0, 10), plan)
@@ -808,7 +782,7 @@ func test_north_is_up_on_the_sheet() -> void:
 
 func test_the_drawing_is_centred_in_the_printable_area() -> void:
 	var document = _document()
-	var plan := Exporter.plan_sheet(document, {"sheet": "A3", "show_border": false})
+	var plan := Exporter.plan_sheet(document, { "sheet": "A3", "show_border": false })
 	var area: Rect2 = plan["printable_pt"]
 	var extent: Rect2 = plan["extent"]
 	var north_west := Exporter.model_to_paper(extent.position, plan)
@@ -818,7 +792,6 @@ func test_the_drawing_is_centred_in_the_printable_area() -> void:
 	var drawn: Vector2 = plan["drawing_pt"]
 	assert(drawn.x <= area.size.x + 0.01)
 	assert(drawn.y <= area.size.y + 0.01)
-
 
 # --- pens ---------------------------------------------------------------------------
 
@@ -832,9 +805,7 @@ func test_a_pen_decides_the_plotted_weight_and_colour() -> void:
 
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var text := Exporter.export_pdf(
-		document, {"pen_table": table, "show_border": false}
-	).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "pen_table": table, "show_border": false }).get_string_from_utf8()
 
 	# 3 mm of pen is 8.5039 points, and the pen's blue replaces the layer's red.
 	assert(text.contains("8.5039 w"))
@@ -844,7 +815,7 @@ func test_a_pen_decides_the_plotted_weight_and_colour() -> void:
 func test_without_a_pen_table_the_layer_plots_itself() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "show_border": false }).get_string_from_utf8()
 	# The preset layer weight for paving is 0.50 mm, which is 1.4173 points.
 	assert(text.contains("1.4173 w"))
 
@@ -858,7 +829,7 @@ func test_a_dashed_linetype_becomes_a_dash_array_in_points() -> void:
 	var document = Document.new()
 	document.add(entity, LayerSet.NEW_HARDSCAPE)
 
-	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "show_border": false }).get_string_from_utf8()
 	# A dash is authored in paper millimetres and a PDF dash array is in points:
 	# 6 mm and 2 mm are 17.0079 and 5.6693 points.
 	assert(text.contains("[17.0079 5.6693] 0 d"))
@@ -867,7 +838,7 @@ func test_a_dashed_linetype_becomes_a_dash_array_in_points() -> void:
 func test_a_solid_linetype_clears_the_dash_array() -> void:
 	var document = Document.new()
 	document.add(Entity.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSet.NEW_HARDSCAPE)
-	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "show_border": false }).get_string_from_utf8()
 	assert(text.contains("[] 0 d"))
 
 
@@ -885,16 +856,9 @@ func test_a_dimension_plots_continuous_whatever_pen_its_layer_resolves_to() -> v
 	# entity sheets rather than one, because one stream with two dashed-or-not paths is
 	# a test that guesses which path is which.
 	var setback := Document.new()
-	setback.add(
-		Entity.make_line(Vector2(3, 0), Vector2(3, 12)), LayerSet.SETBACK_EASEMENT
-	)
-	var setback_text := Exporter.export_pdf(
-		setback, {"show_border": false, "pen_table": pen_table}
-	).get_string_from_utf8()
-	assert(
-		setback_text.contains("[17.0079 5.6693] 0 d"),
-		"a setback line is exactly what the dashed pen is for"
-	)
+	setback.add(Entity.make_line(Vector2(3, 0), Vector2(3, 12)), LayerSet.SETBACK_EASEMENT)
+	var setback_text := Exporter.export_pdf(setback, { "show_border": false, "pen_table": pen_table }).get_string_from_utf8()
+	assert(setback_text.contains("[17.0079 5.6693] 0 d"), "a setback line is exactly what the dashed pen is for")
 
 	# A dimension's own linework — its line, its extension lines and its leader — is
 	# *generated* geometry rather than something a person drew, and a dashed dimension
@@ -903,13 +867,8 @@ func test_a_dimension_plots_continuous_whatever_pen_its_layer_resolves_to() -> v
 	assert(entity.style == null, "the test must not be an entity override")
 	var dimensions := Document.new()
 	dimensions.add(entity, LayerSet.DIMENSION)
-	var text := Exporter.export_pdf(
-		dimensions, {"show_border": false, "pen_table": pen_table}
-	).get_string_from_utf8()
-	assert(
-		not text.contains("[17.0079"),
-		"a dimension is still plotting with the dashed pen"
-	)
+	var text := Exporter.export_pdf(dimensions, { "show_border": false, "pen_table": pen_table }).get_string_from_utf8()
+	assert(not text.contains("[17.0079"), "a dimension is still plotting with the dashed pen")
 
 
 func test_the_screen_draws_a_dimension_continuous_too() -> void:
@@ -931,7 +890,6 @@ func test_the_screen_draws_a_dimension_continuous_too() -> void:
 	var line_layout: Dictionary = Render.layout(line, layer, 100.0)
 	assert((line_layout["style"] as LineStyle).linetype == &"dashed")
 
-
 # --- the sample sheets -----------------------------------------------------------------
 
 
@@ -944,9 +902,18 @@ func test_the_sample_sheets_say_what_they_are_supposed_to() -> void:
 	var plan = SampleSheets.make_document()
 	var a3 := Exporter.export_pdf(plan, SampleSheets.sheet_options()).get_string_from_utf8()
 	for phrase in [
-		"20.00 m", "12.00 m", "6.00 m", "4.72 m", "R1.50 m",
-		"PATIO \\(NEW\\)", "1:100", "A3", "Riverbend Residence",
-		"Planting & Hardscape Plan", "020-SETBACK-EASE", "710-TEXT",
+		"20.00 m",
+		"12.00 m",
+		"6.00 m",
+		"4.72 m",
+		"R1.50 m",
+		"PATIO \\(NEW\\)",
+		"1:100",
+		"A3",
+		"Riverbend Residence",
+		"Planting & Hardscape Plan",
+		"020-SETBACK-EASE",
+		"710-TEXT",
 	]:
 		assert(a3.contains(phrase), "the sample sheet does not say %s" % phrase)
 	# The turned sheet is the same design on a bigger page, so the pair covers the
@@ -974,11 +941,9 @@ func test_the_sample_sheet_keeps_the_dashed_pen_and_loses_it_on_dimensions() -> 
 	# mean a dimension had gone back to plotting dashed.
 	assert(
 		text.count("[17.0079 5.6693] 0 d") == 3,
-		"expected the setback line and two key samples to be dashed, got %d"
-		% text.count("[17.0079 5.6693] 0 d")
+		"expected the setback line and two key samples to be dashed, got %d" % text.count("[17.0079 5.6693] 0 d"),
 	)
 	assert(pen_table.enabled)
-
 
 # --- curves and text -----------------------------------------------------------------
 
@@ -988,7 +953,7 @@ func test_the_sample_sheet_keeps_the_dashed_pen_and_loses_it_on_dimensions() -> 
 func test_a_circle_plots_as_four_real_arcs() -> void:
 	var document = Document.new()
 	document.add(Entity.make_circle(Vector2(0, 0), 5.0), LayerSet.NEW_PLANTING)
-	var options := {"show_border": false}
+	var options := { "show_border": false }
 	var text := Exporter.export_pdf(document, options).get_string_from_utf8()
 
 	assert(text.count(" c\n") == 4)
@@ -1009,7 +974,7 @@ func test_a_circle_plots_as_four_real_arcs() -> void:
 func test_an_arc_plots_only_its_sweep() -> void:
 	var document = Document.new()
 	document.add(Entity.make_arc(Vector2.ZERO, 5.0, 0.0, PI * 0.5), LayerSet.NEW_PLANTING)
-	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "show_border": false }).get_string_from_utf8()
 	# A quarter turn is one cubic, and it must not close the gap back to the start.
 	assert(text.count(" c\n") == 1)
 	assert(not text.contains("h\n"))
@@ -1018,18 +983,15 @@ func test_an_arc_plots_only_its_sweep() -> void:
 func test_a_text_entity_plots_its_label_escaped() -> void:
 	var document = Document.new()
 	document.add(Entity.make_text(Vector2(0, 0), "Patio (new)"), LayerSet.TEXT)
-	var text := Exporter.export_pdf(document, {"show_border": false}).get_string_from_utf8()
+	var text := Exporter.export_pdf(document, { "show_border": false }).get_string_from_utf8()
 	# The parentheses have to be escaped, or the string ends early and the whole
 	# file becomes unreadable.
 	assert(text.contains("(Patio \\(new\\)) Tj"))
 
 
 func test_the_title_reaches_the_sheet() -> void:
-	var text := Exporter.export_pdf(
-		_document(), {"title": "Backyard Design"}
-	).get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "title": "Backyard Design" }).get_string_from_utf8()
 	assert(text.contains("Backyard Design"))
-
 
 # --- the planting schedule ----------------------------------------------------------
 
@@ -1039,19 +1001,34 @@ func test_the_title_reaches_the_sheet() -> void:
 func _schedule() -> Array:
 	return [
 		{
-			"id": &"buxus-sempervirens", "count": 12,
-			"botanical_name": "Buxus sempervirens", "common_name": "Common boxwood",
-			"cultivar": "", "category_name": "Shrub", "spread_cm": 90, "height_cm": 120,
+			"id": &"buxus-sempervirens",
+			"count": 12,
+			"botanical_name": "Buxus sempervirens",
+			"common_name": "Common boxwood",
+			"cultivar": "",
+			"category_name": "Shrub",
+			"spread_cm": 90,
+			"height_cm": 120,
 		},
 		{
-			"id": &"acer-rubrum-autumn-blaze", "count": 3,
-			"botanical_name": "Acer rubrum", "common_name": "Red maple",
-			"cultivar": "Autumn Blaze", "category_name": "Tree", "spread_cm": 900,
+			"id": &"acer-rubrum-autumn-blaze",
+			"count": 3,
+			"botanical_name": "Acer rubrum",
+			"common_name": "Red maple",
+			"cultivar": "Autumn Blaze",
+			"category_name": "Tree",
+			"spread_cm": 900,
 			"height_cm": 1500,
 		},
 		{
-			"id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "",
-			"cultivar": "", "category_name": "", "spread_cm": 0, "height_cm": 0,
+			"id": &"",
+			"count": 30,
+			"botanical_name": "no species recorded",
+			"common_name": "",
+			"cultivar": "",
+			"category_name": "",
+			"spread_cm": 0,
+			"height_cm": 0,
 		},
 	]
 
@@ -1059,16 +1036,20 @@ func _schedule() -> Array:
 func _many_species(count: int) -> Array:
 	var rows: Array = []
 	for index in count:
-		rows.append({
-			"id": StringName("species-%03d" % index), "count": index + 1,
-			"botanical_name": "Botanica %03d" % index, "common_name": "Common %03d" % index,
-			"cultivar": "",
-		})
+		rows.append(
+			{
+				"id": StringName("species-%03d" % index),
+				"count": index + 1,
+				"botanical_name": "Botanica %03d" % index,
+				"common_name": "Common %03d" % index,
+				"cultivar": "",
+			}
+		)
 	return rows
 
 
 func test_the_schedule_lists_the_plants_and_how_many_of_each() -> void:
-	var options := {"sheet": "A3", "schedule": _schedule()}
+	var options := { "sheet": "A3", "schedule": _schedule() }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert(text.contains("(PLANTING SCHEDULE) Tj"))
@@ -1082,27 +1063,26 @@ func test_the_schedule_lists_the_plants_and_how_many_of_each() -> void:
 
 ## The one line a planting schedule must not hide: the standing plants the catalogue cannot name.
 func test_a_plant_the_catalogue_cannot_name_is_named_rather_than_dropped() -> void:
-	var options := {"sheet": "A3", "schedule": _schedule()}
+	var options := { "sheet": "A3", "schedule": _schedule() }
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert(text.contains("(no species recorded) Tj"))
 	assert(text.contains("(30) Tj"))
 
 
 func test_without_a_schedule_the_sheet_has_none() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	assert(not text.contains("PLANTING SCHEDULE"))
 	assert((plan["schedule_pt"] as Rect2).size == Vector2.ZERO)
 	assert((plan["schedule"] as Array).is_empty())
 
 
 func test_a_schedule_needs_the_border_it_sits_in() -> void:
-	var options := {"show_border": false, "schedule": _schedule()}
+	var options := { "show_border": false, "schedule": _schedule() }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert((plan["schedule_pt"] as Rect2).size == Vector2.ZERO)
 	assert(not text.contains("PLANTING SCHEDULE"))
-
 
 # --- the irrigation schedule ----------------------------------------------------------
 
@@ -1111,14 +1091,28 @@ func test_a_schedule_needs_the_border_it_sits_in() -> void:
 func _zones() -> Array:
 	return [
 		{
-			"number": 1, "label": "Zone 1", "valve": 1, "kind": Irrigation.SPRAY,
-			"kind_name": Irrigation.kind_name(Irrigation.SPRAY), "heads": 25, "flow": 225.0,
-			"area_m2": 324.0, "precipitation": 41.7, "verdict": "will run",
+			"number": 1,
+			"label": "Zone 1",
+			"valve": 1,
+			"kind": Irrigation.SPRAY,
+			"kind_name": Irrigation.kind_name(Irrigation.SPRAY),
+			"heads": 25,
+			"flow": 225.0,
+			"area_m2": 324.0,
+			"precipitation": 41.7,
+			"verdict": "will run",
 		},
 		{
-			"number": 2, "label": "Zone 2", "valve": 2, "kind": Irrigation.ROTOR,
-			"kind_name": Irrigation.kind_name(Irrigation.ROTOR), "heads": 6, "flow": 78.0,
-			"area_m2": 210.0, "precipitation": 22.3, "verdict": "will run",
+			"number": 2,
+			"label": "Zone 2",
+			"valve": 2,
+			"kind": Irrigation.ROTOR,
+			"kind_name": Irrigation.kind_name(Irrigation.ROTOR),
+			"heads": 6,
+			"flow": 78.0,
+			"area_m2": 210.0,
+			"precipitation": 22.3,
+			"verdict": "will run",
 		},
 	]
 
@@ -1127,7 +1121,7 @@ func _zones() -> Array:
 ## another in the panel. The second assertion is the one that matters: it is a *number* rather than
 ## the same function quoted back.
 func test_the_irrigation_schedule_lists_the_zones_and_what_they_draw() -> void:
-	var options := {"sheet": "A3", "irrigation": _zones()}
+	var options := { "sheet": "A3", "irrigation": _zones() }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert(text.contains("(IRRIGATION SCHEDULE) Tj"))
@@ -1140,15 +1134,15 @@ func test_the_irrigation_schedule_lists_the_zones_and_what_they_draw() -> void:
 
 
 func test_without_zones_the_sheet_has_no_irrigation_table() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3"})
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	assert(not text.contains("IRRIGATION SCHEDULE"))
 	assert((plan["irrigation_pt"] as Rect2).size == Vector2.ZERO)
 	assert((plan["irrigation"] as Array).is_empty())
 
 
 func test_an_irrigation_schedule_needs_the_border_it_sits_in() -> void:
-	var options := {"show_border": false, "irrigation": _zones()}
+	var options := { "show_border": false, "irrigation": _zones() }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var text := Exporter.export_pdf(_document(), options).get_string_from_utf8()
 	assert((plan["irrigation_pt"] as Rect2).size == Vector2.ZERO)
@@ -1159,35 +1153,47 @@ func test_an_irrigation_schedule_needs_the_border_it_sits_in() -> void:
 ## sheet: the irrigation table sits directly above the planting one, they share the right edge, and
 ## neither runs into the other.
 func test_the_two_schedules_share_one_column_and_stack() -> void:
-	var options := {"sheet": "A3", "schedule": _schedule(), "irrigation": _zones()}
+	var options := { "sheet": "A3", "schedule": _schedule(), "irrigation": _zones() }
 	var plan := Exporter.plan_sheet(_document(), options)
 	var zones: Rect2 = plan["irrigation_pt"]
 	var plants: Rect2 = plan["schedule_pt"]
 	assert(zones.size.x > 0.0 and plants.size.x > 0.0, "both tables are on the sheet")
 	assert(is_equal_approx(zones.end.x, plants.end.x), "sharing the column's right edge")
-	assert(zones.position.y >= plants.end.y - 0.01,
-		"the irrigation table sits above the planting one: %f vs %f" % [zones.position.y, plants.end.y])
+	assert(
+		zones.position.y >= plants.end.y - 0.01,
+		"the irrigation table sits above the planting one: %f vs %f" % [zones.position.y, plants.end.y],
+	)
 	assert(zones.end.y > plants.end.y, "and it is the higher of the two on the page")
 
 
 ## One right-hand column, as wide as the wider of the two tables: reserving both widths would take
 ## the drawing's room away twice for furniture that only ever goes in one place.
 func test_the_column_is_as_wide_as_the_wider_of_the_two_tables() -> void:
-	var bare: float = (Exporter.plan_sheet(_document(), {"sheet": "A3"})["content_pt"] as Rect2).size.x
-	var plants: float = (Exporter.plan_sheet(
-		_document(), {"sheet": "A3", "schedule": _schedule()}
-	)["content_pt"] as Rect2).size.x
-	var both: float = (Exporter.plan_sheet(
-		_document(), {"sheet": "A3", "schedule": _schedule(), "irrigation": _zones()}
-	)["content_pt"] as Rect2).size.x
+	# Each sheet is asked for in a statement of its own, and the room it leaves is read from the answer.
+	# As one expression per line each of these is past 120 characters, and the formatter can only wrap what
+	# is not inside brackets with `\` continuations - which splits `.size` from `.x` here, a transformation
+	# its own structure check refuses, so the file could never be formatted at all until this was split.
+	var bare_sheet: Dictionary = Exporter.plan_sheet(_document(), { "sheet": "A3" })
+	var bare: float = (bare_sheet["content_pt"] as Rect2).size.x
+	var plants_sheet: Dictionary = Exporter.plan_sheet(_document(), { "sheet": "A3", "schedule": _schedule() })
+	var plants: float = (plants_sheet["content_pt"] as Rect2).size.x
+	var both_sheet: Dictionary = Exporter.plan_sheet(
+		_document(),
+		{ "sheet": "A3", "schedule": _schedule(), "irrigation": _zones() },
+	)
+	var both: float = (both_sheet["content_pt"] as Rect2).size.x
 	# The irrigation table is the wider of the two (104 mm against the planting schedule's 92), so
 	# the column is 104 mm whether or not the planting schedule is also there.
 	assert(both < plants, "the irrigation column is wider than the planting one")
-	var with_zones: float = (Exporter.plan_sheet(
-		_document(), {"sheet": "A3", "irrigation": _zones()}
-	)["content_pt"] as Rect2).size.x
-	assert(is_equal_approx(both, with_zones),
-		"adding the narrow table to the wide one costs no more room: %f vs %f" % [both, with_zones])
+	# The sheet is asked for in its own statement rather than in one long expression: past 120 characters
+	# the formatter can only wrap what is not inside brackets with `\` continuations, and here that split
+	# `.size` from `.x` - a transformation its own structure check refuses.
+	var zones_sheet: Dictionary = Exporter.plan_sheet(_document(), { "sheet": "A3", "irrigation": _zones() })
+	var with_zones: float = (zones_sheet["content_pt"] as Rect2).size.x
+	assert(
+		is_equal_approx(both, with_zones),
+		"adding the narrow table to the wide one costs no more room: %f vs %f" % [both, with_zones],
+	)
 	assert(bare > plants)
 
 
@@ -1200,15 +1206,14 @@ func test_a_zone_the_column_cannot_hold_is_counted() -> void:
 	var tight: float = Exporter.SCHEDULE_HEADER_MM + Exporter.SCHEDULE_PAD_MM + Exporter.SCHEDULE_ROW_MM
 	var kept: Array = Exporter.fit_irrigation(rows, tight)
 	assert(kept.size() == 1, "room for one row: %d" % kept.size())
-	assert(String(kept[0].get("words", "")).contains("not shown"),
-		"and it says what it left out: %s" % str(kept[0]))
+	assert(String(kept[0].get("words", "")).contains("not shown"), "and it says what it left out: %s" % str(kept[0]))
 	assert(Exporter.fit_irrigation(rows, 0.0).is_empty(), "no room at all is no table")
 
 
 ## The schedule mirrors the key: against the right edge of the border, hanging from the top edge and
 ## growing downwards only, so it can never reach the title block however long the planting list is.
 func test_the_schedule_sits_against_the_right_edge_out_of_the_title_block() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "schedule": _schedule()})
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3", "schedule": _schedule() })
 	var area: Rect2 = plan["printable_pt"]
 	var rect: Rect2 = plan["schedule_pt"]
 	assert(is_equal_approx(rect.end.x, area.end.x))
@@ -1221,14 +1226,10 @@ func test_the_schedule_sits_against_the_right_edge_out_of_the_title_block() -> v
 ## a centre that ignored them would put the drawing under them.
 func test_the_schedule_and_the_key_claim_a_column_each() -> void:
 	var document = _document()
-	var bare: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3"})["content_pt"]
-	var keyed: Rect2 = Exporter.plan_sheet(document, {"sheet": "A3", "legend": true})["content_pt"]
-	var scheduled: Rect2 = Exporter.plan_sheet(
-		document, {"sheet": "A3", "schedule": _schedule()}
-	)["content_pt"]
-	var both := Exporter.plan_sheet(
-		document, {"sheet": "A3", "legend": true, "schedule": _schedule()}
-	)
+	var bare: Rect2 = Exporter.plan_sheet(document, { "sheet": "A3" })["content_pt"]
+	var keyed: Rect2 = Exporter.plan_sheet(document, { "sheet": "A3", "legend": true })["content_pt"]
+	var scheduled: Rect2 = Exporter.plan_sheet(document, { "sheet": "A3", "schedule": _schedule() })["content_pt"]
+	var both := Exporter.plan_sheet(document, { "sheet": "A3", "legend": true, "schedule": _schedule() })
 	assert(scheduled.size.x < bare.size.x)
 	assert((both["content_pt"] as Rect2).size.x < keyed.size.x)
 	assert((both["content_pt"] as Rect2).size.x < scheduled.size.x)
@@ -1240,9 +1241,7 @@ func test_the_schedule_and_the_key_claim_a_column_each() -> void:
 ## else is cut, and what was left out is counted rather than silently dropped.
 func test_a_schedule_too_long_for_the_sheet_is_cut_and_says_how_much() -> void:
 	var rows := _many_species(200)
-	rows.append({
-		"id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "",
-	})
+	rows.append({ "id": &"", "count": 30, "botanical_name": "no species recorded", "common_name": "" })
 	var fitted := Exporter.fit_schedule(rows, 100.0)
 	assert(fitted.size() < rows.size(), "the column cuts the list")
 	# room = floor((100 - 8 - 2) / 4.6) = 19; one line is the unnamed plants and one says what the
@@ -1255,50 +1254,51 @@ func test_a_schedule_too_long_for_the_sheet_is_cut_and_says_how_much() -> void:
 	for row: Dictionary in fitted:
 		assert(
 			not StringName(row.get("id", &"")).is_empty() or String(row.get("name", "")).contains("not shown") \
-				or String(row["botanical_name"]) == "no species recorded",
-			"the lines that are not a species are the only ones without an id"
+					or String(row["botanical_name"]) == "no species recorded",
+			"the lines that are not a species are the only ones without an id",
 		)
 
 
 func test_a_schedule_that_fits_is_left_alone() -> void:
 	var rows := _schedule()
 	assert(Exporter.fit_schedule(rows, 200.0) == rows)
-	assert(
-		Exporter.fit_schedule(rows, 1.0).is_empty(),
-		"a column with no room for a table gets no table"
-	)
+	assert(Exporter.fit_schedule(rows, 1.0).is_empty(), "a column with no room for a table gets no table")
 
 
 func test_a_name_too_long_for_the_column_is_shortened_rather_than_run_on() -> void:
-	var rows: Array = [{
-		"id": &"long-name", "count": 1,
-		"botanical_name": "Chamaecyparis lawsoniana 'Columnaris Glauca Variegata Elegantissima'",
-		"common_name": "Lawson cypress under a name no column could carry", "cultivar": "",
-	}]
-	var text := Exporter.export_pdf(
-		_document(), {"sheet": "A3", "schedule": rows}
-	).get_string_from_utf8()
+	var rows: Array = [
+		{
+			"id": &"long-name",
+			"count": 1,
+			"botanical_name": "Chamaecyparis lawsoniana 'Columnaris Glauca Variegata Elegantissima'",
+			"common_name": "Lawson cypress under a name no column could carry",
+			"cultivar": "",
+		}
+	]
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3", "schedule": rows }).get_string_from_utf8()
 	assert(text.contains("...) Tj"), "the name ends in dots")
-	assert(
-		not text.contains("no column could carry"),
-		"the whole name is not printed over the border"
-	)
+	assert(not text.contains("no column could carry"), "the whole name is not printed over the border")
 	assert(text.contains("(1) Tj"), "the count is still there")
 
 
 ## The schedule names a plant the way the library does, so the sheet and the browser cannot
 ## disagree about what a plant is called.
 func test_a_schedule_row_reads_the_way_the_library_writes_it() -> void:
-	assert(Exporter.schedule_row_text({
-		"botanical_name": "Acer rubrum", "cultivar": "Autumn Blaze", "common_name": "Red maple",
-	}) == "Acer rubrum 'Autumn Blaze' - Red maple")
-	assert(Exporter.schedule_row_text({
-		"botanical_name": "Thymus serpyllum", "cultivar": "", "common_name": "",
-	}) == "Thymus serpyllum")
-	assert(Exporter.schedule_row_text({
-		"botanical_name": "no species recorded", "cultivar": "", "common_name": "",
-	}) == "no species recorded")
-	assert(Exporter.schedule_row_text({"name": "183 species not shown"}) == "183 species not shown")
+	assert(
+		Exporter.schedule_row_text(
+			{ "botanical_name": "Acer rubrum", "cultivar": "Autumn Blaze", "common_name": "Red maple" }
+		)
+		== "Acer rubrum 'Autumn Blaze' - Red maple"
+	)
+	assert(
+		Exporter.schedule_row_text({ "botanical_name": "Thymus serpyllum", "cultivar": "", "common_name": "" })
+		== "Thymus serpyllum"
+	)
+	assert(
+		Exporter.schedule_row_text({ "botanical_name": "no species recorded", "cultivar": "", "common_name": "" })
+		== "no species recorded"
+	)
+	assert(Exporter.schedule_row_text({ "name": "183 species not shown" }) == "183 species not shown")
 
 # --- the paper a sheet of a set is printed on -------------------------------------------
 
@@ -1307,35 +1307,33 @@ func test_a_schedule_row_reads_the_way_the_library_writes_it() -> void:
 ## box, the border and the frame are all derived from one size, so if the box is portrait and the
 ## border is not, the drawing hangs off the paper.
 func test_a_portrait_sheet_is_the_same_paper_turned() -> void:
-	var plan := Exporter.plan_sheet(_document(), {"sheet": "A3", "portrait": true})
+	var plan := Exporter.plan_sheet(_document(), { "sheet": "A3", "portrait": true })
 	var size: Vector2 = plan["sheet_mm"]
 	assert(size == Vector2(297.0, 420.0), str(size))
 	assert(bool(plan["portrait"]))
 	var border: Rect2 = plan["printable_pt"]
 	assert(border.size.y > border.size.x, "the border is portrait with it")
-	var text := Exporter.export_pdf(_document(), {"sheet": "A3", "portrait": true}) 		.get_string_from_utf8()
+	var text := Exporter.export_pdf(_document(), { "sheet": "A3", "portrait": true }).get_string_from_utf8()
 	# The page box is the first thing a reader looks at: it is written as the four numbers of the
 	# `/MediaBox`, and the third and fourth of them are the width and the height.
 	var box: PackedStringArray = text.split("MediaBox")
 	assert(box.size() > 1, "a page box is written")
 	var numbers: PackedStringArray = String(box[1]) \
-		.replace("[", " ").replace("]", " ").split(" ", false)
+			.replace("[", " ").replace("]", " ").split(" ", false)
 	assert(numbers.size() >= 4, String(box[1]).substr(0, 40))
 	assert(
 		is_equal_approx(float(numbers[2]), float(numbers[3]) * 297.0 / 420.0),
-		"the page is taller than it is wide: %s" % str(numbers)
+		"the page is taller than it is wide: %s" % str(numbers),
 	)
 
 
 ## A sheet of a set is identified by its drawing number, not by its paper: two sheets of one set on the
 ## same size sheet are still two sheets.
 func test_the_title_block_names_the_sheet_by_its_drawing_number() -> void:
-	var numbered := Exporter.export_pdf(
-		_document(), {"sheet": "A3", "number": "L1.2", "revision": "C"}
-	).get_string_from_utf8()
+	var numbered := Exporter.export_pdf(_document(), { "sheet": "A3", "number": "L1.2", "revision": "C" }).get_string_from_utf8()
 	assert(numbered.contains("(L1.2) Tj"), "the sheet cell carries the drawing number")
 	assert(numbered.contains("(C) Tj"), "and the revision cell its revision")
 	# With no number, the paper size stands in, which is the sheet this app plotted before sets existed.
-	var plain := Exporter.export_pdf(_document(), {"sheet": "A3"}).get_string_from_utf8()
+	var plain := Exporter.export_pdf(_document(), { "sheet": "A3" }).get_string_from_utf8()
 	assert(plain.contains("(A3) Tj"), "a drawing with no number is identified by its paper")
 	assert(plain.contains("(-) Tj"), "and an unstated revision reads as a dash")

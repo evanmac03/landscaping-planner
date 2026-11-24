@@ -1,0 +1,355 @@
+{
+	"note": "The desk's layout, measured by tests/test_desk_layout.gd. Re-record it with tools/record_desk_layout.gd, and read the diff that leaves.",
+	"pages": {
+		"analytics_window": {
+			"children": 8,
+			"declared": [
+				1180.0,
+				850.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 1100.0
+		},
+		"billing_window": {
+			"children": 19,
+			"declared": [
+				1180.0,
+				850.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 774.0
+		},
+		"camera_window": {
+			"children": 6,
+			"declared": [
+				880.0,
+				720.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 336.0
+		},
+		"closeout_window": {
+			"children": 13,
+			"declared": [
+				1180.0,
+				780.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 1108.0
+		},
+		"command_palette": {
+			"children": 4,
+			"declared": [
+				640.0,
+				480.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 155.0
+		},
+		"estimate_window": {
+			"children": 5,
+			"declared": [
+				900.0,
+				700.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 617.0
+		},
+		"field_window": {
+			"children": 27,
+			"declared": [
+				760.0,
+				780.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 354.0
+		},
+		"food_window": {
+			"children": 14,
+			"declared": [
+				940.0,
+				720.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 486.0
+		},
+		"grading_window": {
+			"children": 11,
+			"declared": [
+				880.0,
+				720.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 421.0
+		},
+		"ground_window": {
+			"children": 13,
+			"declared": [
+				760.0,
+				850.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 435.0
+		},
+		"harvest_window": {
+			"children": 11,
+			"declared": [
+				940.0,
+				690.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 377.0
+		},
+		"help_window": {
+			"children": 4,
+			"declared": [
+				960.0,
+				720.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 492.0
+		},
+		"job_cost_window": {
+			"children": 15,
+			"declared": [
+				1210.0,
+				760.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 1205.0
+		},
+		"layer_window": {
+			"children": 5,
+			"declared": [
+				720.0,
+				640.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 163.0
+		},
+		"ledger_window": {
+			"children": 13,
+			"declared": [
+				1180.0,
+				850.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 507.0
+		},
+		"nearby_window": {
+			"children": 8,
+			"declared": [
+				560.0,
+				620.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 183.0
+		},
+		"osm_window": {
+			"children": 6,
+			"declared": [
+				780.0,
+				620.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 645.0
+		},
+		"pipeline_board": {
+			"children": 4,
+			"declared": [
+				1120.0,
+				700.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 478.0
+		},
+		"plant_key_window": {
+			"children": 16,
+			"declared": [
+				720.0,
+				560.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 477.0
+		},
+		"plant_order_window": {
+			"children": 10,
+			"declared": [
+				1080.0,
+				780.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 889.0
+		},
+		"revision_window": {
+			"children": 4,
+			"declared": [
+				780.0,
+				560.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 610.0
+		},
+		"rotation_window": {
+			"children": 16,
+			"declared": [
+				940.0,
+				800.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 490.0
+		},
+		"schedule_board": {
+			"children": 7,
+			"declared": [
+				1120.0,
+				700.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 1031.0
+		},
+		"season_window": {
+			"children": 12,
+			"declared": [
+				880.0,
+				640.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 328.0
+		},
+		"sheet_window": {
+			"children": 5,
+			"declared": [
+				780.0,
+				640.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 716.0
+		},
+		"snap_window": {
+			"children": 18,
+			"declared": [
+				560.0,
+				600.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 355.0
+		},
+		"sowing_window": {
+			"children": 16,
+			"declared": [
+				940.0,
+				750.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 476.0
+		},
+		"start_drawing_window": {
+			"children": 12,
+			"declared": [
+				540.0,
+				560.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 166.0
+		},
+		"start_window": {
+			"children": 8,
+			"declared": [
+				520.0,
+				540.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 154.0
+		},
+		"status_window": {
+			"children": 7,
+			"declared": [
+				820.0,
+				560.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 195.0
+		},
+		"sun_window": {
+			"children": 15,
+			"declared": [
+				1020.0,
+				820.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 712.0
+		},
+		"sync_window": {
+			"children": 13,
+			"declared": [
+				1000.0,
+				780.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 368.0
+		},
+		"underlay_window": {
+			"children": 8,
+			"declared": [
+				760.0,
+				660.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 538.0
+		},
+		"walk_window": {
+			"children": 5,
+			"declared": [
+				780.0,
+				620.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 275.0
+		},
+		"yield_window": {
+			"children": 11,
+			"declared": [
+				920.0,
+				700.0
+			],
+			"read": true,
+			"scrolls": false,
+			"wanted_width": 309.0
+		}
+	}
+}

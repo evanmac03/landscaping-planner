@@ -28,9 +28,7 @@ func _draw_ring(controller, corners: Array) -> Dictionary:
 
 
 func _square(size: float = 10.0) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size)])
-
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size)])
 
 # --- drawing one ----------------------------------------------------------------------
 
@@ -71,8 +69,7 @@ func test_a_ground_zone_is_one_undo_step() -> void:
 func test_two_hand_zones_are_numbered_apart() -> void:
 	var controller = _controller()
 	controller.state_ground_zone(_square(10.0))
-	controller.state_ground_zone(PackedVector2Array([
-		Vector2(20, 20), Vector2(30, 20), Vector2(30, 30)]))
+	controller.state_ground_zone(PackedVector2Array([Vector2(20, 20), Vector2(30, 20), Vector2(30, 30)]))
 	assert(controller.document.environment.zone_count() == 2)
 	assert(controller.document.environment.zones[1].source == "by hand:zone#2")
 	controller.free()
@@ -93,14 +90,12 @@ func test_the_status_line_says_a_zone_was_stated() -> void:
 	assert(String(stated["message"]).contains("ground zone 1"))
 	controller.free()
 
-
 # --- refusing, and putting it away ----------------------------------------------------
 
 
 func test_a_ring_that_encloses_nothing_is_refused() -> void:
 	var controller = _controller()
-	var refused: Dictionary = controller.state_ground_zone(
-		PackedVector2Array([Vector2(0, 0), Vector2(1, 1)]))
+	var refused: Dictionary = controller.state_ground_zone(PackedVector2Array([Vector2(0, 0), Vector2(1, 1)]))
 	assert(not bool(refused["ok"]))
 	assert(String(refused["reason"]).contains("enclose"))
 	assert(controller.document.environment.zone_count() == 0)

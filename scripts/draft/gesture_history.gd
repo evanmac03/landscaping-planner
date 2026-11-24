@@ -86,7 +86,7 @@ func push(snapshot: Dictionary, label: String = "") -> int:
 ## is that gesture happening again.
 func undo(current: Dictionary) -> Dictionary:
 	if _past.is_empty():
-		return {}
+		return { }
 	var entry: Dictionary = _past.pop_back()
 	_future.append(_gesture(int(entry["serial"]), current, String(entry["label"])))
 	return entry["state"]
@@ -95,7 +95,7 @@ func undo(current: Dictionary) -> Dictionary:
 ## Returns the snapshot to restore, or an empty dictionary.
 func redo(current: Dictionary) -> Dictionary:
 	if _future.is_empty():
-		return {}
+		return { }
 	var entry: Dictionary = _future.pop_back()
 	_past.append(_gesture(int(entry["serial"]), current, String(entry["label"])))
 	return entry["state"]
@@ -105,11 +105,7 @@ func redo(current: Dictionary) -> Dictionary:
 ## here, so a label can never be missing from one of them and present in another.
 static func _gesture(number: int, snapshot: Dictionary, label: String) -> Dictionary:
 	var words := label.strip_edges()
-	return {
-		"serial": number,
-		"label": words if not words.is_empty() else UNNAMED,
-		"state": snapshot,
-	}
+	return { "serial": number, "label": words if not words.is_empty() else UNNAMED, "state": snapshot }
 
 
 ## What undo would put back, in words - "drawing a line" for a gesture that drew one. Empty when there is

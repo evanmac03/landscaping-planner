@@ -39,8 +39,13 @@ static func render_size_for(output_size: Vector2i) -> Vector2i:
 static func timestamp_name(base: String) -> String:
 	var now: Dictionary = Time.get_datetime_dict_from_system()
 	return "%s-%04d%02d%02d-%02d%02d%02d" % [
-		base, int(now["year"]), int(now["month"]), int(now["day"]),
-		int(now["hour"]), int(now["minute"]), int(now["second"]),
+		base,
+		int(now["year"]),
+		int(now["month"]),
+		int(now["day"]),
+		int(now["hour"]),
+		int(now["minute"]),
+		int(now["second"]),
 	]
 
 
@@ -65,9 +70,9 @@ func render_still(
 	render_nodes: Array[Node],
 	output_size: Vector2i,
 	file_name: String,
-	sidecar: Dictionary = {},
+	sidecar: Dictionary = { },
 	flatten: bool = false,
-	paper: Color = Color(0.945, 0.937, 0.906)
+	paper: Color = Color(0.945, 0.937, 0.906),
 ) -> String:
 	if render_nodes.is_empty():
 		push_error("StillExporter: there is nothing to render.")
@@ -107,9 +112,7 @@ func render_still(
 	# whole point: it must stay pointing at the garden while it changes parent.
 	var homes: Array[Dictionary] = []
 	for node in render_nodes:
-		homes.append({
-			"node": node, "parent": node.get_parent(), "index": node.get_index(),
-		})
+		homes.append({ "node": node, "parent": node.get_parent(), "index": node.get_index() })
 		node.reparent(viewport, true)
 
 	# Two frames. The first draws; the second redraws once the shadow atlas, the viewport

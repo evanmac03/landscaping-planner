@@ -43,13 +43,11 @@ var password: String = ""
 var company: String = ""
 
 
-func _init(base_url: String = "", user_email: String = "", user_password: String = "",
-		company_id: String = "") -> void:
+func _init(base_url: String = "", user_email: String = "", user_password: String = "", company_id: String = "") -> void:
 	url = base_url
 	email = user_email
 	password = user_password
 	company = company_id
-
 
 # --- what this backend is -----------------------------------------------------------------------
 
@@ -66,10 +64,10 @@ func describe() -> String:
 
 func settings() -> Array[Dictionary]:
 	return [
-		{"key": "url", "name": "Address", "secret": false},
-		{"key": "email", "name": "Email", "secret": false},
-		{"key": "password", "name": "Password", "secret": true},
-		{"key": "company", "name": "Company id", "secret": false},
+		{ "key": "url", "name": "Address", "secret": false },
+		{ "key": "email", "name": "Email", "secret": false },
+		{ "key": "password", "name": "Password", "secret": true },
+		{ "key": "company", "name": "Company id", "secret": false },
 	]
 
 
@@ -134,12 +132,11 @@ func secret_headers() -> Array[String]:
 
 func authorise(request: Dictionary) -> Dictionary:
 	var ready: Dictionary = request.duplicate(true)
-	var headers_in: Variant = ready.get("headers", {})
-	var sent: Dictionary = headers_in if headers_in is Dictionary else {}
+	var headers_in: Variant = ready.get("headers", { })
+	var sent: Dictionary = headers_in if headers_in is Dictionary else { }
 	sent[AUTH_HEADER] = BASIC_PREFIX + Marshalls.utf8_to_base64("%s:%s" % [email, password])
 	ready["headers"] = sent
 	return ready
-
 
 # --- building a push (pure) ---------------------------------------------------------------------
 
@@ -160,22 +157,27 @@ func invoice_request(invoice: Invoice, idempotency_key: String) -> Dictionary:
 		"invoiced_at": datetime_of(String(document.get("issued_at", ""))),
 		"due_at": datetime_of(String(document.get("due_at", ""))),
 		"invoice_number": String(document.get("number", "")),
-		"amount": major_units(MoneyScript.from_dict(document.get("subtotal", {}))),
-		"tax_amount": major_units(MoneyScript.from_dict(document.get("tax", {}))),
-		"total": major_units(MoneyScript.from_dict(document.get("total", {}))),
+		"amount": major_units(MoneyScript.from_dict(document.get("subtotal", { }))),
+		"tax_amount": major_units(MoneyScript.from_dict(document.get("tax", { }))),
+		"total": major_units(MoneyScript.from_dict(document.get("total", { }))),
 		"notes": String(document.get("note", "")),
 		"items": line_items(document),
 	}
-	return asked(INVOICE_KIND, make_request(
-		&"POST", url.strip_edges() + INVOICE_PATH, headers(idempotency_key), body
-	))
+	return asked(INVOICE_KIND, make_request(&"POST", url.strip_edges() + INVOICE_PATH, headers(idempotency_key), body))
 
 
-func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String,
-		external_invoice_id: String = "") -> Dictionary:
+func payment_request(
+	payment: Payment,
+	invoice: Invoice,
+	idempotency_key: String,
+	external_invoice_id: String = "",
+) -> Dictionary:
 	var document: Dictionary = payment_body(payment, invoice, idempotency_key)
 	if external_invoice_id.strip_edges().is_empty():
-		return refused("a payment needs the invoice's id in %s, which the ledger assigns when the invoice is first posted" % describe())
+		return refused(
+			"a payment needs the invoice's id in %s, which the ledger assigns when the invoice is first posted"
+			% describe()
+		)
 	var body: Dictionary = {
 		"invoice_id": external_invoice_id.strip_edges(),
 		"amount": major_units(payment.amount),
@@ -184,9 +186,7 @@ func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String
 		"reference": payment.bank_reference,
 		"description": String(document.get("note", "")),
 	}
-	return asked(PAYMENT_KIND, make_request(
-		&"POST", url.strip_edges() + PAYMENT_PATH, headers(idempotency_key), body
-	))
+	return asked(PAYMENT_KIND, make_request(&"POST", url.strip_edges() + PAYMENT_PATH, headers(idempotency_key), body))
 
 
 ## How this service spells a line: one of one at the invoice's own amount, with the quantity and unit
@@ -194,12 +194,14 @@ func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String
 func line_items(document: Dictionary) -> Array:
 	var items: Array = []
 	for entry: Dictionary in lines_of(document):
-		items.append({
-			"name": String(entry.get("description", "")),
-			"quantity": 1,
-			"price": major_units(MoneyScript.from_dict(entry.get("amount", {}))),
-			"description": line_notes(entry),
-		})
+		items.append(
+			{
+				"name": String(entry.get("description", "")),
+				"quantity": 1,
+				"price": major_units(MoneyScript.from_dict(entry.get("amount", { }))),
+				"description": line_notes(entry),
+			}
+		)
 	return items
 
 
@@ -219,9 +221,9 @@ func headers(idempotency_key: String) -> Dictionary:
 
 func missing_contact_text() -> String:
 	return "a customer with no id in %s: create them there and record the id as '%s' on the customer" % [
-		describe(), CONTACT_ID_KEY,
+		describe(),
+		CONTACT_ID_KEY,
 	]
-
 
 # --- a date, the way this service reads one ------------------------------------------------------
 
@@ -237,7 +239,6 @@ static func datetime_of(date: String) -> String:
 		return trimmed
 	return trimmed + " 00:00:00"
 
-
 # --- reading what came back ---------------------------------------------------------------------
 
 
@@ -252,10 +253,11 @@ func parse_payment_response(response: Dictionary) -> Dictionary:
 func self_test() -> Dictionary:
 	var missing: Array[String] = problems()
 	if not missing.is_empty():
-		return {"ok": false, "reason": "%s needs %s" % [describe(), ", ".join(missing)]}
+		return { "ok": false, "reason": "%s needs %s" % [describe(), ", ".join(missing)] }
 	return {
 		"ok": false,
-		"reason": "%s is configured, but a probe has to be sent and this build has no transport yet (phase 10)" % describe(),
+		"reason": "%s is configured, but a probe has to be sent and this build has no transport yet (phase 10)"
+		% describe(),
 	}
 
 
@@ -263,16 +265,16 @@ func send(_request: Dictionary) -> Dictionary:
 	return {
 		"status": 0,
 		"error": "posting to %s needs the HTTP transport, which arrives with sync (phase 10)" % describe(),
-		"body": {},
+		"body": { },
 	}
 
 
 func _parse_data(response: Dictionary, id_field: String, number_field: String) -> Dictionary:
 	var read: Dictionary = parse_common(response)
 	if bool(read["ok"]):
-		var made: Dictionary = {}
+		var made: Dictionary = { }
 		var body: Dictionary = read["body"]
-		var data_in: Variant = body.get("data", {})
+		var data_in: Variant = body.get("data", { })
 		if data_in is Dictionary:
 			made = data_in
 		read["external_id"] = String(made.get(id_field, ""))

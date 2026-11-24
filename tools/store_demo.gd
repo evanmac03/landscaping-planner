@@ -7,7 +7,7 @@ extends Node2D
 ## found, so a person can see the layout on disk and the audit trail rather than take either on trust.
 ##
 ## It writes to `user://demo_store` and nothing in the game reads it; the folder is wiped first so the
-## run reads the same every time. Run `res://scenes/store_demo.tscn`.
+## run reads the same every time. Run `res://tools/store_demo.tscn`.
 
 const StoreScript := preload("res://scripts/biz/store.gd")
 
@@ -32,25 +32,56 @@ func _ready() -> void:
 
 	print("")
 	print("--- the office files a job and an invoice ---")
-	var job := {"number": "J-1001", "label": "Smith, back garden", "contract_sum": {"cents": 428400, "currency": "CAD"}}
-	var filed_job: Dictionary = _store.put(StoreScript.JOB_KIND, "J-1001", job, "", -1, "evan", FIRST_MOMENT, "the job was opened")
+	var job := {
+		"number": "J-1001",
+		"label": "Smith, back garden",
+		"contract_sum": { "cents": 428400, "currency": "CAD" },
+	}
+	var filed_job: Dictionary = _store.put(
+		StoreScript.JOB_KIND,
+		"J-1001",
+		job,
+		"",
+		-1,
+		"evan",
+		FIRST_MOMENT,
+		"the job was opened",
+	)
 	print("the job was filed: ", filed_job["ok"], " at revision ", filed_job["rev"])
 
 	var invoice := {
 		"number": "INV-2026-0001",
 		"job": "J-1001",
-		"amount": {"cents": 128500, "currency": "CAD"},
+		"amount": { "cents": 128500, "currency": "CAD" },
 		"notes": "first draw on the patio",
 	}
-	var filed_invoice: Dictionary = _store.put("invoice", "INV-77", invoice, "J-1001", -1, "evan", FIRST_MOMENT, "raised")
+	var filed_invoice: Dictionary = _store.put(
+		"invoice",
+		"INV-77",
+		invoice,
+		"J-1001",
+		-1,
+		"evan",
+		FIRST_MOMENT,
+		"raised",
+	)
 	print("the invoice was filed: ", filed_invoice["ok"], " at revision ", filed_invoice["rev"])
 
 	print("")
 	print("--- a price is changed, and the journal records the before and the after ---")
 	var repriced: Dictionary = invoice.duplicate(true)
-	repriced["amount"] = {"cents": 135000, "currency": "CAD"}
+	repriced["amount"] = { "cents": 135000, "currency": "CAD" }
 	repriced["notes"] = "first draw on the patio and the walk"
-	var changed_back: Dictionary = _store.put("invoice", "INV-77", repriced, "J-1001", int(filed_invoice["rev"]), "evan", LATER_MOMENT, "the walk joined the first draw")
+	var changed_back: Dictionary = _store.put(
+		"invoice",
+		"INV-77",
+		repriced,
+		"J-1001",
+		int(filed_invoice["rev"]),
+		"evan",
+		LATER_MOMENT,
+		"the walk joined the first draw",
+	)
 	print("the change was taken: ", changed_back["ok"], " at revision ", changed_back["rev"])
 	for entry in _store.history("invoice", "INV-77"):
 		print("  ", _entry_text(entry))
@@ -73,9 +104,13 @@ func _ready() -> void:
 	print("--- what the schema guards refuse ---")
 	print(
 		"registering a step to the current schema is refused: ",
-		not _store.register_upcaster(StoreScript.SCHEMA_VERSION, func(body: Dictionary) -> Dictionary: return body)
+		not _store.register_upcaster(
+			StoreScript.SCHEMA_VERSION,
+			func(body: Dictionary) -> Dictionary:
+				return body,
+		),
 	)
-	var from_a_newer: Dictionary = _store.upcast(StoreScript.SCHEMA_VERSION + 1, {})
+	var from_a_newer: Dictionary = _store.upcast(StoreScript.SCHEMA_VERSION + 1, { })
 	print("a record from a newer schema is refused: ", not from_a_newer["ok"], " - ", from_a_newer["reason"])
 
 	print("")

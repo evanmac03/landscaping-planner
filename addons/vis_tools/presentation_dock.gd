@@ -25,6 +25,11 @@ extends Control
 const DiagnosticsScript := preload("res://scripts/vis/vis_diagnostics.gd")
 const PresetScript := preload("res://scripts/vis/still_preset.gd")
 const BatchScript := preload("res://scripts/vis/render_batch.gd")
+const ProposalScript := preload("res://scripts/vis/proposal_page.gd")
+const PlotScript := preload("res://scripts/draft/plot_scale.gd")
+
+## The title-block fields a proposal page is filled in with, in the order they are asked for.
+const PROPOSAL_FIELDS: Array[String] = ["project", "view", "sheet", "scale", "date"]
 
 ## Asked for one job, which the adopter renders through the project's exporter.
 signal render_requested(job: Dictionary)
@@ -62,6 +67,18 @@ var _preset_picker: OptionButton = null
 var _view_picker: OptionButton = null
 var _render_button: Button = null
 var _status: Label = null
+
+## The last proposal page laid out, so a caller with no window can still look at it.
+var last_page: Image = null
+
+var _proposal_still: LineEdit = null
+var _paper_picker: OptionButton = null
+var _portrait_box: CheckBox = null
+var _proposal_out: LineEdit = null
+var _preview_rect: TextureRect = null
+var _proposal_text: Label = null
+## The title-block fields, by key. Untyped on purpose: it is a lookup from a string key to a control.
+var _proposal_edits: Dictionary = {}
 
 
 func _ready() -> void:
@@ -135,6 +152,53 @@ func build() -> void:
 	_render_button.disabled = true
 	_progress = _label(render_row, "no batch is loaded")
 	_progress.name = "Progress"
+
+	column.add_child(_heading("Make a proposal page"))
+	_proposal_still = LineEdit.new()
+	_proposal_still.name = "StillPath"
+	_proposal_still.placeholder_text = "a rendered still, e.g. user://still.png"
+	column.add_child(_labelled("Still", _proposal_still))
+	var page_row := HBoxContainer.new()
+	column.add_child(page_row)
+	_paper_picker = OptionButton.new()
+	_paper_picker.name = "Paper"
+	_paper_picker.focus_mode = Control.FOCUS_NONE
+	var sheet_names: Array[String] = PlotScript.sheet_names()
+	for sheet_name: String in sheet_names:
+		_paper_picker.add_item(sheet_name)
+	var a3: int = sheet_names.find("A3")
+	if a3 >= 0:
+		_paper_picker.selected = a3
+	page_row.add_child(_labelled("Paper", _paper_picker))
+	_portrait_box = CheckBox.new()
+	_portrait_box.name = "Portrait"
+	_portrait_box.text = "Portrait"
+	_portrait_box.focus_mode = Control.FOCUS_NONE
+	page_row.add_child(_portrait_box)
+	var fields_row := HBoxContainer.new()
+	column.add_child(fields_row)
+	for key: String in PROPOSAL_FIELDS:
+		var field := LineEdit.new()
+		field.name = key.capitalize()
+		field.placeholder_text = key
+		_proposal_edits[key] = field
+		fields_row.add_child(_labelled(key.capitalize(), field))
+	var out_row := HBoxContainer.new()
+	column.add_child(out_row)
+	_proposal_out = LineEdit.new()
+	_proposal_out.name = "OutPath"
+	_proposal_out.placeholder_text = "write the PDF to, e.g. user://proposal.pdf"
+	out_row.add_child(_labelled("PDF file", _proposal_out))
+	out_row.add_child(_button("Preview", preview_proposal, "PreviewProposal"))
+	out_row.add_child(_button("Write the PDF", write_proposal_from_fields, "WriteProposal"))
+	_preview_rect = TextureRect.new()
+	_preview_rect.name = "Preview"
+	_preview_rect.custom_minimum_size = Vector2(0.0, 130.0)
+	_preview_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH
+	_preview_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	column.add_child(_preview_rect)
+	_proposal_text = _label(column, "no page has been laid out yet")
+	_proposal_text.name = "ProposalStatus"
 
 	_status = _label(column, "A dock, replaced by Y when it is added.")
 	_status.name = "Status"
@@ -339,6 +403,114 @@ func _refresh_jobs() -> void:
 		if _in_flight != "" and line.begins_with(_in_flight + " "):
 			shown = "%s  <- rendering" % line
 		_job_list.add_item(shown)
+
+
+# --- the proposal page --------------------------------------------------------------------------
+#
+# A still pasted onto a titled sheet, which §16.1 calls the most valuable single thing the still path
+# can add. This is not a render - `VisProposalPage` lays out an image the batch already rendered - so
+# it belongs in the dock beside the batch rather than in the game. The preview is what a person
+# checks; the PDF is the deliverable.
+
+
+## The title-block values the fields hold.
+func proposal_fields() -> Dictionary:
+	var out := {}
+	for key: String in PROPOSAL_FIELDS:
+		var field: LineEdit = _proposal_edits.get(key)
+		out[key] = field.text if field != null else ""
+	return out
+
+
+## Set one title-block field by key, for a caller with no window.
+func set_proposal_field(key: String, value: String) -> void:
+	var field: LineEdit = _proposal_edits.get(key)
+	if field != null:
+		field.text = value
+
+
+## Point the page at a still file, for a caller with no window.
+func set_proposal_still(path: String) -> void:
+	if _proposal_still != null:
+		_proposal_still.text = path
+
+
+## The paper the page is laid out on, from the pickers.
+func proposal_paper_mm() -> Vector2:
+	if _paper_picker == null:
+		return Vector2(420.0, 297.0)
+	var sheet_name: String = _paper_picker.get_item_text(_paper_picker.selected)
+	var portrait: bool = _portrait_box != null and _portrait_box.button_pressed
+	return PlotScript.sheet_size_mm(sheet_name, portrait)
+
+
+## Lay a still out on the proposal page and show it. With no still the page is drawn empty rather
+## than refused: a sheet with no picture placed is exactly what a person wants to see when the path
+## is wrong, and `layout` still fills in the furniture.
+##
+## `still` may be handed in directly, which is how a test looks at the page with no window.
+func preview_proposal(still: Image = null) -> Image:
+	var picture: Image = still
+	if picture == null:
+		picture = load_still()
+	# The still's own size, not the page's: describing the laid-out page against itself would
+	# claim a picture at the size of the sheet whatever was placed on it.
+	var still_px: Vector2i = picture.get_size() if picture != null else Vector2i.ZERO
+	last_page = ProposalScript.render_image(picture, proposal_paper_mm(), proposal_fields())
+	if last_page == null:
+		_say("The page could not be laid out.")
+		return null
+	if _preview_rect != null:
+		_preview_rect.texture = ImageTexture.create_from_image(last_page)
+	var plan: Dictionary = ProposalScript.layout(proposal_paper_mm(), still_px)
+	_say("Previewed %s" % ProposalScript.describe(plan))
+	return last_page
+
+
+## The still the path field names, as an image, or null when there is nothing to read. Public because
+## a test has no window to type a path into.
+func load_still() -> Image:
+	if _proposal_still == null or _proposal_still.text.is_empty():
+		return null
+	var path: String = _proposal_still.text
+	if not FileAccess.file_exists(path):
+		_say("There is no file at %s." % path)
+		return null
+	var image := Image.new()
+	if image.load(path) != OK:
+		_say("%s is not an image the engine can read." % path)
+		return null
+	return image
+
+
+## Write the proposal page as a PDF. Refused in words when there is no still to place, because a page
+## with a hole in it is not a proposal.
+func write_proposal(path: String) -> Dictionary:
+	if path.is_empty():
+		var no_path := "a proposal page needs a file to be written to"
+		_say(no_path)
+		return {"ok": false, "reason": no_path}
+	var bytes: PackedByteArray = ProposalScript.build_pdf(
+		load_still(), proposal_paper_mm(), proposal_fields()
+	)
+	if bytes.is_empty():
+		var empty := "no still was placed, so there is no page to write"
+		_say(empty)
+		return {"ok": false, "reason": empty}
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		var refused := "could not write %s (%s)" % [path, error_string(FileAccess.get_open_error())]
+		_say(refused)
+		return {"ok": false, "reason": refused}
+	file.store_buffer(bytes)
+	file.close()
+	_say("Wrote the proposal page to %s." % path)
+	return {"ok": true, "reason": "", "path": path, "bytes": bytes.size()}
+
+
+## Write the page to the path field's file.
+func write_proposal_from_fields() -> Dictionary:
+	return write_proposal(_proposal_out.text if _proposal_out != null else "")
 
 
 func _say(line: String) -> void:

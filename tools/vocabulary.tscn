@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/vocabulary.gd" id="1_vocabulary"]
+
+[node name="Vocabulary" type="Node"]
+script = ExtResource("1_vocabulary")

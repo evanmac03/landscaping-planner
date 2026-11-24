@@ -22,13 +22,13 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 ## An estimate with one priced line, so a job can be made of it: 10 x 15.00 of PLANTING.
 func _estimate() -> EstimateScript:
 	var estimate: EstimateScript = EstimateScript.new("E1")
-	estimate.customer = {"name": "Smith"}
+	estimate.customer = { "name": "Smith" }
 	var line: LineScript = LineScript.new()
 	line.description = "Buxus, 2 gal"
 	line.cost_code = &"PLANTING"
@@ -39,7 +39,6 @@ func _estimate() -> EstimateScript:
 	line.unit_price = MoneyScript.of(1500)
 	estimate.lines.append(line)
 	return estimate
-
 
 # --- the way in ------------------------------------------------------------------------------
 
@@ -77,7 +76,6 @@ func test_building_the_page_gives_the_menu_something_to_open() -> void:
 	assert(not hud.is_cost_window_open(), "built is not shown")
 	_done(hud)
 
-
 # --- what the desk's words make the menu say --------------------------------------------------
 
 
@@ -87,12 +85,16 @@ func test_an_order_placed_through_the_page_is_in_the_menu_line() -> void:
 	hud._on_job_started(_estimate())
 	assert(hud._jobs_text() == "0 crews, 1 job, 0 blocks on the board", hud._jobs_text())
 	# What the page does to the desk, the menu line reads back at once: the signal is the wiring.
-	assert(hud._job_desk.make_purchase_order("E1", &"PLANTING", "Buxus", 10000,
-		MoneyScript.of(1000), "Greenline Nursery") != null)
+	assert(
+		hud._job_desk.make_purchase_order("E1", &"PLANTING", "Buxus", 10000, MoneyScript.of(1000), "Greenline Nursery")
+		!= null
+	)
 	hud._job_desk.issue_purchase_order("PO-001", "2026-06-01")
 	hud._on_cost_changed()
-	assert(hud._jobs_text() == "0 crews, 1 job, 0 blocks on the board, "
-		+ "1 purchase order ($100.00 committed)", hud._jobs_text())
+	assert(
+		hud._jobs_text() == "0 crews, 1 job, 0 blocks on the board, " + "1 purchase order ($100.00 committed)",
+		hud._jobs_text(),
+	)
 	hud._cost_window.cost_changed.emit()
 	assert(hud._jobs_text().contains("$100.00 committed"), hud._jobs_text())
 	_done(hud)
@@ -102,8 +104,7 @@ func test_agreeing_to_a_change_order_moves_the_menu_line() -> void:
 	var hud := HudScript.new()
 	hud._build_cost_window()
 	hud._on_job_started(_estimate())
-	hud._job_desk.make_change_order("E1", &"SITE_CONDITION", "A wall", MoneyScript.of(50000),
-		&"PLANTING")
+	hud._job_desk.make_change_order("E1", &"SITE_CONDITION", "A wall", MoneyScript.of(50000), &"PLANTING")
 	hud._on_cost_changed()
 	assert(hud._jobs_text().contains("1 change order ($0.00 agreed, 1 pending)"), hud._jobs_text())
 	hud._job_desk.approve_change("CO-001", "Dana", "2026-07-01", "in-app")

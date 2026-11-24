@@ -24,9 +24,7 @@ const SCRATCH := "user://drawings/test-autosave.json"
 func _document(count: int = 2) -> DraftDocument:
 	var document := DocumentScript.new()
 	for index in count:
-		document.add(
-			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE
-		)
+		document.add(EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE)
 	return document
 
 
@@ -69,14 +67,14 @@ func test_a_copy_is_only_written_when_there_is_something_to_recover() -> void:
 	# The refusal is the design: a copy of nothing, offered on the next launch, teaches a person to
 	# click past the offer that matters.
 	_clean()
-	var empty: Dictionary = AutosaveScript.write({}, "", "", 0)
+	var empty: Dictionary = AutosaveScript.write({ }, "", "", 0)
 	assert(not bool(empty["ok"]), "an empty state is refused")
 	assert(String(empty["reason"]) == "there is no drawing to keep a copy of", String(empty["reason"]))
 	var nothing: Dictionary = AutosaveScript.write(_state(0), "", "", 0)
 	assert(not bool(nothing["ok"]), "a drawing with nothing drawn on it is refused")
 	assert(
 		String(nothing["reason"]) == "this drawing is empty, so there is nothing worth keeping",
-		String(nothing["reason"])
+		String(nothing["reason"]),
 	)
 	assert(AutosaveScript.list().is_empty(), "and refusing wrote nothing at all")
 	assert(AutosaveScript.has_work(_state(1)), "whereas one shape is work")
@@ -141,34 +139,27 @@ func test_a_file_that_is_not_a_copy_is_refused_rather_than_restored() -> void:
 	_write_text(AutosaveScript.path_for(""), "this is not a copy of anything")
 	var broken: Dictionary = AutosaveScript.read(AutosaveScript.path_for(""))
 	assert(not bool(broken["ok"]), "a file that will not parse is refused")
-	assert(
-		String(broken["reason"]).begins_with("untitled.json is not readable"),
-		String(broken["reason"])
-	)
+	assert(String(broken["reason"]).begins_with("untitled.json is not readable"), String(broken["reason"]))
 
-	_write_text(AutosaveScript.path_for(""), JSON.stringify({"hello": "there"}))
+	_write_text(AutosaveScript.path_for(""), JSON.stringify({ "hello": "there" }))
 	assert(
-		String(AutosaveScript.read(AutosaveScript.path_for(""))["reason"])
-			== "untitled.json is not a copy of a drawing",
-		"JSON that is not a copy is refused"
+		String(AutosaveScript.read(AutosaveScript.path_for(""))["reason"]) == "untitled.json is not a copy of a drawing",
+		"JSON that is not a copy is refused",
 	)
 
 	_write_text(AutosaveScript.path_for(""), JSON.stringify([1, 2, 3]))
 	assert(not bool(AutosaveScript.read(AutosaveScript.path_for(""))["ok"]), "a list is not a copy")
 
-	_write_text(
-		AutosaveScript.path_for(""),
-		JSON.stringify({"version": 99, "state": {"entities": {"1": {}}}})
-	)
+	_write_text(AutosaveScript.path_for(""), JSON.stringify({ "version": 99, "state": { "entities": { "1": { } } } }))
 	assert(
 		not bool(AutosaveScript.read(AutosaveScript.path_for(""))["ok"]),
-		"a copy written by a later build is refused rather than read for the parts this one knows"
+		"a copy written by a later build is refused rather than read for the parts this one knows",
 	)
 
-	_write_text(AutosaveScript.path_for(""), JSON.stringify({"version": 1, "state": 4}))
+	_write_text(AutosaveScript.path_for(""), JSON.stringify({ "version": 1, "state": 4 }))
 	assert(
 		not bool(AutosaveScript.read(AutosaveScript.path_for(""))["ok"]),
-		"and a copy with no drawing in it is not a copy of an empty drawing"
+		"and a copy with no drawing in it is not a copy of an empty drawing",
 	)
 
 	# None of those was offered, because none of them read.
@@ -198,19 +189,16 @@ func test_the_interval_is_what_stops_a_copy_every_frame() -> void:
 
 
 func test_a_copy_is_filed_under_the_drawing_and_a_nameless_one_under_untitled() -> void:
-	assert(
-		AutosaveScript.path_for("") == "user://recovery/untitled.json",
-		AutosaveScript.path_for("")
-	)
+	assert(AutosaveScript.path_for("") == "user://recovery/untitled.json", AutosaveScript.path_for(""))
 	assert(
 		AutosaveScript.path_for("user://drawings/Backyard.json") == "user://recovery/Backyard.json",
-		AutosaveScript.path_for("user://drawings/Backyard.json")
+		AutosaveScript.path_for("user://drawings/Backyard.json"),
 	)
 	# The file name is made safe the same way a drawing's is, so a copy cannot be written somewhere the
 	# rest of the program would not look for it.
 	assert(
 		AutosaveScript.path_for("user://drawings/front bed 2.json") == "user://recovery/front bed 2.json",
-		AutosaveScript.path_for("user://drawings/front bed 2.json")
+		AutosaveScript.path_for("user://drawings/front bed 2.json"),
 	)
 
 
@@ -226,15 +214,9 @@ func test_a_copy_describes_itself_the_way_a_person_is_told_about_it() -> void:
 		"when": "2026-05-03 14:32:10",
 		"state": _state(1),
 	}
-	assert(
-		AutosaveScript.describe(one) == "Backyard, 1 shape, kept 14:32",
-		AutosaveScript.describe(one)
-	)
-	var many: Dictionary = {"drawing_path": "", "when": "2026-05-03 09:05:00", "state": _state(12)}
-	assert(
-		AutosaveScript.describe(many) == "untitled, 12 shapes, kept 09:05",
-		AutosaveScript.describe(many)
-	)
+	assert(AutosaveScript.describe(one) == "Backyard, 1 shape, kept 14:32", AutosaveScript.describe(one))
+	var many: Dictionary = { "drawing_path": "", "when": "2026-05-03 09:05:00", "state": _state(12) }
+	assert(AutosaveScript.describe(many) == "untitled, 12 shapes, kept 09:05", AutosaveScript.describe(many))
 	# A copy read off disk rather than written here describes itself the same way, which is what makes
 	# the sentence a person sees the sentence the file holds.
 	_clean()
@@ -242,12 +224,12 @@ func test_a_copy_describes_itself_the_way_a_person_is_told_about_it() -> void:
 	var found: Dictionary = AutosaveScript.read(String(kept["path"]))
 	assert(
 		String(AutosaveScript.describe(found)).begins_with("test-autosave, 3 shapes, kept "),
-		AutosaveScript.describe(found)
+		AutosaveScript.describe(found),
 	)
 	# A damaged copy that somehow got this far says nothing rather than crashing: no shapes is the
 	# honest count for a state with no drawing in it.
 	assert(
-		AutosaveScript.describe({"drawing_path": "", "when": "", "state": {}}) == "untitled, 0 shapes",
-		AutosaveScript.describe({"drawing_path": "", "when": "", "state": {}})
+		AutosaveScript.describe({ "drawing_path": "", "when": "", "state": { } }) == "untitled, 0 shapes",
+		AutosaveScript.describe({ "drawing_path": "", "when": "", "state": { } }),
 	)
 	_clean()

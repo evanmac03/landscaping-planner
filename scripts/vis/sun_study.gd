@@ -41,7 +41,6 @@ const REFRACTION_AT_HORIZON_DEG := 0.5667
 ## convention, and the reason sunrise is not the moment the centre's altitude passes zero.
 const SUNRISE_ALTITUDE_DEG := -(SEMIDIAMETER_DEG + REFRACTION_AT_HORIZON_DEG)
 
-
 # --- the calendar -------------------------------------------------------------------
 
 
@@ -95,9 +94,7 @@ static func julian_day(year: int, month: int, day: int, hour_utc: float = 0.0) -
 	var a: int = int(floor(float(y) / 100.0))
 	var b: int = 2 - a + int(floor(float(a) / 4.0))
 	return (
-		floor(365.25 * float(y + 4716))
-		+ floor(30.6001 * float(m + 1))
-		+ float(day) + float(b) - 1524.5
+		floor(365.25 * float(y + 4716)) + floor(30.6001 * float(m + 1)) + float(day) + float(b) - 1524.5
 		+ hour_utc / 24.0
 	)
 
@@ -111,7 +108,6 @@ static func jd_of_day(day_of_year: int, hour_utc: float = 12.0) -> float:
 ## Julian centuries since J2000.0, the argument every expression below is written in.
 static func julian_centuries(jd: float) -> float:
 	return (jd - 2451545.0) / 36525.0
-
 
 # --- the sun's position -------------------------------------------------------------
 
@@ -141,8 +137,7 @@ static func equation_of_centre(jd: float) -> float:
 	var m: float = deg_to_rad(mean_anomaly(jd))
 	return (
 		sin(m) * (1.914602 - t * (0.004817 + 0.000014 * t))
-		+ sin(2.0 * m) * (0.019993 - 0.000101 * t)
-		+ sin(3.0 * m) * 0.000289
+		+ sin(2.0 * m) * (0.019993 - 0.000101 * t) + sin(3.0 * m) * 0.000289
 	)
 
 
@@ -198,11 +193,8 @@ static func equation_of_time(jd: float) -> float:
 	var m: float = deg_to_rad(mean_anomaly(jd))
 	var y: float = tan(epsilon / 2.0) * tan(epsilon / 2.0)
 	var degrees: float = rad_to_deg(
-		y * sin(2.0 * l0)
-		- 2.0 * e * sin(m)
-		+ 4.0 * e * y * sin(m) * cos(2.0 * l0)
-		- 0.5 * y * y * sin(4.0 * l0)
-		- 1.25 * e * e * sin(2.0 * m)
+		y * sin(2.0 * l0) - 2.0 * e * sin(m) + 4.0 * e * y * sin(m) * cos(2.0 * l0)
+		- 0.5 * y * y * sin(4.0 * l0) - 1.25 * e * e * sin(2.0 * m)
 	)
 	# Four minutes to a degree: the sun's day divided by 360.
 	return degrees * 4.0
@@ -223,31 +215,20 @@ static func equation_of_time_on(day_of_year: int) -> float:
 static func refraction(true_altitude_deg: float) -> float:
 	if true_altitude_deg < -1.0:
 		return 0.0
-	var arcminutes: float = 1.02 / tan(
-		deg_to_rad(true_altitude_deg + 10.3 / (true_altitude_deg + 5.11))
-	)
+	var arcminutes: float = 1.02 / tan(deg_to_rad(true_altitude_deg + 10.3 / (true_altitude_deg + 5.11)))
 	return arcminutes / 60.0
-
 
 # --- sites and moments --------------------------------------------------------------
 
 
 ## A site: where the garden is, and what the clock there reads.
 static func site(latitude: float, longitude: float = 0.0, utc_offset_hours: float = 0.0) -> Dictionary:
-	return {
-		"latitude": latitude,
-		"longitude": longitude,
-		"utc_offset_hours": utc_offset_hours,
-	}
+	return { "latitude": latitude, "longitude": longitude, "utc_offset_hours": utc_offset_hours }
 
 
 ## A moment: which day of the year, and the clock hour at the site.
 static func moment(day_of_year: int, clock_hour: float, year: int = EPOCH_YEAR) -> Dictionary:
-	return {
-		"day_of_year": day_of_year,
-		"clock_hour": clock_hour,
-		"year": year,
-	}
+	return { "day_of_year": day_of_year, "clock_hour": clock_hour, "year": year }
 
 
 ## Solar time in hours for a clock time at a site. Apparent solar noon is 12.0.
@@ -259,11 +240,7 @@ static func solar_time(site_dict: Dictionary, moment_dict: Dictionary) -> float:
 	var day: int = int(moment_dict.get("day_of_year", 172))
 	var offset: float = float(site_dict.get("utc_offset_hours", 0.0))
 	var longitude: float = float(site_dict.get("longitude", 0.0))
-	return (
-		float(moment_dict.get("clock_hour", 12.0)) - offset
-		+ longitude / 15.0
-		+ equation_of_time_on(day) / 60.0
-	)
+	return (float(moment_dict.get("clock_hour", 12.0)) - offset + longitude / 15.0 + equation_of_time_on(day) / 60.0)
 
 
 ## The clock hour at a site for a given solar time: the inverse of `solar_time`, which is
@@ -283,28 +260,23 @@ static func clock_text(hours: float) -> String:
 	var hour: int = int(floor(float(minutes_total) / 60.0))
 	return "%02d:%02d" % [hour, minutes_total % 60]
 
-
 # --- the sun, as seen -----------------------------------------------------------------
 
 
 ## Altitude, azimuth and the sky's own report, from a latitude, a declination and a solar
 ## hour. The one place the spherical trigonometry is written.
-static func _reckon(
-	latitude: float, declination_deg: float, solar: float, extra: Dictionary
-) -> Dictionary:
+static func _reckon(latitude: float, declination_deg: float, solar: float, extra: Dictionary) -> Dictionary:
 	var latitude_rad: float = deg_to_rad(clampf(latitude, -89.9, 89.9))
 	var declination_rad: float = deg_to_rad(clampf(declination_deg, -89.9, 89.9))
 	# Fifteen degrees an hour, zero at solar noon.
 	var hour_angle: float = deg_to_rad((solar - 12.0) * 15.0)
 	var sin_altitude: float = (
-		sin(latitude_rad) * sin(declination_rad)
-		+ cos(latitude_rad) * cos(declination_rad) * cos(hour_angle)
+		sin(latitude_rad) * sin(declination_rad) + cos(latitude_rad) * cos(declination_rad) * cos(hour_angle)
 	)
 	var altitude: float = rad_to_deg(asin(clampf(sin_altitude, -1.0, 1.0)))
-	var azimuth: float = rad_to_deg(atan2(
-		sin(hour_angle),
-		cos(hour_angle) * sin(latitude_rad) - tan(declination_rad) * cos(latitude_rad)
-	)) + 180.0
+	var azimuth: float = rad_to_deg(
+		atan2(sin(hour_angle), cos(hour_angle) * sin(latitude_rad) - tan(declination_rad) * cos(latitude_rad))
+	) + 180.0
 	var sun: Dictionary = {
 		# The centre's geometric altitude: what a shadow is cast by. Refraction is
 		# reported beside it rather than folded into it, because refraction is about
@@ -333,11 +305,12 @@ static func _reckon(
 ## up to sixteen minutes apart, and the difference is the point of `position_for`.
 static func position(latitude: float, day_of_year: int, solar_hour: float) -> Dictionary:
 	var jd: float = jd_of_day(day_of_year, solar_hour)
-	return _reckon(latitude, declination_at(jd), solar_hour, {
-		"day_of_year": day_of_year,
-		"equation_of_time_minutes": equation_of_time(jd),
-		"year": EPOCH_YEAR,
-	})
+	return _reckon(
+		latitude,
+		declination_at(jd),
+		solar_hour,
+		{ "day_of_year": day_of_year, "equation_of_time_minutes": equation_of_time(jd), "year": EPOCH_YEAR },
+	)
 
 
 ## The sun for a site at a clock time: the path the presentation and the still's record
@@ -351,16 +324,20 @@ static func position_for(site_dict: Dictionary, moment_dict: Dictionary) -> Dict
 	# The instant, in UT: the clock time less the zone's offset. The declination is taken
 	# there rather than at the day's noon, which is the whole of what a longitude buys.
 	var jd: float = jd_of_day(day, clock - offset)
-	return _reckon(latitude, declination_at(jd), solar_time(site_dict, moment_dict), {
-		"day_of_year": day,
-		"clock_hour": clock,
-		"latitude_deg": latitude,
-		"longitude_deg": longitude,
-		"utc_offset_hours": offset,
-		"equation_of_time_minutes": equation_of_time(jd),
-		"year": int(moment_dict.get("year", EPOCH_YEAR)),
-	})
-
+	return _reckon(
+		latitude,
+		declination_at(jd),
+		solar_time(site_dict, moment_dict),
+		{
+			"day_of_year": day,
+			"clock_hour": clock,
+			"latitude_deg": latitude,
+			"longitude_deg": longitude,
+			"utc_offset_hours": offset,
+			"equation_of_time_minutes": equation_of_time(jd),
+			"year": int(moment_dict.get("year", EPOCH_YEAR)),
+		},
+	)
 
 # --- day and night --------------------------------------------------------------------
 
@@ -374,33 +351,44 @@ static func daylight(latitude: float, day_of_year: int) -> Dictionary:
 	var declination_deg: float = declination(day_of_year)
 	var latitude_rad: float = deg_to_rad(clampf(latitude, -89.9, 89.9))
 	var declination_rad: float = deg_to_rad(declination_deg)
-	var cos_hour_angle: float = (
-		sin(deg_to_rad(SUNRISE_ALTITUDE_DEG))
-		- sin(latitude_rad) * sin(declination_rad)
-	) / (cos(latitude_rad) * cos(declination_rad))
-	var daylight_hours: Dictionary = {"declination_deg": declination_deg}
+	var cos_hour_angle: float = (sin(deg_to_rad(SUNRISE_ALTITUDE_DEG)) - sin(latitude_rad) * sin(declination_rad)) / (
+		cos(latitude_rad) * cos(declination_rad)
+	)
+	var daylight_hours: Dictionary = { "declination_deg": declination_deg }
 	if cos_hour_angle > 1.0:
 		# The sun never gets up. There is no sunrise to report, and saying one at the
 		# right time is not the same as saying there is not one.
-		daylight_hours.merge({
-			"polar_day": false, "polar_night": true,
-			"sunrise_hour": 0.0, "sunset_hour": 24.0, "day_length_hours": 0.0,
-		})
+		daylight_hours.merge(
+			{
+				"polar_day": false,
+				"polar_night": true,
+				"sunrise_hour": 0.0,
+				"sunset_hour": 24.0,
+				"day_length_hours": 0.0,
+			}
+		)
 		return daylight_hours
 	if cos_hour_angle < -1.0:
-		daylight_hours.merge({
-			"polar_day": true, "polar_night": false,
-			"sunrise_hour": 0.0, "sunset_hour": 24.0, "day_length_hours": 24.0,
-		})
+		daylight_hours.merge(
+			{
+				"polar_day": true,
+				"polar_night": false,
+				"sunrise_hour": 0.0,
+				"sunset_hour": 24.0,
+				"day_length_hours": 24.0,
+			}
+		)
 		return daylight_hours
 	var half_day: float = rad_to_deg(acos(clampf(cos_hour_angle, -1.0, 1.0))) / 15.0
-	daylight_hours.merge({
-		"polar_day": false,
-		"polar_night": false,
-		"sunrise_hour": 12.0 - half_day,
-		"sunset_hour": 12.0 + half_day,
-		"day_length_hours": 2.0 * half_day,
-	})
+	daylight_hours.merge(
+		{
+			"polar_day": false,
+			"polar_night": false,
+			"sunrise_hour": 12.0 - half_day,
+			"sunset_hour": 12.0 + half_day,
+			"day_length_hours": 2.0 * half_day,
+		}
+	)
 	return daylight_hours
 
 
@@ -412,7 +400,6 @@ static func daylight_for(site_dict: Dictionary, moment_dict: Dictionary) -> Dict
 	hours["sunset_clock_hour"] = clock_time(site_dict, moment_dict, float(hours["sunset_hour"]))
 	return hours
 
-
 # --- aiming a light -------------------------------------------------------------------
 
 
@@ -421,9 +408,7 @@ static func daylight_for(site_dict: Dictionary, moment_dict: Dictionary) -> Dict
 ## Returns false and leaves the light exactly as it was when the sun is down, because a
 ## light dragged under the ground is a state the caller would then have to notice and
 ## repair.
-static func apply(
-	light: DirectionalLight3D, latitude: float, day_of_year: int, solar_hour: float
-) -> bool:
+static func apply(light: DirectionalLight3D, latitude: float, day_of_year: int, solar_hour: float) -> bool:
 	var sun: Dictionary = position(latitude, day_of_year, solar_hour)
 	if not bool(sun["is_up"]):
 		return false
@@ -431,9 +416,7 @@ static func apply(
 
 
 ## Aim a DirectionalLight3D at the sun for a site at a clock time.
-static func apply_for(
-	light: DirectionalLight3D, site_dict: Dictionary, moment_dict: Dictionary
-) -> bool:
+static func apply_for(light: DirectionalLight3D, site_dict: Dictionary, moment_dict: Dictionary) -> bool:
 	var sun: Dictionary = position_for(site_dict, moment_dict)
 	if not bool(sun["is_up"]):
 		return false
@@ -445,17 +428,12 @@ static func _aim(light: DirectionalLight3D, sun: Dictionary) -> bool:
 	var azimuth: float = deg_to_rad(float(sun["azimuth_deg"]))
 	# Model space puts north on -Z (drafting-subsystem-spec §1.2), so the bearing turns
 	# from -Z toward +X, and the altitude raises the light along +Y.
-	var direction := Vector3(
-		sin(azimuth) * cos(altitude),
-		sin(altitude),
-		-cos(azimuth) * cos(altitude)
-	)
+	var direction := Vector3(sin(azimuth) * cos(altitude), sin(altitude), -cos(azimuth) * cos(altitude))
 	# A DirectionalLight3D looks down its own -Z, so it sits opposite the direction to
 	# the sun and is turned to face the origin.
 	light.position = direction * DISTANCE_M
 	light.look_at(Vector3.ZERO, Vector3.UP)
 	return true
-
 
 # --- saying it in words ---------------------------------------------------------------
 
@@ -465,9 +443,7 @@ static func describe(latitude: float, day_of_year: int, solar_hour: float) -> St
 	var sun: Dictionary = position(latitude, day_of_year, solar_hour)
 	if not bool(sun["is_up"]):
 		return "the sun is below the horizon at %.1f h" % solar_hour
-	return "sun %.0f° up, bearing %.0f°" % [
-		float(sun["altitude_deg"]), float(sun["azimuth_deg"]),
-	]
+	return "sun %.0f° up, bearing %.0f°" % [float(sun["altitude_deg"]), float(sun["azimuth_deg"])]
 
 
 ## A description of the sun for a site at a clock time, with the day's own sunrise and
@@ -477,21 +453,21 @@ static func describe_for(site_dict: Dictionary, moment_dict: Dictionary) -> Stri
 	var hours: Dictionary = daylight_for(site_dict, moment_dict)
 	var latitude: float = float(site_dict.get("latitude", 0.0))
 	if bool(hours["polar_day"]):
-		return "The sun does not set at %.0f°%s on this day." % [
-			absf(latitude), _hemisphere(latitude)
-		]
+		return "The sun does not set at %.0f°%s on this day." % [absf(latitude), _hemisphere(latitude)]
 	if bool(hours["polar_night"]):
-		return "The sun does not rise at %.0f°%s on this day." % [
-			absf(latitude), _hemisphere(latitude)
-		]
+		return "The sun does not rise at %.0f°%s on this day." % [absf(latitude), _hemisphere(latitude)]
 	var rise: String = clock_text(float(hours["sunrise_clock_hour"]))
 	var set_text: String = clock_text(float(hours["sunset_clock_hour"]))
 	if not bool(sun["is_up"]):
 		return "The sun is below the horizon at %s. Sunset was %s." % [
-			clock_text(float(moment_dict.get("clock_hour", 12.0))), set_text
+			clock_text(float(moment_dict.get("clock_hour", 12.0))),
+			set_text,
 		]
 	return "Sun %.0f° up, bearing %.0f°. Sunrise %s, sunset %s." % [
-		float(sun["altitude_deg"]), float(sun["azimuth_deg"]), rise, set_text
+		float(sun["altitude_deg"]),
+		float(sun["azimuth_deg"]),
+		rise,
+		set_text,
 	]
 
 

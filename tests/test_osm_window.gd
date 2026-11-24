@@ -19,7 +19,6 @@ func _window():
 func _done(window) -> void:
 	window.free()
 
-
 # --- the form --------------------------------------------------------------------------
 
 
@@ -85,7 +84,6 @@ func test_the_radius_is_the_one_the_form_shows() -> void:
 	assert(is_equal_approx(window.radius_m(), 250.0), str(window.radius_m()))
 	_done(window)
 
-
 # --- the intents it announces -----------------------------------------------------------
 
 
@@ -93,8 +91,9 @@ func test_asking_for_the_map_says_where_and_how_much() -> void:
 	var window = _window()
 	window.show_site(43.7, -79.4)
 	var asked: Array = []
-	window.fetch_requested.connect(func(centre: Dictionary, radius_m: float) -> void:
-		asked.append([centre, radius_m])
+	window.fetch_requested.connect(
+		func(centre: Dictionary, radius_m: float) -> void:
+			asked.append([centre, radius_m]),
 	)
 	window.get_node(^"Column/Buttons/FetchButton").pressed.emit()
 	assert(asked.size() == 1, "once")
@@ -109,8 +108,14 @@ func test_opening_a_saved_map_and_putting_it_on_the_drawing_are_their_own_intent
 	# inside one would move a copy and leave the outer count at zero. An array is captured by reference.
 	var opened: Array = []
 	var imported: Array = []
-	window.open_file_requested.connect(func() -> void: opened.append(true))
-	window.import_requested.connect(func() -> void: imported.append(true))
+	window.open_file_requested.connect(
+		func() -> void:
+			opened.append(true),
+	)
+	window.import_requested.connect(
+		func() -> void:
+			imported.append(true),
+	)
 	window.get_node(^"Column/Buttons/OpenButton").pressed.emit()
 	window.get_node(^"Column/Buttons/ImportButton").pressed.emit()
 	assert(opened.size() == 1, "opening is not importing")
@@ -121,12 +126,14 @@ func test_opening_a_saved_map_and_putting_it_on_the_drawing_are_their_own_intent
 func test_closing_it_says_so_whether_it_was_the_button_or_the_frame() -> void:
 	var window = _window()
 	var closes: Array = []
-	window.closed.connect(func() -> void: closes.append(true))
+	window.closed.connect(
+		func() -> void:
+			closes.append(true),
+	)
 	window.get_node(^"Column/Buttons/CloseButton").pressed.emit()
 	window.close_requested.emit()
 	assert(closes.size() == 2, "the button and the window frame both mean closed: %d" % closes.size())
 	_done(window)
-
 
 # --- what it says ----------------------------------------------------------------------
 

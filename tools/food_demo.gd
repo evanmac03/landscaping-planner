@@ -11,11 +11,11 @@ extends Node2D
 ## through the **real HUD** the way the menu entry does, and reads the lines off the **real controls**,
 ## awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/food_demo.tscn`.
+## Run `res://tools/food_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const ProfileScript := preload("res://scripts/terrain_profile.gd")
-const SpeciesScript := preload("res://scripts/plant_species.gd")
+const SpeciesScript := preload("res://scripts/plants/plant_species.gd")
 
 
 func _ready() -> void:
@@ -35,10 +35,8 @@ func _ready() -> void:
 	map.base = ProfileScript.of("sun", SpeciesScript.FULL_SUN)
 	map.add_zone(
 		"the north bed",
-		PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)
-		]),
-		ProfileScript.of("sun", SpeciesScript.FULL_SHADE)
+		PackedVector2Array([Vector2(0.0, 0.0), Vector2(4.0, 0.0), Vector2(4.0, 4.0), Vector2(0.0, 4.0)]),
+		ProfileScript.of("sun", SpeciesScript.FULL_SHADE),
 	)
 	print("the ground now reads: ", map.describe())
 
@@ -81,8 +79,15 @@ func _ready() -> void:
 	print("--- opened once more, so the captured frame is the page itself ---")
 	hud.open_food_window()
 	await _settle()
-	print("the window is up: ", hud.is_food_window_open(), ", ", page.place_count(), " beds, ",
-		page.row_count(), " crops")
+	print(
+		"the window is up: ",
+		hud.is_food_window_open(),
+		", ",
+		page.place_count(),
+		" beds, ",
+		page.row_count(),
+		" crops",
+	)
 
 
 ## Let the running scene take a couple of frames, which is where the HUD settles.

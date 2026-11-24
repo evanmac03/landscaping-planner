@@ -4,8 +4,10 @@ extends Window
 ## window they bound.
 ##
 ## A `Window`, like the ground page and for the same reason: it holds number fields, and a window is
-## the one boundary at which controls are allowed to hold the keyboard. Everything in this HUD is
-## built focus-free, and the spin boxes here are the one kind of control that may take a key.
+## the one boundary at which controls are allowed to hold the keyboard. Everything here is built through
+## the shared chrome, which makes a control without a keyboard of its own - except the two number fields,
+## which keep theirs, because a field is where somebody types. What the *open* page does with the
+## keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## ## Why it writes to the drawing
 ##
@@ -32,14 +34,18 @@ signal closed
 ## bottom edge.
 const SIZE := Vector2i(880, 640)
 
-const EXPLANATION := ("A growing season is two dates: the last frost of spring and the first frost "
+const EXPLANATION := (
+	"A growing season is two dates: the last frost of spring and the first frost "
 	+ "of autumn. State them here and they are kept with the drawing, and every food crop in the "
 	+ "list is then measured against the season they bound - a crop that takes longer to ripen than "
-	+ "the season lasts will not finish before the frost comes back.")
+	+ "the season lasts will not finish before the frost comes back."
+)
 
 const NO_DOCUMENT := "there is no drawing open, so there is no season to state"
-const NOT_STATED_HINT := ("the drawing does not state a growing season yet: set the frost dates and "
-	+ "press State the season to keep them with the drawing")
+const NOT_STATED_HINT := (
+	"the drawing does not state a growing season yet: set the frost dates and "
+	+ "press State the season to keep them with the drawing"
+)
 const NO_FOOD := "no food crops are recorded in the plant list, so there is nothing to check against the season"
 const BAD_DATES := "those dates are not a season: the last frost has to come before the first"
 
@@ -59,9 +65,7 @@ var _status: String = ""
 var _rows_signature_seen: String = "<never written>"
 
 var _season_line: Label = null
-var _last_caption: Label = null
 var _last_box: SpinBox = null
-var _first_caption: Label = null
 var _first_box: SpinBox = null
 var _field_line: Label = null
 var _state_button: Button = null
@@ -71,7 +75,6 @@ var _crops_list: ItemList = null
 var _summary_label: Label = null
 var _hint_label: Label = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -89,62 +92,26 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	var column := PageChrome.column(self, 6, Vector2(16.0, 12.0))
 
-	var heading := Label.new()
-	heading.name = "Heading"
-	heading.text = "How long the season is"
-	column.add_child(heading)
+	column.add_child(PageChrome.subheading("How long the season is"))
+	column.add_child(PageChrome.note(EXPLANATION))
 
-	var explanation := Label.new()
-	explanation.name = "Explanation"
-	explanation.text = EXPLANATION
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(explanation)
-
-	_season_line = Label.new()
+	_season_line = PageChrome.text()
 	_season_line.name = "SeasonLine"
-	_season_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_season_line)
 
-	var last_row := HBoxContainer.new()
-	last_row.name = "LastFrostRow"
-	_last_caption = Label.new()
-	_last_caption.name = "LastFrostCaption"
-	_last_caption.text = "Last frost of spring"
-	_last_caption.custom_minimum_size = Vector2(150.0, 0.0)
-	last_row.add_child(_last_caption)
 	_last_box = _day_box("LastFrostBox", DEFAULT_LAST_FROST)
-	last_row.add_child(_last_box)
-	column.add_child(last_row)
+	column.add_child(_field_row("Last frost of spring", "LastFrostRow", _last_box))
 
-	var first_row := HBoxContainer.new()
-	first_row.name = "FirstFrostRow"
-	_first_caption = Label.new()
-	_first_caption.name = "FirstFrostCaption"
-	_first_caption.text = "First frost of autumn"
-	_first_caption.custom_minimum_size = Vector2(150.0, 0.0)
-	first_row.add_child(_first_caption)
 	_first_box = _day_box("FirstFrostBox", DEFAULT_FIRST_FROST)
-	first_row.add_child(_first_box)
-	column.add_child(first_row)
+	column.add_child(_field_row("First frost of autumn", "FirstFrostRow", _first_box))
 
-	_field_line = Label.new()
+	_field_line = PageChrome.text()
 	_field_line.name = "FieldLine"
-	_field_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_field_line)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
-	buttons.add_theme_constant_override("separation", 6)
+	var buttons := PageChrome.button_row()
 	_state_button = _button(buttons, "StateButton", "State the season")
 	_state_button.tooltip_text = "Keep these frost dates with the drawing, as one undoable step"
 	_state_button.pressed.connect(_on_state_pressed)
@@ -155,32 +122,26 @@ func build() -> void:
 	close_button.pressed.connect(request_close)
 	column.add_child(buttons)
 
-	_crops_label = Label.new()
+	_crops_label = PageChrome.text()
 	_crops_label.name = "CropsLabel"
 	column.add_child(_crops_label)
 	_crops_list = ItemList.new()
 	_crops_list.name = "Crops"
 	_crops_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_crops_list.custom_minimum_size = Vector2(0.0, 200.0)
-	# A list a person reads is not a list a person types into: the keyboard belongs to the fields,
-	# and nothing here takes a key from the drawing.
+	# A list a person reads rather than types into, built without a keyboard of its own like the rest.
 	_crops_list.focus_mode = Control.FOCUS_NONE
 	_crops_list.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_crops_list)
 
-	_summary_label = Label.new()
+	_summary_label = PageChrome.text()
 	_summary_label.name = "Summary"
-	_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_summary_label)
 
-	_hint_label = Label.new()
-	_hint_label.name = "Hint"
-	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_label = PageChrome.hint()
 	column.add_child(_hint_label)
 
-	_status_label = Label.new()
-	_status_label.name = "Status"
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label = PageChrome.status()
 	column.add_child(_status_label)
 
 	# A page with nothing in it yet is still a page: it says what it is waiting for rather than
@@ -201,15 +162,25 @@ func _day_box(node_name: String, start: int) -> SpinBox:
 	return box
 
 
-func _button(row: Node, node_name: String, caption: String) -> Button:
-	var made_button := Button.new()
-	made_button.name = node_name
-	made_button.text = caption
-	# The HUD's own rule: a control in the HUD never takes the keyboard from the drawing.
-	made_button.focus_mode = Control.FOCUS_NONE
-	row.add_child(made_button)
-	return made_button
+## A caption and the field it names, in one row. Both rows give their caption the same width so the two
+## number fields line up whichever words stand in front of them. The caption itself is the shared
+## chrome's, which is why it is found by the name the chrome gives it rather than by the page naming it.
+func _field_row(caption: String, row_name: String, box: SpinBox) -> HBoxContainer:
+	var row := PageChrome.labelled(caption, box)
+	row.name = row_name
+	var words: Label = row.get_node(^"Caption")
+	words.custom_minimum_size = Vector2(150.0, 0.0)
+	return row
 
+
+## A button in the page's own row, made by the shared chrome so that its caption and what it does with
+## the keyboard are the project's rather than this page's. The node name is the page's, because its own
+## tests read `StateButton` and `ClearButton`.
+func _button(row: Node, node_name: String, caption: String) -> Button:
+	var made := PageChrome.button(caption)
+	made.name = node_name
+	row.add_child(made)
+	return made
 
 # --- the drawing --------------------------------------------------------------------------
 
@@ -249,7 +220,6 @@ func season_line() -> String:
 		return NO_DOCUMENT
 	return GrowingSeasonScript.season_text(last_frost(), first_frost())
 
-
 # --- the fields ---------------------------------------------------------------------------
 
 
@@ -271,7 +241,6 @@ func set_fields(last: int, first: int) -> void:
 	_refresh_field_line()
 	_refresh_buttons()
 	_hint_label.text = hint()
-
 
 # --- what the buttons do -------------------------------------------------------------------
 
@@ -315,7 +284,6 @@ func clear_season() -> bool:
 	season_changed.emit()
 	return true
 
-
 # --- what the season comes to --------------------------------------------------------------
 
 
@@ -334,9 +302,7 @@ func row_count() -> int:
 func summary_text() -> String:
 	if _catalogue == null:
 		return "there is no plant list to check"
-	return GrowingSeasonScript.describe_rows(
-		GrowingSeasonScript.rows(_catalogue, last_frost(), first_frost())
-	)
+	return GrowingSeasonScript.describe_rows(GrowingSeasonScript.rows(_catalogue, last_frost(), first_frost()))
 
 
 ## The guidance: what the page is waiting for, or what it is doing. Kept apart from the status line,
@@ -349,7 +315,6 @@ func hint() -> String:
 	if _catalogue == null or row_count() == 0:
 		return NO_FOOD
 	return "each crop below is measured against this season: one that ripens later than the first frost will not finish"
-
 
 # --- what the page says ----------------------------------------------------------------------
 
@@ -376,8 +341,9 @@ func clear_enabled() -> bool:
 	return _clear_button != null and not _clear_button.disabled
 
 
-## True when nothing in the page can take the drawing's keyboard except the two number fields, which
-## are the one kind of control that may hold it.
+## True when the page is *built* with nothing that takes a keyboard of its own except the two number
+## fields, which keep theirs because a field is where somebody types. Whether the page holds the keyboard
+## once it is open is the shared show's decision, and is measured live rather than here.
 func lists_are_keyboard_free() -> bool:
 	return _crops_list != null and _crops_list.focus_mode == Control.FOCUS_NONE
 
@@ -389,7 +355,6 @@ func request_close() -> void:
 
 func _on_close_requested() -> void:
 	request_close()
-
 
 # --- the refresh -------------------------------------------------------------------------
 
@@ -444,9 +409,7 @@ func _refresh_field_line() -> void:
 ## hundred strings a frame.
 func _write_rows() -> void:
 	var texts: Array[String] = row_texts()
-	var signature: String = "%d|%d|%s" % [
-		last_frost(), first_frost(), "+".join(PackedStringArray(texts))
-	]
+	var signature: String = "%d|%d|%s" % [last_frost(), first_frost(), "+".join(PackedStringArray(texts))]
 	if signature == _rows_signature_seen:
 		return
 	_rows_signature_seen = signature
@@ -460,8 +423,8 @@ func _refresh_buttons() -> void:
 		return
 	# The same question asked twice: the button is dead when the page cannot do it, and the hint above
 	# says which fact is missing - which a disabled button cannot say for itself.
-	_state_button.disabled = document == null or not GrowingSeasonScript.is_stated(
-		field_last_frost(), field_first_frost()
+	_state_button.disabled = (
+		document == null or not GrowingSeasonScript.is_stated(field_last_frost(), field_first_frost())
 	)
 	_clear_button.disabled = not season_stated()
 

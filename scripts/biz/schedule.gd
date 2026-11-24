@@ -29,10 +29,9 @@ const CONFLICT_NAMES := {
 ## a real one - the board only ever moves a thing it can point at.
 var entries: Array[Dictionary] = []
 ## Crew member id (String) to `CrewMember`, or empty. Used for the availability conflict only.
-var crews: Dictionary = {}
+var crews: Dictionary = { }
 
 const MINUTES_PER_DAY := 1440
-
 
 # --- placing ---------------------------------------------------------------------------------
 
@@ -41,19 +40,31 @@ const MINUTES_PER_DAY := 1440
 ## point at is not a block, and an end equal to a start is zero work, not a booking.
 ##
 ## Returns `{ok, reason, index}`.
-func place(job: String, crew: StringName, date: String, start_minute: int, end_minute: int,
-		note: String = "") -> Dictionary:
+func place(
+	job: String,
+	crew: StringName,
+	date: String,
+	start_minute: int,
+	end_minute: int,
+	note: String = "",
+) -> Dictionary:
 	if date.strip_edges().is_empty():
-		return {"ok": false, "reason": "a block needs a date", "index": -1}
+		return { "ok": false, "reason": "a block needs a date", "index": -1 }
 	if end_minute <= start_minute:
-		return {"ok": false, "reason": "a block that ends before it starts is no block", "index": -1}
+		return { "ok": false, "reason": "a block that ends before it starts is no block", "index": -1 }
 	if start_minute < 0 or end_minute > MINUTES_PER_DAY:
-		return {"ok": false, "reason": "a block outside the day is not a booking", "index": -1}
-	entries.append({
-		"job": job, "crew": String(crew), "date": date,
-		"start_minute": start_minute, "end_minute": end_minute, "note": note,
-	})
-	return {"ok": true, "reason": "", "index": entries.size() - 1}
+		return { "ok": false, "reason": "a block outside the day is not a booking", "index": -1 }
+	entries.append(
+		{
+			"job": job,
+			"crew": String(crew),
+			"date": date,
+			"start_minute": start_minute,
+			"end_minute": end_minute,
+			"note": note,
+		}
+	)
+	return { "ok": true, "reason": "", "index": entries.size() - 1 }
 
 
 ## Move a block to a new window on the same day. Refused for the same reasons a placement is.
@@ -132,7 +143,6 @@ func know_crew(member: CrewScript) -> void:
 	if member != null and not String(member.id).is_empty():
 		crews[String(member.id)] = member
 
-
 # --- the conflicts, as a list and never an automatic move --------------------------------------
 
 
@@ -172,9 +182,15 @@ func _double_bookings(date: String, day: Array[Dictionary]) -> Array[Dictionary]
 		for i in blocks.size():
 			for j in range(i + 1, blocks.size()):
 				if _overlap(blocks[i], blocks[j]):
-					out.append(_row(CREW_DOUBLE_BOOKED, date, crew,
-						"%s is booked in two windows at once (%s and %s)"
-						% [crew, _window(blocks[i]), _window(blocks[j])]))
+					out.append(
+						_row(
+							CREW_DOUBLE_BOOKED,
+							date,
+							crew,
+							"%s is booked in two windows at once (%s and %s)"
+							% [crew, _window(blocks[i]), _window(blocks[j])],
+						)
+					)
 	return out
 
 
@@ -195,8 +211,7 @@ func _two_crews_on_one_job(date: String, day: Array[Dictionary]) -> Array[Dictio
 				if not booked.has(crew):
 					booked.append(crew)
 		if booked.size() > 1:
-			out.append(_row(JOB_TWO_CREWS, date, booked[0],
-				"%s has two crews on it (%s)" % [job, ", ".join(booked)]))
+			out.append(_row(JOB_TWO_CREWS, date, booked[0], "%s has two crews on it (%s)" % [job, ", ".join(booked)]))
 	return out
 
 
@@ -215,7 +230,7 @@ func _unavailable_crews(date: String, day: Array[Dictionary]) -> Array[Dictionar
 
 static func _overlap(a: Dictionary, b: Dictionary) -> bool:
 	return int(a["start_minute"]) < int(b["end_minute"]) \
-		and int(b["start_minute"]) < int(a["end_minute"])
+			and int(b["start_minute"]) < int(a["end_minute"])
 
 
 static func _window(entry: Dictionary) -> String:
@@ -239,22 +254,23 @@ static func _by_date_kind_crew(a: Dictionary, b: Dictionary) -> bool:
 		return String(a["kind"]) < String(b["kind"])
 	return String(a["crew"]) < String(b["crew"])
 
-
 # --- the file ---------------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
 	var list: Array = []
 	for entry in entries:
-		list.append({
-			"job": String(entry["job"]),
-			"crew": String(entry["crew"]),
-			"date": String(entry["date"]),
-			"start_minute": int(entry["start_minute"]),
-			"end_minute": int(entry["end_minute"]),
-			"note": String(entry.get("note", "")),
-		})
-	return {"entries": list}
+		list.append(
+			{
+				"job": String(entry["job"]),
+				"crew": String(entry["crew"]),
+				"date": String(entry["date"]),
+				"start_minute": int(entry["start_minute"]),
+				"end_minute": int(entry["end_minute"]),
+				"note": String(entry.get("note", "")),
+			}
+		)
+	return { "entries": list }
 
 
 static func from_dict(data: Dictionary) -> Schedule:
@@ -264,9 +280,13 @@ static func from_dict(data: Dictionary) -> Schedule:
 		for entry in (list as Array):
 			if entry is Dictionary:
 				var placed: Dictionary = schedule.place(
-					String(entry.get("job", "")), StringName(entry.get("crew", "")),
-					String(entry.get("date", "")), int(entry.get("start_minute", 0)),
-					int(entry.get("end_minute", 0)), String(entry.get("note", "")))
+					String(entry.get("job", "")),
+					StringName(entry.get("crew", "")),
+					String(entry.get("date", "")),
+					int(entry.get("start_minute", 0)),
+					int(entry.get("end_minute", 0)),
+					String(entry.get("note", "")),
+				)
 				# A block that will not place is a damaged record, and it is dropped rather than
 				# stored as something the board cannot point at.
 				if not placed["ok"]:

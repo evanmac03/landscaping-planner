@@ -25,40 +25,34 @@ extends Window
 
 ## The palette was closed, by Escape, by its own button, or by its own frame.
 signal closed()
+
+
 func _on_close_requested() -> void:
 	hide()
 	closed.emit()
 
 
-## The floor the window opens at, brought down to what a screen actually has room for.
-## A palette is shown fitted to its contents and clamped to the screen it lands on, but a `min_size` larger than
-## that screen would fight the clamp and push the page's own controls off the edge - so the floor comes
-## down to fit as well, and is never wider or taller than the page asked for in the first place.
-static func clamped_minimum(available: Vector2i) -> Vector2i:
-	if available.x <= 0 or available.y <= 0:
-		return SIZE
-	return Vector2i(mini(SIZE.x, available.x), mini(SIZE.y, available.y))
-
-
-## Bring the palette's floor down to what the screen it will land on can hold.
-func clamp_to_screen() -> Vector2i:
-	var screen := DisplayServer.window_get_current_screen()
-	var available := DisplayServer.screen_get_usable_rect(screen).size
-	min_size = clamped_minimum(available)
-	return min_size
-
-
 ## Put the palette on the screen, with the keyboard already in the field - the whole point of the box
 ## is that a word can be typed into it without reaching for it first.
-## Now with a floor clamped to the screen so controls do not run off the edges on small displays.
+##
+## **Through `PageChrome.show_centred`, the one door a page is shown by**, and not `popup_centered_clamped` with a
+## floor worked out here, as this did until 2026-11-14. The door does what the old `clamp_to_screen` was reaching
+## for - clamping the floor to the room the page lands in, rather than to the monitor - and three things it never
+## did: it sizes the buttons for a finger, grows the page's words for the screen, and lands it clear of its own
+## title bar and a phone's cutout. Measured by `tools/phone_touch_sweep.gd` at a phone's own 450 dpi, before and
+## after: three controls 41 px where a finger wants 97 and four lines at 16 px where the screen needs 30 - and
+## every target a row tall, legible and showing all of its words once it went through the door.
 func open() -> void:
 	build()
-	clamp_to_screen()
-	popup_centered_clamped()
+	# The floor the door starts from: what this box asks for, which the door brings down to the room it lands in.
+	min_size = SIZE
+	PageChrome.show_centred(self)
 	if _search != null:
 		_search.grab_focus()
 ## A row was chosen. The row is carried whole, because the method it names and the entry that
 ## describes it are what runs it: the palette knows nothing about what any command does.
+
+
 signal chosen(row: Dictionary)
 
 ## Big enough for a command and the reason it cannot run, and a list long enough to be worth
@@ -95,7 +89,6 @@ func _init() -> void:
 func _ready() -> void:
 	if _list == null:
 		build()
-
 
 # --- building ----------------------------------------------------------------------------------
 
@@ -167,7 +160,6 @@ func build() -> void:
 	# built by hand and never filled has no bar behind it, and two empty labels would look like a
 	# palette that had failed.
 	_apply_filter()
-
 
 # --- what it is showing ------------------------------------------------------------------------
 
@@ -280,7 +272,7 @@ func shown_id(row: int) -> String:
 ## The whole row a shown row stands for.
 func shown_row(row: int) -> Dictionary:
 	if _list == null or row < 0 or row >= _list.item_count:
-		return {}
+		return { }
 	return _rows[int(_list.get_item_metadata(row))]
 
 
@@ -305,7 +297,6 @@ func said() -> String:
 func status_text() -> String:
 	return said()
 
-
 # --- the controls themselves, for a test that has to read them ---------------------------------
 
 
@@ -318,9 +309,7 @@ func commands_list() -> ItemList:
 func search_field() -> LineEdit:
 	return _search
 
-
 # --- showing it --------------------------------------------------------------------------------
-
 
 
 func close_palette() -> void:
@@ -328,7 +317,6 @@ func close_palette() -> void:
 		return
 	hide()
 	closed.emit()
-
 
 # --- the work ----------------------------------------------------------------------------------
 
@@ -382,7 +370,7 @@ func _recents_first(rows: Array[int]) -> Array[int]:
 ## are both in it.
 func _earlier_recent(a: int, b: int) -> bool:
 	return _recents.find(String(_rows[a].get("id", ""))) \
-		< _recents.find(String(_rows[b].get("id", "")))
+			< _recents.find(String(_rows[b].get("id", "")))
 
 
 ## What one row says: what it is called, the key that also does it, and the menu it lives under. A
@@ -421,8 +409,7 @@ func _describe_shown(query: String) -> String:
 		if _recents.is_empty():
 			return "%d commands. Type to narrow them, Enter to run the chosen one." % _shown.size()
 		# Said out loud, because an order a person did not ask for is a thing they will look at twice.
-		return ("%d commands, the ones you ran last first. Type to narrow them, Enter to run the "
-			+ "chosen one.") % _shown.size()
+		return ("%d commands, the ones you ran last first. Type to narrow them, Enter to run the " + "chosen one.") % _shown.size()
 	return "%d of %d commands mention %s." % [_shown.size(), _rows.size(), _quoted(query)]
 
 
@@ -442,7 +429,6 @@ func _choose(row: int) -> void:
 		return
 	chosen.emit(picked)
 	close_palette()
-
 
 # --- the search -------------------------------------------------------------------------------
 
@@ -486,24 +472,28 @@ static func find_in(among: Array[Dictionary], query: String) -> Array[int]:
 static func _quoted(words: String) -> String:
 	return "\"%s\"" % words.strip_edges()
 
-
 # --- what it does -----------------------------------------------------------------------------
 
 
-## Move the cursor up or down the list, stopping at ends and skipping non-selectable items (headings),
-## so the arrows walk the command list subject to subject rather than furniture.
+## Move the cursor up or down the list, wrapping round at either end and skipping non-selectable rows,
+## so the arrows are a way through the whole list without reaching for the mouse. A list with nothing
+## selectable in it leaves the cursor where it is rather than looping for ever.
 func _move_selection(step: int) -> void:
 	var count := _list.item_count if _list != null else 0
 	if count == 0:
 		return
 	var picked: PackedInt32Array = _list.get_selected_items()
 	var current: int = picked[0] if not picked.is_empty() else -1
-	var at := current + step
-	while at >= 0 and at < count:
+	var at := current
+	for _attempt in count:
+		at = at + step
+		if at < 0:
+			at = count - 1
+		elif at >= count:
+			at = 0
 		if _list.is_item_selectable(at):
 			select(at)
 			return
-		at += step
 
 
 func _on_row_selected(index: int) -> void:
@@ -547,5 +537,3 @@ func _on_search_gui_input(event: InputEvent) -> void:
 		KEY_UP:
 			_move_selection(-1)
 			_search.accept_event()
-
-

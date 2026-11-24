@@ -14,7 +14,7 @@ const MoneyScript := preload("res://scripts/biz/money.gd")
 func _invoice() -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith", "city": "Ottawa"}
+	invoice.customer = { "name": "Smith", "city": "Ottawa" }
 	invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Deposit", MoneyScript.of(50000), &"HARDSCAPE", &"NONE")
 	invoice.set_retainage(MoneyScript.of(5000))
 	assert(bool(invoice.issue("2026-06-01", 30, "INV-2026-0001")["ok"]))
@@ -24,7 +24,7 @@ func _invoice() -> InvoiceScript:
 func _note() -> CreditScript:
 	var note: CreditScript = CreditScript.new("CN1")
 	note.job = "J1"
-	note.customer = {"name": "Smith"}
+	note.customer = { "name": "Smith" }
 	assert(note.set_amount(MoneyScript.of(45000)))
 	assert(note.set_against("INV-2026-0001", "the paving was overbilled"))
 	return note
@@ -35,13 +35,17 @@ func _issued() -> CreditScript:
 	assert(bool(note.issue("2026-06-20", "CN-2026-0001")["ok"]))
 	return note
 
-
 # --- what a credit note is ----------------------------------------------------------------------
 
 
 func test_a_credit_note_is_the_exact_mirror_of_the_invoice_it_reverses() -> void:
 	var invoice := _invoice()
-	var note: CreditScript = CreditScript.mirror_of(invoice, "2026-06-20", "CN-2026-0001", "customer cancelled the second phase")
+	var note: CreditScript = CreditScript.mirror_of(
+		invoice,
+		"2026-06-20",
+		"CN-2026-0001",
+		"customer cancelled the second phase",
+	)
 	assert(note != null)
 	# The invoice total is 500.00 + no tax - 50.00 retained = 450.00, and the mirror is that to the cent.
 	assert(note.amount.cents == invoice.total().cents, str(note.amount.cents))
@@ -69,7 +73,6 @@ func test_mirroring_a_voided_invoice_gives_nothing_because_there_is_nothing_to_r
 	var invoice := _invoice()
 	assert(invoice.mark_void("2026-06-15", "the address was wrong"))
 	assert(CreditScript.mirror_of(invoice, "2026-06-20", "CN-2026-0001") == null)
-
 
 # --- stating it: the amount is positive and the invoice is named ---------------------------------
 
@@ -115,12 +118,11 @@ func test_a_credit_note_nobody_explained_cannot_be_issued() -> void:
 func test_an_empty_note_cannot_be_issued_and_a_row_that_is_not_a_note_is_dropped() -> void:
 	var note: CreditScript = CreditScript.new("CN1")
 	assert(not bool(note.issue("2026-06-20", "CN-2026-0001")["ok"]))
-	assert(CreditScript.from_dict({}) == null)
-	assert(CreditScript.from_dict({"id": ""}) == null)
-	var back: CreditScript = CreditScript.from_dict({"id": "CN1", "amount": {"cents": 45000, "currency": "CAD"}})
+	assert(CreditScript.from_dict({ }) == null)
+	assert(CreditScript.from_dict({ "id": "" }) == null)
+	var back: CreditScript = CreditScript.from_dict({ "id": "CN1", "amount": { "cents": 45000, "currency": "CAD" } })
 	assert(back != null)
 	assert(back.amount.cents == 45000)
-
 
 # --- issuing, editing, voiding ------------------------------------------------------------------
 
@@ -173,7 +175,6 @@ func test_a_note_survives_the_file_with_its_number_and_its_reason() -> void:
 	assert(back.issued_at == "2026-06-20")
 	assert(back.reason == note.reason)
 	assert(back.is_sound())
-
 
 # --- numbering, by the same rule an invoice uses ------------------------------------------------
 

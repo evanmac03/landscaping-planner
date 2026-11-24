@@ -221,7 +221,6 @@ func test_the_select_tool_takes_no_points() -> void:
 	assert(not result["committed"])
 	assert(not tool.is_active())
 
-
 # --- preview ------------------------------------------------------------------------
 
 
@@ -285,7 +284,6 @@ func test_a_degenerate_preview_shows_nothing() -> void:
 	rect_tool.click(Vector2(2, 2))
 	assert(rect_tool.preview(Vector2(5, 2)) == null)
 
-
 # --- labels and status --------------------------------------------------------------
 
 
@@ -305,15 +303,21 @@ func test_status_guides_the_next_pick() -> void:
 
 func test_every_tool_has_a_label_and_a_point_count() -> void:
 	var kinds: Array = [
-		Tool.Kind.SELECT, Tool.Kind.LINE, Tool.Kind.POLYLINE,
-		Tool.Kind.RECTANGLE, Tool.Kind.CIRCLE, Tool.Kind.ARC, Tool.Kind.MEASURE,
-		Tool.Kind.DIMENSION, Tool.Kind.DIMENSION_LINEAR, Tool.Kind.DIMENSION_RADIUS,
+		Tool.Kind.SELECT,
+		Tool.Kind.LINE,
+		Tool.Kind.POLYLINE,
+		Tool.Kind.RECTANGLE,
+		Tool.Kind.CIRCLE,
+		Tool.Kind.ARC,
+		Tool.Kind.MEASURE,
+		Tool.Kind.DIMENSION,
+		Tool.Kind.DIMENSION_LINEAR,
+		Tool.Kind.DIMENSION_RADIUS,
 	]
 	for kind: Tool.Kind in kinds:
 		assert(Tool.label_for(kind) != "?")
 		var tool = _tool(kind)
 		assert(tool.needed_points() >= 0)
-
 
 # --- dimension ----------------------------------------------------------------------
 
@@ -429,7 +433,6 @@ func test_a_dimension_draws_on_the_dimension_layer_not_the_selected_one() -> voi
 	assert(controller._layer_for(Tool.Kind.DIMENSION) == LayerSet.DIMENSION)
 	controller.free()
 
-
 # --- linear dimension ---------------------------------------------------------------
 
 
@@ -488,7 +491,6 @@ func test_the_linear_ghost_follows_the_cursor_as_the_line_placement() -> void:
 	assert(is_equal_approx(float(ghost.params[4]), 2.0))
 	assert(tool.point_count() == 2)
 
-
 # --- radial dimension ---------------------------------------------------------------
 
 
@@ -544,7 +546,9 @@ func test_the_radial_ghost_shows_the_radius_before_it_is_committed() -> void:
 ## four draw on the dimension layer whatever was selected.
 func test_every_dimension_command_is_an_annotation() -> void:
 	var dimensions: Array = [
-		Tool.Kind.DIMENSION, Tool.Kind.DIMENSION_LINEAR, Tool.Kind.DIMENSION_RADIUS,
+		Tool.Kind.DIMENSION,
+		Tool.Kind.DIMENSION_LINEAR,
+		Tool.Kind.DIMENSION_RADIUS,
 		Tool.Kind.DIMENSION_ANGULAR,
 	]
 	for kind: Tool.Kind in dimensions:

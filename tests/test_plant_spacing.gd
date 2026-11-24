@@ -11,9 +11,9 @@ extends Node
 ## line that lands exactly on the outline is a point every polygon test is entitled to answer either
 ## way, and a count that depends on which way is a count that will fail on another machine.
 
-const SpacingScript := preload("res://scripts/plant_spacing.gd")
-const CatalogueScript := preload("res://scripts/plant_catalogue.gd")
-const PlacementScript := preload("res://scripts/plant_placement.gd")
+const SpacingScript := preload("res://scripts/plants/plant_spacing.gd")
+const CatalogueScript := preload("res://scripts/plants/plant_catalogue.gd")
+const PlacementScript := preload("res://scripts/plants/plant_placement.gd")
 const Document := preload("res://scripts/draft/draft_document.gd")
 const Entity := preload("res://scripts/draft/draft_entity.gd")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
@@ -41,23 +41,19 @@ func _yard() -> Node3D:
 
 ## A square bed of `size` metres with its corner at the origin.
 func _bed(size: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size),
-	])
+	return PackedVector2Array([Vector2(0.0, 0.0), Vector2(size, 0.0), Vector2(size, size), Vector2(0.0, size)])
 
 
 ## A ring with its corner at `left`/`top`, so a grid can be laid over it without its lines landing on
 ## the edges.
 func _ring(left: float, top: float, size: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(left, top), Vector2(left + size, top),
-		Vector2(left + size, top + size), Vector2(left, top + size),
-	])
+	return PackedVector2Array(
+		[Vector2(left, top), Vector2(left + size, top), Vector2(left + size, top + size), Vector2(left, top + size)]
+	)
 
 
 func _same(a: float, b: float, slack: float = 1e-6) -> bool:
 	return absf(a - b) <= slack
-
 
 # --- the grid ------------------------------------------------------------------------------
 
@@ -68,8 +64,8 @@ func test_a_square_grid_is_rows_and_columns_one_spacing_apart() -> void:
 	var points := SpacingScript.positions(_bed(10.0), 1.0, SpacingScript.SQUARE, 0.5)
 	assert(points.size() == 81, "81 plants: %d" % points.size())
 
-	var xs := {}
-	var ys := {}
+	var xs := { }
+	var ys := { }
 	for point: Vector2 in points:
 		xs[snappedf(point.x, 0.001)] = true
 		ys[snappedf(point.y, 0.001)] = true
@@ -99,10 +95,9 @@ func test_no_two_plants_are_closer_than_the_spacing() -> void:
 func test_staggered_rows_are_offset_by_half_a_spacing_and_fill_the_bed_more_full() -> void:
 	var square := SpacingScript.positions(_bed(10.0), 1.0, SpacingScript.SQUARE, 0.5)
 	var staggered := SpacingScript.positions(_bed(10.0), 1.0, SpacingScript.TRIANGULAR, 0.5)
-	assert(staggered.size() > square.size(),
-		"staggered takes more: %d against %d" % [staggered.size(), square.size()])
+	assert(staggered.size() > square.size(), "staggered takes more: %d against %d" % [staggered.size(), square.size()])
 
-	var rows := {}
+	var rows := { }
 	for point: Vector2 in staggered:
 		var y := snappedf(point.y, 0.001)
 		if not rows.has(y):
@@ -119,16 +114,20 @@ func test_staggered_rows_are_offset_by_half_a_spacing_and_fill_the_bed_more_full
 	var second: Array = rows[heights[1]]
 	first.sort()
 	second.sort()
-	assert(_same(fmod(absf(float(second[0]) - float(first[0])), 1.0), 0.5, 0.0002),
-		"the second row starts half a spacing across")
+	assert(
+		_same(fmod(absf(float(second[0]) - float(first[0])), 1.0), 0.5, 0.0002),
+		"the second row starts half a spacing across",
+	)
 
 
 func test_a_plant_is_kept_half_a_spread_inside_the_bed_it_is_in() -> void:
 	var points := SpacingScript.positions(_bed(10.0), 1.0, SpacingScript.SQUARE, 1.25)
 	assert(not points.is_empty())
 	for point: Vector2 in points:
-		assert(SpacingScript.distance_to_outline(point, _bed(10.0)) >= 1.25 - 1e-6,
-			"every plant keeps its distance: %f" % SpacingScript.distance_to_outline(point, _bed(10.0)))
+		assert(
+			SpacingScript.distance_to_outline(point, _bed(10.0)) >= 1.25 - 1e-6,
+			"every plant keeps its distance: %f" % SpacingScript.distance_to_outline(point, _bed(10.0)),
+		)
 
 
 ## A grid line landing on the outline is outside the bed, whatever a polygon test says about a point
@@ -137,8 +136,7 @@ func test_no_plant_stands_on_the_outline_itself() -> void:
 	var points := SpacingScript.positions(_ring(0.2, 0.2, 9.5), 1.0)
 	assert(points.size() == 81, "the inner nine by nine: %d" % points.size())
 	for point: Vector2 in points:
-		assert(point.x > 0.2 and point.x < 9.7 and point.y > 0.2 and point.y < 9.7,
-			"inside the bed: %s" % point)
+		assert(point.x > 0.2 and point.x < 9.7 and point.y > 0.2 and point.y < 9.7, "inside the bed: %s" % point)
 
 
 ## Two beds filled one after another carry on one grid, so a planting does not restart its pattern at
@@ -154,13 +152,10 @@ func test_the_grid_has_one_phase_for_every_bed() -> void:
 		assert(_same(fmod(absf(point.y), 1.0), 0.0, 0.0002), "the same grid: %f" % point.y)
 
 	# And the origin is what moves it: both beds move together, which the corners could not do.
-	var shifted := SpacingScript.positions(
-		_ring(0.1, 0.1, 4.0), 1.0, SpacingScript.SQUARE, 0.0, Vector2(0.25, 0.25)
-	)
+	var shifted := SpacingScript.positions(_ring(0.1, 0.1, 4.0), 1.0, SpacingScript.SQUARE, 0.0, Vector2(0.25, 0.25))
 	assert(not shifted.is_empty())
 	for point: Vector2 in shifted:
 		assert(_same(fmod(absf(point.x - 0.25), 1.0), 0.0, 0.0002), "on the shifted phase: %f" % point.x)
-
 
 # --- the refusals --------------------------------------------------------------------------
 
@@ -169,9 +164,7 @@ func test_an_outline_with_no_ground_is_refused_rather_than_filled() -> void:
 	assert(SpacingScript.positions(PackedVector2Array(), 1.0).is_empty())
 	assert(SpacingScript.positions(PackedVector2Array([Vector2.ZERO, Vector2.ONE]), 1.0).is_empty())
 	assert(SpacingScript.problem(PackedVector2Array(), 1.0, 0.0) != "")
-	assert(SpacingScript.problem(
-		PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(2, 0)]), 1.0, 0.0
-	) != "")
+	assert(SpacingScript.problem(PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(2, 0)]), 1.0, 0.0) != "")
 
 
 func test_a_spacing_tighter_than_a_plan_draws_is_refused() -> void:
@@ -198,9 +191,7 @@ func test_a_bed_too_narrow_for_the_plant_is_refused_in_words() -> void:
 	var yard: Node3D = _yard()
 	# A maple spreads nine metres. A bed half a metre wide cannot hold one, and the refusal has to say
 	# that rather than leaving a button that did nothing.
-	var report: Dictionary = SpacingScript.fill(
-		catalogue, yard, MAPLE, _ring(0.0, 0.0, 0.5), {"spacing": 9.0}
-	)
+	var report: Dictionary = SpacingScript.fill(catalogue, yard, MAPLE, _ring(0.0, 0.0, 0.5), { "spacing": 9.0 })
 	assert(not bool(report["ok"]))
 	assert(String(report["reason"]).contains("more than"), "the refusal is a sentence: %s" % report["reason"])
 	assert(int(report["placed"]) == 0)
@@ -219,7 +210,6 @@ func test_a_species_the_list_does_not_have_is_refused_by_name() -> void:
 	assert(String(bare["reason"]) != "", "a refusal is never silent")
 	yard.free()
 
-
 # --- planting it ----------------------------------------------------------------------------
 
 
@@ -230,15 +220,23 @@ func test_filling_a_bed_plants_the_plants_the_schedule_then_counts() -> void:
 	var yard: Node3D = _yard()
 	var outline := _ring(0.0, 0.0, 4.0)
 	var wanted: int = SpacingScript.count_for(
-		outline, 0.6, SpacingScript.TRIANGULAR, SpacingScript.clearance_of(catalogue.get_species(THYME))
+		outline,
+		0.6,
+		SpacingScript.TRIANGULAR,
+		SpacingScript.clearance_of(catalogue.get_species(THYME)),
 	)
 	var report: Dictionary = SpacingScript.fill(
-		catalogue, yard, THYME, outline, {"spacing": 0.6, "arrangement": SpacingScript.TRIANGULAR}
+		catalogue,
+		yard,
+		THYME,
+		outline,
+		{ "spacing": 0.6, "arrangement": SpacingScript.TRIANGULAR },
 	)
 	assert(bool(report["ok"]), "the bed fills: %s" % report["reason"])
-	assert(int(report["placed"]) == wanted, "as many as the count said: %d against %d" % [
-		int(report["placed"]), wanted
-	])
+	assert(
+		int(report["placed"]) == wanted,
+		"as many as the count said: %d against %d" % [int(report["placed"]), wanted],
+	)
 	assert(wanted > 20, "which is a planting worth having: %d" % wanted)
 
 	var points: PackedVector2Array = report["points"]
@@ -247,8 +245,10 @@ func test_filling_a_bed_plants_the_plants_the_schedule_then_counts() -> void:
 	for index in nodes.size():
 		var node: Node3D = nodes[index]
 		assert(PlacementScript.species_of(node) == THYME, "every one carries its species")
-		assert(node.position.is_equal_approx(Vector3(points[index].x, 0.0, points[index].y)),
-			"and stands where the plan says: %s against %s" % [node.position, points[index]])
+		assert(
+			node.position.is_equal_approx(Vector3(points[index].x, 0.0, points[index].y)),
+			"and stands where the plan says: %s against %s" % [node.position, points[index]],
+		)
 
 	var rows: Array[Dictionary] = PlacementScript.schedule(catalogue, yard)
 	assert(rows.size() == 1, "one species, one row: %d" % rows.size())
@@ -260,12 +260,16 @@ func test_the_spacing_defaults_to_the_species_own_spread_and_the_clearance_to_ha
 	var catalogue: PlantCatalogue = _catalogue()
 	var yard: Node3D = _yard()
 	var species: PlantSpecies = catalogue.get_species(RUDBECKIA)
-	var report: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, _bed(6.0), {})
+	var report: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, _bed(6.0), { })
 	assert(bool(report["ok"]), "%s" % report["reason"])
-	assert(_same(float(report["spacing"]), species.spread_m(), 0.0002),
-		"just touching: %f against %f" % [float(report["spacing"]), species.spread_m()])
-	assert(_same(float(report["clearance"]), species.spread_m() * 0.5, 0.0002),
-		"and half a spread in from the edge: %f" % float(report["clearance"]))
+	assert(
+		_same(float(report["spacing"]), species.spread_m(), 0.0002),
+		"just touching: %f against %f" % [float(report["spacing"]), species.spread_m()],
+	)
+	assert(
+		_same(float(report["clearance"]), species.spread_m() * 0.5, 0.0002),
+		"and half a spread in from the edge: %f" % float(report["clearance"]),
+	)
 	yard.free()
 
 
@@ -273,12 +277,13 @@ func test_a_watered_down_spacing_plants_a_denser_bed() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var yard: Node3D = _yard()
 	var outline := _bed(4.0)
-	var close: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, outline, {"spacing": 0.3})
-	var wide: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, outline, {"spacing": 0.9})
-	assert(int(close["placed"]) > int(wide["placed"]),
-		"half the spacing is more plants: %d against %d" % [int(close["placed"]), int(wide["placed"])])
+	var close: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, outline, { "spacing": 0.3 })
+	var wide: Dictionary = SpacingScript.fill(catalogue, yard, RUDBECKIA, outline, { "spacing": 0.9 })
+	assert(
+		int(close["placed"]) > int(wide["placed"]),
+		"half the spacing is more plants: %d against %d" % [int(close["placed"]), int(wide["placed"])],
+	)
 	yard.free()
-
 
 # --- what the palette is offered -------------------------------------------------------------
 
@@ -307,15 +312,16 @@ func test_the_choices_are_the_ones_a_palette_shows_and_read_the_way_a_person_say
 func test_a_report_reads_as_one_line_and_a_refusal_reads_as_its_reason() -> void:
 	var catalogue: PlantCatalogue = _catalogue()
 	var yard: Node3D = _yard()
-	var report: Dictionary = SpacingScript.fill(catalogue, yard, THYME, _bed(3.0), {"spacing": 0.6})
+	var report: Dictionary = SpacingScript.fill(catalogue, yard, THYME, _bed(3.0), { "spacing": 0.6 })
 	var words: String = SpacingScript.report_words(report)
 	assert(words.begins_with("%d x " % int(report["placed"])), "%s" % words)
 	assert(words.contains("0.6 m"), "the spacing is in it: %s" % words)
 	assert(words.contains("square"), "and the arrangement: %s" % words)
-	assert(SpacingScript.report_words(SpacingScript.fill(catalogue, yard, &"nope", _bed(3.0))) \
-		.contains("nope"))
+	assert(
+		SpacingScript.report_words(SpacingScript.fill(catalogue, yard, &"nope", _bed(3.0))) \
+				.contains("nope")
+	)
 	yard.free()
-
 
 # --- the beds a plan offers ------------------------------------------------------------------
 
@@ -356,12 +362,16 @@ func test_a_bed_reads_as_one_line_with_its_size() -> void:
 	document.add(Entity.make_rectangle(Vector2(3.0, 3.0), Vector2(4.0, 3.0)), LayerSet.NEW_BED)
 	var beds: Array[Dictionary] = SpacingScript.bed_areas(document)
 	assert(beds.size() == 1)
-	assert(SpacingScript.bed_words(beds[0]) == "%s, 12 m2" % String(beds[0]["name"]),
-		"%s" % SpacingScript.bed_words(beds[0]))
+	assert(
+		SpacingScript.bed_words(beds[0]) == "%s, 12 m2" % String(beds[0]["name"]),
+		"%s" % SpacingScript.bed_words(beds[0]),
+	)
 
 	# A bed of 5.76 m2, which is a size with no argument about how it rounds.
 	var small = Document.new()
 	small.add(Entity.make_rectangle(Vector2(3.0, 3.0), Vector2(2.4, 2.4)), LayerSet.NEW_BED)
 	var small_beds: Array[Dictionary] = SpacingScript.bed_areas(small)
-	assert(SpacingScript.bed_words(small_beds[0]) == "%s, 5.8 m2" % String(small_beds[0]["name"]),
-		"%s" % SpacingScript.bed_words(small_beds[0]))
+	assert(
+		SpacingScript.bed_words(small_beds[0]) == "%s, 5.8 m2" % String(small_beds[0]["name"]),
+		"%s" % SpacingScript.bed_words(small_beds[0]),
+	)

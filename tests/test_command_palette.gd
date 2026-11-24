@@ -16,16 +16,14 @@ const PaletteScript := preload("res://scripts/command_palette.gd")
 
 ## One row in the shape the HUD hands them over. The method is not one this test has: the box never
 ## calls it, it only carries it, which is exactly the boundary these tests are about.
-func _row(
-	id: String, label: String, key: String, menu: String, available: bool, why: String
-) -> Dictionary:
+func _row(id: String, label: String, key: String, menu: String, available: bool, why: String) -> Dictionary:
 	return {
 		"id": id,
 		"label": label,
 		"key": key,
 		"menu": menu,
 		"method": &"_menu_thing",
-		"entry": {"id": id, "kind": &"command", "label": label, "method": &"_menu_thing"},
+		"entry": { "id": id, "kind": &"command", "label": label, "method": &"_menu_thing" },
 		"available": available,
 		"why": why,
 	}
@@ -47,7 +45,6 @@ func _window(rows: Array[Dictionary]) -> PaletteScript:
 	box.build()
 	box.set_commands(rows)
 	return box
-
 
 # --- building and the shape of the box ---------------------------------------------------------
 
@@ -75,13 +72,10 @@ func test_nothing_in_the_list_takes_the_keyboard_from_the_field() -> void:
 	var box: PaletteScript = _window(_rows())
 	assert(
 		box.commands_list().focus_mode == Control.FOCUS_NONE,
-		"the list is picked from, not typed into, so it never holds the keys"
+		"the list is picked from, not typed into, so it never holds the keys",
 	)
 	# The field is the one control in here that is *meant* to hold them.
-	assert(
-		box.search_field().focus_mode != Control.FOCUS_NONE,
-		"and the field is the one thing in the box that does"
-	)
+	assert(box.search_field().focus_mode != Control.FOCUS_NONE, "and the field is the one thing in the box that does")
 	box.free()
 
 
@@ -93,7 +87,6 @@ func test_a_box_handed_no_commands_says_so_rather_than_showing_a_blank_frame() -
 	assert(box.run_selected() == false, "and there is nothing for Enter to run")
 	box.free()
 
-
 # --- what a row says --------------------------------------------------------------------------
 
 
@@ -103,7 +96,7 @@ func test_a_row_says_what_the_command_is_called_the_key_and_the_menu_it_is_under
 	assert(texts[0] == "Undo    Ctrl+Z    Edit", "the label, the key that also does it, and its menu")
 	assert(
 		texts[4] == "A3    File > Sheet size",
-		"a command with no key of its own leaves the key out rather than leaving a gap"
+		"a command with no key of its own leaves the key out rather than leaving a gap",
 	)
 	box.free()
 
@@ -113,7 +106,7 @@ func test_a_command_that_cannot_run_here_says_what_is_missing_in_place_of_its_me
 	var texts: Array[String] = box.list_texts()
 	assert(
 		texts[2] == "Save    -    nothing has changed since it was saved",
-		"the reason is the fact worth having in front of you before you press it"
+		"the reason is the fact worth having in front of you before you press it",
 	)
 	assert(texts[3] == "Plot a sheet...    -    there is no drawing open", "and it is the real reason")
 	box.free()
@@ -131,7 +124,6 @@ func test_moving_the_cursor_puts_the_rows_own_state_on_the_status_line() -> void
 	assert(box.shown_id(2) == "file.save", "and choosing the row that cannot run says which one it is")
 	assert(box.said().contains("nothing has changed since it was saved"), "and why it cannot run")
 	box.free()
-
 
 # --- the search -------------------------------------------------------------------------------
 
@@ -182,7 +174,7 @@ func test_a_search_that_finds_nothing_says_so_rather_than_showing_a_near_miss() 
 	assert(box.said().contains("zzz"), "and the line names the word that found nothing")
 	assert(
 		box.said().contains("Clear the box"),
-		"and says how to get back to the whole bar, because that is the way back"
+		"and says how to get back to the whole bar, because that is the way back",
 	)
 	box.free()
 
@@ -205,10 +197,9 @@ func test_moving_the_cursor_with_the_arrows_wraps_round_the_list() -> void:
 	box._move_selection(-1)
 	assert(
 		box.shown_id(box.commands_list().get_selected_items()[0]) == "help.manual",
-		"and up from the first is the last"
+		"and up from the first is the last",
 	)
 	box.free()
-
 
 # --- what it does -----------------------------------------------------------------------------
 
@@ -216,14 +207,17 @@ func test_moving_the_cursor_with_the_arrows_wraps_round_the_list() -> void:
 func test_choosing_a_command_carries_the_whole_row_out_and_closes_the_box() -> void:
 	var box: PaletteScript = _window(_rows())
 	var carried: Array[Dictionary] = []
-	box.chosen.connect(func(row: Dictionary) -> void: carried.append(row))
+	box.chosen.connect(
+		func(row: Dictionary) -> void:
+			carried.append(row),
+	)
 	box.select_command("edit.redo")
 	assert(box.run_selected(), "the row was chosen and run")
 	assert(carried.size() == 1, "and the box announced it once")
 	assert(String(carried[0]["id"]) == "edit.redo", "carrying the row rather than just its name")
 	assert(
 		StringName(carried[0]["method"]) == &"_menu_thing",
-		"including the method that runs it, which is the box's whole contract with the HUD"
+		"including the method that runs it, which is the box's whole contract with the HUD",
 	)
 	assert(not box.visible, "and the box is off the screen once a command has been run")
 	box.free()
@@ -232,7 +226,10 @@ func test_choosing_a_command_carries_the_whole_row_out_and_closes_the_box() -> v
 func test_a_command_that_cannot_run_here_is_refused_by_name_and_the_box_stays_open() -> void:
 	var box: PaletteScript = _window(_rows())
 	var carried: Array[Dictionary] = []
-	box.chosen.connect(func(row: Dictionary) -> void: carried.append(row))
+	box.chosen.connect(
+		func(row: Dictionary) -> void:
+			carried.append(row),
+	)
 	box.select_command("file.save")
 	assert(box.shown_is_available(box.commands_list().get_selected_items()[0]) == false, "it cannot run here")
 	assert(box.run_selected(), "the row was chosen")
@@ -245,7 +242,10 @@ func test_a_command_that_cannot_run_here_is_refused_by_name_and_the_box_stays_op
 func test_a_command_nobody_has_is_refused_rather_than_run() -> void:
 	var box: PaletteScript = _window(_rows())
 	var carried: Array[Dictionary] = []
-	box.chosen.connect(func(row: Dictionary) -> void: carried.append(row))
+	box.chosen.connect(
+		func(row: Dictionary) -> void:
+			carried.append(row),
+	)
 	assert(box.run_command("edit.nope") == false, "there is no such command")
 	assert(carried.is_empty(), "so nothing ran")
 	assert(box.said().contains("edit.nope"), "and the line names what was asked for")
@@ -255,13 +255,15 @@ func test_a_command_nobody_has_is_refused_rather_than_run() -> void:
 func test_closing_the_box_says_so_once_however_it_was_closed() -> void:
 	var box: PaletteScript = _window(_rows())
 	var said: Array[bool] = []
-	box.closed.connect(func() -> void: said.append(true))
+	box.closed.connect(
+		func() -> void:
+			said.append(true),
+	)
 	box.close_palette()
 	assert(said.size() == 1, "closing it says so once")
 	box.close_palette()
 	assert(said.size() == 1, "and closing a box that is already closed does not say it again")
 	box.free()
-
 
 # --- the search rule on its own ---------------------------------------------------------------
 
@@ -273,14 +275,10 @@ func test_the_search_rule_reads_a_row_by_its_name_before_its_menu() -> void:
 	]
 	var found: Array[int] = PaletteScript.find_in(rows, "undo")
 	assert(found == [1, 0], "the command named Undo comes before the one merely filed under it")
-	assert(
-		PaletteScript.find_in(rows, "  undo  ").size() == 2,
-		"and the word is trimmed before it is looked for"
-	)
+	assert(PaletteScript.find_in(rows, "  undo  ").size() == 2, "and the word is trimmed before it is looked for")
 	assert(PaletteScript.find_in(rows, "UNDO").size() == 2, "and the search is not case sensitive")
 	assert(PaletteScript.find_in(rows, "").size() == 2, "an empty search is the whole list")
 	assert(PaletteScript.find_in(rows, "zzz").is_empty(), "and a word nobody has finds nothing at all")
-
 
 # --- what was run last ------------------------------------------------------------------------
 
@@ -294,8 +292,7 @@ func test_the_commands_run_last_come_first_when_nothing_is_being_searched() -> v
 	assert(box.shown_id(1) == "edit.redo", "then the one before it")
 	assert(box.shown_id(2) == "edit.undo", "and the rest keep the bar's order")
 	# The bar is not reordered, only the list: a command that cannot run here still says so where it is.
-	assert(box.list_texts()[0].contains("no drawing open") or box.list_texts()[0].contains("Plot"),
-		box.list_texts()[0])
+	assert(box.list_texts()[0].contains("no drawing open") or box.list_texts()[0].contains("Plot"), box.list_texts()[0])
 	box.free()
 
 

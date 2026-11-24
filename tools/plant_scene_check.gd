@@ -20,14 +20,22 @@ extends Node
 
 const MAIN := preload("res://scenes/main.tscn")
 const PlanStyleScript := preload("res://scripts/plan_style.gd")
-const PlantSymbolsScript := preload("res://scripts/plant_symbols.gd")
+const PlantSymbolsScript := preload("res://scripts/plants/plant_symbols.gd")
 const YardScript := preload("res://scripts/yard.gd")
 
 ## One species for each of these, taken from the list rather than named, so this keeps working when
 ## the list changes. The order is `PlantSpecies.category`.
 const CATEGORY_WORDS: Array[String] = [
-	"tree", "shrub", "perennial", "annual", "grass",
-	"groundcover", "vine", "fern", "bulb", "herb",
+	"tree",
+	"shrub",
+	"perennial",
+	"annual",
+	"grass",
+	"groundcover",
+	"vine",
+	"fern",
+	"bulb",
+	"herb",
 ]
 
 ## Where the plants go, in screen pixels: one row across the plan, so the photograph a run leaves
@@ -59,24 +67,28 @@ static func run(main: Node) -> Dictionary:
 	var hud: Node = main.get_node_or_null(^"Hud")
 	var controller: Node = main.get_node_or_null(^"ViewController")
 	if hud == null or controller == null:
-		var gone: String = "no Hud (%s) or ViewController (%s) - is this the real main scene?" % [
-			hud, controller,
-		]
+		var gone: String = "no Hud (%s) or ViewController (%s) - is this the real main scene?" % [hud, controller]
 		print("PLANT SCENE: " + gone)
-		return {"name": "what the scene plants", "ok": false, "planted": 0, "total": 0, "wrong": 0,
-			"summary": gone}
+		return { "name": "what the scene plants", "ok": false, "planted": 0, "total": 0, "wrong": 0, "summary": gone }
 	var catalogue: PlantCatalogue = hud.plant_list()
 	if catalogue == null:
 		print("PLANT SCENE: the scene has no plant list")
-		return {"name": "what the scene plants", "ok": false, "planted": 0, "total": 0, "wrong": 0,
-			"summary": "the scene has no plant list"}
+		return {
+			"name": "what the scene plants",
+			"ok": false,
+			"planted": 0,
+			"total": 0,
+			"wrong": 0,
+			"summary": "the scene has no plant list",
+		}
 
-	print("=== WHAT THE SCENE PLANTS (%d species from %s, view mode %d) ===" % [
-		catalogue.count(), catalogue.source, int(controller.mode),
-	])
+	print(
+		"=== WHAT THE SCENE PLANTS (%d species from %s, view mode %d) ==="
+		% [catalogue.count(), catalogue.source, int(controller.mode)]
+	)
 	print("standing before: %d" % controller.planted_count())
 
-	var picked: Dictionary = {}
+	var picked: Dictionary = { }
 	for species: PlantSpecies in catalogue.all():
 		if not picked.has(species.category):
 			picked[species.category] = species
@@ -100,31 +112,35 @@ static func run(main: Node) -> Dictionary:
 	else:
 		summary = "%d of %d categories planted, %d wrong" % [planted, total, wrong]
 		print("PLANT SCENE: " + summary)
-	return {"name": "what the scene plants", "ok": ok, "planted": planted, "total": total,
-		"wrong": wrong, "summary": summary}
+	return {
+		"name": "what the scene plants",
+		"ok": ok,
+		"planted": planted,
+		"total": total,
+		"wrong": wrong,
+		"summary": summary,
+	}
 
 
 ## Arm one species and plant it where the next click would go, then hold the node that landed up
 ## against the four things the rest of the program will read off it.
-static func _plant_one(
-	hud: Node, controller: Node, picked: Dictionary, index: int, slot: int
-) -> Dictionary:
+static func _plant_one(hud: Node, controller: Node, picked: Dictionary, index: int, slot: int) -> Dictionary:
 	var words: String = CATEGORY_WORDS[index]
 	if not picked.has(index):
 		print("  %-11s the list has none" % words)
-		return {"planted": false, "wrong": 0}
+		return { "planted": false, "wrong": 0 }
 
 	var species: PlantSpecies = picked[index]
 	if not hud._arm_planting(species.id):
 		print("  %-11s %s would not arm" % [words, species.id])
-		return {"planted": false, "wrong": 1}
+		return { "planted": false, "wrong": 1 }
 
 	var result: Dictionary = controller.plant_at(Vector2(FIRST_X + STEP_X * float(slot), PLAN_Y))
 	# Put it away between species, so the next arm is the only plant in hand.
 	controller.stop_planting()
 	if not bool(result["ok"]):
 		print("  %-11s %-30s REFUSED: %s" % [words, species.id, String(result["reason"])])
-		return {"planted": false, "wrong": 1}
+		return { "planted": false, "wrong": 1 }
 
 	var node: Node3D = result["node"]
 	var path: String = node.scene_file_path
@@ -145,9 +161,19 @@ static func _plant_one(
 	if not node.is_in_group(YardScript.PLACEABLE_GROUP):
 		faults.append("not in the group the views read")
 
-	print("  %-11s %-30s %-48s scale %6.3f = %5.2f/%-5.2f  %-11s %5.2f x %-5.2f  %s" % [
-		words, species.id, path, node.scale.x, species.spread_m(), base, symbol,
-		size.x, size.y,
-		"OK" if faults.is_empty() else "WRONG: " + "; ".join(faults),
-	])
-	return {"planted": true, "wrong": faults.size()}
+	print(
+		"  %-11s %-30s %-48s scale %6.3f = %5.2f/%-5.2f  %-11s %5.2f x %-5.2f  %s"
+		% [
+			words,
+			species.id,
+			path,
+			node.scale.x,
+			species.spread_m(),
+			base,
+			symbol,
+			size.x,
+			size.y,
+			"OK" if faults.is_empty() else "WRONG: " + "; ".join(faults),
+		]
+	)
+	return { "planted": true, "wrong": faults.size() }

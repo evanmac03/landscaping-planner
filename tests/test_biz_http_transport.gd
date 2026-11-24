@@ -18,7 +18,6 @@ const NOWHERE := "http://127.0.0.1:1"
 func _ready_transport() -> BizHttpTransport:
 	return HttpScript.new("https://sync.example.com", "a-token")
 
-
 # --- what it is configured with -----------------------------------------------------------------
 
 
@@ -65,45 +64,48 @@ func test_it_has_two_settings_and_the_token_is_the_secret_one() -> void:
 
 func test_the_settings_it_takes_are_taken_and_the_others_are_named() -> void:
 	var transport: BizHttpTransport = HttpScript.new()
-	assert(transport.configure({HttpScript.BASE_URL: "https://sync.example.com", HttpScript.TOKEN: "t"})["ok"])
+	assert(transport.configure({ HttpScript.BASE_URL: "https://sync.example.com", HttpScript.TOKEN: "t" })["ok"])
 	assert(transport.is_ready())
-	var refused: Dictionary = transport.configure({HttpScript.BASE_URL: "x", "password": "hunter2"})
+	var refused: Dictionary = transport.configure({ HttpScript.BASE_URL: "x", "password": "hunter2" })
 	assert(not refused["ok"])
 	assert(refused["reason"].contains("password"))
 	# Nothing was half-saved.
 	assert(String(transport.base_url) == "https://sync.example.com")
 
-
 # --- what would be sent -------------------------------------------------------------------------
 
 
 func test_a_pull_is_a_get_of_the_change_log_since_the_cursor() -> void:
-	var request: Dictionary = _ready_transport().request_for(TransportScript.CHANGES, {"since": 12, "limit": 25})
+	var request: Dictionary = _ready_transport().request_for(TransportScript.CHANGES, { "since": 12, "limit": 25 })
 	assert(int(request["method"]) == HTTPClient.METHOD_GET)
 	assert(String(request["path"]) == "/changes?since=12&limit=25")
 	assert(String(request["body"]).is_empty())
 
 
 func test_a_pull_that_does_not_name_a_limit_asks_for_the_default() -> void:
-	var request: Dictionary = _ready_transport().request_for(TransportScript.CHANGES, {"since": 0})
+	var request: Dictionary = _ready_transport().request_for(TransportScript.CHANGES, { "since": 0 })
 	assert(String(request["path"]).contains("limit=%d" % HttpScript.DEFAULT_LIMIT))
 
 
 func test_every_call_carries_the_token() -> void:
-	var request: Dictionary = _ready_transport().request_for(TransportScript.HEALTH, {})
+	var request: Dictionary = _ready_transport().request_for(TransportScript.HEALTH, { })
 	assert((request["headers"] as Array).has("Authorization: Bearer a-token"))
 
 
 func test_a_transport_with_no_token_sends_no_authorisation() -> void:
-	var request: Dictionary = HttpScript.new("https://sync.example.com").request_for(TransportScript.HEALTH, {})
+	var request: Dictionary = HttpScript.new("https://sync.example.com").request_for(TransportScript.HEALTH, { })
 	for header in (request["headers"] as Array):
 		assert(not String(header).begins_with("Authorization"))
 
 
 func test_a_push_is_a_put_of_the_record_with_if_match() -> void:
 	var args: Dictionary = {
-		"kind": "invoice", "id": "INV-7", "job": "J-1", "rev": 3,
-		"body": {"amount": {"cents": 10000, "currency": "CAD"}}, "who": "evan",
+		"kind": "invoice",
+		"id": "INV-7",
+		"job": "J-1",
+		"rev": 3,
+		"body": { "amount": { "cents": 10000, "currency": "CAD" } },
+		"who": "evan",
 	}
 	var request: Dictionary = _ready_transport().request_for(TransportScript.PUSH, args)
 	assert(int(request["method"]) == HTTPClient.METHOD_PUT)
@@ -113,7 +115,14 @@ func test_a_push_is_a_put_of_the_record_with_if_match() -> void:
 
 
 func test_a_pushed_body_carries_the_record_and_who_changed_it() -> void:
-	var args: Dictionary = {"kind": "invoice", "id": "INV-7", "job": "J-1", "rev": 0, "body": {"a": 1}, "who": "evan"}
+	var args: Dictionary = {
+		"kind": "invoice",
+		"id": "INV-7",
+		"job": "J-1",
+		"rev": 0,
+		"body": { "a": 1 },
+		"who": "evan",
+	}
 	var request: Dictionary = _ready_transport().request_for(TransportScript.PUSH, args)
 	var reader := JSON.new()
 	assert(reader.parse(String(request["body"])) == OK)
@@ -127,22 +136,22 @@ func test_a_pushed_body_carries_the_record_and_who_changed_it() -> void:
 
 func test_an_id_with_a_slash_in_it_stays_one_id() -> void:
 	var request: Dictionary = _ready_transport().request_for(
-		TransportScript.PUSH, {"kind": "invoice", "id": "a/b", "job": "", "rev": 0, "body": {}, "who": ""}
+		TransportScript.PUSH,
+		{ "kind": "invoice", "id": "a/b", "job": "", "rev": 0, "body": { }, "who": "" },
 	)
 	assert(String(request["path"]) == "/records/invoice/a%2Fb")
 
 
 func test_the_deployment_checks_are_where_the_service_puts_them() -> void:
-	assert(String(_ready_transport().request_for(TransportScript.HEALTH, {})["path"]) == "/health")
-	assert(String(_ready_transport().request_for("whoami", {})["path"]) == "/whoami")
+	assert(String(_ready_transport().request_for(TransportScript.HEALTH, { })["path"]) == "/health")
+	assert(String(_ready_transport().request_for("whoami", { })["path"]) == "/whoami")
 
 
 func test_an_attachment_is_posted_apart_from_the_records() -> void:
-	var request: Dictionary = _ready_transport().request_for(TransportScript.ATTACHMENTS, {"name": "receipt.jpg"})
+	var request: Dictionary = _ready_transport().request_for(TransportScript.ATTACHMENTS, { "name": "receipt.jpg" })
 	assert(int(request["method"]) == HTTPClient.METHOD_POST)
 	assert(String(request["path"]) == "/attachments")
 	assert((request["headers"] as Array).has("X-Attachment-Name: receipt.jpg"))
-
 
 # --- the address, split -------------------------------------------------------------------------
 
@@ -170,8 +179,7 @@ func test_a_port_stated_in_the_address_is_the_one_used() -> void:
 func test_a_path_prefix_is_kept_and_used_in_front_of_every_call() -> void:
 	var transport: BizHttpTransport = HttpScript.new("https://example.com/api/sync/", "t")
 	assert(String(transport._split_base()["prefix"]) == "/api/sync")
-	assert(String(transport.request_for(TransportScript.HEALTH, {})["path"]) == "/api/sync/health")
-
+	assert(String(transport.request_for(TransportScript.HEALTH, { })["path"]) == "/api/sync/health")
 
 # --- nowhere to send it to ----------------------------------------------------------------------
 
@@ -195,7 +203,7 @@ func test_an_address_nobody_answers_is_a_refusal_that_says_so() -> void:
 
 func test_a_push_to_nowhere_is_not_recorded_as_a_conflict() -> void:
 	var transport: BizHttpTransport = HttpScript.new(NOWHERE, "t")
-	var answer: Dictionary = transport.push("invoice", "INV-1", "J-1", {}, 0, "evan")
+	var answer: Dictionary = transport.push("invoice", "INV-1", "J-1", { }, 0, "evan")
 	assert(not answer["ok"])
 	assert(not bool(answer["conflict"]))
 	assert(bool(answer["retry"]))
@@ -206,3 +214,37 @@ func test_the_health_check_against_nowhere_says_it_could_not_reach_it() -> void:
 	var answer: Dictionary = transport.health()
 	assert(not answer["ok"])
 	assert(String(answer["service"]).is_empty())
+
+
+## A service is not a vision model, and the two budgets say so: half a minute to answer, a second and a half
+## to connect - because the answer may be a page of records being assembled, while a connection is either
+## taken or nobody is there. **Measured** in `HttpExchange`: a port nobody is listening on never leaves
+## `STATUS_CONNECTING`, so only a short budget of its own can tell a mis-typed address from a slow service.
+func test_the_transport_states_its_own_patience_and_connects_shorter_than_it_answers() -> void:
+	assert(
+		HttpScript.CONNECT_SECONDS < HttpScript.ANSWER_SECONDS,
+		"connecting is a different question from answering: %.1f against %.1f"
+		% [HttpScript.CONNECT_SECONDS, HttpScript.ANSWER_SECONDS],
+	)
+	assert(
+		HttpScript.CONNECT_SECONDS <= 5.0,
+		"and short enough that a typo is not a wait: %.1f" % HttpScript.CONNECT_SECONDS,
+	)
+	assert(
+		HttpScript.ANSWER_SECONDS >= 10.0,
+		"while the service is given long enough to assemble an answer: %.1f" % HttpScript.ANSWER_SECONDS,
+	)
+
+
+## What this transport used to do was count polls: `while turns < 4000: client.poll()`, which is a few
+## milliseconds - so a service that thought about its answer before sending it was reported as not there.
+## The wording now comes from the machine, and it names **which** of the ways the call failed rather than
+## one word for all of them.
+func test_a_service_that_cannot_be_reached_is_refused_in_the_wires_own_words() -> void:
+	var transport: BizHttpTransport = HttpScript.new(NOWHERE, "t")
+	var answer: Dictionary = transport.changes()
+	assert(not String(answer["reason"]).is_empty(), "a refusal says why rather than only how it ended")
+	assert(
+		String(answer["reason"]).contains("nothing is listening"),
+		"and names the way it failed, which a bare status number cannot: %s" % String(answer["reason"]),
+	)

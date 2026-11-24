@@ -158,7 +158,10 @@ func build() -> void:
 	close_button.name = "CloseButton"
 	close_button.text = "Close"
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.pressed.connect(func() -> void: close_requested.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			close_requested.emit(),
+	)
 	remove_row.add_child(close_button)
 
 	_status = Label.new()
@@ -192,7 +195,6 @@ func _row(caption_text: String, tip: String) -> OptionButton:
 
 func _ready() -> void:
 	build()
-
 
 # --- what it shows --------------------------------------------------------------------
 
@@ -342,7 +344,7 @@ func selected_area() -> Dictionary:
 	for row: Dictionary in _areas:
 		if String(row.get("key", "")) == _area_key:
 			return row
-	return {}
+	return { }
 
 
 func kind_choice() -> String:
@@ -370,20 +372,15 @@ func staggered() -> bool:
 
 ## The four things lighting an area is, taken together, so a caller hands them on in one piece.
 func options() -> Dictionary:
-	return {
-		"region_key": region_key(),
-		"kind": kind_choice(),
-		"spacing": spacing(),
-		"staggered": staggered(),
-	}
+	return { "region_key": region_key(), "kind": kind_choice(), "spacing": spacing(), "staggered": staggered() }
 
 
 func transformer_choice() -> Dictionary:
 	return {
 		"va": float(_va_option.get_item_metadata(maxi(_va_option.selected, 0))) \
-			if _va_option != null and _va_option.item_count > 0 else VA_DEFAULT,
+				if _va_option != null and _va_option.item_count > 0 else VA_DEFAULT,
 		"volts": float(_voltage_option.get_item_metadata(maxi(_voltage_option.selected, 0))) \
-			if _voltage_option != null and _voltage_option.item_count > 0 else VOLTAGE_DEFAULT,
+				if _voltage_option != null and _voltage_option.item_count > 0 else VOLTAGE_DEFAULT,
 	}
 
 
@@ -404,8 +401,7 @@ func _refresh_detail() -> void:
 	var throw := LightingScript.throw_of_kind(kind)
 	for index in _spacing_option.item_count:
 		var factor := float(_spacing_option.get_item_metadata(index))
-		_spacing_option.set_item_text(index, "%s%% of the throw (%.1f m)" % [
-			_number(factor * 100.0), factor * throw])
+		_spacing_option.set_item_text(index, "%s%% of the throw (%.1f m)" % [_number(factor * 100.0), factor * throw])
 	_light_button.disabled = _area_key.is_empty() or not _transformer_stated
 	_light_button.tooltip_text = "Draw a bed or a lawn outline first"
 	if not _area_key.is_empty():
@@ -430,17 +426,21 @@ func budget_text() -> String:
 	var transformer: Dictionary = transformer_choice()
 	if not _transformer_stated:
 		return "No transformer stated: nothing is laid out until one is."
-	return "%s. Up to %s on this transformer." % [LightingScript.transformer_words(transformer),
-		LightingScript.kind_count_words(kind_choice(),
-			LightingScript.power_budget(transformer, kind_choice()))]
+	return "%s. Up to %s on this transformer." % [
+		LightingScript.transformer_words(transformer),
+		LightingScript.kind_count_words(kind_choice(), LightingScript.power_budget(transformer, kind_choice())),
+	]
 
 
 func status_text() -> String:
 	if not _said.is_empty():
 		return _said
 	if not _circuits.is_empty():
-		return "%s circuit%s on this drawing: %s" % [_number(float(_circuits.size())),
-			"" if _circuits.size() == 1 else "s", _circuit_word_join()]
+		return "%s circuit%s on this drawing: %s" % [
+			_number(float(_circuits.size())),
+			"" if _circuits.size() == 1 else "s",
+			_circuit_word_join(),
+		]
 	if _areas.is_empty():
 		return "The drawing encloses no area to light yet. Draw a bed or a lawn outline first."
 	return "Nothing on this drawing is lit yet."
@@ -451,7 +451,6 @@ func _circuit_word_join() -> String:
 	for row: Dictionary in _circuits:
 		parts.append("%s tap %d" % [String(row.get("label", "Circuit")), int(row.get("tap", 0))])
 	return ", ".join(parts)
-
 
 # --- what it does ---------------------------------------------------------------------
 
@@ -527,12 +526,12 @@ func list_is_keyboard_free() -> bool:
 	if _remove_button == null:
 		return false
 	return _va_option.focus_mode == Control.FOCUS_NONE \
-		and _voltage_option.focus_mode == Control.FOCUS_NONE \
-		and _transformer_button.focus_mode == Control.FOCUS_NONE \
-		and _area_option.focus_mode == Control.FOCUS_NONE \
-		and _kind_option.focus_mode == Control.FOCUS_NONE \
-		and _spacing_option.focus_mode == Control.FOCUS_NONE \
-		and _staggered_box.focus_mode == Control.FOCUS_NONE \
-		and _light_button.focus_mode == Control.FOCUS_NONE \
-		and _circuit_list.focus_mode == Control.FOCUS_NONE \
-		and _remove_button.focus_mode == Control.FOCUS_NONE
+			and _voltage_option.focus_mode == Control.FOCUS_NONE \
+			and _transformer_button.focus_mode == Control.FOCUS_NONE \
+			and _area_option.focus_mode == Control.FOCUS_NONE \
+			and _kind_option.focus_mode == Control.FOCUS_NONE \
+			and _spacing_option.focus_mode == Control.FOCUS_NONE \
+			and _staggered_box.focus_mode == Control.FOCUS_NONE \
+			and _light_button.focus_mode == Control.FOCUS_NONE \
+			and _circuit_list.focus_mode == Control.FOCUS_NONE \
+			and _remove_button.focus_mode == Control.FOCUS_NONE

@@ -73,7 +73,6 @@ func test_model_metres_per_paper_millimetre() -> void:
 	assert(is_equal_approx(PlotScale.model_metres_per_paper_mm(100.0), 0.1))
 	assert(is_equal_approx(PlotScale.model_metres_per_paper_mm(200.0), 0.2))
 
-
 # --- points, for exact vector output ------------------------------------------------
 
 
@@ -96,7 +95,6 @@ func test_a_known_model_length_becomes_the_right_paper_length() -> void:
 	assert(is_equal_approx(snappedf(PlotScale.model_length_points(10.0, 100.0), 0.001), 283.465))
 	# At 1:200 the same length halves on paper.
 	assert(is_equal_approx(snappedf(PlotScale.model_length_points(10.0, 200.0), 0.001), 141.732))
-
 
 # --- scale bars ---------------------------------------------------------------------
 

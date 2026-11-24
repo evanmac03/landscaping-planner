@@ -35,12 +35,11 @@ func _done(parts: Array) -> void:
 	if controller != null:
 		controller.free()
 
-
 # --- the menu ---------------------------------------------------------------------------------
 
 
 func test_the_site_menu_offers_it_needing_a_drawing() -> void:
-	var entry: Dictionary = {}
+	var entry: Dictionary = { }
 	for candidate: Dictionary in HudScript.site_items():
 		if StringName(candidate.get("id", &"")) == &"site.season.window":
 			entry = candidate
@@ -51,7 +50,7 @@ func test_the_site_menu_offers_it_needing_a_drawing() -> void:
 	assert(entry["kind"] == "command", "and it is a command like the ones beside it")
 	assert(
 		StringName(entry["needs"]) == HudScript.NEEDS_DRAFT,
-		"a season is a fact about the site, which lives on the drawing"
+		"a season is a fact about the site, which lives on the drawing",
 	)
 
 
@@ -61,7 +60,6 @@ func test_every_menu_entry_still_names_a_method_this_hud_has() -> void:
 	assert(hud.has_method(&"_tick_season_window"), "and so is the door the tick calls")
 	assert(hud.has_method(&"_season_text"), "and the one the menu line is written by")
 	hud.free()
-
 
 # --- the page ---------------------------------------------------------------------------------
 
@@ -104,7 +102,6 @@ func test_opening_it_with_no_drawing_builds_the_page_without_showing_it() -> voi
 	assert(not hud.is_season_window_open(), "but it is not shown - there is no drawing to state a season on")
 	hud.free()
 
-
 # --- the join ---------------------------------------------------------------------------------
 
 
@@ -121,10 +118,7 @@ func test_filling_it_hands_over_the_drawing_and_the_list() -> void:
 
 func test_the_menu_line_says_the_season_or_that_there_is_none() -> void:
 	var bare: HudScript = HudScript.new()
-	assert(
-		bare._season_text() == "there is no drawing to state a growing season on",
-		bare._season_text()
-	)
+	assert(bare._season_text() == "there is no drawing to state a growing season on", bare._season_text())
 	bare.free()
 	var parts: Array = _hud_with_a_drawing()
 	var hud: HudScript = parts[0]
@@ -133,7 +127,7 @@ func test_the_menu_line_says_the_season_or_that_there_is_none() -> void:
 	assert(hud._season_text().contains("140 days"), hud._season_text())
 	assert(
 		hud._season_text().begins_with("the growing season"),
-		"a menu line is lower-cased at the front: %s" % hud._season_text()
+		"a menu line is lower-cased at the front: %s" % hud._season_text(),
 	)
 	_done(parts)
 
@@ -147,10 +141,7 @@ func test_the_page_keeps_up_with_the_drawing_while_it_is_up() -> void:
 	# A season stated behind the open page - an undo, or another window - has to reach it.
 	parts[1].document.set_season(LAST, FIRST)
 	hud._tick_season_window()
-	assert(
-		hud._season_window.season_line().contains("140 days"),
-		"the season stated behind the page reaches it"
-	)
+	assert(hud._season_window.season_line().contains("140 days"), "the season stated behind the page reaches it")
 	hud._season_window.visible = false
 	_done(parts)
 

@@ -33,7 +33,7 @@ func _hud() -> HudScript:
 	var job: JobScript = JobScript.new("J1")
 	job.name = "Smith"
 	job.contract_sum = MoneyScript.of(2000000)
-	job.phases = [{"cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE}]
+	job.phases = [{ "cost_code": "HARDSCAPE", "budget": MoneyScript.of(800000), "basis": JobScript.PRICE }]
 	hud._job_desk.add_job(job)
 	hud._billing_ledger = BillingDeskScript.new()
 	hud._billing_ledger.bind(hud._job_desk)
@@ -50,9 +50,16 @@ func _open(hud: HudScript) -> void:
 func _invoice(cents: int, issued_at: String) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("I-INV-1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith"}
-	invoice.add_line(InvoiceScript.MILESTONE_LINE, "Deposit", 1000, &"EACH",
-		MoneyScript.of(cents), &"HARDSCAPE", &"EXEMPT")
+	invoice.customer = { "name": "Smith" }
+	invoice.add_line(
+		InvoiceScript.MILESTONE_LINE,
+		"Deposit",
+		1000,
+		&"EACH",
+		MoneyScript.of(cents),
+		&"HARDSCAPE",
+		&"EXEMPT",
+	)
 	invoice.issue(issued_at, 30, "INV-1")
 	return invoice
 
@@ -62,13 +69,12 @@ func _row(hud: HudScript, key: String) -> String:
 	var texts: Array[String] = hud._analytics_window.figure_texts()
 	return texts[AnalyticsScript.KEYS.find(key)]
 
-
 # --- the menu -----------------------------------------------------------------------------------
 
 
 func test_the_jobs_menu_offers_the_figures() -> void:
 	var offered: Array[Dictionary] = HudScript.jobs_items()
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for entry in offered:
 		if String(entry.get("id", "")) == "jobs.analytics":
 			found = entry
@@ -83,7 +89,6 @@ func test_the_jobs_line_says_nothing_about_the_figures() -> void:
 	assert(not line.contains("figure"), line)
 	assert(not line.contains("%"), "a report is not a menu line: %s" % line)
 	hud.free()
-
 
 # --- the page as the HUD builds it ---------------------------------------------------------------
 
@@ -115,9 +120,11 @@ func test_building_the_page_gives_the_menu_something_to_open() -> void:
 	assert(hud._analytics_window.report == hud._analytics_report, "and pointed at this report")
 	# Built but not shown is not open: a page nobody has opened is not on the screen.
 	assert(not hud.is_analytics_window_open(), "built is not shown")
-	assert(hud._analytics_window.get_node_or_null(^"Column/Rows") != null, "with the figures on it")
-	assert(hud._analytics_window.get_node_or_null(^"Column/DayRow/DayMinutes") != null,
-		"and the field a working day is stated in")
+	assert(hud._analytics_window.get_node_or_null(^"Scroll/Column/Rows") != null, "with the figures on it")
+	assert(
+		hud._analytics_window.get_node_or_null(^"Scroll/Column/DayRow/DayMinutes") != null,
+		"and the field a working day is stated in",
+	)
 	hud.free()
 
 
@@ -134,8 +141,7 @@ func test_the_page_is_shown_when_it_is_made_visible_and_hidden_when_it_is_closed
 func test_the_page_reads_a_window_and_the_figures_can_be_read_off_it() -> void:
 	var hud: HudScript = _hud()
 	_open(hud)
-	assert(hud._analytics_window.as_of() == Time.get_date_string_from_system(),
-		hud._analytics_window.as_of())
+	assert(hud._analytics_window.as_of() == Time.get_date_string_from_system(), hud._analytics_window.as_of())
 	assert(hud._analytics_window.window_text() == "every date", hud._analytics_window.window_text())
 	assert(hud._analytics_window.row_count() == 14, str(hud._analytics_window.row_count()))
 	hud.free()
@@ -147,10 +153,11 @@ func test_stating_a_working_day_on_the_page_reaches_the_huds_report() -> void:
 	hud._analytics_window.set_working_day_field(480)
 	assert(bool(hud._analytics_window.state_working_day()["ok"]))
 	assert(hud._analytics_report.working_day_stated(), "the day is the report's own")
-	assert(hud._analytics_window.working_day_text() == "stated as 8 hours 0 minutes",
-		hud._analytics_window.working_day_text())
+	assert(
+		hud._analytics_window.working_day_text() == "stated as 8 hours 0 minutes",
+		hud._analytics_window.working_day_text(),
+	)
 	hud.free()
-
 
 # --- a record moving under an open page ----------------------------------------------------------
 
@@ -187,8 +194,10 @@ func test_a_closed_page_is_not_read_again() -> void:
 	hud.close_analytics_window()
 	hud._pipeline_board.add_lead("Halstead", 2450000, &"web", TODAY)
 	hud._on_pipeline_changed()
-	assert(_row(hud, "pipeline_value") == before,
-		"nobody is looking at a closed page: %s" % _row(hud, "pipeline_value"))
+	assert(
+		_row(hud, "pipeline_value") == before,
+		"nobody is looking at a closed page: %s" % _row(hud, "pipeline_value"),
+	)
 	hud.free()
 
 

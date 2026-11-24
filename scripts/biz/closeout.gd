@@ -50,8 +50,13 @@ var as_of: String = ""
 ## `items` is handed over rather than filtered here, so the desk's list stays the one place the
 ## records live; anything in it that belongs to another job is left out and **counted**, because a
 ## silently dropped punch item is exactly the failure this list exists to prevent.
-static func of(contracted: Job, items: Array, terms: Warranty, handed_over_on: String = "",
-		read_at: String = "") -> Closeout:
+static func of(
+	contracted: Job,
+	items: Array,
+	terms: Warranty,
+	handed_over_on: String = "",
+	read_at: String = "",
+) -> Closeout:
 	var report := CloseoutScript.new()
 	report.job_reference = contracted
 	if contracted != null:
@@ -124,7 +129,6 @@ func claims_out_of_term() -> Array[WarrantyClaim]:
 			out.append(held)
 	return out
 
-
 # --- saying what is there --------------------------------------------------------------------
 
 
@@ -135,15 +139,15 @@ func punch_text() -> String:
 		return "nothing on the punch list"
 	if outstanding_count() == 0:
 		return "the punch list is done: %d item%s closed%s" % [
-			held["total"], "" if int(held["total"]) == 1 else "s",
+			held["total"],
+			"" if int(held["total"]) == 1 else "s",
 			" (%d withdrawn)" % int(held["withdrawn"]) if int(held["withdrawn"]) > 0 else "",
 		]
 	var parts := PackedStringArray()
-	parts.append("%d of %d item%s closed" % [
-		int(held["closed"]) + int(held["withdrawn"]),
-		int(held["total"]),
-		"" if int(held["total"]) == 1 else "s",
-	])
+	parts.append(
+		"%d of %d item%s closed"
+		% [int(held["closed"]) + int(held["withdrawn"]), int(held["total"]), "" if int(held["total"]) == 1 else "s"]
+	)
 	if int(held["open"]) > 0:
 		parts.append("%d still to be put right" % int(held["open"]))
 	if int(held["fixed"]) > 0:
@@ -181,9 +185,11 @@ func describe() -> String:
 	if warranty != null:
 		var want: int = warranty.claims_needing_attention().size()
 		parts.append(
-			"%d claim%s settled" % [warranty.claims.size(), "" if warranty.claims.size() == 1 else "s"]
-			if want == 0
-			else "%d claim%s wanting somebody" % [want, "" if want == 1 else "s"]
+			(
+				"%d claim%s settled" % [warranty.claims.size(), "" if warranty.claims.size() == 1 else "s"]
+				if want == 0
+				else "%d claim%s wanting somebody" % [want, "" if want == 1 else "s"]
+			)
 		)
 	if parts.size() == 1:
 		return parts[0]
@@ -200,21 +206,20 @@ func problems() -> Array[String]:
 		out.append("the date of substantial completion has not been stated")
 	var held: Dictionary = counts()
 	if int(held["open"]) > 0:
-		out.append("%d item%s still to be put right" % [
-			int(held["open"]), "" if int(held["open"]) == 1 else "s",
-		])
+		out.append("%d item%s still to be put right" % [int(held["open"]), "" if int(held["open"]) == 1 else "s"])
 	if int(held["fixed"]) > 0:
-		out.append("%d item%s fixed and waiting to be checked" % [
-			int(held["fixed"]), "" if int(held["fixed"]) == 1 else "s",
-		])
+		out.append(
+			"%d item%s fixed and waiting to be checked" % [int(held["fixed"]), "" if int(held["fixed"]) == 1 else "s"]
+		)
 	if warranty == null:
 		out.append("no warranty has been stated for this job")
 		return out
 	var late: Array[WarrantyClaim] = claims_out_of_term()
 	if not late.is_empty():
-		out.append("%d claim%s reported outside the term, which ended on %s" % [
-			late.size(), "" if late.size() == 1 else "s", warranty.ends_on(),
-		])
+		out.append(
+			"%d claim%s reported outside the term, which ended on %s"
+			% [late.size(), "" if late.size() == 1 else "s", warranty.ends_on()]
+		)
 	for held_claim: WarrantyClaim in warranty.claims_needing_attention():
 		out.append("claim %s: %s" % [held_claim.id, held_claim.state_name()])
 	return out

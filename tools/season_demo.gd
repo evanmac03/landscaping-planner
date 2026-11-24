@@ -12,7 +12,7 @@ extends Node2D
 ## entry does, states a season through the page's own button, and reads the lines off the **real
 ## controls**, awaiting real frames so what it prints is what a running editor would be showing.
 ##
-## Run `res://scenes/season_demo.tscn`.
+## Run `res://tools/season_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -83,7 +83,5 @@ func _settle() -> void:
 static func _entry_wording(hud: Node) -> String:
 	for entry: Dictionary in hud.site_items():
 		if String(entry.get("id", "")) == "site.season.window":
-			return "\"%s\" (needs %s)" % [
-				String(entry.get("label", "")), String(entry.get("needs", ""))
-			]
+			return "\"%s\" (needs %s)" % [String(entry.get("label", "")), String(entry.get("needs", ""))]
 	return "(no season entry in the Site menu)"

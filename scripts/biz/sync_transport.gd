@@ -19,7 +19,6 @@ extends RefCounted
 ## caller can tell 409 (someone else changed it) from 401 (the token is wrong). That is the same shape
 ## the ledger adapters answer with, deliberately: one result convention for the whole module.
 
-
 const CHANGES := "changes"
 const PUSH := "push"
 const ATTACHMENTS := "attachments"
@@ -82,7 +81,6 @@ func configure(values: Dictionary) -> Dictionary:
 func describe() -> String:
 	return "a sync service this build has no transport for"
 
-
 # --- the four calls -----------------------------------------------------------------------------
 
 
@@ -122,7 +120,7 @@ static func _nothing(what: String, detail: String) -> Dictionary:
 ## A refusal is not a retry unless the caller says it is: a service that was reached and said no will
 ## say no again, and a queue that retries a refusal forever is a queue that never asks a person.
 static func refused(reason: String, retry: bool = false) -> Dictionary:
-	return {"ok": false, "status": 0, "retry": retry, "reason": reason}
+	return { "ok": false, "status": 0, "retry": retry, "reason": reason }
 
 
 ## Whether a status is worth trying again, by the one rule both transports and the sync run share.

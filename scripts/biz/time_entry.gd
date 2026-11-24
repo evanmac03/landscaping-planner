@@ -22,7 +22,7 @@ const MANUAL := 0
 const CLOCK := 1
 const IMPORT := 2
 
-const SOURCE_NAMES := {MANUAL: "typed in", CLOCK: "clocked", IMPORT: "imported"}
+const SOURCE_NAMES := { MANUAL: "typed in", CLOCK: "clocked", IMPORT: "imported" }
 
 ## The longest break a shift can contain, in minutes: 24 hours. A "break" longer than a day is a
 ## data error, and averaging it away is how a nine-hour day becomes four.
@@ -164,7 +164,7 @@ static func from_dict(data: Dictionary) -> TimeEntry:
 	entry.started_at = String(data.get("started_at", ""))
 	entry.ended_at = String(data.get("ended_at", ""))
 	entry.break_minutes = int(data.get("break_minutes", 0))
-	entry.loaded_rate = MoneyScript.from_dict(data.get("loaded_rate", {}))
+	entry.loaded_rate = MoneyScript.from_dict(data.get("loaded_rate", { }))
 	entry.source = int(data.get("source", MANUAL))
 	entry.approved_by = String(data.get("approved_by", ""))
 	entry.note = String(data.get("note", ""))

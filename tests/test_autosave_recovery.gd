@@ -35,7 +35,8 @@ func _drawn(count: int) -> DraftController:
 	controller.snap.bind(controller.document.entities())
 	for index in count:
 		controller.document.add(
-			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)), LayerSetScript.NEW_HARDSCAPE
+			EntityScript.make_line(Vector2(0, index), Vector2(4, 2 + index)),
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 	return controller
 
@@ -64,7 +65,6 @@ func _clean() -> void:
 ## Put a drawing on disk, the way a person having saved it would have.
 func _save(document: DraftDocument, at: String) -> Dictionary:
 	return StoreScript.write(document, at)
-
 
 # --- keeping a copy --------------------------------------------------------------------
 
@@ -115,7 +115,6 @@ func test_a_copy_of_the_drawing_in_hand_is_a_backup_and_not_a_rescue() -> void:
 	controller.free()
 	_clean()
 
-
 # --- the question ----------------------------------------------------------------------
 
 
@@ -128,12 +127,12 @@ func test_the_work_a_session_left_behind_is_offered_with_what_it_holds() -> void
 	assert(not hud._pending_recovery.is_empty(), "the work is waiting")
 	assert(
 		String(hud._pending_recovery["project_name"]) == "Backyard Design",
-		String(hud._pending_recovery["project_name"])
+		String(hud._pending_recovery["project_name"]),
 	)
 	assert(hud._recovery_notice() == "unsaved work from an earlier session", hud._recovery_notice())
 	assert(
 		hud._drawing_state_with_recovery() == "untitled drawing  |  unsaved work from an earlier session",
-		hud._drawing_state_with_recovery()
+		hud._drawing_state_with_recovery(),
 	)
 	hud.free()
 	controller.free()
@@ -198,7 +197,6 @@ func test_closing_the_question_decides_nothing_and_leaves_the_copy() -> void:
 	controller.free()
 	_clean()
 
-
 # --- what the drawing being saved or left behind does to its copy -----------------------
 
 
@@ -252,12 +250,11 @@ func test_opening_a_drawing_does_not_decide_about_the_copy_of_that_file() -> voi
 	controller.free()
 	_clean()
 
-
 # --- the entry and the line -------------------------------------------------------------
 
 
 func test_the_file_menu_offers_recovering_and_says_when_it_means_something() -> void:
-	var found: Dictionary = {}
+	var found: Dictionary = { }
 	for entry: Dictionary in HudScript.file_items():
 		if StringName(entry.get("id", &"")) == &"file.recover":
 			found = entry
@@ -267,11 +264,11 @@ func test_the_file_menu_offers_recovering_and_says_when_it_means_something() -> 
 	assert(StringName(found["needs"]) == HudScript.NEEDS_DRAFT, "it needs a drawing")
 	assert(
 		StringName(found["enabled_when"]) == &"recovery",
-		"and is switched off until a session that ended without saving has left something"
+		"and is switched off until a session that ended without saving has left something",
 	)
-	assert(HudScript.is_enabled(&"recovery", {"recovery": true}), "a copy waiting switches it on")
-	assert(not HudScript.is_enabled(&"recovery", {"recovery": false}), "and none switches it off")
-	assert(not HudScript.is_enabled(&"recovery", {}), "nor in a world that says nothing about it")
+	assert(HudScript.is_enabled(&"recovery", { "recovery": true }), "a copy waiting switches it on")
+	assert(not HudScript.is_enabled(&"recovery", { "recovery": false }), "and none switches it off")
+	assert(not HudScript.is_enabled(&"recovery", { }), "nor in a world that says nothing about it")
 
 
 func test_the_offer_is_read_when_it_can_have_changed_and_not_on_every_frame() -> void:
@@ -290,14 +287,14 @@ func test_the_offer_is_read_when_it_can_have_changed_and_not_on_every_frame() ->
 		String(AutosaveScript.describe(hud._pending_recovery)).ends_with(
 			"4 shapes, kept " + AutosaveScript.clock_of(String(hud._pending_recovery["when"]))
 		),
-		AutosaveScript.describe(hud._pending_recovery)
+		AutosaveScript.describe(hud._pending_recovery),
 	)
 	AutosaveScript.write(_foreign_state(7), "", "", 11)
 	hud._refresh_pending_recovery()
 	assert(int(hud._pending_recovery["serial"]) == 11, "the offer is the newest copy")
 	assert(
 		String(AutosaveScript.describe(hud._pending_recovery)).begins_with("untitled, 7 shapes"),
-		AutosaveScript.describe(hud._pending_recovery)
+		AutosaveScript.describe(hud._pending_recovery),
 	)
 	hud.free()
 	controller.free()
@@ -326,7 +323,7 @@ func test_the_drawing_being_saved_by_the_menu_clears_the_copy_too() -> void:
 	assert(AutosaveScript.list().size() == 1, "a copy is waiting")
 	controller.document.add(EntityScript.make_line(Vector2(0, 9), Vector2(2, 9)), LayerSetScript.NEW_HARDSCAPE)
 	assert(controller.dirty, "and the drawing has been worked on since")
-	hud._menu_save_drawing({})
+	hud._menu_save_drawing({ })
 	assert(not controller.dirty, "the drawing was saved")
 	assert(AutosaveScript.list().is_empty(), "and the copy of it is gone")
 	hud.free()

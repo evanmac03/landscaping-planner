@@ -108,9 +108,12 @@ static func is_date(text: String) -> bool:
 
 static func _days_in_month(year: int, month: int) -> int:
 	match month:
-		1, 3, 5, 7, 8, 10, 12: return 31
-		4, 6, 9, 11: return 30
-		2: return 29 if _is_leap(year) else 28
+		1, 3, 5, 7, 8, 10, 12:
+			return 31
+		4, 6, 9, 11:
+			return 30
+		2:
+			return 29 if _is_leap(year) else 28
 	return 0
 
 

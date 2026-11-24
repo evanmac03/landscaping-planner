@@ -5,7 +5,6 @@ extends Node
 const PresenceScript := preload("res://scripts/presence.gd")
 const MemberScript := preload("res://scripts/presence_member.gd")
 
-
 # --- who is in charge ----------------------------------------------------------------
 
 
@@ -31,7 +30,6 @@ func test_only_the_peer_that_provably_has_nobody_below_it() -> void:
 	# Id 2 is the only id that can be sure, so include_self is only ever true for it.
 	assert(PresenceScript.host_of([3, 4], 2, true) == 2, "id 2 is below 3, so id 2 hosts")
 	assert(PresenceScript.host_of([1], 2, false) == 0, "id 1 does not count, so there is no host yet")
-
 
 # --- reaching the relay --------------------------------------------------------------
 
@@ -70,7 +68,6 @@ func test_a_project_without_the_settings_cannot_open_a_session() -> void:
 func test_a_person_is_named_from_the_machine_or_with_a_plain_word() -> void:
 	assert(PresenceScript.local_name() != "", "a name is always something")
 
-
 # --- the session's own state ---------------------------------------------------------
 
 
@@ -96,7 +93,6 @@ func test_leaving_a_session_that_is_not_open_says_so() -> void:
 	assert(not presence.is_on())
 	remove_child(presence)
 	presence.free()
-
 
 # --- one person's three facts --------------------------------------------------------
 
@@ -137,5 +133,7 @@ func test_a_member_with_nothing_said_about_it_is_still_somebody() -> void:
 
 
 func test_the_three_facts_are_the_ones_replicated() -> void:
-	assert("|".join(PackedStringArray(MemberScript.REPLICATED)) == "peer_name|drawing|cursor",
-		"the replication config and the setters agree on what presence is")
+	assert(
+		"|".join(PackedStringArray(MemberScript.REPLICATED)) == "peer_name|drawing|cursor",
+		"the replication config and the setters agree on what presence is",
+	)

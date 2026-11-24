@@ -95,7 +95,6 @@ func _init() -> void:
 func bind(billing_desk: BillingDesk) -> void:
 	billing = billing_desk
 
-
 # --- the backends this desk can post to ---------------------------------------------------------
 
 
@@ -146,7 +145,6 @@ func choose(adapter_name: String) -> bool:
 func chosen_adapter() -> LedgerAdapter:
 	return adapter(chosen)
 
-
 # --- the documents that are waiting --------------------------------------------------------------
 
 
@@ -164,8 +162,15 @@ func queue_invoice(invoice: Invoice, adapter_name: String = "", at: String = "")
 		return _refused("there is no invoice to hand over")
 	var key: String = backend.key_for_invoice(invoice)
 	var built: Dictionary = backend.build_invoice_push(invoice, key)
-	return _take(built, backend, AdapterScript.INVOICE_KIND, _identity(invoice.id, invoice.number),
-		invoice.number, key, at)
+	return _take(
+		built,
+		backend,
+		AdapterScript.INVOICE_KIND,
+		_identity(invoice.id, invoice.number),
+		invoice.number,
+		key,
+		at,
+	)
 
 
 ## Queue a payment against the invoice it settles. `{ok, reason, push, already}`.
@@ -173,8 +178,13 @@ func queue_invoice(invoice: Invoice, adapter_name: String = "", at: String = "")
 ## A payment needs the invoice's id **in that ledger**, which is assigned when the invoice is first
 ## posted - so it is read off the invoice's own push, and an office that has recorded one by hand can
 ## state it instead. Without either, the backend refuses and names what is missing.
-func queue_payment(payment: Payment, invoice: Invoice, adapter_name: String = "",
-		at: String = "", external_invoice_id: String = "") -> Dictionary:
+func queue_payment(
+	payment: Payment,
+	invoice: Invoice,
+	adapter_name: String = "",
+	at: String = "",
+	external_invoice_id: String = "",
+) -> Dictionary:
 	var backend: LedgerAdapter = _pick(adapter_name)
 	if backend == null:
 		return _refused(_no_ledger_text(adapter_name))
@@ -200,31 +210,42 @@ func queue_credit(credit: CreditNote, adapter_name: String = "", at: String = ""
 		return _refused("there is no credit note to hand over")
 	var key: String = backend.key_for_credit(credit)
 	var built: Dictionary = backend.build_credit_push(credit, key)
-	return _take(built, backend, AdapterScript.CREDIT_KIND, _identity(credit.id, credit.number),
-		credit.number, key, at)
+	return _take(built, backend, AdapterScript.CREDIT_KIND, _identity(credit.id, credit.number), credit.number, key, at)
 
 
 ## Take a built request into the outbox. A refusal is returned as it stands; a document already queued
 ## for this backend is handed back as the push it already has, because the key is the identity.
-func _take(built: Dictionary, backend: LedgerAdapter, kind: StringName, doc_id: String,
-		doc_number: String, idempotency_key: String, at: String) -> Dictionary:
+func _take(
+	built: Dictionary,
+	backend: LedgerAdapter,
+	kind: StringName,
+	doc_id: String,
+	doc_number: String,
+	idempotency_key: String,
+	at: String,
+) -> Dictionary:
 	if not bool(built.get("ok", false)):
 		return _refused(String(built.get("reason", "the ledger would not take it")))
 	var held: LedgerPush = push_for(idempotency_key)
 	if held != null:
-		return {"ok": true, "reason": "", "push": held, "already": true}
-	var request_in: Variant = built.get("request", {})
-	var request: Dictionary = request_in if request_in is Dictionary else {}
+		return { "ok": true, "reason": "", "push": held, "already": true }
+	var request_in: Variant = built.get("request", { })
+	var request: Dictionary = request_in if request_in is Dictionary else { }
 	var push: LedgerPush = PushScript.for_document(
-		String(backend.name()), kind, doc_id, doc_number, idempotency_key, request, _stamp(at)
+		String(backend.name()),
+		kind,
+		doc_id,
+		doc_number,
+		idempotency_key,
+		request,
+		_stamp(at),
 	)
 	var broken: Array[String] = push.problems()
 	if not broken.is_empty():
 		return _refused(broken[0])
 	pushes.append(push)
 	_trim()
-	return {"ok": true, "reason": "", "push": push, "already": false}
-
+	return { "ok": true, "reason": "", "push": push, "already": false }
 
 # --- everything the office has issued and not yet handed over -----------------------------------
 
@@ -245,9 +266,9 @@ func queue_unhanded(adapter_name: String = "", at: String = "") -> Dictionary:
 	refused_ids.clear()
 	var backend: LedgerAdapter = _pick(adapter_name)
 	if backend == null:
-		return {"ok": false, "queued": 0, "refused": 0, "reason": _no_ledger_text(adapter_name)}
+		return { "ok": false, "queued": 0, "refused": 0, "reason": _no_ledger_text(adapter_name) }
 	if billing == null:
-		return {"ok": true, "queued": 0, "refused": 0, "reason": ""}
+		return { "ok": true, "queued": 0, "refused": 0, "reason": "" }
 	var queued: int = 0
 	var refused: int = 0
 	var reasons: Array[String] = []
@@ -267,14 +288,11 @@ func queue_unhanded(adapter_name: String = "", at: String = "") -> Dictionary:
 			continue
 		refused += 1
 		refused_ids.append(_refusal_tag(String(backend.name()), invoice))
-		var said: String = "%s could not be handed over: %s" % [
-			_invoice_name(invoice), String(taken["reason"]),
-		]
+		var said: String = "%s could not be handed over: %s" % [_invoice_name(invoice), String(taken["reason"])]
 		if not reasons.has(said):
 			reasons.append(said)
 	refusals = reasons.duplicate()
-	return {"ok": refused == 0, "queued": queued, "refused": refused, "reason": ", ".join(reasons)}
-
+	return { "ok": refused == 0, "queued": queued, "refused": refused, "reason": ", ".join(reasons) }
 
 # --- posting ------------------------------------------------------------------------------------
 
@@ -286,9 +304,9 @@ func queue_unhanded(adapter_name: String = "", at: String = "") -> Dictionary:
 func post(key: String, at: String = "") -> Dictionary:
 	var push: LedgerPush = push_for(key)
 	if push == null:
-		return {"ok": false, "reason": "nothing in the outbox is under that key", "status": 0, "push": null}
+		return { "ok": false, "reason": "nothing in the outbox is under that key", "status": 0, "push": null }
 	if push.is_pushed():
-		return {"ok": true, "reason": "", "status": push.last_status, "push": push}
+		return { "ok": true, "reason": "", "status": push.last_status, "push": push }
 	var backend: LedgerAdapter = adapter(push.adapter)
 	if backend == null:
 		# The backend this push was built for is not registered this session. The request is kept as it
@@ -299,9 +317,9 @@ func post(key: String, at: String = "") -> Dictionary:
 		# day the backend is registered the document goes. Five runs of that and it stops being the
 		# queue's and becomes a person's, which is the right moment to say so.
 		var missing: String = "no ledger called '%s' is registered here" % push.adapter
-		var nowhere: Dictionary = {"status": 0, "error": missing}
+		var nowhere: Dictionary = { "status": 0, "error": missing }
 		push.record_response(nowhere, AdapterScript.new().parse_common(nowhere), _stamp(at))
-		return {"ok": false, "reason": missing, "status": 0, "push": push}
+		return { "ok": false, "reason": missing, "status": 0, "push": push }
 	var response: Dictionary = backend.send(backend.authorise(push.request))
 	var parsed: Dictionary = _read(backend, push, response)
 	var took_it: bool = push.record_response(response, parsed, _stamp(at))
@@ -353,7 +371,6 @@ func _read(backend: LedgerAdapter, push: LedgerPush, response: Dictionary) -> Di
 		AdapterScript.CREDIT_KIND:
 			return backend.parse_credit_response(response)
 	return backend.parse_invoice_response(response)
-
 
 # --- reading the outbox -------------------------------------------------------------------------
 
@@ -416,22 +433,24 @@ func rows(adapter_name: String = "") -> Array[Dictionary]:
 		var push: LedgerPush = pushes[at]
 		if not adapter_name.strip_edges().is_empty() and push.adapter != adapter_name:
 			continue
-		out.append({
-			"key": push.key,
-			"state": push.state_name(),
-			"kind": String(push.kind),
-			"kind_name": String(AdapterScript.KIND_NAMES.get(String(push.kind), "a document")),
-			"adapter": push.adapter,
-			"number": push.document_number,
-			"attempts": push.attempt_count(),
-			"queued_at": push.queued_at,
-			"pushed_at": push.pushed_at,
-			"external_number": push.external_number,
-			"why": push.failure,
-			"retryable": push.can_retry(),
-			"wants_a_person": push.needs_a_person(),
-			"words": push.describe(),
-		})
+		out.append(
+			{
+				"key": push.key,
+				"state": push.state_name(),
+				"kind": String(push.kind),
+				"kind_name": String(AdapterScript.KIND_NAMES.get(String(push.kind), "a document")),
+				"adapter": push.adapter,
+				"number": push.document_number,
+				"attempts": push.attempt_count(),
+				"queued_at": push.queued_at,
+				"pushed_at": push.pushed_at,
+				"external_number": push.external_number,
+				"why": push.failure,
+				"retryable": push.can_retry(),
+				"wants_a_person": push.needs_a_person(),
+				"words": push.describe(),
+			}
+		)
 	return out
 
 
@@ -465,7 +484,6 @@ func summary_text() -> String:
 		return "nothing has been handed to a ledger"
 	return ", ".join(parts)
 
-
 # --- what does not agree ------------------------------------------------------------------------
 
 
@@ -493,14 +511,26 @@ func reconcile(adapter_name: String = "") -> Array[Dictionary]:
 			var held: LedgerPush = push_for(key)
 			if invoice.is_void():
 				if held != null and held.is_pushed():
-					out.append(_note(VOID_BUT_POSTED, key, invoice.number,
-						"%s was called back here and is still in %s: only a credit note against it reverses it"
-						% [_invoice_name(invoice), String(backend.name())]))
+					out.append(
+						_note(
+							VOID_BUT_POSTED,
+							key,
+							invoice.number,
+							"%s was called back here and is still in %s: only a credit note against it reverses it"
+							% [_invoice_name(invoice), String(backend.name())],
+						)
+					)
 				continue
 			if held == null and invoice.is_issued() \
 					and not refused_ids.has(_refusal_tag(String(backend.name()), invoice)):
-				out.append(_note(NOT_HANDED_OVER, key, invoice.number,
-					"%s has been issued and not handed to %s" % [_invoice_name(invoice), String(backend.name())]))
+				out.append(
+					_note(
+						NOT_HANDED_OVER,
+						key,
+						invoice.number,
+						"%s has been issued and not handed to %s" % [_invoice_name(invoice), String(backend.name())],
+					)
+				)
 	for push in pushes:
 		if push.adapter != String(backend.name()) or not push.is_pushed():
 			continue
@@ -508,10 +538,15 @@ func reconcile(adapter_name: String = "") -> Array[Dictionary]:
 			continue
 		if push.external_number == push.document_number:
 			continue
-		out.append(_note(RENUMBERED, push.key, push.document_number,
-			"%s is %s here and %s in %s" % [
-				push.document_number, push.document_number, push.external_number, String(backend.name())
-			]))
+		out.append(
+			_note(
+				RENUMBERED,
+				push.key,
+				push.document_number,
+				"%s is %s here and %s in %s"
+				% [push.document_number, push.document_number, push.external_number, String(backend.name())],
+			)
+		)
 	return out
 
 
@@ -520,7 +555,6 @@ func reconcile_words(adapter_name: String = "") -> Array[String]:
 	for found in reconcile(adapter_name):
 		out.append(String(found["words"]))
 	return out
-
 
 # --- soundness ----------------------------------------------------------------------------------
 
@@ -564,7 +598,6 @@ func describe() -> String:
 	var where: String = "no ledger" if backend == null else String(backend.name())
 	return "the %s ledger: %s" % [where, summary_text()]
 
-
 # --- the outbox on disk -------------------------------------------------------------------------
 
 
@@ -576,11 +609,7 @@ func to_dict() -> Dictionary:
 		# what AC-B15 rests on - and the credential is not. See `_written`.
 		row["request"] = _written(push)
 		rows_out.append(row)
-	return {
-		"version": VERSION,
-		"chosen": chosen,
-		"pushes": rows_out,
-	}
+	return { "version": VERSION, "chosen": chosen, "pushes": rows_out }
 
 
 ## A push's request as it is **written down**: what was built, with any header this backend
@@ -596,7 +625,7 @@ func _written(push: LedgerPush) -> Dictionary:
 	var backend: LedgerAdapter = adapter(push.adapter)
 	if backend == null:
 		return request
-	var headers_in: Variant = request.get("headers", {})
+	var headers_in: Variant = request.get("headers", { })
 	if not headers_in is Dictionary:
 		return request
 	var headers: Dictionary = headers_in
@@ -632,14 +661,14 @@ static func from_dict(data: Dictionary, billing_desk: BillingDesk = null) -> Led
 ## documents nobody has been told about. Returns `{ok, reason, path}`.
 func write(path: String = OUTBOX_PATH) -> Dictionary:
 	if path.strip_edges().is_empty():
-		return {"ok": false, "reason": "this outbox has no file name", "path": path}
+		return { "ok": false, "reason": "this outbox has no file name", "path": path }
 	var folder: String = path.get_base_dir()
 	if DirAccess.open(folder) == null and DirAccess.make_dir_recursive_absolute(folder) != OK:
-		return {"ok": false, "reason": "cannot open %s" % folder, "path": path}
+		return { "ok": false, "reason": "cannot open %s" % folder, "path": path }
 	var temp: String = path + TEMP_SUFFIX
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "reason": "cannot write %s" % temp.get_file(), "path": path}
+		return { "ok": false, "reason": "cannot write %s" % temp.get_file(), "path": path }
 	file.store_string(JSON.stringify(to_dict(), "  "))
 	file.close()
 	var error: int = DirAccess.rename_absolute(temp, path)
@@ -650,21 +679,21 @@ func write(path: String = OUTBOX_PATH) -> Dictionary:
 			"reason": "cannot put %s in place: %s" % [path.get_file(), error_string(error)],
 			"path": path,
 		}
-	return {"ok": true, "reason": "", "path": path}
+	return { "ok": true, "reason": "", "path": path }
 
 
 ## Read the outbox back. A missing file is an empty outbox rather than a fault - the first run has no
 ## outbox - and a file that will not read is refused with the reason and **leaves the desk alone**,
 ## because half-loading an outbox is worse than not loading one.
 func read(path: String = OUTBOX_PATH) -> Dictionary:
-	var empty := {"ok": true, "reason": "", "loaded": 0, "dropped": 0}
+	var empty := { "ok": true, "reason": "", "loaded": 0, "dropped": 0 }
 	if path.strip_edges().is_empty():
-		return {"ok": false, "reason": "no outbox was named", "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "no outbox was named", "loaded": 0, "dropped": 0 }
 	if not FileAccess.file_exists(path):
 		return empty
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "reason": "cannot read %s" % path.get_file(), "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "cannot read %s" % path.get_file(), "loaded": 0, "dropped": 0 }
 	var text: String = file.get_as_text()
 	file.close()
 	# Parsed with a reader rather than `JSON.parse_string`, which logs an engine error to the console
@@ -674,15 +703,14 @@ func read(path: String = OUTBOX_PATH) -> Dictionary:
 	if reader.parse(text) != OK:
 		return {
 			"ok": false,
-			"reason": "%s is not readable as an outbox: %s (line %d)" % [
-				path.get_file(), reader.get_error_message(), reader.get_error_line()
-			],
+			"reason": "%s is not readable as an outbox: %s (line %d)"
+			% [path.get_file(), reader.get_error_message(), reader.get_error_line()],
 			"loaded": 0,
 			"dropped": 0,
 		}
 	var data: Variant = reader.data
 	if not data is Dictionary:
-		return {"ok": false, "reason": "%s is not an outbox" % path.get_file(), "loaded": 0, "dropped": 0}
+		return { "ok": false, "reason": "%s is not an outbox" % path.get_file(), "loaded": 0, "dropped": 0 }
 	var read_back: Dictionary = data
 	pushes.clear()
 	var dropped: int = 0
@@ -702,8 +730,7 @@ func read(path: String = OUTBOX_PATH) -> Dictionary:
 		chosen = chosen_in
 	elif not has_adapter(chosen):
 		chosen = adapter_names()[0] if not _adapters.is_empty() else ""
-	return {"ok": true, "reason": "", "loaded": pushes.size(), "dropped": dropped}
-
+	return { "ok": true, "reason": "", "loaded": pushes.size(), "dropped": dropped }
 
 # --- help ---------------------------------------------------------------------------------------
 
@@ -721,11 +748,11 @@ func _no_ledger_text(adapter_name: String) -> String:
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "push": null, "already": false}
+	return { "ok": false, "reason": reason, "push": null, "already": false }
 
 
 static func _note(kind: String, key: String, number: String, words: String) -> Dictionary:
-	return {"kind": kind, "key": key, "number": number, "words": words}
+	return { "kind": kind, "key": key, "number": number, "words": words }
 
 
 ## A document's identity in the outbox. An id is what a desk here assigns, but a record from somewhere

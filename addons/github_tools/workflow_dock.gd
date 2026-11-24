@@ -41,7 +41,8 @@ var _result_link: LinkButton
 var _result_next: String = ""
 var _result_url: String = ""
 var _guide_result: Label
-var _github_url: String = "https://github.com/evanmac03/landscaping-planner/releases"
+var _repository_url: String = ""
+var _github_url: String = ""
 var _test_package: Dictionary = {}
 var _draft_choices: Array = []
 var _draft_picker: OptionButton
@@ -69,6 +70,19 @@ func _ready() -> void:
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tabs.custom_minimum_size = Vector2(280, 340)
 	add_child(_tabs)
+	var config = JSON.parse_string(FileAccess.get_file_as_string("res://dev-workflow.json")) if FileAccess.file_exists("res://dev-workflow.json") else null
+	if config is Dictionary and config.get("provider") == "GitHub" and RegEx.create_from_string("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$").search(str(config.get("repository", ""))) != null:
+		_repository_url = "https://github.com/" + config["repository"] + "/"
+		_github_url = _repository_url + "releases"
+	else:
+		_status.text = "Hosting not configured: set provider GitHub and repository owner/name in dev-workflow.json. Local Git remains available."
+	var observations := ScrollContainer.new()
+	observations.custom_minimum_size.y = 120
+	observations.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(observations)
+	var observation_body := VBoxContainer.new()
+	observation_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	observations.add_child(observation_body)
 	_page("Git", "The Guided workflow Git step, run on its own.\nReview files, staged diff, branch and commit name, then validate. Stops before Push.")
 	_button("Review and commit…", _single_begin.bind("Git"))
 	_button("Refresh status", _git.bind("Status"))
@@ -115,13 +129,13 @@ func _ready() -> void:
 	_guide_label = Label.new()
 	_guide_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guide_label.text = "Save all editor files first. Review changes and run your tests before starting. No automatic tests, merge, pull or stash."
-	add_child(_guide_label)
+	observation_body.add_child(_guide_label)
 	_guide_progress = Label.new()
 	_guide_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_guide_progress)
+	observation_body.add_child(_guide_progress)
 	_guide_result = Label.new()
 	_guide_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_guide_result)
+	observation_body.add_child(_guide_result)
 	_button("Copy last result summary", func(): DisplayServer.clipboard_set(_release_receipt))
 	_button("View last publication (saved locally)", _workflow.bind("LastPublication", "receipt"))
 	_button("Preview full guide (no Git/GitHub writes)", _begin_preview)
@@ -129,14 +143,14 @@ func _ready() -> void:
 	_checks_label = Label.new()
 	_checks_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_checks_label.text = _checks_summary
-	add_child(_checks_label)
+	observation_body.add_child(_checks_label)
 	_button("Run local workflow checks", _workflow.bind("Validate", "checks"))
 	_button("Refresh local / GitHub CI evidence", _workflow.bind("Evidence", "checks"))
 	_button("Start / detect next step…", _workflow.bind("Discover", "discover"))
 	_button("Resume after manual PR merge and sync…", _guide_begin.bind("release"))
 	_button("Resume at verified draft publication…", _guide_begin.bind("publish"))
-	_button("Open GitHub pull requests", _open_github.bind("https://github.com/evanmac03/landscaping-planner/pulls"))
-	_button("Open GitHub releases / drafts", _open_github.bind("https://github.com/evanmac03/landscaping-planner/releases"))
+	_button("Open GitHub pull requests", _open_github.bind(_repository_url + "pulls"))
+	_button("Open GitHub releases / drafts", _open_github.bind(_repository_url + "releases"))
 	_page("AI adviser", "Optional, provider-neutral advice. Off by default.")
 	var adviser := preload("res://addons/github_tools/adviser_panel.gd").new()
 	adviser.context_source = _adviser_context
@@ -229,7 +243,7 @@ func _begin_step(step: String, operation: String) -> void:
 
 
 func _adviser_context() -> Dictionary:
-	var steps := ["files", "branch", "commit_review", "validate_commit", "push", "merge", "sync_main", "release", "publish", "publish_confirm", "sync", "drafts", "done"]
+	var steps := ["files", "branch", "commit_review", "validate_commit", "push", "merge", "sync_main", "release", "publish", "publish_confirm", "published", "sync", "drafts", "done"]
 	return {
 		"captured_at_utc":Time.get_datetime_string_from_system(true),
 		"mode":"preview" if _preview else "live",
@@ -249,6 +263,9 @@ func _adviser_context() -> Dictionary:
 func _open_github(url: String) -> void:
 	if _preview:
 		_guide_label.text = "PREVIEW ONLY: GitHub link opening simulated."
+		return
+	if _repository_url.is_empty() or not url.begins_with(_repository_url):
+		_output.text += "\nNo matching configured GitHub repository URL. Check dev-workflow.json."
 		return
 	var error := OS.shell_open(url)
 	if error != OK:
@@ -523,6 +540,19 @@ func _guide_show(step: String) -> void:
 			_guide_body.add_child(_guide_tested)
 		"publish_confirm":
 			description.text = "Publish %s?\nCommit: %s\nDraft ID: %s\nType: %s\nVerified assets become visible to repository viewers. No rebuild or Forgejo backup." % [_test_package["version"], _test_package["commit"], str(_test_package.get("release_id", _test_package["identity"])), "Prerelease" if _test_package.get("prerelease", "-" in String(_test_package["version"])) else "Stable"]
+		"published":
+			description.text = "This commit already has a published release: %s\n%s\nNothing needs publishing again. Preparing another version requires a new version and separate approval." % [_guide_version, _github_url]
+			var open_release := Button.new()
+			open_release.text = "Open existing publication"
+			open_release.pressed.connect(func(): _open_github(_github_url))
+			_guide_body.add_child(open_release)
+			var another := Button.new()
+			another.text = "Prepare another version…"
+			another.pressed.connect(func():
+				_guide_dialog.hide()
+				_guide_begin("release")
+			)
+			_guide_body.add_child(another)
 		"sync":
 			description.text = "Main needs synchronization.\nLocal-only / remote-only commits: %s\nInspect history and synchronize outside the dock, then Start / detect again. No pull, rebase or discard was performed." % _sync_distance
 		"drafts":
@@ -547,6 +577,9 @@ func _guide_show(step: String) -> void:
 		_guide_dialog.ok_button_text = "Publish this release"
 	elif step == "sync":
 		_guide_dialog.ok_button_text = "Close"
+	elif step == "published":
+		_guide_dialog.title = "Already published"
+		_guide_dialog.ok_button_text = "Done"
 	elif step == "sync_main":
 		_guide_dialog.title = "Approve main synchronization"
 		_guide_dialog.ok_button_text = "Synchronize main"
@@ -685,7 +718,7 @@ func _guide_answer() -> void:
 		"publish_confirm":
 			_guide_dialog.hide()
 			_workflow("Publish", "done")
-		"sync":
+		"sync", "published":
 			_guide_dialog.hide()
 		"drafts":
 			_guide_version = _draft_choices[_draft_picker.selected]["version"]
@@ -829,7 +862,7 @@ func _git(action: String, guide_next: String = "") -> void:
 	var encoded := Marshalls.raw_to_base64(JSON.stringify(request).to_utf8_buffer())
 	var command := {
 		"args": ["-NoProfile", "-NonInteractive", "-File",
-			ProjectSettings.globalize_path("res://tools/editor-git.ps1"), "-Request", encoded],
+			ProjectSettings.globalize_path("res://addons/github_tools/tools/editor-git.ps1"), "-Request", encoded],
 		"status": action == "Status",
 		"refresh": action in ["Branch", "Stage", "Unstage", "Commit"],
 		"guide_next": guide_next,
@@ -852,7 +885,7 @@ func _workflow(action: String, guide_next: String = "") -> void:
 	if action == "Discover" and guide_next == "discover":
 		_single_step = ""
 	var args := ["-NoProfile", "-NonInteractive", "-File",
-		ProjectSettings.globalize_path("res://tools/github.ps1"), "-Action", action]
+		ProjectSettings.globalize_path("res://addons/github_tools/tools/github.ps1"), "-Action", action]
 	if action in ["Release", "RecoverDraft", "Publish", "DownloadTest"]:
 		args.append_array(["-Version", _version.text])
 	if action in ["Release", "Validate"]:
@@ -1106,7 +1139,7 @@ func _show_workflow_result(result: Dictionary) -> void:
 	var action: String = result["action"]
 	var version: String = result.get("version", "")
 	var summary: String
-	_result_url = "https://github.com/evanmac03/landscaping-planner/"
+	_result_url = _repository_url
 	match action:
 		"Push":
 			_result_dialog.title = "Successfully pushed to GitHub"
@@ -1120,7 +1153,7 @@ func _show_workflow_result(result: Dictionary) -> void:
 			_result_dialog.title = "Successfully published to GitHub"
 			summary = "%s was successfully published on GitHub.\nThe verified draft is now visible to repository viewers.\nNo Forgejo backup was made." % version
 			_result_url += "releases/tag/" + version.uri_encode()
-	if String(result.get("url", "")).begins_with("https://github.com/evanmac03/landscaping-planner/"):
+	if not _repository_url.is_empty() and String(result.get("url", "")).begins_with(_repository_url):
 		_result_url = result["url"]
 	if action == "Publish" and result.get("receipt", {}).has("published_at"):
 		var receipt: Dictionary = result["receipt"]

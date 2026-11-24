@@ -39,7 +39,6 @@ func bind(book_ref: CostBook, estimate_list: Array) -> void:
 		if each is Estimate:
 			estimates.append(each)
 
-
 # --- proposing a change ---------------------------------------------------------------------
 
 
@@ -63,34 +62,38 @@ static func bulk_plan(source_book: CostBook, percent_ppm: int, supplier: StringN
 		if each == null:
 			continue
 		if not supplier.is_empty() and each.supplier != supplier:
-			skipped.append({
-				"id": String(each.id),
-				"name": each.name,
-				"supplier": String(each.supplier),
-				"reason": "this item is from \"%s\", not \"%s\"" % [String(each.supplier), String(supplier)],
-			})
+			skipped.append(
+				{
+					"id": String(each.id),
+					"name": each.name,
+					"supplier": String(each.supplier),
+					"reason": "this item is from \"%s\", not \"%s\"" % [String(each.supplier), String(supplier)],
+				}
+			)
 			continue
 		var after: Money = each.rate.scale_ppm(PPM + percent_ppm)
-		changes.append({
-			"id": String(each.id),
-			"name": each.name,
-			"before_cents": int(each.rate.cents),
-			"after_cents": int(after.cents),
-			"delta_cents": int(after.cents) - int(each.rate.cents),
-			"currency": String(each.rate.currency),
-			"row_currency": String(source_book.currency),
-			"from_unit": String(each.unit),
-			"unit": String(each.unit),
-			"unit_changed": false,
-			"kind_changed": false,
-			"waste_changed": false,
-			"kind": each.kind,
-			"waste_ppm": each.waste_ppm,
-			"supplier": String(each.supplier),
-			"cost_code": String(each.cost_code),
-			"line": 0,
-			"is_new": false,
-		})
+		changes.append(
+			{
+				"id": String(each.id),
+				"name": each.name,
+				"before_cents": int(each.rate.cents),
+				"after_cents": int(after.cents),
+				"delta_cents": int(after.cents) - int(each.rate.cents),
+				"currency": String(each.rate.currency),
+				"row_currency": String(source_book.currency),
+				"from_unit": String(each.unit),
+				"unit": String(each.unit),
+				"unit_changed": false,
+				"kind_changed": false,
+				"waste_changed": false,
+				"kind": each.kind,
+				"waste_ppm": each.waste_ppm,
+				"supplier": String(each.supplier),
+				"cost_code": String(each.cost_code),
+				"line": 0,
+				"is_new": false,
+			}
+		)
 	if changes.is_empty():
 		if supplier.is_empty():
 			return _no_plan("this book has no items to reprice")
@@ -109,11 +112,15 @@ static func bulk_plan(source_book: CostBook, percent_ppm: int, supplier: StringN
 
 static func _no_plan(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason,
-		"changes": [], "unchanged": [], "unmatched": [], "created": [], "problems": [],
+		"ok": false,
+		"reason": reason,
+		"changes": [],
+		"unchanged": [],
+		"unmatched": [],
+		"created": [],
+		"problems": [],
 		"currency": &"",
 	}
-
 
 # --- reading a plan -------------------------------------------------------------------------
 
@@ -130,7 +137,7 @@ func preview(change_plan: Dictionary) -> Dictionary:
 		return _nothing("there is no cost book to preview a change against")
 	if not bool(change_plan.get("ok", false)):
 		return _nothing("this plan did not read: %s" % String(change_plan.get("reason", "")))
-	var prices: Dictionary = {}
+	var prices: Dictionary = { }
 	for entry: Dictionary in change_plan.get("changes", []):
 		prices[StringName(entry["id"])] = MoneyScript.of(int(entry["after_cents"]), book.currency)
 	var rows: Array[Dictionary] = []
@@ -163,9 +170,14 @@ func preview(change_plan: Dictionary) -> Dictionary:
 
 static func _nothing(reason: String) -> Dictionary:
 	return {
-		"ok": false, "reason": reason, "rows": [], "moved": 0,
-		"cost_before_cents": 0, "cost_after_cents": 0,
-		"price_before_cents": 0, "price_after_cents": 0,
+		"ok": false,
+		"reason": reason,
+		"rows": [],
+		"moved": 0,
+		"cost_before_cents": 0,
+		"cost_after_cents": 0,
+		"price_before_cents": 0,
+		"price_after_cents": 0,
 		"currency": &"",
 	}
 
@@ -185,9 +197,7 @@ static func row_for(estimate: Estimate, prices: Dictionary) -> Dictionary:
 		if held is Money:
 			rate = held
 			touched += 1
-		after += int(MoneyScript.round_div(
-			rate.cents * line.quantity_with_waste(), 1000, rate.currency
-		).cents)
+		after += int(MoneyScript.round_div(rate.cents * line.quantity_with_waste(), 1000, rate.currency).cents)
 	var before: int = int(estimate.direct_cost().cents)
 	var price: int = int(estimate.price_before_tax().cents)
 	var heading: String = estimate.number if not estimate.number.is_empty() else estimate.id
@@ -213,7 +223,6 @@ static func margin_ppm(price_cents: int, cost_cents: int) -> int:
 		return 0
 	return MoneyScript.rounded_div((price_cents - cost_cents) * PPM, price_cents)
 
-
 # --- what a person reads -----------------------------------------------------------------------
 
 
@@ -223,29 +232,35 @@ func describe(change_plan: Dictionary) -> String:
 	if not bool(result["ok"]):
 		return "this change could not be previewed: %s" % String(result["reason"])
 	var out: PackedStringArray = PackedStringArray()
-	out.append("%d estimate%s in hand, %d whose cost would move" % [
-		estimates.size(), "" if estimates.size() == 1 else "s", int(result["moved"])
-	])
+	out.append(
+		"%d estimate%s in hand, %d whose cost would move"
+		% [estimates.size(), "" if estimates.size() == 1 else "s", int(result["moved"])]
+	)
 	for row: Dictionary in result["rows"]:
 		var delta: int = int(row["delta_cents"])
 		if delta == 0:
 			continue
-		out.append("%s  cost %s -> %s (%s%s)  price %s unchanged  margin %.2f%% -> %.2f%%" % [
-			String(row["number"]),
-			MoneyScript.of(int(row["cost_before_cents"]), book.currency).format_with_currency(),
-			MoneyScript.of(int(row["cost_after_cents"]), book.currency).format_with_currency(),
-			"+" if delta > 0 else "-",
-			MoneyScript.of(absi(delta), book.currency).format_with_currency(),
-			MoneyScript.of(int(row["price_cents"]), book.currency).format_with_currency(),
-			float(int(row["margin_before_ppm"])) / 10000.0,
-			float(int(row["margin_after_ppm"])) / 10000.0,
-		])
-	out.append("cost %s -> %s across all of them" % [
-		MoneyScript.of(int(result["cost_before_cents"]), book.currency).format_with_currency(),
-		MoneyScript.of(int(result["cost_after_cents"]), book.currency).format_with_currency(),
-	])
+		out.append(
+			"%s  cost %s -> %s (%s%s)  price %s unchanged  margin %.2f%% -> %.2f%%"
+			% [
+				String(row["number"]),
+				MoneyScript.of(int(row["cost_before_cents"]), book.currency).format_with_currency(),
+				MoneyScript.of(int(row["cost_after_cents"]), book.currency).format_with_currency(),
+				"+" if delta > 0 else "-",
+				MoneyScript.of(absi(delta), book.currency).format_with_currency(),
+				MoneyScript.of(int(row["price_cents"]), book.currency).format_with_currency(),
+				float(int(row["margin_before_ppm"])) / 10000.0,
+				float(int(row["margin_after_ppm"])) / 10000.0,
+			]
+		)
+	out.append(
+		"cost %s -> %s across all of them"
+		% [
+			MoneyScript.of(int(result["cost_before_cents"]), book.currency).format_with_currency(),
+			MoneyScript.of(int(result["cost_after_cents"]), book.currency).format_with_currency(),
+		]
+	)
 	return "\n".join(out)
-
 
 # --- where the estimates come from -------------------------------------------------------------
 
@@ -262,7 +277,7 @@ static func read_estimates(store: BizStore) -> Array[Estimate]:
 	for job: Dictionary in store.records(BizStore.JOB_KIND):
 		var job_id: String = String(job.get("id", ""))
 		for record: Dictionary in store.records("estimate", job_id):
-			var body: Variant = record.get("body", {})
+			var body: Variant = record.get("body", { })
 			if not (body is Dictionary):
 				continue
 			var held: Dictionary = body

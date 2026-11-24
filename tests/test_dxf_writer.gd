@@ -20,16 +20,15 @@ func _drawing() -> DraftDocument:
 	var document := DocumentScript.new()
 	document.add(EntityScript.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSetScript.NEW_HARDSCAPE)
 	document.add(EntityScript.make_circle(Vector2(5, 5), 3.0), LayerSetScript.NEW_BED)
-	document.add(EntityScript.make_arc(Vector2(4, 4), 5.0, deg_to_rad(30.0), deg_to_rad(60.0)),
-		LayerSetScript.NEW_HARDSCAPE)
-	var curved := EntityScript.make_polyline(
-		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)])
+	document.add(
+		EntityScript.make_arc(Vector2(4, 4), 5.0, deg_to_rad(30.0), deg_to_rad(60.0)),
+		LayerSetScript.NEW_HARDSCAPE,
 	)
+	var curved := EntityScript.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]))
 	curved.bulges = PackedFloat64Array([0.0, 1.0, 0.0])
 	document.add(curved, LayerSetScript.NEW_BED)
 	document.add(EntityScript.make_text(Vector2(1, 2), "BED 1"), LayerSetScript.TEXT)
 	return document
-
 
 # --- the round trip --------------------------------------------------------------------
 
@@ -56,25 +55,30 @@ func test_a_file_read_then_written_reads_back_the_same() -> void:
 		assert(bool(now["closed"]) == bool(was["closed"]), "shape %d is closed the same" % at)
 		assert(String(now["words"]) == String(was["words"]), "shape %d says the same thing" % at)
 		assert(is_equal_approx(float(now["height"]), float(was["height"])), "shape %d is the same size" % at)
-		assert(is_equal_approx(float(now["radius"]), float(was["radius"])),
-			"shape %d is the same radius" % at)
+		assert(is_equal_approx(float(now["radius"]), float(was["radius"])), "shape %d is the same radius" % at)
 		var was_points: PackedVector2Array = was["points"]
 		var now_points: PackedVector2Array = now["points"]
 		assert(now_points.size() == was_points.size(), "shape %d has the same number of points" % at)
 		for p in was_points.size():
-			assert(now_points[p].is_equal_approx(was_points[p]),
-				"shape %d point %d came back where it was: %s vs %s" % [at, p, now_points[p], was_points[p]])
+			assert(
+				now_points[p].is_equal_approx(was_points[p]),
+				"shape %d point %d came back where it was: %s vs %s" % [at, p, now_points[p], was_points[p]],
+			)
 		var was_bulges: PackedFloat64Array = was["bulges"]
 		var now_bulges: PackedFloat64Array = now["bulges"]
 		assert(now_bulges.size() == was_bulges.size(), "shape %d has the same bulges" % at)
 		for b in was_bulges.size():
-			assert(is_equal_approx(now_bulges[b], was_bulges[b]),
-				"shape %d bulge %d came back the same: %f vs %f" % [at, b, now_bulges[b], was_bulges[b]])
+			assert(
+				is_equal_approx(now_bulges[b], was_bulges[b]),
+				"shape %d bulge %d came back the same: %f vs %f" % [at, b, now_bulges[b], was_bulges[b]],
+			)
 		# An arc's own angles are the thing most likely to arrive the other way round.
 		var was_arc: Vector2 = was["arc"]
 		var now_arc: Vector2 = now["arc"]
-		assert(is_equal_approx(now_arc.x, was_arc.x) and is_equal_approx(now_arc.y, was_arc.y),
-			"shape %d's arc came back the way it went out: %s vs %s" % [at, now_arc, was_arc])
+		assert(
+			is_equal_approx(now_arc.x, was_arc.x) and is_equal_approx(now_arc.y, was_arc.y),
+			"shape %d's arc came back the way it went out: %s vs %s" % [at, now_arc, was_arc],
+		)
 
 
 ## A drawing's own geometry goes out and comes back: the same kinds, at the same sizes, in the same
@@ -107,7 +111,6 @@ func test_a_drawing_goes_out_and_comes_back() -> void:
 	assert(String(text["words"]) == "BED 1")
 	assert(float(text["height"]) > 0.0, "a text with no height is an invisible text")
 
-
 # --- the things a careless writer gets wrong -------------------------------------------
 
 
@@ -115,9 +118,7 @@ func test_a_drawing_goes_out_and_comes_back() -> void:
 ## rather than leave it out. If it did not, this curve would arrive one segment along.
 func test_a_bulge_lands_on_the_segment_it_belongs_to() -> void:
 	var document := DocumentScript.new()
-	var curved := EntityScript.make_polyline(
-		PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)])
-	)
+	var curved := EntityScript.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)]))
 	curved.bulges = PackedFloat64Array([0.0, 1.0, 0.0])
 	document.add(curved, LayerSetScript.NEW_BED)
 	var back := _round_trip(document)
@@ -139,7 +140,7 @@ func test_an_arc_comes_back_covering_the_same_arc() -> void:
 		var document := DocumentScript.new()
 		document.add(
 			EntityScript.make_arc(Vector2(4, 4), 5.0, deg_to_rad(30.0), deg_to_rad(sweep)),
-			LayerSetScript.NEW_HARDSCAPE
+			LayerSetScript.NEW_HARDSCAPE,
 		)
 		var back := _round_trip(document)
 		var shape: Dictionary = (back["shapes"] as Array)[0]
@@ -147,16 +148,18 @@ func test_an_arc_comes_back_covering_the_same_arc() -> void:
 		var radius := float(shape["radius"])
 		assert(is_equal_approx(radius, 5.0), "the radius of an arc of %f degrees: %f" % [sweep, radius])
 		var arc: Vector2 = shape["arc"]
-		assert(arc.y <= 0.0 or is_zero_approx(arc.y),
-			"a DXF arc runs counterclockwise, so a model arc never sweeps positively: %s" % str(arc))
+		assert(
+			arc.y <= 0.0 or is_zero_approx(arc.y),
+			"a DXF arc runs counterclockwise, so a model arc never sweeps positively: %s" % str(arc),
+		)
 		var was := _ends(Vector2(4, 4), 5.0, 30.0, sweep)
 		# The table's `arc` is in degrees, the way the file states an angle: the reader takes group 50
 		# and 51 as they are, so nothing here converts.
-		var now := _ends(
-			(shape["points"] as PackedVector2Array)[0], radius, arc.x, arc.y
+		var now := _ends((shape["points"] as PackedVector2Array)[0], radius, arc.x, arc.y)
+		assert(
+			_same_ends(was, now),
+			"an arc of %f degrees covers the same arc coming back: %s vs %s" % [sweep, str(now), str(was)],
 		)
-		assert(_same_ends(was, now),
-			"an arc of %f degrees covers the same arc coming back: %s vs %s" % [sweep, str(now), str(was)])
 
 
 ## A rectangle has no DXF record of its own, so it goes out as its own four corners - and comes back
@@ -172,7 +175,6 @@ func test_a_rectangle_goes_out_as_its_own_corners() -> void:
 	for bulge: float in (shape["bulges"] as PackedFloat64Array):
 		assert(is_zero_approx(bulge), "a rectangle has no curves in it")
 
-
 # --- units -----------------------------------------------------------------------------
 
 
@@ -185,8 +187,8 @@ func test_the_file_says_what_its_numbers_mean() -> void:
 	assert(int(written["unit_code"]) == 6)
 	assert(String(written["text"]).contains("$INSUNITS"), "the header carries the units")
 	# Godot's own unit codes: 2 is feet, 1 is inches.
-	assert(int(Writer.write_text([], {"units": "feet"})["unit_code"]) == 2)
-	assert(int(Writer.write_text([], {"units": "in"})["unit_code"]) == 1)
+	assert(int(Writer.write_text([], { "units": "feet" })["unit_code"]) == 2)
+	assert(int(Writer.write_text([], { "units": "in" })["unit_code"]) == 1)
 
 
 ## A length in feet leaves the file as feet and reaches the model as metres again. Ten metres is
@@ -195,9 +197,8 @@ func test_a_length_is_written_in_the_unit_that_was_asked_for() -> void:
 	var document := DocumentScript.new()
 	document.add(EntityScript.make_line(Vector2(0, 0), Vector2(10, 0)), LayerSetScript.NEW_HARDSCAPE)
 	var made := Writer.shapes_from_document(document)
-	var written := Writer.write_text(made["shapes"], {"units": "feet"})
-	assert(String(written["text"]).contains("32.808"),
-		"ten metres is written as its length in feet")
+	var written := Writer.write_text(made["shapes"], { "units": "feet" })
+	assert(String(written["text"]).contains("32.808"), "ten metres is written as its length in feet")
 	var back := DxfScript.read_text(String(written["text"]))
 	assert(back["units"] == "feet")
 	var points: PackedVector2Array = (back["shapes"] as Array)[0]["points"]
@@ -205,16 +206,15 @@ func test_a_length_is_written_in_the_unit_that_was_asked_for() -> void:
 
 
 func test_a_unit_nobody_has_is_refused() -> void:
-	var written := Writer.write_text([], {"units": "furlongs"})
+	var written := Writer.write_text([], { "units": "furlongs" })
 	assert(not bool(written["ok"]))
 	assert(String(written["reason"]).contains("furlongs"), String(written["reason"]))
 
 
 func test_a_plot_scale_of_nothing_is_not_a_scale() -> void:
-	var written := Writer.write_text([], {"scale": 0.0})
+	var written := Writer.write_text([], { "scale": 0.0 })
 	assert(not bool(written["ok"]))
 	assert(String(written["reason"]).contains("scale"), String(written["reason"]))
-
 
 # --- what is left out, and saying so ---------------------------------------------------
 
@@ -243,18 +243,27 @@ func test_only_what_plots_goes_out() -> void:
 ## A shape that was read from a file is written back onto the name it came from, so a file that was
 ## read and written re-reads onto the same layers it did the first time.
 func test_a_shape_keeps_the_layer_name_it_was_read_from() -> void:
-	var shapes: Array = [{
-		"kind": "LINE", "layer": LayerSetScript.SURVEY_PROPERTY, "dxf_layer": "CONTOUR",
-		"points": PackedVector2Array([Vector2(0, 0), Vector2(1, 1)]),
-		"bulges": PackedFloat64Array(), "closed": false, "words": "", "height": 0.0,
-		"arc": Vector2.ZERO,
-	}]
+	var shapes: Array = [
+		{
+			"kind": "LINE",
+			"layer": LayerSetScript.SURVEY_PROPERTY,
+			"dxf_layer": "CONTOUR",
+			"points": PackedVector2Array([Vector2(0, 0), Vector2(1, 1)]),
+			"bulges": PackedFloat64Array(),
+			"closed": false,
+			"words": "",
+			"height": 0.0,
+			"arc": Vector2.ZERO,
+		}
+	]
 	var written := Writer.write_text(shapes)
 	assert(written["layers"] == ["CONTOUR"], str(written["layers"]))
 	assert(String(written["text"]).contains("CONTOUR"))
-	var back := DxfScript.read_text(String(written["text"]), {"underlay": false})
-	assert((back["shapes"] as Array)[0]["layer"] == LayerSetScript.GRADING_CONTOUR,
-		"and it maps where it mapped the first time")
+	var back := DxfScript.read_text(String(written["text"]), { "underlay": false })
+	assert(
+		(back["shapes"] as Array)[0]["layer"] == LayerSetScript.GRADING_CONTOUR,
+		"and it maps where it mapped the first time",
+	)
 
 
 ## A drawing that has never been near a file has no name to keep, so its own layer is the DXF layer.
@@ -264,7 +273,6 @@ func test_a_drawn_shape_goes_out_on_its_own_layer() -> void:
 	var made := Writer.shapes_from_document(document)
 	var written := Writer.write_text(made["shapes"])
 	assert(written["layers"] == [String(LayerSetScript.NEW_PLANTING)], str(written["layers"]))
-
 
 # --- saying what was written -----------------------------------------------------------
 
@@ -279,7 +287,7 @@ func test_describe_reads_as_one_line() -> void:
 
 
 func test_a_refusal_reads_as_its_reason() -> void:
-	assert(String(Writer.describe(Writer.write_text([], {"units": "furlongs"}))).contains("furlongs"))
+	assert(String(Writer.describe(Writer.write_text([], { "units": "furlongs" }))).contains("furlongs"))
 
 
 ## Text height is an assumption - the model does not hold one - so the report says so, and stops
@@ -289,7 +297,7 @@ func test_the_report_admits_the_scale_it_assumed() -> void:
 	var guessed := Writer.write_text(made["shapes"])
 	assert(bool(guessed["scale_assumed"]))
 	assert(_joined(Writer.report_lines(guessed)).contains("assumed"))
-	var stated := Writer.write_text(made["shapes"], {"scale": 50.0})
+	var stated := Writer.write_text(made["shapes"], { "scale": 50.0 })
 	assert(not bool(stated["scale_assumed"]))
 	assert(not _joined(Writer.report_lines(stated)).contains("assumed"))
 
@@ -312,7 +320,7 @@ func _of_kind(shapes: Array, kind: String) -> Dictionary:
 		if String(shape["kind"]) == kind:
 			return shape
 	assert(false, "there is no %s among them" % kind)
-	return {}
+	return { }
 
 
 ## The two ends of an arc, in model metres.
@@ -329,7 +337,6 @@ func _same_ends(one: Array[Vector2], other: Array[Vector2]) -> bool:
 	var same_way := one[0].is_equal_approx(other[0]) and one[1].is_equal_approx(other[1])
 	var other_way := one[0].is_equal_approx(other[1]) and one[1].is_equal_approx(other[0])
 	return same_way or other_way
-
 
 # --- helpers ---------------------------------------------------------------------------
 
@@ -348,23 +355,97 @@ func _round_trip(document: DraftDocument) -> Dictionary:
 ## A whole DXF around a run of entity records, in metres, the way `test_dxf_file` builds them.
 func _fixture() -> String:
 	var lines: Array[String] = [
-		"0", "SECTION", "2", "HEADER",
-		"9", "$INSUNITS", "70", "6",
-		"0", "ENDSEC",
-		"0", "SECTION", "2", "ENTITIES",
-		"0", "LINE", "8", "PROPERTY",
-		"10", "0", "20", "0", "11", "10", "21", "0",
-		"0", "CIRCLE", "8", "HARD",
-		"10", "5", "20", "5", "40", "3",
-		"0", "ARC", "8", "HARD",
-		"10", "4", "20", "4", "40", "5", "50", "30", "51", "90",
+		"0",
+		"SECTION",
+		"2",
+		"HEADER",
+		"9",
+		"$INSUNITS",
+		"70",
+		"6",
+		"0",
+		"ENDSEC",
+		"0",
+		"SECTION",
+		"2",
+		"ENTITIES",
+		"0",
+		"LINE",
+		"8",
+		"PROPERTY",
+		"10",
+		"0",
+		"20",
+		"0",
+		"11",
+		"10",
+		"21",
+		"0",
+		"0",
+		"CIRCLE",
+		"8",
+		"HARD",
+		"10",
+		"5",
+		"20",
+		"5",
+		"40",
+		"3",
+		"0",
+		"ARC",
+		"8",
+		"HARD",
+		"10",
+		"4",
+		"20",
+		"4",
+		"40",
+		"5",
+		"50",
+		"30",
+		"51",
+		"90",
 		# A polyline whose middle segment is curved: the bulge has to survive on that segment.
-		"0", "LWPOLYLINE", "8", "PLANT", "70", "1",
-		"10", "0", "20", "0", "42", "0",
-		"10", "10", "20", "0", "42", "0.5",
-		"10", "10", "20", "10", "42", "0",
-		"0", "TEXT", "8", "ANNO",
-		"10", "1", "20", "2", "40", "0.25", "1", "BED 1",
-		"0", "ENDSEC", "0", "EOF", "",
+		"0",
+		"LWPOLYLINE",
+		"8",
+		"PLANT",
+		"70",
+		"1",
+		"10",
+		"0",
+		"20",
+		"0",
+		"42",
+		"0",
+		"10",
+		"10",
+		"20",
+		"0",
+		"42",
+		"0.5",
+		"10",
+		"10",
+		"20",
+		"10",
+		"42",
+		"0",
+		"0",
+		"TEXT",
+		"8",
+		"ANNO",
+		"10",
+		"1",
+		"20",
+		"2",
+		"40",
+		"0.25",
+		"1",
+		"BED 1",
+		"0",
+		"ENDSEC",
+		"0",
+		"EOF",
+		"",
 	]
 	return "\n".join(PackedStringArray(lines))

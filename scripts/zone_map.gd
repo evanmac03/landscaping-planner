@@ -20,7 +20,7 @@ extends RefCounted
 
 const GeomScript := preload("res://scripts/draft/geom2d.gd")
 const TerrainProfileScript := preload("res://scripts/terrain_profile.gd")
-const PlantSpeciesScript := preload("res://scripts/plant_species.gd")
+const PlantSpeciesScript := preload("res://scripts/plants/plant_species.gd")
 const LayerSetScript := preload("res://scripts/draft/layer_set.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
 
@@ -34,11 +34,11 @@ const UnitsScript := preload("res://scripts/draft/units.gd")
 const DERIVED := {
 	LayerSetScript.EXISTING_STRUCTURE: {
 		"name": "under the building",
-		"profile": {"sun": PlantSpeciesScript.FULL_SHADE, "moisture": PlantSpeciesScript.WATER_LOW},
+		"profile": { "sun": PlantSpeciesScript.FULL_SHADE, "moisture": PlantSpeciesScript.WATER_LOW },
 	},
 	LayerSetScript.NEW_STRUCTURE: {
 		"name": "under the building",
-		"profile": {"sun": PlantSpeciesScript.FULL_SHADE, "moisture": PlantSpeciesScript.WATER_LOW},
+		"profile": { "sun": PlantSpeciesScript.FULL_SHADE, "moisture": PlantSpeciesScript.WATER_LOW },
 	},
 	LayerSetScript.EXISTING_HARDSCAPE: {
 		"name": "hard surface",
@@ -61,7 +61,7 @@ const DERIVED := {
 ## What a drawing cannot tell you, so that "the ring is grey everywhere" has an answer: shade cast by
 ## a tree is a study away (the sun study can compute it), and a soil is a site visit.
 const NOT_DERIVED := "a drawing shows where things are, not how wet the ground is: shade cast by a " \
-	+ "tree, soil, and the fall of the land are not read from it"
+		+ "tree, soil, and the fall of the land are not read from it"
 
 ## The layers whose areas enclose **ground somebody could plant in**, and what to call each one.
 ##
@@ -99,18 +99,23 @@ class Zone extends RefCounted:
 	## Where it came from - "by hand", or the entity or layer a derived zone was read from.
 	var source: String = ""
 
+
 	func _init(zone_name: String = "") -> void:
 		name = zone_name
 		profile = TerrainProfile.make()
 
+
 	func has_area() -> bool:
 		return outline.size() >= 3 and GeomScript.polygon_area(outline) > 0.0
+
 
 	func area() -> float:
 		return absf(GeomScript.polygon_area(outline))
 
+
 	func contains(point: Vector2) -> bool:
 		return has_area() and GeomScript.point_in_polygon(point, outline)
+
 
 	func bounds() -> Rect2:
 		if outline.is_empty():
@@ -120,19 +125,17 @@ class Zone extends RefCounted:
 			box = box.expand(point)
 		return box
 
+
 	func describe() -> String:
 		return "%s (%s)" % [name, profile.describe()]
+
 
 	func to_dict() -> Dictionary:
 		var points: Array = []
 		for point: Vector2 in outline:
 			points.append([point.x, point.y])
-		return {
-			"name": name,
-			"outline": points,
-			"profile": profile.to_dict(),
-			"source": source,
-		}
+		return { "name": name, "outline": points, "profile": profile.to_dict(), "source": source }
+
 
 	static func from_dict(data: Dictionary) -> Zone:
 		var zone: Zone = Zone.new(String(data.get("name", "")))
@@ -141,8 +144,8 @@ class Zone extends RefCounted:
 			for pair: Variant in raw:
 				if pair is Array and (pair as Array).size() >= 2:
 					zone.outline.append(Vector2(float(pair[0]), float(pair[1])))
-		var stated: Variant = data.get("profile", {})
-		zone.profile = TerrainProfileScript.from_dict(stated if stated is Dictionary else {})
+		var stated: Variant = data.get("profile", { })
+		zone.profile = TerrainProfileScript.from_dict(stated if stated is Dictionary else { })
 		zone.source = String(data.get("source", ""))
 		return zone
 
@@ -153,11 +156,10 @@ var base: TerrainProfile = TerrainProfile.make()
 var zones: Array[Zone] = []
 
 
-static func make(stated_base: Dictionary = {}) -> ZoneMap:
+static func make(stated_base: Dictionary = { }) -> ZoneMap:
 	var map: ZoneMap = (load("res://scripts/zone_map.gd") as GDScript).new()
 	map.base = TerrainProfile.make(stated_base)
 	return map
-
 
 # --- asking it ---------------------------------------------------------------------------
 
@@ -177,12 +179,7 @@ func zone_at(point: Vector2) -> Zone:
 func profile_at(point: Vector2) -> Dictionary:
 	var zone: Zone = zone_at(point)
 	if zone == null:
-		return {
-			"profile": base.copy(),
-			"zone": null,
-			"place": "the rest of the site",
-			"source": "the site",
-		}
+		return { "profile": base.copy(), "zone": null, "place": "the rest of the site", "source": "the site" }
 	return {
 		"profile": zone.profile.merged_over(base),
 		"zone": zone,
@@ -200,7 +197,6 @@ func describe_at(point: Vector2) -> String:
 		return "%s: the plan does not say what the ground is like" % String(spot["place"])
 	return "%s: %s" % [String(spot["place"]), profile.describe()]
 
-
 # --- building one ------------------------------------------------------------------------
 
 
@@ -208,7 +204,7 @@ func add_zone(
 	zone_name: String,
 	outline: PackedVector2Array,
 	profile: TerrainProfile,
-	source: String = "by hand"
+	source: String = "by hand",
 ) -> Zone:
 	var zone: Zone = Zone.new(zone_name)
 	zone.outline = outline
@@ -239,9 +235,7 @@ func zone_by_source(source: String) -> Zone:
 ## than stacking two on top of each other - and it edits it *in place*, because re-stating a bed must
 ## not move it above a bed that was drawn inside it: the order of the zones is the order they were
 ## drawn in, and that is the order they answer in.
-func state_zone(
-	key: String, zone_name: String, outline: PackedVector2Array, profile: TerrainProfile
-) -> Zone:
+func state_zone(key: String, zone_name: String, outline: PackedVector2Array, profile: TerrainProfile) -> Zone:
 	var existing: Zone = zone_by_source(key)
 	if existing != null:
 		existing.name = zone_name
@@ -305,16 +299,18 @@ static func areas_of(document: DraftDocument, min_area: float = 0.5) -> Array[Di
 		if size < min_area:
 			continue
 		var key: String = area_key(entity.layer, entity.id)
-		out.append({
-			"entity_id": entity.id,
-			"layer": entity.layer,
-			"key": key,
-			"label": String(label),
-			"name": "%s %d" % [String(label), entity.id],
-			"outline": outline,
-			"area_m2": size,
-			"area_text": area_words(document, size),
-		})
+		out.append(
+			{
+				"entity_id": entity.id,
+				"layer": entity.layer,
+				"key": key,
+				"label": String(label),
+				"name": "%s %d" % [String(label), entity.id],
+				"outline": outline,
+				"area_m2": size,
+				"area_text": area_words(document, size),
+			}
+		)
 	return out
 
 
@@ -345,11 +341,12 @@ static func describe_areas(areas: Array[Dictionary], map: ZoneMap) -> Array[Dict
 		else:
 			described["stated"] = false
 			described["stated_profile"] = TerrainProfile.make()
-			var spot: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else {}
+			var spot: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else { }
 			described["source"] = String(spot.get("source", "")) if not spot.is_empty() else ""
-		var spot_effect: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else {}
+		var spot_effect: Dictionary = map.profile_at(_centre(row["outline"])) if map != null else { }
 		described["profile"] = (
-			(spot_effect["profile"] as TerrainProfile) if spot_effect.has("profile")
+			(spot_effect["profile"] as TerrainProfile)
+			if spot_effect.has("profile")
 			else TerrainProfile.make()
 		)
 		out.append(described)
@@ -396,7 +393,7 @@ func clear_zones() -> void:
 ## A derived zone is a real zone with a real `source`, so a verdict that came from the drawing says
 ## so - "hard surface (full sun, low water)" - rather than presenting an inference as a fact somebody
 ## entered.
-static func from_document(document: DraftDocument, stated_base: Dictionary = {}) -> ZoneMap:
+static func from_document(document: DraftDocument, stated_base: Dictionary = { }) -> ZoneMap:
 	var map: ZoneMap = ZoneMap.make(stated_base)
 	if document == null:
 		return map
@@ -412,14 +409,15 @@ static func from_document(document: DraftDocument, stated_base: Dictionary = {})
 		if profile.is_empty():
 			continue
 		var zone: Zone = map.add_zone(
-			String(plan["name"]), outline, profile,
-			"layer:%s#%d" % [String(entity.layer), entity.id]
+			String(plan["name"]),
+			outline,
+			profile,
+			"layer:%s#%d" % [String(entity.layer), entity.id],
 		)
 		if not zone.has_area():
 			# A zero-area ring (a degenerate outline) states nothing about anywhere.
 			map.zones.pop_back()
 	return map
-
 
 # --- reading and writing -----------------------------------------------------------------
 
@@ -461,16 +459,13 @@ func to_dict() -> Dictionary:
 	var rows: Array = []
 	for zone: Zone in zones:
 		rows.append(zone.to_dict())
-	return {
-		"base": base.to_dict(),
-		"zones": rows,
-	}
+	return { "base": base.to_dict(), "zones": rows }
 
 
 static func from_dict(data: Dictionary) -> ZoneMap:
 	var map: ZoneMap = (load("res://scripts/zone_map.gd") as GDScript).new()
-	var base_stated: Variant = data.get("base", {})
-	map.base = TerrainProfileScript.from_dict(base_stated if base_stated is Dictionary else {})
+	var base_stated: Variant = data.get("base", { })
+	map.base = TerrainProfileScript.from_dict(base_stated if base_stated is Dictionary else { })
 	var rows: Variant = data.get("zones", [])
 	if rows is Array:
 		for record: Variant in rows:

@@ -33,7 +33,7 @@ var _index: int = 0
 ## How many revisions fell off the oldest end of the log, so the window can say that what it lists is the
 ## last of it rather than all of it.
 var _dropped: int = 0
-var _identity: Dictionary = {}
+var _identity: Dictionary = { }
 ## True while the list is being filled, so a selection made in code does not echo back as a click - which
 ## would rebuild the pane under the cursor.
 var _filling: bool = false
@@ -61,7 +61,6 @@ func _ready() -> void:
 	if _list == null:
 		build()
 
-
 # --- building -----------------------------------------------------------------------
 
 
@@ -70,13 +69,9 @@ func _ready() -> void:
 func build() -> void:
 	if _list != null:
 		return
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self)
 
-	column.add_child(_heading("The history of this drawing"))
+	column.add_child(PageChrome.subheading("The history of this drawing"))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -88,7 +83,7 @@ func build() -> void:
 	left.name = "Revisions"
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
-	left.add_child(_caption("Revision"))
+	left.add_child(PageChrome.text("Revision"))
 	_list = ItemList.new()
 	_list.name = "List"
 	_list.custom_minimum_size = Vector2(300.0, 0.0)
@@ -104,14 +99,14 @@ func build() -> void:
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 4)
 	body.add_child(right)
-	right.add_child(_caption("This revision"))
+	right.add_child(PageChrome.text("This revision"))
 	_description = _wrapped(right, "Description")
-	right.add_child(_caption("Since the one before it"))
+	right.add_child(PageChrome.text("Since the one before it"))
 	_change = _wrapped(right, "Change")
-	right.add_child(_caption("Done since"))
+	right.add_child(PageChrome.text("Done since"))
 	_since = _wrapped(right, "DoneSince")
 
-	right.add_child(_caption("Record a revision"))
+	right.add_child(PageChrome.text("Record a revision"))
 	var row := HBoxContainer.new()
 	row.name = "MessageRow"
 	row.add_theme_constant_override("separation", 6)
@@ -122,62 +117,52 @@ func build() -> void:
 	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_message)
 	var record_button := _button(row, "Record this revision")
-	record_button.pressed.connect(func() -> void: revision_recorded.emit(_message.text))
+	record_button.pressed.connect(
+		func() -> void:
+			revision_recorded.emit(_message.text),
+	)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.add_theme_font_size_override("font_size", 12)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status = PageChrome.status()
 	column.add_child(_status)
 
-	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
+	var buttons := PageChrome.button_row()
 	column.add_child(buttons)
 	_restore_button = _button(buttons, "Put this revision back")
-	_restore_button.pressed.connect(func() -> void: restore_requested.emit(_index))
+	_restore_button.pressed.connect(
+		func() -> void:
+			restore_requested.emit(_index),
+	)
 	var close_button := _button(buttons, "Close")
-	close_button.pressed.connect(func() -> void: closed.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			closed.emit(),
+	)
 
 
-func _heading(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Heading"
-	label.text = words
-	label.add_theme_font_size_override("font_size", 16)
-	return label
-
-
-func _caption(words: String) -> Label:
-	var label := Label.new()
-	label.text = words
-	label.add_theme_font_size_override("font_size", 12)
-	return label
-
-
-## A label that wraps, because a change line naming eight shapes is longer than the pane.
+## A label that wraps, because a change line naming eight shapes is longer than the pane. Its size and
+## its wrapping come from the shared chrome; what this page decides is the pane it fills and the name its
+## own tests read.
 func _wrapped(parent: Node, node_name: String) -> Label:
-	var label := Label.new()
+	var label := PageChrome.text()
 	label.name = node_name
-	label.add_theme_font_size_override("font_size", 12)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size = Vector2(300.0, 0.0)
 	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(label)
 	return label
 
 
+## A button filling the row it sits in, made by the shared chrome so that its name, its caption and what
+## it does with the keyboard are the project's rather than this page's. The one thing this adds is the
+## equal share of the button strip the revisions page has always given its buttons.
 func _button(parent: Node, words: String) -> Button:
-	var button := Button.new()
-	button.name = words.replace(" ", "") + "Button"
-	button.text = words
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(button)
-	return button
+	var made := PageChrome.button(words)
+	made.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(made)
+	return made
 
 
 func _on_close_requested() -> void:
 	closed.emit()
-
 
 # --- what it shows ------------------------------------------------------------------
 
@@ -187,7 +172,7 @@ func _on_close_requested() -> void:
 ## claims and only one of them is true.
 func set_identity(drawing: String, dropped: int) -> void:
 	build()
-	_identity = {"drawing": drawing, "dropped": dropped}
+	_identity = { "drawing": drawing, "dropped": dropped }
 	_dropped = dropped
 
 
@@ -244,7 +229,7 @@ func selected_index() -> int:
 
 func selected_row() -> Dictionary:
 	if _index < 0 or _index >= _rows.size():
-		return {}
+		return { }
 	return _rows[_index]
 
 
@@ -323,7 +308,6 @@ func say(words: String) -> void:
 
 func said() -> String:
 	return _said
-
 
 # --- the same acts, scriptable ---------------------------------------------------------
 #

@@ -24,8 +24,20 @@ func _controller():
 
 func _dxf(entities: String, insunits: int = 6) -> String:
 	var lines: Array[String] = [
-		"0", "SECTION", "2", "HEADER", "9", "$INSUNITS", "70", str(insunits),
-		"0", "ENDSEC", "0", "SECTION", "2", "ENTITIES",
+		"0",
+		"SECTION",
+		"2",
+		"HEADER",
+		"9",
+		"$INSUNITS",
+		"70",
+		str(insunits),
+		"0",
+		"ENDSEC",
+		"0",
+		"SECTION",
+		"2",
+		"ENTITIES",
 	]
 	if not entities.is_empty():
 		lines.append(entities)
@@ -34,9 +46,9 @@ func _dxf(entities: String, insunits: int = 6) -> String:
 
 
 func _line(a: Vector2, b: Vector2, layer: String = "PROPERTY") -> String:
-	return "\n".join(PackedStringArray([
-		"0", "LINE", "8", layer, "10", str(a.x), "20", str(a.y), "11", str(b.x), "21", str(b.y),
-	]))
+	return "\n".join(
+		PackedStringArray(["0", "LINE", "8", layer, "10", str(a.x), "20", str(a.y), "11", str(b.x), "21", str(b.y)])
+	)
 
 
 func _on_layer(controller, layer_name: StringName) -> Array:
@@ -45,7 +57,6 @@ func _on_layer(controller, layer_name: StringName) -> Array:
 		if entity.layer == layer_name:
 			out.append(entity)
 	return out
-
 
 # --- what arrives ----------------------------------------------------------------------
 
@@ -79,26 +90,114 @@ func test_the_geometry_arrives_mirrored_and_in_metres() -> void:
 
 func test_every_shape_the_reader_hands_over_becomes_a_drawing_entity() -> void:
 	var controller = _controller()
-	var entities := "\n".join(PackedStringArray([
-		"0", "LINE", "8", "PROPERTY", "10", "0.0", "20", "0.0", "11", "6.0", "21", "0.0",
-		"0", "LWPOLYLINE", "8", "BOUNDARY", "90", "3", "70", "1",
-		"10", "0.0", "20", "0.0", "10", "6.0", "20", "0.0", "10", "6.0", "20", "4.0",
-		"0", "CIRCLE", "8", "HARD", "10", "2.0", "20", "2.0", "40", "1.5",
-		"0", "ARC", "8", "HARD", "10", "8.0", "20", "0.0", "40", "2.0", "50", "0.0", "51", "90.0",
-		"0", "TEXT", "8", "ANNO", "10", "1.0", "20", "1.0", "40", "0.4", "1", "P.L. 49.25",
-	]))
+	var entities := "\n".join(
+		PackedStringArray(
+			[
+				"0",
+				"LINE",
+				"8",
+				"PROPERTY",
+				"10",
+				"0.0",
+				"20",
+				"0.0",
+				"11",
+				"6.0",
+				"21",
+				"0.0",
+				"0",
+				"LWPOLYLINE",
+				"8",
+				"BOUNDARY",
+				"90",
+				"3",
+				"70",
+				"1",
+				"10",
+				"0.0",
+				"20",
+				"0.0",
+				"10",
+				"6.0",
+				"20",
+				"0.0",
+				"10",
+				"6.0",
+				"20",
+				"4.0",
+				"0",
+				"CIRCLE",
+				"8",
+				"HARD",
+				"10",
+				"2.0",
+				"20",
+				"2.0",
+				"40",
+				"1.5",
+				"0",
+				"ARC",
+				"8",
+				"HARD",
+				"10",
+				"8.0",
+				"20",
+				"0.0",
+				"40",
+				"2.0",
+				"50",
+				"0.0",
+				"51",
+				"90.0",
+				"0",
+				"TEXT",
+				"8",
+				"ANNO",
+				"10",
+				"1.0",
+				"20",
+				"1.0",
+				"40",
+				"0.4",
+				"1",
+				"P.L. 49.25",
+			]
+		)
+	)
 	# The heavy polyline, whose vertices are separate records.
-	entities += "\n" + "\n".join(PackedStringArray([
-		"0", "POLYLINE", "8", "BOUNDARY", "70", "0",
-		"0", "VERTEX", "10", "0.0", "20", "8.0", "0", "VERTEX", "10", "6.0", "20", "8.0", "0", "SEQEND",
-	]))
+	entities += "\n" + "\n".join(
+		PackedStringArray(
+			[
+				"0",
+				"POLYLINE",
+				"8",
+				"BOUNDARY",
+				"70",
+				"0",
+				"0",
+				"VERTEX",
+				"10",
+				"0.0",
+				"20",
+				"8.0",
+				"0",
+				"VERTEX",
+				"10",
+				"6.0",
+				"20",
+				"8.0",
+				"0",
+				"SEQEND",
+			]
+		)
+	)
 	var plan := DxfScript.read_text(_dxf(entities))
 	assert(bool(plan["ok"]), String(plan["reason"]))
 	var taken: Dictionary = controller.import_dxf(plan)
 	assert(bool(taken["ok"]), String(taken["reason"]))
 	assert(int(taken["added"]) == 6, "all six: %s" % str(taken))
 	assert(int(taken["refused"]) == 0, str(taken))
-	var kinds := {}
+	var kinds := { }
 	for entity: DraftEntity in controller.document.entities():
 		kinds[int(entity.kind)] = int(kinds.get(int(entity.kind), 0)) + 1
 	# One line, one polygon (the light polyline was closed), one polyline (the heavy one was not), a
@@ -126,10 +225,34 @@ func test_every_shape_the_reader_hands_over_becomes_a_drawing_entity() -> void:
 
 func test_a_polyline_carries_its_bulges_so_a_curved_bed_stays_curved() -> void:
 	var controller = _controller()
-	var plan := DxfScript.read_text(_dxf("\n".join(PackedStringArray([
-		"0", "LWPOLYLINE", "8", "BOUNDARY", "90", "2", "70", "0",
-		"10", "0.0", "20", "0.0", "42", "1.0", "10", "6.0", "20", "0.0",
-	]))))
+	var plan := DxfScript.read_text(
+		_dxf(
+			"\n".join(
+				PackedStringArray(
+					[
+						"0",
+						"LWPOLYLINE",
+						"8",
+						"BOUNDARY",
+						"90",
+						"2",
+						"70",
+						"0",
+						"10",
+						"0.0",
+						"20",
+						"0.0",
+						"42",
+						"1.0",
+						"10",
+						"6.0",
+						"20",
+						"0.0",
+					]
+				)
+			)
+		)
+	)
 	assert(bool(controller.import_dxf(plan)["ok"]))
 	var entity: DraftEntity = controller.document.entities()[0]
 	assert(entity.bulges.size() == 2, "one bulge per vertex: %d" % entity.bulges.size())
@@ -145,9 +268,11 @@ func test_a_polyline_carries_its_bulges_so_a_curved_bed_stays_curved() -> void:
 func test_a_text_keeps_the_size_it_was_drawn_at_on_paper() -> void:
 	var controller = _controller()
 	controller.plot_scale = 100.0
-	var plan := DxfScript.read_text(_dxf("\n".join(PackedStringArray([
-		"0", "TEXT", "8", "ANNO", "10", "0.0", "20", "0.0", "40", "0.4", "1", "P.L.",
-	]))))
+	var plan := DxfScript.read_text(
+		_dxf(
+			"\n".join(PackedStringArray(["0", "TEXT", "8", "ANNO", "10", "0.0", "20", "0.0", "40", "0.4", "1", "P.L."]))
+		)
+	)
 	assert(bool(controller.import_dxf(plan)["ok"]))
 	var label: DraftEntity = controller.document.entities()[0]
 	assert(String(label.meta.get("text", "")) == "P.L.")
@@ -155,7 +280,6 @@ func test_a_text_keeps_the_size_it_was_drawn_at_on_paper() -> void:
 	# model one, because that is what the drawing's own dimensions do.
 	assert(is_equal_approx(float(label.meta.get("height", 0.0)), 4.0), str(label.meta.get("height")))
 	controller.free()
-
 
 # --- the rules around it ---------------------------------------------------------------
 
@@ -201,10 +325,13 @@ func test_a_drawing_that_is_not_there_is_refused_rather_than_a_crash() -> void:
 
 func test_a_kept_import_lands_on_the_layers_its_layer_names_map_to() -> void:
 	var controller = _controller()
-	var plan := DxfScript.read_text(_dxf(
-		_line(Vector2.ZERO, Vector2(1.0, 0.0), "PROPERTY") + "\n"
-		+ _line(Vector2.ZERO, Vector2(1.0, 0.0), "EASEMENT")
-	), {"underlay": false})
+	var plan := DxfScript.read_text(
+		_dxf(
+			_line(Vector2.ZERO, Vector2(1.0, 0.0), "PROPERTY") + "\n"
+			+ _line(Vector2.ZERO, Vector2(1.0, 0.0), "EASEMENT")
+		),
+		{ "underlay": false },
+	)
 	var taken: Dictionary = controller.import_dxf(plan)
 	assert(bool(taken["ok"]), String(taken["reason"]))
 	assert(_on_layer(controller, LayerSet.SURVEY_PROPERTY).size() == 1)
@@ -215,9 +342,9 @@ func test_a_kept_import_lands_on_the_layers_its_layer_names_map_to() -> void:
 
 func test_a_damaged_shape_cost_the_file_a_shape_and_not_the_import() -> void:
 	var controller = _controller()
-	var run := "\n".join(PackedStringArray([
-		"0", "LINE", "8", "PROPERTY", "10", "junk", "20", "0.0", "11", "1.0", "21", "0.0",
-	])) + "\n" + _line(Vector2(0.0, 4.0), Vector2(4.0, 4.0))
+	var run := "\n".join(
+		PackedStringArray(["0", "LINE", "8", "PROPERTY", "10", "junk", "20", "0.0", "11", "1.0", "21", "0.0"])
+	) + "\n" + _line(Vector2(0.0, 4.0), Vector2(4.0, 4.0))
 	var plan := DxfScript.read_text(_dxf(run))
 	var taken: Dictionary = controller.import_dxf(plan)
 	assert(bool(taken["ok"]), String(taken["reason"]))

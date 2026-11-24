@@ -743,7 +743,7 @@ moment the office can still do something about it.
 
 The one purchase order a landscape office writes over and over is the plants. Every job needs one,
 the quantities are already on the drawing and the rates are already in the book, so the drawing
-writes it: `scripts/biz/plant_order.gd` prices the planting, and `scripts/plant_order_window.gd`
+writes it: `scripts/biz/plant_order.gd` prices the planting, and `scripts/plants/plant_order_window.gd`
 shows the lines and asks the two questions only a person can answer.
 
 - **The book prices the plant; a person names the nursery.** A rate is the office's knowledge and
@@ -1043,6 +1043,15 @@ The rules, carried over from the landscape side of the app because they are righ
 
 - **Nothing takes the keyboard unless it is typed into.** Text and number fields take focus; buttons
   and grids do not; Escape leaves a mode and never commits a number. (The HUD's own lesson.)
+- **A page in a `Window` may take the keyboard, because it already has it.** A page is a viewport
+  of its own and holds the keyboard while it is up, so the drawing behind it sees no key at all
+  until the page closes. That is measured, not assumed: `tools/page_keyboard_probe.tscn` presses
+  real keys and reports which view the drawing ended up in with a page up, with a control inside
+  that page focused, and again once the page is gone. The rule above is about the drawing's own
+  surface, where the keys are the tools' and every button stays focus-free; it is not a rule about
+  a page. **`PageChrome.takes_the_keyboard` is the one place it is applied**, and
+  `PageChrome.show_centred` is what calls it, so every page's controls are reachable with Tab in
+  the same way - and a dialog inside a page keeps its own keyboard.
 - **A grid is the one place focus is legitimate**, so the estimate grid is a focusable grid with an
   explicit Escape that discards the cell and a visible cursor - and its arrow-key editing must not
   steal the mode's Escape.
@@ -1509,6 +1518,23 @@ computed **pure** by `request_for(which, args)` and only then sent, and an addre
 status 0, which is retryable rather than a refusal. Configured and ready are two different states:
 an address with no token can build every request and will not send one.
 
+**How long it waits, and the fault that was here.** The sending is **nothing but `HttpExchange`
+driven to completion** - the same machine the plant reader steps a frame at a time - with the two
+patiences stated on this file: `ANSWER_SECONDS` 30 for the answer and `CONNECT_SECONDS` 1.5 for the
+connection, the second being short for a reason measured in that file (a port nobody is listening on
+never leaves `STATUS_CONNECTING`, so only a budget of its own can tell a mis-typed address from a slow
+service). What stood here was three counted loops - `while turns < 4000: client.poll()` - and
+**counting polls is not waiting**: `poll()` does not block, so four thousand turns go by in a few
+milliseconds and a service that took longer than that was reported as not there. It survived this long
+because only an instant local service ever answered it. The same fault cost the plant reader a whole
+reading before it was found, and it is the reason there is one request machine rather than a loop per
+caller.
+
+**Still owed, and it is this file's own shape rather than that machine's:** `_exchange` waits inside
+the call, so a push against a slow service holds the frame for as long as it waits (up to the 30
+seconds above). `BizSync` is written as a synchronous act - pull, then push, then advance the cursor -
+so making it step across frames is a change to the sync layer, not to the transport.
+
 **`scripts/biz/sync.gd`** (`BizSync`) is the join, and it is the one file in this project that holds
 the conflict policy of section 11.3. Pull-then-push, idempotent, safe to interrupt: **the cursor
 advances only after the pull is applied**, and **a failed pull does not push**. It is offline first
@@ -1594,7 +1620,7 @@ lists. `plan` returns one line per kind of plant with its quantity, its book ite
 extension and its own problem; `by_supplier` groups the lines by grower; and `write_orders` is the
 single door that puts them on the desk, through `JobDesk.make_purchase_order` rather than beside it.
 
-`PlantOrderWindow` (`scripts/plant_order_window.gd`) owns only what only a person knows - which job,
+`PlantOrderWindow` (`scripts/plants/plant_order_window.gd`) owns only what only a person knows - which job,
 which nursery - and nothing else. The plan arrives from `PlantOrder.plan`, the orders leave through
 `order_requested` for the HUD, and the page writes nothing itself, which is what lets the whole page
 be tested with no desk, no drawing and no screen.

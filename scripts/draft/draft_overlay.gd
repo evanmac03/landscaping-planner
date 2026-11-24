@@ -26,7 +26,7 @@ var ground_y: float = 0.10
 var ribbon_width: float = 0.08
 var display_scale: float = 100.0
 
-var document = null
+var document: DraftDocument = null
 
 var _committed: MeshInstance3D = null
 var _ghost: MeshInstance3D = null
@@ -53,7 +53,7 @@ func _make_layer(layer_name: String) -> MeshInstance3D:
 	return instance
 
 
-func bind_document(doc) -> void:
+func bind_document(doc: DraftDocument) -> void:
 	if document != null and document.changed.is_connected(_on_document_changed):
 		document.changed.disconnect(_on_document_changed)
 	document = doc
@@ -78,7 +78,7 @@ func rebuild() -> void:
 
 ## The shape as it would be if the user picked at the cursor. Separate from the
 ## document so following the mouse does not rebuild the whole drawing.
-func set_ghost(entity, layer) -> void:
+func set_ghost(entity: DraftEntity, layer: DraftLayer) -> void:
 	if _ghost == null:
 		return
 	var quads: Array = []
@@ -101,11 +101,11 @@ func _collect_entities(entities: Array, quads: Array) -> void:
 		# ground for them.
 		if DraftRenderScript.is_annotation(entity):
 			continue
-		var layer = document.layers.get_layer(entity.layer)
+		var layer := document.layers.get_layer(entity.layer)
 		_collect_stroke(
 			quads,
 			DraftRenderScript.strokes(entity, layer, display_scale),
-			DraftRenderScript.screen_colour(layer)
+			DraftRenderScript.screen_colour(layer),
 		)
 
 
@@ -118,7 +118,7 @@ func _collect_stroke(quads: Array, strokes: Array, colour: Color) -> void:
 			var b: Vector2 = stroke[index + 1]
 			if (b - a).length_squared() < 1e-12:
 				continue
-			quads.append({"a": a, "b": b, "colour": colour})
+			quads.append({ "a": a, "b": b, "colour": colour })
 
 
 ## Godot raises an error for a surface with no vertices, so an empty drawing
@@ -139,14 +139,7 @@ func _add_ribbon_segment(mesh: ImmediateMesh, a: Vector2, b: Vector2, colour: Co
 	_add_quad(mesh, a - normal, a + normal, b + normal, b - normal, colour)
 
 
-func _add_quad(
-	mesh: ImmediateMesh,
-	p0: Vector2,
-	p1: Vector2,
-	p2: Vector2,
-	p3: Vector2,
-	colour: Color
-) -> void:
+func _add_quad(mesh: ImmediateMesh, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, colour: Color) -> void:
 	mesh.surface_set_color(colour)
 	mesh.surface_add_vertex(_to_world(p0))
 	mesh.surface_set_color(colour)

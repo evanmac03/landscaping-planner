@@ -119,8 +119,11 @@ static func _number_words(value: float) -> String:
 ## `lines` is the stroke linework, ready to become LINE entities; `marks` is how many point symbols
 ## were laid for a stipple (0 for the line patterns). A refusal carries `reason` and no lines.
 static func fill(
-	rings: Array, pattern: StringName, spacing_m: float, angle_rad: float,
-	symbol: StringName = SYMBOL_DOT
+	rings: Array,
+	pattern: StringName,
+	spacing_m: float,
+	angle_rad: float,
+	symbol: StringName = SYMBOL_DOT,
 ) -> Dictionary:
 	var region := _clean(rings)
 	if region.is_empty():
@@ -146,14 +149,10 @@ static func fill(
 				marks += 1
 				lines.append_array(symbol_marks(at, symbol, spacing_m))
 	if lines.size() > MAX_LINES:
-		return _failed("that spacing is finer than this region can carry: it would draw %d marks"
-			% lines.size())
+		return _failed("that spacing is finer than this region can carry: it would draw %d marks" % lines.size())
 	if lines.is_empty():
 		return _failed("that region is too small for a fill at this spacing")
-	return {
-		"ok": true, "reason": "", "lines": lines, "marks": marks,
-		"pattern": pattern, "symbol": symbol,
-	}
+	return { "ok": true, "reason": "", "lines": lines, "marks": marks, "pattern": pattern, "symbol": symbol }
 
 
 ## The grid of symbol positions inside a region, at a model spacing. The outer ring sets the grid's
@@ -171,9 +170,7 @@ static func grid_points(region: Array, spacing_m: float) -> PackedVector2Array:
 
 
 ## The strokes of one point symbol at a position, sized against the grid so two symbols never touch.
-static func symbol_marks(
-	at: Vector2, symbol: StringName, spacing_m: float
-) -> Array[PackedVector2Array]:
+static func symbol_marks(at: Vector2, symbol: StringName, spacing_m: float) -> Array[PackedVector2Array]:
 	var half := maxf(spacing_m * SYMBOL_FRACTION, Geom.EPS) * 0.5
 	var out: Array[PackedVector2Array] = []
 	if symbol == SYMBOL_CROSS:
@@ -197,7 +194,8 @@ static func describe(result: Dictionary) -> String:
 	var pattern := StringName(result.get("pattern", HATCH))
 	if pattern == STIPPLE:
 		return "%s, %d %s" % [
-			pattern_words(pattern), int(result.get("marks", 0)),
+			pattern_words(pattern),
+			int(result.get("marks", 0)),
 			"cross" if result.get("symbol", SYMBOL_DOT) == SYMBOL_CROSS else "dot",
 		]
 	return "%s, %d lines" % [pattern_words(pattern), (result.get("lines", []) as Array).size()]
@@ -219,4 +217,4 @@ static func _in_a_hole(region: Array[PackedVector2Array], at: Vector2) -> bool:
 
 
 static func _failed(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "lines": [], "marks": 0}
+	return { "ok": false, "reason": reason, "lines": [], "marks": 0 }

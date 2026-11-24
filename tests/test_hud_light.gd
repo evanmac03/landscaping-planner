@@ -31,10 +31,11 @@ func _hud():
 	hud._draft = controller
 	hud._build_lighting_panel()
 	controller.document.add(
-		Entity.make_polyline(PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED),
-		]), true),
-		LayerSet.NEW_BED
+		Entity.make_polyline(
+			PackedVector2Array([Vector2(0.0, 0.0), Vector2(BED, 0.0), Vector2(BED, BED), Vector2(0.0, BED)]),
+			true,
+		),
+		LayerSet.NEW_BED,
 	)
 	return hud
 
@@ -54,8 +55,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
-
+	return { }
 
 # --- the way in -----------------------------------------------------------------------
 
@@ -84,7 +84,6 @@ func test_a_page_with_no_drawing_opens_nothing() -> void:
 	assert(not hud.is_light_panel_open(), "there is no drawing for a page to be about")
 	_done(hud)
 
-
 # --- what the panel's signals do ------------------------------------------------------
 
 
@@ -94,8 +93,10 @@ func test_stating_the_transformer_through_the_page_states_it_on_the_drawing() ->
 	hud._on_light_transformer(100.0, 12.0)
 	assert(absf(float(hud._draft.lighting_transformer()["va"]) - 100.0) < 0.001, "it is stated")
 	assert(hud.light_status_text().contains("100 VA at 12 V"), hud.light_status_text())
-	assert(hud.light_status_text().contains("25"), "and the budget is twenty-five path lights: %s"
-		% hud.light_status_text())
+	assert(
+		hud.light_status_text().contains("25"),
+		"and the budget is twenty-five path lights: %s" % hud.light_status_text(),
+	)
 	_done(hud)
 
 
@@ -105,8 +106,10 @@ func test_lighting_through_the_page_puts_the_fixtures_on_the_plan() -> void:
 	var before: int = hud._draft.document.count()
 	var row: Dictionary = hud._draft.lightable_areas()[0]
 	hud._on_light_area(String(row["key"]), Lighting.WELL, Lighting.throw_of_kind(Lighting.WELL), false)
-	assert(hud._draft.document.count() == before + 16, "sixteen fixtures on the plan: %d"
-		% (hud._draft.document.count() - before))
+	assert(
+		hud._draft.document.count() == before + 16,
+		"sixteen fixtures on the plan: %d" % (hud._draft.document.count() - before),
+	)
 	assert(hud._draft.lighting_circuits().size() == 1, "and one circuit kept with the drawing")
 	# The page reports what it just did: the verdict the controller handed back.
 	assert(hud.light_status_text().contains("Circuit 1 will run"), hud.light_status_text())
@@ -143,16 +146,17 @@ func test_taking_the_circuit_off_through_the_page_takes_its_fixtures_with_it() -
 	var before: int = hud._draft.document.count()
 	hud._on_light_remove(1)
 	assert(hud._draft.lighting_circuits().is_empty(), "the circuit is gone")
-	assert(hud._draft.document.count() == before - 16, "and its sixteen fixtures with it: %d"
-		% (before - hud._draft.document.count()))
+	assert(
+		hud._draft.document.count() == before - 16,
+		"and its sixteen fixtures with it: %d" % (before - hud._draft.document.count()),
+	)
 	assert(hud.light_status_text().contains("off the drawing"), hud.light_status_text())
 	_done(hud)
 
 
 func test_the_menu_line_reports_the_transformer_and_the_circuits() -> void:
 	var hud = _hud()
-	assert(hud._light_text().contains("nothing on this drawing is lit yet"),
-		hud._light_text())
+	assert(hud._light_text().contains("nothing on this drawing is lit yet"), hud._light_text())
 	assert(hud._light_text().contains("no transformer stated"), hud._light_text())
 	hud._on_light_transformer(100.0, 12.0)
 	var row: Dictionary = hud._draft.lightable_areas()[0]

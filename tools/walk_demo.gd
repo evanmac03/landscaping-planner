@@ -19,25 +19,6 @@ const RouteScript := preload("res://scripts/vis/walk_route.gd")
 const DirectorScript := preload("res://scripts/vis/walk_director.gd")
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
 
-## How high the camera stands, in metres: about a person's eye.
-const EYE_M := 1.6
-## How long to stand at each stop.
-const DWELL_S := 2.5
-## The stops are authored, and the authoring matters: a walk-through of a garden with a
-## house in the middle is a walk *along the garden*, not a lap around the house. A stop
-## behind the house looks at the back of the house, and a stop inside it looks at nothing.
-## These four stand on the open side and look across at the dwelling, which is the view a
-## client is shown.
-##
-## `SPAN` is how far along the garden's width the walk runs, each way from the middle, and
-## `AT_FRONT` how far out from the middle towards the open side, as a share of the garden's
-## depth - far enough out that the walk stands in the garden rather than against the wall.
-## `SWING` is how far across the garden the camera is aimed, opposite the side it is
-## standing on, so the walker looks *along* the garden instead of flat at a wall: a
-## walk-through that stares down the front of a house is a photograph of a house.
-const SPAN := 0.20
-const AT_FRONT := 0.42
-const SWING := 0.40
 ## The stills' size, and where they land. `preview/` is gitignored: a picture of output
 ## goes stale the moment the exporter changes.
 const STILL_SIZE := Vector2i(960, 540)
@@ -77,18 +58,26 @@ func _run() -> void:
 		return
 	await get_tree().process_frame
 
-	var route = _build_route()
+	var route: WalkRoute = _build_route()
 	print("route: %s" % route.describe())
 	for index in route.count():
 		var stop: Dictionary = route.stops()[index]
-		print("  %d. %s at (%.1f, %.1f, %.1f), looks at (%.1f, %.1f, %.1f), %s s" % [
-			index + 1, String(stop["name"]),
-			Vector3(stop["at"]).x, Vector3(stop["at"]).y, Vector3(stop["at"]).z,
-			Vector3(stop["look"]).x, Vector3(stop["look"]).y, Vector3(stop["look"]).z,
-			String.num(float(stop["dwell"]), 1),
-		])
+		print(
+			"  %d. %s at (%.1f, %.1f, %.1f), looks at (%.1f, %.1f, %.1f), %s s"
+			% [
+				index + 1,
+				String(stop["name"]),
+				Vector3(stop["at"]).x,
+				Vector3(stop["at"]).y,
+				Vector3(stop["at"]).z,
+				Vector3(stop["look"]).x,
+				Vector3(stop["look"]).y,
+				Vector3(stop["look"]).z,
+				String.num(float(stop["dwell"]), 1),
+			]
+		)
 
-	var director = DirectorScript.new()
+	var director: DirectorScript = DirectorScript.new()
 	director.bind(route)
 	if not director.play():
 		print("walk_demo: the route cannot be walked: %s" % route.refusal())
@@ -121,33 +110,20 @@ func _run() -> void:
 	print(director.describe())
 
 
-## A route of four stops along the garden, built from the yard's own bounds rather than
-## hard-coded, so it walks whatever garden is on the drawing.
-func _build_route():
-	var bounds: Rect2 = _director.yard.get_bounds()
-	var mid_x: float = bounds.position.x + bounds.size.x * 0.5
-	var mid_z: float = bounds.position.y + bounds.size.y * 0.5
-	# The open side of the garden, and the line across it the camera is aimed at.
-	var stand_z: float = mid_z + bounds.size.y * AT_FRONT
-	var aim_z: float = mid_z - bounds.size.y * 0.18
-	var route = RouteScript.new()
-	var names: Array[String] = ["left", "centre left", "centre right", "right"]
-	# Four places along the open side, evenly spread across the garden's width, each
-	# looking across to the far side: the walker turns their head as they go.
-	for index in names.size():
-		var share: float = -1.0 + 2.0 * float(index) / float(names.size() - 1)
-		var at := Vector3(mid_x + bounds.size.x * SPAN * share, EYE_M, stand_z)
-		var aim := Vector3(mid_x - bounds.size.x * SWING * share, EYE_M, aim_z)
-		route.add_stop(names[index], at, aim, DWELL_S)
-	return route
+## The walk-through of whatever garden is on the drawing. The route shape lives in
+## `WalkRoute.for_yard`, so the demo renders the very route the game walks.
+func _build_route() -> WalkRoute:
+	return RouteScript.for_yard(_director.yard.get_bounds())
 
 
 ## One still from where the camera is standing, which the director has already placed.
 func _one_still(index: int, stage: Dictionary) -> String:
 	var written: Array[String] = []
 	var refused: Array[String] = []
-	var on_written := func(path: String) -> void: written.append(path)
-	var on_refused := func(reason: String) -> void: refused.append(reason)
+	var on_written := func(path: String) -> void:
+		written.append(path)
+	var on_refused := func(reason: String) -> void:
+		refused.append(reason)
 	_director.still_written.connect(on_written)
 	_director.still_failed.connect(on_refused)
 	_director.render_still(STILL_SIZE)

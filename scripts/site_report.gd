@@ -18,6 +18,7 @@ const WorkUnitScript := preload("res://scripts/biz/work_unit.gd")
 ## Quantities are held in thousandths, the way the takeoff holds them.
 const MILLI := 1000
 
+
 ## The dimensions a plan is reported in, in the order a report reads them. Read from the
 ## work-unit table rather than spelled here, so a report cannot disagree with the takeoff
 ## about what an area is called.
@@ -36,8 +37,10 @@ class Row extends RefCounted:
 	var shape_count: int = 0
 	var description: String = ""
 
+
 	func quantity_text() -> String:
 		return "%.3f %s" % [float(quantity_milli) / float(MILLI), WorkUnitScript.name_of(unit)]
+
 
 	## Where the quantity came from, so a number a person can check is not confused with one
 	## that was counted off the plan.
@@ -48,8 +51,12 @@ class Row extends RefCounted:
 			return "%d shapes" % shape_count
 		return "counted"
 
+
 	func text() -> String:
-		return "%s  %s  (%s)" % [quantity_text(), description, source_text()]
+		# Three spaces between the fields, which is the program's own gap between grouped things; two
+		# is the run GuiWords reads as a typing accident. The two before the bracket stay, because a
+		# bracket with a gap in front of it is the other form that rule allows.
+		return "%s   %s  (%s)" % [quantity_text(), description, source_text()]
 
 
 var _rows: Array[Row] = []
@@ -61,12 +68,12 @@ var _problem: String = ""
 ## Read a drawing into a report. `plant_rows` is what `PlantPlacement.schedule()` returns,
 ## handed in rather than read here for the same reason the takeoff takes it: this file has
 ## no yard and no catalogue.
-static func of_plan(document, planting_rows: Array = []) -> SiteReport:
+static func of_plan(document: DraftDocument, planting_rows: Array = []) -> SiteReport:
 	var report: SiteReport = (load("res://scripts/site_report.gd") as GDScript).new()
 	if document == null:
 		report._problem = "a report needs a drawing"
 		return report
-	var work = TakeoffScript.of_document(document)
+	var work := TakeoffScript.of_document(document)
 	for line in work.lines:
 		var row: Row = Row.new()
 		row.layer = line.layer
@@ -76,7 +83,7 @@ static func of_plan(document, planting_rows: Array = []) -> SiteReport:
 		row.shape_count = line.entity_ids.size()
 		row.description = line.description
 		report._rows.append(row)
-	var planting = TakeoffScript.of_plants(planting_rows)
+	var planting := TakeoffScript.of_plants(planting_rows)
 	for line in planting.lines:
 		var row: Row = Row.new()
 		row.layer = &"401-NEW-PLANT"
@@ -147,9 +154,7 @@ func summary() -> String:
 		var words := total_text(measure)
 		if words != "":
 			parts.append(words)
-	return "%d line%s: %s" % [
-		row_count(), "" if row_count() == 1 else "s", ", ".join(PackedStringArray(parts)),
-	]
+	return "%d line%s: %s" % [row_count(), "" if row_count() == 1 else "s", ", ".join(PackedStringArray(parts))]
 
 
 ## The whole report, as the block of text a person reads.
@@ -164,19 +169,18 @@ func text() -> String:
 		lines.append("")
 		lines.append("Work")
 		for row: Row in _rows:
-			lines.append("  " + row.text())
+			lines.append("   " + row.text())
 	if not _plant_rows.is_empty():
 		lines.append("")
 		lines.append("Planting")
 		for row: Row in _plant_rows:
-			lines.append("  " + row.text())
+			lines.append("   " + row.text())
 	if not _notes.is_empty():
 		lines.append("")
 		lines.append("Not measured")
 		for note: String in _notes:
-			lines.append("  " + note)
+			lines.append("   " + note)
 	return "\n".join(PackedStringArray(lines))
-
 
 # --- serialisation --------------------------------------------------------------------
 
@@ -188,12 +192,7 @@ func to_dict() -> Dictionary:
 	var planting: Array = []
 	for row: Row in _plant_rows:
 		planting.append(_row_dict(row))
-	return {
-		"problem": _problem,
-		"work": rows,
-		"planting": planting,
-		"notes": _notes.duplicate(),
-	}
+	return { "problem": _problem, "work": rows, "planting": planting, "notes": _notes.duplicate() }
 
 
 static func _row_dict(row: Row) -> Dictionary:

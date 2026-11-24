@@ -4,8 +4,10 @@ extends Window
 ##
 ## The four business engines were built and tested before anything could reach them (spec §14 phases
 ## 0-3). This is the reach: a `Window`, like the plant library and the ground window, because it has
-## dropdowns and a field to type a customer's name into, and `Root` is built focus-free so that
-## nothing in this HUD can take the drawing keys.
+## dropdowns and a field to type a customer's name into - and a `Window` owns its own input, so nothing
+## here can take the drawing's keys. Every control it builds is built without a keyboard of its own,
+## except the fields, which keep theirs because a field is where somebody types; what the *open* page
+## does with the keyboard is decided once, by `PageChrome.takes_the_keyboard`.
 ##
 ## ## Why tabs
 ##
@@ -95,7 +97,6 @@ func _ready() -> void:
 	if _tabs == null:
 		build()
 
-
 # --- building --------------------------------------------------------------------------------
 
 
@@ -105,16 +106,10 @@ func build() -> void:
 	if _tabs != null:
 		return
 	desk = DeskScript.new()
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	var column := PageChrome.column(self, 8)
 
-	_plan_status = Label.new()
+	_plan_status = PageChrome.text()
 	_plan_status.name = "PlanStatus"
-	_plan_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_plan_status.custom_minimum_size = Vector2(0, 40)
 	column.add_child(_plan_status)
 
 	var actions := HBoxContainer.new()
@@ -146,9 +141,8 @@ func build() -> void:
 	send_row.name = "SendRow"
 	send_row.add_theme_constant_override("separation", 6)
 	column.add_child(send_row)
-	var for_label := Label.new()
+	var for_label := PageChrome.text("for")
 	for_label.name = "RecipientLabel"
-	for_label.text = "for"
 	send_row.add_child(for_label)
 	_recipient = LineEdit.new()
 	_recipient.name = "Recipient"
@@ -166,18 +160,14 @@ func build() -> void:
 	_start_job_button.name = "StartJob"
 	send_row.add_child(_start_job_button)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# Room for three lines, which is what the longest thing here says (what sending did, and that the
-	# revision which went out is still the one on the customer's desk): a label shorter than its own
-	# text spills over the row above it, which is how the first version of this looked.
-	_status.custom_minimum_size = Vector2(0, 62)
+	# The status line wraps to its own words, which is what the height this used to reserve was for: the
+	# first version of this held a fixed height, and a line longer than it spilled over the row above.
+	_status = PageChrome.status()
 	column.add_child(_status)
 
 
 func _build_takeoff_tab(page: VBoxContainer) -> void:
-	_takeoff_note = _note("")
+	_takeoff_note = PageChrome.note("")
 	page.add_child(_takeoff_note)
 	_takeoff_list = _list("TakeoffLines")
 	page.add_child(_takeoff_list)
@@ -200,9 +190,8 @@ func _build_depth_row(page: VBoxContainer) -> void:
 	_depth_row.name = "DepthRow"
 	_depth_row.add_theme_constant_override("separation", 6)
 	page.add_child(_depth_row)
-	var words := Label.new()
+	var words := PageChrome.text("depth")
 	words.name = "DepthLabel"
-	words.text = "depth"
 	words.custom_minimum_size = Vector2(60, 0)
 	_depth_row.add_child(words)
 	_depth_layer = _depth_option()
@@ -258,9 +247,7 @@ func _fill_depth_row() -> void:
 	for index in candidates.size():
 		var layer_name: StringName = candidates[index]
 		var depth: int = desk.layer_depth(layer_name)
-		_depth_layer.add_item(
-			"%s%s" % [String(layer_name), "   %d mm" % depth if depth > 0 else ""]
-		)
+		_depth_layer.add_item("%s%s" % [String(layer_name), "   %d mm" % depth if depth > 0 else ""])
 		if layer_name == wanted:
 			at = index
 	_depth_layer.select(at)
@@ -315,26 +302,27 @@ func _build_proposal_tab(page: VBoxContainer) -> void:
 	_tax_row.name = "TaxRow"
 	_tax_row.add_theme_constant_override("separation", 6)
 	page.add_child(_tax_row)
-	var tax_label := Label.new()
+	var tax_label := PageChrome.text("tax")
 	tax_label.name = "TaxLabel"
-	tax_label.text = "tax"
 	tax_label.custom_minimum_size = Vector2(60, 0)
 	_tax_row.add_child(tax_label)
 	_tax_option = OptionButton.new()
 	_tax_option.name = "TaxOption"
 	_tax_option.custom_minimum_size = Vector2(260, 0)
+	# An OptionButton is a Button, and a Button takes the keyboard from the drawing when it is focused.
+	_tax_option.focus_mode = Control.FOCUS_NONE
 	_tax_option.item_selected.connect(_on_tax_chosen)
 	_tax_row.add_child(_tax_option)
 	_line_list = _list("ProposalLines")
 	page.add_child(_line_list)
-	_totals = Label.new()
+	_totals = PageChrome.text()
 	_totals.name = "Totals"
 	_totals.custom_minimum_size = Vector2(0, 150)
 	page.add_child(_totals)
 
 
 func _build_book_tab(page: VBoxContainer) -> void:
-	_book_note = _note("")
+	_book_note = PageChrome.note("")
 	page.add_child(_book_note)
 	_book_list = _list("BookLines")
 	page.add_child(_book_list)
@@ -349,23 +337,15 @@ func _list(list_name: String) -> ItemList:
 	return list
 
 
-func _note(words: String) -> Label:
-	var label := Label.new()
-	label.name = "Note%s" % str(words.hash())
-	label.text = words
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.modulate = Color(0.75, 0.76, 0.78)
-	label.add_theme_font_size_override("font_size", 11)
-	return label
-
-
+## A button on this window, from the shared chrome and named by the window's own rule: a caption with
+## its spaces taken out. The one button whose name is not its caption renames itself after the chrome
+## has built it (`StartJob`), and `_set_depth_button_words` re-names the depth button as its caption
+## changes.
 func _button(words: String, method: String) -> Button:
-	var button := Button.new()
+	var button := PageChrome.button(words)
 	button.name = words.replace(" ", "")
-	button.text = words
 	button.pressed.connect(Callable(self, method))
 	return button
-
 
 # --- showing what is there ---------------------------------------------------------------------
 
@@ -434,9 +414,11 @@ func _fill_takeoff() -> void:
 		told.append(
 			"%d line%s measured, %d priced. %d line%s on the drawing are not work and are named below "
 			% [
-				desk.takeoff.lines.size(), "" if desk.takeoff.lines.size() == 1 else "s",
+				desk.takeoff.lines.size(),
+				"" if desk.takeoff.lines.size() == 1 else "s",
 				desk.estimate.line_count() if desk.estimate != null else 0,
-				notes.size(), "" if notes.size() == 1 else "s",
+				notes.size(),
+				"" if notes.size() == 1 else "s",
 			]
 			+ "rather than dropped: a hatch or a dimension is a pattern over work measured elsewhere."
 		)
@@ -486,7 +468,8 @@ func _fill_book() -> void:
 		var index: int = _book_list.add_item("kit  %s  %s" % [String(kit_id), kit.describe()])
 		_book_list.set_item_disabled(index, true)
 	_book_note.text = "%s, read from %s. This tab reads; editing a price list is the cost book dock." % [
-		desk.book.describe(), desk.book_source
+		desk.book.describe(),
+		desk.book_source,
 	]
 	_book_note.name = "Note%s" % str(_book_note.text.hash())
 
@@ -497,13 +480,13 @@ func _fill_buttons() -> void:
 	var frozen: bool = desk.estimate != null and desk.estimate.is_frozen()
 	_send_button.disabled = desk.estimate == null or frozen
 	_send_button.tooltip_text = "there is nothing priced to send yet" if desk.estimate == null \
-		else ("it has already gone: start a revision to change it" if frozen else "")
+			else ("it has already gone: start a revision to change it" if frozen else "")
 	_revision_button.disabled = not frozen
 	_revision_button.tooltip_text = "a revision is what happens to a proposal that has already gone" \
-		if not frozen else ""
+			if not frozen else ""
 	_start_job_button.disabled = desk.estimate == null
 	_start_job_button.tooltip_text = "nothing is priced yet, so there is nothing to make a job of" \
-		if desk.estimate == null else ""
+			if desk.estimate == null else ""
 	_plan_status.text = _plan_words()
 
 
@@ -512,9 +495,7 @@ func _plan_words() -> String:
 		return "There is no drawing open. The takeoff measures a drawing, so there is nothing here to measure."
 	var parts := PackedStringArray()
 	parts.append(
-		"%s: %d entit%s on it" % [
-			"a drawing", desk.document.count(), "y" if desk.document.count() == 1 else "ies",
-		]
+		"%s: %d entit%s on it" % ["a drawing", desk.document.count(), "y" if desk.document.count() == 1 else "ies"]
 	)
 	if desk.book != null:
 		parts.append("priced from %s" % desk.book.describe())
@@ -527,7 +508,6 @@ func _plan_words() -> String:
 
 func _set_status(words: String) -> void:
 	_status.text = words
-
 
 # --- what the buttons do ---------------------------------------------------------------------
 
@@ -545,9 +525,8 @@ func _show_take_off(result: Dictionary) -> void:
 		return
 	var told := PackedStringArray()
 	told.append(
-		"%d line%s measured and %d priced" % [
-			int(result["measured"]), "" if int(result["measured"]) == 1 else "s", int(result["priced"]),
-		]
+		"%d line%s measured and %d priced"
+		% [int(result["measured"]), "" if int(result["measured"]) == 1 else "s", int(result["priced"])]
 	)
 	if int(result["refused"]) > 0:
 		told.append("%d not priced" % int(result["refused"]))
@@ -568,9 +547,10 @@ func _on_check() -> void:
 		told.append("the lines foot to the subtotal" if bool(checked["foots"]) else "it does not foot")
 		told.append("gross margin %s" % String(checked["margin"]))
 	if int(checked["notes"]) > 0:
-		told.append("%d line%s on the drawing are not work and are not in it" % [
-			int(checked["notes"]), "" if int(checked["notes"]) == 1 else "s",
-		])
+		told.append(
+			"%d line%s on the drawing are not work and are not in it"
+			% [int(checked["notes"]), "" if int(checked["notes"]) == 1 else "s"]
+		)
 	var problems: Array = checked["problems"]
 	if problems.is_empty():
 		_set_status("%s." % ", ".join(told))
@@ -650,24 +630,22 @@ func _on_close_requested() -> void:
 ## so by its revision rather than being impossible.
 func start_job() -> Dictionary:
 	if desk.estimate == null:
-		return {"ok": false, "reason": "there is nothing priced yet"}
+		return { "ok": false, "reason": "there is nothing priced yet" }
 	var offer: Estimate = desk.estimate
 	var lines := offer.line_count()
 	job_started.emit(offer)
 	_set_status(
 		"a job was started from this estimate: %d line%s, contracted at %s, revision %d. Jobs, crews "
-		% [lines, "" if lines == 1 else "s", offer.price_before_tax().format_with_currency(),
-			offer.revision]
+		% [lines, "" if lines == 1 else "s", offer.price_before_tax().format_with_currency(), offer.revision]
 		+ "and days are on the schedule board."
 	)
-	return {"ok": true, "reason": ""}
+	return { "ok": true, "reason": "" }
 
 
 func _on_start_job() -> void:
 	var result: Dictionary = start_job()
 	if not bool(result["ok"]):
 		_set_status("No job was started: %s." % String(result["reason"]))
-
 
 # --- what a test reads -------------------------------------------------------------------
 

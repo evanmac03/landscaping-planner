@@ -8,7 +8,7 @@ extends Node2D
 ## rather than asserts are the ones a third reader is *for*: the northing-first pair, the parcel that
 ## closes because a parcel is a ring, and the curve that arrives as a bulge.
 ##
-## Run `res://scenes/landxml_demo.tscn`.
+## Run `res://tools/landxml_demo.tscn`.
 
 const MAIN := preload("res://scenes/main.tscn")
 const LayerSet := preload("res://scripts/draft/layer_set.gd")
@@ -54,14 +54,22 @@ func _ready() -> void:
 			furthest_east = maxf(furthest_east, point.x)
 			furthest_south = maxf(furthest_south, point.y)
 	var survey_foot := 1200.0 / 3937.0
-	print("the furthest east vertex is at x = ", snappedf(furthest_east, 0.01),
+	print(
+		"the furthest east vertex is at x = ",
+		snappedf(furthest_east, 0.01),
 		" m; the file's largest easting was 3060 survey feet = ",
-		snappedf(3060.0 * survey_foot, 0.01), " m")
-	print("the furthest south vertex is at y = ", snappedf(furthest_south, 0.01),
-		" m, a northing of ", snappedf(-furthest_south / survey_foot, 0.1),
+		snappedf(3060.0 * survey_foot, 0.01),
+		" m",
+	)
+	print(
+		"the furthest south vertex is at y = ",
+		snappedf(furthest_south, 0.01),
+		" m, a northing of ",
+		snappedf(-furthest_south / survey_foot, 0.1),
 		" survey feet - the file's own lowest northing is 5250. Read as a plain (x, y) pair the plat",
 		" would stand its northings on the southings and stand 1.6 km the wrong way up, and would",
-		" still look like a lot")
+		" still look like a lot",
+	)
 	# And the curve: the lot's south-east side is a quarter turn, and it arrives as the bulge of the
 	# polyline rather than as a fan of arcs.
 	for entity in controller.document.entities():
@@ -74,10 +82,19 @@ func _ready() -> void:
 		for bulge: float in bulges:
 			if not is_zero_approx(bulge):
 				turned += 1
-		print("  a shape with ", entity.point_count(), " points carries ", turned,
-			" turning segment(s): bulges = ", bulges)
-		print("  and its outline is sampled into ", entity.outline(0.05).size(),
-			" points, because a bulge is a curve and not a corner")
+		print(
+			"  a shape with ",
+			entity.point_count(),
+			" points carries ",
+			turned,
+			" turning segment(s): bulges = ",
+			bulges,
+		)
+		print(
+			"  and its outline is sampled into ",
+			entity.outline(0.05).size(),
+			" points, because a bulge is a curve and not a corner",
+		)
 
 	print("--- a plat that does not say what its units are ---")
 	_write(UNITS_FILE, _plat(""))
@@ -89,40 +106,57 @@ func _ready() -> void:
 	print("--- answering the question, as the drop-down does ---")
 	for answer: String in ["metres", "feet"]:
 		hud.choose_landxml_units(answer)
-		print("told it is ", answer, ": placeable = ", hud.landxml_import_enabled(),
-			", the drop-down reads \"", hud.landxml_units_text(), "\"",
-			", and the page says: ", hud.landxml_report_text().split("\n")[1])
+		print(
+			"told it is ",
+			answer,
+			": placeable = ",
+			hud.landxml_import_enabled(),
+			", the drop-down reads \"",
+			hud.landxml_units_text(),
+			"\"",
+			", and the page says: ",
+			hud.landxml_report_text().split("\n")[1],
+		)
 	print("--- what is left on screen ---")
-	print("the page is up: ", hud.is_landxml_panel_open(),
-		", the drawing holds ", controller.document.count(), " shapes")
+	print(
+		"the page is up: ",
+		hud.is_landxml_panel_open(),
+		", the drawing holds ",
+		controller.document.count(),
+		" shapes",
+	)
 
 
 ## A plat of one lot: three straight lines and a quarter-turn curve between two of them, with the
 ## corners named in a point database and the lines pointing at those names.
 func _plat(units: String = "<Imperial linearUnit=\"USSurveyFoot\"/>") -> String:
-	return "\n".join(PackedStringArray([
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-		"<LandXML xmlns=\"http://www.landxml.org/schema/LandXML-1.2\" version=\"1.2\">",
-		"  <Units>" + units + "</Units>",
-		"  <CgPoints>",
-		"    <CgPoint name=\"1\" code=\"BND\">5250.0 3000.0</CgPoint>",
-		"    <CgPoint name=\"2\" code=\"BND\">5250.0 3060.0</CgPoint>",
-		"    <CgPoint name=\"3\" code=\"BND\">5280.0 3060.0</CgPoint>",
-		"  </CgPoints>",
-		"  <Parcels>",
-		"    <Parcel name=\"LOT 12\" area=\"2700.0\">",
-		"      <CoordGeom>",
-		"        <Line><Start pntRef=\"1\"/><End pntRef=\"2\"/></Line>",
-		"        <Line><Start pntRef=\"2\"/><End pntRef=\"3\"/></Line>",
-		"        <Curve rot=\"ccw\"><Start>5280.0 3060.0</Start><Center>5280.0 3050.0</Center>"
-			+ "<End>5270.0 3050.0</End></Curve>",
-		"        <Line><Start>5270.0 3050.0</Start><End>5250.0 3000.0</End></Line>",
-		"      </CoordGeom>",
-		"    </Parcel>",
-		"  </Parcels>",
-		"</LandXML>",
-		"",
-	]))
+	return "\n".join(
+		PackedStringArray(
+			[
+				"<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+				"<LandXML xmlns=\"http://www.landxml.org/schema/LandXML-1.2\" version=\"1.2\">",
+				"  <Units>" + units + "</Units>",
+				"  <CgPoints>",
+				"    <CgPoint name=\"1\" code=\"BND\">5250.0 3000.0</CgPoint>",
+				"    <CgPoint name=\"2\" code=\"BND\">5250.0 3060.0</CgPoint>",
+				"    <CgPoint name=\"3\" code=\"BND\">5280.0 3060.0</CgPoint>",
+				"  </CgPoints>",
+				"  <Parcels>",
+				"    <Parcel name=\"LOT 12\" area=\"2700.0\">",
+				"      <CoordGeom>",
+				"        <Line><Start pntRef=\"1\"/><End pntRef=\"2\"/></Line>",
+				"        <Line><Start pntRef=\"2\"/><End pntRef=\"3\"/></Line>",
+				"        <Curve rot=\"ccw\"><Start>5280.0 3060.0</Start><Center>5280.0 3050.0</Center>"
+				+ "<End>5270.0 3050.0</End></Curve>",
+				"        <Line><Start>5270.0 3050.0</Start><End>5250.0 3000.0</End></Line>",
+				"      </CoordGeom>",
+				"    </Parcel>",
+				"  </Parcels>",
+				"</LandXML>",
+				"",
+			]
+		)
+	)
 
 
 func _kind_name(kind: int) -> String:

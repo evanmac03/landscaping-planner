@@ -47,9 +47,7 @@ static var _hatch: Texture2D = null
 ## One means the texture is resolved exactly; more means it is being shrunk, and past
 ## `MAX_MINIFICATION` it is being averaged into a flat colour. A look with a grain
 ## repeat of a quarter of a millimetre is the case this catches.
-static func minification_for(
-	texture_pixels: int, repeat_mm: float, texels_per_mm: float
-) -> float:
+static func minification_for(texture_pixels: int, repeat_mm: float, texels_per_mm: float) -> float:
 	if repeat_mm <= 0.0 or texels_per_mm <= 0.0:
 		return INF
 	return float(texture_pixels) / (repeat_mm * texels_per_mm)
@@ -85,13 +83,7 @@ static func uniform_values(style: StyleScript, paper_mm: Vector2) -> Dictionary:
 ## Asynchronous: the composited surface has to have finished before it can be read, and
 ## the only honest way to know that is to wait for the frame — twice, because the first
 ## frame draws and the second settles.
-func composite(
-	wash: Texture2D,
-	ink: Texture2D,
-	size: Vector2i,
-	style: StyleScript,
-	paper_mm: Vector2
-) -> Image:
+func composite(wash: Texture2D, ink: Texture2D, size: Vector2i, style: StyleScript, paper_mm: Vector2) -> Image:
 	if wash == null or ink == null:
 		push_error("SketchCompositor: both layers are needed to composite.")
 		return null
@@ -153,9 +145,7 @@ static func grain_texture() -> Texture2D:
 	noise.frequency = 0.25
 	# Seamless, because it tiles across the sheet: a seam would be a visible grid line
 	# every few millimetres of paper.
-	_grain = ImageTexture.create_from_image(
-		noise.get_seamless_image(GRAIN_PIXELS, GRAIN_PIXELS)
-	)
+	_grain = ImageTexture.create_from_image(noise.get_seamless_image(GRAIN_PIXELS, GRAIN_PIXELS))
 	return _grain
 
 

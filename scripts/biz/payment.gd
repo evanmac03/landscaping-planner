@@ -111,7 +111,7 @@ static func from_dict(data: Dictionary) -> Payment:
 		return null
 	payment.invoice = String(data.get("invoice", ""))
 	payment.received_at = String(data.get("received_at", ""))
-	payment.amount = MoneyScript.from_dict(data.get("amount", {}))
+	payment.amount = MoneyScript.from_dict(data.get("amount", { }))
 	payment.method = StringName(data.get("method", "cheque"))
 	payment.bank_reference = String(data.get("reference", ""))
 	payment.note = String(data.get("note", ""))

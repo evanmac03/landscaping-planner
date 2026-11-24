@@ -39,19 +39,19 @@ signal refused(entity_id: int, layer_name: StringName, reason: String)
 
 ## The drafting document. Set by `bind_document()`, which is also what connects the
 ## change signal — binding is the caller's whole job, as it is for `DraftOverlay`.
-var document = null
+var document: DraftDocument = null
 
 var _dirty: bool = false
 var _timer: float = 0.0
 
 ## Entity id -> the MeshInstance3D picturing it. Also what makes a delete a removal.
-var _built: Dictionary[int, Node] = {}
+var _built: Dictionary[int, Node] = { }
 ## Entity id -> why it is not standing, so a refusal survives until it is fixed.
-var _refusals: Dictionary[int, String] = {}
+var _refusals: Dictionary[int, String] = { }
 ## Material set name -> the built material, so fifty patio slabs share one material.
-var _materials: Dictionary[String, StandardMaterial3D] = {}
+var _materials: Dictionary[String, StandardMaterial3D] = { }
 ## What the last rebuild did, for a status line.
-var _last: Dictionary = {}
+var _last: Dictionary = { }
 
 
 func _ready() -> void:
@@ -83,12 +83,12 @@ func _ready() -> void:
 
 
 ## Follow the drawing that just replaced the one in hand.
-func _on_document_replaced(opened) -> void:
+func _on_document_replaced(opened: DraftDocument) -> void:
 	bind_document(opened)
 
 
 ## Follow a document, and rebuild when it changes.
-func bind_document(doc) -> void:
+func bind_document(doc: DraftDocument) -> void:
 	if document != null and document.changed.is_connected(mark_dirty):
 		document.changed.disconnect(mark_dirty)
 	document = doc
@@ -118,16 +118,16 @@ func _process(delta: float) -> void:
 func rebuild() -> void:
 	if document == null:
 		_refusals.clear()
-		_last = {"solids": 0, "refusals": 0, "reason": "no document"}
+		_last = { "solids": 0, "refusals": 0, "reason": "no document" }
 		return
-	var refusal_ids: Dictionary[int, String] = {}
-	var standing: Dictionary[int, bool] = {}
+	var refusal_ids: Dictionary[int, String] = { }
+	var standing: Dictionary[int, bool] = { }
 	var drawn := 0
 	# `entities()` is the document's own draw order — the layer bands, heaviest first —
 	# which is the same order the working plan and the plotted sheet draw in. There is no
 	# separate list to keep in step, which is the point of deriving from the document.
 	for entity in document.entities():
-		var layer = document.layers.get_layer(entity.layer)
+		var layer := document.layers.get_layer(entity.layer)
 		if layer == null:
 			continue
 		var spec: Dictionary = SolidTableScript.solid_for(layer.name)
@@ -146,11 +146,7 @@ func rebuild() -> void:
 		drawn += 1
 	_refusals = refusal_ids
 	_remove_gone(standing)
-	_last = {
-		"solids": drawn,
-		"refusals": refusal_ids.size(),
-		"entities": document.count(),
-	}
+	_last = { "solids": drawn, "refusals": refusal_ids.size(), "entities": document.count() }
 	rebuilt.emit(drawn, refusal_ids.size())
 
 
@@ -159,16 +155,14 @@ func rebuild() -> void:
 ## Static, and pure in the two arguments that matter — this is REQ-V8.9: the same entity
 ## and the same table entry give the same mesh, so two builds can be compared by vertex
 ## count and bounds, which is what the test does.
-static func mesh_for(entity, spec: Dictionary) -> ArrayMesh:
+static func mesh_for(entity: DraftEntity, spec: Dictionary) -> ArrayMesh:
 	if entity == null or spec.is_empty():
 		return null
 	if entity.is_closed():
 		var outline: PackedVector2Array = CadSolidScript.outline_of(entity)
 		if outline.size() < CadSolidScript.MIN_RING_POINTS:
 			return null
-		return CadSolidScript.slab(
-			outline, float(spec["base_m"]), float(spec["height_m"])
-		)
+		return CadSolidScript.slab(outline, float(spec["base_m"]), float(spec["height_m"]))
 	# Open linework: a centreline, so it becomes a ribbon of the layer's width. An
 	# annotation has no linework to give, and `outline()` answers empty for one.
 	var line: PackedVector2Array = entity.outline()
@@ -181,9 +175,7 @@ static func mesh_for(entity, spec: Dictionary) -> ArrayMesh:
 		# closed, and asking the table whether a closed shape wants a ribbon — which it
 		# never does — would refuse every kerb in the drawing.
 		return null
-	return CadSolidScript.ribbon(
-		line, float(spec["width_m"]), float(spec["base_m"]), float(spec["height_m"])
-	)
+	return CadSolidScript.ribbon(line, float(spec["width_m"]), float(spec["base_m"]), float(spec["height_m"]))
 
 
 ## Every texture set this builder has been asked for, so a diagnostic can check them.
@@ -222,7 +214,6 @@ func clear() -> void:
 			node.queue_free()
 	_built.clear()
 	_refusals.clear()
-
 
 # --- placing ---------------------------------------------------------------------------
 

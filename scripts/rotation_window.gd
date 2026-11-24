@@ -18,19 +18,25 @@ extends Window
 ## * **A bed whose history nobody has stated is checked and reported unknown**, grey and never green -
 ##   the same honesty `PlantSuitability`, `CropSun` and `CropRotation` keep, because a green ring for a
 ##   question that could not run is the one thing this must not give.
-## * **Nothing here takes the drawing's keyboard**, and nothing here writes anything: it is a page you
-##   read, choose on and close.
+## * **Nothing here is built with a keyboard of its own**, and nothing here writes anything: it is a page
+##   you read, choose on and close. A `Window` owns its own input while it is up, so what this page does
+##   with the keyboard when it is *shown* - Tab between its pickers, Enter to choose - is decided once, by
+##   `PageChrome.takes_the_keyboard`.
 
-## A page wide enough for the crop list and a couple of sentences of verdict.
-const SIZE := Vector2i(940, 780)
+## A page wide enough for the crop list and a couple of sentences of verdict, and as tall as the two of
+## them come to: measured, **700 px** now that every line here is the shared chrome's, against 793 while
+## they were each built by hand - so 800 holds it with room to spare.
+const SIZE := Vector2i(940, 800)
 
 const CropRotationScript := preload("res://scripts/crop_rotation.gd")
 
-const EXPLANATION := ("Choose a bed and say what grew in it last. A crop belongs to a family - a "
+const EXPLANATION := (
+	"Choose a bed and say what grew in it last. A crop belongs to a family - a "
 	+ "brassica, a nightshade, a legume - and the one law of crop rotation is that the same family "
 	+ "shall not follow itself: a brassica after a brassica shares its pests and its diseases. A "
 	+ "legume before it is a gift, because beans leave the ground richer than they found it. The page "
-	+ "also says what each crop grows well beside.")
+	+ "also says what each crop grows well beside."
+)
 
 const NO_PLACES := "no ground has been described yet: draw or state a bed in the ground window"
 const NO_CROPS := "this plant list has no food in it yet"
@@ -43,7 +49,7 @@ var catalogue: PlantCatalogue = null
 var _places: Array[Dictionary] = []
 ## What grew in each bed last, by bed name. Kept here and nowhere else: the plan was never told a
 ## season, and the person standing in the garden is the one who knows it.
-var _previous: Dictionary = {}
+var _previous: Dictionary = { }
 var _built: bool = false
 var _status: String = ""
 
@@ -59,13 +65,16 @@ var _place_line: Label = null
 var _crop_line: Label = null
 var _turn_line: Label = null
 var _company_line: Label = null
+## Why the pairings say so, where somebody has written it down: the mechanism, with the work it came
+## from. Its own line rather than the tail of the one above, because it is about a reason for a pairing
+## and not about the pairing itself.
+var _reason_line: Label = null
 var _crops_label: Label = null
 var _crops_list: ItemList = null
 var _summary_label: Label = null
 var _hint_label: Label = null
 var _close_button: Button = null
 var _status_label: Label = null
-
 
 # --- building -----------------------------------------------------------------------------
 
@@ -81,78 +90,78 @@ func build() -> void:
 	size = SIZE
 	close_requested.connect(_on_close_requested)
 
-	var column := VBoxContainer.new()
-	column.name = "Column"
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 16.0
-	column.offset_top = 12.0
-	column.offset_right = -16.0
-	column.offset_bottom = -12.0
-	column.add_theme_constant_override("separation", 6)
-	add_child(column)
+	# Longer than the screen this page is sized for: what does not fit scrolls into view rather than
+	# being cut off at the foot of the page.
+	var column := PageChrome.scrolling_column(self, 6, Vector2(16, 12))
 
-	_heading = Label.new()
-	_heading.name = "Heading"
-	_heading.text = "What to grow here next"
+	_heading = PageChrome.heading("What to grow here next")
 	column.add_child(_heading)
 
-	_explanation = Label.new()
+	_explanation = PageChrome.note(EXPLANATION)
 	_explanation.name = "Explanation"
-	_explanation.text = EXPLANATION
-	_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_explanation)
 
 	var place_row := HBoxContainer.new()
 	place_row.name = "PlaceRow"
-	_place_label = Label.new()
+	# The captions beside the three pickers are words, not sentences: `wrap_text` is false so their
+	# minimum width is the whole caption rather than its longest word. A caption that is allowed to wrap
+	# reports a minimum width of one word, and the row - and so the page - measures as though it were
+	# much narrower than it is, which then makes every sentence here report a taller wrapped height.
+	_place_label = PageChrome.text("Bed", false)
 	_place_label.name = "PlaceLabel"
-	_place_label.text = "Bed"
 	place_row.add_child(_place_label)
 	_place_option = _option(place_row, "Place", "The bed to plant")
-	_place_option.item_selected.connect(func(index: int) -> void: _on_place_selected(index))
+	_place_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_place_selected(index),
+	)
 	column.add_child(place_row)
 
 	var turn_row := HBoxContainer.new()
 	turn_row.name = "TurnRow"
-	_turn_label = Label.new()
+	_turn_label = PageChrome.text("Last grown here", false)
 	_turn_label.name = "TurnLabel"
-	_turn_label.text = "Last grown here"
 	turn_row.add_child(_turn_label)
 	_turn_option = _option(turn_row, "Turn", "The family that grew in this bed last")
-	_turn_option.item_selected.connect(func(index: int) -> void: _on_turn_selected(index))
+	_turn_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_turn_selected(index),
+	)
 	column.add_child(turn_row)
 
 	var crop_row := HBoxContainer.new()
 	crop_row.name = "CropRow"
-	_crop_label = Label.new()
+	_crop_label = PageChrome.text("Crop", false)
 	_crop_label.name = "CropLabel"
-	_crop_label.text = "Crop"
 	crop_row.add_child(_crop_label)
 	_crop_option = _option(crop_row, "Crop", "The crop to try here")
-	_crop_option.item_selected.connect(func(index: int) -> void: _on_crop_selected(index))
+	_crop_option.item_selected.connect(
+		func(index: int) -> void:
+			_on_crop_selected(index),
+	)
 	column.add_child(crop_row)
 
-	_place_line = Label.new()
+	_place_line = PageChrome.text()
 	_place_line.name = "PlaceLine"
-	_place_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_place_line)
 
-	_crop_line = Label.new()
+	_crop_line = PageChrome.text()
 	_crop_line.name = "CropLine"
-	_crop_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_crop_line)
 
-	_turn_line = Label.new()
+	_turn_line = PageChrome.text()
 	_turn_line.name = "Verdict"
-	_turn_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_turn_line)
 
-	_company_line = Label.new()
+	_company_line = PageChrome.text()
 	_company_line.name = "Company"
-	_company_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_company_line)
 
-	_crops_label = Label.new()
+	_reason_line = PageChrome.text()
+	_reason_line.name = "Reason"
+	column.add_child(_reason_line)
+
+	_crops_label = PageChrome.subheading("")
 	_crops_label.name = "CropsLabel"
 	column.add_child(_crops_label)
 	_crops_list = ItemList.new()
@@ -164,14 +173,12 @@ func build() -> void:
 	_crops_list.select_mode = ItemList.SELECT_SINGLE
 	column.add_child(_crops_list)
 
-	_summary_label = Label.new()
+	_summary_label = PageChrome.text()
 	_summary_label.name = "Summary"
-	_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_summary_label)
 
-	_hint_label = Label.new()
+	_hint_label = PageChrome.hint()
 	_hint_label.name = "Hint"
-	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_hint_label)
 
 	var buttons := HBoxContainer.new()
@@ -180,9 +187,7 @@ func build() -> void:
 	_close_button.pressed.connect(request_close)
 	column.add_child(buttons)
 
-	_status_label = Label.new()
-	_status_label.name = "Status"
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label = PageChrome.status()
 	column.add_child(_status_label)
 
 	_rebuild_turn_choices()
@@ -200,14 +205,15 @@ func _option(row: Node, node_name: String, tip: String) -> OptionButton:
 	return made
 
 
+## A button on this page, from the shared chrome and named by the page: the names are what this page's
+## tests hold the buttons by, so they are set after the builder rather than left to the chrome's naming
+## of a caption.
 func _button(row: Node, node_name: String, caption: String) -> Button:
-	var made := Button.new()
+	var made := PageChrome.button(caption)
 	made.name = node_name
-	made.text = caption
 	made.focus_mode = Control.FOCUS_NONE
 	row.add_child(made)
 	return made
-
 
 # --- binding ------------------------------------------------------------------------------
 
@@ -240,14 +246,14 @@ func place_count() -> int:
 
 func place_at(index: int) -> Dictionary:
 	if index < 0 or index >= _places.size():
-		return {}
+		return { }
 	return _places[index]
 
 
 ## The bed in hand, or an empty dictionary when there is none.
 func selected_place() -> Dictionary:
 	if _place_option == null or _place_option.selected < 0:
-		return {}
+		return { }
 	return place_at(_place_option.selected)
 
 
@@ -352,7 +358,7 @@ func _rebuild_crop_choices() -> void:
 	for id: StringName in crop_ids():
 		var plant: PlantSpecies = catalogue.get_species(id)
 		var caption: String = plant.common_name if not plant.common_name.strip_edges().is_empty() \
-			else plant.botanical_name
+				else plant.botanical_name
 		_crop_option.add_item(caption)
 		_crop_option.set_item_metadata(_crop_option.item_count - 1, String(id))
 		if id == chosen:
@@ -360,7 +366,6 @@ func _rebuild_crop_choices() -> void:
 	# The first food crop in the list, so the page has something to check before anyone chooses.
 	if _crop_option.selected < 0 and _crop_option.item_count > 0:
 		_crop_option.selected = 0
-
 
 # --- the check, as the page shows it ------------------------------------------------------
 
@@ -382,9 +387,7 @@ func _beside() -> Array:
 
 ## The verdict for the crop and bed in hand. The whole page is read off this.
 func verdict() -> Dictionary:
-	return CropRotationScript.check(
-		selected_crop(), previous_family(), _beside(), _place_name()
-	)
+	return CropRotationScript.check(selected_crop(), previous_family(), _beside(), _place_name())
 
 
 ## The bed in hand and what grew there last.
@@ -394,9 +397,7 @@ func place_line() -> String:
 	var before: String = CropRotationScript.family_words(previous_family())
 	if before.is_empty():
 		return "%s: what grew here last is not stated" % _place_name()
-	return "%s: %s %s grew here last" % [
-		_place_name(), CropRotationScript.article(before), before
-	]
+	return "%s: %s %s grew here last" % [_place_name(), CropRotationScript.article(before), before]
 
 
 ## The crop's own facts: what of it is eaten, when it is harvested, the family, the sun and the days.
@@ -414,15 +415,26 @@ func turn_line() -> String:
 	return CropRotationScript.summary_of(verdict())
 
 
-## What the crop grows well beside and should be kept from, from the module's own table.
+## What the crop grows well beside and should be kept from: the families the tables name, and then the
+## plants in this list a pairing names by name. The whole answer, rather than the family half of it.
 func company_line() -> String:
 	var crop: PlantSpecies = selected_crop()
 	if crop == null:
 		return "choose a crop to see what it grows well beside"
-	var line: String = CropRotationScript.companion_line(crop.family)
+	var line: String = CropRotationScript.company_line(catalogue, CropRotationScript.subject_of(crop))
 	if line.is_empty():
 		return "nothing is stated about what this plant grows beside"
 	return line
+
+
+## Why the pairings say so, where somebody has written down why: the mechanism, or plainly that it is
+## tradition, with the work it came from. Empty when this list names nothing with the crop, and the page
+## then shows no line at all rather than a heading with no reason under it.
+func reason_line() -> String:
+	var crop: PlantSpecies = selected_crop()
+	if crop == null:
+		return ""
+	return CropRotationScript.company_reason(catalogue, CropRotationScript.subject_of(crop))
 
 
 ## One line per crop in the list, best first: what would follow the bed's history.
@@ -461,7 +473,6 @@ func hint() -> String:
 			return "state what grew in this bed last and it can be checked"
 	return "this one follows on well; try another crop to compare"
 
-
 # --- what it says -------------------------------------------------------------------------
 
 
@@ -479,8 +490,9 @@ func status_text() -> String:
 	return _status
 
 
-## True when nothing on the page can take the drawing's keyboard: no text field is here, and the
-## three dropdowns, the list and the buttons are all focus-free.
+## Whether the list on this page is built without a keyboard of its own. A list a person reads is not a
+## list a person types into, so the keyboard stays with the drawing - and what this page does with the
+## keyboard when it is *shown* is decided once, by `PageChrome.takes_the_keyboard`.
 func lists_are_keyboard_free() -> bool:
 	return _crops_list != null and _crops_list.focus_mode == Control.FOCUS_NONE
 
@@ -488,7 +500,6 @@ func lists_are_keyboard_free() -> bool:
 func request_close() -> void:
 	hide()
 	closed.emit()
-
 
 # --- the refresh --------------------------------------------------------------------------
 
@@ -501,6 +512,7 @@ func _refresh() -> void:
 	_crop_line.text = crop_line()
 	_turn_line.text = turn_line()
 	_company_line.text = company_line()
+	_reason_line.text = reason_line()
 	_crops_label.text = "What would follow in %s \u2014 %d" % [_place_name(), row_count()]
 	var texts: Array[String] = row_texts()
 	_crops_list.clear()

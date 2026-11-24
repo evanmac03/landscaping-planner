@@ -6,6 +6,7 @@ extends Node
 ## stand between the bar and that, and they read the bar the way it is built: as data.
 
 const HudScript := preload("res://scripts/hud.gd")
+const ReadingSizeScript := preload("res://scripts/reading_size.gd")
 const DeskScript := preload("res://scripts/biz/estimate_desk.gd")
 const ToolScript := preload("res://scripts/draft/draft_tool.gd")
 const TierScript := preload("res://scripts/vis/presentation_tier.gd")
@@ -15,9 +16,110 @@ const DocumentScript := preload("res://scripts/draft/draft_document.gd")
 const TerrainProfile := preload("res://scripts/terrain_profile.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
 
-const KINDS: Array[StringName] = [
-	&"command", &"radio", &"check", &"submenu", &"separator", &"info",
-]
+const KINDS: Array[StringName] = [&"command", &"radio", &"check", &"submenu", &"separator", &"info"]
+
+
+## The Present menu carries the panel's own row, because on a phone the panel is over a third of the
+## width with its last rows cut off - and it is the one place latitude, longitude and the zone are
+## edited, so putting it away may not be putting it away for good.
+func test_the_present_menu_carries_the_panels_own_row() -> void:
+	var row: Dictionary = { }
+	for entry: Dictionary in HudScript.present_items():
+		if StringName(entry.get("id", &"")) == &"present.panel":
+			row = entry
+	assert(not row.is_empty(), "the Present menu offers the presentation panel")
+	assert(StringName(row["kind"]) == &"check", "as something that is on or off")
+	assert(StringName(row["state"]) == &"presentation_panel", "standing for the panel's own state")
+	assert(StringName(row["method"]) == &"_menu_presentation_panel", "run by the panel's own toggle")
+
+
+## The tick is read from the snapshot every menu refresh is drawn from, so the row cannot come to say
+## the panel is on while the panel is off - and the panel's own door agrees with the same snapshot.
+func test_the_panel_row_is_ticked_from_the_snapshot() -> void:
+	var hud: Node = HudScript.new()
+	assert(hud.menu_world().has("presentation_panel"), "the snapshot carries the panel's state")
+	assert(bool(hud.menu_world()["presentation_panel"]), "on, when nobody has put it away")
+	hud.set_presentation_panel_wanted(false)
+	assert(not hud.is_presentation_panel_wanted(), "the panel's door says it was put away")
+	assert(not bool(hud.menu_world()["presentation_panel"]), "and the snapshot the tick reads says so too")
+	hud.free()
+
+
+## The bar's own menus have one writer, and it is reached again after every rebuild.
+##
+## Found live on the SM-A166W: a rebuild frees every popup and makes new ones at the size a desk draws them,
+## and the fold that triggers a rebuild runs on every frame - so the phone's File and Edit menus were rebuilt
+## out of their fitting long after the chrome pass had given it to them. Measured off the frame, their rows
+## were 44.5 px (2.51 mm) against this program's 5.5 mm floor. Held by name, the way the panel's visibility is:
+## one function owns it, and the rebuild reaches that function rather than doing any of it itself.
+func test_a_menu_bar_rebuild_puts_the_finger_sizing_back() -> void:
+	var text: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
+	var owner: int = text.find("func _fit_the_menu_bars_words(")
+	assert(owner >= 0, "the bar's own menus have one place that fits them")
+	assert(
+		text.find("PhoneHudScript.fit_the_chrome_for_a_finger(", owner) > owner,
+		"and that place is what walks them, rather than a second walk of its own",
+	)
+	var rebuild: int = text.find("func _rebuild_menu_bar(")
+	assert(rebuild >= 0, "the rebuild is named")
+	var following: int = text.find("\nfunc ", rebuild + 1)
+	assert(following > rebuild, "and the file goes on after it")
+	var body: String = text.substr(rebuild, following - rebuild)
+	assert(
+		body.contains("_fit_the_menu_bars_words()"),
+		"and every rebuild reaches it, or the new popups come back at a desk's size: %s" % body,
+	)
+
+
+## The panel's visibility has exactly one writer, and the frame asks it rather than working the answer out.
+##
+## Found live rather than by reading: `set_presentation_panel_wanted(false)` hid the panel and the very next
+## frame re-showed it, from a line of `_process`'s own that read `presentation != null and not painted` and
+## never looked at the flag. The Present menu's row therefore **could not put the panel away at all** - on a
+## computer as much as on a phone - while looking right and passing the test above, which holds the flag and
+## the tick and not the visibility. A second writer of one fact is the defect this project spends the most
+## effort avoiding, and counting the writers is the only way to hold it: one assignment, inside the function
+## that owns it, and every other caller reaching it by name.
+func test_the_panels_visibility_is_written_in_exactly_one_place() -> void:
+	var text: String = FileAccess.get_file_as_string("res://scripts/hud.gd")
+	var writes: int = text.count("presentation_panel.visible =")
+	assert(writes == 1, "the panel's visibility is written once, not %d times" % writes)
+	var owner: int = text.find("func _refresh_presentation_panel(")
+	assert(owner >= 0, "the one writer is `_refresh_presentation_panel`")
+	assert(
+		text.find("presentation_panel.visible =") > owner,
+		"and the write is inside that function, after its own definition",
+	)
+	assert(text.count("_refresh_presentation_panel()") >= 3, "which the setter, the frame and the definition all reach")
+
+
+## The View menu carries the reading size: one entry per answer, and the answer in hand on the snapshot the
+## ticks are drawn from.
+##
+## This is the one thing an Android app would have honoured from the platform's own text-size setting, which
+## Godot does not state anywhere - so the program has to offer it, and an entry that offered nothing would be
+## worse than no entry at all. Each is filed under the `finger` need, because a reading size multiplies the
+## fitting done on a device answered with a finger and a computer is never fitted.
+func test_the_view_menu_carries_the_reading_size_and_the_snapshot_holds_the_one_in_hand() -> void:
+	var rows: Array[Dictionary] = HudScript.reading_size_items()
+	assert(rows.size() == ReadingSizeScript.CHOICES.size(), "an entry per answer: %d" % rows.size())
+	for row: Dictionary in rows:
+		assert(KINDS.has(StringName(row["kind"])), "each is a kind the builder knows")
+		assert(StringName(row["kind"]) == &"radio", "and one of a set rather than a toggle")
+		assert(StringName(row["state"]) == &"reading_size", "standing for the size in hand")
+		assert(StringName(row["method"]) == &"_menu_set_reading_size", "run by the one handler")
+		assert(StringName(row["needs"]) == &"finger", "and offered where a finger presses the controls")
+		assert(
+			ReadingSizeScript.CHOICES.has(StringName(row["value"])),
+			"standing for an answer `ReadingSize` offers: %s" % str(row["value"]),
+		)
+	var hud: Node = HudScript.new()
+	assert(hud.menu_world().has("reading_size"), "the snapshot carries the size in hand")
+	assert(
+		StringName(hud.menu_world()["reading_size"]) == ReadingSizeScript.DEFAULT,
+		"which is the default until somebody chooses",
+	)
+	hud.free()
 
 
 ## The entry with an id, or a failure that names it: an entry that has been renamed should break
@@ -27,7 +129,7 @@ func _entry(id: StringName) -> Dictionary:
 		if StringName(entry.get("id", &"")) == id:
 			return entry
 	assert(false, "no menu entry with id %s" % String(id))
-	return {}
+	return { }
 
 
 func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
@@ -39,11 +141,23 @@ func test_the_bar_is_the_menus_a_program_of_this_kind_has() -> void:
 		for entry: Dictionary in items:
 			assert(
 				KINDS.has(StringName(entry.get("kind", &""))),
-				"%s entry has a kind the builder knows" % String(menu["title"])
+				"%s entry has a kind the builder knows" % String(menu["title"]),
 			)
 	var expected: Array[String] = [
-		"File", "Edit", "View", "Draft", "Site", "Plant", "Water", "Light", "Pipeline", "Jobs",
-		"Estimate", "Present", "Team", "Help",
+		"File",
+		"Edit",
+		"View",
+		"Draft",
+		"Site",
+		"Plant",
+		"Water",
+		"Light",
+		"Pipeline",
+		"Jobs",
+		"Estimate",
+		"Present",
+		"Team",
+		"Help",
 	]
 	assert(titles == expected)
 
@@ -106,8 +220,10 @@ func test_the_edit_menu_offers_simplifying_the_drawing() -> void:
 		if String(entry.get("id", "")) != "edit.simplify":
 			continue
 		found = true
-		assert(String(entry.get("method", "")) == "_menu_simplify",
-			"the entry runs the handler that asks before it changes anything")
+		assert(
+			String(entry.get("method", "")) == "_menu_simplify",
+			"the entry runs the handler that asks before it changes anything",
+		)
 		assert(String(entry.get("action", "")) == "", "it advertises no key")
 	assert(found, "the Edit menu offers Simplify")
 
@@ -120,17 +236,12 @@ func test_every_command_the_legend_lists_is_in_the_bar() -> void:
 	for entry: Dictionary in HudScript.menu_entries():
 		actions.append(StringName(entry.get("action", &"")))
 	for pair: Array in HudScript.DRAFTING_COMMANDS:
-		assert(
-			actions.has(StringName(pair[0])),
-			"the bar has %s, which the legend lists" % String(pair[1])
-		)
+		assert(actions.has(StringName(pair[0])), "the bar has %s, which the legend lists" % String(pair[1]))
 	# And the four that are about the shape in hand are in the menu about drawing.
 	var draft: Array[StringName] = []
 	for entry: Dictionary in HudScript.items_for("Draft"):
 		draft.append(StringName(entry.get("action", &"")))
-	for action: StringName in [
-		&"draft_finish", &"draft_close", &"draft_undo_point", &"draft_cancel", &"draft_plot",
-	]:
+	for action: StringName in [&"draft_finish", &"draft_close", &"draft_undo_point", &"draft_cancel", &"draft_plot"]:
 		assert(draft.has(action), "the Draft menu has %s" % String(action))
 
 
@@ -142,10 +253,7 @@ func test_every_key_a_menu_advertises_is_bound_and_shown() -> void:
 		assert(InputMap.has_action(action), "%s names a bound action: %s" % [String(entry["id"]), action])
 		var key := HudScript._key_label(action)
 		assert(key != "", "%s names an action with a key: %s" % [String(entry["id"]), action])
-		assert(
-			HudScript.menu_label(entry).contains(key),
-			"%s shows the key it names: %s" % [String(entry["id"]), key]
-		)
+		assert(HudScript.menu_label(entry).contains(key), "%s shows the key it names: %s" % [String(entry["id"]), key])
 
 
 func test_no_two_entries_share_an_id() -> void:
@@ -164,8 +272,10 @@ func test_every_entry_that_needs_something_names_something_known() -> void:
 	# What an entry needs from the scene decides whether it is offered live; a need nobody answers
 	# for would leave an entry switched off forever, with no reason.
 	for entry: Dictionary in HudScript.menu_entries():
-		assert(HudScript.KNOWN_NEEDS.has(StringName(entry.get("needs", &""))),
-			"%s needs something known" % String(entry["id"]))
+		assert(
+			HudScript.KNOWN_NEEDS.has(StringName(entry.get("needs", &""))),
+			"%s needs something known" % String(entry["id"]),
+		)
 	assert(_entry(&"file.plot")["needs"] == HudScript.NEEDS_DRAFT)
 	assert(_entry(&"file.still")["needs"] == HudScript.NEEDS_PRESENTATION)
 	assert(_entry(&"file.quit")["needs"] == HudScript.NEEDS_NOTHING)
@@ -175,9 +285,9 @@ func test_the_view_the_menu_shows_as_chosen_is_the_view_you_are_in() -> void:
 	var plan: Dictionary = _entry(&"view.plan")
 	var ground: Dictionary = _entry(&"view.ground")
 	var overhead: Dictionary = _entry(&"view.overhead")
-	var in_plan: Dictionary = {"mode": int(ViewController.ViewMode.PLAN_2D)}
-	var in_ground: Dictionary = {"mode": int(ViewController.ViewMode.GROUND)}
-	var in_overhead: Dictionary = {"mode": int(ViewController.ViewMode.OVERHEAD_3D)}
+	var in_plan: Dictionary = { "mode": int(ViewController.ViewMode.PLAN_2D) }
+	var in_ground: Dictionary = { "mode": int(ViewController.ViewMode.GROUND) }
+	var in_overhead: Dictionary = { "mode": int(ViewController.ViewMode.OVERHEAD_3D) }
 	assert(HudScript.is_checked(&"mode", plan["value"], in_plan))
 	assert(not HudScript.is_checked(&"mode", plan["value"], in_ground))
 	assert(HudScript.is_checked(&"mode", ground["value"], in_ground))
@@ -196,23 +306,33 @@ func test_the_view_the_menu_shows_as_chosen_is_the_view_you_are_in() -> void:
 	assert(offered == all_views)
 
 
+## The garden the yard ships with is put away on a new drawing, and the View menu is where it comes back:
+## the entry is there, and its tick follows what the controller says rather than a default of its own.
+func test_the_view_menu_offers_the_site_and_reports_whether_it_is_shown() -> void:
+	var site: Dictionary = _entry(&"view.site")
+	assert(not site.is_empty(), "the View menu offers the site")
+	assert(HudScript.is_checked(&"site", null, { "site": true }), "shown when the snapshot says so")
+	assert(not HudScript.is_checked(&"site", null, { "site": false }), "and not when it does not")
+	assert(not HudScript.is_checked(&"site", null, { }), "a snapshot with no answer is not shown as on")
+
+
 func test_a_tool_is_shown_as_chosen_only_while_the_tools_are_out() -> void:
 	var line: Dictionary = _entry(&"draft.tool.draft_line")
-	assert(HudScript.is_checked(&"tool", line["value"], {"drawing": true, "tool": int(ToolScript.Kind.LINE)}))
-	assert(not HudScript.is_checked(&"tool", line["value"], {"drawing": true, "tool": int(ToolScript.Kind.CIRCLE)}))
-	assert(not HudScript.is_checked(&"tool", line["value"], {"drawing": false, "tool": int(ToolScript.Kind.LINE)}))
-	assert(HudScript.is_checked(&"drawing", null, {"drawing": true}))
-	assert(not HudScript.is_checked(&"drawing", null, {"drawing": false}))
+	assert(HudScript.is_checked(&"tool", line["value"], { "drawing": true, "tool": int(ToolScript.Kind.LINE) }))
+	assert(not HudScript.is_checked(&"tool", line["value"], { "drawing": true, "tool": int(ToolScript.Kind.CIRCLE) }))
+	assert(not HudScript.is_checked(&"tool", line["value"], { "drawing": false, "tool": int(ToolScript.Kind.LINE) }))
+	assert(HudScript.is_checked(&"drawing", null, { "drawing": true }))
+	assert(not HudScript.is_checked(&"drawing", null, { "drawing": false }))
 
 
 func test_the_sheet_and_the_scale_shown_are_the_ones_the_plotter_will_use() -> void:
 	var first_sheet := String(PlotScaleScript.sheet_names()[0])
 	var sheet: Dictionary = _entry(StringName("file.sheet." + first_sheet))
-	assert(HudScript.is_checked(&"sheet", sheet["value"], {"sheet": first_sheet}))
-	assert(not HudScript.is_checked(&"sheet", sheet["value"], {"sheet": first_sheet + "-not"}))
+	assert(HudScript.is_checked(&"sheet", sheet["value"], { "sheet": first_sheet }))
+	assert(not HudScript.is_checked(&"sheet", sheet["value"], { "sheet": first_sheet + "-not" }))
 	var hundred: Dictionary = _entry(&"file.scale.100")
-	assert(HudScript.is_checked(&"scale", hundred["value"], {"plot_scale": 100.0}))
-	assert(not HudScript.is_checked(&"scale", hundred["value"], {"plot_scale": 50.0}))
+	assert(HudScript.is_checked(&"scale", hundred["value"], { "plot_scale": 100.0 }))
+	assert(not HudScript.is_checked(&"scale", hundred["value"], { "plot_scale": 50.0 }))
 	# One entry for every sheet and every scale the plotter knows, which is where the set comes
 	# from in the first place.
 	var sheets: Array[String] = []
@@ -229,8 +349,8 @@ func test_the_sheet_and_the_scale_shown_are_the_ones_the_plotter_will_use() -> v
 
 func test_a_dimension_standard_is_shown_when_it_is_the_one_in_force() -> void:
 	var entry: Dictionary = _entry(&"edit.dimension_style.architectural")
-	assert(HudScript.is_checked(&"dimension_style", entry["value"], {"dimension_style": &"architectural"}))
-	assert(not HudScript.is_checked(&"dimension_style", entry["value"], {"dimension_style": &"engineering"}))
+	assert(HudScript.is_checked(&"dimension_style", entry["value"], { "dimension_style": &"architectural" }))
+	assert(not HudScript.is_checked(&"dimension_style", entry["value"], { "dimension_style": &"engineering" }))
 	var styles := 0
 	for style: StringName in ControllerScript.DIMENSION_STYLES:
 		styles += 1
@@ -240,11 +360,11 @@ func test_a_dimension_standard_is_shown_when_it_is_the_one_in_force() -> void:
 
 func test_the_presentation_entries_report_the_presentation() -> void:
 	var running: Dictionary = _entry(&"present.running")
-	assert(HudScript.is_checked(&"presenting", running["value"], {"presenting": true}))
-	assert(not HudScript.is_checked(&"presenting", running["value"], {"presenting": false}))
+	assert(HudScript.is_checked(&"presenting", running["value"], { "presenting": true }))
+	assert(not HudScript.is_checked(&"presenting", running["value"], { "presenting": false }))
 	var still: Dictionary = _entry(StringName("present.quality.%d" % TierScript.STILL))
-	assert(HudScript.is_checked(&"tier", still["value"], {"tier": TierScript.STILL}))
-	assert(not HudScript.is_checked(&"tier", still["value"], {"tier": TierScript.WORKING}))
+	assert(HudScript.is_checked(&"tier", still["value"], { "tier": TierScript.STILL }))
+	assert(not HudScript.is_checked(&"tier", still["value"], { "tier": TierScript.WORKING }))
 	# One entry for every budget the tier table offers.
 	var offered: Array[int] = []
 	for entry: Dictionary in HudScript.tier_items():
@@ -256,8 +376,8 @@ func test_the_presentation_entries_report_the_presentation() -> void:
 		assert(String(entry["label"]) == String(HudScript.STILL_SIZES[sizes][0]))
 		sizes += 1
 	assert(sizes == HudScript.STILL_SIZES.size())
-	assert(HudScript.is_checked(&"still_size", 2, {"still_size": 2}))
-	assert(not HudScript.is_checked(&"still_size", 2, {"still_size": 0}))
+	assert(HudScript.is_checked(&"still_size", 2, { "still_size": 2 }))
+	assert(not HudScript.is_checked(&"still_size", 2, { "still_size": 0 }))
 
 
 ## The shared session: a line that says who is in the room, and two commands that open and close it.
@@ -269,19 +389,20 @@ func test_the_team_menu_offers_sharing_the_drawing() -> void:
 	assert(ids.has(&"team.info"), "the line that says who is in the session")
 	assert(ids.has(&"team.start"), "sharing is started on purpose")
 	assert(ids.has(&"team.leave"), "and left on purpose")
-	assert(StringName(_entry(&"team.start")["needs"]) == HudScript.NEEDS_PRESENCE,
-		"and only in a scene that has a session to share")
-	assert(not HudScript.is_enabled(&"session_on", {"session_on": false}),
-		"leaving is dead until a session is open")
+	assert(
+		StringName(_entry(&"team.start")["needs"]) == HudScript.NEEDS_PRESENCE,
+		"and only in a scene that has a session to share",
+	)
+	assert(not HudScript.is_enabled(&"session_on", { "session_on": false }), "leaving is dead until a session is open")
 
 
 func test_the_help_entry_reports_whether_the_keys_are_up() -> void:
 	var keys: Dictionary = _entry(&"help.keys")
-	assert(HudScript.is_checked(&"keys_panel", keys["value"], {"keys_panel": true}))
-	assert(not HudScript.is_checked(&"keys_panel", keys["value"], {"keys_panel": false}))
+	assert(HudScript.is_checked(&"keys_panel", keys["value"], { "keys_panel": true }))
+	assert(not HudScript.is_checked(&"keys_panel", keys["value"], { "keys_panel": false }))
 	var hints: Dictionary = _entry(&"view.hints")
-	assert(HudScript.is_checked(&"hints", hints["value"], {"hints": true}))
-	assert(not HudScript.is_checked(&"hints", hints["value"], {"hints": false}))
+	assert(HudScript.is_checked(&"hints", hints["value"], { "hints": true }))
+	assert(not HudScript.is_checked(&"hints", hints["value"], { "hints": false }))
 
 
 func test_the_file_menu_offers_what_a_file_menu_offers() -> void:
@@ -289,8 +410,16 @@ func test_the_file_menu_offers_what_a_file_menu_offers() -> void:
 	for entry: Dictionary in HudScript.items_for("File"):
 		ids.append(String(entry.get("id", "")))
 	for wanted: String in [
-		"file.new", "file.open", "file.recent", "file.save", "file.save_as",
-		"file.plot", "file.still", "file.sheet", "file.scale", "file.quit",
+		"file.new",
+		"file.open",
+		"file.recent",
+		"file.save",
+		"file.save_as",
+		"file.plot",
+		"file.still",
+		"file.sheet",
+		"file.scale",
+		"file.quit",
 	]:
 		assert(ids.has(wanted), "the File menu offers %s" % wanted)
 	# In the order a person looks for them: what is open, then the drawing itself, then what
@@ -312,9 +441,9 @@ func test_save_is_only_available_when_there_is_something_to_save() -> void:
 	# A greyed-out Save is how a menu answers "have I saved this?" without a word, and it is the
 	# only entry in the bar that comes and goes with the state rather than with the scene.
 	assert(_entry(&"file.save")["enabled_when"] == &"dirty")
-	assert(HudScript.is_enabled(&"dirty", {"dirty": true}))
-	assert(not HudScript.is_enabled(&"dirty", {"dirty": false}))
-	assert(HudScript.is_enabled(&"", {}), "an entry that names no condition is available")
+	assert(HudScript.is_enabled(&"dirty", { "dirty": true }))
+	assert(not HudScript.is_enabled(&"dirty", { "dirty": false }))
+	assert(HudScript.is_enabled(&"", { }), "an entry that names no condition is available")
 	assert(_entry(&"file.new").get("enabled_when", &"") == &"")
 
 
@@ -335,8 +464,8 @@ func test_the_recent_menu_is_empty_until_the_menu_fills_it() -> void:
 func test_an_unknown_state_is_never_shown_as_on() -> void:
 	# A checkable entry whose state nothing answers for would be a tick that never appears: it is
 	# better to make that obvious here than to find it in the running program.
-	assert(not HudScript.is_checked(&"invented", 1, {"invented": 1}))
-	assert(not HudScript.is_checked(&"", null, {}))
+	assert(not HudScript.is_checked(&"invented", 1, { "invented": 1 }))
+	assert(not HudScript.is_checked(&"", null, { }))
 
 
 func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
@@ -345,12 +474,34 @@ func test_the_key_reference_quotes_the_strings_the_screen_shows() -> void:
 	var hud := HudScript.new()
 	var text := hud.keys_text()
 	assert(text.contains(HudScript.HINTS_GROUND))
+	# The reference names the phone's two gestures as well, and quotes them from the same constant the foot
+	# of the screen does, so the page cannot drift from what a thumb is actually offered.
+	assert(text.contains(HudScript.HINTS_GROUND_ON_A_FINGER))
+	assert(text.contains(HudScript.HINTS_OVERHEAD_ON_A_FINGER))
 	assert(text.contains(HudScript._hints_for(ViewController.ViewMode.PLAN_2D)))
 	for row: String in HudScript.drafting_rows():
 		assert(text.contains(row), "the reference has the legend row: %s" % row)
 	assert(text.contains("Keys") or text.contains("Drawing"))
 	assert(hud.keys_footer().contains(Engine.get_version_info()["string"]))
 	hud.free()
+
+
+## A phone's overhead views are told about the two gestures a finger really has - the pinch and the two-finger
+## drag that `ViewController.touch_command` reads - and never about a wheel or W A S D, which a phone does not
+## carry. Read off the glass before this was written: the phone's plan view said "Wheel: zoom   W A S D: pan".
+func test_the_overhead_views_on_a_phone_name_the_gestures_a_finger_has() -> void:
+	var line: String = HudScript._hints_for(ViewController.ViewMode.PLAN_2D, true)
+	assert(line.contains("Pinch: zoom"), "the line names the pinch: %s" % line)
+	assert(line.contains("Two fingers: pan"), "and the two-finger drag: %s" % line)
+	assert(not line.contains("Wheel"), "and does not name a wheel: %s" % line)
+	assert(not line.contains("W A S D"), "nor W A S D, which a phone cannot press: %s" % line)
+	# The two overhead views are one line on a finger: the only thing that told them apart was the key that
+	# swaps them, and a finger has no key.
+	var overhead: String = HudScript._hints_for(ViewController.ViewMode.OVERHEAD_3D, true)
+	assert(overhead == line, "3D and 2D are the same words on a phone: %s against %s" % [overhead, line])
+	# And a desk keeps its own lines, wheel and all: this reading is a phone's alone.
+	assert(HudScript._hints_for(ViewController.ViewMode.PLAN_2D).contains("Wheel: zoom"))
+	assert(HudScript._hints_for(ViewController.ViewMode.OVERHEAD_3D).contains("W A S D"))
 
 # --- the ground the plants are judged against ----------------------------------------------
 
@@ -373,21 +524,13 @@ func test_the_edit_menu_offers_both_selection_bands() -> void:
 ## A selection mode is shown as chosen only while the band is actually in hand: a menu claiming a
 ## mode that is not on would be describing a tool nobody has.
 func test_a_selection_mode_is_shown_as_chosen_only_while_the_band_is_out() -> void:
-	var out: Dictionary = {
-		"drawing": true, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing",
-	}
+	var out: Dictionary = { "drawing": true, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing" }
 	assert(HudScript.is_checked(&"select_mode", &"crossing", out), "the mode the band is in")
 	assert(not HudScript.is_checked(&"select_mode", &"window", out), "and not the other one")
-	var away: Dictionary = {
-		"drawing": false, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing",
-	}
-	assert(not HudScript.is_checked(&"select_mode", &"crossing", away),
-		"a mode is not on while the tools are put away")
-	var other: Dictionary = {
-		"drawing": true, "tool": int(ToolScript.Kind.LINE), "select_mode": &"crossing",
-	}
-	assert(not HudScript.is_checked(&"select_mode", &"crossing", other),
-		"nor while another tool is out")
+	var away: Dictionary = { "drawing": false, "tool": int(ToolScript.Kind.SELECT), "select_mode": &"crossing" }
+	assert(not HudScript.is_checked(&"select_mode", &"crossing", away), "a mode is not on while the tools are put away")
+	var other: Dictionary = { "drawing": true, "tool": int(ToolScript.Kind.LINE), "select_mode": &"crossing" }
+	assert(not HudScript.is_checked(&"select_mode", &"crossing", other), "nor while another tool is out")
 
 
 ## Labelling the planting is reached from the Plant menu, and it names the method that writes it.
@@ -474,9 +617,9 @@ func test_a_value_that_has_been_through_a_file_is_still_the_value_it_was() -> vo
 	# A number that has come back from a saved drawing is a float. Every ground control indexes its
 	# dropdown by the stated value, so "is this the stated one" must not depend on which side of the
 	# file the number came from - and the rule is asked of the model, not of a menu.
-	assert(HudScript.is_checked(&"invented", 1, {"invented": 1}) == false)
-	assert(HudScript.is_checked(&"mode", ViewController.ViewMode.OVERHEAD_3D, {"mode": 1}))
-	assert(not HudScript.is_checked(&"mode", ViewController.ViewMode.PLAN_2D, {"mode": 1}))
+	assert(HudScript.is_checked(&"invented", 1, { "invented": 1 }) == false)
+	assert(HudScript.is_checked(&"mode", ViewController.ViewMode.OVERHEAD_3D, { "mode": 1 }))
+	assert(not HudScript.is_checked(&"mode", ViewController.ViewMode.PLAN_2D, { "mode": 1 }))
 
 
 func test_stating_the_ground_changes_the_drawing_and_leaves_the_old_map_alone() -> void:

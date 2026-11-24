@@ -159,7 +159,10 @@ func build() -> void:
 	close_button.name = "CloseButton"
 	close_button.text = "Close"
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.pressed.connect(func() -> void: close_requested.emit())
+	close_button.pressed.connect(
+		func() -> void:
+			close_requested.emit(),
+	)
 	remove_row.add_child(close_button)
 
 	_status = Label.new()
@@ -193,7 +196,6 @@ func _row(caption_text: String, tip: String) -> OptionButton:
 
 func _ready() -> void:
 	build()
-
 
 # --- what it shows --------------------------------------------------------------------
 
@@ -343,7 +345,7 @@ func selected_area() -> Dictionary:
 	for row: Dictionary in _areas:
 		if String(row.get("key", "")) == _area_key:
 			return row
-	return {}
+	return { }
 
 
 func kind_choice() -> String:
@@ -371,20 +373,15 @@ func staggered() -> bool:
 
 ## The four things watering an area is, taken together, so a caller hands them on in one piece.
 func options() -> Dictionary:
-	return {
-		"region_key": region_key(),
-		"kind": kind_choice(),
-		"spacing": spacing(),
-		"staggered": staggered(),
-	}
+	return { "region_key": region_key(), "kind": kind_choice(), "spacing": spacing(), "staggered": staggered() }
 
 
 func supply_choice() -> Dictionary:
 	return {
 		"flow": float(_flow_option.get_item_metadata(maxi(_flow_option.selected, 0))) \
-			if _flow_option != null and _flow_option.item_count > 0 else FLOW_DEFAULT,
+				if _flow_option != null and _flow_option.item_count > 0 else FLOW_DEFAULT,
 		"pressure": float(_pressure_option.get_item_metadata(maxi(_pressure_option.selected, 0))) \
-			if _pressure_option != null and _pressure_option.item_count > 0 else PRESSURE_DEFAULT,
+				if _pressure_option != null and _pressure_option.item_count > 0 else PRESSURE_DEFAULT,
 	}
 
 
@@ -405,8 +402,7 @@ func _refresh_detail() -> void:
 	var throw := IrrigationScript.throw_of_kind(kind)
 	for index in _spacing_option.item_count:
 		var factor := float(_spacing_option.get_item_metadata(index))
-		_spacing_option.set_item_text(index, "%s%% of the throw (%.1f m)" % [
-			_number(factor * 100.0), factor * throw])
+		_spacing_option.set_item_text(index, "%s%% of the throw (%.1f m)" % [_number(factor * 100.0), factor * throw])
 	_water_button.disabled = _area_key.is_empty() or not _supply_stated
 	_water_button.tooltip_text = "Draw a bed or a lawn outline first"
 	if not _area_key.is_empty():
@@ -431,17 +427,21 @@ func budget_text() -> String:
 	var supply: Dictionary = supply_choice()
 	if not _supply_stated:
 		return "No supply stated: nothing is laid out until one is."
-	return "%s. Up to %s on this supply." % [IrrigationScript.supply_words(supply),
-		IrrigationScript.kind_count_words(kind_choice(),
-			IrrigationScript.head_budget(supply, kind_choice()))]
+	return "%s. Up to %s on this supply." % [
+		IrrigationScript.supply_words(supply),
+		IrrigationScript.kind_count_words(kind_choice(), IrrigationScript.head_budget(supply, kind_choice())),
+	]
 
 
 func status_text() -> String:
 	if not _said.is_empty():
 		return _said
 	if not _zones.is_empty():
-		return "%s zone%s on this drawing: %s" % [_number(float(_zones.size())),
-			"" if _zones.size() == 1 else "s", _zone_word_join()]
+		return "%s zone%s on this drawing: %s" % [
+			_number(float(_zones.size())),
+			"" if _zones.size() == 1 else "s",
+			_zone_word_join(),
+		]
 	if _areas.is_empty():
 		return "The drawing encloses no area to water yet. Draw a bed or a lawn outline first."
 	return "Nothing on this drawing is watered yet."
@@ -452,7 +452,6 @@ func _zone_word_join() -> String:
 	for row: Dictionary in _zones:
 		parts.append("%s valve %d" % [String(row.get("label", "Zone")), int(row.get("valve", 0))])
 	return ", ".join(parts)
-
 
 # --- what it does ---------------------------------------------------------------------
 
@@ -527,12 +526,12 @@ func list_is_keyboard_free() -> bool:
 	if _remove_button == null:
 		return false
 	return _flow_option.focus_mode == Control.FOCUS_NONE \
-		and _pressure_option.focus_mode == Control.FOCUS_NONE \
-		and _supply_button.focus_mode == Control.FOCUS_NONE \
-		and _area_option.focus_mode == Control.FOCUS_NONE \
-		and _kind_option.focus_mode == Control.FOCUS_NONE \
-		and _spacing_option.focus_mode == Control.FOCUS_NONE \
-		and _staggered_box.focus_mode == Control.FOCUS_NONE \
-		and _water_button.focus_mode == Control.FOCUS_NONE \
-		and _zone_list.focus_mode == Control.FOCUS_NONE \
-		and _remove_button.focus_mode == Control.FOCUS_NONE
+			and _pressure_option.focus_mode == Control.FOCUS_NONE \
+			and _supply_button.focus_mode == Control.FOCUS_NONE \
+			and _area_option.focus_mode == Control.FOCUS_NONE \
+			and _kind_option.focus_mode == Control.FOCUS_NONE \
+			and _spacing_option.focus_mode == Control.FOCUS_NONE \
+			and _staggered_box.focus_mode == Control.FOCUS_NONE \
+			and _water_button.focus_mode == Control.FOCUS_NONE \
+			and _zone_list.focus_mode == Control.FOCUS_NONE \
+			and _remove_button.focus_mode == Control.FOCUS_NONE

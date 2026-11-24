@@ -94,8 +94,7 @@ func _init(item_id: String = "") -> void:
 ## A new item, refused rather than stored when it cannot be read. The moment has to be a date this
 ## program writes and the place and the description have to say something, because an item with
 ## either missing is an item that will sit on the list for the rest of the job.
-static func make(item_id: String, job: String, at: String, place: String, description: String,
-		by: String) -> PunchItem:
+static func make(item_id: String, job: String, at: String, place: String, description: String, by: String) -> PunchItem:
 	if item_id.strip_edges().is_empty() or job.strip_edges().is_empty():
 		return null
 	if place.strip_edges().is_empty() or description.strip_edges().is_empty():
@@ -109,7 +108,6 @@ static func make(item_id: String, job: String, at: String, place: String, descri
 	item.raised_by = by.strip_edges()
 	item.raised_at = at
 	return item
-
 
 # --- the state, worked out ------------------------------------------------------------------
 
@@ -160,7 +158,6 @@ func is_withdrawn() -> bool:
 func rejection_count() -> int:
 	return rejections.size()
 
-
 # --- the acts --------------------------------------------------------------------------------
 
 
@@ -196,7 +193,7 @@ func mark_rejected(by: String, at: String, why: String) -> bool:
 		return false
 	if by.strip_edges().is_empty() or why.strip_edges().is_empty() or not RateScript.is_date(at):
 		return false
-	rejections.append({"at": at, "by": by.strip_edges(), "why": why.strip_edges(), "was_fixed_at": fixed_at})
+	rejections.append({ "at": at, "by": by.strip_edges(), "why": why.strip_edges(), "was_fixed_at": fixed_at })
 	fixed_at = ""
 	fixed_note = ""
 	return true
@@ -214,7 +211,6 @@ func mark_withdrawn(by: String, at: String, why: String) -> bool:
 	withdrawn_at = at
 	withdrawn_why = why.strip_edges()
 	return true
-
 
 # --- describing it ---------------------------------------------------------------------------
 
@@ -238,9 +234,7 @@ func describe() -> String:
 	if is_withdrawn():
 		parts.append("on %s by %s: %s" % [withdrawn_at, withdrawn_by, withdrawn_why])
 	if rejection_count() > 0:
-		parts.append("put right and rejected %d time%s" % [
-			rejection_count(), "" if rejection_count() == 1 else "s",
-		])
+		parts.append("put right and rejected %d time%s" % [rejection_count(), "" if rejection_count() == 1 else "s"])
 	if not fixed_note.strip_edges().is_empty() and is_fixed():
 		parts.append("done: %s" % fixed_note)
 	return "%s (%s)" % [parts[0], ", ".join(parts.slice(1))]
@@ -268,7 +262,6 @@ func row() -> Dictionary:
 		"rejections": rejection_count(),
 		"text": describe(),
 	}
-
 
 # --- soundness -------------------------------------------------------------------------------
 
@@ -312,7 +305,6 @@ func problem() -> String:
 
 func is_sound() -> bool:
 	return problem().is_empty()
-
 
 # --- persistence -----------------------------------------------------------------------------
 

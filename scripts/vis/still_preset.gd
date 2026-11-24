@@ -14,22 +14,10 @@ extends RefCounted
 ## Every preset, keyed by a short name. `px` is the still's own size and `mm` is the
 ## paper it would print on at `dpi`; the two are consistent to within a pixel.
 const SIZES := {
-	&"hd": {
-		"label": "HD 1080p", "px": Vector2i(1920, 1080),
-		"dpi": 96.0, "mm": Vector2(507.9, 285.7),
-	},
-	&"4k": {
-		"label": "4K UHD", "px": Vector2i(3840, 2160),
-		"dpi": 96.0, "mm": Vector2(1015.9, 571.5),
-	},
-	&"a4_300": {
-		"label": "A4 at 300 dpi", "px": Vector2i(3508, 2480),
-		"dpi": 300.0, "mm": Vector2(297.0, 210.0),
-	},
-	&"a3_300": {
-		"label": "A3 at 300 dpi", "px": Vector2i(4961, 3508),
-		"dpi": 300.0, "mm": Vector2(420.0, 297.0),
-	},
+	&"hd": { "label": "HD 1080p", "px": Vector2i(1920, 1080), "dpi": 96.0, "mm": Vector2(507.9, 285.7) },
+	&"4k": { "label": "4K UHD", "px": Vector2i(3840, 2160), "dpi": 96.0, "mm": Vector2(1015.9, 571.5) },
+	&"a4_300": { "label": "A4 at 300 dpi", "px": Vector2i(3508, 2480), "dpi": 300.0, "mm": Vector2(297.0, 210.0) },
+	&"a3_300": { "label": "A3 at 300 dpi", "px": Vector2i(4961, 3508), "dpi": 300.0, "mm": Vector2(420.0, 297.0) },
 }
 
 ## The order a picker lists them in: biggest deliverable first, because that is the
@@ -57,7 +45,7 @@ static func has(name) -> bool:
 ## One preset, or {} for a name nobody has. The caller checks rather than getting a
 ## silent default, so "which size?" is a question that gets a real answer.
 static func preset(name) -> Dictionary:
-	return SIZES.get(StringName(name), {})
+	return SIZES.get(StringName(name), { })
 
 
 ## The pixel size of a preset, or Vector2i.ZERO.
@@ -90,10 +78,7 @@ static func dpi(name) -> float:
 static func pixels_for_paper(paper: Vector2, dpi_value: float) -> Vector2i:
 	if paper.x <= 0.0 or paper.y <= 0.0 or dpi_value <= 0.0:
 		return Vector2i.ZERO
-	return Vector2i(
-		int(round(paper.x / MM_PER_INCH * dpi_value)),
-		int(round(paper.y / MM_PER_INCH * dpi_value)),
-	)
+	return Vector2i(int(round(paper.x / MM_PER_INCH * dpi_value)), int(round(paper.y / MM_PER_INCH * dpi_value)))
 
 
 ## The size the still is actually rendered at, which is above the output size by the
@@ -116,5 +101,9 @@ static func describe(name) -> String:
 	var px: Vector2i = entry["px"]
 	return "%s - %d x %d px, %.0f x %.0f mm at %.0f dpi" % [
 		String(entry["label"]),
-		px.x, px.y, mm.x, mm.y, float(entry["dpi"]),
+		px.x,
+		px.y,
+		mm.x,
+		mm.y,
+		float(entry["dpi"]),
 	]

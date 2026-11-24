@@ -7,7 +7,7 @@ extends Node2D
 ## shipped input path rather than a method called by hand. It prints every step and saves a frame of the
 ## two pages it comes to.
 ##
-## Run `res://scenes/qol_followups_demo.tscn`.
+## Run `res://tools/qol_followups_demo.tscn`.
 ##
 ## Four claims, in the order a person meets them:
 ##   * a key that had none now opens the page it names, and Escape - which the HUD could never deliver
@@ -57,7 +57,6 @@ func _ready() -> void:
 	await _what_was_run_last()
 	print("--- the live pass is done ---")
 
-
 # --- the keys that had none ------------------------------------------------------------------
 
 
@@ -97,14 +96,23 @@ func _ground_tools_on_their_keys() -> void:
 		var wanted: int = int(pair[2])
 		await _press(letter)
 		var kind: int = _hud._draft.tool.kind
-		print("  ", letter, ": ", kind_name, " in hand: ", kind == wanted,
-			" (tool ", ToolScript.Kind.keys()[kind], ", layer ",
-			String(_hud._draft.drawing_layer), ")")
+		print(
+			"  ",
+			letter,
+			": ",
+			kind_name,
+			" in hand: ",
+			kind == wanted,
+			" (tool ",
+			ToolScript.Kind.keys()[kind],
+			", layer ",
+			String(_hud._draft.drawing_layer),
+			")",
+		)
 	# The tools are put away again, so the rest of the pass starts from a drawing nobody is mid-stroke on.
 	await _press("Escape")
 	_hud._draft.set_drawing(false)
 	await _settle()
-
 
 # --- what the drawing said, kept ---------------------------------------------------------------
 
@@ -114,7 +122,7 @@ func _ground_tools_on_their_keys() -> void:
 ## sentence, and the page shows both.
 func _what_the_drawing_said() -> void:
 	print("--- what the drawing said, kept ---")
-	var document = _hud._draft.document
+	var document: DraftDocument = _hud._draft.document
 	document.add(EntityScript.make_line(Vector2(0, 0), Vector2(4, 2)), LayerSetScript.NEW_HARDSCAPE)
 	document.add(EntityScript.make_line(Vector2(4, 2), Vector2(6, 5)), LayerSetScript.NEW_HARDSCAPE)
 	# The drawing says what it did through the one setter every message passes through, so this is the
@@ -122,21 +130,25 @@ func _what_the_drawing_said() -> void:
 	_hud._draft.last_message = "2 entities drawn by this pass"
 	_hud._draft.last_message = "and something else happened after that"
 	await _settle()
-	var history = _hud._draft.said
+	var history: StatusHistory = _hud._draft.said
 	print("  the status line shows only the last thing: \"", _hud._draft.last_message, "\"")
 	print("  the drawing kept ", history.count(), " answers, newest first: ", history.lines())
 
 	# The Edit menu's own door, the way a person gets there.
-	_hud._menu_said({})
+	_hud._menu_said({ })
 	await _settle()
-	print("  the page came up: ", _hud.is_status_window_open(),
-		", and it lists ", _hud._status_window.line_count(), " rows")
+	print(
+		"  the page came up: ",
+		_hud.is_status_window_open(),
+		", and it lists ",
+		_hud._status_window.line_count(),
+		" rows",
+	)
 	print("  the top row is what the plan is saying now: \"", _hud._status_window.newest(), "\"")
 	print("  the page says of itself: \"", _hud._status_window.status_text(), "\"")
 	await _save_shot("res://preview/qol_followups_said.png")
 	await _press("Escape")
 	print("  Escape from inside the page puts it away: ", not _hud.is_status_window_open())
-
 
 # --- the commands you ran last ------------------------------------------------------------------
 
@@ -159,8 +171,7 @@ func _what_was_run_last() -> void:
 	print("  the palette opens with the box empty: ", _hud.is_command_palette_open())
 	if _hud._command_palette != null:
 		print("  the first rows are: ", _hud._command_palette.list_texts().slice(0, 3))
-		print("  and it says why the order is what it is: \"",
-			_hud._command_palette.status_text(), "\"")
+		print("  and it says why the order is what it is: \"", _hud._command_palette.status_text(), "\"")
 	await _save_shot("res://preview/qol_followups_palette.png")
 	await _press("Escape")
 	print("  and Escape puts the box away: ", not _hud.is_command_palette_open())
@@ -173,8 +184,7 @@ func _entry(id: String) -> Dictionary:
 	for entry: Dictionary in _hud.command_rows():
 		if String(entry.get("id", "")) == id:
 			return entry
-	return {}
-
+	return { }
 
 # --- the keyboard, and the frame ----------------------------------------------------------------
 

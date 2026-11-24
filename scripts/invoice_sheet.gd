@@ -33,15 +33,15 @@ const UnderlayScript := preload("res://scripts/draft/raster_underlay.gd")
 const MoneyScript := preload("res://scripts/biz/money.gd")
 const TaxScript := preload("res://scripts/biz/tax.gd")
 const InvoiceScript := preload("res://scripts/biz/invoice.gd")
+## The plotting module, for the one rule both PDF pages share: how a caption too long for its column is
+## shortened. A second copy of it here would be a second answer to the same question.
+const SheetExporterScript := preload("res://scripts/draft/sheet_exporter.gd")
 
 const POINTS_PER_MM := 72.0 / 25.4
 
 ## The two papers an invoice goes on, named the way a business says them. The plotter's own name for
 ## the small one is "ANSI A (8.5x11 in)", which is right on a sheet list and wrong on an invoice.
-const SHEETS := {
-	"LETTER": "ANSI A (8.5x11 in)",
-	"A4": "A4",
-}
+const SHEETS := { "LETTER": "ANSI A (8.5x11 in)", "A4": "A4" }
 const DEFAULT_SHEET := "LETTER"
 
 const MARGIN_MM := 12.0
@@ -137,13 +137,12 @@ static func page_size_mm(sheet: String = DEFAULT_SHEET, portrait: bool = true) -
 static func page_size_points(sheet: String = DEFAULT_SHEET, portrait: bool = true) -> Vector2:
 	return PlotScaleScript.sheet_size_points(plotter_sheet(sheet), portrait)
 
-
 # --- the layout, as data -----------------------------------------------------------------------
 
 
 ## Everything the page draws, positioned. See the file comment for why this is separate from the
 ## drawing: a layout that can be read is a layout that can be tested.
-static func plan_page(invoice: InvoiceScript, options: Dictionary = {}) -> Dictionary:
+static func plan_page(invoice: InvoiceScript, options: Dictionary = { }) -> Dictionary:
 	var sheet: String = String(options.get("sheet", DEFAULT_SHEET)).to_upper()
 	var portrait: bool = bool(options.get("portrait", true))
 	var page_mm: Vector2 = page_size_mm(sheet, portrait)
@@ -270,16 +269,20 @@ static func line_rows(invoice: InvoiceScript) -> Array[Dictionary]:
 		var held: Dictionary = invoice.line(index)
 		var amount: MoneyScript = held.get("amount", null)
 		var rate: MoneyScript = held.get("rate", null)
-		out.append({
-			"kind": int(held.get("kind", InvoiceScript.MILESTONE_LINE)),
-			"description": String(held.get("description", "")),
-			"quantity_text": _quantity_text(int(held.get("quantity_milli", InvoiceScript.QUANTITY_MILLI)),
-				String(held.get("unit", ""))),
-			"rate_text": _money_text(rate),
-			"amount_text": _money_text(amount),
-			"amount": amount,
-			"deduction": false,
-		})
+		out.append(
+			{
+				"kind": int(held.get("kind", InvoiceScript.MILESTONE_LINE)),
+				"description": String(held.get("description", "")),
+				"quantity_text": _quantity_text(
+					int(held.get("quantity_milli", InvoiceScript.QUANTITY_MILLI)),
+					String(held.get("unit", "")),
+				),
+				"rate_text": _money_text(rate),
+				"amount_text": _money_text(amount),
+				"amount": amount,
+				"deduction": false,
+			}
+		)
 	return out
 
 
@@ -306,21 +309,25 @@ static func totals_rows(invoice: InvoiceScript) -> Array[Dictionary]:
 		out.append(_figure_row(caption, charged, false))
 	var retained: MoneyScript = figures["retainage"]
 	if retained != null and retained.is_valid() and not retained.is_zero():
-		out.append({
-			"caption": "Less retainage withheld",
-			"value_text": _money_text(retained.neg()),
-			"emphasis": false,
-			"deduction": true,
-		})
+		out.append(
+			{
+				"caption": "Less retainage withheld",
+				"value_text": _money_text(retained.neg()),
+				"emphasis": false,
+				"deduction": true,
+			}
+		)
 	out.append(_figure_row("Total", figures["total"], true))
 	var applied: MoneyScript = figures["applied"]
 	if applied != null and applied.is_valid() and not applied.is_zero():
-		out.append({
-			"caption": "Payments received",
-			"value_text": _money_text(applied.neg()),
-			"emphasis": false,
-			"deduction": true,
-		})
+		out.append(
+			{
+				"caption": "Payments received",
+				"value_text": _money_text(applied.neg()),
+				"emphasis": false,
+				"deduction": true,
+			}
+		)
 	out.append(_figure_row("Balance due", figures["balance"], true))
 	return out
 
@@ -332,17 +339,16 @@ static func payment_rows(invoice: InvoiceScript) -> Array[String]:
 		out.append(entry.describe())
 	return out
 
-
 # --- drawing it --------------------------------------------------------------------------------
 
 
 ## The page, as bytes a customer can open. The same writer that plots a landscape sheet draws this,
 ## at true paper millimetres, so an invoice and a plan come out of one program that measures paper
 ## the same way in both.
-static func export_pdf(invoice: InvoiceScript, options: Dictionary = {}) -> PackedByteArray:
+static func export_pdf(invoice: InvoiceScript, options: Dictionary = { }) -> PackedByteArray:
 	var plan: Dictionary = plan_page(invoice, options)
 	var page_mm: Vector2 = plan["page_mm"]
-	var writer = PdfWriterScript.new()
+	var writer := PdfWriterScript.new()
 	writer.begin_page(page_mm.x * POINTS_PER_MM, page_mm.y * POINTS_PER_MM)
 
 	_emit_header(writer, plan)
@@ -353,7 +359,7 @@ static func export_pdf(invoice: InvoiceScript, options: Dictionary = {}) -> Pack
 	return writer.build()
 
 
-static func _emit_header(writer, plan: Dictionary) -> void:
+static func _emit_header(writer: DraftPdfWriter, plan: Dictionary) -> void:
 	var header: Dictionary = plan["header"]
 	var left: float = _pt(plan["left_mm"])
 	var right: float = _pt(plan["right_mm"])
@@ -363,8 +369,11 @@ static func _emit_header(writer, plan: Dictionary) -> void:
 	# right of the picture when there is one.
 	var name_x: float = _pt(float(header["name_x_mm"]))
 	writer.set_fill_colour(Color.BLACK)
-	writer.draw_text(Vector2(name_x, _baseline(plan, TOP_MM, TITLE_TEXT_MM)), String(header["name"]),
-		_pt(TITLE_TEXT_MM))
+	writer.draw_text(
+		Vector2(name_x, _baseline(plan, TOP_MM, TITLE_TEXT_MM)),
+		String(header["name"]),
+		_pt(TITLE_TEXT_MM),
+	)
 	writer.set_fill_colour(CAPTION_COLOUR)
 	var y_mm: float = float(header["address_y"])
 	var step_mm: float = float(header["address_step"])
@@ -407,8 +416,8 @@ static func _emit_header(writer, plan: Dictionary) -> void:
 ## measures millimetres down from the top edge; the writer draws with y running up from the bottom, so
 ## the rectangle's foot is `page_height - (top + height)`. Passing the from-the-top number straight
 ## through is the fault that put every rule on this page at its mirror height (see `_rule`).
-static func _emit_logo(writer, plan: Dictionary) -> void:
-	var logo: Dictionary = (plan["header"] as Dictionary).get("logo", {})
+static func _emit_logo(writer: DraftPdfWriter, plan: Dictionary) -> void:
+	var logo: Dictionary = (plan["header"] as Dictionary).get("logo", { })
 	if logo.is_empty():
 		return
 	var image: Image = logo_image(String(logo.get("path", "")))
@@ -416,18 +425,27 @@ static func _emit_logo(writer, plan: Dictionary) -> void:
 		return
 	var page_mm: Vector2 = plan["page_mm"]
 	var rect_mm: Rect2 = logo["rect_mm"]
-	writer.place_image(image, Rect2(
-		_pt(rect_mm.position.x),
-		(page_mm.y - rect_mm.end.y) * POINTS_PER_MM,
-		_pt(rect_mm.size.x),
-		_pt(rect_mm.size.y)
-	))
+	writer.place_image(
+		image,
+		Rect2(
+			_pt(rect_mm.position.x),
+			(page_mm.y - rect_mm.end.y) * POINTS_PER_MM,
+			_pt(rect_mm.size.x),
+			_pt(rect_mm.size.y),
+		),
+	)
 
 
 ## A party's lines: the first is the name and the rest are its address, so only the name is drawn in
 ## full black. All of them are clipped to the half of the page the block owns.
-static func _emit_block(writer, plan: Dictionary, x_points: float, first_mm: float, step_mm: float,
-		lines: Array) -> void:
+static func _emit_block(
+	writer: DraftPdfWriter,
+	plan: Dictionary,
+	x_points: float,
+	first_mm: float,
+	step_mm: float,
+	lines: Array,
+) -> void:
 	var room: float = _pt(float(plan["printable_mm"]) * 0.46)
 	var y_mm: float = first_mm
 	for index in lines.size():
@@ -436,13 +454,13 @@ static func _emit_block(writer, plan: Dictionary, x_points: float, first_mm: flo
 		writer.draw_text(
 			Vector2(x_points, _baseline(plan, y_mm, size)),
 			clipped_text(writer, String(lines[index]), _pt(size), room),
-			_pt(size)
+			_pt(size),
 		)
 		y_mm += step_mm
 	writer.set_fill_colour(Color.BLACK)
 
 
-static func _emit_table(writer, plan: Dictionary) -> void:
+static func _emit_table(writer: DraftPdfWriter, plan: Dictionary) -> void:
 	var table: Dictionary = plan["table"]
 	var columns: Dictionary = plan["columns"]
 	var left: float = _pt(plan["left_mm"])
@@ -465,7 +483,7 @@ static func _emit_table(writer, plan: Dictionary) -> void:
 		writer.draw_text(
 			Vector2(left, baseline),
 			clipped_text(writer, String(entry["description"]), _pt(BODY_TEXT_MM), description_room),
-			_pt(BODY_TEXT_MM)
+			_pt(BODY_TEXT_MM),
 		)
 		writer.set_fill_colour(CAPTION_COLOUR)
 		_draw_right(writer, String(entry["quantity_text"]), _pt(columns["qty_right_mm"]), baseline, _pt(SMALL_TEXT_MM))
@@ -477,7 +495,7 @@ static func _emit_table(writer, plan: Dictionary) -> void:
 
 ## The totals block: a heading, a rule starting at the heading's own left edge, the figures against the
 ## right margin, and the balance in the large type a customer's eye lands on.
-static func _emit_totals(writer, plan: Dictionary) -> void:
+static func _emit_totals(writer: DraftPdfWriter, plan: Dictionary) -> void:
 	var totals: Dictionary = plan["totals"]
 	var rows: Array = totals["rows"]
 	var block_left_mm: float = float(plan["left_mm"]) + float(plan["printable_mm"]) * 0.45
@@ -497,43 +515,50 @@ static func _emit_totals(writer, plan: Dictionary) -> void:
 	_rule(writer, plan, float(totals["rule_y"]), _pt(block_left_mm), right)
 
 
-static func _emit_payments(writer, plan: Dictionary) -> void:
+static func _emit_payments(writer: DraftPdfWriter, plan: Dictionary) -> void:
 	var payments: Dictionary = plan["payments"]
 	var rows: Array = payments["rows"]
 	if rows.is_empty():
 		return
-	_draw_caption(writer, plan, float(plan["left_mm"]), float(payments["caption_y"]),
-		String(payments["caption"]))
+	_draw_caption(writer, plan, float(plan["left_mm"]), float(payments["caption_y"]), String(payments["caption"]))
 	var y_mm: float = float(payments["first_y"])
 	for entry in rows:
 		writer.set_fill_colour(CAPTION_COLOUR)
 		writer.draw_text(
 			Vector2(_pt(plan["left_mm"]), _baseline(plan, y_mm, SMALL_TEXT_MM)),
-			clipped_text(writer, String(entry), _pt(SMALL_TEXT_MM),
-				_pt(float(plan["printable_mm"]) * 0.6)),
-			_pt(SMALL_TEXT_MM)
+			clipped_text(writer, String(entry), _pt(SMALL_TEXT_MM), _pt(float(plan["printable_mm"]) * 0.6)),
+			_pt(SMALL_TEXT_MM),
 		)
 		y_mm += float(payments["step"])
 	writer.set_fill_colour(Color.BLACK)
 
 
-static func _emit_footer(writer, plan: Dictionary) -> void:
+static func _emit_footer(writer: DraftPdfWriter, plan: Dictionary) -> void:
 	var footer: Dictionary = plan["footer"]
 	var left: float = _pt(plan["left_mm"])
 	var right: float = _pt(plan["right_mm"])
 	_rule(writer, plan, float(footer["y"]) - 3.0, left, right)
 	writer.set_fill_colour(CAPTION_COLOUR)
-	writer.draw_text(Vector2(left, _baseline(plan, float(footer["y"]) + 4.0, SMALL_TEXT_MM)),
-		String(footer["text"]), _pt(SMALL_TEXT_MM))
-	_draw_right(writer, String(footer["page_text"]), right,
-		_baseline(plan, float(footer["y"]) + 4.0, SMALL_TEXT_MM), _pt(SMALL_TEXT_MM))
+	writer.draw_text(
+		Vector2(left, _baseline(plan, float(footer["y"]) + 4.0, SMALL_TEXT_MM)),
+		String(footer["text"]),
+		_pt(SMALL_TEXT_MM),
+	)
+	_draw_right(
+		writer,
+		String(footer["page_text"]),
+		right,
+		_baseline(plan, float(footer["y"]) + 4.0, SMALL_TEXT_MM),
+		_pt(SMALL_TEXT_MM),
+	)
 	var note: String = String(footer["note"])
 	if not note.is_empty():
-		writer.draw_text(Vector2(left, _baseline(plan, float(footer["y"]) + 8.0, SMALL_TEXT_MM)),
+		writer.draw_text(
+			Vector2(left, _baseline(plan, float(footer["y"]) + 8.0, SMALL_TEXT_MM)),
 			clipped_text(writer, note, _pt(SMALL_TEXT_MM), _pt(float(plan["printable_mm"]))),
-			_pt(SMALL_TEXT_MM))
+			_pt(SMALL_TEXT_MM),
+		)
 	writer.set_fill_colour(Color.BLACK)
-
 
 # --- the company logo -------------------------------------------------------------------------
 
@@ -548,24 +573,21 @@ static func _emit_footer(writer, plan: Dictionary) -> void:
 ## shorter rather than squashed.
 static func logo_placement(path: String, printable_mm: float) -> Dictionary:
 	if path.strip_edges().is_empty():
-		return {}
+		return { }
 	var info: Dictionary = UnderlayScript.sniff(path)
 	if not bool(info.get("ok", false)):
-		return {}
+		return { }
 	var width_px := int(info.get("width_px", 0))
 	var height_px := int(info.get("height_px", 0))
 	if width_px <= 0 or height_px <= 0:
-		return {}
+		return { }
 	var width_mm: float = LOGO_HEIGHT_MM * float(width_px) / float(height_px)
 	var height_mm: float = LOGO_HEIGHT_MM
 	var cap_mm: float = printable_mm * LOGO_MAX_WIDTH_FRACTION
 	if width_mm > cap_mm:
 		width_mm = cap_mm
 		height_mm = width_mm * float(height_px) / float(width_px)
-	return {
-		"path": path,
-		"rect_mm": Rect2(MARGIN_MM, LOGO_TOP_MM, width_mm, height_mm),
-	}
+	return { "path": path, "rect_mm": Rect2(MARGIN_MM, LOGO_TOP_MM, width_mm, height_mm) }
 
 
 ## The picture at `path` as an Image, at the one moment a page is drawn, or null. It is **flattened
@@ -589,21 +611,17 @@ static func logo_image(path: String) -> Image:
 	flattened.convert(Image.FORMAT_RGB8)
 	return flattened
 
-
 # --- small shared pieces -----------------------------------------------------------------------
 
 
 ## The width law the writer uses, applied to a column: a caption that would run into the next column
 ## is shortened and says so with dots, which is a page short of room rather than a mistake.
-static func clipped_text(writer, text: String, size_points: float, room_points: float) -> String:
-	if room_points <= 0.0:
-		return ""
-	if writer.text_width(text, size_points) <= room_points:
-		return text
-	var clipped := text
-	while not clipped.is_empty() and writer.text_width(clipped + "...", size_points) > room_points:
-		clipped = clipped.substr(0, clipped.length() - 1)
-	return clipped + "..."
+##
+## The rule itself is `SheetExporter`'s rather than a second copy of it here. A caption that fits on a
+## plan and a caption that fits on an invoice are one question asked of one writer, and two answers to
+## it could only ever be one page disagreeing with the other.
+static func clipped_text(writer: DraftPdfWriter, text: String, size_points: float, room_points: float) -> String:
+	return SheetExporterScript.clipped_text(writer, text, size_points, room_points)
 
 
 ## A line of a table read as text, for a test or a log: what the row says, in one line.
@@ -620,21 +638,19 @@ static func row_text(row: Dictionary) -> String:
 static func tax_text(invoice: InvoiceScript) -> String:
 	var parts := PackedStringArray()
 	for entry in invoice.tax_lines():
-		parts.append("%s on %s: %s" % [
-			TaxScript.describe(StringName(entry["tax_code"])),
-			_money_text(entry["taxable"]),
-			_money_text(entry["tax"]),
-		])
+		parts.append(
+			"%s on %s: %s"
+			% [
+				TaxScript.describe(StringName(entry["tax_code"])),
+				_money_text(entry["taxable"]),
+				_money_text(entry["tax"]),
+			]
+		)
 	return ", ".join(parts)
 
 
 static func _figure_row(caption: String, amount: MoneyScript, emphasis: bool) -> Dictionary:
-	return {
-		"caption": caption,
-		"value_text": _money_text(amount),
-		"emphasis": emphasis,
-		"deduction": false,
-	}
+	return { "caption": caption, "value_text": _money_text(amount), "emphasis": emphasis, "deduction": false }
 
 
 ## A figure as a customer reads it. An amount the invoice cannot read is a dash, which is the same
@@ -694,11 +710,11 @@ static func _note_text(invoice: InvoiceScript, dropped: int, dropped_header: int
 ## room for is counted rather than drawn over the rule, and the count reaches the foot of the page.
 static func _capped(lines: Array[String], limit: int) -> Dictionary:
 	if lines.size() <= limit:
-		return {"lines": lines, "dropped": 0}
+		return { "lines": lines, "dropped": 0 }
 	var kept: Array[String] = []
 	for index in limit:
 		kept.append(lines[index])
-	return {"lines": kept, "dropped": lines.size() - limit}
+	return { "lines": kept, "dropped": lines.size() - limit }
 
 
 ## A party's own lines: the first is the name, the rest are its address.
@@ -742,7 +758,6 @@ static func _lines(value) -> Array[String]:
 		out.append((value as String).strip_edges())
 	return out
 
-
 # --- paper arithmetic --------------------------------------------------------------------------
 
 
@@ -757,13 +772,19 @@ static func _baseline(plan: Dictionary, top_mm: float, size_mm: float) -> float:
 	return (page_mm.y - top_mm - size_mm) * POINTS_PER_MM
 
 
-static func _draw_right(writer, text: String, right_points: float, baseline: float, size_points: float) -> void:
+static func _draw_right(
+	writer: DraftPdfWriter,
+	text: String,
+	right_points: float,
+	baseline: float,
+	size_points: float,
+) -> void:
 	if text.is_empty():
 		return
 	writer.draw_text(Vector2(right_points - writer.text_width(text, size_points), baseline), text, size_points)
 
 
-static func _draw_caption(writer, plan: Dictionary, x_mm: float, top_mm: float, text: String) -> void:
+static func _draw_caption(writer: DraftPdfWriter, plan: Dictionary, x_mm: float, top_mm: float, text: String) -> void:
 	writer.set_fill_colour(CAPTION_COLOUR)
 	writer.draw_text(Vector2(_pt(x_mm), _baseline(plan, top_mm, SMALL_TEXT_MM)), text, _pt(SMALL_TEXT_MM))
 	writer.set_fill_colour(Color.BLACK)
@@ -777,7 +798,13 @@ static func _draw_caption(writer, plan: Dictionary, x_mm: float, top_mm: float, 
 ## sat at its mirrored height - the table rule through the column headings, the totals rule through
 ## the totals heading, and nothing in a set of coordinate tests or a reading of the words to say so.
 ## A render said so, and `test_no_rule_is_drawn_through_a_line_of_text` now says so.
-static func _rule(writer, plan: Dictionary, top_mm: float, from_points: float, to_points: float) -> void:
+static func _rule(
+	writer: DraftPdfWriter,
+	plan: Dictionary,
+	top_mm: float,
+	from_points: float,
+	to_points: float,
+) -> void:
 	var page_mm: Vector2 = plan["page_mm"]
 	var y_points: float = (page_mm.y - top_mm) * POINTS_PER_MM
 	writer.save_state()

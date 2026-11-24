@@ -30,7 +30,6 @@ func _engine(entities: Array):
 	engine.bind(entities)
 	return engine
 
-
 # --- spatial grid -------------------------------------------------------------------
 
 
@@ -84,7 +83,6 @@ func test_grid_cell_maths() -> void:
 	assert(Grid.cell_of(Vector2(-0.01, -4.5), 4.0) == Vector2i(-1, -2))
 	assert(Grid.cell_span_for(Rect2(0, 0, 4, 4), 4.0) == 4)
 	assert(Grid.cell_span_for(Rect2(0, 0, 600, 600), 4.0) == 22801)
-
 
 # --- snap priority ------------------------------------------------------------------
 
@@ -151,15 +149,11 @@ func test_binding_clears_the_lock() -> void:
 	engine.bind([_line(2, Vector2(1, 1), Vector2(5, 1))])
 	assert(engine.locked_point().is_equal_approx(Vector2.ZERO))
 
-
 # --- candidate kinds ----------------------------------------------------------------
 
 
 func test_intersections_are_found_where_two_entities_cross() -> void:
-	var engine = _engine([
-		_line(1, Vector2(0, 0), Vector2(4, 0)),
-		_line(2, Vector2(2, -2), Vector2(2, 2)),
-	])
+	var engine = _engine([_line(1, Vector2(0, 0), Vector2(4, 0)), _line(2, Vector2(2, -2), Vector2(2, 2))])
 	var result: Dictionary = engine.resolve(Vector2(2.0, 0.0), 100.0)
 	assert(result["mode"] == Snap.Mode.INTERSECTION)
 	assert(result["point"].is_equal_approx(Vector2(2, 0)))
@@ -169,14 +163,8 @@ func test_intersections_are_found_where_two_entities_cross() -> void:
 ## restricted to what the aperture already selected, so this pins the
 ## restriction: a crossing elsewhere on the plan must not contribute here.
 func test_intersections_come_only_from_nearby_entities() -> void:
-	var near := [
-		_line(1, Vector2(0, 0), Vector2(4, 0)),
-		_line(2, Vector2(2, -2), Vector2(2, 2)),
-	]
-	var far := [
-		_line(3, Vector2(0, 50), Vector2(4, 50)),
-		_line(4, Vector2(2, 48), Vector2(2, 52)),
-	]
+	var near := [_line(1, Vector2(0, 0), Vector2(4, 0)), _line(2, Vector2(2, -2), Vector2(2, 2))]
+	var far := [_line(3, Vector2(0, 50), Vector2(4, 50)), _line(4, Vector2(2, 48), Vector2(2, 52))]
 	var engine = _engine(near + far)
 	var here: Dictionary = engine.resolve(Vector2(2.0, 0.0), 100.0)
 	assert(here["mode"] == Snap.Mode.INTERSECTION)
@@ -222,9 +210,7 @@ func test_an_arc_gives_its_ends_and_its_midpoint() -> void:
 
 
 func test_polyline_vertices_and_segment_midpoints() -> void:
-	var entity = Entity.make_polyline(PackedVector2Array([
-		Vector2(0, 0), Vector2(4, 0), Vector2(4, 6),
-	]))
+	var entity = Entity.make_polyline(PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 6)]))
 	entity.id = 1
 	var engine = _engine([entity])
 	var vertex: Dictionary = engine.resolve(Vector2(4.0, 0.03), 100.0)
@@ -279,7 +265,6 @@ func test_disabling_a_mode_drops_its_candidates() -> void:
 	var result: Dictionary = engine.resolve(Vector2(0.3, 0.01), 10.0)
 	assert(result["mode"] != Snap.Mode.ENDPOINT)
 
-
 # --- constraints --------------------------------------------------------------------
 
 
@@ -330,3 +315,28 @@ func test_constraints_do_nothing_without_a_previous_point() -> void:
 	# Grid still applies; ortho needs something to be orthogonal to.
 	assert(result["mode"] == Snap.Mode.GRID)
 	assert(result["point"].is_equal_approx(Vector2(1.0, 5.0)))
+
+
+func test_a_held_shift_holds_the_point_to_the_axes_without_the_setting() -> void:
+	var engine = _engine([])
+	assert(not engine.ortho, "the setting is off to begin with")
+	# The held-Shift case: ortho for this call only, without the drawing's setting being touched.
+	var along: Dictionary = engine.resolve(Vector2(3.0, 0.4), 100.0, Vector2(0, 0), true, true)
+	assert(along["point"].is_equal_approx(Vector2(3, 0)), "held straight along the axis")
+	assert(bool(along["snapped"]), "and it is a snap")
+	engine.clear_lock()
+	var upright: Dictionary = engine.resolve(Vector2(0.4, 3.0), 100.0, Vector2(0, 0), true, true)
+	assert(upright["point"].is_equal_approx(Vector2(0, 3)))
+	# Released, with the setting still off, the point is left where it is.
+	engine.clear_lock()
+	var free: Dictionary = engine.resolve(Vector2(3.0, 0.4), 100.0, Vector2(0, 0), true)
+	assert(Vector2(free["point"]).is_equal_approx(Vector2(3.0, 0.4)), "released, the point is the cursor")
+
+
+func test_a_held_shift_still_lets_an_exact_snap_win() -> void:
+	var engine = _engine([_line(1, Vector2(0, 0), Vector2(4, 0))])
+	# An endpoint within the aperture beats the constraint, exactly as it does for the ortho setting:
+	# a held Shift is a convenience, not a licence to move a point off what it is snapped to.
+	var result: Dictionary = engine.resolve(Vector2(0.02, 0.02), 100.0, Vector2(0, 0), true, true)
+	assert(result["mode"] == Snap.Mode.ENDPOINT, "the exact snap wins")
+	assert(result["point"].is_equal_approx(Vector2(0, 0)))

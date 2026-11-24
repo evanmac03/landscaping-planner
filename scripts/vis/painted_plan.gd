@@ -47,7 +47,7 @@ const PlanCanvasScript := preload("res://scripts/plan_canvas.gd")
 ## second one would silently win.
 var _busy: bool = false
 ## What the last image was a picture of.
-var _report: Dictionary = {}
+var _report: Dictionary = { }
 
 
 func is_busy() -> bool:
@@ -60,10 +60,10 @@ func last_report() -> Dictionary:
 
 
 ## The drafting document, or null when the scene has no drafting controller.
-func document():
+func document() -> DraftDocument:
 	if view_controller == null:
 		return null
-	var controller = view_controller.draft_controller()
+	var controller := view_controller.draft_controller()
 	return controller.document if controller != null else null
 
 
@@ -92,7 +92,7 @@ func props() -> Array[Node3D]:
 func paint_bounds() -> Rect2:
 	var box := Rect2()
 	var empty := true
-	var doc = document()
+	var doc := document()
 	if doc != null and int(doc.count()) > 0:
 		box = doc.bounds()
 		empty = false
@@ -136,7 +136,7 @@ func render() -> Image:
 		return null
 	var bounds := paint_bounds()
 	_busy = true
-	var doc = document()
+	var doc := document()
 	var look := _look()
 	var plants := props()
 	# Supersampling is the antialiasing: there is no 2D MSAA on this renderer, so the
@@ -168,9 +168,7 @@ func render() -> Image:
 	var compositor := SketchCompositorScript.new()
 	compositor.name = "SketchCompositor"
 	add_child(compositor)
-	var composited: Image = await compositor.composite(
-		wash_layer, ink_layer, baked["pixel_size"], look, paper_mm
-	)
+	var composited: Image = await compositor.composite(wash_layer, ink_layer, baked["pixel_size"], look, paper_mm)
 	compositor.queue_free()
 	# The layers go once the composite has them: they are render targets, and holding
 	# them past their use is memory spent on a picture that already exists.
@@ -195,7 +193,7 @@ func render() -> Image:
 		image.resize(
 			maxi(1, int(float(image.get_width()) / float(scale_factor))),
 			maxi(1, int(float(image.get_height()) / float(scale_factor))),
-			Image.INTERPOLATE_LANCZOS
+			Image.INTERPOLATE_LANCZOS,
 		)
 	_report = _make_report(image, bounds)
 	painted.emit(image, _report)
@@ -237,9 +235,9 @@ func paper_colour() -> Color:
 ## What this image is a picture of: the sheet, the scale, and how much of the drawing
 ## reached the paper.
 func _make_report(image: Image, bounds: Rect2) -> Dictionary:
-	var by_layer: Dictionary = {}
+	var by_layer: Dictionary = { }
 	var regions := 0
-	var doc = document()
+	var doc := document()
 	if doc != null:
 		var painter := WashPainterScript.new(doc, plot_scale, props())
 		for entry: Dictionary in painter.regions():
@@ -271,12 +269,12 @@ func _record_for_file(image: Image) -> Dictionary:
 		"paper_mm": [paper_mm.x, paper_mm.y],
 		"plot_scale": plot_scale,
 		"look": _look().describe(),
-		"document": {"entities": _entity_count()},
+		"document": { "entities": _entity_count() },
 		"props": props().size(),
 		"godot": Engine.get_version_info()["string"],
 	}
 
 
 func _entity_count() -> int:
-	var doc = document()
+	var doc := document()
 	return int(doc.count()) if doc != null else 0

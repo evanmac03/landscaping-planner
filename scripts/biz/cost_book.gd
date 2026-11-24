@@ -35,11 +35,11 @@ var currency: StringName = &"CAD"
 var source: String = ""
 ## StringName -> CostItem. Keyed by the item's own id, and a query with either a String or a
 ## StringName finds it, which matters because JSON hands keys back as Strings.
-var items: Dictionary = {}
-var kits: Dictionary = {}
+var items: Dictionary = { }
+var kits: Dictionary = { }
 ## StringName -> the same entry shape `Tax.SHIPPED` uses, so a business may ship its own codes with
 ## its book without a new build.
-var tax_codes: Dictionary = {}
+var tax_codes: Dictionary = { }
 ## Entries a loaded file carried that could not be used, with the reason. A kit that was in the
 ## file and is not in this book is not a detail to swallow: a price list that quietly lost a recipe
 ## is a price list that will price the work wrongly, and it will do it silently.
@@ -55,7 +55,6 @@ static func make(book_version: int, effective: String, code: StringName = &"CAD"
 	var book: CostBook = (load("res://scripts/biz/cost_book.gd") as GDScript).new(book_version, effective)
 	book.currency = code
 	return book
-
 
 # --- items ------------------------------------------------------------------------------
 
@@ -106,7 +105,6 @@ func item_ids() -> Array[StringName]:
 static func _by_name(first: StringName, second: StringName) -> bool:
 	return String(first).naturalnocasecmp_to(String(second)) < 0
 
-
 # --- kits -------------------------------------------------------------------------------
 
 
@@ -143,7 +141,6 @@ func kit_ids() -> Array[StringName]:
 	out.sort_custom(_by_name)
 	return out
 
-
 # --- tax codes --------------------------------------------------------------------------
 
 
@@ -167,7 +164,6 @@ func add_tax_code(id: StringName, entry: Dictionary) -> bool:
 	tax_codes[id] = entry.duplicate(true)
 	return true
 
-
 # --- expansion --------------------------------------------------------------------------
 
 
@@ -185,23 +181,17 @@ func expand_kit(kit_id: StringName, made_milli: int = 1000) -> Dictionary:
 	var out: Array = []
 	var reason: String = _expand_into(kit_id, made_milli, [], out, &"")
 	if not reason.is_empty():
-		return {"ok": false, "reason": reason, "lines": []}
-	return {"ok": true, "reason": "", "lines": out}
+		return { "ok": false, "reason": reason, "lines": [] }
+	return { "ok": true, "reason": "", "lines": out }
 
 
-func _expand_into(
-	kit_id: StringName, made_milli: int, chain: Array, out: Array, named_by: StringName
-) -> String:
+func _expand_into(kit_id: StringName, made_milli: int, chain: Array, out: Array, named_by: StringName) -> String:
 	if chain.has(kit_id):
 		return "cost kit %s is circular: %s" % [kit_id, _chain_text(chain, kit_id)]
 	if chain.size() >= MAX_DEPTH:
-		return "cost kit %s nests deeper than %d: %s" % [
-			kit_id, MAX_DEPTH, _chain_text(chain, kit_id)
-		]
+		return "cost kit %s nests deeper than %d: %s" % [kit_id, MAX_DEPTH, _chain_text(chain, kit_id)]
 	if made_milli <= 0:
-		return "cost kit %s was asked for a quantity of %d, which is not a quantity" % [
-			kit_id, made_milli
-		]
+		return "cost kit %s was asked for a quantity of %d, which is not a quantity" % [kit_id, made_milli]
 	var recipe: CostKit = self.kit(kit_id)
 	if recipe == null:
 		return "there is no cost kit %s in this book%s" % [kit_id, _named_by_text(named_by)]
@@ -209,9 +199,7 @@ func _expand_into(
 	for index in recipe.lines.size():
 		var line: Dictionary = recipe.line_at(index)
 		var line_id: StringName = line["item_id"]
-		var quantity: int = KitScript.scaled_quantity(
-			int(line["quantity_milli"]), made_milli, recipe.yield_milli
-		)
+		var quantity: int = KitScript.scaled_quantity(int(line["quantity_milli"]), made_milli, recipe.yield_milli)
 		if quantity <= 0:
 			# A ratio so small that a recipe line rounds away: not an error, but it must not be
 			# reported as a line that was priced, so it is left out and the reason is the maths.
@@ -224,18 +212,18 @@ func _expand_into(
 			continue
 		var resolved: CostItem = self.item(line_id)
 		if resolved == null:
-			return "cost kit %s names %s, which is not an item or a kit in this book" % [
-				kit_id, line_id
-			]
-		out.append({
-			"item_id": resolved.id,
-			"quantity_milli": quantity,
-			"unit": resolved.unit,
-			"kind": resolved.kind,
-			"cost_code": resolved.cost_code,
-			"tax_code": resolved.tax_code,
-			"note": String(line["note"]) if not String(line["note"]).is_empty() else resolved.note,
-		})
+			return "cost kit %s names %s, which is not an item or a kit in this book" % [kit_id, line_id]
+		out.append(
+			{
+				"item_id": resolved.id,
+				"quantity_milli": quantity,
+				"unit": resolved.unit,
+				"kind": resolved.kind,
+				"cost_code": resolved.cost_code,
+				"tax_code": resolved.tax_code,
+				"note": String(line["note"]) if not String(line["note"]).is_empty() else resolved.note,
+			}
+		)
 	chain.pop_back()
 	return ""
 
@@ -274,9 +262,7 @@ func problems() -> Array[String]:
 			out.append(problem)
 			continue
 		if found_item.rate.currency != currency:
-			out.append("cost item %s is priced in %s, and the book is in %s" % [
-				id, found_item.rate.currency, currency
-			])
+			out.append("cost item %s is priced in %s, and the book is in %s" % [id, found_item.rate.currency, currency])
 		if not found_item.tax_code.is_empty() and not has_tax_code(found_item.tax_code):
 			out.append("cost item %s names tax code %s, which is not a code" % [id, found_item.tax_code])
 	for id: StringName in kit_ids():
@@ -305,9 +291,13 @@ func kit_count() -> int:
 
 func describe() -> String:
 	return "Cost book v%d (%s), %d item%s, %d kit%s, %s" % [
-		version, effective_from if not effective_from.is_empty() else "no date",
-		items.size(), "" if items.size() == 1 else "s",
-		kits.size(), "" if kits.size() == 1 else "s", currency,
+		version,
+		effective_from if not effective_from.is_empty() else "no date",
+		items.size(),
+		"" if items.size() == 1 else "s",
+		kits.size(),
+		"" if kits.size() == 1 else "s",
+		currency,
 	]
 
 
@@ -323,20 +313,19 @@ func bump_version(effective: String) -> CostBook:
 	next.effective_from = effective
 	return next
 
-
 # --- persistence ------------------------------------------------------------------------
 
 
 func to_dict() -> Dictionary:
-	var out_items: Dictionary = {}
+	var out_items: Dictionary = { }
 	for key: Variant in items.keys():
 		var stored_item: CostItem = items[key]
 		out_items[String(stored_item.id)] = stored_item.to_dict()
-	var out_kits: Dictionary = {}
+	var out_kits: Dictionary = { }
 	for key: Variant in kits.keys():
 		var stored_kit: CostKit = kits[key]
 		out_kits[String(stored_kit.id)] = stored_kit.to_dict()
-	var out_taxes: Dictionary = {}
+	var out_taxes: Dictionary = { }
 	for key: Variant in tax_codes.keys():
 		var entry: Variant = tax_codes[key]
 		if entry is Dictionary:
@@ -364,7 +353,7 @@ static func from_dict(data: Dictionary) -> CostBook:
 	book.effective_from = String(data.get("effective_from", ""))
 	book.currency = StringName(data.get("currency", "CAD"))
 	book.source = String(data.get("source", ""))
-	var raw_items: Variant = data.get("items", {})
+	var raw_items: Variant = data.get("items", { })
 	if raw_items is Dictionary:
 		for key: Variant in (raw_items as Dictionary).keys():
 			var entry: Variant = (raw_items as Dictionary)[key]
@@ -373,10 +362,10 @@ static func from_dict(data: Dictionary) -> CostBook:
 				continue
 			var loaded_item: CostItem = ItemScript.from_dict(entry)
 			if not book.put_item(loaded_item):
-				book.rejected.append("cost item %s was in the book but is not usable: %s" % [
-					key, loaded_item.problem()
-				])
-	var raw_kits: Variant = data.get("kits", {})
+				book.rejected.append(
+					"cost item %s was in the book but is not usable: %s" % [key, loaded_item.problem()]
+				)
+	var raw_kits: Variant = data.get("kits", { })
 	if raw_kits is Dictionary:
 		for key: Variant in (raw_kits as Dictionary).keys():
 			var entry: Variant = (raw_kits as Dictionary)[key]
@@ -385,10 +374,8 @@ static func from_dict(data: Dictionary) -> CostBook:
 				continue
 			var loaded_kit: CostKit = KitScript.from_dict(entry)
 			if not book.add_kit(loaded_kit):
-				book.rejected.append("cost kit %s was in the book but is not usable: %s" % [
-					key, loaded_kit.problem()
-				])
-	var raw_taxes: Variant = data.get("tax_codes", {})
+				book.rejected.append("cost kit %s was in the book but is not usable: %s" % [key, loaded_kit.problem()])
+	var raw_taxes: Variant = data.get("tax_codes", { })
 	if raw_taxes is Dictionary:
 		for key: Variant in (raw_taxes as Dictionary).keys():
 			var entry: Variant = (raw_taxes as Dictionary)[key]
@@ -403,16 +390,16 @@ func save_to(path: String = DEFAULT_PATH) -> Dictionary:
 	var folder: String = path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(folder):
 		if DirAccess.make_dir_recursive_absolute(folder) != OK:
-			return {"ok": false, "reason": "the folder %s cannot be made" % folder, "path": path}
+			return { "ok": false, "reason": "the folder %s cannot be made" % folder, "path": path }
 	var temp: String = path + TEMP_SUFFIX
 	var file: FileAccess = FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "reason": "the cost book cannot be written to %s" % path, "path": path}
+		return { "ok": false, "reason": "the cost book cannot be written to %s" % path, "path": path }
 	file.store_string(to_json())
 	file.close()
 	if DirAccess.rename_absolute(temp, path) != OK:
-		return {"ok": false, "reason": "the written cost book could not be moved into place", "path": path}
-	return {"ok": true, "reason": "", "path": path}
+		return { "ok": false, "reason": "the written cost book could not be moved into place", "path": path }
+	return { "ok": true, "reason": "", "path": path }
 
 
 ## Read a book from a file. Returns `{ok, reason, book}`.
@@ -423,20 +410,19 @@ func save_to(path: String = DEFAULT_PATH) -> Dictionary:
 static func load_from(path: String = DEFAULT_PATH) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "reason": "there is no cost book at %s" % path, "book": null}
+		return { "ok": false, "reason": "there is no cost book at %s" % path, "book": null }
 	var text: String = file.get_as_text()
 	file.close()
 	var reader := JSON.new()
 	if reader.parse(text) != OK:
 		return {
 			"ok": false,
-			"reason": "%s is not readable JSON: %s (line %d)" % [
-				path, reader.get_error_message(), reader.get_error_line()
-			],
+			"reason": "%s is not readable JSON: %s (line %d)"
+			% [path, reader.get_error_message(), reader.get_error_line()],
 			"book": null,
 		}
 	if not (reader.data is Dictionary):
-		return {"ok": false, "reason": "%s is not a cost book: it is not a JSON object" % path, "book": null}
+		return { "ok": false, "reason": "%s is not a cost book: it is not a JSON object" % path, "book": null }
 	var data: Dictionary = reader.data
 	if not data.has("version"):
 		return {
@@ -444,4 +430,4 @@ static func load_from(path: String = DEFAULT_PATH) -> Dictionary:
 			"reason": "%s has no version, so an estimate priced from it could not say which prices it used" % path,
 			"book": null,
 		}
-	return {"ok": true, "reason": "", "book": from_dict(data)}
+	return { "ok": true, "reason": "", "book": from_dict(data) }

@@ -57,7 +57,6 @@ var folder: String = DEFAULT_FOLDER
 func _init(directory: String = DEFAULT_FOLDER) -> void:
 	folder = directory
 
-
 # --- what this backend is -----------------------------------------------------------------------
 
 
@@ -86,7 +85,7 @@ func capabilities() -> Dictionary:
 
 
 func settings() -> Array[Dictionary]:
-	return [{"key": "folder", "name": "Folder", "secret": false}]
+	return [{ "key": "folder", "name": "Folder", "secret": false }]
 
 
 func setting(key: StringName) -> String:
@@ -109,28 +108,30 @@ func problems() -> Array[String]:
 		return ["a folder of files with no folder to write to"]
 	return []
 
-
 # --- building a push (pure) ---------------------------------------------------------------------
 
 
 func invoice_request(invoice: Invoice, idempotency_key: String) -> Dictionary:
 	var body: Dictionary = invoice_body(invoice, idempotency_key)
-	var headers: Dictionary = {KEY_HEADER: idempotency_key}
+	var headers: Dictionary = { KEY_HEADER: idempotency_key }
 	return asked(INVOICE_KIND, make_request(&"WRITE", path_for(invoice.number, JSON_EXT), headers, body))
 
 
-func payment_request(payment: Payment, invoice: Invoice, idempotency_key: String,
-		_external_invoice_id: String = "") -> Dictionary:
+func payment_request(
+	payment: Payment,
+	invoice: Invoice,
+	idempotency_key: String,
+	_external_invoice_id: String = "",
+) -> Dictionary:
 	var body: Dictionary = payment_body(payment, invoice, idempotency_key)
-	var headers: Dictionary = {KEY_HEADER: idempotency_key}
+	var headers: Dictionary = { KEY_HEADER: idempotency_key }
 	return asked(PAYMENT_KIND, make_request(&"WRITE", path_for(payment.id, JSON_EXT), headers, body))
 
 
 func credit_request(credit: CreditNote, idempotency_key: String) -> Dictionary:
 	var body: Dictionary = credit_body(credit, idempotency_key)
-	var headers: Dictionary = {KEY_HEADER: idempotency_key}
+	var headers: Dictionary = { KEY_HEADER: idempotency_key }
 	return asked(CREDIT_KIND, make_request(&"WRITE", path_for(credit.number, JSON_EXT), headers, body))
-
 
 # --- sending it: the files ----------------------------------------------------------------------
 
@@ -141,46 +142,41 @@ func credit_request(credit: CreditNote, idempotency_key: String) -> Dictionary:
 func send(request: Dictionary) -> Dictionary:
 	var method: String = String(request.get("method", ""))
 	if method != "WRITE":
-		return {"status": 0, "error": "%s cannot send a %s request" % [describe(), method], "body": {}}
-	var body: Dictionary = {}
-	var body_in: Variant = request.get("body", {})
+		return { "status": 0, "error": "%s cannot send a %s request" % [describe(), method], "body": { } }
+	var body: Dictionary = { }
+	var body_in: Variant = request.get("body", { })
 	if body_in is Dictionary:
 		body = body_in
 	var path: String = String(request.get("url", ""))
 	if not _make_folder():
-		return {"status": 0, "error": "the folder %s could not be opened" % folder, "body": {}}
+		return { "status": 0, "error": "the folder %s could not be opened" % folder, "body": { } }
 	if not _write_text(path, JSON.stringify(body, "\t")):
-		return {"status": 0, "error": "the file %s could not be written" % path, "body": {}}
+		return { "status": 0, "error": "the file %s could not be written" % path, "body": { } }
 	var kind: String = String(body.get("kind", "invoice"))
 	if kind == String(INVOICE_KIND):
 		_write_text(path_for(String(body.get("number", "")), CSV_EXT), csv_of(body))
 		_write_text(path_for(String(body.get("number", "")), IIF_EXT), iif_of(body))
 		_append_summary(body)
-	return {
-		"status": 200,
-		"headers": {},
-		"body": {"id": path, "number": String(body.get("number", ""))},
-	}
+	return { "status": 200, "headers": { }, "body": { "id": path, "number": String(body.get("number", "")) } }
 
 
 ## The adapter's "test" button: write a marker into the folder and read it back, which answers "can
 ## this business post an invoice at all" without posting one.
 func self_test() -> Dictionary:
 	if not _make_folder():
-		return {"ok": false, "reason": "the folder %s could not be opened" % folder}
+		return { "ok": false, "reason": "the folder %s could not be opened" % folder }
 	var path: String = folder.path_join("_selftest.txt")
 	var stamp: String = "landscaping-planner ledger self test"
 	if not _write_text(path, stamp):
-		return {"ok": false, "reason": "the folder %s could not be written to" % folder}
+		return { "ok": false, "reason": "the folder %s could not be written to" % folder }
 	var read: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if read == null:
-		return {"ok": false, "reason": "a file was written to %s but could not be read back" % folder}
+		return { "ok": false, "reason": "a file was written to %s but could not be read back" % folder }
 	var got: String = read.get_as_text()
 	read.close()
 	if got != stamp:
-		return {"ok": false, "reason": "a file was written to %s but read back wrong" % folder}
-	return {"ok": true, "reason": "wrote and read back %s" % path}
-
+		return { "ok": false, "reason": "a file was written to %s but read back wrong" % folder }
+	return { "ok": true, "reason": "wrote and read back %s" % path }
 
 # --- the files, as text -------------------------------------------------------------------------
 
@@ -193,8 +189,8 @@ static func csv_of(document: Dictionary) -> String:
 	var customer: String = customer_name_of(document)
 	var rows: Array[String] = [LINE_HEADER]
 	for entry: Dictionary in lines_of(document):
-		var rate: Money = MoneyScript.from_dict(entry.get("rate", {}))
-		var amount: Money = MoneyScript.from_dict(entry.get("amount", {}))
+		var rate: Money = MoneyScript.from_dict(entry.get("rate", { }))
+		var amount: Money = MoneyScript.from_dict(entry.get("amount", { }))
 		var fields := PackedStringArray()
 		fields.append(csv_field(number))
 		fields.append(csv_field(date))
@@ -219,7 +215,7 @@ static func summary_row_of(document: Dictionary) -> String:
 	fields.append(csv_field(String(document.get("due_at", ""))))
 	fields.append(csv_field(customer_name_of(document)))
 	for key: String in ["subtotal", "tax", "retainage_total", "total", "balance"]:
-		fields.append(csv_field(plain_amount(MoneyScript.from_dict(document.get(key, {})))))
+		fields.append(csv_field(plain_amount(MoneyScript.from_dict(document.get(key, { })))))
 	return ",".join(fields)
 
 
@@ -238,21 +234,38 @@ static func iif_of(document: Dictionary) -> String:
 	rows.append(iif_header("TRNS"))
 	rows.append(iif_header("SPL"))
 	rows.append("!ENDTRNS")
-	rows.append(iif_row("TRNS", date, IIF_RECEIVABLE, customer,
-		plain_amount(MoneyScript.from_dict(document.get("total", {}))), number,
-		String(document.get("note", ""))))
+	rows.append(
+		iif_row(
+			"TRNS",
+			date,
+			IIF_RECEIVABLE,
+			customer,
+			plain_amount(MoneyScript.from_dict(document.get("total", { }))),
+			number,
+			String(document.get("note", "")),
+		)
+	)
 	for entry: Dictionary in lines_of(document):
-		var amount: Money = MoneyScript.from_dict(entry.get("amount", {}))
-		rows.append(iif_row("SPL", date, IIF_INCOME, customer, plain_amount(amount.neg()), number,
-			String(entry.get("description", ""))))
-	var tax: Money = MoneyScript.from_dict(document.get("tax", {}))
+		var amount: Money = MoneyScript.from_dict(entry.get("amount", { }))
+		rows.append(
+			iif_row(
+				"SPL",
+				date,
+				IIF_INCOME,
+				customer,
+				plain_amount(amount.neg()),
+				number,
+				String(entry.get("description", "")),
+			)
+		)
+	var tax: Money = MoneyScript.from_dict(document.get("tax", { }))
 	if not tax.is_zero():
-		rows.append(iif_row("SPL", date, IIF_TAX, customer, plain_amount(tax.neg()), number,
-			tax_label_of(document)))
-	var retainage: Money = MoneyScript.from_dict(document.get("retainage_total", {}))
+		rows.append(iif_row("SPL", date, IIF_TAX, customer, plain_amount(tax.neg()), number, tax_label_of(document)))
+	var retainage: Money = MoneyScript.from_dict(document.get("retainage_total", { }))
 	if not retainage.is_zero():
-		rows.append(iif_row("SPL", date, IIF_RETAINAGE, customer, plain_amount(retainage), number,
-			"Retainage withheld"))
+		rows.append(
+			iif_row("SPL", date, IIF_RETAINAGE, customer, plain_amount(retainage), number, "Retainage withheld")
+		)
 	rows.append("ENDTRNS")
 	return CRLF.join(rows) + CRLF
 
@@ -261,8 +274,15 @@ static func iif_header(prefix: String) -> String:
 	return "!" + prefix + TAB + TAB.join(PackedStringArray(IIF_COLUMNS))
 
 
-static func iif_row(kind: String, date: String, account: String, customer: String, amount: String,
-		number: String, memo: String) -> String:
+static func iif_row(
+	kind: String,
+	date: String,
+	account: String,
+	customer: String,
+	amount: String,
+	number: String,
+	memo: String,
+) -> String:
 	var fields := PackedStringArray()
 	fields.append(kind)
 	fields.append(IIF_TRNSTYPE)
@@ -284,7 +304,6 @@ static func iif_date(date: String) -> String:
 	if not parts[0].is_valid_int() or not parts[1].is_valid_int() or not parts[2].is_valid_int():
 		return date
 	return "%s/%s/%s" % [parts[1], parts[2], parts[0]]
-
 
 # --- the small pieces ---------------------------------------------------------------------------
 

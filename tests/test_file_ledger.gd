@@ -35,7 +35,7 @@ func _ledger(tag: String) -> FileLedgerScript:
 func _invoice(tax_code: StringName = &"NONE", retainage_cents: int = 0) -> InvoiceScript:
 	var invoice: InvoiceScript = InvoiceScript.new("INV1")
 	invoice.job = "J1"
-	invoice.customer = {"name": "Smith, back garden"}
+	invoice.customer = { "name": "Smith, back garden" }
 	invoice.add_amount(InvoiceScript.MILESTONE_LINE, "Deposit", MoneyScript.of(50000), &"HARDSCAPE", tax_code)
 	if retainage_cents > 0:
 		invoice.set_retainage(MoneyScript.of(retainage_cents))
@@ -70,7 +70,6 @@ func _rows_of(text: String) -> Array:
 
 func _amount_in(row: String) -> String:
 	return row.split("\t")[5]
-
 
 # --- what this backend is -----------------------------------------------------------------------
 
@@ -107,7 +106,6 @@ func test_the_folder_is_the_one_setting_it_has() -> void:
 	assert(empty.problems()[0].contains("no folder"), empty.problems()[0])
 	# A backend is configured exactly when nothing is wrong with its settings.
 	assert(not empty.is_configured())
-
 
 # --- building and sending -----------------------------------------------------------------------
 
@@ -181,7 +179,7 @@ func test_a_folder_that_cannot_be_reached_fails_the_push_rather_than_pretending(
 
 func test_a_request_that_is_not_a_write_is_refused_rather_than_ignored() -> void:
 	var ledger := _ledger("notawrite")
-	var sent: Dictionary = ledger.send({"method": "POST", "url": "https://example.test", "body": {}})
+	var sent: Dictionary = ledger.send({ "method": "POST", "url": "https://example.test", "body": { } })
 	assert(int(sent["status"]) == 0)
 	assert(String(sent["error"]).contains("cannot send a POST request"), String(sent["error"]))
 
@@ -218,7 +216,6 @@ func test_a_payment_and_a_credit_note_leave_their_own_files() -> void:
 	var text: String = _text(ledger.folder.path_join("CN-2026-0001.json"))
 	assert(text.contains("\"credit\""), text)
 
-
 # --- the files, as text -------------------------------------------------------------------------
 
 
@@ -251,7 +248,12 @@ func test_the_csv_holds_the_invoices_own_lines_and_quotes_what_has_to_be_quoted(
 	assert(rows.size() == 2, str(rows))
 	assert(rows[0] == FileLedgerScript.LINE_HEADER)
 	# The customer's name has a comma in it, so the field is quoted rather than allowed to split the row.
-	assert(String(rows[1]).begins_with("INV-2026-0001,2026-06-10,\"Smith, back garden\",Deposit,EACH,1,500.00,500.00,NONE,HARDSCAPE"), String(rows[1]))
+	assert(
+		String(rows[1]).begins_with(
+			"INV-2026-0001,2026-06-10,\"Smith, back garden\",Deposit,EACH,1,500.00,500.00,NONE,HARDSCAPE"
+		),
+		String(rows[1]),
+	)
 
 
 func test_a_machines_amount_has_no_symbol_and_no_thousands_separator() -> void:
@@ -278,7 +280,6 @@ func test_a_name_usable_as_a_file_name_does_not_become_a_path() -> void:
 	assert(FileLedgerScript.safe_name("a/b c") == "a_b_c")
 	assert(FileLedgerScript.safe_name("") == "document")
 	assert(FileLedgerScript.safe_name("   ") == "document")
-
 
 # --- the QuickBooks import ----------------------------------------------------------------------
 
@@ -341,12 +342,12 @@ func test_the_iif_is_tab_delimited_with_carriage_returns() -> void:
 	var doc: Dictionary = {
 		"number": "INV-2026-0001",
 		"issued_at": "2026-06-10",
-		"customer": {"name": "Smith"},
-		"lines": [{"description": "Deposit", "amount": {"cents": 50000, "currency": "CAD"}}],
-		"subtotal": {"cents": 50000, "currency": "CAD"},
-		"tax": {"cents": 0, "currency": "CAD"},
-		"retainage_total": {"cents": 0, "currency": "CAD"},
-		"total": {"cents": 50000, "currency": "CAD"},
+		"customer": { "name": "Smith" },
+		"lines": [{ "description": "Deposit", "amount": { "cents": 50000, "currency": "CAD" } }],
+		"subtotal": { "cents": 50000, "currency": "CAD" },
+		"tax": { "cents": 0, "currency": "CAD" },
+		"retainage_total": { "cents": 0, "currency": "CAD" },
+		"total": { "cents": 50000, "currency": "CAD" },
 		"tax_lines": [],
 	}
 	var text: String = FileLedgerScript.iif_of(doc)
@@ -356,5 +357,5 @@ func test_the_iif_is_tab_delimited_with_carriage_returns() -> void:
 	assert(text.ends_with("\r\n"))
 	# A tab in a description would split the row it is in.
 	var tabbed: Dictionary = doc.duplicate(true)
-	tabbed["lines"] = [{"description": "a\tb", "amount": {"cents": 100, "currency": "CAD"}}]
+	tabbed["lines"] = [{ "description": "a\tb", "amount": { "cents": 100, "currency": "CAD" } }]
 	assert(not FileLedgerScript.iif_of(tabbed).contains("a\tb"))

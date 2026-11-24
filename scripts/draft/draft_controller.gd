@@ -25,12 +25,14 @@ const SurveyFileScript := preload("res://scripts/draft/survey_file.gd")
 const DxfFileScript := preload("res://scripts/draft/dxf_file.gd")
 const DxfWriterScript := preload("res://scripts/draft/dxf_writer.gd")
 const UnitsScript := preload("res://scripts/draft/units.gd")
+const DistanceEntryScript := preload("res://scripts/draft/distance_entry.gd")
 const OsmFileScript := preload("res://scripts/draft/osm_file.gd")
 const LandXmlFileScript := preload("res://scripts/draft/landxml_file.gd")
 const IrrigationScript := preload("res://scripts/draft/irrigation.gd")
 const LightingScript := preload("res://scripts/draft/lighting.gd")
 const EntityScript := preload("res://scripts/draft/draft_entity.gd")
-const PlantLabelsScript := preload("res://scripts/plant_labels.gd")
+const PlantLabelsScript := preload("res://scripts/plants/plant_labels.gd")
+const ExampleGardenScript := preload("res://scripts/example_garden.gd")
 const SelectScript := preload("res://scripts/draft/draft_select.gd")
 const HatchFillScript := preload("res://scripts/draft/hatch_fill.gd")
 const ZoneMapScript := preload("res://scripts/zone_map.gd")
@@ -69,6 +71,32 @@ enum EditKind {
 	COPY,
 }
 
+## The editing commands: what is done to geometry that already exists.
+##
+## A second table rather than an extension of `DRAFTING_TOOLS`, because the drawing
+## tools are the nine number keys and the edits are their own set of letters - a
+## table that tried to be both would have to lie about one of them.
+const EDIT_TOOLS: Array = [
+	[&"edit_offset", "offset", EditKind.OFFSET, "Draw a new shape a fixed distance out from the one you pick"],
+	[&"edit_trim", "trim", EditKind.TRIM, "Cut the picked piece of a line away at what crosses it"],
+	[&"edit_extend", "extend", EditKind.EXTEND, "Grow the picked end of a line out to the next shape"],
+	[&"edit_fillet", "fillet", EditKind.FILLET, "Round the corner where two lines meet"],
+	[&"edit_erase", "erase", EditKind.ERASE, "Take the picked shape off the drawing"],
+	[
+		&"edit_rotate",
+		"rotate",
+		EditKind.ROTATE,
+		"Turn the picked shape about a point you pick, to the direction you click",
+	],
+	[&"edit_move", "move", EditKind.MOVE, "Move the picked shape: pick a point on it, then click where it should go"],
+	[
+		&"edit_copy",
+		"copy",
+		EditKind.COPY,
+		"Copy the picked shape: pick a point on it, then click where the copy should go",
+	],
+]
+
 ## The words each edit command is introduced by, so the status line, the menu and
 ## the palette cannot call the same command three different things.
 const EDIT_LABELS: Dictionary = {
@@ -95,13 +123,15 @@ const DEFAULT_PICK_METRES := 0.2
 ## hand rather than of any one corner, exactly as it is in a CAD package.
 const DEFAULT_FILLET_RADIUS := 1.0
 
+
 ## Whether a layer holds annotations rather than site features. An edit neither
 ## picks an annotation nor measures against one: trimming a line against the
 ## dimension that describes it would be a drawing editing itself.
 static func is_annotation_layer(layer_name: StringName) -> bool:
 	return layer_name == LayerSetScript.DIMENSION \
-		or layer_name == LayerSetScript.TEXT \
-		or layer_name == LayerSetScript.CALLOUT
+			or layer_name == LayerSetScript.TEXT \
+			or layer_name == LayerSetScript.CALLOUT
+
 
 @export var plan_canvas_path: NodePath = ^"../PlanLayer/PlanCanvas"
 ## The 3D linework overlay, when the scene has one. Optional: drawing works
@@ -119,8 +149,8 @@ var document: DraftDocument = null:
 		# the first time something reaches for the set, would mean a caller that set a field *first* had it
 		# silently overwritten by the adoption it did not know was coming.
 		_adopt_current_sheet()
-var snap
-var tool
+var snap: DraftSnapEngine = null
+var tool: DraftTool = null
 var canvas: Node2D = null
 var overlay: Node = null
 
@@ -133,7 +163,7 @@ var drawing_layer: StringName = LayerSetScript.NEW_HARDSCAPE
 ## tool, so it lives here beside the document.
 var sheet: String = "A3"
 var plot_scale: float = 100.0
-var pen_table = null
+var pen_table: DraftPlotStyleTable = null
 ## The current sheet's *drawing number*, revision and whether it is portrait. Beside the sheet and the
 ## scale because they are the same kind of thing: the current sheet of the set, as the rest of the app
 ## reads it. The set itself (every sheet, in order) is on the document, because it travels in the file
@@ -169,6 +199,12 @@ var revisions: DraftRevisionLog = RevisionLogScript.new()
 ## Whether the drawing has changed since it was last written or read. What decides whether Save
 ## has anything to do, and whether New or Open would throw work away.
 var dirty: bool = false
+
+## The drawings opened recently, and the store's own count of writes to that list as it stood when they were read.
+## Held as a pair, because the count is what says whether the held copy is still the file's - see `recent_drawings`
+## below, where the whole of the reasoning and the measurement behind it live.
+var _recent_paths: Array[String] = []
+var _recent_at_version: int = -1
 
 var cursor_point: Vector2 = Vector2.ZERO
 var cursor_snapped: bool = false
@@ -225,9 +261,15 @@ var grading_fall_percent: float = 2.0
 ## were stamped with it.
 var grading_level: float = 0.0
 
-var _last_snap: Dictionary = {}
+var _last_snap: Dictionary = { }
+## Whether the cursor is snapped at all. True by default: a drawing program that does not snap is
+## one where two points meant to be the same end up a millimetre apart.
+var snapping: bool = true
 
 signal changed()
+## A snapping setting moved: the master switch, one object-snap mode, or one of the constraint
+## toggles. The menu and the snapping page read state on this rather than polling every frame.
+signal snap_changed()
 
 ## The document in hand was *replaced* rather than edited: a drawing was opened, a revision of it was
 ## restored, or a copy of it was recovered. Every holder of a document watches this, because a
@@ -255,7 +297,6 @@ func _ready() -> void:
 		overlay.bind_document(document)
 	_refresh_canvas()
 
-
 # --- tool and layer ------------------------------------------------------------------
 
 
@@ -270,9 +311,11 @@ func set_tool(kind: ToolScript.Kind) -> void:
 	# A ground zone is drawn with the polygon tool for one purpose; choosing another tool, or putting
 	# the tools away, drops the purpose with the tool rather than leaving a click meaning two things.
 	zone_hand = false
+	# A typed length belongs to the shape it was going to finish, so a new tool takes it with it.
+	_clear_distance_entry()
 	tool.begin(kind, _layer_for(kind))
 	snap.clear_lock()
-	_last_snap = {}
+	_last_snap = { }
 	last_message = ""
 	_refresh_canvas()
 
@@ -336,7 +379,6 @@ func arm(kind: ToolScript.Kind) -> void:
 	set_tool(kind)
 	set_drawing(true)
 
-
 # --- editing what is already drawn ----------------------------------------------------
 
 
@@ -349,7 +391,7 @@ func arm_edit(kind: EditKind) -> void:
 	_edit_points = []
 	tool.cancel()
 	snap.clear_lock()
-	_last_snap = {}
+	_last_snap = { }
 	last_message = ""
 	drawing = kind != EditKind.NONE
 	_refresh_canvas()
@@ -387,6 +429,32 @@ static func edit_label(kind: EditKind) -> String:
 	return String(EDIT_LABELS.get(kind, "Edit"))
 
 
+## What an editing command is *for*, in one sentence, for the box beside the plan while that command is in
+## hand - the same half `DraftTool.description` is for the tools, and kept here for the same reason.
+##
+## Each sentence is a summary of what the command is *doing* rather than of the pick it is waiting for:
+## `_edit_prompt` says which pick is next, this says what the picks are for. A command added to `EditKind`
+## without one reads as nothing rather than as something wrong, and the test that every command has one is
+## what stops that being the end of it.
+static func edit_description(kind: EditKind) -> String:
+	if kind == EditKind.OFFSET:
+		return "Copies a shape a distance to one side of it."
+	if kind == EditKind.TRIM:
+		return "Cuts a shape back where another shape crosses it."
+	if kind == EditKind.EXTEND:
+		return "Grows an end until it meets another shape."
+	if kind == EditKind.FILLET:
+		return "Rounds the corner where two lines meet."
+	if kind == EditKind.ERASE:
+		return "Takes a shape off the sheet."
+	if kind == EditKind.ROTATE:
+		return "Turns a shape about a point you pick."
+	if kind == EditKind.MOVE:
+		return "Moves a shape from one point to another."
+	if kind == EditKind.COPY:
+		return "Puts a copy of a shape somewhere else."
+	return ""
+
 # --- what a palette needs to know -----------------------------------------------------
 
 
@@ -407,7 +475,7 @@ func current_layer() -> StringName:
 func layer_choices() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for layer in document.layers.layers():
-		out.append({"name": layer.name, "purpose": layer.purpose})
+		out.append({ "name": layer.name, "purpose": layer.purpose })
 	return out
 
 
@@ -448,31 +516,63 @@ func status() -> String:
 		# other key the drawing needs is advertised, and it is the one key a user
 		# cannot discover by accident. The rest of the legend appears once armed.
 		var idle := "%s plots a sheet at 1:%d on %s   %s: drawing tools" % [
-			action_key_label(&"draft_plot"), int(plot_scale), sheet,
+			action_key_label(&"draft_plot"),
+			int(plot_scale),
+			sheet,
 			action_key_label(&"draft_mode"),
 		]
 		return "%s   %s" % [idle, last_message] if last_message != "" else idle
-	if is_editing():
-		return _edit_status()
-	if tool.kind == ToolScript.Kind.SELECT:
-		return _select_status()
-	var text := "%s  ·  %s  ·  %s" % [
-		ToolScript.label_for(tool.kind), String(tool.layer), tool.status()
-	]
+	var text := prompt()
+	# A typed length is what the hand is doing at this moment, so it stands in front of the shape's own
+	# words rather than behind them: while it is going, it is the thing being watched.
+	if has_distance_entry():
+		text = "%s  ·  %s" % [distance_label(), text]
 	if last_message != "":
 		text += "  ·  " + last_message
 	return text
 
 
+## What the tool in hand is waiting for, with the tool's own name in front of it: the half of the status
+## line that teaches the tool rather than reporting on it, and the half the HUD carries at the foot of the
+## screen beside the keys that answer it (`PlannerHud.hand_keys`).
+##
+## The layer in hand is deliberately not on it: the palette's own row says which layer it is, on screen at
+## the same moment, and the same fact twice on one screen is the thing this project spends the most effort
+## not doing.
+func prompt() -> String:
+	if is_editing():
+		return _edit_prompt()
+	if tool.kind == ToolScript.Kind.SELECT:
+		return _select_prompt()
+	return "%s  ·  %s" % [ToolScript.label_for(tool.kind), tool.status()]
+
+
+## What the drawing says about itself rather than what it is waiting for: what the hand is doing at this
+## moment - a length being typed - and the last thing the drawing said.
+##
+## The instruction belongs at the foot of the screen, where a person's eye can stay while their hand is
+## busy. This is the report, and it stays on the drawing's own surface where the work is.
+func status_report() -> String:
+	var parts := PackedStringArray()
+	if drawing and has_distance_entry():
+		parts.append(distance_label())
+	if last_message != "":
+		parts.append(last_message)
+	return "  ·  ".join(parts)
+
+
 ## What an editing command says while it is in hand. Its own prompt is the half
 ## that changes as picks land, so an edit cannot be left half-made without the line
 ## saying which pick it is waiting for.
-func _edit_status() -> String:
+##
+## It says nothing about how the command ends: the keys that answer it, and the key that cancels it, are
+## printed beside this line at the foot of the screen, read from their own bindings.
+func _edit_prompt() -> String:
 	var hint := ""
 	match edit_kind:
 		EditKind.OFFSET:
 			hint = "pick the shape to offset" if _edit_picked.is_empty() \
-				else "click the side and distance to offset to"
+					else "click the side and distance to offset to"
 		EditKind.TRIM:
 			hint = "pick the piece to cut away"
 		EditKind.EXTEND:
@@ -505,27 +605,202 @@ func _edit_status() -> String:
 	var text := "%s  ·  %s" % [edit_label(edit_kind), hint]
 	if edit_kind == EditKind.FILLET:
 		text += "  ·  radius %s" % document.units.format_length(fillet_radius)
-	if last_message != "":
-		text += "  ·  " + last_message
 	return text
 
+# --- snapping -----------------------------------------------------------------------
+#
+# The snap engine has carried ortho, polar, grid and a per-mode switch since it was written, and
+# until now nothing in the program turned any of them on: they were reachable only from a test, so
+# ortho and polar tracking never happened and the manual promised them anyway. This is the surface
+# the snapping page and the menu drive. Every setter says so on `snap_changed` rather than leaving a
+# reader to poll, and every one of them drops the snap lock, so a setting takes effect at once
+# instead of after the hysteresis the engine keeps to stop the cursor flickering.
+
+
+## The snap engine, made on demand: a controller assembled without `_ready` - a test, or the menu's
+## own snapshot - still has one to answer with.
+func _ensure_snap() -> void:
+	if snap == null:
+		snap = SnapScript.new()
+
+
+func is_snapping() -> bool:
+	return snapping
+
+
+func set_snapping(on: bool) -> void:
+	if snapping == on:
+		return
+	snapping = on
+	_snap_setting_changed()
+
+
+func toggle_snapping() -> void:
+	set_snapping(not snapping)
+
+
+## Whether one object-snap mode is live. The mode is a `DraftSnapEngine.Mode`.
+func is_snap_mode(mode: int) -> bool:
+	_ensure_snap()
+	return bool(snap.enabled.get(mode, false))
+
+
+func set_snap_mode(mode: int, on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.enabled.get(mode, false)) == on:
+		return
+	snap.set_enabled(mode, on)
+	_snap_setting_changed()
+
+
+func is_ortho() -> bool:
+	return snap != null and bool(snap.ortho)
+
+
+func set_ortho(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.ortho) == on:
+		return
+	snap.ortho = on
+	_snap_setting_changed()
+
+
+func toggle_ortho() -> void:
+	set_ortho(not is_ortho())
+
+
+func is_polar() -> bool:
+	return snap != null and bool(snap.polar)
+
+
+func set_polar(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.polar) == on:
+		return
+	snap.polar = on
+	_snap_setting_changed()
+
+
+func toggle_polar() -> void:
+	set_polar(not is_polar())
+
+
+func is_grid_snap() -> bool:
+	return snap != null and bool(snap.grid_snap)
+
+
+func set_grid_snap(on: bool) -> void:
+	_ensure_snap()
+	if bool(snap.grid_snap) == on:
+		return
+	snap.grid_snap = on
+	_snap_setting_changed()
+
+
+## The grid pitch, in metres. A step that is not a distance is refused rather than clamped.
+func grid_step() -> float:
+	return float(snap.grid_step) if snap != null else 0.0
+
+
+func set_grid_step(metres: float) -> void:
+	if metres <= 0.0:
+		return
+	_ensure_snap()
+	if is_equal_approx(float(snap.grid_step), metres):
+		return
+	snap.grid_step = metres
+	_snap_setting_changed()
+
+
+## How finely polar tracking divides the circle, in degrees.
+func polar_step_degrees() -> float:
+	return float(snap.polar_step_degrees) if snap != null else 0.0
+
+
+func set_polar_step_degrees(degrees: float) -> void:
+	if degrees <= 0.0:
+		return
+	_ensure_snap()
+	if is_equal_approx(float(snap.polar_step_degrees), degrees):
+		return
+	snap.polar_step_degrees = degrees
+	_snap_setting_changed()
+
+
+## Everything the snapping page and the menu report on, as one snapshot.
+func snap_state() -> Dictionary:
+	_ensure_snap()
+	return {
+		"snapping": snapping,
+		"modes": snap.enabled.duplicate(),
+		"ortho": bool(snap.ortho),
+		"polar": bool(snap.polar),
+		"grid": bool(snap.grid_snap),
+		"grid_step": float(snap.grid_step),
+		"polar_step": float(snap.polar_step_degrees),
+	}
+
+
+## One place for what a moved setting costs: the lock goes, so the change is felt at the cursor now
+## rather than after the engine's own hysteresis, and the canvas redraws the marker it is holding.
+func _snap_setting_changed() -> void:
+	_ensure_snap()
+	snap.clear_lock()
+	snap_changed.emit()
+	_refresh_canvas()
+
+
+## The point a pick becomes: the engine's snapped point, or the cursor itself when snapping is
+## switched off. The one place the master switch is consulted, which is why it is a function of its
+## own rather than a condition inside `hover` - a pick can be checked with no canvas in sight.
+##
+## `constrain` is a held Shift: the point is held to the axes from the last one for this pick only,
+## without turning ortho on. An exact object snap still wins, as it does for the ortho setting.
+func _pick_point(
+	world: Vector2,
+	pixels_per_metre: float,
+	previous: Vector2,
+	has_previous: bool,
+	constrain: bool = false,
+) -> Dictionary:
+	if not snapping:
+		return _unsnapped(world)
+	_ensure_snap()
+	return snap.resolve(world, pixels_per_metre, previous, has_previous, constrain)
+
+
+## The cursor with nothing done to it: what a pick becomes when snapping is switched off.
+func _unsnapped(point: Vector2) -> Dictionary:
+	if snap != null:
+		snap.clear_lock()
+	return {
+		"point": point,
+		"mode": SnapScript.Mode.NONE,
+		"snapped": false,
+		"label": "",
+		"glyph": "",
+		"entity": 0,
+		"candidates": 0,
+	}
 
 # --- picks --------------------------------------------------------------------------
 
 
 ## Follow the cursor: snap it, and refresh the ghost of the shape in progress.
-func hover(screen: Vector2) -> Dictionary:
+##
+## `constrain` is a held Shift - see `_pick_point` - so the marker shows the point that will
+## actually be committed.
+func hover(screen: Vector2, constrain: bool = false) -> Dictionary:
 	if canvas == null:
-		return {}
+		return { }
 	var previous := Vector2.ZERO
 	var has_previous: bool = tool.point_count() > 0
 	if has_previous:
 		# The last picked point, which is what perpendicular and tangent are
 		# measured from, and what ortho and polar track from.
 		previous = Vector2(tool.points()[tool.point_count() - 1])
-	var result: Dictionary = snap.resolve(
-		canvas.screen_to_world(screen), canvas.pixels_per_metre, previous, has_previous
-	)
+	var world: Vector2 = canvas.screen_to_world(screen)
+	var result: Dictionary = _pick_point(world, canvas.pixels_per_metre, previous, has_previous, constrain)
 	cursor_point = result["point"]
 	cursor_snapped = result["snapped"]
 	_last_snap = result
@@ -533,20 +808,133 @@ func hover(screen: Vector2) -> Dictionary:
 	return result
 
 
-func click(screen: Vector2) -> Dictionary:
+## A pick. `constrain` is a held Shift, and it has to be passed on rather than read from the
+## keyboard here: the point that is committed must be the one the marker showed.
+func click(screen: Vector2, constrain: bool = false) -> Dictionary:
 	if canvas == null:
-		return {}
+		return { }
 	if is_editing():
 		return _edit_click(screen)
 	if tool.kind == ToolScript.Kind.SELECT:
 		return _select_click(screen)
 	# Snap first, so the point that is committed is the one the marker showed.
-	hover(screen)
+	hover(screen, constrain)
 	var pick: Dictionary = tool.click(cursor_point)
 	if pick.get("committed", false):
 		_commit(pick)
 	_refresh_canvas()
 	return pick
+
+
+# --- direct distance entry ------------------------------------------------------------
+
+## The length a person is typing while a shape is in hand: pick the first point, then say how far away
+## the next one is instead of hunting for it with the mouse. One entry at a time, and it is dropped
+## whenever the shape it was measured from goes away - a typed length that outlived its first point
+## would be a length measured from somewhere that is no longer there.
+var distance_entry: DistanceEntry = DistanceEntryScript.new()
+
+
+## Whether a length can be typed right now: a drawing tool in hand with a first point already down.
+## The distance is measured *from* that point, so before it there is nothing to measure from.
+func can_type_distance() -> bool:
+	if not drawing or is_editing() or canvas == null or document == null:
+		return false
+	return tool.point_count() > 0
+
+
+func has_distance_entry() -> bool:
+	return not distance_entry.is_empty()
+
+
+func distance_text() -> String:
+	return distance_entry.text
+
+
+## Take one typed character. Refuses, and says why, rather than swallowing: a number pressed before
+## the first point is a person reaching for this feature a click early, and that is worth answering.
+func type_distance(character: String) -> bool:
+	if not can_type_distance():
+		last_message = "pick the first point, then type how far the next one goes"
+		_refresh_canvas()
+		return false
+	if not distance_entry.type(character):
+		return false
+	last_message = ""
+	_refresh_canvas()
+	return true
+
+
+## Drop the last typed character. False when there was nothing to drop, which is the caller's cue to
+## let the key mean what it meant before.
+func backspace_distance() -> bool:
+	if distance_entry.is_empty():
+		return false
+	distance_entry.backspace()
+	_refresh_canvas()
+	return true
+
+
+## Put the typed length away and keep the shape in hand.
+func cancel_distance() -> bool:
+	if distance_entry.is_empty():
+		return false
+	_clear_distance_entry()
+	last_message = "the typed length is off"
+	_refresh_canvas()
+	return true
+
+
+## What the typed entry says on the status line: the length in the drawing's own words, and the key
+## that places it. A half-typed or impossible entry reads as what is wrong with it instead, so the line
+## is never a number with no meaning standing in front of the shape.
+func distance_label() -> String:
+	if distance_entry.is_empty():
+		return ""
+	var words := distance_entry.describe(document.units)
+	if document.units != null and distance_entry.problem(document.units) != "":
+		# Nothing may be placed yet, so the line does not offer the key that would refuse.
+		return words
+	return "%s   %s places it" % [words, action_key_label(&"draft_finish")]
+
+
+## Place the point the typed length names.
+##
+## The point is **exact**: it is not put back through the snap engine, because a length that came back
+## as the grid's nearest cell would not be the length that was typed. The *direction* is the cursor's,
+## so ortho, polar and the object snaps have already had their say by the time we get here - and the
+## direction being degenerate is refused with words rather than placed on top of the last point.
+func commit_distance() -> Dictionary:
+	if not can_type_distance():
+		return { }
+	var complaint := distance_entry.problem(document.units)
+	if complaint != "":
+		last_message = complaint
+		_refresh_canvas()
+		return { }
+	var from := Vector2(tool.points()[tool.point_count() - 1])
+	var run := distance_entry.direction(from, cursor_point)
+	if run == Vector2.ZERO:
+		last_message = "point the cursor the way the length runs, or type the angle after <"
+		_refresh_canvas()
+		return { }
+	var at: Vector2 = from + run * distance_entry.metres(document.units)
+	# `said` is already the drawing's status history, so the words for this point get a name of their own.
+	var as_typed := distance_entry.describe(document.units)
+	_clear_distance_entry()
+	cursor_point = at
+	cursor_snapped = false
+	_last_snap = { }
+	var pick: Dictionary = tool.click(at)
+	if pick.get("committed", false):
+		_commit(pick)
+	last_message = "placed %s" % as_typed
+	_refresh_canvas()
+	return pick
+
+
+func _clear_distance_entry() -> void:
+	distance_entry.clear()
 
 
 func finish() -> Dictionary:
@@ -573,6 +961,7 @@ func undo_point() -> bool:
 
 func cancel() -> void:
 	tool.cancel()
+	_clear_distance_entry()
 	# Escape backs out of a half-made edit - the first line of a fillet, the shape
 	# picked to offset - without putting the command itself away.
 	_edit_picked = []
@@ -581,7 +970,7 @@ func cancel() -> void:
 	# of a gesture nobody has finished.
 	_select_points = []
 	snap.clear_lock()
-	_last_snap = {}
+	_last_snap = { }
 	_refresh_canvas()
 
 
@@ -636,7 +1025,6 @@ func _commit(pick: Dictionary) -> void:
 			document.units.format_length(measure["distance"]),
 			document.units.format_length(measure["delta"].length()),
 		]
-
 
 # --- selecting what is already drawn --------------------------------------------------
 
@@ -734,10 +1122,10 @@ func select_all() -> int:
 ## is nothing new to learn and no new key to bind.
 func _select_click(screen: Vector2) -> Dictionary:
 	if canvas == null:
-		return {}
+		return { }
 	select_at(canvas.screen_to_world(screen))
 	_refresh_canvas()
-	return {}
+	return { }
 
 
 ## The same, in model coordinates: the canvas-free entry point, so the whole rule is
@@ -746,7 +1134,7 @@ func select_at(world: Vector2) -> Dictionary:
 	if _select_points.is_empty():
 		_select_points.append(world)
 		last_message = ""
-		return {"ok": false, "progress": 1, "reason": ""}
+		return { "ok": false, "progress": 1, "reason": "" }
 	var first: Vector2 = _select_points[0]
 	var reason := SelectScript.band_reason(first, world)
 	if reason != "":
@@ -754,29 +1142,29 @@ func select_at(world: Vector2) -> Dictionary:
 		# is and the next click can still finish it - the same courtesy the drawing
 		# tools extend to a degenerate pick.
 		last_message = reason
-		return {"ok": false, "progress": 1, "reason": reason}
+		return { "ok": false, "progress": 1, "reason": reason }
 	var caught: Dictionary = SelectScript.pick_between(
-		document.editable_entities() if document != null else [], first, world, select_mode
+		document.editable_entities() if document != null else [],
+		first,
+		world,
+		select_mode,
 	)
 	_selected = []
 	for id in caught["ids"]:
 		_selected.append(int(id))
 	_select_points = []
 	last_message = SelectScript.describe(_selected.size(), select_mode)
-	return {"ok": true, "progress": 0, "ids": selection(), "reason": ""}
+	return { "ok": true, "progress": 0, "ids": selection(), "reason": "" }
 
 
 ## What the select tool says while it is out: which way round the band catches
 ## things, what the next pick is for, and what is selected.
-func _select_status() -> String:
+func _select_prompt() -> String:
 	var hint := "pick the first corner" if _select_points.is_empty() else "pick the opposite corner"
 	var text := "%s selection  ·  %s" % [SelectScript.mode_name(select_mode), hint]
 	if not _selected.is_empty():
 		text += "  ·  %d selected" % _selected.size()
-	if last_message != "":
-		text += "  ·  " + last_message
 	return text
-
 
 # --- simplifying what is already drawn ------------------------------------------------
 
@@ -801,7 +1189,6 @@ func apply_simplify(report: SimplifyReportScript) -> int:
 	else:
 		last_message = "nothing to simplify"
 	return written
-
 
 # --- drawing a ground zone by hand ----------------------------------------------------
 
@@ -840,23 +1227,24 @@ func state_ground_zone(outline: PackedVector2Array) -> Dictionary:
 	if document == null or document.environment == null:
 		last_message = "there is no ground to state a zone on"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	if outline.size() < 3:
 		last_message = "a ground zone needs an outline that encloses something"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	var number := _next_hand_zone_number()
 	document.begin_gesture("stating the ground")
 	document.environment.add_zone(
-		"ground zone %d" % number, outline, null,
-		"%s%d" % [ZoneMapScript.HAND_PREFIX + HAND_ZONE_TAG, number]
+		"ground zone %d" % number,
+		outline,
+		null,
+		"%s%d" % [ZoneMapScript.HAND_PREFIX + HAND_ZONE_TAG, number],
 	)
 	zone_hand = false
 	dirty = true
 	last_message = "stated ground zone %d where you drew it" % number
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "number": number, "message": last_message}
-
+	return { "ok": true, "reason": "", "number": number, "message": last_message }
 
 # --- filling a region with a pattern --------------------------------------------------
 
@@ -881,59 +1269,56 @@ func hatch_regions() -> Array[Dictionary]:
 ## is one act, and Ctrl+Z takes the whole pattern back off rather than one line of it.
 func fill_region(rings: Array, options: Dictionary) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to fill"}
+		return { "ok": false, "reason": "there is no drawing to fill" }
 	var pattern := StringName(options.get("pattern", HatchFillScript.HATCH))
 	var symbol := StringName(options.get("symbol", HatchFillScript.SYMBOL_DOT))
 	if not HatchFillScript.is_pattern(pattern):
 		last_message = "there is no such fill pattern"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	if not HatchFillScript.is_symbol(symbol):
 		symbol = HatchFillScript.SYMBOL_DOT
 	# A solid fill has no spacing of its own to choose: its density is fixed on paper.
 	var spacing_m: float = HatchFillScript.solid_spacing_m(plot_scale) \
-		if pattern == HatchFillScript.SOLID \
-		else HatchFillScript.model_spacing_m(float(options.get("spacing_mm", 2.0)), plot_scale)
+			if pattern == HatchFillScript.SOLID \
+			else HatchFillScript.model_spacing_m(float(options.get("spacing_mm", 2.0)), plot_scale)
 	var angle := deg_to_rad(float(options.get("angle_deg", 45.0)))
 	var worked: Dictionary = HatchFillScript.fill(rings, pattern, spacing_m, angle, symbol)
 	if not bool(worked.get("ok", false)):
 		last_message = String(worked.get("reason", "the fill could not be made"))
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	var lines: Array = worked.get("lines", [])
 	document.begin_gesture("hatching a region")
 	var added := 0
 	for stroke: PackedVector2Array in lines:
 		if stroke.size() < 2:
 			continue
-		document.add(
-			EntityScript.make_line(stroke[0], stroke[stroke.size() - 1]), LayerSetScript.HATCH
-		)
+		document.add(EntityScript.make_line(stroke[0], stroke[stroke.size() - 1]), LayerSetScript.HATCH)
 		added += 1
 	_rebind_snap()
 	dirty = true
 	last_message = "filled the region: %s" % HatchFillScript.describe(worked)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "count": added, "message": last_message}
+	return { "ok": true, "reason": "", "count": added, "message": last_message }
 
 
 ## Fill a region named by the id of the closed shape that encloses it. The outline is read from the
 ## drawing again here, so a bed moved since the list was built fills where it is now.
 func fill_entity(entity_id: int, options: Dictionary) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to fill"}
+		return { "ok": false, "reason": "there is no drawing to fill" }
 	var entity: EntityScript = document.get_entity(entity_id)
 	if entity == null:
 		last_message = "that region is not on the drawing any more"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	var ring: PackedVector2Array = entity.outline()
 	if ring.size() < 3:
 		last_message = "that shape does not enclose an area"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	return fill_region([ring], options)
-
 
 # --- the editing commands -------------------------------------------------------------
 
@@ -944,7 +1329,7 @@ func fill_entity(entity_id: int, options: Dictionary) -> Dictionary:
 func _edit_click(screen: Vector2) -> Dictionary:
 	edit_at(canvas.screen_to_world(screen))
 	_refresh_canvas()
-	return {}
+	return { }
 
 
 ## The same, in model coordinates. Split out so an editing command can be driven
@@ -972,7 +1357,7 @@ func edit_at(world: Vector2) -> void:
 
 ## Trim: cut the picked piece of a line out against every other editable shape.
 func _edit_trim(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to trim"
 		return
@@ -992,7 +1377,7 @@ func _edit_trim(world: Vector2) -> void:
 
 ## Extend: grow the picked end of a line out to the nearest shape beyond it.
 func _edit_extend(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to extend"
 		return
@@ -1010,7 +1395,7 @@ func _edit_extend(world: Vector2) -> void:
 
 ## Erase: take the picked shape off the drawing.
 func _edit_erase(world: Vector2) -> void:
-	var target = _pick_world(world)
+	var target := _pick_world(world)
 	if target == null:
 		last_message = "nothing there to erase"
 		return
@@ -1035,7 +1420,7 @@ func _edit_erase(world: Vector2) -> void:
 ## drafting run.
 func _edit_rotate(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to turn"
 			return
@@ -1082,7 +1467,7 @@ static func _turn_words(angle: float) -> String:
 ## nearer the drafting run. Copy takes Y.
 func _edit_move(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to move"
 			return
@@ -1114,7 +1499,7 @@ func _edit_move(world: Vector2) -> void:
 ## one shape afterwards or two.
 func _edit_copy(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to copy"
 			return
@@ -1143,7 +1528,7 @@ func _edit_copy(world: Vector2) -> void:
 ## edit to one outline.
 func _edit_offset(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var target = _pick_world(world)
+		var target := _pick_world(world)
 		if target == null:
 			last_message = "nothing there to offset"
 			return
@@ -1170,7 +1555,7 @@ func _edit_offset(world: Vector2) -> void:
 ## Fillet: pick two lines, round the corner between the halves that were picked.
 func _edit_fillet(world: Vector2) -> void:
 	if _edit_picked.is_empty():
-		var chosen = _pick_world(world)
+		var chosen := _pick_world(world)
 		if chosen == null:
 			last_message = "nothing there to round"
 			return
@@ -1182,7 +1567,7 @@ func _edit_fillet(world: Vector2) -> void:
 	var pick_a: Vector2 = _edit_points[0]
 	_edit_picked = []
 	_edit_points = []
-	var second = _pick_world(world)
+	var second := _pick_world(world)
 	if second == null:
 		last_message = "nothing there to round"
 		return
@@ -1205,11 +1590,11 @@ func _edit_fillet(world: Vector2) -> void:
 
 ## The shape under a model point, or null. Only editable, visible geometry is
 ## considered, so a pick cannot find an annotation or something switched off.
-func _pick_world(world: Vector2):
+func _pick_world(world: Vector2) -> DraftEntity:
 	var aperture := DEFAULT_PICK_METRES
 	if canvas != null:
 		aperture = PICK_PIXELS / maxf(canvas.pixels_per_metre, 1e-9)
-	var best = null
+	var best: DraftEntity = null
 	var best_distance := aperture
 	# `editable_entities` is what leaves a locked layer out: its shapes stay on the sheet and
 	# still plot, they simply cannot be picked (REQ 5.2.2). Every editing command reaches its
@@ -1227,7 +1612,7 @@ func _pick_world(world: Vector2):
 
 ## Every editable shape other than the one being edited, which is what a trim cuts
 ## against and an extend runs into.
-func _others(target) -> Array:
+func _others(target: DraftEntity) -> Array:
 	var out: Array = []
 	for entity in document.visible_entities():
 		if entity.id == target.id or is_annotation_layer(entity.layer):
@@ -1238,7 +1623,7 @@ func _others(target) -> Array:
 
 ## How far a model point is from an entity's linework. Its outline sampled to
 ## segments, so a curve is measured against chords fine enough to be exact.
-func _distance_to(entity, world: Vector2) -> float:
+func _distance_to(entity: DraftEntity, world: Vector2) -> float:
 	var outline: PackedVector2Array = entity.outline()
 	var count := outline.size()
 	if count == 0:
@@ -1255,7 +1640,6 @@ func _distance_to(entity, world: Vector2) -> float:
 
 
 # --- the drawing's standards --------------------------------------------------------
-
 
 ## The shipped dimension standards, in the order a key or a button steps through
 ## them.
@@ -1294,7 +1678,6 @@ func cycle_dimension_style() -> StringName:
 	set_dimension_style(next)
 	return next
 
-
 # --- plotting -----------------------------------------------------------------------
 
 
@@ -1312,7 +1695,7 @@ func cycle_dimension_style() -> StringName:
 ## `options_override` is the sheet of the *set* being plotted, when a caller has one: its paper, scale,
 ## number, title and revision lay over this drawing's own. It is an argument rather than a state change
 ## because plotting the set must not leave the drawing set up as whatever sheet happened to be last.
-func plot(schedule: Array = [], options_override: Dictionary = {}) -> String:
+func plot(schedule: Array = [], options_override: Dictionary = { }) -> String:
 	if document.count() == 0:
 		last_message = "nothing to plot"
 		_refresh_canvas()
@@ -1391,7 +1774,7 @@ func plot(schedule: Array = [], options_override: Dictionary = {}) -> String:
 ## (`DxfWriter.report_lines`) rather than a summary of them.
 func export_dxf(path: String) -> Dictionary:
 	var unit_name := "metres" if document.units.system == UnitsScript.System.METRIC else "feet"
-	var made := DxfWriterScript.shapes_from_document(document, {"scale": plot_scale})
+	var made := DxfWriterScript.shapes_from_document(document, { "scale": plot_scale })
 	if not bool(made["ok"]):
 		last_message = String(made["reason"])
 		_refresh_canvas()
@@ -1401,10 +1784,8 @@ func export_dxf(path: String) -> Dictionary:
 		# asked for one and got an empty file would think it had failed silently.
 		last_message = "nothing on this drawing plots, so there is nothing to export"
 		_refresh_canvas()
-		return {"ok": false, "reason": String(last_message)}
-	var written := DxfWriterScript.write_file(
-		path, made["shapes"], {"units": unit_name, "scale": plot_scale}
-	)
+		return { "ok": false, "reason": String(last_message) }
+	var written := DxfWriterScript.write_file(path, made["shapes"], { "units": unit_name, "scale": plot_scale })
 	if not bool(written["ok"]):
 		last_message = String(written["reason"])
 		_refresh_canvas()
@@ -1413,7 +1794,6 @@ func export_dxf(path: String) -> Dictionary:
 	last_message = "exported %s" % DxfWriterScript.describe(written)
 	_refresh_canvas()
 	return written
-
 
 # --- the sheet set -------------------------------------------------------------------
 
@@ -1504,18 +1884,20 @@ func sheet_rows() -> Array[Dictionary]:
 		return out
 	for index in sheet_book.count():
 		var row: Dictionary = sheet_book.sheet(index)
-		out.append({
-			"index": index,
-			"title": String(row["title"]),
-			"number": String(row["number"]),
-			"revision": String(row["revision"]),
-			"sheet": String(row["sheet"]),
-			"scale": float(row["scale"]),
-			"legend": bool(row["legend"]),
-			"portrait": bool(row["portrait"]),
-			"current": index == sheet_book.current_index(),
-			"description": sheet_book.describe(index),
-		})
+		out.append(
+			{
+				"index": index,
+				"title": String(row["title"]),
+				"number": String(row["number"]),
+				"revision": String(row["revision"]),
+				"sheet": String(row["sheet"]),
+				"scale": float(row["scale"]),
+				"legend": bool(row["legend"]),
+				"portrait": bool(row["portrait"]),
+				"current": index == sheet_book.current_index(),
+				"description": sheet_book.describe(index),
+			}
+		)
 	return out
 
 
@@ -1583,7 +1965,7 @@ func plot_sheet(index: int, schedule: Array = []) -> String:
 		_refresh_canvas()
 		return ""
 	save_sheet()
-	var options: Dictionary = sheet_book.options_for(index, {"pen_table": pen_table, "project": project_name})
+	var options: Dictionary = sheet_book.options_for(index, { "pen_table": pen_table, "project": project_name })
 	return plot(schedule, options)
 
 
@@ -1625,32 +2007,32 @@ func plot_set(schedule: Array = []) -> Array[String]:
 ## to keep it off the plan, and it is reported instead.
 func import_survey(parsed: Dictionary) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to import it into"}
+		return { "ok": false, "reason": "there is no drawing to import it into" }
 	if not bool(parsed.get("ok", false)):
 		last_message = String(parsed.get("reason", "the survey could not be read"))
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	if not SurveyFileScript.is_sound(parsed):
 		last_message = "the survey did not pass its own checks"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	var outline: PackedVector2Array = parsed.get("outline", PackedVector2Array())
 	if outline.size() < 3:
 		last_message = "the survey has no outline to put on the drawing"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	document.begin_gesture("importing a survey")
 	var entity := EntityScript.make_polyline(outline, true)
 	if entity == null:
 		last_message = "the survey outline could not be drawn"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	document.add(entity, LayerSetScript.SURVEY_PROPERTY)
 	_rebind_snap()
 	dirty = true
 	last_message = "imported %s" % SurveyFileScript.describe(parsed)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "id": entity.id, "message": last_message}
+	return { "ok": true, "reason": "", "id": entity.id, "message": last_message }
 
 
 ## Put a surveyor's DXF on the drawing: as an underlay to trace over, or - when the file is being
@@ -1663,28 +2045,35 @@ func import_survey(parsed: Dictionary) -> Dictionary:
 ## Text keeps the surveyor's own size: a DXF height is a *model* length and this drawing states text
 ## sizes on paper, so the two are reconciled by the plot scale - exactly as the drawing's own
 ## dimensions are (a text size is a paper property, not a model one).
-func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+func import_dxf(plan: Dictionary, _options: Dictionary = { }) -> Dictionary:
 	if document == null:
 		last_message = "there is no drawing to import it into"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	if not DxfFileScript.is_usable(plan):
 		# A refused plan says why it was refused; a plan that read but holds nothing this can draw
 		# has to say that instead, because "the file could not be read" would be false.
-		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
-			else "the file has nothing in it that this can draw")
+		last_message = (
+			String(plan.get("reason", ""))
+			if not bool(plan.get("ok", false))
+			else "the file has nothing in it that this can draw"
+		)
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	var placed := _place_shapes(plan["shapes"], "importing a DXF underlay")
 	last_message = "placed %d shape%s%s on the %s" % [
-		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		int(placed["added"]),
+		"" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
 		"underlay" if bool(plan["underlay"]) else "layers it maps to",
 	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "added": int(placed["added"]),
-		"refused": int(placed["refused"]), "message": last_message,
+		"ok": true,
+		"reason": "",
+		"added": int(placed["added"]),
+		"refused": int(placed["refused"]),
+		"message": last_message,
 	}
 
 
@@ -1696,26 +2085,33 @@ func import_dxf(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 ## The message says *feature* rather than *shape* because that is what an OSM element is: a house, a
 ## street, a row of trees. Saying "shape" would read as though the reader had failed to understand
 ## its own file.
-func import_osm(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+func import_osm(plan: Dictionary, _options: Dictionary = { }) -> Dictionary:
 	if document == null:
 		last_message = "there is no drawing to import it into"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	if not OsmFileScript.is_usable(plan):
-		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
-			else "the map has nothing in it that this can draw")
+		last_message = (
+			String(plan.get("reason", ""))
+			if not bool(plan.get("ok", false))
+			else "the map has nothing in it that this can draw"
+		)
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	var placed := _place_shapes(plan["shapes"], "importing a site map")
 	last_message = "placed %d feature%s%s from %s" % [
-		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		int(placed["added"]),
+		"" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
 		"the underlay" if bool(plan["underlay"]) else "the existing conditions layers",
 	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "added": int(placed["added"]),
-		"refused": int(placed["refused"]), "message": last_message,
+		"ok": true,
+		"reason": "",
+		"added": int(placed["added"]),
+		"refused": int(placed["refused"]),
+		"message": last_message,
 	}
 
 
@@ -1725,26 +2121,33 @@ func import_osm(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
 ##
 ## The message says *shape* rather than *parcel* because one file may hold parcels, alignments and plan
 ## features at once, and naming one of them would be a lie about the other two.
-func import_landxml(plan: Dictionary, _options: Dictionary = {}) -> Dictionary:
+func import_landxml(plan: Dictionary, _options: Dictionary = { }) -> Dictionary:
 	if document == null:
 		last_message = "there is no drawing to import it into"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	if not LandXmlFileScript.is_usable(plan):
-		last_message = (String(plan.get("reason", "")) if not bool(plan.get("ok", false))
-			else "the plat has nothing in it that this can draw")
+		last_message = (
+			String(plan.get("reason", ""))
+			if not bool(plan.get("ok", false))
+			else "the plat has nothing in it that this can draw"
+		)
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0, "refused": 0}
+		return { "ok": false, "reason": last_message, "added": 0, "refused": 0 }
 	var placed := _place_shapes(plan["shapes"], "importing a LandXML plat")
 	last_message = "placed %d shape%s%s from %s" % [
-		int(placed["added"]), "" if int(placed["added"]) == 1 else "s",
+		int(placed["added"]),
+		"" if int(placed["added"]) == 1 else "s",
 		"" if int(placed["refused"]) == 0 else " and left out %d" % int(placed["refused"]),
 		"the underlay" if bool(plan["underlay"]) else "the layers the file's features map to",
 	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "added": int(placed["added"]),
-		"refused": int(placed["refused"]), "message": last_message,
+		"ok": true,
+		"reason": "",
+		"added": int(placed["added"]),
+		"refused": int(placed["refused"]),
+		"message": last_message,
 	}
 
 
@@ -1789,7 +2192,7 @@ func _place_shapes(shapes: Array, label: String = "") -> Dictionary:
 		added += 1
 	_rebind_snap()
 	dirty = true
-	return {"added": added, "refused": refused}
+	return { "added": added, "refused": refused }
 
 
 ## One shape as a drawing entity, or null when it cannot be one - a shape with too few points, a
@@ -1843,24 +2246,24 @@ func irrigation_zones() -> Array[Dictionary]:
 ## the flow check refuses on it - which is the point: the app never assumes forty litres a minute.
 func irrigation_supply() -> Dictionary:
 	if document == null:
-		return {}
+		return { }
 	var stated = document.irrigation.get("supply", null)
-	return stated if stated is Dictionary else {}
+	return stated if stated is Dictionary else { }
 
 
 ## State the supply: a flow in litres per minute at a pressure in kilopascals. One undo step,
 ## because it is a change to the drawing like any other.
 func set_irrigation_supply(flow: float, pressure: float) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to state a supply for"}
+		return { "ok": false, "reason": "there is no drawing to state a supply for" }
 	if flow <= 0.0 or pressure <= 0.0:
-		return {"ok": false, "reason": "a supply is a flow at a pressure, and neither can be nothing"}
+		return { "ok": false, "reason": "a supply is a flow at a pressure, and neither can be nothing" }
 	document.begin_gesture("stating the water supply")
 	document.irrigation["supply"] = IrrigationScript.make_supply(flow, pressure)
 	dirty = true
 	last_message = "the supply is %s" % IrrigationScript.supply_words(irrigation_supply())
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "supply": irrigation_supply()}
+	return { "ok": true, "reason": "", "message": last_message, "supply": irrigation_supply() }
 
 
 ## How many heads of a kind the stated supply can run, or 0 when nothing is stated. The panel shows
@@ -1883,14 +2286,13 @@ func waterable_areas() -> Array[Dictionary]:
 ## and leaving it on the drawing for the next person to find is worse than saying so.
 ##
 ## Returns `{ok, reason, message, zone, number, placed, verdict, rows}`.
-func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
-		staggered: bool = false) -> Dictionary:
+func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0, staggered: bool = false) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to water", "placed": 0}
+		return { "ok": false, "reason": "there is no drawing to water", "placed": 0 }
 	if not IrrigationScript.is_kind(kind):
 		last_message = "that is not a kind of head"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	var zones := irrigation_zones()
 	var zone := IrrigationScript.make_zone(IrrigationScript.next_number(zones), kind)
 	zone["valve"] = IrrigationScript.next_valve(zones)
@@ -1899,26 +2301,33 @@ func water_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	if not bool(report["ok"]):
 		last_message = String(report["reason"])
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	var supply := irrigation_supply()
 	var verdict := IrrigationScript.check(zone, supply)
 	if not bool(verdict["ok"]):
 		last_message = IrrigationScript.verdict_words(zone, supply, document.units)
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	document.begin_gesture("watering an area")
 	zones.append(zone)
 	document.irrigation["zones"] = IrrigationScript.to_dict(zones)["zones"]
 	var placed := _stamp_heads(zone)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s, and %s" % [IrrigationScript.verdict_words(zone, supply, document.units),
-		"1 head is on the plan" if placed == 1 else "%d heads are on the plan" % placed]
+	last_message = "%s, and %s" % [
+		IrrigationScript.verdict_words(zone, supply, document.units),
+		"1 head is on the plan" if placed == 1 else "%d heads are on the plan" % placed,
+	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "message": last_message, "zone": zone,
-		"number": int(zone["number"]), "placed": placed,
-		"verdict": IrrigationScript.verdict_words(zone, supply, document.units), "rows": irrigation_rows(),
+		"ok": true,
+		"reason": "",
+		"message": last_message,
+		"zone": zone,
+		"number": int(zone["number"]),
+		"placed": placed,
+		"verdict": IrrigationScript.verdict_words(zone, supply, document.units),
+		"rows": irrigation_rows(),
 	}
 
 
@@ -1940,7 +2349,7 @@ func _stamp_heads(zone: Dictionary) -> int:
 ## what they were for.
 func remove_zone(number: int) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to change"}
+		return { "ok": false, "reason": "there is no drawing to change" }
 	var zones := irrigation_zones()
 	var kept: Array[Dictionary] = []
 	var found := false
@@ -1952,7 +2361,7 @@ func remove_zone(number: int) -> Dictionary:
 	if not found:
 		last_message = "there is no Zone %d" % number
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "removed": 0}
+		return { "ok": false, "reason": last_message, "removed": 0 }
 	document.begin_gesture("taking the water off an area")
 	var removed := 0
 	for entity in document.entities():
@@ -1961,11 +2370,9 @@ func remove_zone(number: int) -> Dictionary:
 	document.irrigation["zones"] = IrrigationScript.to_dict(kept)["zones"]
 	_rebind_snap()
 	dirty = true
-	last_message = "Zone %d is off the drawing, with %s" % [number,
-		"1 head" if removed == 1 else "%d heads" % removed]
+	last_message = "Zone %d is off the drawing, with %s" % [number, "1 head" if removed == 1 else "%d heads" % removed]
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
-		"rows": irrigation_rows()}
+	return { "ok": true, "reason": "", "message": last_message, "removed": removed, "rows": irrigation_rows() }
 
 
 ## The zones as a schedule reads them, one row each, checked against the stated supply.
@@ -1997,8 +2404,11 @@ func irrigation_summary() -> String:
 				wrong = IrrigationScript.verdict_words(zone, irrigation_supply(), document.units)
 	if wrong.is_empty():
 		wrong = "every zone runs off the supply"
-	return "%s over %s, %s" % [_zone_count_words(zones.size(), heads, _quantity_words(flow)),
-		document.units.format_area(area), wrong]
+	return "%s over %s, %s" % [
+		_zone_count_words(zones.size(), heads, _quantity_words(flow)),
+		document.units.format_area(area),
+		wrong,
+	]
 
 
 ## A measurement as one line writes it: whole where it is whole, one decimal otherwise.
@@ -2012,7 +2422,6 @@ static func _zone_count_words(zones: int, heads: int, flow: String) -> String:
 	var zone_part := "1 zone" if zones == 1 else "%d zones" % zones
 	var head_part := "1 head" if heads == 1 else "%d heads" % heads
 	return "%s, %s drawing %s L/min" % [zone_part, head_part, flow]
-
 
 # --- lighting a circuit --------------------------------------------------------------------
 
@@ -2030,24 +2439,24 @@ func lighting_circuits() -> Array[Dictionary]:
 ## load check refuses on it - which is the point: the app never assumes a hundred volt-amperes.
 func lighting_transformer() -> Dictionary:
 	if document == null:
-		return {}
+		return { }
 	var stated = document.lighting.get("transformer", null)
-	return stated if stated is Dictionary else {}
+	return stated if stated is Dictionary else { }
 
 
 ## State the transformer: a capacity in volt-amperes at a voltage. One undo step, because it is a
 ## change to the drawing like any other.
 func set_lighting_transformer(va: float, volts: float) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to state a transformer for"}
+		return { "ok": false, "reason": "there is no drawing to state a transformer for" }
 	if va <= 0.0 or volts <= 0.0:
-		return {"ok": false, "reason": "a transformer is a capacity at a voltage, and neither can be nothing"}
+		return { "ok": false, "reason": "a transformer is a capacity at a voltage, and neither can be nothing" }
 	document.begin_gesture("stating the transformer")
 	document.lighting["transformer"] = LightingScript.make_transformer(va, volts)
 	dirty = true
 	last_message = "the transformer is %s" % LightingScript.transformer_words(lighting_transformer())
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "transformer": lighting_transformer()}
+	return { "ok": true, "reason": "", "message": last_message, "transformer": lighting_transformer() }
 
 
 ## How many fixtures of a kind the stated transformer can carry, or 0 when nothing is stated.
@@ -2069,14 +2478,13 @@ func lightable_areas() -> Array[Dictionary]:
 ## be opened and leaving it on the drawing for the next person to find is worse than saying so.
 ##
 ## Returns `{ok, reason, message, circuit, number, placed, verdict, rows}`.
-func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
-		staggered: bool = false) -> Dictionary:
+func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0, staggered: bool = false) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to light", "placed": 0}
+		return { "ok": false, "reason": "there is no drawing to light", "placed": 0 }
 	if not LightingScript.is_kind(kind):
 		last_message = "that is not a kind of fixture"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	var circuits := lighting_circuits()
 	var circuit := LightingScript.make_circuit(LightingScript.next_number(circuits), kind)
 	circuit["tap"] = LightingScript.next_tap(circuits)
@@ -2085,26 +2493,33 @@ func light_area(ring: PackedVector2Array, kind: String, spacing: float = 0.0,
 	if not bool(report["ok"]):
 		last_message = String(report["reason"])
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	var transformer := lighting_transformer()
 	var verdict := LightingScript.check(circuit, transformer)
 	if not bool(verdict["ok"]):
 		last_message = LightingScript.verdict_words(circuit, transformer, document.units)
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "placed": 0}
+		return { "ok": false, "reason": last_message, "placed": 0 }
 	document.begin_gesture("lighting an area")
 	circuits.append(circuit)
 	document.lighting["circuits"] = LightingScript.to_dict(circuits)["circuits"]
 	var placed := _stamp_fixtures(circuit)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s, and %s" % [LightingScript.verdict_words(circuit, transformer, document.units),
-		"1 fixture is on the plan" if placed == 1 else "%d fixtures are on the plan" % placed]
+	last_message = "%s, and %s" % [
+		LightingScript.verdict_words(circuit, transformer, document.units),
+		"1 fixture is on the plan" if placed == 1 else "%d fixtures are on the plan" % placed,
+	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "message": last_message, "circuit": circuit,
-		"number": int(circuit["number"]), "placed": placed,
-		"verdict": LightingScript.verdict_words(circuit, transformer, document.units), "rows": lighting_rows(),
+		"ok": true,
+		"reason": "",
+		"message": last_message,
+		"circuit": circuit,
+		"number": int(circuit["number"]),
+		"placed": placed,
+		"verdict": LightingScript.verdict_words(circuit, transformer, document.units),
+		"rows": lighting_rows(),
 	}
 
 
@@ -2125,7 +2540,7 @@ func _stamp_fixtures(circuit: Dictionary) -> int:
 ## step. A circuit whose fixtures stayed behind would be a plan with unexplained circles on it.
 func remove_circuit(number: int) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to change"}
+		return { "ok": false, "reason": "there is no drawing to change" }
 	var circuits := lighting_circuits()
 	var kept: Array[Dictionary] = []
 	var found := false
@@ -2137,7 +2552,7 @@ func remove_circuit(number: int) -> Dictionary:
 	if not found:
 		last_message = "there is no Circuit %d" % number
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "removed": 0}
+		return { "ok": false, "reason": last_message, "removed": 0 }
 	document.begin_gesture("taking the lighting off an area")
 	var removed := 0
 	for entity in document.entities():
@@ -2146,11 +2561,12 @@ func remove_circuit(number: int) -> Dictionary:
 	document.lighting["circuits"] = LightingScript.to_dict(kept)["circuits"]
 	_rebind_snap()
 	dirty = true
-	last_message = "Circuit %d is off the drawing, with %s" % [number,
-		"1 fixture" if removed == 1 else "%d fixtures" % removed]
+	last_message = "Circuit %d is off the drawing, with %s" % [
+		number,
+		"1 fixture" if removed == 1 else "%d fixtures" % removed,
+	]
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
-		"rows": lighting_rows()}
+	return { "ok": true, "reason": "", "message": last_message, "removed": removed, "rows": lighting_rows() }
 
 
 ## The circuits as a schedule reads them, one row each, checked against the stated transformer.
@@ -2182,15 +2598,17 @@ func lighting_summary() -> String:
 				wrong = LightingScript.verdict_words(circuit, lighting_transformer(), document.units)
 	if wrong.is_empty():
 		wrong = "every circuit runs off the transformer"
-	return "%s over %s, %s" % [_circuit_count_words(circuits.size(), fixtures,
-		_quantity_words(demand)), document.units.format_area(area), wrong]
+	return "%s over %s, %s" % [
+		_circuit_count_words(circuits.size(), fixtures, _quantity_words(demand)),
+		document.units.format_area(area),
+		wrong,
+	]
 
 
 static func _circuit_count_words(circuits: int, fixtures: int, watts: String) -> String:
 	var circuit_part := "1 circuit" if circuits == 1 else "%d circuits" % circuits
 	var fixture_part := "1 fixture" if fixtures == 1 else "%d fixtures" % fixtures
 	return "%s, %s drawing %s W" % [circuit_part, fixture_part, watts]
-
 
 # --- the ground's own heights -----------------------------------------------------------
 #
@@ -2233,11 +2651,11 @@ func set_grading_level(level: float) -> Dictionary:
 	if is_nan(level) or not is_finite(level):
 		last_message = "a level is a number"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "level": grading_level}
+		return { "ok": false, "reason": last_message, "level": grading_level }
 	grading_level = level
 	last_message = "a level of %s" % grading_level_words()
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "level": grading_level, "message": last_message}
+	return { "ok": true, "reason": "", "level": grading_level, "message": last_message }
 
 
 ## State the fall in hand, in percent downhill. Refused rather than clamped for anything that is not a
@@ -2247,20 +2665,20 @@ func set_grading_fall(percent: float) -> Dictionary:
 	if is_nan(percent) or not is_finite(percent) or absf(percent) > GradingScript.MAX_PERCENT:
 		last_message = "a fall is a percentage below %s" % GradingScript.MAX_PERCENT
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "percent": grading_fall_percent}
+		return { "ok": false, "reason": last_message, "percent": grading_fall_percent }
 	grading_fall_percent = percent
 	last_message = "slope arrows are drawn %s" % GradingScript.percent_words(percent)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "percent": percent, "message": last_message}
+	return { "ok": true, "reason": "", "percent": percent, "message": last_message }
 
 
 ## Arm a grading tool with the level in hand. What a menu entry and a button both call, so the level
 ## cannot be in hand in one place and not the other.
 func begin_grading(kind: String) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to grade"}
+		return { "ok": false, "reason": "there is no drawing to grade" }
 	if not GradingScript.is_kind(kind):
-		return {"ok": false, "reason": "that is not a kind of grading"}
+		return { "ok": false, "reason": "that is not a kind of grading" }
 	var tool_kind := ToolScript.Kind.GRADE_SPOT
 	if kind == GradingScript.CONTOUR:
 		tool_kind = ToolScript.Kind.GRADE_CONTOUR
@@ -2269,7 +2687,7 @@ func begin_grading(kind: String) -> Dictionary:
 	arm(tool_kind)
 	last_message = _grading_arm_words(kind)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "tool": tool_kind}
+	return { "ok": true, "reason": "", "message": last_message, "tool": tool_kind }
 
 
 ## What arming a grading tool says, in the words of the kind: a level in the drawing's own units for
@@ -2287,23 +2705,23 @@ func _grading_arm_words(kind: String) -> String:
 ## on the drawing with no mark behind it, which is the state that makes a drawing lie about itself.
 func stamp_grading(picks: Dictionary) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to grade", "added": 0}
+		return { "ok": false, "reason": "there is no drawing to grade", "added": 0 }
 	var kind := String(picks.get("grading", ""))
 	if not GradingScript.is_kind(kind):
-		return {"ok": false, "reason": "that is not a kind of grading", "added": 0}
+		return { "ok": false, "reason": "that is not a kind of grading", "added": 0 }
 	if document.is_layer_locked(GradingScript.layer_for(kind)):
 		last_message = "%s is locked" % String(GradingScript.layer_for(kind))
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0}
+		return { "ok": false, "reason": last_message, "added": 0 }
 	if is_nan(grading_level) or not is_finite(grading_level):
 		last_message = "a level is a number"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "added": 0}
+		return { "ok": false, "reason": last_message, "added": 0 }
 
 	var points: PackedVector2Array = picks.get("points", PackedVector2Array())
 	var records := grading()
 	var id := GradingScript.next_id(records, kind)
-	var record: Dictionary = {}
+	var record: Dictionary = { }
 	var label := ""
 	if kind == GradingScript.SPOT:
 		if points.is_empty():
@@ -2329,12 +2747,20 @@ func stamp_grading(picks: Dictionary) -> Dictionary:
 	var added := _stamp_grading(kind, record)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s is on the drawing, with %s" % [GradingScript.record_words(kind, record,
-		document.units), "1 mark" if added == 1 else "%d marks" % added]
+	last_message = "%s is on the drawing, with %s" % [
+		GradingScript.record_words(kind, record, document.units),
+		"1 mark" if added == 1 else "%d marks" % added,
+	]
 	_refresh_canvas()
 	return {
-		"ok": true, "reason": "", "message": last_message, "kind": kind, "id": id,
-		"record": record, "added": added, "rows": grading_rows(),
+		"ok": true,
+		"reason": "",
+		"message": last_message,
+		"kind": kind,
+		"id": id,
+		"record": record,
+		"added": added,
+		"rows": grading_rows(),
 	}
 
 
@@ -2342,9 +2768,9 @@ func stamp_grading(picks: Dictionary) -> Dictionary:
 ## so asking for the level it already has records nothing.
 func set_grading_level_of(kind: String, id: int, level: float) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to change"}
+		return { "ok": false, "reason": "there is no drawing to change" }
 	if not GradingScript.is_kind(kind):
-		return {"ok": false, "reason": "that is not a kind of grading"}
+		return { "ok": false, "reason": "that is not a kind of grading" }
 	if is_nan(level) or not is_finite(level):
 		return _grading_refused("a level is a number")
 	var records := grading()
@@ -2352,10 +2778,12 @@ func set_grading_level_of(kind: String, id: int, level: float) -> Dictionary:
 	if record.is_empty():
 		return _grading_refused("there is no %s %d on this drawing" % [GradingScript.kind_name(kind), id])
 	if absf(float(record.get("level", NAN)) - level) <= GradingScript.LEVEL_TOLERANCE:
-		last_message = "%s is already at %s" % [GradingScript.kind_name(kind),
-			GradingScript.level_words(level, document.units)]
+		last_message = "%s is already at %s" % [
+			GradingScript.kind_name(kind),
+			GradingScript.level_words(level, document.units),
+		]
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "changed": false}
+		return { "ok": false, "reason": last_message, "changed": false }
 	document.begin_gesture("changing the level of a %s" % GradingScript.kind_name(kind))
 	record["level"] = level
 	document.grading = GradingScript.to_dict(records)
@@ -2363,18 +2791,17 @@ func set_grading_level_of(kind: String, id: int, level: float) -> Dictionary:
 	var added := _stamp_grading(kind, record)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s is %s" % [GradingScript.kind_name(kind),
-		GradingScript.level_words(level, document.units)]
+	last_message = "%s is %s" % [GradingScript.kind_name(kind), GradingScript.level_words(level, document.units)]
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "changed": true, "message": last_message, "added": added}
+	return { "ok": true, "reason": "", "changed": true, "message": last_message, "added": added }
 
 
 ## Take a record off the drawing, with every mark and every label it put there.
 func remove_grading(kind: String, id: int) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to change"}
+		return { "ok": false, "reason": "there is no drawing to change" }
 	if not GradingScript.is_kind(kind):
-		return {"ok": false, "reason": "that is not a kind of grading"}
+		return { "ok": false, "reason": "that is not a kind of grading" }
 	var records := grading()
 	if GradingScript.record_for(records, kind, id).is_empty():
 		return _grading_refused("there is no %s %d on this drawing" % [GradingScript.kind_name(kind), id])
@@ -2384,11 +2811,12 @@ func remove_grading(kind: String, id: int) -> Dictionary:
 	var removed := _clear_grading_entities(kind, id)
 	_rebind_snap()
 	dirty = true
-	last_message = "%s off the drawing, with %s" % [GradingScript.kind_name(kind),
-		"1 mark" if removed == 1 else "%d marks" % removed]
+	last_message = "%s off the drawing, with %s" % [
+		GradingScript.kind_name(kind),
+		"1 mark" if removed == 1 else "%d marks" % removed,
+	]
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "message": last_message, "removed": removed,
-		"rows": grading_rows()}
+	return { "ok": true, "reason": "", "message": last_message, "removed": removed, "rows": grading_rows() }
 
 
 ## The drawing's grading, checked against itself: the crossed contours, the two of one level, the spot
@@ -2452,8 +2880,7 @@ func _commit_grading(picks) -> void:
 func _grading_refused(reason: String) -> Dictionary:
 	last_message = reason
 	_refresh_canvas()
-	return {"ok": false, "reason": reason, "added": 0, "removed": 0}
-
+	return { "ok": false, "reason": reason, "added": 0, "removed": 0 }
 
 # --- the pictures under the drawing ----------------------------------------------------
 
@@ -2476,9 +2903,9 @@ func underlays() -> Array:
 ## It lands on the middle of the drawing's own extent unless it is told otherwise, so the common case
 ## - a scan of the site, and a design drawn on that site - puts the two on top of each other with
 ## nothing to type and nothing to drag.
-func place_underlay(source: String, width_m: float, options: Dictionary = {}) -> Dictionary:
+func place_underlay(source: String, width_m: float, options: Dictionary = { }) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": {}}
+		return { "ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": { } }
 	var at: Vector2 = _underlay_landing()
 	var stated: Variant = options.get("at", null)
 	if stated is Vector2:
@@ -2487,7 +2914,7 @@ func place_underlay(source: String, width_m: float, options: Dictionary = {}) ->
 	if not bool(taken.get("ok", false)):
 		last_message = String(taken.get("reason", "the picture could not be taken on"))
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message, "id": 0, "picture": {}}
+		return { "ok": false, "reason": last_message, "id": 0, "picture": { } }
 	return take_on_picture(taken["record"], options)
 
 
@@ -2502,9 +2929,9 @@ func place_underlay(source: String, width_m: float, options: Dictionary = {}) ->
 ## The record is validated by the module that owns what a picture is worth, so a width that says
 ## nothing, a file that has gone and a size that was never read are all refused in one place, and the
 ## refusal names which of them it was.
-func take_on_picture(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+func take_on_picture(record: Dictionary, options: Dictionary = { }) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": {}}
+		return { "ok": false, "reason": "there is no drawing to put a picture under", "id": 0, "picture": { } }
 	var wanted: Dictionary = record.duplicate(true)
 	# A number a form sent that cannot be read is **refused by name** rather than ignored: a page that
 	# says "left blank" and a page that silently keeps the old width are two different pages, and only
@@ -2537,14 +2964,14 @@ func take_on_picture(record: Dictionary, options: Dictionary = {}) -> Dictionary
 		document.units.format_length(float(picture.get("width_m", 0.0))),
 	]
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "id": id, "picture": picture, "message": last_message}
+	return { "ok": true, "reason": "", "id": id, "picture": picture, "message": last_message }
 
 
 ## Nothing reached the drawing, and the reason is what the drawing's own status line says.
 func _picture_refused(reason: String) -> Dictionary:
 	last_message = reason
 	_refresh_canvas()
-	return {"ok": false, "reason": reason, "id": 0, "picture": {}}
+	return { "ok": false, "reason": reason, "id": 0, "picture": { } }
 
 
 ## Change a picture already under the drawing: how wide it lies, which way round it is, how
@@ -2557,12 +2984,14 @@ func _picture_refused(reason: String) -> Dictionary:
 ## there - worse than no step at all.
 func change_underlay(id: int, changes: Dictionary) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing here", "changed": false, "picture": {}}
+		return { "ok": false, "reason": "there is no drawing here", "changed": false, "picture": { } }
 	var record := document.underlay(id)
 	if record.is_empty():
 		return {
-			"ok": false, "reason": "there is no picture %d under this drawing" % id,
-			"changed": false, "picture": {},
+			"ok": false,
+			"reason": "there is no picture %d under this drawing" % id,
+			"changed": false,
+			"picture": { },
 		}
 	var wanted: Dictionary = record.duplicate(true)
 	if changes.has("width_m"):
@@ -2577,14 +3006,14 @@ func change_underlay(id: int, changes: Dictionary) -> Dictionary:
 	if stated is Vector2:
 		RasterUnderlayScript.move_to(wanted, (stated as Vector2).x, (stated as Vector2).y)
 	if wanted == record:
-		return {"ok": true, "reason": "", "changed": false, "picture": record}
+		return { "ok": true, "reason": "", "changed": false, "picture": record }
 	document.begin_gesture("moving the picture under the drawing")
 	for key: String in wanted:
 		record[key] = wanted[key]
 	dirty = true
 	last_message = RasterUnderlayScript.describe(record, document.units)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "changed": true, "picture": record, "message": last_message}
+	return { "ok": true, "reason": "", "changed": true, "picture": record, "message": last_message }
 
 
 ## Take a picture out from under the drawing. Its copy stays in the app's own folder, because an undo
@@ -2616,16 +3045,18 @@ func underlay_rows() -> Array[Dictionary]:
 		# A picture whose file has been moved is still on the drawing and cannot be drawn, and the row
 		# says so rather than reading as though everything were well.
 		var problem := RasterUnderlayScript.describe_problem(record)
-		rows.append({
-			"id": int(record.get("id", 0)),
-			"name": String(record.get("name", "picture")),
-			"text": words if problem.is_empty() else "%s - %s" % [words, problem],
-			"width_m": float(record.get("width_m", 0.0)),
-			"rotation_deg": float(record.get("rotation_deg", 0.0)),
-			"opacity": float(record.get("opacity", 1.0)),
-			"visible": bool(record.get("visible", true)),
-			"usable": problem.is_empty(),
-		})
+		rows.append(
+			{
+				"id": int(record.get("id", 0)),
+				"name": String(record.get("name", "picture")),
+				"text": words if problem.is_empty() else "%s - %s" % [words, problem],
+				"width_m": float(record.get("width_m", 0.0)),
+				"rotation_deg": float(record.get("rotation_deg", 0.0)),
+				"opacity": float(record.get("opacity", 1.0)),
+				"visible": bool(record.get("visible", true)),
+				"usable": problem.is_empty(),
+			}
+		)
 	return rows
 
 
@@ -2661,7 +3092,7 @@ func _underlay_landing() -> Vector2:
 ## A label with nothing to say, or with nowhere to stand, is passed over.
 func label_planting(labels: Array) -> Dictionary:
 	if document == null:
-		return {"ok": false, "reason": "there is no drawing to label"}
+		return { "ok": false, "reason": "there is no drawing to label" }
 	var wanted: Array = []
 	for entry in labels:
 		var label: Dictionary = entry
@@ -2670,11 +3101,11 @@ func label_planting(labels: Array) -> Dictionary:
 			continue
 		if not (label.get("at") is Vector2):
 			continue
-		wanted.append({"at": label["at"], "text": text})
+		wanted.append({ "at": label["at"], "text": text })
 	if wanted.is_empty():
 		last_message = "there is nothing to label"
 		_refresh_canvas()
-		return {"ok": false, "reason": last_message}
+		return { "ok": false, "reason": last_message }
 	document.begin_gesture("labelling the planting")
 	for label: Dictionary in wanted:
 		var entity := EntityScript.make_text(label["at"], String(label["text"]))
@@ -2685,7 +3116,7 @@ func label_planting(labels: Array) -> Dictionary:
 	dirty = true
 	last_message = "labelled %s" % PlantLabelsScript.summary(labels)
 	_refresh_canvas()
-	return {"ok": true, "reason": "", "count": wanted.size(), "message": last_message}
+	return { "ok": true, "reason": "", "count": wanted.size(), "message": last_message }
 
 
 ## Put a sentence on the drawing's own status line, for a caller that never reached the
@@ -2695,9 +3126,7 @@ func note(message: String) -> void:
 	last_message = message
 	_refresh_canvas()
 
-
 # --- the drawing on disk --------------------------------------------------------------
-
 
 ## Start an empty drawing.
 
@@ -2801,7 +3230,7 @@ func open_drawing(path: String) -> bool:
 ## One door, because *two* things now do this: opening a drawing, and restoring a revision of the one
 ## that is open. The document's own `changed` signal is connected by `_ready` when the controller is in
 ## a scene, and guarded here because a controller that never entered a tree never ran it.
-func _bind_document(opened) -> void:
+func _bind_document(opened: DraftDocument) -> void:
 	if document != null and document.changed.is_connected(_on_document_changed):
 		document.changed.disconnect(_on_document_changed)
 	# Setting `document` adopts the current sheet of whatever set the new drawing carries, so the paper
@@ -2822,7 +3251,6 @@ func _bind_document(opened) -> void:
 	# the new drawing rather than a half-installed one.
 	document_replaced.emit(document)
 
-
 # --- a copy kept in case the program stops --------------------------------------------
 
 
@@ -2839,10 +3267,8 @@ func recovery_path() -> String:
 ## that announced a write every half minute would be a status line that says nothing.
 func keep_a_copy() -> Dictionary:
 	if not dirty:
-		return {"ok": false, "reason": "the drawing has been saved, so there is nothing to keep", "path": ""}
-	return AutosaveScript.write(
-		document.to_dict(), drawing_path, project_name, document.gesture_serial()
-	)
+		return { "ok": false, "reason": "the drawing has been saved, so there is nothing to keep", "path": "" }
+	return AutosaveScript.write(document.to_dict(), drawing_path, project_name, document.gesture_serial())
 
 
 ## The work a session that ended without saving left behind, or an empty dictionary when there is none.
@@ -2854,10 +3280,10 @@ func keep_a_copy() -> Dictionary:
 func pending_recovery() -> Dictionary:
 	var found: Dictionary = AutosaveScript.newest_wanted()
 	if found.is_empty():
-		return {}
+		return { }
 	if String(found.get("drawing_path", "")) == drawing_path \
 			and int(found.get("serial", -1)) == document.gesture_serial():
-		return {}
+		return { }
 	return found
 
 
@@ -2877,7 +3303,7 @@ func recover_pending() -> bool:
 		last_message = "there is no unsaved work to put back"
 		_refresh_canvas()
 		return false
-	var state: Variant = found.get("state", {})
+	var state: Variant = found.get("state", { })
 	if not (state is Dictionary):
 		last_message = "that copy cannot be put back"
 		_refresh_canvas()
@@ -2920,7 +3346,6 @@ func discard_pending() -> bool:
 		last_message = "threw the recovered copy away"
 	return removed
 
-
 # --- the named revisions of the drawing -----------------------------------------------
 
 
@@ -2934,9 +3359,7 @@ func discard_pending() -> bool:
 func capture_revision(message: String = "", author: String = "") -> Dictionary:
 	# The gesture the drawing has been through is read *here*, because it is the one thing about a
 	# revision its own snapshot cannot tell anyone: the history that knows it is the drawing's.
-	var record: Dictionary = revisions.capture(
-		document.to_dict(), message, author, document.gesture_serial()
-	)
+	var record: Dictionary = revisions.capture(document.to_dict(), message, author, document.gesture_serial())
 	var written: Dictionary = StoreScript.write_revisions(revisions, drawing_path)
 	if bool(written["ok"]):
 		last_message = "recorded %s" % revisions.describe(revisions.count() - 1)
@@ -2954,7 +3377,7 @@ func revision_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for index in revisions.count():
 		var row: Dictionary = revisions.record_at(index)
-		var changes: Dictionary = revisions.diff(index - 1, index) if index > 0 else {}
+		var changes: Dictionary = revisions.diff(index - 1, index) if index > 0 else { }
 		row["description"] = revisions.describe(index)
 		row["change"] = DraftRevisionLog.describe_diff(changes) if not changes.is_empty() else ""
 		row["since"] = gestures_since_text(index)
@@ -3009,8 +3432,22 @@ func restore_revision(index: int) -> bool:
 
 
 ## The drawings opened recently, newest first, as paths.
+##
+## **Held, and read from the store only when the store says the list has moved.** This door is asked for on the
+## frame - `Hud._process` refreshes its menus on the frame, and the menu's own snapshot is built out of this list -
+## while the store's answer is a file open and a JSON parse. Measured: **0.53 ms of every frame**, the largest
+## single item in a 60 FPS profile, spent to draw the same eight paths it had drawn the frame before.
+##
+## **The read behind this is deliberately still a read.** A cache inside `DrawingStore.read_recent`, dropped by
+## every write, was written and taken out again: two of that file's own tests hold it to seeing the file as it is,
+## and they are right - a reader with a memory is a different function, and a copy and a file can part company
+## behind a write that fails. What a frame needs is not a cheaper read but **no read**, and a caller can only stop
+## reading if something tells it when to start - `DrawingStore.recent_version`, which nothing but this door reads.
 func recent_drawings() -> Array[String]:
-	return StoreScript.read_recent()
+	if _recent_at_version != StoreScript.recent_version:
+		_recent_paths = StoreScript.read_recent()
+		_recent_at_version = StoreScript.recent_version
+	return _recent_paths
 
 
 ## What the drawing is, for a menu line or a window title: its file name, and whether what is on
@@ -3041,22 +3478,41 @@ func _rebind_snap() -> void:
 	if snap != null:
 		snap.bind(document.entities())
 
+
+## Draw the example garden - the little backyard - onto the drawing.
+##
+## One gesture, so it is one Ctrl+Z, and the shapes come from `ExampleGarden` rather than being written
+## here: this is the drawing's door onto that garden, and the same parts the doorway's "example" way and
+## the tests hold are what lands on the plan.
+func draw_the_example() -> Dictionary:
+	var parts: Array[EntityScript] = ExampleGardenScript.parts()
+	document.begin_gesture(ExampleGardenScript.NAME)
+	for part: EntityScript in parts:
+		document.add(part, drawing_layer)
+	_rebind_snap()
+	dirty = true
+	last_message = ExampleGardenScript.describe()
+	_refresh_canvas()
+	return { "ok": true, "count": parts.size(), "message": last_message }
+
+
 func _refresh_canvas() -> void:
 	if canvas == null:
 		return
 	canvas.snap = {
 		"snapped": cursor_snapped,
 		"point": cursor_point,
+		"mode": int(_last_snap.get("mode", 0)),
 		"label": String(_last_snap.get("label", "")),
 	}
-	var preview = tool.preview(cursor_point)
-	canvas.ghost = {"entity": preview, "layer": document.layers.get_layer(tool.layer)} \
-		if preview != null else {}
+	var preview := tool.preview(cursor_point)
+	canvas.ghost = { "entity": preview, "layer": document.layers.get_layer(tool.layer) } \
+			if preview != null else { }
 	if overlay != null:
 		overlay.set_ghost(preview, document.layers.get_layer(tool.layer))
 	# The selection is the canvas's to draw and the controller's to decide, so it is
 	# handed over as ids: a highlight that outlived the geometry it named would be a
 	# highlight of nothing.
 	canvas.set_selection(_selected)
-	canvas.status_text = status()
+	canvas.status_text = status_report()
 	canvas.queue_redraw()

@@ -126,6 +126,29 @@ and exact predicate behaviour: point/segment distance, segment×segment
 intersection, line×circle, circle×circle, and the offset-line intersection used
 for bed borders. These take and return doubles and never touch `Vector2`.
 
+### D6 — Undo is the drawing's own named gesture history, not Godot's `UndoRedo`
+
+An execution plan drafted for this project in November 2026 proposed the obvious thing: an `UndoRedo`
+member on the controller, with each act wrapped in `create_action("Place " + species)`. It was never
+built, and it should not be. Godot's `UndoRedo` is a stack of do-and-undo method pairs: it cannot name a
+gesture in the words a person would use for it, and it carries no serial, so a step in it could never be
+joined to the revision log that records who changed what. What is built instead is `DraftGestureHistory`,
+where one gesture is one action a person took, labelled by the act rather than by the shape, and its serial
+is what the revision log and the status line quote. Two of those would be two answers to "what did I just
+do" - the defect this project works hardest to avoid - so a second undo engine is refused even when the
+engine is the one Godot ships.
+
+### D7 — The drawing is one document in one place, with its own format and version
+
+The same plan proposed a `SaveManager` writing `user://projects/<name>.json` as `{project_name,
+background_photo_path, plants: [{id: plant.name, pos_x, pos_y, scale_x, scale_y, z_index}]}`. That is a
+different program's idea of a drawing: a background photograph with devices stood on it. It has no version
+to migrate from, no layers, no units, no survey, no sheets and no revisions; it takes a plant's identity
+from its node name, which is not an identity; and it would put a second kind of drawing in a second place
+under `user://`, so that a person would have to know which of the two they had opened. The document here
+is one file with a format version that a reader migrates from, and the drawings live where the Open and
+Save dialogs and the autosave copies already are.
+
 ---
 
 ## 3. Architecture
@@ -233,6 +256,28 @@ feeds that tool and prop-dragging is suppressed. `Escape` returns to `SELECT`.
 That keeps the existing interaction intact and makes the new one additive.
 
 ---
+
+### The box beside the plan, and the key reference
+
+The dark panel beside the drawing (`DraftHints`) shows **the tool in hand**: its name and the key
+that armed it, one sentence saying what it is for, the keys that answer it, and the two that take a
+drawing act back. It is written by the same one writer the line at the foot of the screen uses
+(`Hud._refresh_hints`), from the tool the controller holds, so arming a tool cannot leave the two
+describing different tools.
+
+It used to hold the whole key reference - ten tools, eight editing commands, the plot key, the
+standard key - and every entry of it was a button in the palette standing beside it wearing the same
+key. That is the second copy of a list this design spends its effort avoiding, and it is also the
+wrong thing for the place: a box read at a glance, with a hand already busy, is the place for the tool
+in hand rather than for all of them. What the palette cannot say is what the tool is *for*, and that
+is what was added.
+
+The reference itself has not gone anywhere. It is `Hud.drafting_rows()`, the Keys page, which is
+where a list of every key belongs - and `tests/test_hud_hints.gd` holds it to every bound `draft_*`
+action, so a key cannot stop being described by leaving the box. Each sentence about a tool lives
+beside the tool (`DraftTool.description`, `DraftController.edit_description`), so a tool cannot arrive
+without one; `DraftTool.arming_action` is the one place that says which key puts which kind in hand,
+the ground's three included, rather than matching a name against a name.
 
 ## 4. Data structures
 
