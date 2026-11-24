@@ -151,6 +151,16 @@
 			"scrolls": true,
 			"wanted_width": 507.0
 		},
+		"model_advisor_window": {
+			"children": 8,
+			"declared": [
+				820.0,
+				700.0
+			],
+			"read": true,
+			"scrolls": true,
+			"wanted_width": 298.0
+		},
 		"nearby_window": {
 			"children": 8,
 			"declared": [

@@ -777,6 +777,12 @@ static func plant_items() -> Array[Dictionary]:
 	# given number of people. It needs nothing but the list, so it needs no drawing, and the entry sits
 	# here among its food neighbours rather than in a menu of its own.
 	items.append(_command(&"plant.yield", "How much to plant...", &"", &"_menu_yield_window", NEEDS_NOTHING))
+	# Whether this machine can carry the model that reads a plant off a photograph, and where to put one
+	# if it cannot. It needs no drawing: what it weighs a model against is the machine it is running on,
+	# which is a fact about neither the plan nor the list.
+	items.append(
+		_command(&"plant.model", "Find a model for this device...", &"", &"_menu_model_advisor", NEEDS_NOTHING)
+	)
 	items.append(_separator())
 	items.append(_command(&"plant.import", "Import a plant list...", &"", &"_menu_plant_import"))
 	items.append(_command(&"plant.export", "Export the plant list...", &"", &"_menu_plant_export"))

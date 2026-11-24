@@ -184,7 +184,42 @@ that came out of it carrying confidence 0.9, model id `qwen2.5vl:3b` and species
 at all, because the list had never heard of it. `tools/plant_id_live.tscn` is that reading, and
 it is the one proof of this subsystem that asks a model rather than simulating one.
 
-## 7. A stated measurement, and what it changes
+## 7. Whether this machine can carry the model
+
+The seam in section 6 is a page pointed at a model. Two questions come before that one, and both
+are about the machine rather than the drawing: **what is this machine**, and **which model can it
+carry**. `DeviceModelFit` answers both as arithmetic - every reading is an argument, so a test
+drives a 32 GB desktop and a 2 GB netbook without being either - and `scripts/model_advisor_window.gd`
+is the page that shows the answer, reached from **Plant > Find a model for this device...**.
+
+**It reads the machine and asks the person nothing.** Free memory is the number that decides, never
+the memory the box has: a model has to fit into what is free at that moment, so the page reads it
+when it opens and reads it again when **Scan this machine again** is pressed, which is the one fact
+on the page that changes while somebody reads it. Free is read rather than "available", which on the
+machine this was written on reports the commit limit - 57.8 GB against 31.8 GB of memory - and a
+reading that cannot be taken is the absence of an answer rather than a machine of none: the page
+says what could not be read, and no line of it ever shows a zero.
+
+**A machine too tight to carry a model is not a failure.** The answer is a computer on the same
+Wi-Fi, with the steps to set it up, including the setting that stops the rest of the network
+reaching that computer's runner. The smallest model is offered as well, as an experiment that is
+expected to be killed, carrying the module's own sentence about what that experiment costs. A model
+that fits on paper but not in the memory that happens to be free is offered the same way, and
+nothing that fits only on paper is ever offered as something to run here.
+
+**What the page does not do is part of what it says.** It fetches nothing, installs nothing and
+changes no setting, and it does not ask a runner what it already has: which models are on a machine
+is that runner's own answer, and the question belongs beside the address on the field page -
+`LocalModelProbe` is the module for it. The page names that edge itself, because an empty list of
+models found would be read as "there are none on this machine".
+
+**The page invents nothing.** Every number, every sentence and every step is `DeviceModelFit`'s own.
+The page builds controls, hands the answer to them, and words one thing for itself: the question the
+answer answers, "Why:", because the module's `reason` is the chosen model's own `why` on the route
+that runs here and a full sentence on the route that puts the model elsewhere. Those two shapes are
+the module's business; asking the question both of them answer is the page's.
+
+## 8. A stated measurement, and what it changes
 
 Where somebody measured the plant, the measurement is what the plan uses: `PlantPlacement.place`
 takes a `size` Dictionary and substitutes the measured spread into the species' own ratio, rather
@@ -192,7 +227,7 @@ than growing a second sizing engine beside `PlantSpacing`. The node records wher
 from in `SIZE_SOURCE_META` - `stated` or `catalogue` - so a plan can never quietly present a
 guess as a measurement.
 
-## 8. The page
+## 9. The page
 
 Site > Record what is on site... opens `FieldCaptureWindow`: species (chosen from the game's own
 list), which part was photographed, the sun and drainage bits through `BitMaskUtils`, the position,
@@ -216,7 +251,7 @@ asked, or a `transport` a test handed over - so a page driven by a test is uncha
 still-reading refusal when it did have something to wait for. What the last reading said is
 `the_reading()`, and `is_reading()` is whether one is in flight.
 
-## 9. The photographs on a proposal
+## 10. The photographs on a proposal
 
 `VisProposalPage` can carry up to three photographs beneath the still, in a strip 46 mm deep that
 the drawing gives up rather than having pictures pasted over it. Each photograph is fitted at one
@@ -225,7 +260,7 @@ raster preview carries a tint where the caption will print, because drawing glyp
 needs a canvas item - the same split the page already makes about its title block. A page handed
 more than three photographs says how many it left out.
 
-## 10. The camera in your hand
+## 11. The camera in your hand
 
 A person standing at the plant has a camera and no file, so the page has two doors onto a
 photograph rather than one: **Choose a picture...** for anything already on the device, and **Take
@@ -280,7 +315,7 @@ there is not would be a button that lies about where it goes, which is the one t
 words are not allowed to do.
 
 What this program does not do is read the photograph **unless it is told which way to read it**:
-a photograph is kept and sent nowhere until somebody chooses a way, and sections 6 and 12 say
+a photograph is kept and sent nowhere until somebody chooses a way, and sections 6 and 13 say
 what follows from that choice.
 
 ### What the camera actually handed over, and what this program has to do about it
@@ -344,7 +379,7 @@ the kept photograph is the same flat dark frame the page was showing - 2,715 byt
 what the camera was looking at. The photograph is a grab of the page, so this is the one property that
 matters, and it is now a measured one rather than a hoped-for one.
 
-## 11. What was rejected
+## 12. What was rejected
 
 * **Depth from one photograph.** A height estimated from a single still is a number nobody measured,
   and this program's whole discipline is that a number that was not measured stays absent.
@@ -365,7 +400,7 @@ matters, and it is now a measured one rather than a hoped-for one.
   a settled identification, so the refusal carries the shortlist and the page shows the reason and
   the plants together.
 
-## 12. What is not built
+## 13. What is not built
 
 The **engine**. This program has no inference of its own: `PlantIdentifier.installed()` is
 false, and there is no weights file, no runtime and no dependency here that could read a
